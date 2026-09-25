@@ -152,7 +152,8 @@ Each character has one Hourglass world. A guild has one more world, held by its 
 | `trusts` | number, -100 to 100 | free | person to person | How much an NPC trusts you. |
 | `visited` | flag | up | person to place | You were in this place. It feeds the spoiler limit. |
 | `knows_lore` | flag | up | person to thing or place | You heard this piece of lore. It feeds the spoiler limit. |
-| `dead` | flag | up | none | In your story. An `up` flag never ends, so the dead stay dead. |
+| `dead` | flag | up | none | Only for an NPC of your own story, never for a canon NPC (5.13). An `up` flag never ends, so the dead stay dead. |
+| `defeated` | number, 0 to 1000 | up | person or faction to person | How often the killer killed the target. A kill is a deed of the killer. The target stays alive (5.13). |
 | `nemesis` | number, 0 to 1000 | free | person to person | The kill count of a feud. Each side has its own value: `nemesis` on `P7` linked to you counts the kills of `P7`, and `nemesis` on you linked to `P7` counts yours. |
 | `quest_offered`, `quest_accepted`, `quest_done` | flag | up | person to thing | A personal quest and its state. |
 | `level` | number, 1 to 60 | up | none | Your level. It only rises. |
@@ -165,7 +166,7 @@ The vocabulary has a version. Hourglass migrates an old world to a new version (
 
 ### 5.2 Two sources of change
 
-1. **Game events are the truth.** The addon sends them, and the story module turns each one into Hourglass events: a new zone becomes `EntityCreated` and `visited`, a quest turn-in becomes `quest_done`, a level up becomes a `FactUpdate` of `level`. They still go through `World::propose`, so a bug in the addon cannot break the world.
+1. **Game events are the truth.** The addon sends them, and the story module turns each one into Hourglass events: a new zone becomes `EntityCreated` and `visited`, a quest turn-in becomes `quest_done`, a level up becomes a `FactUpdate` of `level`, and a notable kill adds to `defeated` (5.13). They still go through `World::propose`, so a bug in the addon cannot break the world.
 2. **The director proposes.** The agent gets a briefing and proposes events and text: "the innkeeper now trusts you (+10)", "a rumor about the Molsen farm". `World::propose` accepts or refuses each event. A refusal carries every reason at once (`Rejection`), so one retry fixes everything. After one failed retry, the proposal is dropped, and the text that depends on it is not shown.
 
 ### 5.3 The director loop
@@ -397,6 +398,43 @@ This keeps the releases apart: Timeways ships `timeways-story` on its own schedu
 
 **Versions.** Each addon sends its version in the hello. The bridge keeps a supported range for each app. A version out of range gets one reply: "Timeways: update the addon", or "update the desktop program".
 
+### 5.13 Deaths and resets
+
+In WoW, the dead come back. A mob respawns, a rare returns, and a raid boss is back after the weekly reset. So in Timeways, a kill is a deed of the killer. It does not change the target.
+
+**The rules:**
+
+- A kill adds to `defeated`, from the killer to the target. `defeated` only rises and never ends, so the first kill stays in the history for good.
+- A canon NPC never gets `dead`. The game is the truth (rule 4), and the game brings the NPC back.
+- Only an NPC of your own story gets `dead`, for example the bandit leader of a rumor. Nothing in the game brings it back, so it stays dead.
+- Your own deaths are deeds too. A mob that kills you adds to `defeated` from the mob to you. Between two players, `nemesis` holds the count (4.1), not `defeated`.
+
+**Tiers.** The weight in the story matches the target:
+
+| Target | What the story keeps |
+|---|---|
+| A common mob | A count only, for flavor: "23 Defias in Westfall" (5.4.1). No entity in the world. |
+| A rare or a quest boss | `defeated`. When it comes back, the story treats it as a rival: "Hogger again. He does not learn." |
+| A dungeon or raid boss | `defeated`. The first kill is legend, and each later kill is an echo (below). |
+| An NPC of your own story | `dead`. It stays dead. |
+| You | `defeated` from your killer, and trips to the spirit healer for the companion to joke about. |
+
+**Echoes.** The Bronze Dragonflight guards the timeways, and the name of the addon comes from them. A reset is an echo in the timeways:
+
+- **The first kill is the true kill.** The chronicle tells it as legend: "On the ninth night, Ragnaros fell."
+- **After a reset, the boss is an echo.** The world forgets the kill, but your timeway remembers it.
+- **A later kill is about mastery,** not death: fewer wipes, a faster kill, a new player at the front.
+
+The guild world keeps `defeated` from the guild to each boss. So the saga gets an arc for each boss: "Week 1: 14 wipes. Week 6: Ragnaros fell before the tank's flask ran out."
+
+**The lore cutoff.** A kill that you did is a deed of your story, not a lore claim. So the check of layer 4 (5.9) accepts "you defeated Ragnaros" when the world holds `defeated` from you or your guild to Ragnaros. A lore answer still treats Ragnaros as alive, because canon did not change. Both statements are true.
+
+**The strength of the echo lore is open** (9.8). The echo idea is a setting of the player, not a fixed voice. The possible levels are:
+
+- **Off:** kills are counts and deeds, with no echo text.
+- **Light:** the companion and the chronicle mention echoes now and then.
+- **Strong:** a bronze dragon voice tells each reset. This voice is an invented character next to canon characters such as Anachronos.
+
 ## 6. Build order
 
 1. **Lore on demand** (3.1): the world of a character, the spoiler limit, the lore cutoff (5.9), a model, and one window.
@@ -432,3 +470,4 @@ This keeps the releases apart: Timeways ships `timeways-story` on its own schedu
 5. **The API of the Forever client.** Check each event in 5.4 with the API gate.
 6. **The canon seed.** Which canon characters, places, and factions go into every world at the start, and with which facts? The Forever client data (for example its database tables for the Forever build) is the best source.
 7. **Decided: two addons** (5.12). Still open: do 2000 slot folders make the game start slower, and does a `## Group` start folded in the AddOns list? Measure both in the game.
+8. **The strength of the echo lore** (5.13). Off, light, or strong, and which level is the default? Does a strong level need a named bronze dragon, and how does it stay inside the lore cutoff?
