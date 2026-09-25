@@ -8,7 +8,7 @@ An AI model writes the words. A rules engine decides what is true. The game itse
 
 Status: idea and design. Nothing is built yet.
 
-## 1. The three parts
+## 1. The four parts
 
 | Part | Job | Where |
 |---|---|---|
@@ -42,7 +42,7 @@ These rules come before every feature.
 2. **No advantage.** Everything is story and flavor. Nothing helps in combat, in trade, or in a race to a goal.
 3. **Story after the action.** A round trip takes 5 to 10 seconds. So the story reacts after a fight, never during it.
 4. **The game is the truth.** A kill, a quest, a zone, and a death come from game events. The AI only proposes what these events mean for the story.
-5. **Private by default.** The story shows only on your screen. Text about another player never leaves your computer unless you send it yourself. No model ever sees the name of a real player (5.11).
+5. **Private by default.** The story shows only on your screen. The real name of another player never leaves your computer unless you send it yourself. No model ever sees the name of a real player (5.11).
 6. **Only players with the addon take part.** Nobody else sees anything, and nobody else gets a message.
 7. **Talk less, and mean more.** The companion speaks only at big moments. Each line refers to your own history.
 8. **Only WoW Forever lore.** The story never goes past where WoW Forever is in the storyline. Section 5.9 says how.
@@ -152,13 +152,14 @@ Each character has one Hourglass world. A guild has one more world, held by its 
 | `trusts` | number, -100 to 100 | free | person to person | How much an NPC trusts you. |
 | `visited` | flag | up | person to place | You were in this place. It feeds the spoiler limit. |
 | `knows_lore` | flag | up | person to thing or place | You heard this piece of lore. It feeds the spoiler limit. |
-| `dead` | flag | down | none | In your story. A `down` flag has one life, so the dead stay dead. |
-| `nemesis` | number, 0 to 1000 | free | person to person | The kill count of a feud. |
+| `dead` | flag | up | none | In your story. An `up` flag never ends, so the dead stay dead. |
+| `nemesis` | number, 0 to 1000 | free | person to person | The kill count of a feud. Each side has its own value: `nemesis` on `P7` linked to you counts the kills of `P7`, and `nemesis` on you linked to `P7` counts yours. |
 | `quest_offered`, `quest_accepted`, `quest_done` | flag | up | person to thing | A personal quest and its state. |
 | `level` | number, 1 to 60 | up | none | Your level. It only rises. |
 | `slapped` | number, 0 to 1000 | up | person to person | How often you slapped an NPC. It never ends. |
 | `title` | flag | up | person to thing | A joke title of your journal, such as "Scourge of Squirrels". |
 | `member_of` | flag | free | person to faction | Guild membership, and faction ties. |
+| `leader_of` | flag | free | person to faction | A canon leader, for example Thrall and the Horde. Only the canon seed and game events change it (5.9). |
 
 The vocabulary has a version. Hourglass migrates an old world to a new version (`migrate.rs`).
 
@@ -420,14 +421,14 @@ This keeps the releases apart: Timeways ships `timeways-story` on its own schedu
 
 ## 8. Name
 
-"Timeways" had no match on CurseForge, Wago, or WoWInterface in a search on 2026-09-25. "Hourglass" is taken by an old cooldown addon, and "Chronicle", "Chronicles", and "Loremaster" are taken or crowded. Check the name again before a release.
+"Timeways" had no match on CurseForge, Wago, or WoWInterface in a search on 2026-09-24. "Hourglass" is taken by an old cooldown addon, and "Chronicle", "Chronicles", and "Loremaster" are taken or crowded. Check the name again before a release.
 
 ## 9. Open questions
 
 1. **Hourglass stability.** Its spec says that no consumer calls it yet. Timeways pins one commit until the API is stable.
-3. **A plain model backend for Gnomish Relay.** A story call needs no coding tools. Add a `model` kind next to `acp` and `echo`, for Ollama and LM Studio? How does a coding agent run with no tools for a story call?
-4. **The wiki.** warcraft.wiki.gg text is CC BY-SA. The pack keeps the source of each passage and the license. Answers summarize and cite, and they do not copy long passages.
-8. **The game files.** Which tool reads the database tables of the Forever build in CI, and which tables hold the text? Quest text is mostly sent by the server, so the pack gets it from what players see.
+2. **A plain model backend for Gnomish Relay.** A story call needs no coding tools. Add a `model` kind next to `acp` and `echo`, for Ollama and LM Studio? How does a coding agent run with no tools for a story call?
+3. **The wiki.** warcraft.wiki.gg text is CC BY-SA. The pack keeps the source of each passage and the license. Answers summarize and cite, and they do not copy long passages.
+4. **The game files.** Which tool reads the database tables of the Forever build in CI, and which tables hold the text? Quest text is mostly sent by the server, so the pack gets it from what players see.
 5. **The API of the Forever client.** Check each event in 5.4 with the API gate.
-7. **The canon seed.** Which canon characters, places, and factions go into every world at the start, and with which facts? The Forever client data (for example its database tables for the Forever build) is the best source.
-6. **Decided: two addons** (5.12). Still open: do 2000 slot folders make the game start slower, and does a `## Group` start folded in the AddOns list? Measure both in the game.
+6. **The canon seed.** Which canon characters, places, and factions go into every world at the start, and with which facts? The Forever client data (for example its database tables for the Forever build) is the best source.
+7. **Decided: two addons** (5.12). Still open: do 2000 slot folders make the game start slower, and does a `## Group` start folded in the AddOns list? Measure both in the game.
