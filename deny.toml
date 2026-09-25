@@ -1,0 +1,12 @@
+[licenses]
+# Unicode-3.0 is the data license of `unicode-ident`, which the serde derive macros use.
+allow = ["MIT", "Apache-2.0", "Unicode-3.0"]
+unused-allowed-license = "allow"
+
+[bans]
+multiple-versions = "deny"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-git = ["https://github.com/eserilev/rusty-hourglass"]

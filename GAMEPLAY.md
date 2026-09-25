@@ -6,14 +6,14 @@ Timeways is a World of Warcraft: Forever addon. It adds a story layer to the gam
 
 An AI model writes the words. A rules engine decides what is true. The game itself supplies the facts.
 
-Status: idea and design. Nothing is built yet.
+Status: early build. The story crate holds the fact vocabulary, and nothing else yet.
 
 ## 1. The four parts
 
 | Part | Job | Where |
 |---|---|---|
 | **Timeways addon** | Watches the game, shows the story, and holds the windows. A separate addon, with its own listing. | This repo (to come) |
-| **`timeways-story`** | The story program on the desktop: the world, the lore pack, the scoring, and the model calls. | This repo (to come) |
+| **`timeways-story`** | The story program on the desktop: the world, the lore pack, the scoring, and the model calls. | This repo, `crates/story` |
 | **Gnomish Relay** | The one desktop program. It owns the screenshots, the slots, and the keys, and it routes each strip to its app. Its own addon, for the coding agents, is optional for a Timeways player. | `~/Documents/Code/Personal/gnomish-relay` |
 | **Hourglass** | Keeps the history of each world, and checks each change that the AI proposes. | Its own public repo: [rusty-hourglass](https://github.com/eserilev/rusty-hourglass), locally `~/Documents/Code/Personal/rusty-hourglass`. The library name is `hourglass`. |
 
