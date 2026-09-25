@@ -6,7 +6,7 @@ Timeways is a World of Warcraft: Forever addon. It adds a story layer to the gam
 
 An AI model writes the words. A rules engine decides what is true. The game itself supplies the facts.
 
-Status: early build. The story crate holds the fact vocabulary, and nothing else yet.
+Status: early build. The story program reads game events and keeps the world of one character in memory.
 
 ## 1. The four parts
 
