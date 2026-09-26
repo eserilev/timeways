@@ -314,9 +314,11 @@ Timeways uses the transport of Gnomish Relay, with its own key and its own slots
 
 ### 5.7 Storage
 
-- The history of each world is a file in the data folder of the story program: `worlds/<realm id>/<character id>.jsonl`. The bridge gives the folder as the second argument, `<data>/timeways/story/`, and the sandbox lets the story program write only there (5.12).
+- The history of each world is a file in the data folder of the story program: `worlds/r_<realm id>/c_<character id>.jsonl`. The prefixes keep a name such as "Con" or "Aux" from naming a Windows device. The bridge gives the folder as the second argument, `<data>/timeways/story/`, and the sandbox lets the story program write only there (5.12).
 - Realm and character names come from the game, with spaces, apostrophes, and non-ASCII letters. They map to safe ids: ASCII letters and digits stay, and every other byte becomes `_` and two hex digits. So two names never share an id, and no id holds a `/`, a `.`, or a space.
 - The file has one JSON line for each Hourglass event, and it only grows. The story program writes the new events after each game event, also after a refusal, because the events before a refusal landed.
+- A failed write puts the file back to its last good length, and the next write tries the same events again.
+- A failed `character_entered` leaves no character active, so the events of one character never land in the world of another.
 - The state is not stored. `World::replay` builds it from the history when a character enters.
 - **A crash in the middle of a write** leaves a broken last line. The replay stops at the first line that does not read or that has the wrong position, and cuts the file there. New events then follow the good part.
 - **Whose world:** every batch from the addon starts with a `character_entered` line with the realm and the name. So the story program knows the world of each batch, also after it restarts. The addon holds its events until the login names the character.

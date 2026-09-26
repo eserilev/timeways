@@ -107,7 +107,8 @@ fn admits_no_source(answer: &str) -> bool {
     NO_SOURCE.iter().any(|marker| answer.contains(marker))
 }
 
-/// The numbers of each `[n]` in the text, in order.
+/// The numbers of each `[n]` and `[n, m]` in the text, in order. Brackets with anything
+/// else inside are not citations.
 fn citations(text: &str) -> Vec<usize> {
     let mut numbers = Vec::new();
     let mut rest = text;
@@ -116,8 +117,12 @@ fn citations(text: &str) -> Vec<usize> {
         let Some(close) = rest.find(']') else {
             break;
         };
-        if let Ok(number) = rest[..close].trim().parse() {
-            numbers.push(number);
+        let parsed: Result<Vec<usize>, _> = rest[..close]
+            .split(',')
+            .map(|part| part.trim().parse())
+            .collect();
+        if let Ok(parsed) = parsed {
+            numbers.extend(parsed);
         }
         rest = &rest[close + 1..];
     }

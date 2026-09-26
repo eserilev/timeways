@@ -75,14 +75,15 @@ impl Character {
         self.world.entity(self.you).and_then(|you| you.value(LEVEL))
     }
 
+    /// Two places can share a name, so any place with this name counts.
     #[must_use]
     pub fn has_visited(&self, place: &str) -> bool {
-        self.holds_about(VISITED, EntityType::Place, place)
+        self.holds_about(VISITED, place)
     }
 
     #[must_use]
     pub fn has_met(&self, npc: &str) -> bool {
-        self.holds_about(MET, EntityType::Person, npc)
+        self.holds_about(MET, npc)
     }
 
     /// Where you stand, then each place around it: the subzone, then the zone.
@@ -110,14 +111,13 @@ impl Character {
         zone: &str,
         subzone: Option<&str>,
     ) -> Result<(), Refusal> {
-        let zone_id = self.find_or_create(at, EntityType::Place, zone)?;
+        let zone_id = self.place(at, zone, None)?;
         self.start_once(at, self.you, VISITED, zone_id)?;
         // WoW gives the zone name as the subzone in some places, for example in capitals.
         let Some(subzone) = subzone.filter(|name| *name != zone) else {
             return self.settle(at, self.you, zone_id);
         };
-        let subzone_id = self.find_or_create(at, EntityType::Place, subzone)?;
-        self.settle(at, subzone_id, zone_id)?;
+        let subzone_id = self.place(at, subzone, Some(zone_id))?;
         self.start_once(at, self.you, VISITED, subzone_id)?;
         self.settle(at, self.you, subzone_id)
     }
@@ -207,13 +207,46 @@ impl Character {
         Ok(id)
     }
 
-    fn holds_about(&self, fact: &str, entity_type: EntityType, name: &str) -> bool {
-        let Some(target) = self.find(entity_type, name) else {
+    fn holds_about(&self, fact: &str, name: &str) -> bool {
+        let Some(you) = self.world.entity(self.you) else {
             return false;
         };
-        self.world
-            .entity(self.you)
-            .is_some_and(|you| you.fact(fact, Some(target)).is_some())
+        you.facts_named(fact)
+            .filter_map(|fact| fact.linked_to)
+            .any(|target| {
+                self.world
+                    .entity(target)
+                    .is_some_and(|entity| entity.name == name)
+            })
+    }
+
+    /// A zone is a place in no other place. A subzone is found by its name and its zone,
+    /// because some subzone names repeat across zones, such as "The Great Sea".
+    fn place(
+        &mut self,
+        at: Tick,
+        name: &str,
+        within: Option<EntityId>,
+    ) -> Result<EntityId, Refusal> {
+        let found = self.world.entities().find(|entity| {
+            entity.entity_type == EntityType::Place
+                && entity.name == name
+                && entity.location() == within
+        });
+        if let Some(place) = found {
+            return Ok(place.id);
+        }
+        let id = self.world.next_entity_id();
+        let kind = EventKind::EntityCreated {
+            id,
+            entity_type: EntityType::Place,
+            name: name.to_string(),
+        };
+        self.propose(at, kind)?;
+        if let Some(zone) = within {
+            self.settle(at, id, zone)?;
+        }
+        Ok(id)
     }
 
     fn find(&self, entity_type: EntityType, name: &str) -> Option<EntityId> {

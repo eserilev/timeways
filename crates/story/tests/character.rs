@@ -303,3 +303,31 @@ fn a_death_with_no_known_killer_still_counts() {
     assert_eq!(deaths(&character), Some(1));
     assert_eq!(character.world().len(), 1);
 }
+
+#[test]
+fn a_subzone_name_in_two_zones_is_two_places() {
+    let mut character = Character::new();
+    character
+        .enter_zone(Tick(1), "Westfall", Some("The Great Sea"))
+        .unwrap();
+
+    character
+        .enter_zone(Tick(2), "Stranglethorn Vale", Some("The Great Sea"))
+        .unwrap();
+
+    let seas: Vec<_> = character
+        .world()
+        .entities()
+        .filter(|entity| entity.name == "The Great Sea")
+        .map(|entity| {
+            character
+                .world()
+                .entity(entity.location().unwrap())
+                .unwrap()
+                .name
+                .clone()
+        })
+        .collect();
+    assert_eq!(seas, ["Westfall", "Stranglethorn Vale"]);
+    assert!(character.has_visited("The Great Sea"));
+}

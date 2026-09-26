@@ -51,9 +51,12 @@ impl CharacterKey {
         })
     }
 
+    /// The prefixes keep a name such as "Con" or "Aux" from naming a Windows device.
     fn relative_path(&self) -> PathBuf {
-        let file = format!("{}.jsonl", safe_id(&self.name));
-        Path::new("worlds").join(safe_id(&self.realm)).join(file)
+        let file = format!("c_{}.jsonl", safe_id(&self.name));
+        Path::new("worlds")
+            .join(format!("r_{}", safe_id(&self.realm)))
+            .join(file)
     }
 }
 
@@ -102,7 +105,8 @@ impl HistoryFile {
 
     /// # Errors
     ///
-    /// Returns the I/O error of the write. The events that came before stay in the file.
+    /// Returns the I/O error of the write. The file keeps the events that it held before,
+    /// and the next call writes the same events again.
     pub fn append(&mut self, events: &[Event]) -> Result<(), StoreError> {
         if events.is_empty() {
             return Ok(());
@@ -122,8 +126,16 @@ impl HistoryFile {
             .append(true)
             .open(&self.path)
             .map_err(io_error)?;
-        file.write_all(text.as_bytes()).map_err(io_error)?;
-        file.sync_data().map_err(io_error)?;
+        let before = file.metadata().map_err(io_error)?.len();
+        let written = file
+            .write_all(text.as_bytes())
+            .and_then(|()| file.sync_data());
+        if let Err(error) = written {
+            // A torn write in the middle of the file would end the history there at the
+            // next load, so the file goes back to its last good length.
+            let _ = file.set_len(before);
+            return Err(io_error(error));
+        }
         self.len += events.len();
         Ok(())
     }

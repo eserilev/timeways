@@ -2,7 +2,7 @@
 
 use crate::character::{Character, Refusal};
 use crate::input::{CallId, Input, MessageId};
-use crate::journal::{Page, journal, pages};
+use crate::journal::{PAGE_BYTES, Page, journal, pages};
 use crate::lore::{Answer, LoreCall, Next};
 use crate::pack::{Link, Pack, PackError, Passage};
 use crate::prompt::Context;
@@ -17,6 +17,11 @@ pub const PROTOCOL: u32 = 1;
 /// Enough candidates that the spoiler limit still leaves a full answer.
 const CANDIDATES: u32 = 50;
 const ANSWER_SIZE: usize = 8;
+
+/// The passages of one answer. The rest of a reply holds the model text of at most
+/// `check::MAX_CHARS` characters, which JSON escaping makes up to 6 times longer, and the
+/// frame.
+const PASSAGE_BYTES: usize = PAGE_BYTES - 8 * 1024;
 
 #[derive(Debug, PartialEq, Eq, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -140,7 +145,6 @@ impl Story {
                 id,
                 question,
                 target,
-                ..
             } => Ok(Some(self.ask(id, &question, target.as_deref())?)),
             Input::JournalAsked { id, page } => {
                 let page = self.journal_page(page)?;
@@ -163,18 +167,27 @@ impl Story {
     }
 
     /// The same character again changes nothing, so each batch can name it.
+    /// A refused switch leaves no character active, so the events of the new character
+    /// never land in the world of the old one.
     fn enter_character(&mut self, realm: &str, name: &str) -> Result<(), StoryError> {
-        let key = CharacterKey::new(realm, name)?;
-        if self.active.as_ref().is_some_and(|active| active.key == key) {
+        let key = CharacterKey::new(realm, name);
+        let same = |key: &CharacterKey| {
+            self.active
+                .as_ref()
+                .is_some_and(|active| &active.key == key)
+        };
+        if key.as_ref().is_ok_and(same) {
             return Ok(());
         }
+        self.active = None;
+        self.journal.clear();
+        let key = key?;
         let (character, file) = self.store.open(&key)?;
         self.active = Some(Active {
             key,
             character,
             file,
         });
-        self.journal.clear();
         Ok(())
     }
 
@@ -259,7 +272,8 @@ impl Story {
 }
 
 /// The question and where you stand pick the passages. The spoiler limit then drops each
-/// passage about something that your world does not hold.
+/// passage about something that your world does not hold. The rest stop at the size that
+/// leaves room for a model answer in one reply.
 fn passages_for(
     pack: &Pack,
     character: &Character,
@@ -270,11 +284,18 @@ fn passages_for(
     words.extend(character.place_names());
     words.extend(target);
     let found = pack.search(&words.join(" "), CANDIDATES)?;
-    let passages = found
+    let mut passages = Vec::new();
+    let mut used = 0;
+    for passage in found
         .into_iter()
         .filter(|passage| knows_all(character, &passage.links))
-        .take(ANSWER_SIZE)
-        .collect();
+    {
+        used += serde_json::to_vec(&passage).map_or(PAGE_BYTES, |bytes| bytes.len()) + 1;
+        if passages.len() == ANSWER_SIZE || used > PASSAGE_BYTES {
+            break;
+        }
+        passages.push(passage);
+    }
     Ok(passages)
 }
 

@@ -13,17 +13,6 @@ local wow = {
 }
 
 function time()
-	-- The font strings of a frame that show, in the order of creation.
-	function wow.ShownTexts(parent)
-		local texts = {}
-		for _, widget in ipairs(wow.widgets) do
-			if widget.kind == "FontString" and widget.parent == parent and widget.shown then
-				texts[#texts + 1] = widget.text
-			end
-		end
-		return texts
-	end
-
 	return wow.now
 end
 
@@ -32,47 +21,14 @@ function GetRealmName()
 end
 
 function GetRealZoneText()
-	-- The font strings of a frame that show, in the order of creation.
-	function wow.ShownTexts(parent)
-		local texts = {}
-		for _, widget in ipairs(wow.widgets) do
-			if widget.kind == "FontString" and widget.parent == parent and widget.shown then
-				texts[#texts + 1] = widget.text
-			end
-		end
-		return texts
-	end
-
 	return wow.zone
 end
 
 function GetSubZoneText()
-	-- The font strings of a frame that show, in the order of creation.
-	function wow.ShownTexts(parent)
-		local texts = {}
-		for _, widget in ipairs(wow.widgets) do
-			if widget.kind == "FontString" and widget.parent == parent and widget.shown then
-				texts[#texts + 1] = widget.text
-			end
-		end
-		return texts
-	end
-
 	return wow.subzone
 end
 
 function UnitExists(unit)
-	-- The font strings of a frame that show, in the order of creation.
-	function wow.ShownTexts(parent)
-		local texts = {}
-		for _, widget in ipairs(wow.widgets) do
-			if widget.kind == "FontString" and widget.parent == parent and widget.shown then
-				texts[#texts + 1] = widget.text
-			end
-		end
-		return texts
-	end
-
 	return wow.units[unit] ~= nil
 end
 

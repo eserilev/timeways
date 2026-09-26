@@ -34,8 +34,12 @@ fn main() -> ExitCode {
 fn serve(story: &mut Story) -> Result<(), Box<dyn Error>> {
     let mut out = io::stdout().lock();
     let mut log = io::stderr().lock();
-    for line in io::stdin().lock().lines() {
-        let line = line?;
+    // Bytes, not lines: text that is not UTF-8 is one bad input, and never ends the loop.
+    for bytes in io::stdin().lock().split(b'\n') {
+        let Ok(line) = String::from_utf8(bytes?) else {
+            writeln!(log, "bad input: not UTF-8")?;
+            continue;
+        };
         let input = match serde_json::from_str::<Input>(&line) {
             Ok(input) => input,
             Err(error) => {

@@ -25,6 +25,18 @@ fn run(pack: &Path, input: &str) -> Output {
     run_with(&[pack], input)
 }
 
+fn run_bytes(pack: &Path, input: &[u8]) -> Output {
+    let mut child = Command::new(env!("CARGO_BIN_EXE_timeways-story"))
+        .arg(pack)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child.stdin.take().unwrap().write_all(input).unwrap();
+    child.wait_with_output().unwrap()
+}
+
 fn run_with(args: &[&Path], input: &str) -> Output {
     let mut child = Command::new(env!("CARGO_BIN_EXE_timeways-story"))
         .args(args)
@@ -69,7 +81,7 @@ fn a_question_goes_to_the_model_and_its_answer_comes_back_with_the_sources() {
         "\n",
         r#"{"type":"zone_entered","at":1,"zone":"Testvale"}"#,
         "\n",
-        r#"{"type":"lore_asked","id":5,"at":2,"question":"why is this tower in ruins?"}"#,
+        r#"{"type":"lore_asked","id":5,"question":"why is this tower in ruins?"}"#,
         "\n",
         r#"{"type":"model_answered","call":1,"text":"Goblins burned it [1]."}"#,
         "\n",
@@ -162,4 +174,21 @@ fn the_world_in_the_data_folder_survives_a_second_run() {
 
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains(r#""name":"Testvale""#), "{stdout}");
+}
+
+#[test]
+fn a_line_that_is_not_utf8_is_one_bad_input_and_the_next_line_still_counts() {
+    let mut input = b"\xff\xfe\n".to_vec();
+    input.extend_from_slice(CHARACTER.as_bytes());
+    input.extend_from_slice(b"\n{\"type\":\"hello\"}\n");
+
+    let output = run_bytes(&pack_file("not-utf8"), &input);
+
+    let log = String::from_utf8(output.stderr).unwrap();
+    assert!(output.status.success());
+    assert!(log.contains("not UTF-8"), "{log}");
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        "{\"type\":\"hello\",\"protocol\":1}\n"
+    );
 }

@@ -23,6 +23,16 @@ local function List(value)
 	return type(value) == "table" and value or {}
 end
 
+local function Entries(value)
+	local entries = {}
+	for _, entry in ipairs(List(value)) do
+		if type(entry) == "table" then
+			entries[#entries + 1] = entry
+		end
+	end
+	return entries
+end
+
 function Journal.Request(page)
 	ns.Outbox.Add(ns.Inputs.JournalAsked(page))
 	ns.Outbox.Flush()
@@ -41,7 +51,7 @@ function Journal.Receive(value)
 		return
 	end
 	for _, section in ipairs(Journal.SECTIONS) do
-		for _, entry in ipairs(List(value[section])) do
+		for _, entry in ipairs(Entries(value[section])) do
 			table.insert(collecting[section], entry)
 		end
 	end
@@ -67,15 +77,20 @@ local function Line(style, text)
 end
 
 local function Places(places)
+	local subzones = {}
+	for _, place in ipairs(places) do
+		if place.within ~= nil then
+			subzones[place.within] = subzones[place.within] or {}
+			table.insert(subzones[place.within], place)
+		end
+	end
 	local lines = {}
 	for _, zone in ipairs(places) do
 		if zone.within == nil then
 			lines[#lines + 1] = Line("heading", Name(zone.name))
 			lines[#lines + 1] = Line("text", "First visited on " .. Day(zone.first_visit) .. ".")
-			for _, place in ipairs(places) do
-				if place.within ~= nil and place.within == zone.name then
-					lines[#lines + 1] = Line("entry", Name(place.name))
-				end
+			for _, subzone in ipairs(subzones[zone.name] or {}) do
+				lines[#lines + 1] = Line("entry", Name(subzone.name))
 			end
 		end
 	end
@@ -92,7 +107,7 @@ local function People(people)
 	return lines
 end
 
-local function Place(deed)
+local function Where(deed)
 	return deed.place and (Name(deed.place) .. ", ") or ""
 end
 
@@ -117,7 +132,7 @@ local function Deeds(deeds)
 		local title = DeedTitle(deed)
 		if title then
 			lines[#lines + 1] = Line("entry", title)
-			lines[#lines + 1] = Line("text", Place(deed) .. Day(deed.at) .. ".")
+			lines[#lines + 1] = Line("text", Where(deed) .. Day(deed.at) .. ".")
 		end
 	end
 	return lines

@@ -64,8 +64,8 @@ fn places(story: &mut Story) -> Vec<String> {
 fn history_file(folder: &Path, name: &str) -> PathBuf {
     folder
         .join("worlds")
-        .join("Stormrage")
-        .join(format!("{name}.jsonl"))
+        .join("r_Stormrage")
+        .join(format!("c_{name}.jsonl"))
 }
 
 #[test]
@@ -234,4 +234,62 @@ fn a_refused_event_still_saves_the_events_before_it() {
     let mut second = story(&folder, "Ada");
 
     assert_eq!(places(&mut second), ["Elwynn Forest"]);
+}
+
+#[test]
+fn a_name_like_a_windows_device_still_names_a_plain_file() {
+    let folder = fresh_folder("device-name");
+    let mut con = story(&folder, "Con");
+
+    enter(&mut con, 1, "Elwynn Forest");
+
+    assert!(history_file(&folder, "Con").is_file());
+}
+
+#[test]
+fn a_refused_character_switch_leaves_no_character_active() {
+    let folder = fresh_folder("refused-switch");
+    let mut story = story(&folder, "Ada");
+    let bad = Input::CharacterEntered {
+        realm: "Stormrage".to_string(),
+        name: String::new(),
+    };
+    assert!(story.handle(bad).is_err());
+
+    let result = story.handle(Input::ZoneEntered {
+        at: Tick(1),
+        zone: "Westfall".to_string(),
+        subzone: None,
+    });
+
+    assert!(matches!(result, Err(StoryError::NoCharacter)));
+    drop(story);
+    assert!(places(&mut self::story(&folder, "Ada")).is_empty());
+}
+
+#[cfg(unix)]
+#[test]
+fn a_failed_write_is_written_again_once_the_file_takes_it() {
+    use std::os::unix::fs::PermissionsExt;
+    let folder = fresh_folder("failed-write");
+    let mut story = story(&folder, "Ada");
+    enter(&mut story, 1, "Elwynn Forest");
+    let file = history_file(&folder, "Ada");
+    fs::set_permissions(&file, fs::Permissions::from_mode(0o444)).unwrap();
+
+    let refused = story.handle(Input::ZoneEntered {
+        at: Tick(2),
+        zone: "Westfall".to_string(),
+        subzone: None,
+    });
+    fs::set_permissions(&file, fs::Permissions::from_mode(0o644)).unwrap();
+    enter(&mut story, 3, "Duskwood");
+    drop(story);
+
+    assert!(matches!(refused, Err(StoryError::Store(_))));
+    let mut reloaded = self::story(&folder, "Ada");
+    assert_eq!(
+        places(&mut reloaded),
+        ["Elwynn Forest", "Westfall", "Duskwood"]
+    );
 }

@@ -65,7 +65,6 @@ fn meet(story: &mut Story, at: u64, name: &str) {
 fn ask(story: &mut Story, question: &str, target: Option<&str>) -> Output {
     let input = Input::LoreAsked {
         id: MessageId(7),
-        at: Tick(100),
         question: question.to_string(),
         target: target.map(str::to_string),
     };
@@ -479,4 +478,35 @@ fn a_character_with_an_empty_name_is_refused() {
     });
 
     assert!(matches!(result, Err(StoryError::Store(_))));
+}
+
+#[test]
+fn a_lore_answer_with_long_passages_still_fits_in_one_reply() {
+    let long = "The tower fell in a long and winding story. ".repeat(200);
+    let passages: Vec<Passage> = (0..8)
+        .map(|n| {
+            passage(
+                &long,
+                &format!("https://example.test/{n}"),
+                vec![place("Testvale")],
+            )
+        })
+        .collect();
+    let mut story = story_with("long-passages", &passages);
+    enter(&mut story, 1, "Testvale", None);
+    let (call, _) = model_call(ask(&mut story, "tower", None));
+
+    let text = format!("{} [1]", "\u{1}".repeat(990));
+    let output = story
+        .handle(Input::ModelAnswered { call, text })
+        .unwrap()
+        .unwrap();
+
+    let line = serde_json::to_string(&output).unwrap();
+    assert!(
+        line.len() <= timeways_story::journal::PAGE_BYTES,
+        "{} bytes",
+        line.len()
+    );
+    assert!(matches!(output, Output::LoreAnswer { ref answer, .. } if answer.text.is_some()));
 }

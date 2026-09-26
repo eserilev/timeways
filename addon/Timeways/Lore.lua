@@ -24,13 +24,23 @@ function Lore.Ask(question)
 		Say("Ask a question, for example: /lore why is this tower in ruins?")
 		return
 	end
-	local input = ns.Inputs.Question(time(), question, TargetName())
-	if not ns.Link.Fits(ns.Json.Encode(input)) then
+	local input = ns.Inputs.Question(question, TargetName())
+	if not ns.Outbox.Fits(input) then
 		Say("That question is too long.")
 		return
 	end
 	ns.Outbox.Add(input)
 	ns.Outbox.Flush()
+end
+
+-- The number stays the one that the answer cites, also when an entry before it is broken.
+local function ShowPassage(n, passage, text)
+	local source = type(passage.source) == "string" and passage.source:gsub("^https?://", "") or "?"
+	if type(text) == "string" then
+		Say(string.format("[%d] %s", n, ns.Plain(source)))
+	elseif type(passage.text) == "string" then
+		Say(string.format("[%d] %s (%s)", n, ns.Plain(passage.text), ns.Plain(source)))
+	end
 end
 
 -- With no text, no model answered, and the passages show as they are (GAMEPLAY.md 5.6).
@@ -42,11 +52,8 @@ function Lore.Show(answer)
 		Say("Nobody here knows.")
 	end
 	for n, passage in ipairs(passages) do
-		local source = type(passage.source) == "string" and passage.source:gsub("^https?://", "") or "?"
-		if type(answer.text) == "string" then
-			Say(string.format("[%d] %s", n, ns.Plain(source)))
-		elseif type(passage.text) == "string" then
-			Say(string.format("[%d] %s (%s)", n, ns.Plain(passage.text), ns.Plain(source)))
+		if type(passage) == "table" then
+			ShowPassage(n, passage, answer.text)
 		end
 	end
 end

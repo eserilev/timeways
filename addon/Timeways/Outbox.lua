@@ -33,20 +33,31 @@ function Outbox.SetCharacter(input)
 	character = ns.Json.Encode(input)
 end
 
+-- The text of a batch that starts with this line.
+local function Opening(line)
+	return character and (character .. "\n" .. line) or line
+end
+
+function Outbox.Fits(input)
+	return ns.Link.Fits(Opening(ns.Json.Encode(input)))
+end
+
+-- An entry that does not fit even alone can never go, so it is dropped.
 local function Batches(entries)
 	local batches, current = {}, nil
 	for _, entry in ipairs(entries) do
-		if current and (current.ended or not ns.Link.Fits(current.text .. "\n" .. entry.line)) then
+		local joined = current and (current.text .. "\n" .. entry.line)
+		if current and (current.ended or not ns.Link.Fits(joined)) then
 			batches[#batches + 1] = current
 			current = nil
 		end
 		if current then
-			current.text = current.text .. "\n" .. entry.line
+			current.text = joined
 			current.entries[#current.entries + 1] = entry
-		else
-			current = { text = character .. "\n" .. entry.line, entries = { entry } }
+			current.ended = entry.reply
+		elseif ns.Link.Fits(Opening(entry.line)) then
+			current = { text = Opening(entry.line), entries = { entry }, ended = entry.reply }
 		end
-		current.ended = entry.reply
 	end
 	batches[#batches + 1] = current
 	return batches

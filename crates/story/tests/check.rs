@@ -99,3 +99,21 @@ fn the_list_holds_names_and_no_comments() {
     assert!(!names.is_empty());
     assert!(names.iter().all(|name| !name.starts_with('#')));
 }
+
+#[test]
+fn a_citation_of_several_passages_passes() {
+    assert_eq!(check("It fell [1, 2].", 2), []);
+}
+
+#[test]
+fn an_unknown_number_in_a_list_of_citations_fails() {
+    assert_eq!(
+        check("It fell [1, 9].", 2),
+        [Fault::UnknownCitation { number: 9 }]
+    );
+}
+
+#[test]
+fn brackets_with_words_are_not_citations() {
+    assert_eq!(check("It fell [see above].", 2), [Fault::NoCitation]);
+}

@@ -65,14 +65,12 @@ fn a_level_input_reads() {
 
 #[test]
 fn a_lore_input_reads_with_its_target() {
-    let line =
-        r#"{"type":"lore_asked","id":3,"at":100,"question":"who is this?","target":"Hogger"}"#;
+    let line = r#"{"type":"lore_asked","id":3,"question":"who is this?","target":"Hogger"}"#;
 
     let input = parse(line).unwrap();
 
     let expected = Input::LoreAsked {
         id: MessageId(3),
-        at: Tick(100),
         question: "who is this?".to_string(),
         target: Some("Hogger".to_string()),
     };
@@ -140,7 +138,7 @@ fn a_game_event_reads_with_the_id_that_the_bridge_adds() {
 
 #[test]
 fn a_question_with_no_id_is_refused() {
-    assert!(parse(r#"{"type":"lore_asked","at":100,"question":"who?"}"#).is_err());
+    assert!(parse(r#"{"type":"lore_asked","question":"who?"}"#).is_err());
 }
 
 #[test]

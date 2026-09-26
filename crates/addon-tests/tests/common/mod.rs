@@ -64,8 +64,9 @@ impl Game {
              ns.Link = {
                  Fits = function(text) return #text <= linkLimit end,
                  Send = function(text)
-                     if linkUp then table.insert(sent, text) end
-                     return linkUp
+                     local taken = linkUp and #text <= linkLimit
+                     if taken then table.insert(sent, text) end
+                     return taken
                  end,
              }",
         );

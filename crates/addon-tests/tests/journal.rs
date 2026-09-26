@@ -338,3 +338,16 @@ fn deaths_show_as_deeds_with_the_killer_when_known() {
     ];
     assert_eq!(lines(&game, "deeds"), expected);
 }
+
+#[test]
+fn an_entry_that_is_not_a_table_is_skipped() {
+    let game = Game::new();
+
+    game.reply(r#"{"type":"journal","page":0,"pages":1,"places":[5],"people":[true,{"name":"Ada"}],"deeds":["x"]}"#);
+
+    game.run(
+        "wow.Slash('/journal', ''); ns.JournalFrame.Open('people'); ns.JournalFrame.Open('deeds')",
+    );
+    assert_eq!(lines(&game, "places"), ["note: You have not traveled yet."]);
+    assert_eq!(lines(&game, "people")[0], "entry: Ada");
+}

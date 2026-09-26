@@ -137,7 +137,6 @@ fn a_question_goes_out_at_once_after_the_waiting_events() {
 
     let question = Input::LoreAsked {
         id: MessageId(1),
-        at: NOW,
         question: "why is this tower in ruins?".to_string(),
         target: None,
     };
@@ -384,4 +383,52 @@ fn events_wait_until_the_character_is_known() {
 
     assert!(game.sent().is_empty());
     assert_eq!(game.eval::<u32>("ns.Outbox.Waiting()"), 1);
+}
+
+#[test]
+fn a_party_member_who_shares_a_quest_is_never_sent() {
+    let game = Game::new();
+    game.run(
+        "wow.units.npc = { name = 'Grimtusk', player = true }
+         wow.Fire('QUEST_DETAIL')
+         wow.RunTickers()",
+    );
+
+    assert!(game.sent().is_empty());
+}
+
+#[test]
+fn a_question_that_fits_only_without_the_character_line_is_refused() {
+    let game = Game::new();
+    game.run("linkLimit = 120; wow.Slash('/lore', string.rep('w', 70))");
+
+    assert!(game.sent().is_empty());
+    assert!(game.printed()[0].contains("too long"));
+}
+
+#[test]
+fn an_entry_that_can_never_fit_is_dropped_and_blocks_nothing() {
+    let game = Game::new();
+    game.run(
+        "wow.units.npc = { name = string.rep('N', 200) }
+         wow.Fire('GOSSIP_SHOW')
+         linkLimit = 150
+         wow.Fire('PLAYER_LEVEL_UP', 4)
+         wow.RunTickers()",
+    );
+
+    assert_eq!(
+        game.sent_inputs(),
+        [Input::LevelReached { at: NOW, level: 4 }]
+    );
+    assert_eq!(game.eval::<u32>("ns.Outbox.Waiting()"), 0);
+}
+
+#[test]
+fn a_broken_passage_keeps_the_numbers_of_the_others() {
+    let game = Game::new();
+
+    game.reply(r#"{"type":"lore_answer","id":1,"text":"It fell [2].","passages":[1,{"text":"a","source":"https://b"}]}"#);
+
+    assert!(game.printed()[1].ends_with("[2] b"), "{:?}", game.printed());
 }

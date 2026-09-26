@@ -42,7 +42,6 @@ pub enum Input {
     /// `/lore`, with the name of the target when there is one.
     LoreAsked {
         id: MessageId,
-        at: Tick,
         question: String,
         target: Option<String>,
     },
