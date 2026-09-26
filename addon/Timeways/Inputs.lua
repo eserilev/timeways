@@ -30,6 +30,10 @@ function Inputs.Defeated(at, name)
 	return { type = "npc_defeated", at = at, name = name }
 end
 
+function Inputs.Slapped(at, name)
+	return { type = "npc_slapped", at = at, name = name }
+end
+
 function Inputs.Died(at, killer)
 	return { type = "died", at = at, killer = killer }
 end

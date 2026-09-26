@@ -12,6 +12,7 @@ Link.lua
 Outbox.lua
 Watch.lua
 Foes.lua
+Emotes.lua
 Lore.lua
 Companion.lua
 Journal.lua

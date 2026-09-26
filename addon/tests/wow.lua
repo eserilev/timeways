@@ -58,6 +58,20 @@ function issecretvalue(value)
 	return value ~= nil and wow.secrets[value] == true
 end
 
+-- Runs `hook` after the function, as the game does. The function stays the same.
+function hooksecurefunc(owner, name, hook)
+	local original = owner[name]
+	owner[name] = function(...)
+		local results = { original(...) }
+		hook(...)
+		return unpack(results)
+	end
+end
+
+C_ChatInfo = {
+	PerformEmote = function() end,
+}
+
 -- The recap of the last death: a list of events, the killing blow first.
 wow.recap = nil
 C_DeathRecap = {

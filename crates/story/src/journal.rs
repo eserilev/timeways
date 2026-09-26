@@ -2,7 +2,7 @@
 //! and its history. No model takes part.
 
 use crate::character::Character;
-use crate::vocabulary::{DEATHS, DEFEATED, LEVEL, MET, VISITED};
+use crate::vocabulary::{DEATHS, DEFEATED, LEVEL, MET, SLAPPED, TRUSTS, VISITED};
 use hourglass::{EntityId, EventKind, LOCATED_IN, Tick, World};
 use serde::Serialize;
 
@@ -53,6 +53,9 @@ pub struct Person {
     pub name: String,
     pub place: Option<String>,
     pub first_met: Tick,
+    /// How much this NPC trusts you, from -100 to 100, once anything changed it.
+    pub trust: Option<i64>,
+    pub slapped: Option<i64>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -175,6 +178,8 @@ pub fn journal(character: &Character) -> Journal {
             name: name_of(world, npc),
             place: world.location_of(npc).map(|place| name_of(world, place)),
             first_met,
+            trust: fact_value(world, npc, TRUSTS, you),
+            slapped: fact_value(world, you, SLAPPED, npc),
         })
         .collect();
     let deeds = deeds(world, you);
@@ -383,6 +388,10 @@ fn level_deed(world: &World, from: Option<i64>, to: i64, at: Tick, here: Option<
         at,
         place,
     }
+}
+
+fn fact_value(world: &World, holder: EntityId, fact: &str, target: EntityId) -> Option<i64> {
+    world.entity(holder)?.fact(fact, Some(target))?.value
 }
 
 fn name_of(world: &World, id: EntityId) -> String {

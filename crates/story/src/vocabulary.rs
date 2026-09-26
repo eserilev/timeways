@@ -24,7 +24,8 @@ pub const TITLE: &str = "title";
 pub const MEMBER_OF: &str = "member_of";
 pub const LEADER_OF: &str = "leader_of";
 
-const TRUST: Band = Band {
+/// The band of `trusts`. Public, because a change of trust stops at its ends.
+pub const TRUST: Band = Band {
     min: -100,
     max: 100,
 };

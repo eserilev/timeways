@@ -37,6 +37,10 @@ globals:
   issecretvalue:
     args:
       - type: any
+  C_ChatInfo:
+    any: true
+  hooksecurefunc:
+    args: [{type: table}, {type: string}, {type: function}]
   C_DeathRecap:
     any: true
   UnitExists:

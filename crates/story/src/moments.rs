@@ -1,7 +1,7 @@
 //! The big moments of a batch, found in the events that the batch added to the history
 //! (GAMEPLAY.md 3.2). The companion speaks about the best one.
 
-use crate::vocabulary::{DEFEATED, LEVEL, VISITED};
+use crate::vocabulary::{DEFEATED, LEVEL, SLAPPED, VISITED};
 use hourglass::{EntityId, Event, EventKind, World};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -13,6 +13,11 @@ pub enum Moment {
     /// The same NPC killed you again: "Third time this murloc got you."
     SlainAgain {
         killer: String,
+        times: i64,
+    },
+    /// "The innkeeper remembers it."
+    Slapped {
+        npc: String,
         times: i64,
     },
     LevelUp {
@@ -28,8 +33,9 @@ impl Moment {
     /// A higher rank wins when one batch holds several moments.
     fn rank(&self) -> u8 {
         match self {
-            Moment::FirstKill { .. } => 4,
-            Moment::SlainAgain { .. } => 3,
+            Moment::FirstKill { .. } => 5,
+            Moment::SlainAgain { .. } => 4,
+            Moment::Slapped { .. } => 3,
             Moment::LevelUp { .. } => 2,
             Moment::NewZone { .. } => 1,
         }
@@ -74,6 +80,22 @@ fn moment(world: &World, you: EntityId, kind: &EventKind) -> Option<Moment> {
         } if *target == you && name == DEFEATED => Some(Moment::SlainAgain {
             killer: name_of(killer)?,
             times: *to,
+        }),
+        EventKind::FactStart {
+            entity,
+            name,
+            value: Some(times),
+            linked_to: Some(npc),
+        }
+        | EventKind::FactUpdate {
+            entity,
+            name,
+            to: times,
+            linked_to: Some(npc),
+            ..
+        } if *entity == you && name == SLAPPED => Some(Moment::Slapped {
+            npc: name_of(npc)?,
+            times: *times,
         }),
         EventKind::FactUpdate {
             entity, name, to, ..

@@ -97,12 +97,42 @@ local function Places(places)
 	return lines
 end
 
+local function TrustWords(trust)
+	if trust >= 50 then
+		return "Trusts you."
+	elseif trust >= 10 then
+		return "Likes you."
+	elseif trust > -10 then
+		return "Thinks little of you."
+	elseif trust > -50 then
+		return "Wary of you."
+	end
+	return "Distrusts you."
+end
+
+-- "Slapped 2 times. Wary of you." It stays empty until something changed the trust.
+local function Standing(person)
+	local parts = {}
+	if type(person.slapped) == "number" then
+		local times = person.slapped == 1 and "time" or "times"
+		parts[#parts + 1] = string.format("Slapped %d %s.", person.slapped, times)
+	end
+	if type(person.trust) == "number" then
+		parts[#parts + 1] = TrustWords(person.trust)
+	end
+	return table.concat(parts, " ")
+end
+
 local function People(people)
 	local lines = {}
 	for _, person in ipairs(people) do
 		lines[#lines + 1] = Line("entry", Name(person.name))
 		local where = person.place and ("in " .. Name(person.place) .. ", ") or ""
 		lines[#lines + 1] = Line("text", "Met " .. where .. "on " .. Day(person.first_met) .. ".")
+		local standing = Standing(person)
+		if standing ~= "" then
+			lines[#lines + 1] = Line("text", standing)
+		end
 	end
 	return lines
 end

@@ -52,6 +52,9 @@ pub fn prompt(moment: &Moment) -> String {
         Moment::SlainAgain { killer, times } => {
             format!("{killer} killed the player again. That makes {times} times.")
         }
+        Moment::Slapped { npc, times } => {
+            format!("The player slapped {npc}. That makes {times} times, and {npc} remembers.")
+        }
         Moment::LevelUp { level } => format!("The player reached level {level}."),
         Moment::NewZone { zone } => format!("The player arrived in {zone} for the first time."),
     };

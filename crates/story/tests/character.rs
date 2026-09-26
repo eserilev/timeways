@@ -331,3 +331,40 @@ fn a_subzone_name_in_two_zones_is_two_places() {
     assert_eq!(seas, ["Westfall", "Stranglethorn Vale"]);
     assert!(character.has_visited("The Great Sea"));
 }
+
+fn trust_of(character: &Character, npc: &str) -> Option<i64> {
+    let npc = person(character, npc);
+    character
+        .world()
+        .entity(npc)
+        .unwrap()
+        .fact(timeways_story::vocabulary::TRUSTS, Some(character.you()))
+        .and_then(|fact| fact.value)
+}
+
+#[test]
+fn a_slap_costs_ten_trust_and_counts() {
+    let mut character = Character::new();
+
+    character.slap(Tick(1), "Innkeeper Farley").unwrap();
+    character.slap(Tick(2), "Innkeeper Farley").unwrap();
+
+    let farley = person(&character, "Innkeeper Farley");
+    let you = character.world().entity(character.you()).unwrap();
+    let slaps = you
+        .fact(timeways_story::vocabulary::SLAPPED, Some(farley))
+        .and_then(|fact| fact.value);
+    assert_eq!(slaps, Some(2));
+    assert_eq!(trust_of(&character, "Innkeeper Farley"), Some(-20));
+}
+
+#[test]
+fn trust_stops_at_minus_one_hundred() {
+    let mut character = Character::new();
+
+    for at in 1..=12 {
+        character.slap(Tick(at), "Innkeeper Farley").unwrap();
+    }
+
+    assert_eq!(trust_of(&character, "Innkeeper Farley"), Some(-100));
+}

@@ -618,6 +618,7 @@ return {
 	undocumented = {
 		"CreateFrame",
 		"date",
+		"hooksecurefunc",
 		"time",
 	},
 }

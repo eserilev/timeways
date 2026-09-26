@@ -403,3 +403,22 @@ fn no_chapter_yet_shows_a_note() {
         ["note: No chapter is written yet."]
     );
 }
+
+#[test]
+fn a_slapped_npc_shows_the_slaps_and_the_trust_in_words() {
+    let game = Game::new();
+    let mut character = Character::new();
+    character
+        .enter_zone(Tick(DAY), "Elwynn Forest", Some("Goldshire"))
+        .unwrap();
+    character.meet_npc(Tick(DAY), "Innkeeper Farley").unwrap();
+    character.slap(Tick(DAY), "Innkeeper Farley").unwrap();
+    character.slap(Tick(DAY), "Innkeeper Farley").unwrap();
+
+    game.reply(&journal_reply(&character));
+
+    assert_eq!(
+        lines(&game, "people")[2],
+        "text: Slapped 2 times. Wary of you."
+    );
+}

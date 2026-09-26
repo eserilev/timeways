@@ -41,6 +41,8 @@ end)
 
 C_Timer.NewTicker(FLUSH_SECONDS, ns.Outbox.Flush)
 
+hooksecurefunc(C_ChatInfo, "PerformEmote", ns.Emotes.Performed)
+
 local REPLIES = {
 	lore_answer = ns.Lore.Show,
 	journal = ns.Journal.Receive,

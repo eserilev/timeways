@@ -34,6 +34,11 @@ pub enum Input {
         at: Tick,
         name: String,
     },
+    /// You slapped an NPC with `/slap`. Never a player (5.11).
+    NpcSlapped {
+        at: Tick,
+        name: String,
+    },
     /// You died. `killer` is an NPC that the addon is sure of, and never a player (5.11).
     Died {
         at: Tick,

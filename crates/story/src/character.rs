@@ -1,6 +1,6 @@
 //! The world of one character, fed by game events (GAMEPLAY.md 5.1 and 5.2).
 
-use crate::vocabulary::{self, DEATHS, DEFEATED, LEVEL, MET, VISITED};
+use crate::vocabulary::{self, DEATHS, DEFEATED, LEVEL, MET, SLAPPED, TRUST, TRUSTS, VISITED};
 use hourglass::{
     EntityId, EntityType, Event, EventHistory, EventKind, LOCATED_IN, Rejection, Tick, World,
 };
@@ -9,6 +9,9 @@ use hourglass::{
 pub type Refusal = Vec<Rejection>;
 
 const YOU: &str = "you";
+
+/// The trust that one slap costs.
+const SLAP_TRUST: i64 = 10;
 
 pub struct Character {
     world: World,
@@ -147,6 +150,20 @@ impl Character {
         self.count_up(at, self.you, DEFEATED, Some(foe))
     }
 
+    /// A slap has consequences: the NPC counts it, and trusts you less (GAMEPLAY.md 5.4.1).
+    ///
+    /// # Errors
+    ///
+    /// Returns the first refusal of Hourglass.
+    pub fn slap(&mut self, at: Tick, name: &str) -> Result<(), Refusal> {
+        let npc = self.find_or_create(at, EntityType::Person, name)?;
+        if let Some(here) = self.world.location_of(self.you) {
+            self.settle(at, npc, here)?;
+        }
+        self.count_up(at, self.you, SLAPPED, Some(npc))?;
+        self.change_trust(at, npc, -SLAP_TRUST)
+    }
+
     /// Your death is a deed of the killer, when the addon knows one (GAMEPLAY.md 5.13).
     /// The count of deaths comes last, so the journal finds the killer just before it.
     ///
@@ -261,6 +278,33 @@ impl Character {
             return Ok(());
         }
         self.start(at, entity, LOCATED_IN, place)
+    }
+
+    /// Trust starts at 0, and stops at the ends of its band.
+    fn change_trust(&mut self, at: Tick, npc: EntityId, by: i64) -> Result<(), Refusal> {
+        let held = self
+            .world
+            .entity(npc)
+            .and_then(|entity| entity.fact(TRUSTS, Some(self.you)))
+            .and_then(|fact| fact.value);
+        let to = TRUST.clamp(held.unwrap_or(0) + by);
+        let kind = match held {
+            Some(from) if from == to => return Ok(()),
+            Some(from) => EventKind::FactUpdate {
+                entity: npc,
+                name: TRUSTS.to_string(),
+                linked_to: Some(self.you),
+                from,
+                to,
+            },
+            None => EventKind::FactStart {
+                entity: npc,
+                name: TRUSTS.to_string(),
+                value: Some(to),
+                linked_to: Some(self.you),
+            },
+        };
+        self.propose(at, kind)
     }
 
     /// Starts a tally at 1, or adds 1 to the tally that the slot holds.

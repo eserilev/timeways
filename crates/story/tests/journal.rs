@@ -81,6 +81,8 @@ fn people_carry_the_place_where_you_met_them() {
         name: name.to_string(),
         place: Some("Goldshire".to_string()),
         first_met: Tick(first_met),
+        trust: None,
+        slapped: None,
     };
     assert_eq!(
         people,
@@ -338,4 +340,19 @@ fn a_chapter_keeps_thirty_entries_of_each_list_and_counts_the_rest() {
 
     assert_eq!(chapters[0].zones.len(), 30);
     assert_eq!(chapters[0].left_out, 5);
+}
+
+#[test]
+fn a_slapped_npc_shows_the_slaps_and_its_lost_trust() {
+    let mut character = Character::new();
+    character
+        .enter_zone(Tick(10), "Elwynn Forest", Some("Goldshire"))
+        .unwrap();
+    character.meet_npc(Tick(11), "Innkeeper Farley").unwrap();
+    character.slap(Tick(12), "Innkeeper Farley").unwrap();
+    character.slap(Tick(13), "Innkeeper Farley").unwrap();
+
+    let people = journal(&character).people;
+
+    assert_eq!((people[0].slapped, people[0].trust), (Some(2), Some(-20)));
 }

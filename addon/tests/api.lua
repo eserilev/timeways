@@ -3,6 +3,7 @@
 return {
 	build = "1.60.1.70009",
 	globals = {
+		"C_ChatInfo",
 		"C_DeathRecap",
 		"C_DeathRecap.GetRecapEvents",
 		"C_DeathRecap.HasRecapEvents",
@@ -23,6 +24,7 @@ return {
 		"UnitLevel",
 		"UnitName",
 		"date",
+		"hooksecurefunc",
 		"issecretvalue",
 		"time",
 	},

@@ -148,6 +148,7 @@ impl Story {
             Input::NpcDefeated { at, name } => {
                 self.change(|character| character.defeat_npc(at, &name))
             }
+            Input::NpcSlapped { at, name } => self.change(|character| character.slap(at, &name)),
             Input::Died { at, killer } => {
                 self.change(|character| character.die(at, killer.as_deref()))
             }

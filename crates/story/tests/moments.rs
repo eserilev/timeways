@@ -119,3 +119,21 @@ fn the_best_moment_is_the_first_of_the_highest_rank() {
 fn no_moments_have_no_best() {
     assert_eq!(best(Vec::new()), None);
 }
+
+#[test]
+fn a_slap_is_a_moment_with_its_count() {
+    let mut character = Character::new();
+    character.slap(Tick(1), "Innkeeper Farley").unwrap();
+
+    let found = moments_of(&mut character, |c| {
+        c.slap(Tick(2), "Innkeeper Farley").unwrap();
+    });
+
+    assert_eq!(
+        found,
+        [Moment::Slapped {
+            npc: "Innkeeper Farley".to_string(),
+            times: 2
+        }]
+    );
+}

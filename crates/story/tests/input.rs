@@ -200,3 +200,16 @@ fn a_death_reads_with_and_without_a_killer() {
         }
     );
 }
+
+#[test]
+fn a_slap_reads() {
+    let line = r#"{"type":"npc_slapped","at":100,"name":"Innkeeper Farley"}"#;
+
+    assert_eq!(
+        parse(line).unwrap(),
+        Input::NpcSlapped {
+            at: Tick(100),
+            name: "Innkeeper Farley".to_string()
+        }
+    );
+}

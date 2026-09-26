@@ -242,14 +242,14 @@ Small, silly moments are often the best part of a story. The addon collects them
 | Moment | Source |
 |---|---|
 | A critter kill: a squirrel, a rabbit, a cow | Open: the combat log is closed (open question 9) |
-| An emote of yours: `/dance` in Goldshire, `/slap` an NPC, `/kiss` a guard | `CHAT_MSG_TEXT_EMOTE` from you, with its target. Emotes are public in the game, not private chat. |
+| An emote of yours: `/dance` in Goldshire, `/slap` an NPC, `/kiss` a guard | A hook on `C_ChatInfo.PerformEmote` (`hooksecurefunc`, which changes nothing). The target counts only when it is the current target and an NPC, because a typed name can be a player's. Built: `/slap`. |
 | A silly death: a fall, drowning, lava, a critter, a mob far below your level | `PLAYER_DEAD` and the death recap: its `environmentalType` and its killer |
 | An odd habit: the same mob 50 times, fishing up boots, a long AFK in a capital | Counts in the addon |
 
 - **Counted locally.** A tally is tiny, for example `dance Goldshire 3`, and it goes out with the next batch. No moment costs a strip of its own.
 - **Marked when it is funny:** a first time, a streak ("12 squirrels in a row"), an odd place or time (a dance in Goldshire at 3 AM), or a contrast (a level 60 that dies to a cow).
 - **Used rarely.** The companion picks one now and then, with a cooldown: "That's the fourth rabbit today. Do they owe you money?" The chronicle gets footnotes: "On the fourth day, our hero danced in Goldshire. Nobody knows why." The journal gets joke titles: "Scourge of Squirrels", "Lord of the Goldshire Dance Floor".
-- **With consequences.** A slap is an event in the world: the `trusts` value of the NPC drops, and a `slapped` fact starts. The innkeeper then remembers it. His rumors get shorter, and the companion brings it up. Hourglass keeps the joke consistent for weeks.
+- **With consequences.** A slap is an event in the world: the `trusts` value of the NPC drops, and a `slapped` fact starts. The innkeeper then remembers it. His rumors get shorter, and the companion brings it up. Hourglass keeps the joke consistent for weeks. Built: each slap costs 10 trust, down to -100. The People page of the journal shows the slaps and the trust in words, and a slap is a big moment for the companion (3.2).
 
 **Picking the moments.** Code scores each moment, and the model picks only among the best ones. The model never sees the whole pile, so the choice is predictable, testable, and free.
 
