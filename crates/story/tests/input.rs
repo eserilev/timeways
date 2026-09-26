@@ -213,3 +213,17 @@ fn a_slap_reads() {
         }
     );
 }
+
+#[test]
+fn a_talk_reads() {
+    let line =
+        r#"{"type":"talk_asked","id":2,"at":100,"npc":"Innkeeper Farley","text":"any news?"}"#;
+
+    let expected = Input::TalkAsked {
+        id: MessageId(2),
+        at: Tick(100),
+        npc: "Innkeeper Farley".to_string(),
+        text: "any news?".to_string(),
+    };
+    assert_eq!(parse(line).unwrap(), expected);
+}

@@ -12,4 +12,5 @@ pub mod pack;
 pub mod prompt;
 pub mod store;
 pub mod story;
+pub mod talk;
 pub mod vocabulary;

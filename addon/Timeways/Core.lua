@@ -45,6 +45,7 @@ hooksecurefunc(C_ChatInfo, "PerformEmote", ns.Emotes.Performed)
 
 local REPLIES = {
 	lore_answer = ns.Lore.Show,
+	talk_answer = ns.Talk.Show,
 	journal = ns.Journal.Receive,
 }
 
@@ -65,6 +66,9 @@ end
 
 SLASH_TIMEWAYSLORE1 = "/lore"
 SlashCmdList.TIMEWAYSLORE = ns.Lore.Ask
+
+SLASH_TIMEWAYSTALK1 = "/talk"
+SlashCmdList.TIMEWAYSTALK = ns.Talk.Ask
 
 SLASH_TIMEWAYSJOURNAL1 = "/journal"
 SLASH_TIMEWAYSJOURNAL2 = "/timeways"

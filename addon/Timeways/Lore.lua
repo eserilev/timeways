@@ -11,20 +11,13 @@ local function Say(text)
 	DEFAULT_CHAT_FRAME:AddMessage(PREFIX .. text)
 end
 
--- The name of a player never leaves the computer (GAMEPLAY.md 5.11).
-local function TargetName()
-	if UnitExists("target") and not UnitIsPlayer("target") then
-		return UnitName("target")
-	end
-end
-
 function Lore.Ask(question)
 	question = question:match("^%s*(.-)%s*$")
 	if question == "" then
 		Say("Ask a question, for example: /lore why is this tower in ruins?")
 		return
 	end
-	local input = ns.Inputs.Question(question, TargetName())
+	local input = ns.Inputs.Question(question, ns.Units.NpcName("target"))
 	if not ns.Outbox.Fits(input) then
 		Say("That question is too long.")
 		return

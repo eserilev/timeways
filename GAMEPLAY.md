@@ -100,23 +100,18 @@ An innkeeper tells you a rumor, and the rumor becomes a small quest line made fo
 
 ### 3.5 Talk to an NPC
 
-You target an NPC and type `/talk`. The agent plays that NPC, with its name, its place, its faction, and its quest text as context. What the NPC tells you, and how much it trusts you, go into your world.
+You target an NPC and type `/talk <words>`. The agent plays that NPC. What the NPC tells you, and how much it trusts you, go into your world.
 
-### 3.6 The journal
+Built:
 
-A book in the game, in the look of the classic quest frame: the quest dialog art, the parchment, the book icon of the quest log, and dark brown ink. `/journal` or `/timeways` opens it.
-
-The desktop sends the pages each time the book opens, because the world lives there (5.10). No model takes part. Each page comes from the facts of the world and from its history.
-
-| Section | What it holds | State |
-|---|---|---|
-| **Places** | Each zone, with the date of the first visit, and its subzones under it | Built |
-| **People** | Each NPC that you met, with the place and the date | Built |
-| **Deeds** | NPC fights: level milestones, first kills of rares and bosses, repeat kills (echoes, 5.13), and your deaths | Built: levels, kills of rares and bosses, and deaths |
-| **Nemesis** | Real players from world PvP only: the kill count on each side, the places, and the last time seen (4.1). Aliases only (5.11). | Later |
-| **Chronicle** | One chapter for each play session (3.3). The book opens on it. | Built: the plain list, and the saga of the bard when a model wrote one |
-| **Titles** | The joke titles (5.4.1) | Later |
-| **Quests** | The personal side quests (3.4) | Later |
+- **Talking is meeting.** The NPC enters your world with `met` before the model answers.
+- **What the NPC knows:** its place, your level, your slaps (5.4.1), its trust in you, and up to 3 lore passages about it, under the spoiler limit (3.1).
+- **The NPC proposes, and the code decides** (5.2). The model answers in JSON: `{"say": "...", "trust": n}`.
+  - The words follow the rules of a companion line, with at most 400 characters.
+  - A change of trust outside -5 to 5 is dropped, and the words still show.
+  - A valid change goes through Hourglass, inside the band of -100 to 100.
+- **No retry.** With no model, or with an answer that breaks a rule, the NPC "looks at you and says nothing".
+- The target counts only when it is an NPC: never a player, and never a pet (5.11).
 
 ## 4. The social level
 

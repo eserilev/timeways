@@ -16,6 +16,8 @@ globals:
     any: true
   UISpecialFrames:
     property: new-fields
+  SLASH_TIMEWAYSTALK1:
+    property: full-write
   SLASH_TIMEWAYSJOURNAL1:
     property: full-write
   SLASH_TIMEWAYSJOURNAL2:

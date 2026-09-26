@@ -39,6 +39,13 @@ pub enum Input {
         at: Tick,
         name: String,
     },
+    /// `/talk` to the NPC that you target (GAMEPLAY.md 3.5). Never a player (5.11).
+    TalkAsked {
+        id: MessageId,
+        at: Tick,
+        npc: String,
+        text: String,
+    },
     /// You died. `killer` is an NPC that the addon is sure of, and never a player (5.11).
     Died {
         at: Tick,

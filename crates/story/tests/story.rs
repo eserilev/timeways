@@ -854,3 +854,86 @@ fn a_moment_before_a_refusal_still_counts() {
         "{prompt}"
     );
 }
+
+fn talk(story: &mut Story, npc: &str, text: &str) -> Result<Vec<Output>, StoryError> {
+    story.handle(Input::TalkAsked {
+        id: MessageId(8),
+        at: Tick(50),
+        npc: npc.to_string(),
+        text: text.to_string(),
+    })
+}
+
+fn people(story: &mut Story) -> Vec<timeways_story::journal::Person> {
+    match one(story
+        .handle(Input::JournalAsked {
+            id: MessageId(1),
+            page: 0,
+        })
+        .unwrap())
+    {
+        Some(Output::Journal { page, .. }) => page.journal.people,
+        other => panic!("expected a journal, got {other:?}"),
+    }
+}
+
+#[test]
+fn talking_meets_the_npc_and_asks_the_model_as_that_npc() {
+    let mut story = story_with("talk-asks", &[]);
+    enter(&mut story, 1, "Elwynn Forest", Some("Goldshire"));
+
+    let (_, prompt) =
+        model_call(one(talk(&mut story, "Innkeeper Farley", "any news?").unwrap()).unwrap());
+
+    assert!(prompt.starts_with("You are Innkeeper Farley,"), "{prompt}");
+    assert!(prompt.contains("- You are in Goldshire."), "{prompt}");
+    assert_eq!(people(&mut story)[0].name, "Innkeeper Farley");
+}
+
+#[test]
+fn the_answer_of_the_npc_shows_and_its_change_of_trust_lands() {
+    let mut story = story_with("talk-answers", &[]);
+    let (call, _) =
+        model_call(one(talk(&mut story, "Innkeeper Farley", "any news?").unwrap()).unwrap());
+
+    let text = r#"{"say": "Nothing but rain.", "trust": 3}"#.to_string();
+    let output = one(story.handle(Input::ModelAnswered { call, text }).unwrap());
+
+    let answer = Output::TalkAnswer {
+        id: MessageId(8),
+        npc: "Innkeeper Farley".to_string(),
+        text: Some("Nothing but rain.".to_string()),
+    };
+    assert_eq!(output, Some(answer));
+    assert_eq!(people(&mut story)[0].trust, Some(3));
+}
+
+#[test]
+fn a_talk_with_no_model_gets_no_words() {
+    let mut story = story_with("talk-no-model", &[]);
+    let (call, _) =
+        model_call(one(talk(&mut story, "Innkeeper Farley", "any news?").unwrap()).unwrap());
+
+    let output = one(story.handle(Input::ModelFailed { call }).unwrap());
+
+    let silent = Output::TalkAnswer {
+        id: MessageId(8),
+        npc: "Innkeeper Farley".to_string(),
+        text: None,
+    };
+    assert_eq!(output, Some(silent));
+    assert_eq!(people(&mut story)[0].trust, None);
+}
+
+#[test]
+fn empty_long_or_odd_words_are_refused() {
+    let mut story = story_with("talk-bad-words", &[]);
+
+    let empty = talk(&mut story, "Innkeeper Farley", "  ");
+    let long = talk(&mut story, "Innkeeper Farley", &"w".repeat(256));
+    let control = talk(&mut story, "Innkeeper Farley", "hi\u{7}");
+
+    assert!(matches!(empty, Err(StoryError::BadWords)));
+    assert!(matches!(long, Err(StoryError::BadWords)));
+    assert!(matches!(control, Err(StoryError::BadWords)));
+}

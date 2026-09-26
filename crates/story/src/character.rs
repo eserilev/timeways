@@ -89,6 +89,26 @@ impl Character {
         self.holds_about(MET, npc)
     }
 
+    /// The place of an NPC: where you met or fought it last.
+    #[must_use]
+    pub fn place_of(&self, npc: &str) -> Option<&str> {
+        let id = self.find(EntityType::Person, npc)?;
+        let place = self.world.location_of(id)?;
+        Some(self.world.entity(place)?.name.as_str())
+    }
+
+    #[must_use]
+    pub fn trust_of(&self, npc: &str) -> Option<i64> {
+        let id = self.find(EntityType::Person, npc)?;
+        self.world.entity(id)?.fact(TRUSTS, Some(self.you))?.value
+    }
+
+    #[must_use]
+    pub fn slaps_of(&self, npc: &str) -> Option<i64> {
+        let id = self.find(EntityType::Person, npc)?;
+        self.world.entity(self.you)?.fact(SLAPPED, Some(id))?.value
+    }
+
     /// Where you stand, then each place around it: the subzone, then the zone.
     #[must_use]
     pub fn place_names(&self) -> Vec<&str> {
@@ -164,6 +184,17 @@ impl Character {
         self.start_once(at, self.you, MET, npc)?;
         self.count_up(at, self.you, SLAPPED, Some(npc))?;
         self.change_trust(at, npc, -SLAP_TRUST)
+    }
+
+    /// A change of trust that a talk proposed (GAMEPLAY.md 3.5). It stops at the ends of
+    /// the band.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first refusal of Hourglass.
+    pub fn adjust_trust(&mut self, at: Tick, npc: &str, by: i64) -> Result<(), Refusal> {
+        let id = self.find_or_create(at, EntityType::Person, npc)?;
+        self.change_trust(at, id, by)
     }
 
     /// Your death is a deed of the killer, when the addon knows one (GAMEPLAY.md 5.13).

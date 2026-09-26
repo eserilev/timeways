@@ -10,6 +10,7 @@ use crate::moments::{Moment, best, moments};
 use crate::pack::{Link, Pack, PackError, Passage};
 use crate::prompt::Context;
 use crate::store::{CharacterKey, HistoryFile, Opened, Prose, Store, StoreError};
+use crate::talk::{self, Scene};
 use hourglass::Tick;
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
@@ -18,6 +19,12 @@ use thiserror::Error;
 /// The longest name that the story takes from the game. WoW names are far shorter, so a
 /// longer one comes from a bug or a hostile addon, and it would break the page limit.
 pub const MAX_NAME_BYTES: usize = 96;
+
+/// The chat box of WoW stops a line at 255 bytes.
+pub const MAX_WORDS_BYTES: usize = 255;
+
+/// The passages about an NPC that its prompt carries.
+const TALK_PASSAGES: usize = 3;
 
 /// The version of the lines between the bridge and the story program.
 pub const PROTOCOL: u32 = 1;
@@ -47,6 +54,12 @@ pub enum Output {
         #[serde(flatten)]
         page: Page,
     },
+    /// What the NPC says, or null when no model answered.
+    TalkAnswer {
+        id: MessageId,
+        npc: String,
+        text: Option<String>,
+    },
     /// The answer to `batch_end`. The bridge shows `companion` in the game.
     EventsSeen {
         id: MessageId,
@@ -72,6 +85,10 @@ pub enum StoryError {
     NoCharacter,
     #[error("a name is empty, longer than {MAX_NAME_BYTES} bytes, or holds a control character")]
     BadName,
+    #[error(
+        "the words are empty, longer than {MAX_WORDS_BYTES} bytes, or hold a control character"
+    )]
+    BadWords,
     #[error(transparent)]
     Store(#[from] StoreError),
 }
@@ -115,6 +132,13 @@ enum Pending {
     Bard {
         key: CharacterKey,
         began: Tick,
+    },
+    /// A talk to `npc`, whose change of trust lands at `at`, for this character only.
+    Talk {
+        question: MessageId,
+        key: CharacterKey,
+        npc: String,
+        at: Tick,
     },
 }
 
@@ -192,6 +216,7 @@ impl Story {
                 question,
                 target,
             } => Ok(vec![self.ask(id, &question, target.as_deref())?]),
+            Input::TalkAsked { id, at, npc, text } => Ok(vec![self.talk(id, at, &npc, &text)?]),
             Input::JournalAsked { id, page } => {
                 let page = self.journal_page(page)?;
                 Ok(vec![Output::Journal { id, page }])
@@ -216,6 +241,27 @@ impl Story {
                 }
                 Vec::new()
             }
+            Pending::Talk {
+                question,
+                key,
+                npc,
+                at,
+            } => {
+                let answer = talk::checked_answer(text);
+                let same = self.active.as_ref().is_some_and(|active| active.key == key);
+                if let Some(answer) = answer
+                    .as_ref()
+                    .filter(|answer| same && answer.trust_change != 0)
+                {
+                    self.change(|character| character.adjust_trust(at, &npc, answer.trust_change))?;
+                }
+                let text = answer.map(|answer| answer.say);
+                vec![Output::TalkAnswer {
+                    id: question,
+                    npc,
+                    text,
+                }]
+            }
         })
     }
 
@@ -230,6 +276,11 @@ impl Story {
                 companion: None,
             }],
             Pending::Bard { .. } => Vec::new(),
+            Pending::Talk { question, npc, .. } => vec![Output::TalkAnswer {
+                id: question,
+                npc,
+                text: None,
+            }],
         })
     }
 
@@ -355,6 +406,43 @@ impl Story {
             ..Page::default()
         });
         Ok(page)
+    }
+
+    /// Talking is meeting, so the NPC enters the world before the model answers.
+    fn talk(
+        &mut self,
+        id: MessageId,
+        at: Tick,
+        npc: &str,
+        words: &str,
+    ) -> Result<Output, StoryError> {
+        checked_name(npc)?;
+        if words.trim().is_empty()
+            || words.len() > MAX_WORDS_BYTES
+            || words.chars().any(char::is_control)
+        {
+            return Err(StoryError::BadWords);
+        }
+        self.change(|character| character.meet_npc(at, npc))?;
+        let active = self.active.as_ref().ok_or(StoryError::NoCharacter)?;
+        let character = &active.character;
+        let mut passages = passages_for(&self.pack, character, words, Some(npc))?;
+        passages.truncate(TALK_PASSAGES);
+        let scene = Scene {
+            npc,
+            place: character.place_of(npc),
+            level: character.level(),
+            trust: character.trust_of(npc),
+            slapped: character.slaps_of(npc),
+        };
+        let prompt = talk::prompt(&scene, &passages, words);
+        let pending = Pending::Talk {
+            question: id,
+            key: active.key.clone(),
+            npc: npc.to_string(),
+            at,
+        };
+        Ok(self.open_call(pending, prompt))
     }
 
     /// With no passage, a model has nothing to cite, so no call goes out.

@@ -6,6 +6,7 @@
 
 App.lua
 Text.lua
+Units.lua
 Json.lua
 Inputs.lua
 Link.lua
@@ -14,6 +15,7 @@ Watch.lua
 Foes.lua
 Emotes.lua
 Lore.lua
+Talk.lua
 Companion.lua
 Journal.lua
 JournalFrame.lua

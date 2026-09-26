@@ -12,14 +12,7 @@ local function NpcTarget(typedName)
 	if typedName ~= nil and typedName ~= "" then
 		return nil
 	end
-	-- A pet has a name that a player chose, so it counts as a player.
-	if not UnitExists("target") or UnitIsPlayer("target") or UnitPlayerControlled("target") then
-		return nil
-	end
-	local name = UnitName("target")
-	if type(name) == "string" and not issecretvalue(name) then
-		return name
-	end
+	return ns.Units.NpcName("target")
 end
 
 -- Runs after each emote of yours, through a hook that changes nothing.

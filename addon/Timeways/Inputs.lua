@@ -34,6 +34,10 @@ function Inputs.Slapped(at, name)
 	return { type = "npc_slapped", at = at, name = name }
 end
 
+function Inputs.Talk(at, npc, text)
+	return { type = "talk_asked", at = at, npc = npc, text = text }
+end
+
 function Inputs.Died(at, killer)
 	return { type = "died", at = at, killer = killer }
 end
