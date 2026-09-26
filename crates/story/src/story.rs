@@ -134,12 +134,12 @@ impl Story {
     /// Returns the refusal of the world for a game event, the error of the pack for a
     /// question, `UnknownCall` for the answer to a call that is not open, `NoCharacter`
     /// before the first `character_entered`, and the error of the store.
-    pub fn handle(&mut self, input: Input) -> Result<Option<Output>, StoryError> {
+    pub fn handle(&mut self, input: Input) -> Result<Vec<Output>, StoryError> {
         match input {
-            Input::Hello => Ok(Some(Output::Hello { protocol: PROTOCOL })),
+            Input::Hello => Ok(vec![Output::Hello { protocol: PROTOCOL }]),
             Input::CharacterEntered { realm, name } => {
                 self.enter_character(&realm, &name)?;
-                Ok(None)
+                Ok(Vec::new())
             }
             Input::ZoneEntered { at, zone, subzone } => {
                 self.change(|character| character.enter_zone(at, &zone, subzone.as_deref()))
@@ -159,30 +159,38 @@ impl Story {
                 id,
                 question,
                 target,
-            } => Ok(Some(self.ask(id, &question, target.as_deref())?)),
+            } => Ok(vec![self.ask(id, &question, target.as_deref())?]),
             Input::JournalAsked { id, page } => {
                 let page = self.journal_page(page)?;
-                Ok(Some(Output::Journal { id, page }))
+                Ok(vec![Output::Journal { id, page }])
             }
-            Input::BatchEnd { id } => Ok(Some(self.end_batch(id))),
-            Input::ModelAnswered { call, text } => Ok(Some(match self.take_call(call)? {
-                Pending::Lore { question, lore } => self.follow(question, lore.answered(&text)),
-                Pending::Companion { batch } => Output::EventsSeen {
-                    id: batch,
-                    companion: companion::checked_line(&text),
-                },
-            })),
-            Input::ModelFailed { call } => Ok(Some(match self.take_call(call)? {
-                Pending::Lore { question, lore } => Output::LoreAnswer {
-                    id: question,
-                    answer: lore.failed(),
-                },
-                Pending::Companion { batch } => Output::EventsSeen {
-                    id: batch,
-                    companion: None,
-                },
-            })),
+            Input::BatchEnd { id } => Ok(vec![self.end_batch(id)]),
+            Input::ModelAnswered { call, text } => Ok(vec![self.answered(call, &text)?]),
+            Input::ModelFailed { call } => Ok(vec![self.failed(call)?]),
         }
+    }
+
+    fn answered(&mut self, call: CallId, text: &str) -> Result<Output, StoryError> {
+        Ok(match self.take_call(call)? {
+            Pending::Lore { question, lore } => self.follow(question, lore.answered(text)),
+            Pending::Companion { batch } => Output::EventsSeen {
+                id: batch,
+                companion: companion::checked_line(text),
+            },
+        })
+    }
+
+    fn failed(&mut self, call: CallId) -> Result<Output, StoryError> {
+        Ok(match self.take_call(call)? {
+            Pending::Lore { question, lore } => Output::LoreAnswer {
+                id: question,
+                answer: lore.failed(),
+            },
+            Pending::Companion { batch } => Output::EventsSeen {
+                id: batch,
+                companion: None,
+            },
+        })
     }
 
     /// The same character again changes nothing, so each batch can name it.
@@ -223,7 +231,7 @@ impl Story {
     fn change(
         &mut self,
         act: impl FnOnce(&mut Character) -> Result<(), Refusal>,
-    ) -> Result<Option<Output>, StoryError> {
+    ) -> Result<Vec<Output>, StoryError> {
         let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
         let before = active.character.world().history().len();
         let changed = act(&mut active.character);
@@ -233,7 +241,7 @@ impl Story {
             .extend(moments(world, active.character.you(), &added));
         active.save()?;
         changed.map_err(StoryError::Refused)?;
-        Ok(None)
+        Ok(Vec::new())
     }
 
     /// At most one companion line for a batch: about its best moment, within the budget.

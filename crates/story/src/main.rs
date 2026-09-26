@@ -48,8 +48,11 @@ fn serve(story: &mut Story) -> Result<(), Box<dyn Error>> {
             }
         };
         match story.handle(input) {
-            Ok(None) => {}
-            Ok(Some(output)) => writeln!(out, "{}", serde_json::to_string(&output)?)?,
+            Ok(outputs) => {
+                for output in outputs {
+                    writeln!(out, "{}", serde_json::to_string(&output)?)?;
+                }
+            }
             Err(error) => writeln!(log, "{error}: {line}")?,
         }
     }

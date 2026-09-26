@@ -9,6 +9,12 @@ use timeways_story::pack::Pack;
 use timeways_story::store::{CharacterKey, Store, StoreError, safe_id};
 use timeways_story::story::{Output, Story, StoryError};
 
+/// The one output of an input, or none.
+fn one(outputs: Vec<Output>) -> Option<Output> {
+    assert!(outputs.len() <= 1, "{outputs:?}");
+    outputs.into_iter().next()
+}
+
 fn fresh_folder(name: &str) -> PathBuf {
     let folder = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("store-{name}"));
     let _ = fs::remove_dir_all(&folder);
@@ -31,7 +37,7 @@ fn story(folder: &Path, name: &str) -> Story {
         realm: "Stormrage".to_string(),
         name: name.to_string(),
     };
-    story.handle(character).unwrap();
+    one(story.handle(character).unwrap());
     story
 }
 
@@ -41,16 +47,16 @@ fn enter(story: &mut Story, at: u64, zone: &str) {
         zone: zone.to_string(),
         subzone: None,
     };
-    story.handle(input).unwrap();
+    one(story.handle(input).unwrap());
 }
 
 fn places(story: &mut Story) -> Vec<String> {
-    let output = story
+    let output = one(story
         .handle(Input::JournalAsked {
             id: MessageId(1),
             page: 0,
         })
-        .unwrap();
+        .unwrap());
     let Some(Output::Journal {
         page: Page { journal, .. },
         ..
@@ -146,14 +152,14 @@ fn switching_characters_in_one_run_switches_worlds() {
         realm: "Stormrage".to_string(),
         name: "Bren".to_string(),
     };
-    story.handle(bren).unwrap();
+    one(story.handle(bren).unwrap());
     enter(&mut story, 2, "Durotar");
 
     let ada = Input::CharacterEntered {
         realm: "Stormrage".to_string(),
         name: "Ada".to_string(),
     };
-    story.handle(ada).unwrap();
+    one(story.handle(ada).unwrap());
 
     assert_eq!(places(&mut story), ["Elwynn Forest"]);
 }

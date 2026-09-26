@@ -8,6 +8,12 @@ use timeways_story::pack::{Link, Pack, Passage};
 use timeways_story::store::Store;
 use timeways_story::story::{Output, Story, StoryError};
 
+/// The one output of an input, or none.
+fn one(outputs: Vec<Output>) -> Option<Output> {
+    assert!(outputs.len() <= 1, "{outputs:?}");
+    outputs.into_iter().next()
+}
+
 fn passage(text: &str, source: &str, links: Vec<Link>) -> Passage {
     Passage {
         text: text.to_string(),
@@ -41,7 +47,7 @@ fn story_with(name: &str, passages: &[Passage]) -> Story {
         realm: "Testrealm".to_string(),
         name: "Tester".to_string(),
     };
-    assert_eq!(story.handle(character).unwrap(), None);
+    assert_eq!(one(story.handle(character).unwrap()), None);
     story
 }
 
@@ -51,7 +57,7 @@ fn enter(story: &mut Story, at: u64, zone: &str, subzone: Option<&str>) {
         zone: zone.to_string(),
         subzone: subzone.map(str::to_string),
     };
-    assert_eq!(story.handle(input).unwrap(), None);
+    assert_eq!(one(story.handle(input).unwrap()), None);
 }
 
 fn meet(story: &mut Story, at: u64, name: &str) {
@@ -59,7 +65,7 @@ fn meet(story: &mut Story, at: u64, name: &str) {
         at: Tick(at),
         name: name.to_string(),
     };
-    assert_eq!(story.handle(input).unwrap(), None);
+    assert_eq!(one(story.handle(input).unwrap()), None);
 }
 
 fn ask(story: &mut Story, question: &str, target: Option<&str>) -> Output {
@@ -68,7 +74,7 @@ fn ask(story: &mut Story, question: &str, target: Option<&str>) -> Output {
         question: question.to_string(),
         target: target.map(str::to_string),
     };
-    story.handle(input).unwrap().unwrap()
+    one(story.handle(input).unwrap()).unwrap()
 }
 
 fn model_call(output: Output) -> (CallId, String) {
@@ -90,7 +96,7 @@ fn sources(story: &mut Story, question: &str, target: Option<&str>) -> Vec<Strin
     let answer = match ask(story, question, target) {
         Output::LoreAnswer { answer, .. } => answer,
         Output::ModelCall { call, .. } => {
-            answer(story.handle(Input::ModelFailed { call }).unwrap())
+            answer(one(story.handle(Input::ModelFailed { call }).unwrap()))
         }
         other => panic!("a question gets no {other:?}"),
     };
@@ -105,12 +111,12 @@ fn sources(story: &mut Story, question: &str, target: Option<&str>) -> Vec<Strin
 fn a_game_event_gets_no_output() {
     let mut story = story_with("no-output", &[]);
 
-    let output = story
+    let output = one(story
         .handle(Input::LevelReached {
             at: Tick(1),
             level: 3,
         })
-        .unwrap();
+        .unwrap());
 
     assert_eq!(output, None);
 }
@@ -118,12 +124,12 @@ fn a_game_event_gets_no_output() {
 #[test]
 fn a_refused_game_event_is_an_error() {
     let mut story = story_with("refused", &[]);
-    story
+    one(story
         .handle(Input::LevelReached {
             at: Tick(1),
             level: 6,
         })
-        .unwrap();
+        .unwrap());
 
     let result = story.handle(Input::LevelReached {
         at: Tick(1),
@@ -173,7 +179,7 @@ fn the_model_answer_shows_with_the_passages() {
     let (call, _) = model_call(ask(&mut story, "why is this tower in ruins?", None));
 
     let text = "Goblins burned it [1].".to_string();
-    let output = story.handle(Input::ModelAnswered { call, text }).unwrap();
+    let output = one(story.handle(Input::ModelAnswered { call, text }).unwrap());
 
     let expected = Answer {
         text: Some("Goblins burned it [1].".to_string()),
@@ -189,10 +195,7 @@ fn a_bad_model_answer_asks_again_under_a_new_call() {
     let (call, _) = model_call(ask(&mut story, "why is this tower in ruins?", None));
 
     let text = "Goblins burned it.".to_string();
-    let output = story
-        .handle(Input::ModelAnswered { call, text })
-        .unwrap()
-        .unwrap();
+    let output = one(story.handle(Input::ModelAnswered { call, text }).unwrap()).unwrap();
 
     let (retry, prompt) = model_call(output);
     assert_eq!(retry, CallId(2));
@@ -205,7 +208,7 @@ fn a_failed_model_call_shows_the_passages_alone() {
     enter(&mut story, 1, "Testvale", None);
     let (call, _) = model_call(ask(&mut story, "why is this tower in ruins?", None));
 
-    let output = story.handle(Input::ModelFailed { call }).unwrap();
+    let output = one(story.handle(Input::ModelFailed { call }).unwrap());
 
     assert_eq!(
         answer(output),
@@ -230,7 +233,7 @@ fn an_answer_closes_its_call() {
     let mut story = story_with("closes", &[tower()]);
     enter(&mut story, 1, "Testvale", None);
     let (call, _) = model_call(ask(&mut story, "why is this tower in ruins?", None));
-    story.handle(Input::ModelFailed { call }).unwrap();
+    one(story.handle(Input::ModelFailed { call }).unwrap());
 
     let result = story.handle(Input::ModelFailed { call });
 
@@ -348,7 +351,7 @@ fn an_answer_holds_at_most_eight_passages() {
 fn a_hello_gets_the_protocol() {
     let mut story = story_with("hello", &[]);
 
-    let output = story.handle(Input::Hello).unwrap();
+    let output = one(story.handle(Input::Hello).unwrap());
 
     assert_eq!(output, Some(Output::Hello { protocol: 1 }));
 }
@@ -359,17 +362,13 @@ fn the_answer_carries_the_id_of_its_question_through_a_retry() {
     enter(&mut story, 1, "Testvale", None);
     let (call, _) = model_call(ask(&mut story, "why is this tower in ruins?", None));
     let text = "Goblins burned it.".to_string();
-    let (retry, _) = model_call(
-        story
-            .handle(Input::ModelAnswered { call, text })
-            .unwrap()
-            .unwrap(),
-    );
+    let (retry, _) =
+        model_call(one(story.handle(Input::ModelAnswered { call, text }).unwrap()).unwrap());
 
     let text = "Goblins burned it [1].".to_string();
-    let output = story
+    let output = one(story
         .handle(Input::ModelAnswered { call: retry, text })
-        .unwrap();
+        .unwrap());
 
     assert!(
         matches!(
@@ -388,12 +387,12 @@ fn a_journal_request_gets_the_first_page_with_its_id() {
     let mut story = story_with("journal", &[]);
     enter(&mut story, 1, "Testvale", None);
 
-    let output = story
+    let output = one(story
         .handle(Input::JournalAsked {
             id: MessageId(4),
             page: 0,
         })
-        .unwrap();
+        .unwrap());
 
     let Some(Output::Journal { id, page }) = output else {
         panic!("expected a journal, got {output:?}");
@@ -404,12 +403,12 @@ fn a_journal_request_gets_the_first_page_with_its_id() {
 }
 
 fn journal_page(story: &mut Story, page: usize) -> timeways_story::journal::Page {
-    match story
+    match one(story
         .handle(Input::JournalAsked {
             id: MessageId(1),
             page,
         })
-        .unwrap()
+        .unwrap())
     {
         Some(Output::Journal { page, .. }) => page,
         other => panic!("expected a journal, got {other:?}"),
@@ -497,10 +496,7 @@ fn a_lore_answer_with_long_passages_still_fits_in_one_reply() {
     let (call, _) = model_call(ask(&mut story, "tower", None));
 
     let text = format!("{} [1]", "\u{1}".repeat(990));
-    let output = story
-        .handle(Input::ModelAnswered { call, text })
-        .unwrap()
-        .unwrap();
+    let output = one(story.handle(Input::ModelAnswered { call, text }).unwrap()).unwrap();
 
     let line = serde_json::to_string(&output).unwrap();
     assert!(
@@ -512,20 +508,17 @@ fn a_lore_answer_with_long_passages_still_fits_in_one_reply() {
 }
 
 fn batch_end(story: &mut Story, id: u64) -> Output {
-    story
-        .handle(Input::BatchEnd { id: MessageId(id) })
-        .unwrap()
-        .unwrap()
+    one(story.handle(Input::BatchEnd { id: MessageId(id) }).unwrap()).unwrap()
 }
 
 fn level(story: &mut Story, at: u64, level: u8) {
     assert_eq!(
-        story
+        one(story
             .handle(Input::LevelReached {
                 at: Tick(at),
                 level
             })
-            .unwrap(),
+            .unwrap()),
         None
     );
 }
@@ -554,7 +547,7 @@ fn a_big_moment_asks_the_model_for_a_companion_line() {
 
     let (call, prompt) = model_call(batch_end(&mut story, 3));
     let text = "Level 13! Your boots still squeak, though.".to_string();
-    let output = story.handle(Input::ModelAnswered { call, text }).unwrap();
+    let output = one(story.handle(Input::ModelAnswered { call, text }).unwrap());
 
     assert!(
         prompt.ends_with("Moment: The player reached level 13."),
@@ -579,11 +572,11 @@ fn a_failed_or_bad_companion_line_is_silence() {
     level(&mut story, 3, 14);
     let (bad, _) = model_call(batch_end(&mut story, 4));
 
-    let after_failure = story.handle(Input::ModelFailed { call: failed }).unwrap();
+    let after_failure = one(story.handle(Input::ModelFailed { call: failed }).unwrap());
     let text = "See you in Shattrath!".to_string();
-    let after_bad_line = story
+    let after_bad_line = one(story
         .handle(Input::ModelAnswered { call: bad, text })
-        .unwrap();
+        .unwrap());
 
     assert_eq!(
         after_failure,
