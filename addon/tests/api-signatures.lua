@@ -50,6 +50,11 @@ return {
 				{ Name = "hasEvents", Type = "bool", Nilable = false },
 			},
 		},
+		["C_GossipInfo.GetText"] = {
+			Returns = {
+				{ Name = "gossipText", Type = "cstring", Nilable = false },
+			},
+		},
 		["C_Timer.After"] = {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {
@@ -765,6 +770,9 @@ return {
 				{ Name = "uiTextureKit", Type = "textureKit", Nilable = true },
 			},
 		},
+		ITEM_TEXT_READY = {
+			SynchronousEvent = true,
+		},
 		NAME_PLATE_UNIT_ADDED = {
 			SynchronousEvent = true,
 			Payload = {
@@ -806,11 +814,20 @@ return {
 		PLAYER_TARGET_CHANGED = {
 			SynchronousEvent = true,
 		},
+		QUEST_COMPLETE = {
+			SynchronousEvent = true,
+		},
 		QUEST_DETAIL = {
 			SynchronousEvent = true,
 			Payload = {
 				{ Name = "questStartItemID", Type = "number", Nilable = true },
 			},
+		},
+		QUEST_GREETING = {
+			SynchronousEvent = true,
+		},
+		QUEST_PROGRESS = {
+			SynchronousEvent = true,
 		},
 		SCREENSHOT_FAILED = {
 			SynchronousEvent = true,
@@ -833,7 +850,16 @@ return {
 	},
 	undocumented = {
 		"CreateFrame",
+		"GetGreetingText",
+		"GetObjectiveText",
+		"GetProgressText",
+		"GetQuestText",
+		"GetRewardText",
+		"GetTitleText",
 		"InCombatLockdown",
+		"ItemTextGetCreator",
+		"ItemTextGetItem",
+		"ItemTextGetText",
 		"PlaySound",
 		"bit.band",
 		"bit.bnot",

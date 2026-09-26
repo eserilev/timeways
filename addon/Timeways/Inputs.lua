@@ -67,6 +67,10 @@ function Inputs.Level(at, level)
 	return { type = "level_reached", at = at, level = level }
 end
 
+function Inputs.Seen(at, kind, title, npc, zone, text)
+	return { type = "text_seen", at = at, kind = kind, title = title, npc = npc, zone = zone, text = text }
+end
+
 function Inputs.Question(at, question, target)
 	return { type = "lore_asked", at = at, question = question, target = Present(target) }
 end

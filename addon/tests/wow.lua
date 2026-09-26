@@ -57,6 +57,51 @@ function UnitClassification(unit)
 	return u and u.classification or "normal"
 end
 
+-- The text of the open quest, gossip, or book window.
+wow.text = {}
+
+C_GossipInfo = {
+	GetText = function()
+		return wow.text.gossip
+	end,
+}
+
+function GetGreetingText()
+	return wow.text.greeting
+end
+
+function GetTitleText()
+	return wow.text.title
+end
+
+function GetQuestText()
+	return wow.text.quest
+end
+
+function GetObjectiveText()
+	return wow.text.objectives
+end
+
+function GetProgressText()
+	return wow.text.progress
+end
+
+function GetRewardText()
+	return wow.text.reward
+end
+
+function ItemTextGetItem()
+	return wow.text.item
+end
+
+function ItemTextGetText()
+	return wow.text.page
+end
+
+function ItemTextGetCreator()
+	return wow.text.creator
+end
+
 -- A test marks a value as hidden by putting it in this set.
 wow.secrets = {}
 function issecretvalue(value)

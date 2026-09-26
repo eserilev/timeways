@@ -10,8 +10,27 @@ local HANDLERS = {
 	ZONE_CHANGED = ns.Watch.Zone,
 	ZONE_CHANGED_INDOORS = ns.Watch.Zone,
 	PLAYER_LEVEL_UP = ns.Watch.Level,
-	GOSSIP_SHOW = ns.Watch.Npc,
-	QUEST_DETAIL = ns.Watch.Npc,
+	GOSSIP_SHOW = function()
+		ns.Watch.Npc()
+		ns.Seen.Gossip()
+	end,
+	QUEST_GREETING = function()
+		ns.Watch.Npc()
+		ns.Seen.QuestGreeting()
+	end,
+	QUEST_DETAIL = function()
+		ns.Watch.Npc()
+		ns.Seen.QuestDetail()
+	end,
+	QUEST_PROGRESS = function()
+		ns.Watch.Npc()
+		ns.Seen.QuestProgress()
+	end,
+	QUEST_COMPLETE = function()
+		ns.Watch.Npc()
+		ns.Seen.QuestComplete()
+	end,
+	ITEM_TEXT_READY = ns.Seen.Book,
 	PLAYER_TARGET_CHANGED = ns.Foes.SeeTarget,
 	UPDATE_MOUSEOVER_UNIT = ns.Foes.SeeMouseover,
 	NAME_PLATE_UNIT_ADDED = ns.Foes.See,
@@ -28,7 +47,11 @@ frame:RegisterEvent("ZONE_CHANGED")
 frame:RegisterEvent("ZONE_CHANGED_INDOORS")
 frame:RegisterEvent("PLAYER_LEVEL_UP")
 frame:RegisterEvent("GOSSIP_SHOW")
+frame:RegisterEvent("QUEST_GREETING")
 frame:RegisterEvent("QUEST_DETAIL")
+frame:RegisterEvent("QUEST_PROGRESS")
+frame:RegisterEvent("QUEST_COMPLETE")
+frame:RegisterEvent("ITEM_TEXT_READY")
 frame:RegisterEvent("PLAYER_TARGET_CHANGED")
 frame:RegisterEvent("UPDATE_MOUSEOVER_UNIT")
 frame:RegisterEvent("NAME_PLATE_UNIT_ADDED")

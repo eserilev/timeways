@@ -4,6 +4,7 @@
 use crate::character::Character;
 use crate::flavor::{Flavor, Told};
 use crate::hero::Change;
+use crate::seen::SeenText;
 use hourglass::{Event, EventId, Tick};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -248,6 +249,32 @@ impl HeroLog {
     }
 }
 
+/// The game text that the player saw, oldest first (see `seen`).
+#[derive(Debug, Default)]
+pub struct SeenLog {
+    texts: Vec<SeenText>,
+    path: Option<PathBuf>,
+}
+
+impl SeenLog {
+    #[must_use]
+    pub fn texts(&self) -> &[SeenText] {
+        &self.texts
+    }
+
+    /// # Errors
+    ///
+    /// Returns the I/O error of the write, and then keeps nothing.
+    pub fn add(&mut self, text: SeenText) -> Result<(), StoreError> {
+        if let Some(path) = &self.path {
+            append_lines(path, std::slice::from_ref(&text))
+                .map_err(|source| io_error(path, source))?;
+        }
+        self.texts.push(text);
+        Ok(())
+    }
+}
+
 /// What a character brings from the disk.
 pub struct Opened {
     pub character: Character,
@@ -255,6 +282,7 @@ pub struct Opened {
     pub prose: Prose,
     pub flavor: FlavorLog,
     pub hero: HeroLog,
+    pub seen: SeenLog,
 }
 
 impl Store {
@@ -270,6 +298,7 @@ impl Store {
                 prose: Prose::default(),
                 flavor: FlavorLog::default(),
                 hero: HeroLog::default(),
+                seen: SeenLog::default(),
             });
         };
         let path = folder.join(key.relative_path());
@@ -321,6 +350,13 @@ impl Store {
             changes,
             path: Some(hero_path),
         };
+        let seen_path = path.with_extension("seen.jsonl");
+        let texts: Vec<SeenText> =
+            read_lines(&seen_path, |_, _| true).map_err(|source| io_error(&seen_path, source))?;
+        let seen = SeenLog {
+            texts,
+            path: Some(seen_path),
+        };
         let history = HistoryFile {
             path,
             len: events.len(),
@@ -331,6 +367,7 @@ impl Store {
             prose,
             flavor,
             hero,
+            seen,
         })
     }
 }

@@ -1,0 +1,6 @@
+{"type":"zone_entered","at":1,"zone":"Testvale"}
+{"type":"text_seen","at":2,"kind":"gossip","npc":"Keeper Stubbs","zone":"Testvale","text":"Well met, $N.\n\nThe tower fell."}
+{"type":"text_seen","at":3,"kind":"quest","title":"The Fallen Tower","text":"Find the tower."}
+{"type":"text_seen","at":4,"kind":"book","title":"A History","text":"Long ago."}
+{"type":"lore_asked","id":1,"question":"tower","target":"Keeper Stubbs"}
+{"type":"talk_asked","id":2,"at":5,"npc":"Keeper Stubbs","text":"the tower"}

@@ -167,7 +167,7 @@ fn link(kind: String, name: String) -> Result<Link, PackError> {
 
 /// Any word matches. Each word is quoted, so a player who types `NEAR(` or `"` asks a
 /// plain question. The split matches the `unicode61` tokenizer of the index.
-fn match_query(text: &str) -> Option<String> {
+pub(crate) fn match_query(text: &str) -> Option<String> {
     let words: Vec<String> = text
         .split(|c: char| !c.is_alphanumeric())
         .filter(|word| !word.is_empty())

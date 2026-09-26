@@ -1,6 +1,7 @@
 //! What the bridge sends, one JSON object per line: game events from the addon, and the
 //! answers to model calls (GAMEPLAY.md 3.1, 5.4, and 5.6).
 
+use crate::seen::TextKind;
 use hourglass::Tick;
 use serde::{Deserialize, Serialize};
 
@@ -84,6 +85,19 @@ pub enum Input {
         target: Option<String>,
         #[serde(default)]
         hour: Option<u8>,
+    },
+    /// The text of a quest, a gossip window, or a book, as the player read it. `$N` stands
+    /// for the name of the character (GAMEPLAY.md 5.10).
+    TextSeen {
+        at: Tick,
+        kind: TextKind,
+        #[serde(default)]
+        title: Option<String>,
+        #[serde(default)]
+        npc: Option<String>,
+        #[serde(default)]
+        zone: Option<String>,
+        text: String,
     },
     /// `/lore`, with the name of the target when there is one.
     LoreAsked {

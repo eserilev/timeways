@@ -95,6 +95,7 @@ After each play session, the agent writes the session as a short saga in the voi
 An innkeeper tells you a rumor, and the rumor becomes a small quest line made for you.
 
 - Each step uses a real game goal that the addon can check from game events: kill 8 of a mob, visit a place, collect an item, talk to an NPC. The format follows [PlayerMadeQuests](https://github.com/runeberry/PlayerMadeQuests), which already tracks these goals.
+- **No overlap with the quests of the game.** A side quest never repeats, continues, or changes a quest of the game: one that exists now, or one that comes in a later phase. It never sends you to the goal of a game quest, and it never claims a deed of one. It lives only in your own story.
 - A quest is plain text. You read it before you accept it.
 - The rewards are story: a title in your journal, a line in your chronicle, and an NPC who trusts you more and tells you more lore later.
 - Hourglass keeps the quests consistent. A quest cannot send you to an NPC who died in your story, or to a place that you never heard of.
@@ -244,7 +245,8 @@ A first list. Each name goes through the API gate of Gnomish Relay (`scripts/wow
 | Kill of a rare or a boss | `PARTY_KILL` for a unit that the addon saw as rare, rare elite, or world boss (`PLAYER_TARGET_CHANGED`, `UPDATE_MOUSEOVER_UNIT`, `NAME_PLATE_UNIT_ADDED`), and `ENCOUNTER_END` with `success` 1 |
 | Your death | `PLAYER_DEAD`, and the killing blow from `C_DeathRecap.GetRecapEvents()` |
 | Boss fight | `ENCOUNTER_START`, `ENCOUNTER_END` |
-| Talk to an NPC | `GOSSIP_SHOW`, `QUEST_DETAIL` |
+| Talk to an NPC | `GOSSIP_SHOW`, `QUEST_GREETING`, `QUEST_DETAIL`, `QUEST_PROGRESS`, `QUEST_COMPLETE` |
+| The text that you read | The same events, and `ITEM_TEXT_READY` for a book (5.10) |
 | Loot | `CHAT_MSG_LOOT` |
 | Group and guild | `GROUP_ROSTER_UPDATE`, `GUILD_ROSTER_UPDATE` |
 
@@ -443,7 +445,11 @@ A web request for each question is slow, depends on one website, and sends whole
 **The lore of each player**, in the data folder of the bridge:
 
 - **The world:** the Hourglass history, one append-only file per character (5.7).
-- **The text that the player saw:** a table per character next to the pack. The addon sends the game text of each quest, gossip, and book as the player sees it. It covers the text that the server sends and the client files do not hold. A search reads this table together with the pack.
+- **The text that the player saw** (built): the addon sends the game text of each quest, gossip window, and book as the player reads it. It covers the text that the server sends and the client files do not hold.
+  - The name of the character becomes `$N` in the addon, so no model sees it (5.11). A letter that a player wrote has a creator, and never goes out.
+  - A file for each character keeps each text once (`c_<name>.seen.jsonl`). An index in memory searches it, and is built again at each start.
+  - The player read the text, so it passes the spoiler limit. A search takes turns between this text and the pack.
+  - The addon cuts a text at 2000 bytes.
 - **Not in the saved variables.** Any addon can read the saved variables of another addon, so they hold only window state.
 
 ### 5.11 Player names: the alias table

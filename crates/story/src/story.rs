@@ -11,8 +11,10 @@ use crate::moments::{Moment, best, moments};
 use crate::narrator::{self, Budget};
 use crate::pack::{Link, Pack, PackError, Passage};
 use crate::prompt::Context;
+use crate::seen::{MAX_SEEN_BYTES, SeenIndex, SeenText};
 use crate::store::{
-    CharacterKey, FlavorLog, HeroLog, HistoryFile, Opened, Prose, Store, StoreError, Written,
+    CharacterKey, FlavorLog, HeroLog, HistoryFile, Opened, Prose, SeenLog, Store, StoreError,
+    Written,
 };
 use crate::talk::{self, Scene};
 use crate::titles;
@@ -106,6 +108,12 @@ pub enum StoryError {
         "the words are empty, longer than {MAX_WORDS_BYTES} bytes, or hold a control character"
     )]
     BadWords,
+    #[error(
+        "a seen text is empty, longer than {MAX_SEEN_BYTES} bytes, or holds a control character"
+    )]
+    BadSeenText,
+    #[error("seen text: {0}")]
+    Seen(#[from] rusqlite::Error),
     #[error(transparent)]
     Store(#[from] StoreError),
 }
@@ -118,6 +126,8 @@ struct Active {
     prose: Prose,
     flavor: FlavorLog,
     hero: HeroLog,
+    seen: SeenLog,
+    seen_index: SeenIndex,
     /// Why the last edit of the hero did not stand, until a journal page shows it.
     hero_refused: Option<String>,
 }
@@ -279,6 +289,24 @@ impl Story {
             Input::LevelReached { at, level } => {
                 self.change(|character| character.reach_level(at, level))
             }
+            Input::TextSeen {
+                at: _,
+                kind,
+                title,
+                npc,
+                zone,
+                text,
+            } => {
+                let seen = checked_seen(SeenText {
+                    kind,
+                    title,
+                    npc,
+                    zone,
+                    text,
+                })?;
+                self.add_seen(seen)?;
+                Ok(Vec::new())
+            }
             Input::LoreAsked {
                 id,
                 question,
@@ -408,6 +436,17 @@ impl Story {
         })
     }
 
+    /// A text that the character saw before changes nothing, also on the disk.
+    fn add_seen(&mut self, text: SeenText) -> Result<(), StoryError> {
+        let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
+        if active.seen_index.contains(&text) {
+            return Ok(());
+        }
+        active.seen.add(text.clone())?;
+        active.seen_index.add(text)?;
+        Ok(())
+    }
+
     /// The same character again changes nothing, so each batch can name it.
     /// A refused switch leaves no character active, so the events of the new character
     /// never land in the world of the old one.
@@ -433,7 +472,9 @@ impl Story {
             prose,
             flavor,
             hero,
+            seen,
         } = self.store.open(&key)?;
+        let seen_index = SeenIndex::new(seen.texts())?;
         self.active = Some(Active {
             key,
             character,
@@ -441,6 +482,8 @@ impl Story {
             prose,
             flavor,
             hero,
+            seen,
+            seen_index,
             hero_refused: None,
         });
         Ok(())
@@ -750,7 +793,8 @@ impl Story {
         self.change(|character| character.meet_npc(at, npc))?;
         let active = self.active.as_ref().ok_or(StoryError::NoCharacter)?;
         let character = &active.character;
-        let mut passages = passages_for(&self.pack, character, words, Some(npc))?;
+        let mut passages =
+            passages_for(&self.pack, &active.seen_index, character, words, Some(npc))?;
         passages.truncate(TALK_PASSAGES);
         let place = character.place_of(npc);
         let hero = hero::hero(active.hero.changes());
@@ -790,8 +834,9 @@ impl Story {
         question: &str,
         target: Option<&str>,
     ) -> Result<Output, StoryError> {
-        let character = self.character()?;
-        let passages = passages_for(&self.pack, character, question, target)?;
+        let active = self.active.as_ref().ok_or(StoryError::NoCharacter)?;
+        let character = &active.character;
+        let passages = passages_for(&self.pack, &active.seen_index, character, question, target)?;
         if passages.is_empty() {
             let answer = Answer {
                 text: None,
@@ -836,24 +881,28 @@ impl Story {
 }
 
 /// The question and where you stand pick the passages. The spoiler limit then drops each
-/// passage about something that your world does not hold. The rest stop at the size that
-/// leaves room for a model answer in one reply.
+/// passage of the pack about something that your world does not hold. The text that you
+/// saw passes it, and takes turns with the pack. The rest stop at the size that leaves room
+/// for a model answer in one reply.
 fn passages_for(
     pack: &Pack,
+    seen: &SeenIndex,
     character: &Character,
     question: &str,
     target: Option<&str>,
-) -> Result<Vec<Passage>, PackError> {
+) -> Result<Vec<Passage>, StoryError> {
     let mut words = vec![question];
     words.extend(character.place_names());
     words.extend(target);
-    let found = pack.search(&words.join(" "), CANDIDATES)?;
-    let mut passages = Vec::new();
-    let mut used = 0;
-    for passage in found
+    let words = words.join(" ");
+    let known: Vec<Passage> = pack
+        .search(&words, CANDIDATES)?
         .into_iter()
         .filter(|passage| knows_all(character, &passage.links))
-    {
+        .collect();
+    let mut passages = Vec::new();
+    let mut used = 0;
+    for passage in take_turns(seen.search(&words, CANDIDATES)?, known) {
         used += serde_json::to_vec(&passage).map_or(PAGE_BYTES, |bytes| bytes.len()) + 1;
         if passages.len() == ANSWER_SIZE || used > PASSAGE_BYTES {
             break;
@@ -861,6 +910,34 @@ fn passages_for(
         passages.push(passage);
     }
     Ok(passages)
+}
+
+fn take_turns(first: Vec<Passage>, second: Vec<Passage>) -> Vec<Passage> {
+    let mut first = first.into_iter();
+    let mut second = second.into_iter();
+    let mut turns = Vec::new();
+    loop {
+        let (a, b) = (first.next(), second.next());
+        if a.is_none() && b.is_none() {
+            return turns;
+        }
+        turns.extend(a);
+        turns.extend(b);
+    }
+}
+
+/// A seen text keeps its line breaks. Any other control character comes from a bug or a
+/// hostile addon.
+fn checked_seen(seen: SeenText) -> Result<SeenText, StoryError> {
+    seen.title.as_deref().map(checked_name).transpose()?;
+    seen.npc.as_deref().map(checked_name).transpose()?;
+    seen.zone.as_deref().map(checked_name).transpose()?;
+    let text = &seen.text;
+    let control = text.chars().any(|c| c.is_control() && c != '\n');
+    if text.trim().is_empty() || text.len() > MAX_SEEN_BYTES || control {
+        return Err(StoryError::BadSeenText);
+    }
+    Ok(seen)
 }
 
 fn knows_all(character: &Character, links: &[Link]) -> bool {

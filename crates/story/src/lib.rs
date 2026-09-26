@@ -12,6 +12,7 @@ pub mod moments;
 pub mod narrator;
 pub mod pack;
 pub mod prompt;
+pub mod seen;
 pub mod serve;
 pub mod store;
 pub mod story;

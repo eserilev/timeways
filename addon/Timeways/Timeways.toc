@@ -20,6 +20,7 @@ Inputs.lua
 Link.lua
 Outbox.lua
 Watch.lua
+Seen.lua
 Foes.lua
 Emotes.lua
 Lore.lua
