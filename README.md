@@ -38,11 +38,11 @@ It reads JSON lines on stdin and writes JSON lines on stdout. The bridge of Gnom
 
 ## A lore pack by hand
 
-No real lore pack exists yet (GAMEPLAY.md 5.10). To try `/lore`, write passages as JSON lines, one passage for each line, and build a pack:
+No real lore pack exists yet (GAMEPLAY.md 5.10). To try `/lore`, write passages as JSON lines, one passage for each line, and build a pack. The example is invented. Real passages come only from a source, never from memory:
 
 ```sh
 cat > passages.jsonl <<'LINES'
-{"text": "Goldshire has an inn, the Lion's Pride.", "source": "https://example.test/1", "places": ["Goldshire"], "npcs": ["Innkeeper Farley"]}
+{"text": "The tower of Testvale fell to test goblins.", "source": "https://example.test/1", "places": ["Testvale"], "npcs": ["Keeper Stubbs"]}
 LINES
 cargo run -q --bin timeways-pack -- passages.jsonl pack.sqlite
 ```
