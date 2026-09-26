@@ -6,7 +6,7 @@ Timeways is a World of Warcraft: Forever addon. It adds a story layer to the gam
 
 An AI model writes the words. A rules engine decides what is true. The game itself supplies the facts.
 
-Status: early build. The story program reads game events and keeps the world of one character in memory.
+Status: early build. The story program keeps the world of one character in memory. It answers `/lore` with passages from a pack under the spoiler limit, and asks the bridge for a model answer that it checks. No real pack exists yet.
 
 ## 1. The four parts
 
@@ -282,12 +282,16 @@ Timeways uses the transport of Gnomish Relay, with its own key and its own slots
 
 - Lore answers need no web access: the passages come from the lore pack (5.10).
 - **A budget** limits the use: a number of calls per hour, and a length per answer. The companion and the chronicle use the fewest calls. The budget matters most for a subscription agent, because its calls count against the player's plan.
-- A story call needs no coding tools. So a plain model call is a better fit than a coding agent. With a coding agent, the story module starts it with no tools. With a local server, it is a new backend kind for Gnomish Relay (section 9).
+- A story call needs no coding tools. **The story program never starts a model itself.** It asks the bridge for a model call over the app protocol, and the bridge runs the model with no tools and returns only text (Gnomish Relay SPEC 9.7, decision 10):
+  - Claude runs with `--tools ""`, no MCP servers, no user or project settings, in an empty temp folder, and behind the `PreToolUse` gate that denies every tool.
+  - A local server is called through `curl` on `127.0.0.1` or `[::1]` only, with no redirects and no proxy. Its answer is hostile text, like an agent reply.
+- **The bridge enforces the budget**, with the proved rate limiter of the relay (S14). A hostile addon that drives Timeways cannot spend the player's plan faster than that.
 - Timeways runs no model server of its own. A paid model service for an addon is a gray zone of Blizzard's add-on policy, and a server costs money for every call.
 
 ### 5.7 Storage
 
-- The history of each world is a file in the data folder of the bridge, for example `timeways/<realm>/<character>.json`.
+- The history of each world is a file in the data folder of the bridge, under `timeways/`. The story program writes only there, inside its sandbox (5.12).
+- Realm and character names come from the game, with spaces, apostrophes, and non-ASCII letters. They map to safe ids, and never become file names directly.
 - The state is not stored. `World::replay` builds it from the history at start.
 - Undo is cheap: cut the history and replay (`World::rewind`).
 
@@ -324,7 +328,9 @@ A web request for each question is slow, depends on one website, and sends whole
 **The sources of the pack**, built in CI:
 
 1. **The game files of the Forever build.** The client ships database tables: `BroadcastText` holds most NPC dialogue and gossip, and other tables hold zone names, book and item texts, and creature names. This is exact Forever canon, also for its new content, which no wiki knows yet.
-2. **Forever-era wiki pages**, fetched once at build time, cut into short passages, each with its source link. The text of warcraft.wiki.gg is CC BY-SA, so the pack names its sources and keeps that license.
+2. **Forever-era wiki pages**, from a database dump of warcraft.wiki.gg, cut into short passages, each with its source link. The text is CC BY-SA, so the pack names its sources and keeps that license.
+   - **A dump, never a fetch.** The terms of wiki.gg forbid crawling and scraping, and `robots.txt` blocks `/api.php`. The build reads a local dump file.
+   - **The infoboxes give the links.** The raw wikitext of a dump holds each infobox call, for example `{{Npcbox}}` with its location. The Cargo tables of the wiki hold only a few of these fields.
 
 **The pack:**
 
@@ -369,10 +375,15 @@ Timeways and Gnomish Relay are two separate addons, each with its own listing on
 
 **A key for each addon.**
 
-- Setup makes `keys/relay.key` and `keys/timeways.key` in the data folder, with mode 0600, and writes a `Key.lua` into each addon folder. The bridge refuses to start if the two keys are the same.
-- The bridge tries each key on a strip. The key that verifies names the app. No proved statement changes: `check_frame` already takes the result of the tag check as one value.
+**The relay side of this section is Gnomish Relay SPEC 9.7.** It is the approved plan, and it wins where the two differ.
+
+- The relay key stays `strip.key`. Setup makes `timeways.key` next to it, in the config folder of the bridge, with mode 0600, and writes a `Key.lua` into the Timeways addon folder. The classifier of the relay denies both keys to every agent. The bridge refuses to start if the two keys are the same.
+- The bridge checks the tag of each strip under both keys. One key verifies: that app. None: refused. Both: refused as ambiguous. A new statement, S29, proves this choice. A frame in the saved variables of one app counts only under that app's key.
+- **Proved statements change.** Each app sets its own Lua globals in its slot files (`Timeways_SlotData` and more), so one app never overwrites what the other is about to read. S9, S18, and S20 of the relay are restated over the app (approved).
+- The Timeways lane parses only the transport flags. A coding flag such as `perm=` or `level=` in a Timeways record does nothing, and a non-empty `cwd` is refused.
+- **What the key split protects.** It stops a bug or a hacked story program from reaching the agents. It does not stop a hostile addon that loads first from reading either key.
 - **A strip signed with the Timeways key reaches only the story program**, never a coding agent. The bridge enforces this: the story route has no access to the agents. So a Timeways bug, a hacked Timeways update, or a hostile addon that drives Timeways gets only story powers: the model budget, false game facts in the world, and fake story text. It gets no path to commands.
-- A player with only Timeways has no coding config at all.
+- A player with only Timeways has no coding config: setup asks no folder question and sets up no coding agent. The config has only a `[story]` section for the model.
 
 **No public send function.** Each addon carries its own private copy of the Lua transport: `Codec.lua`, `Sha256.lua`, `Strip.lua`, and the slot poll. A shared library addon is refused: its key would pass through a global function, and a hostile addon could hook it. One source folder of the transport, with its tests, lives in the Gnomish Relay repo. The packaging of each addon copies it, with a version pin.
 
@@ -380,13 +391,15 @@ Timeways and Gnomish Relay are two separate addons, each with its own listing on
 
 **One strip at a time.** Both addons draw their strip in the same corner, so they take turns. A shared global busy value holds the time when the current strip ends. Each addon checks and sets it in one handler, and WoW Lua runs on one thread. A hostile addon can hold the value to block strips, which it can do today anyway. After 30 s of "busy", each addon shows "Screenshots blocked by another addon".
 
-**The bridge keeps each app apart:** a replay store, a `state.json`, a rate limit, a slot window, a saved-variables file to watch, and a reload inbox for each app.
+**The bridge keeps each app apart:** a replay store, a state file, a rate limit, a slot window, a saved-variables file to watch, a reload inbox, tokens, and restore for each app. Timeways has no restore bundle: its state lives on the desktop, and the addon rebuilds from there.
 
 **The story program.** The bridge starts `timeways-story` when the Timeways key exists, the same way it starts an ACP agent. They talk over stdin and stdout, with JSON lines:
 
 - The bridge sends the decoded Timeways records.
-- The story program sends back the story text and the files to publish.
-- The story program never touches the game folder, the keys, or the agents.
+- The story program sends back the story text. The bridge writes every file that the game reads, with the proved writers.
+- The story program reads hostile text, so it runs in the sandbox of the relay (SPEC 6.6.4): it writes only `<data>/timeways/`, has no network, and cannot read the protected paths. On Windows there is no sandbox yet: Timeways runs, with a one-time warning.
+- The bridge starts it from a path in the config, with no shell and a short list of environment variables. `restart` and `update` restart it too, and a crash restarts it after a delay.
+- The bridge writes only `Key.lua` into the Timeways addon folder, never other Timeways files.
 
 This keeps the releases apart: Timeways ships `timeways-story` on its own schedule, and Gnomish Relay does not depend on Hourglass. Timeways tests the story program alone, with a fake bridge.
 
@@ -464,8 +477,10 @@ The guild world keeps `defeated` from the guild to each boss. So the saga gets a
 ## 9. Open questions
 
 1. **Hourglass stability.** Its spec says that no consumer calls it yet. Timeways pins one commit until the API is stable.
-2. **A plain model backend for Gnomish Relay.** A story call needs no coding tools. Add a `model` kind next to `acp` and `echo`, for Ollama and LM Studio? How does a coding agent run with no tools for a story call?
+2. **Decided: model calls go through the bridge, with no tools** (5.6, and Gnomish Relay SPEC 9.7). Was: a plain model backend for Gnomish Relay. A story call needs no coding tools. Add a `model` kind next to `acp` and `echo`, for Ollama and LM Studio? How does a coding agent run with no tools for a story call?
 3. **The wiki.** warcraft.wiki.gg text is CC BY-SA. The pack keeps the source of each passage and the license. Answers summarize and cite, and they do not copy long passages.
+   - **No dump is available yet** (checked on 2026-09-25). `Special:Statistics` shows none. A request goes through `Special:Contact` on the wiki, or through the wiki.gg service desk. wiki.gg allows one request every 7 days.
+   - Until the dump arrives, the tests of the lore code use invented passages only.
 4. **The game files.** Which tool reads the database tables of the Forever build in CI, and which tables hold the text? Quest text is mostly sent by the server, so the pack gets it from what players see.
 5. **The API of the Forever client.** Check each event in 5.4 with the API gate.
 6. **The canon seed.** Which canon characters, places, and factions go into every world at the start, and with which facts? The Forever client data (for example its database tables for the Forever build) is the best source.

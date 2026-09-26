@@ -1,6 +1,5 @@
 //! The world of one character, fed by game events (GAMEPLAY.md 5.1 and 5.2).
 
-use crate::record::{GameEvent, Record};
 use crate::vocabulary::{self, LEVEL, MET, VISITED};
 use hourglass::{EntityId, EntityType, EventKind, LOCATED_IN, Rejection, Tick, World};
 
@@ -45,19 +44,46 @@ impl Character {
         self.you
     }
 
-    /// # Errors
-    ///
-    /// Returns the first refusal of Hourglass. The events before it stay in the world.
-    pub fn apply(&mut self, record: &Record) -> Result<(), Refusal> {
-        let at = record.at;
-        match &record.event {
-            GameEvent::ZoneEntered { zone, subzone } => self.enter(at, zone, subzone.as_deref()),
-            GameEvent::NpcMet { name } => self.meet(at, name),
-            GameEvent::LevelReached { level } => self.reach_level(at, i64::from(*level)),
-        }
+    #[must_use]
+    pub fn level(&self) -> Option<i64> {
+        self.world.entity(self.you).and_then(|you| you.value(LEVEL))
     }
 
-    fn enter(&mut self, at: Tick, zone: &str, subzone: Option<&str>) -> Result<(), Refusal> {
+    #[must_use]
+    pub fn has_visited(&self, place: &str) -> bool {
+        self.holds_about(VISITED, EntityType::Place, place)
+    }
+
+    #[must_use]
+    pub fn has_met(&self, npc: &str) -> bool {
+        self.holds_about(MET, EntityType::Person, npc)
+    }
+
+    /// Where you stand, then each place around it: the subzone, then the zone.
+    #[must_use]
+    pub fn place_names(&self) -> Vec<&str> {
+        let Some(here) = self.world.location_of(self.you) else {
+            return Vec::new();
+        };
+        let mut places = vec![here];
+        places.extend(self.world.ancestry(here));
+        places
+            .into_iter()
+            .filter_map(|id| self.world.entity(id))
+            .map(|place| place.name.as_str())
+            .collect()
+    }
+
+    /// # Errors
+    ///
+    /// Returns the first refusal of Hourglass. The events before it stay in the world,
+    /// because each Hourglass event stands alone.
+    pub fn enter_zone(
+        &mut self,
+        at: Tick,
+        zone: &str,
+        subzone: Option<&str>,
+    ) -> Result<(), Refusal> {
         let zone_id = self.find_or_create(at, EntityType::Place, zone)?;
         self.start_once(at, self.you, VISITED, zone_id)?;
         // WoW gives the zone name as the subzone in some places, for example in capitals.
@@ -70,7 +96,10 @@ impl Character {
         self.settle(at, self.you, subzone_id)
     }
 
-    fn meet(&mut self, at: Tick, name: &str) -> Result<(), Refusal> {
+    /// # Errors
+    ///
+    /// Returns the first refusal of Hourglass.
+    pub fn meet_npc(&mut self, at: Tick, name: &str) -> Result<(), Refusal> {
         let npc = self.find_or_create(at, EntityType::Person, name)?;
         if let Some(here) = self.world.location_of(self.you) {
             self.settle(at, npc, here)?;
@@ -78,9 +107,12 @@ impl Character {
         self.start_once(at, self.you, MET, npc)
     }
 
-    fn reach_level(&mut self, at: Tick, level: i64) -> Result<(), Refusal> {
-        let held = self.world.entity(self.you).and_then(|you| you.value(LEVEL));
-        let kind = match held {
+    /// # Errors
+    ///
+    /// Returns the refusal of Hourglass, for example for a level lower than the one held.
+    pub fn reach_level(&mut self, at: Tick, level: u8) -> Result<(), Refusal> {
+        let level = i64::from(level);
+        let kind = match self.level() {
             Some(held) if held == level => return Ok(()),
             Some(held) => EventKind::FactUpdate {
                 entity: self.you,
@@ -116,6 +148,15 @@ impl Character {
         };
         self.propose(at, kind)?;
         Ok(id)
+    }
+
+    fn holds_about(&self, fact: &str, entity_type: EntityType, name: &str) -> bool {
+        let Some(target) = self.find(entity_type, name) else {
+            return false;
+        };
+        self.world
+            .entity(self.you)
+            .is_some_and(|you| you.fact(fact, Some(target)).is_some())
     }
 
     fn find(&self, entity_type: EntityType, name: &str) -> Option<EntityId> {

@@ -1,5 +1,10 @@
 //! The story program of Timeways (GAMEPLAY.md 5).
 
 pub mod character;
-pub mod record;
+pub mod check;
+pub mod input;
+pub mod lore;
+pub mod pack;
+pub mod prompt;
+pub mod story;
 pub mod vocabulary;

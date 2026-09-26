@@ -1,0 +1,6 @@
+# Names from after the lore cutoff of WoW Forever (GAMEPLAY.md 5.9, layer 4).
+# A model answer that holds one of these names gets one retry, then it is dropped.
+# One name per line. The match ignores case and matches whole words only.
+# Only a name that did not exist in 25 ADP goes here. Ragnaros, Arthas, and Illidan stay allowed.
+Shattrath
+Pandaria

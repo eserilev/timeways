@@ -1,29 +1,50 @@
-//! Reads game events from the bridge on stdin (GAMEPLAY.md 5.12).
+//! Reads inputs from the bridge on stdin, and writes outputs on stdout (GAMEPLAY.md 5.12).
 //!
 //! Stdout carries only the protocol, so every problem goes to stderr.
 
+use std::error::Error;
 use std::io::{self, BufRead, Write};
-use timeways_story::character::{Character, Refusal};
-use timeways_story::record::Record;
+use std::path::PathBuf;
+use std::process::ExitCode;
+use timeways_story::character::Character;
+use timeways_story::input::Input;
+use timeways_story::pack::Pack;
+use timeways_story::story::Story;
 
-fn main() -> io::Result<()> {
-    let mut character = Character::new();
+fn main() -> ExitCode {
+    let Some(pack) = std::env::args_os().nth(1).map(PathBuf::from) else {
+        eprintln!("usage: timeways-story <lore pack>");
+        return ExitCode::FAILURE;
+    };
+    let result = Pack::open(&pack)
+        .map_err(Box::from)
+        .and_then(|pack| serve(&mut Story::new(Character::new(), pack)));
+    match result {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!("{error}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+fn serve(story: &mut Story) -> Result<(), Box<dyn Error>> {
+    let mut out = io::stdout().lock();
     let mut log = io::stderr().lock();
     for line in io::stdin().lock().lines() {
         let line = line?;
-        match serde_json::from_str::<Record>(&line) {
-            Err(error) => writeln!(log, "bad record: {error}: {line}")?,
-            Ok(record) => {
-                if let Err(refusal) = character.apply(&record) {
-                    writeln!(log, "refused: {}: {line}", reasons(&refusal))?;
-                }
+        let input = match serde_json::from_str::<Input>(&line) {
+            Ok(input) => input,
+            Err(error) => {
+                writeln!(log, "bad input: {error}: {line}")?;
+                continue;
             }
+        };
+        match story.handle(input) {
+            Ok(None) => {}
+            Ok(Some(output)) => writeln!(out, "{}", serde_json::to_string(&output)?)?,
+            Err(error) => writeln!(log, "{error}: {line}")?,
         }
     }
     Ok(())
-}
-
-fn reasons(refusal: &Refusal) -> String {
-    let reasons: Vec<String> = refusal.iter().map(ToString::to_string).collect();
-    reasons.join("; ")
 }

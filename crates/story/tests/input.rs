@@ -1,0 +1,117 @@
+use hourglass::Tick;
+use timeways_story::input::{CallId, Input};
+
+fn parse(line: &str) -> Result<Input, serde_json::Error> {
+    serde_json::from_str(line)
+}
+
+#[test]
+fn a_zone_input_reads_with_its_subzone() {
+    let line = r#"{"type":"zone_entered","at":100,"zone":"Elwynn Forest","subzone":"Goldshire"}"#;
+
+    let input = parse(line).unwrap();
+
+    let expected = Input::ZoneEntered {
+        at: Tick(100),
+        zone: "Elwynn Forest".to_string(),
+        subzone: Some("Goldshire".to_string()),
+    };
+    assert_eq!(input, expected);
+}
+
+#[test]
+fn a_zone_input_reads_with_no_subzone() {
+    let line = r#"{"type":"zone_entered","at":100,"zone":"Elwynn Forest"}"#;
+
+    let input = parse(line).unwrap();
+
+    let expected = Input::ZoneEntered {
+        at: Tick(100),
+        zone: "Elwynn Forest".to_string(),
+        subzone: None,
+    };
+    assert_eq!(input, expected);
+}
+
+#[test]
+fn an_npc_input_reads() {
+    let line = r#"{"type":"npc_met","at":100,"name":"Innkeeper Farley"}"#;
+
+    let input = parse(line).unwrap();
+
+    assert_eq!(
+        input,
+        Input::NpcMet {
+            at: Tick(100),
+            name: "Innkeeper Farley".to_string()
+        }
+    );
+}
+
+#[test]
+fn a_level_input_reads() {
+    let line = r#"{"type":"level_reached","at":100,"level":12}"#;
+
+    let input = parse(line).unwrap();
+
+    assert_eq!(
+        input,
+        Input::LevelReached {
+            at: Tick(100),
+            level: 12
+        }
+    );
+}
+
+#[test]
+fn a_lore_input_reads_with_its_target() {
+    let line = r#"{"type":"lore_asked","at":100,"question":"who is this?","target":"Hogger"}"#;
+
+    let input = parse(line).unwrap();
+
+    let expected = Input::LoreAsked {
+        at: Tick(100),
+        question: "who is this?".to_string(),
+        target: Some("Hogger".to_string()),
+    };
+    assert_eq!(input, expected);
+}
+
+#[test]
+fn a_model_answer_reads() {
+    let line = r#"{"type":"model_answered","call":7,"text":"Nobody knows."}"#;
+
+    let input = parse(line).unwrap();
+
+    assert_eq!(
+        input,
+        Input::ModelAnswered {
+            call: CallId(7),
+            text: "Nobody knows.".to_string()
+        }
+    );
+}
+
+#[test]
+fn a_model_failure_reads() {
+    let line = r#"{"type":"model_failed","call":7}"#;
+
+    let input = parse(line).unwrap();
+
+    assert_eq!(input, Input::ModelFailed { call: CallId(7) });
+}
+
+#[test]
+fn an_unknown_type_is_refused() {
+    assert!(parse(r#"{"type":"dragon_slain","at":100}"#).is_err());
+}
+
+#[test]
+fn a_negative_level_is_refused() {
+    assert!(parse(r#"{"type":"level_reached","at":100,"level":-1}"#).is_err());
+}
+
+#[test]
+fn a_game_event_with_no_time_is_refused() {
+    assert!(parse(r#"{"type":"npc_met","name":"Innkeeper Farley"}"#).is_err());
+}
