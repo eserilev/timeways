@@ -62,6 +62,17 @@ stylua --check addon
 selene addon/Timeways
 ```
 
+`cargo test` also runs the property tests of `crates/story/tests/properties.rs`: rules that hold for any play, such as a world that reads back the same after any restart.
+
+The fuzz targets in `fuzz/` feed random input to the parts that read text from outside: the input lines, the files on disk, the answers of a model, `Json.lua`, and the journal pages. They need the nightly toolchain and `cargo-fuzz`:
+
+```sh
+scripts/fuzz.sh 60            # each target for 60 seconds
+scripts/fuzz.sh 300 answers   # one target
+```
+
+A crash leaves its input in `fuzz/artifacts/`. Turn it into a test or a seed first, then fix the bug.
+
 The API gate of Gnomish Relay checks that every WoW function and event that the addon uses exists in the Forever client:
 
 ```sh

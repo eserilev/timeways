@@ -1,0 +1,5 @@
+{"id":0,"tick":0,"kind":{"EntityCreated":{"id":0,"entity_type":"Person","name":"you"}}}
+{"id":1,"tick":5,"kind":{"FactStart":{"entity":0,"name":"level","value":12,"linked_to":null}}}
+ÿ{"line":"moment","at":5,"hour":3,"place":"Goldshire","kind":"emote","emote":"dance","target":null}
+ÿ{"line":"set","at":6,"field":"goal","text":"Find him."}
+ÿ{"began":5,"text":"Our hero rode west.","footnotes":[]}

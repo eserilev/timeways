@@ -1,0 +1,54 @@
+[package]
+name = "timeways-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+arbitrary = { version = "1", features = ["derive"] }
+libfuzzer-sys = "0.4"
+mlua = { version = "0.12", features = ["lua51", "vendored"] }
+rusty-hourglass = { git = "https://github.com/eserilev/rusty-hourglass", rev = "f1a7bb45b3e4c009789c6f7bdc4341ee310b8baf" }
+serde_json = "1"
+timeways-story = { path = "../crates/story" }
+
+# Not a member of the main workspace: fuzzing needs nightly and libFuzzer.
+[workspace]
+
+[[bin]]
+name = "input"
+path = "fuzz_targets/input.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "store"
+path = "fuzz_targets/store.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "answers"
+path = "fuzz_targets/answers.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "json_lua"
+path = "fuzz_targets/json_lua.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "pages"
+path = "fuzz_targets/pages.rs"
+test = false
+doc = false
+bench = false

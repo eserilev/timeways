@@ -34,6 +34,8 @@ A comment says why, never what. If a comment repeats the code, delete it.
 - Each test reads top to bottom: arrange, act, assert.
 - No test needs the game or a real model, except tests marked `#[ignore]` for live runs.
 - A bug fix starts with a failing test.
+- A rule that holds for any play gets a property test in `crates/story/tests/properties.rs`. Make the edges of a number likely: a uniform draw almost never reaches them.
+- Code that reads text from outside (the bridge, a file, a model) gets a fuzz target in `fuzz/`. A bug that a fuzzer missed becomes a seed in `fuzz/seeds/`.
 
 ## Checks
 

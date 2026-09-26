@@ -1,0 +1,1 @@
+{"type":"journal","page":0,"pages":1,"hero":{"sheet":[{"field":"goal","text":"A \"quoted\" é goal"}],"entries":[]},"chapters":[],"deeds":[{"kind":"level","from":null,"to":12,"at":5,"place":null}],"narrator":null}

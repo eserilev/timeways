@@ -362,7 +362,7 @@ impl Character {
             .entity(npc)
             .and_then(|entity| entity.fact(TRUSTS, Some(self.you)))
             .and_then(|fact| fact.value);
-        let to = TRUST.clamp(held.unwrap_or(0) + by);
+        let to = TRUST.clamp(held.unwrap_or(0).saturating_add(by));
         let kind = match held {
             Some(from) if from == to => return Ok(()),
             Some(from) => EventKind::FactUpdate {

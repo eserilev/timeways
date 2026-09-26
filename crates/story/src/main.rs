@@ -6,8 +6,8 @@ use std::error::Error;
 use std::io::{self, BufRead, Write};
 use std::path::PathBuf;
 use std::process::ExitCode;
-use timeways_story::input::Input;
 use timeways_story::pack::Pack;
+use timeways_story::serve;
 use timeways_story::store::Store;
 use timeways_story::story::Story;
 
@@ -34,26 +34,14 @@ fn main() -> ExitCode {
 fn serve(story: &mut Story) -> Result<(), Box<dyn Error>> {
     let mut out = io::stdout().lock();
     let mut log = io::stderr().lock();
-    // Bytes, not lines: text that is not UTF-8 is one bad input, and never ends the loop.
     for bytes in io::stdin().lock().split(b'\n') {
-        let Ok(line) = String::from_utf8(bytes?) else {
-            writeln!(log, "bad input: not UTF-8")?;
-            continue;
-        };
-        let input = match serde_json::from_str::<Input>(&line) {
-            Ok(input) => input,
-            Err(error) => {
-                writeln!(log, "bad input: {error}: {line}")?;
-                continue;
-            }
-        };
-        match story.handle(input) {
-            Ok(outputs) => {
-                for output in outputs {
-                    writeln!(out, "{}", serde_json::to_string(&output)?)?;
+        match serve::line(story, bytes?) {
+            Ok(lines) => {
+                for line in lines {
+                    writeln!(out, "{line}")?;
                 }
             }
-            Err(error) => writeln!(log, "{error}: {line}")?,
+            Err(message) => writeln!(log, "{message}")?,
         }
     }
     Ok(())

@@ -1,0 +1,16 @@
+{"type":"zone_entered","at":1,"zone":"Testvale","subzone":"Mockshire"}
+{"type":"npc_met","at":2,"name":"Keeper Stubbs"}
+{"type":"level_reached","at":3,"level":12}
+{"type":"npc_defeated","at":4,"name":"Mother Fang"}
+{"type":"died","at":5,"killer":"Cow","killer_level":1,"hour":3}
+{"type":"npc_slapped","at":6,"name":"Keeper Stubbs"}
+{"type":"emote_done","at":7,"emote":"dance","hour":3}
+{"type":"hero_set","at":8,"field":"goal","text":"Find my brother."}
+{"type":"hero_added","at":9,"text":"An oath.","npc":"Keeper Stubbs"}
+{"type":"batch_end","id":1}
+{"type":"model_answered","call":1,"text":"Our hero danced."}
+{"type":"lore_asked","id":2,"at":10,"question":"why is this tower in ruins?"}
+{"type":"model_failed","call":2}
+{"type":"talk_asked","id":3,"at":11,"npc":"Keeper Stubbs","text":"hello"}
+{"type":"model_answered","call":3,"text":"{\"say\": \"Hello.\", \"trust\": 2}"}
+{"type":"journal_asked","id":4,"page":0}
