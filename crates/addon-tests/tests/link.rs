@@ -89,3 +89,12 @@ fn a_strip_waits_while_the_relay_holds_the_shared_corner() {
     assert!(waiting);
     assert_eq!(game.eval::<u32>("#TimewaysDB.sent"), 1);
 }
+
+#[test]
+fn each_strip_names_the_version_of_timeways() {
+    let game = logged_in();
+
+    let flags: Vec<String> = game.eval("ns.Health.Flags()");
+
+    assert!(flags.contains(&"ver=1".to_string()), "{flags:?}");
+}

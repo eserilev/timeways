@@ -12,4 +12,7 @@ ns.App = {
 	saved = "TimewaysDB",
 	title = "Timeways",
 	helloChat = "story",
+	-- The bridge answers a version out of its range with "Update Timeways." or
+	-- "Update the desktop program: gnomish-relay update.".
+	version = 1,
 }

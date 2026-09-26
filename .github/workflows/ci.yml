@@ -40,7 +40,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           repository: eserilev/gnomish-relay
-          ref: e883a1ea380f83416a21408c48a105d92c76d69b
+          ref: b2c8155f19394e70e2e0b0b51726b1ae666e8545
           path: target/gnomish-relay
       - uses: taiki-e/install-action@7623a79cdfecb99d681017af368ca353d9f49bb5 # v2
         with:

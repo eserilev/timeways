@@ -455,7 +455,7 @@ This keeps the releases apart: Timeways ships `timeways-story` on its own schedu
 2. **The Lua transport**, as one source folder in the Gnomish Relay repo, copied into each addon.
 3. **No Rust from the bridge.** Gnomish Relay gets a small "app protocol" for the story program in its SPEC section 9, next to ACP.
 
-**Versions.** Each addon sends its version in the hello. The bridge keeps a supported range for each app. A version out of range gets one reply: "Timeways: update the addon", or "update the desktop program".
+**Versions.** Each addon sends its version in the hello, and in every strip (`ver=`). Timeways is version 1 (`ns.App.version`), and the bridge takes 1 to 1. The bridge keeps a supported range for each app. A version out of range gets one reply: "Timeways: update the addon", or "update the desktop program".
 
 ### 5.13 Deaths and resets
 
