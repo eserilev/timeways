@@ -180,13 +180,17 @@ local function Together(names)
 	return table.concat(shown, ", ", 1, #shown - 1) .. " and " .. shown[#shown]
 end
 
--- With no model, a chapter is the list of what was new in one session (GAMEPLAY.md 5.6).
+-- A chapter is the list of what was new in one session (GAMEPLAY.md 5.6). Once the bard
+-- wrote it, its saga comes first (3.3).
 local function Chapters(chapters)
 	local lines = {}
 	for _, chapter in ipairs(chapters) do
 		local number = type(chapter.number) == "number" and chapter.number or "?"
 		lines[#lines + 1] = Line("heading", "Chapter " .. number)
 		lines[#lines + 1] = Line("text", Day(chapter.began) .. ".")
+		if type(chapter.prose) == "string" then
+			lines[#lines + 1] = Line("prose", ns.Plain(chapter.prose))
+		end
 		if #List(chapter.zones) > 0 then
 			lines[#lines + 1] = Line("entry", "Traveled to " .. Together(List(chapter.zones)) .. ".")
 		end
@@ -215,7 +219,7 @@ local EMPTY = {
 	deeds = "Your deeds are not written yet.",
 }
 
--- Each line is { style = "heading" | "entry" | "text" | "note", text = ... }.
+-- Each line is { style = "heading" | "prose" | "entry" | "text" | "note", text = ... }.
 function Journal.Lines(section)
 	if not pages then
 		return { Line("note", "The pages fill with ink...") }

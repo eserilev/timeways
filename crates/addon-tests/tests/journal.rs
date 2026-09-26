@@ -422,3 +422,16 @@ fn a_slapped_npc_shows_the_slaps_and_the_trust_in_words() {
         "text: Slapped 2 times. Wary of you."
     );
 }
+
+#[test]
+fn the_saga_of_the_bard_comes_before_the_list_of_its_chapter() {
+    let game = Game::new();
+
+    game.reply(
+        r#"{"type":"journal","page":0,"pages":1,"chapters":[{"number":1,"began":1790000000,"zones":["Westfall"],"people":[],"deeds":[],"left_out":0,"prose":"Our hero rode west. |Hfake|h"}]}"#,
+    );
+
+    let lines = lines(&game, "chapters");
+    assert_eq!(lines[2], "prose: Our hero rode west. ||Hfake||h");
+    assert_eq!(lines[3], "entry: Traveled to Westfall.");
+}

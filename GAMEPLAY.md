@@ -84,6 +84,7 @@ After each play session, the agent writes the session as a short saga in the voi
 - It uses the real events of the session: the zones, the bosses, the deaths, the loot, and the quests.
 - You read it in the game as a book, one chapter per session.
 - The history of the world is the source, so the chronicle never contradicts itself.
+- **The bard** (built): after a batch, the story program asks a model for the saga of the oldest finished chapter that has none yet, one chapter at a time. The last chapter can still grow, so it waits for the next session. The facts of the prompt come from the chapter alone. The saga must be plain text in one paragraph, at most 600 characters, with no name from after the cutoff (5.9). A saga that fails keeps the plain list, and gets no second call in the same run.
 - **Without a model** (built): a chapter lists what was new in the session: the zones, the people, and the deeds. A session ends after 30 minutes with no event. A session with nothing new gets no chapter. Each list of a chapter keeps at most 30 entries, so a chapter always fits on one page of the journal (5.5).
 
 ### 3.4 Personal side quests
@@ -111,7 +112,7 @@ The desktop sends the pages each time the book opens, because the world lives th
 | **People** | Each NPC that you met, with the place and the date | Built |
 | **Deeds** | NPC fights: level milestones, first kills of rares and bosses, repeat kills (echoes, 5.13), and your deaths | Built: levels, kills of rares and bosses, and deaths |
 | **Nemesis** | Real players from world PvP only: the kill count on each side, the places, and the last time seen (4.1). Aliases only (5.11). | Later |
-| **Chronicle** | One chapter for each play session (3.3). The book opens on it. | Built without a model. The chapters of a bard come later. |
+| **Chronicle** | One chapter for each play session (3.3). The book opens on it. | Built: the plain list, and the saga of the bard when a model wrote one |
 | **Titles** | The joke titles (5.4.1) | Later |
 | **Quests** | The personal side quests (3.4) | Later |
 
@@ -330,6 +331,7 @@ Timeways uses the transport of Gnomish Relay, with its own key and its own slots
 - The state is not stored. `World::replay` builds it from the history when a character enters.
 - **A crash in the middle of a write** leaves a broken last line. The replay stops at the first line that does not read or that has the wrong position, and cuts the file there. New events then follow the good part.
 - **Whose world:** every batch from the addon starts with a `character_entered` line with the realm and the name. So the story program knows the world of each batch, also after it restarts. The addon holds its events until the login names the character.
+- The sagas of the bard (3.3) are words, not facts, so they live in a file of their own next to the history: `c_<character id>.chronicle.jsonl`, one line for each chapter, keyed by the tick that began the chapter. The same rules hold for a broken last line and a failed write.
 - Undo is cheap: cut the history and replay (`World::rewind`).
 
 ### 5.8 Sync between players

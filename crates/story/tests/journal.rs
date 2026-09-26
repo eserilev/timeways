@@ -124,6 +124,7 @@ fn a_journal_serializes_with_a_kind_on_each_deed() {
             "people": [],
             "deeds": [{ "kind": "level", "from": null, "to": 12, "at": 5, "place": null }],
             "left_out": 0,
+            "prose": null,
         }],
         "places": [],
         "people": [],
@@ -278,6 +279,7 @@ fn one_session_is_one_chapter_with_its_new_zones_people_and_deeds() {
         people: vec!["Gryan Stoutmantle".to_string()],
         deeds: vec![kill],
         left_out: 0,
+        prose: None,
     };
     assert_eq!(chapters, [expected]);
 }

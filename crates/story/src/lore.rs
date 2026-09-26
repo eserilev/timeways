@@ -7,7 +7,7 @@ use crate::pack::Passage;
 use crate::prompt::{self, Context};
 use serde::Serialize;
 
-#[derive(Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Answer {
     /// The words of the model, with `[n]` for passage n. None shows the passages alone.
     pub text: Option<String>,

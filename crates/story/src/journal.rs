@@ -38,6 +38,8 @@ pub struct Chapter {
     /// The entries past the first 30 of each list. The other pages of the journal hold
     /// them all.
     pub left_out: usize,
+    /// The saga of the bard, once a model wrote it (3.3).
+    pub prose: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -250,6 +252,7 @@ fn chapters(
             people,
             deeds,
             left_out,
+            prose: None,
         });
     }
     chapters

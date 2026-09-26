@@ -1,5 +1,6 @@
 //! One input in, at most one output out (GAMEPLAY.md 3.1, 5.2, and 5.6).
 
+use crate::bard;
 use crate::character::{Character, Refusal};
 use crate::companion::{self, Budget};
 use crate::input::{CallId, Input, MessageId};
@@ -8,10 +9,10 @@ use crate::lore::{Answer, LoreCall, Next};
 use crate::moments::{Moment, best, moments};
 use crate::pack::{Link, Pack, PackError, Passage};
 use crate::prompt::Context;
-use crate::store::{CharacterKey, HistoryFile, Store, StoreError};
+use crate::store::{CharacterKey, HistoryFile, Opened, Prose, Store, StoreError};
 use hourglass::Tick;
 use serde::Serialize;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use thiserror::Error;
 
 /// The version of the lines between the bridge and the story program.
@@ -26,7 +27,7 @@ const ANSWER_SIZE: usize = 8;
 /// frame.
 const PASSAGE_BYTES: usize = PAGE_BYTES - 8 * 1024;
 
-#[derive(Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Output {
     Hello {
@@ -74,6 +75,7 @@ struct Active {
     key: CharacterKey,
     character: Character,
     file: Option<HistoryFile>,
+    prose: Prose,
 }
 
 impl Active {
@@ -96,8 +98,18 @@ impl Active {
 
 /// An open model call, and what its answer is for.
 enum Pending {
-    Lore { question: MessageId, lore: LoreCall },
-    Companion { batch: MessageId },
+    Lore {
+        question: MessageId,
+        lore: LoreCall,
+    },
+    Companion {
+        batch: MessageId,
+    },
+    /// The saga of the chapter that began at `began`, for this character only.
+    Bard {
+        key: CharacterKey,
+        began: Tick,
+    },
 }
 
 pub struct Story {
@@ -112,6 +124,9 @@ pub struct Story {
     /// The big moments of the batch so far. `batch_end` takes them.
     moments: Vec<Moment>,
     budget: Budget,
+    /// The chapters of the active character that the bard was asked for in this run. A
+    /// failed chapter keeps its plain list, and gets no second call.
+    bard_asked: BTreeSet<Tick>,
 }
 
 impl Story {
@@ -126,6 +141,7 @@ impl Story {
             journal: Vec::new(),
             moments: Vec::new(),
             budget: Budget::default(),
+            bard_asked: BTreeSet::new(),
         }
     }
 
@@ -164,32 +180,40 @@ impl Story {
                 let page = self.journal_page(page)?;
                 Ok(vec![Output::Journal { id, page }])
             }
-            Input::BatchEnd { id } => Ok(vec![self.end_batch(id)]),
-            Input::ModelAnswered { call, text } => Ok(vec![self.answered(call, &text)?]),
-            Input::ModelFailed { call } => Ok(vec![self.failed(call)?]),
+            Input::BatchEnd { id } => Ok(self.end_batch(id)),
+            Input::ModelAnswered { call, text } => self.answered(call, &text),
+            Input::ModelFailed { call } => self.failed(call),
         }
     }
 
-    fn answered(&mut self, call: CallId, text: &str) -> Result<Output, StoryError> {
+    fn answered(&mut self, call: CallId, text: &str) -> Result<Vec<Output>, StoryError> {
         Ok(match self.take_call(call)? {
-            Pending::Lore { question, lore } => self.follow(question, lore.answered(text)),
-            Pending::Companion { batch } => Output::EventsSeen {
+            Pending::Lore { question, lore } => vec![self.follow(question, lore.answered(text))],
+            Pending::Companion { batch } => vec![Output::EventsSeen {
                 id: batch,
                 companion: companion::checked_line(text),
-            },
+            }],
+            Pending::Bard { key, began } => {
+                let active = self.active.as_mut().filter(|active| active.key == key);
+                if let (Some(active), Some(chapter)) = (active, bard::checked_chapter(text)) {
+                    active.prose.add(began, chapter)?;
+                }
+                Vec::new()
+            }
         })
     }
 
-    fn failed(&mut self, call: CallId) -> Result<Output, StoryError> {
+    fn failed(&mut self, call: CallId) -> Result<Vec<Output>, StoryError> {
         Ok(match self.take_call(call)? {
-            Pending::Lore { question, lore } => Output::LoreAnswer {
+            Pending::Lore { question, lore } => vec![Output::LoreAnswer {
                 id: question,
                 answer: lore.failed(),
-            },
-            Pending::Companion { batch } => Output::EventsSeen {
+            }],
+            Pending::Companion { batch } => vec![Output::EventsSeen {
                 id: batch,
                 companion: None,
-            },
+            }],
+            Pending::Bard { .. } => Vec::new(),
         })
     }
 
@@ -209,12 +233,18 @@ impl Story {
         self.active = None;
         self.journal.clear();
         self.moments.clear();
+        self.bard_asked.clear();
         let key = key?;
-        let (character, file) = self.store.open(&key)?;
+        let Opened {
+            character,
+            history,
+            prose,
+        } = self.store.open(&key)?;
         self.active = Some(Active {
             key,
             character,
-            file,
+            file: history,
+            prose,
         });
         Ok(())
     }
@@ -245,24 +275,60 @@ impl Story {
     }
 
     /// At most one companion line for a batch: about its best moment, within the budget.
-    fn end_batch(&mut self, batch: MessageId) -> Output {
+    /// A batch can also start the saga of a finished chapter.
+    fn end_batch(&mut self, batch: MessageId) -> Vec<Output> {
         let best = best(std::mem::take(&mut self.moments));
         let now = self
             .character()
             .map_or(Tick(0), |character| character.world().tick);
-        let Some(moment) = best.filter(|_| self.budget.take(now)) else {
-            return Output::EventsSeen {
+        let seen = match best.filter(|_| self.budget.take(now)) {
+            Some(moment) => {
+                self.open_call(Pending::Companion { batch }, companion::prompt(&moment))
+            }
+            None => Output::EventsSeen {
                 id: batch,
                 companion: None,
-            };
+            },
         };
-        self.open_call(Pending::Companion { batch }, companion::prompt(&moment))
+        let mut outputs = vec![seen];
+        outputs.extend(self.bard_call());
+        outputs
+    }
+
+    /// The oldest finished chapter with no saga yet, one call at a time. The last chapter
+    /// can still grow, so it waits for the next session.
+    fn bard_call(&mut self) -> Option<Output> {
+        if self
+            .calls
+            .values()
+            .any(|pending| matches!(pending, Pending::Bard { .. }))
+        {
+            return None;
+        }
+        let active = self.active.as_ref()?;
+        let chapters = journal(&active.character).chapters;
+        let (_, finished) = chapters.split_last()?;
+        let chapter = finished.iter().find(|chapter| {
+            active.prose.get(chapter.began).is_none() && !self.bard_asked.contains(&chapter.began)
+        })?;
+        let pending = Pending::Bard {
+            key: active.key.clone(),
+            began: chapter.began,
+        };
+        let prompt = bard::prompt(chapter);
+        self.bard_asked.insert(chapter.began);
+        Some(self.open_call(pending, prompt))
     }
 
     /// A page past the end comes back empty, with the true number of pages.
     fn journal_page(&mut self, page: usize) -> Result<Page, StoryError> {
         if page == 0 || self.journal.is_empty() {
-            self.journal = pages(journal(self.character()?));
+            let active = self.active.as_ref().ok_or(StoryError::NoCharacter)?;
+            let mut journal = journal(&active.character);
+            for chapter in &mut journal.chapters {
+                chapter.prose = active.prose.get(chapter.began).map(str::to_string);
+            }
+            self.journal = pages(journal);
         }
         let page = self.journal.get(page).cloned().unwrap_or_else(|| Page {
             page,

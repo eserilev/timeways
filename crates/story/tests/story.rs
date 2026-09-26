@@ -632,3 +632,134 @@ fn each_batch_starts_with_no_moments() {
         }
     );
 }
+
+const HOUR: u64 = 3600;
+
+/// Two sessions of play: the first one is a finished chapter. Meeting an NPC is no big
+/// moment, so the companion stays out of these tests.
+fn two_sessions(story: &mut Story) {
+    meet(story, HOUR, "Gryan Stoutmantle");
+    meet(story, 5 * HOUR, "Salma Saldean");
+}
+
+fn chapters(story: &mut Story) -> Vec<timeways_story::journal::Chapter> {
+    match one(story
+        .handle(Input::JournalAsked {
+            id: MessageId(1),
+            page: 0,
+        })
+        .unwrap())
+    {
+        Some(Output::Journal { page, .. }) => page.journal.chapters,
+        other => panic!("expected a journal, got {other:?}"),
+    }
+}
+
+#[test]
+fn a_finished_chapter_asks_the_bard_after_the_batch() {
+    let mut story = story_with("bard-asks", &[]);
+    two_sessions(&mut story);
+
+    let outputs = story.handle(Input::BatchEnd { id: MessageId(3) }).unwrap();
+
+    assert_eq!(
+        outputs[0],
+        Output::EventsSeen {
+            id: MessageId(3),
+            companion: None
+        }
+    );
+    let [_, Output::ModelCall { prompt, .. }] = outputs.as_slice() else {
+        panic!("expected a bard call, got {outputs:?}");
+    };
+    assert!(
+        prompt.contains("Chapter 1. Facts:\n- Met: Gryan Stoutmantle."),
+        "{prompt}"
+    );
+}
+
+#[test]
+fn the_saga_of_the_bard_goes_into_its_chapter() {
+    let mut story = story_with("bard-writes", &[]);
+    two_sessions(&mut story);
+    let outputs = story.handle(Input::BatchEnd { id: MessageId(3) }).unwrap();
+    let Output::ModelCall { call, .. } = outputs[1].clone() else {
+        panic!("expected a bard call, got {outputs:?}");
+    };
+
+    let text = "Our hero rode into the golden fields of Westfall.".to_string();
+    assert!(
+        story
+            .handle(Input::ModelAnswered { call, text })
+            .unwrap()
+            .is_empty()
+    );
+
+    let chapters = chapters(&mut story);
+    assert_eq!(
+        chapters[0].prose.as_deref(),
+        Some("Our hero rode into the golden fields of Westfall.")
+    );
+    assert_eq!(chapters[1].prose, None);
+}
+
+#[test]
+fn the_bard_is_asked_once_for_each_chapter() {
+    let mut story = story_with("bard-once", &[]);
+    two_sessions(&mut story);
+    let outputs = story.handle(Input::BatchEnd { id: MessageId(3) }).unwrap();
+    let Output::ModelCall { call, .. } = outputs[1].clone() else {
+        panic!("expected a bard call, got {outputs:?}");
+    };
+    let while_open = story.handle(Input::BatchEnd { id: MessageId(4) }).unwrap();
+
+    assert!(
+        story
+            .handle(Input::ModelFailed { call })
+            .unwrap()
+            .is_empty()
+    );
+    let after_failure = story.handle(Input::BatchEnd { id: MessageId(5) }).unwrap();
+
+    assert_eq!(while_open.len(), 1);
+    assert_eq!(after_failure.len(), 1);
+    assert_eq!(chapters(&mut story)[0].prose, None);
+}
+
+#[test]
+fn the_last_chapter_waits_for_the_next_session() {
+    let mut story = story_with("bard-waits", &[]);
+    meet(&mut story, HOUR, "Gryan Stoutmantle");
+
+    let outputs = story.handle(Input::BatchEnd { id: MessageId(3) }).unwrap();
+
+    assert_eq!(
+        outputs,
+        [Output::EventsSeen {
+            id: MessageId(3),
+            companion: None
+        }]
+    );
+}
+
+#[test]
+fn a_saga_for_another_character_is_dropped() {
+    let mut story = story_with("bard-switch", &[]);
+    two_sessions(&mut story);
+    let outputs = story.handle(Input::BatchEnd { id: MessageId(3) }).unwrap();
+    let Output::ModelCall { call, .. } = outputs[1].clone() else {
+        panic!("expected a bard call, got {outputs:?}");
+    };
+    let bren = Input::CharacterEntered {
+        realm: "Testrealm".to_string(),
+        name: "Bren".to_string(),
+    };
+    story.handle(bren).unwrap();
+    enter(&mut story, HOUR, "Durotar", None);
+    enter(&mut story, 5 * HOUR, "The Barrens", None);
+
+    let text = "Our hero rode into Westfall.".to_string();
+    story.handle(Input::ModelAnswered { call, text }).unwrap();
+
+    assert_eq!(chapters(&mut story)[0].prose, None);
+}

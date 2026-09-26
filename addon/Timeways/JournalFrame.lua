@@ -13,6 +13,7 @@ local BULLET = 16
 
 local STYLES = {
 	heading = { font = "QuestTitleFont", indent = 0, gap = 12 },
+	prose = { font = "QuestFont", indent = 0, gap = 6 },
 	entry = { font = "QuestFont", indent = BULLET + 2, gap = 8, bullet = true },
 	text = { font = "QuestFont", indent = BULLET + 2, gap = 2 },
 	note = { font = "QuestFontNormalSmall", indent = 0, gap = 0 },

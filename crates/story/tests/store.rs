@@ -299,3 +299,36 @@ fn a_failed_write_is_written_again_once_the_file_takes_it() {
         ["Elwynn Forest", "Westfall", "Duskwood"]
     );
 }
+
+#[test]
+fn the_saga_of_the_bard_survives_a_restart() {
+    let folder = fresh_folder("saga-restart");
+    let mut first = story(&folder, "Ada");
+    enter(&mut first, 3600, "Westfall");
+    enter(&mut first, 5 * 3600, "Duskwood");
+    let outputs = first.handle(Input::BatchEnd { id: MessageId(3) }).unwrap();
+    let Output::ModelCall { call, .. } = outputs[1].clone() else {
+        panic!("expected a bard call, got {outputs:?}");
+    };
+    let text = "Our hero rode west.".to_string();
+    first.handle(Input::ModelAnswered { call, text }).unwrap();
+    drop(first);
+
+    let mut second = story(&folder, "Ada");
+    let output = one(second
+        .handle(Input::JournalAsked {
+            id: MessageId(1),
+            page: 0,
+        })
+        .unwrap());
+
+    let Some(Output::Journal { page, .. }) = output else {
+        panic!("expected a journal, got {output:?}");
+    };
+    assert_eq!(
+        page.journal.chapters[0].prose.as_deref(),
+        Some("Our hero rode west.")
+    );
+    let second_batch = second.handle(Input::BatchEnd { id: MessageId(4) }).unwrap();
+    assert_eq!(second_batch.len(), 1);
+}

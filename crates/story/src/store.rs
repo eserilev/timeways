@@ -2,7 +2,10 @@
 //! (GAMEPLAY.md 5.7). The state is never stored. A replay builds it at start.
 
 use crate::character::Character;
-use hourglass::{Event, EventId};
+use hourglass::{Event, EventId, Tick};
+use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
@@ -108,103 +111,166 @@ impl HistoryFile {
     /// Returns the I/O error of the write. The file keeps the events that it held before,
     /// and the next call writes the same events again.
     pub fn append(&mut self, events: &[Event]) -> Result<(), StoreError> {
-        if events.is_empty() {
-            return Ok(());
-        }
-        let io_error = |source| StoreError::Io {
-            path: self.path.clone(),
-            source,
-        };
-        let mut text = String::new();
-        for event in events {
-            let line = serde_json::to_string(event).map_err(|error| io_error(error.into()))?;
-            text.push_str(&line);
-            text.push('\n');
-        }
-        let mut file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&self.path)
-            .map_err(io_error)?;
-        let before = file.metadata().map_err(io_error)?.len();
-        let written = file
-            .write_all(text.as_bytes())
-            .and_then(|()| file.sync_data());
-        if let Err(error) = written {
-            // A torn write in the middle of the file would end the history there at the
-            // next load, so the file goes back to its last good length.
-            let _ = file.set_len(before);
-            return Err(io_error(error));
-        }
+        append_lines(&self.path, events).map_err(|source| io_error(&self.path, source))?;
         self.len += events.len();
         Ok(())
     }
 }
 
-impl Store {
-    /// The character with the world of its history, and the file for its new events.
-    ///
+/// The words of the bard for one chapter, as one line of the chronicle file.
+#[derive(Serialize, Deserialize)]
+struct ChapterProse {
+    began: Tick,
+    text: String,
+}
+
+/// The words of the bard for each chapter, by the tick that began the chapter. The world
+/// holds facts only, so the words live in a file of their own.
+#[derive(Debug, Default)]
+pub struct Prose {
+    chapters: BTreeMap<Tick, String>,
+    path: Option<PathBuf>,
+}
+
+impl Prose {
+    #[must_use]
+    pub fn get(&self, began: Tick) -> Option<&str> {
+        self.chapters.get(&began).map(String::as_str)
+    }
+
     /// # Errors
     ///
-    /// Returns an I/O error, or `Foreign` for a file that another program wrote.
-    pub fn open(&self, key: &CharacterKey) -> Result<(Character, Option<HistoryFile>), StoreError> {
+    /// Returns the I/O error of the write, and then keeps nothing.
+    pub fn add(&mut self, began: Tick, text: String) -> Result<(), StoreError> {
+        if let Some(path) = &self.path {
+            let line = ChapterProse {
+                began,
+                text: text.clone(),
+            };
+            append_lines(path, &[line]).map_err(|source| io_error(path, source))?;
+        }
+        self.chapters.insert(began, text);
+        Ok(())
+    }
+}
+
+/// What a character brings from the disk.
+pub struct Opened {
+    pub character: Character,
+    pub history: Option<HistoryFile>,
+    pub prose: Prose,
+}
+
+impl Store {
+    /// # Errors
+    ///
+    /// Returns an I/O error, or `Foreign` for a history that another program wrote.
+    pub fn open(&self, key: &CharacterKey) -> Result<Opened, StoreError> {
         let Store::Folder(folder) = self else {
-            return Ok((Character::new(), None));
+            let character = Character::new();
+            return Ok(Opened {
+                character,
+                history: None,
+                prose: Prose::default(),
+            });
         };
         let path = folder.join(key.relative_path());
-        let io_error = |source| StoreError::Io {
-            path: path.clone(),
-            source,
-        };
         if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent).map_err(io_error)?;
+            fs::create_dir_all(parent).map_err(|source| io_error(&path, source))?;
         }
-        let events = read_history(&path).map_err(io_error)?;
+        let events: Vec<Event> =
+            read_lines(&path, |event: &Event, n| event.id == EventId(n as u64))
+                .map_err(|source| io_error(&path, source))?;
         let character = if events.is_empty() {
             Character::new()
         } else {
             Character::from_history(&events)
                 .ok_or_else(|| StoreError::Foreign { path: path.clone() })?
         };
-        let file = HistoryFile {
+        let prose_path = path.with_extension("chronicle.jsonl");
+        let lines: Vec<ChapterProse> =
+            read_lines(&prose_path, |_, _| true).map_err(|source| io_error(&prose_path, source))?;
+        let prose = Prose {
+            chapters: lines
+                .into_iter()
+                .map(|line| (line.began, line.text))
+                .collect(),
+            path: Some(prose_path),
+        };
+        let history = HistoryFile {
             path,
             len: events.len(),
         };
-        Ok((character, Some(file)))
+        Ok(Opened {
+            character,
+            history: Some(history),
+            prose,
+        })
     }
 }
 
-/// The events up to the first line that does not read. A crash in the middle of a write
-/// leaves such a line at the end, so the file is cut there, and new events follow the
-/// good part.
-fn read_history(path: &Path) -> io::Result<Vec<Event>> {
+fn io_error(path: &Path, source: io::Error) -> StoreError {
+    StoreError::Io {
+        path: path.to_path_buf(),
+        source,
+    }
+}
+
+/// Appends one JSON line for each item. A failed write puts the file back to its length
+/// before, because a torn line in the middle would end the file there at the next read.
+fn append_lines<T: Serialize>(path: &Path, items: &[T]) -> io::Result<()> {
+    if items.is_empty() {
+        return Ok(());
+    }
+    let mut text = String::new();
+    for item in items {
+        text.push_str(&serde_json::to_string(item).map_err(io::Error::from)?);
+        text.push('\n');
+    }
+    let mut file = OpenOptions::new().create(true).append(true).open(path)?;
+    let before = file.metadata()?.len();
+    let written = file
+        .write_all(text.as_bytes())
+        .and_then(|()| file.sync_data());
+    if let Err(error) = written {
+        let _ = file.set_len(before);
+        return Err(error);
+    }
+    Ok(())
+}
+
+/// The items up to the first line that does not read, or that `accept` refuses at its
+/// position. A crash in the middle of a write leaves such a line at the end, so the file
+/// is cut there, and new lines follow the good part.
+fn read_lines<T: DeserializeOwned>(
+    path: &Path,
+    accept: impl Fn(&T, usize) -> bool,
+) -> io::Result<Vec<T>> {
     let file = match File::open(path) {
         Ok(file) => file,
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
         Err(error) => return Err(error),
     };
-    let mut events = Vec::new();
+    let mut items = Vec::new();
     let mut good_bytes = 0;
     let mut reader = BufReader::new(file);
     let mut line = String::new();
     loop {
         line.clear();
         let read = reader.read_line(&mut line)?;
-        let expected = EventId(events.len() as u64);
-        match serde_json::from_str::<Event>(line.trim_end()) {
-            Ok(event) if read > 0 && line.ends_with('\n') && event.id == expected => {
-                events.push(event);
+        match serde_json::from_str::<T>(line.trim_end()) {
+            Ok(item) if read > 0 && line.ends_with('\n') && accept(&item, items.len()) => {
+                items.push(item);
                 good_bytes += read as u64;
             }
             _ => break,
         }
     }
-    let length = fs::metadata(path)?.len();
-    if good_bytes < length {
+    if good_bytes < fs::metadata(path)?.len() {
         OpenOptions::new()
             .write(true)
             .open(path)?
             .set_len(good_bytes)?;
     }
-    Ok(events)
+    Ok(items)
 }
