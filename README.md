@@ -36,6 +36,19 @@ cargo run -q --bin timeways-story -- <lore pack> [<data folder>]
 
 It reads JSON lines on stdin and writes JSON lines on stdout. The bridge of Gnomish Relay starts it and talks to it. With no data folder, it keeps nothing after it stops.
 
+## A lore pack by hand
+
+No real lore pack exists yet (GAMEPLAY.md 5.10). To try `/lore`, write passages as JSON lines, one passage for each line, and build a pack:
+
+```sh
+cat > passages.jsonl <<'LINES'
+{"text": "Goldshire has an inn, the Lion's Pride.", "source": "https://example.test/1", "places": ["Goldshire"], "npcs": ["Innkeeper Farley"]}
+LINES
+cargo run -q --bin timeways-pack -- passages.jsonl pack.sqlite
+```
+
+A passage needs at least one place or NPC, because a passage with no link passes every spoiler check. The builder never writes over a pack that exists.
+
 ## Checks
 
 Run these before each commit. CI runs them too.

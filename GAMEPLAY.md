@@ -375,6 +375,8 @@ A web request for each question is slow, depends on one website, and sends whole
 - It downloads with the release of the bridge, and it updates when Forever releases a new phase.
 - **The cutoff is built in.** The pack holds only the passages up to the current phase of Forever. A Molten Core passage is not in the file before Molten Core opens, so no model can see it. Layers 3 and 4 of 5.9 still apply to the text of the model.
 
+**The builder** (built): `timeways-pack` reads passages as JSON lines, each with its text, source, places, and NPCs, and writes the pack. It refuses a passage with no link, and it never writes over a pack that exists. The dump pipeline feeds it later.
+
 **A question:**
 
 1. The story module searches the pack for the question and the context (zone, target, quest).
