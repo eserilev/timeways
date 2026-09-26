@@ -51,6 +51,7 @@ impl Budget {
 #[must_use]
 pub fn prompt(moment: &Moment) -> String {
     let what = match moment {
+        Moment::Flavor { what } => what.clone(),
         Moment::Titled { title } => {
             format!("The player earned the joke title \"{title}\" in their journal.")
         }

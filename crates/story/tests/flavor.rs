@@ -124,3 +124,40 @@ fn each_recent_telling_of_the_kind_takes_three() {
 
     assert_eq!(scored, 5 - 3 - 3);
 }
+
+#[test]
+fn a_moment_in_words_names_the_emote_the_place_the_hour_and_the_count() {
+    let words = timeways_story::flavor::describe(&dance(1, "Goldshire", 3), 4);
+
+    assert_eq!(
+        words,
+        "The player used the emote /dance in Goldshire, at 3 o'clock, for the 4th time."
+    );
+}
+
+#[test]
+fn counts_read_as_english_ordinals() {
+    let words: Vec<String> = [1, 2, 3, 11, 12, 13, 21, 22, 101]
+        .iter()
+        .map(|&count| timeways_story::flavor::describe(&dance(1, "Westfall", 12), count))
+        .collect();
+    let ordinals: Vec<&str> = words
+        .iter()
+        .map(|words| words.split("the ").last().unwrap())
+        .collect();
+
+    assert_eq!(
+        ordinals,
+        [
+            "1st time.",
+            "2nd time.",
+            "3rd time.",
+            "11th time.",
+            "12th time.",
+            "13th time.",
+            "21st time.",
+            "22nd time.",
+            "101st time."
+        ]
+    );
+}

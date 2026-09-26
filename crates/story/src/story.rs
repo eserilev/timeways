@@ -3,7 +3,7 @@
 use crate::bard;
 use crate::character::{Character, Refusal};
 use crate::companion::{self, Budget};
-use crate::flavor::{Flavor, HUMBLING_GAP, Kind};
+use crate::flavor::{self, Flavor, HUMBLING_GAP, Kind, Told};
 use crate::input::{CallId, Input, MessageId};
 use crate::journal::{PAGE_BYTES, Page, journal, pages};
 use crate::lore::{Answer, LoreCall, Next};
@@ -21,6 +21,15 @@ use thiserror::Error;
 /// The longest name that the story takes from the game. WoW names are far shorter, so a
 /// longer one comes from a bug or a hostile addon, and it would break the page limit.
 pub const MAX_NAME_BYTES: usize = 96;
+
+/// A flavor moment needs this score to reach the companion (GAMEPLAY.md 5.4.1).
+const FLAVOR_MIN_SCORE: i64 = 8;
+
+/// At most one flavor line in this time.
+const FLAVOR_GAP_SECONDS: u64 = 20 * 60;
+
+/// "No two rabbit jokes in one evening."
+const KIND_COOLDOWN_SECONDS: u64 = 12 * 3600;
 
 /// The chat box of WoW stops a line at 255 bytes.
 pub const MAX_WORDS_BYTES: usize = 255;
@@ -122,6 +131,14 @@ impl Active {
     }
 }
 
+/// A flavor moment of the batch, scored when it came in.
+struct Candidate {
+    flavor: Flavor,
+    score: i64,
+    /// 1 for the first moment of its kind.
+    count: usize,
+}
+
 /// An open model call, and what its answer is for.
 enum Pending {
     Lore {
@@ -156,6 +173,8 @@ pub struct Story {
     journal: Vec<Page>,
     /// The big moments of the batch so far. `batch_end` takes them.
     moments: Vec<Moment>,
+    /// The flavor moments of the batch so far, each with its score and its count.
+    candidates: Vec<Candidate>,
     budget: Budget,
     /// The chapters of the active character that the bard was asked for in this run. A
     /// failed chapter keeps its plain list, and gets no second call.
@@ -173,6 +192,7 @@ impl Story {
             next_call: CallId(1),
             journal: Vec::new(),
             moments: Vec::new(),
+            candidates: Vec::new(),
             budget: Budget::default(),
             bard_asked: BTreeSet::new(),
         }
@@ -350,6 +370,7 @@ impl Story {
         self.active = None;
         self.journal.clear();
         self.moments.clear();
+        self.candidates.clear();
         self.bard_asked.clear();
         let key = key?;
         let Opened {
@@ -394,6 +415,8 @@ impl Story {
     }
 
     /// A flavor moment where you stand now, and then the titles that it earns.
+    /// A flavor moment where you stand now, scored against the moments before it, and then
+    /// the titles that it earns.
     fn record_flavor(
         &mut self,
         at: Tick,
@@ -406,12 +429,22 @@ impl Story {
             .place_names()
             .first()
             .map(|place| (*place).to_string());
-        active.flavor.add_moment(Flavor {
+        let moment = Flavor {
             at,
             hour,
             place,
             kind,
-        })?;
+        };
+        let earlier = active.flavor.moments();
+        let score = flavor::score(&moment, earlier, active.flavor.told(), &active.character);
+        let key = moment.kind.key();
+        let count = earlier.iter().filter(|old| old.kind.key() == key).count() + 1;
+        active.flavor.add_moment(moment.clone())?;
+        self.candidates.push(Candidate {
+            flavor: moment,
+            score,
+            count,
+        });
         self.award_titles(at)
     }
 
@@ -442,16 +475,60 @@ impl Story {
             id: batch,
             companion: None,
         };
-        let Some(moment) = best(std::mem::take(&mut self.moments)) else {
-            return quiet;
-        };
         let now = self
             .character()
             .map_or(Tick(0), |character| character.world().tick);
+        let candidates = std::mem::take(&mut self.candidates);
+        let (moment, telling) = match best(std::mem::take(&mut self.moments)) {
+            Some(moment) => (moment, None),
+            None => match self.flavor_line(candidates, now) {
+                Some((moment, told)) => (moment, Some(told)),
+                None => return quiet,
+            },
+        };
         if !self.budget.take(now) {
             return quiet;
         }
+        if let Some(told) = telling {
+            let active = self.active.as_mut();
+            if active.is_none_or(|active| active.flavor.add_told(told).is_err()) {
+                return quiet;
+            }
+        }
         self.open_call(Pending::Companion { batch }, companion::prompt(&moment))
+    }
+
+    /// The best flavor moment of the batch, when it scores enough, no flavor line came in
+    /// the last 20 minutes, and its kind was not told this evening. The telling counts from
+    /// the call, whatever the model answers.
+    fn flavor_line(&self, candidates: Vec<Candidate>, now: Tick) -> Option<(Moment, Told)> {
+        let mut best: Option<Candidate> = None;
+        for candidate in candidates
+            .into_iter()
+            .filter(|candidate| candidate.score >= FLAVOR_MIN_SCORE)
+        {
+            if best
+                .as_ref()
+                .is_none_or(|kept| candidate.score >= kept.score)
+            {
+                best = Some(candidate);
+            }
+        }
+        let best = best?;
+        let key = best.flavor.kind.key();
+        let told = self.active.as_ref()?.flavor.told();
+        let since = |telling: &Told| now.0.saturating_sub(telling.at.0);
+        let recent_line = told
+            .iter()
+            .any(|telling| since(telling) < FLAVOR_GAP_SECONDS);
+        let kind_told = told
+            .iter()
+            .any(|telling| telling.key == key && since(telling) < KIND_COOLDOWN_SECONDS);
+        if recent_line || kind_told {
+            return None;
+        }
+        let what = flavor::describe(&best.flavor, best.count);
+        Some((Moment::Flavor { what }, Told { key, at: now }))
     }
 
     /// The oldest finished chapter with no saga yet. The bridge runs at most 2 model calls

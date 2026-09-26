@@ -280,6 +280,7 @@ The score uses whole numbers only, like Hourglass, so a test can state each rule
 - **A callback:** the NPC holds `trusts` or `defeated` about you, or you hold `slapped` or `defeated` about it. A plain meeting is no history.
 - **An odd hour:** 2 to 5 in the local time of the player, which the addon sends.
 - **Told before:** each telling of the kind in the last 72 hours of game time.
+- **Flavor lines of the companion** (built): a batch with no big moment gives its best flavor moment to the companion, when it scores 8 or more, no flavor line came in the last 20 minutes of game time, and its kind was not told in the last 12 hours. The line counts as told when the call goes out, whatever the model answers. The budget of 3 lines an hour covers flavor lines too.
 - **Streaks and votes:** not yet. A streak needs the kills of common mobs (open question 9).
 - The moments and their tellings live in `c_<character id>.flavor.jsonl` next to the history (5.7).
 

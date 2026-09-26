@@ -137,3 +137,45 @@ fn told_before(key: &str, at: Tick, told: &[Told]) -> i64 {
         .count();
     i64::try_from(recent).unwrap_or(i64::MAX / 3)
 }
+
+/// The moment in plain words, for the prompt of the companion. `count` is 1 for the first
+/// moment of its kind.
+#[must_use]
+pub fn describe(flavor: &Flavor, count: usize) -> String {
+    let place = flavor
+        .place
+        .as_deref()
+        .map(|place| format!(" in {place}"))
+        .unwrap_or_default();
+    let when = flavor
+        .hour
+        .map(|hour| format!(", at {hour} o'clock"))
+        .unwrap_or_default();
+    let nth = ordinal(count);
+    match &flavor.kind {
+        Kind::Emote { emote, target } => {
+            let at = target
+                .as_deref()
+                .map(|npc| format!(" at {npc}"))
+                .unwrap_or_default();
+            format!("The player used the emote /{emote}{at}{place}{when}, for the {nth} time.")
+        }
+        Kind::FellTo { cause } => {
+            format!("The player died to {cause}{place}{when}, for the {nth} time.")
+        }
+        Kind::Humbled { killer, gap } => {
+            format!("{killer}, {gap} levels below the player, killed the player{place}{when}.")
+        }
+    }
+}
+
+fn ordinal(n: usize) -> String {
+    let suffix = match (n % 10, n % 100) {
+        (_, 11..=13) => "th",
+        (1, _) => "st",
+        (2, _) => "nd",
+        (3, _) => "rd",
+        _ => "th",
+    };
+    format!("{n}{suffix}")
+}

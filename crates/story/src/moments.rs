@@ -6,6 +6,10 @@ use hourglass::{EntityId, Event, EventKind, World};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Moment {
+    /// A small, silly moment in plain words (5.4.1). It speaks only when no big moment does.
+    Flavor {
+        what: String,
+    },
     /// A joke title, the rarest moment of all (5.4.1).
     Titled {
         title: String,
@@ -38,6 +42,7 @@ impl Moment {
     fn rank(&self) -> u8 {
         match self {
             Moment::Titled { .. } => 6,
+            Moment::Flavor { .. } => 0,
             Moment::FirstKill { .. } => 5,
             Moment::SlainAgain { .. } => 4,
             Moment::Slapped { .. } => 3,

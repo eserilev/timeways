@@ -1075,3 +1075,152 @@ fn an_odd_emote_or_hour_is_refused() {
 
     assert!(upper.is_err() && long.is_err() && hour.is_err());
 }
+
+fn dance_at(story: &mut Story, at: u64, hour: u8) {
+    let input = Input::EmoteDone {
+        at: Tick(at),
+        emote: "dance".to_string(),
+        target: None,
+        hour: Some(hour),
+    };
+    assert!(story.handle(input).unwrap().is_empty());
+}
+
+/// Ends a batch and lets each model call of it fail, so no call stays open. Gives the
+/// first output: the companion part of the answer.
+fn close_companion(story: &mut Story, batch: u64) -> Output {
+    let outputs = story
+        .handle(Input::BatchEnd {
+            id: MessageId(batch),
+        })
+        .unwrap();
+    for output in &outputs {
+        if let Output::ModelCall { call, .. } = output {
+            story.handle(Input::ModelFailed { call: *call }).unwrap();
+        }
+    }
+    outputs.into_iter().next().unwrap()
+}
+
+fn humbled_by(story: &mut Story, at: u64, killer: &str) {
+    let input = Input::Died {
+        at: Tick(at),
+        killer: Some(killer.to_string()),
+        cause: None,
+        killer_level: Some(1),
+        hour: Some(3),
+    };
+    story.handle(input).unwrap();
+}
+
+#[test]
+fn a_funny_moment_in_a_quiet_batch_gets_a_flavor_line() {
+    let mut story = story_with("flavor-line", &[]);
+    enter(&mut story, 1, "Elwynn Forest", Some("Goldshire"));
+    let _ = close_companion(&mut story, 1);
+
+    dance_at(&mut story, 100, 3);
+    let (_, prompt) = model_call(batch_end(&mut story, 2));
+
+    assert!(
+        prompt.ends_with(
+            "Moment: The player used the emote /dance in Goldshire, at 3 o'clock, for the 1st time."
+        ),
+        "{prompt}"
+    );
+}
+
+#[test]
+fn a_plain_moment_gets_no_line() {
+    let mut story = story_with("flavor-plain", &[]);
+    enter(&mut story, 1, "Westfall", None);
+    let _ = close_companion(&mut story, 1);
+
+    dance_at(&mut story, 100, 12);
+
+    assert_eq!(
+        batch_end(&mut story, 2),
+        Output::EventsSeen {
+            id: MessageId(2),
+            companion: None
+        }
+    );
+}
+
+#[test]
+fn a_big_moment_wins_over_a_funny_one() {
+    let mut story = story_with("flavor-loses", &[]);
+    enter(&mut story, 1, "Elwynn Forest", Some("Goldshire"));
+    level(&mut story, 2, 12);
+    let _ = close_companion(&mut story, 1);
+
+    dance_at(&mut story, 100, 3);
+    level(&mut story, 101, 13);
+    let (_, prompt) = model_call(batch_end(&mut story, 2));
+
+    assert!(
+        prompt.ends_with("Moment: The player reached level 13."),
+        "{prompt}"
+    );
+}
+
+#[test]
+fn a_second_flavor_line_waits_twenty_minutes() {
+    let mut story = story_with("flavor-gap", &[]);
+    enter(&mut story, 1, "Elwynn Forest", Some("Goldshire"));
+    let _ = close_companion(&mut story, 1);
+    dance_at(&mut story, 100, 3);
+    let _ = close_companion(&mut story, 2);
+
+    let fall = |at| Input::Died {
+        at: Tick(at),
+        killer: None,
+        cause: Some("falling".to_string()),
+        killer_level: None,
+        hour: Some(3),
+    };
+    story.handle(fall(200)).unwrap();
+    let soon = batch_end(&mut story, 3);
+    story.handle(fall(100 + 1200)).unwrap();
+    let later = batch_end(&mut story, 4);
+
+    assert_eq!(
+        soon,
+        Output::EventsSeen {
+            id: MessageId(3),
+            companion: None
+        }
+    );
+    assert!(matches!(later, Output::ModelCall { .. }), "{later:?}");
+}
+
+#[test]
+fn the_same_kind_of_joke_waits_for_the_next_evening() {
+    let mut story = story_with("flavor-kind", &[]);
+    level(&mut story, 1, 60);
+    enter(&mut story, 2, "Elwynn Forest", Some("Goldshire"));
+    humbled_by(&mut story, 10, "Cow");
+    let _ = close_companion(&mut story, 1);
+    humbled_by(&mut story, 20_000, "Sheep");
+    let _ = close_companion(&mut story, 2);
+
+    humbled_by(&mut story, 20_000 + 2 * 3600, "Goat");
+    let same_evening = close_companion(&mut story, 3);
+    humbled_by(&mut story, 20_000 + 13 * 3600, "Boar");
+    let next_day = close_companion(&mut story, 4);
+
+    assert_eq!(
+        same_evening,
+        Output::EventsSeen {
+            id: MessageId(3),
+            companion: None
+        }
+    );
+    let Output::ModelCall { prompt, .. } = next_day else {
+        panic!("expected a flavor line, got {next_day:?}");
+    };
+    assert!(
+        prompt.contains("Boar, 59 levels below the player"),
+        "{prompt}"
+    );
+}
