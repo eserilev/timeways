@@ -64,12 +64,18 @@ This slice tests the whole chain with one question and one answer: the addon, th
 
 ### 3.2 The companion
 
-A small character rides along, for example a gnome engineer.
+A small character rides along: Sprocket, a gnome engineer.
 
-- It reacts to big moments: a level up, the first kill of a rare or a boss, a death streak, a new zone, a finished quest chain.
-- It remembers your history across sessions: "Third time this murloc got you."
-- It speaks in its own window, and with a voice if you turn voice on (Gnomish Relay SPEC 13.3).
-- It has a budget: at most one line per big moment, and a few lines per hour.
+- It reacts to big moments. The story program finds them in the events that each batch adds to the world:
+  - the first kill of a rare or a boss (the echo of a later kill is not a big moment),
+  - a second or later death to the same NPC: "Third time this murloc got you,"
+  - a level up,
+  - the first visit of a zone.
+- It speaks at most once for each batch, about the best moment, in the order above.
+- It has a budget: at most 3 lines in one hour of game time.
+- A model writes each line through the bridge, with no tools. The line must be plain text, at most 300 characters, and hold no name from after the cutoff (5.9). A line that breaks a rule gets no retry: the companion stays silent.
+- It remembers your history across sessions, because the world does.
+- It speaks in the chat window now. A window of its own, and a voice (Gnomish Relay SPEC 13.3), come later.
 
 ### 3.3 The chronicle
 
@@ -287,6 +293,7 @@ Hourglass plans a generic salience ranking for its briefing. If that ranking tak
 Timeways uses the transport of Gnomish Relay, with its own key and its own slots (5.12):
 
 - **Out:** game events and questions go in strips signed with the Timeways key. The frame format and the records do not change: Timeways uses its own values in the chat, flags, and text fields. The size limit of a strip (3200 bytes) is enough for a batch of events.
+- **Batches:** after the lines of each batch, the bridge sends `batch_end` with the message id. The story program answers `events_seen`, with a companion line or `null` (3.2). It answers at once when the batch has no big moment. The bridge waits at most 60 s, so a slow story program never blocks the player.
 - **In:** story text comes back through the Timeways slots. A long text, such as a chronicle chapter, goes into a file of its own, like `Restore.lua` and `Live.lua`, with its own proved writer and size bound. A new file adds new statements to the proofs. It changes no approved statement.
 
 ### 5.6 The model

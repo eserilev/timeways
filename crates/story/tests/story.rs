@@ -510,3 +510,132 @@ fn a_lore_answer_with_long_passages_still_fits_in_one_reply() {
     );
     assert!(matches!(output, Output::LoreAnswer { ref answer, .. } if answer.text.is_some()));
 }
+
+fn batch_end(story: &mut Story, id: u64) -> Output {
+    story
+        .handle(Input::BatchEnd { id: MessageId(id) })
+        .unwrap()
+        .unwrap()
+}
+
+fn level(story: &mut Story, at: u64, level: u8) {
+    assert_eq!(
+        story
+            .handle(Input::LevelReached {
+                at: Tick(at),
+                level
+            })
+            .unwrap(),
+        None
+    );
+}
+
+#[test]
+fn a_batch_with_no_big_moment_is_seen_at_once_with_no_line() {
+    let mut story = story_with("quiet-batch", &[]);
+    level(&mut story, 1, 12);
+
+    let output = batch_end(&mut story, 3);
+
+    assert_eq!(
+        output,
+        Output::EventsSeen {
+            id: MessageId(3),
+            companion: None
+        }
+    );
+}
+
+#[test]
+fn a_big_moment_asks_the_model_for_a_companion_line() {
+    let mut story = story_with("big-moment", &[]);
+    level(&mut story, 1, 12);
+    level(&mut story, 2, 13);
+
+    let (call, prompt) = model_call(batch_end(&mut story, 3));
+    let text = "Level 13! Your boots still squeak, though.".to_string();
+    let output = story.handle(Input::ModelAnswered { call, text }).unwrap();
+
+    assert!(
+        prompt.ends_with("Moment: The player reached level 13."),
+        "{prompt}"
+    );
+    let companion = Some("Level 13! Your boots still squeak, though.".to_string());
+    assert_eq!(
+        output,
+        Some(Output::EventsSeen {
+            id: MessageId(3),
+            companion
+        })
+    );
+}
+
+#[test]
+fn a_failed_or_bad_companion_line_is_silence() {
+    let mut story = story_with("silent", &[]);
+    level(&mut story, 1, 12);
+    level(&mut story, 2, 13);
+    let (failed, _) = model_call(batch_end(&mut story, 3));
+    level(&mut story, 3, 14);
+    let (bad, _) = model_call(batch_end(&mut story, 4));
+
+    let after_failure = story.handle(Input::ModelFailed { call: failed }).unwrap();
+    let text = "See you in Shattrath!".to_string();
+    let after_bad_line = story
+        .handle(Input::ModelAnswered { call: bad, text })
+        .unwrap();
+
+    assert_eq!(
+        after_failure,
+        Some(Output::EventsSeen {
+            id: MessageId(3),
+            companion: None
+        })
+    );
+    assert_eq!(
+        after_bad_line,
+        Some(Output::EventsSeen {
+            id: MessageId(4),
+            companion: None
+        })
+    );
+}
+
+#[test]
+fn a_spent_budget_asks_no_model() {
+    let mut story = story_with("budget", &[]);
+    level(&mut story, 1, 10);
+    for (batch, level_now) in [(1, 11), (2, 12), (3, 13)] {
+        level(&mut story, u64::from(level_now), level_now);
+        let _ = model_call(batch_end(&mut story, batch));
+    }
+    level(&mut story, 20, 14);
+
+    let output = batch_end(&mut story, 4);
+
+    assert_eq!(
+        output,
+        Output::EventsSeen {
+            id: MessageId(4),
+            companion: None
+        }
+    );
+}
+
+#[test]
+fn each_batch_starts_with_no_moments() {
+    let mut story = story_with("fresh-batch", &[]);
+    level(&mut story, 1, 12);
+    level(&mut story, 2, 13);
+    let _ = model_call(batch_end(&mut story, 3));
+
+    let output = batch_end(&mut story, 4);
+
+    assert_eq!(
+        output,
+        Output::EventsSeen {
+            id: MessageId(4),
+            companion: None
+        }
+    );
+}

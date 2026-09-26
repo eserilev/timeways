@@ -62,7 +62,7 @@ pub fn check(answer: &str, passage_count: usize) -> Vec<Fault> {
             faults.push(Fault::UnknownCitation { number });
         }
     }
-    for name in later_names_in(answer) {
+    for name in names_after_cutoff(answer) {
         faults.push(Fault::LaterName {
             name: name.to_string(),
         });
@@ -78,7 +78,9 @@ pub fn later_names() -> impl Iterator<Item = &'static str> {
         .filter(|line| !line.is_empty() && !line.starts_with('#'))
 }
 
-fn later_names_in(answer: &str) -> Vec<&'static str> {
+/// The names of the cutoff list that the text holds, as whole words in any case.
+#[must_use]
+pub fn names_after_cutoff(answer: &str) -> Vec<&'static str> {
     let words = words_of(answer);
     later_names()
         .filter(|name| contains_phrase(&words, name))

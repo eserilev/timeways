@@ -46,13 +46,17 @@ local REPLIES = {
 	journal = ns.Journal.Receive,
 }
 
--- A reply holds one JSON line, or nothing for a batch of game events.
+-- A reply holds one JSON line: an answer, a journal page, or `events_seen` for a batch of
+-- game events. Each one can carry a companion line.
 function ns.OnReply(text)
 	for line in text:gmatch("[^\n]+") do
 		local value = ns.Json.Decode(line)
 		local handler = type(value) == "table" and REPLIES[value.type]
 		if handler then
 			handler(value)
+		end
+		if type(value) == "table" then
+			ns.Companion.Say(value.companion)
 		end
 	end
 end

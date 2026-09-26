@@ -13,6 +13,7 @@ Outbox.lua
 Watch.lua
 Foes.lua
 Lore.lua
+Companion.lua
 Journal.lua
 JournalFrame.lua
 Core.lua

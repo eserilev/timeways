@@ -1,12 +1,15 @@
 //! One input in, at most one output out (GAMEPLAY.md 3.1, 5.2, and 5.6).
 
 use crate::character::{Character, Refusal};
+use crate::companion::{self, Budget};
 use crate::input::{CallId, Input, MessageId};
 use crate::journal::{PAGE_BYTES, Page, journal, pages};
 use crate::lore::{Answer, LoreCall, Next};
+use crate::moments::{Moment, best, moments};
 use crate::pack::{Link, Pack, PackError, Passage};
 use crate::prompt::Context;
 use crate::store::{CharacterKey, HistoryFile, Store, StoreError};
+use hourglass::Tick;
 use serde::Serialize;
 use std::collections::BTreeMap;
 use thiserror::Error;
@@ -38,6 +41,11 @@ pub enum Output {
         id: MessageId,
         #[serde(flatten)]
         page: Page,
+    },
+    /// The answer to `batch_end`. The bridge shows `companion` in the game.
+    EventsSeen {
+        id: MessageId,
+        companion: Option<String>,
     },
     /// The bridge runs the model with no tools, and answers with `model_answered` or
     /// `model_failed` for the same call.
@@ -86,10 +94,10 @@ impl Active {
     }
 }
 
-/// A model call, and the question that it answers.
-struct Pending {
-    question: MessageId,
-    lore: LoreCall,
+/// An open model call, and what its answer is for.
+enum Pending {
+    Lore { question: MessageId, lore: LoreCall },
+    Companion { batch: MessageId },
 }
 
 pub struct Story {
@@ -101,6 +109,9 @@ pub struct Story {
     /// The pages of the last journal request. Later pages come from here, so events that
     /// arrive between two requests never shift an entry to another page.
     journal: Vec<Page>,
+    /// The big moments of the batch so far. `batch_end` takes them.
+    moments: Vec<Moment>,
+    budget: Budget,
 }
 
 impl Story {
@@ -113,6 +124,8 @@ impl Story {
             calls: BTreeMap::new(),
             next_call: CallId(1),
             journal: Vec::new(),
+            moments: Vec::new(),
+            budget: Budget::default(),
         }
     }
 
@@ -150,19 +163,24 @@ impl Story {
                 let page = self.journal_page(page)?;
                 Ok(Some(Output::Journal { id, page }))
             }
-            Input::ModelAnswered { call, text } => {
-                let pending = self.take_call(call)?;
-                let next = pending.lore.answered(&text);
-                Ok(Some(self.follow(pending.question, next)))
-            }
-            Input::ModelFailed { call } => {
-                let pending = self.take_call(call)?;
-                let answer = pending.lore.failed();
-                Ok(Some(Output::LoreAnswer {
-                    id: pending.question,
-                    answer,
-                }))
-            }
+            Input::BatchEnd { id } => Ok(Some(self.end_batch(id))),
+            Input::ModelAnswered { call, text } => Ok(Some(match self.take_call(call)? {
+                Pending::Lore { question, lore } => self.follow(question, lore.answered(&text)),
+                Pending::Companion { batch } => Output::EventsSeen {
+                    id: batch,
+                    companion: companion::checked_line(&text),
+                },
+            })),
+            Input::ModelFailed { call } => Ok(Some(match self.take_call(call)? {
+                Pending::Lore { question, lore } => Output::LoreAnswer {
+                    id: question,
+                    answer: lore.failed(),
+                },
+                Pending::Companion { batch } => Output::EventsSeen {
+                    id: batch,
+                    companion: None,
+                },
+            })),
         }
     }
 
@@ -181,6 +199,7 @@ impl Story {
         }
         self.active = None;
         self.journal.clear();
+        self.moments.clear();
         let key = key?;
         let (character, file) = self.store.open(&key)?;
         self.active = Some(Active {
@@ -198,16 +217,37 @@ impl Story {
             .ok_or(StoryError::NoCharacter)
     }
 
-    /// The events that landed before a refusal stay, so they are saved in both cases.
+    /// The events that landed before a refusal stay, so they are saved in both cases, and
+    /// their moments count.
     fn change(
         &mut self,
         act: impl FnOnce(&mut Character) -> Result<(), Refusal>,
     ) -> Result<Option<Output>, StoryError> {
         let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
+        let before = active.character.world().history().len();
         let changed = act(&mut active.character);
+        let world = active.character.world();
+        let added: Vec<_> = world.history().iter().skip(before).cloned().collect();
+        self.moments
+            .extend(moments(world, active.character.you(), &added));
         active.save()?;
         changed.map_err(StoryError::Refused)?;
         Ok(None)
+    }
+
+    /// At most one companion line for a batch: about its best moment, within the budget.
+    fn end_batch(&mut self, batch: MessageId) -> Output {
+        let best = best(std::mem::take(&mut self.moments));
+        let now = self
+            .character()
+            .map_or(Tick(0), |character| character.world().tick);
+        let Some(moment) = best.filter(|_| self.budget.take(now)) else {
+            return Output::EventsSeen {
+                id: batch,
+                companion: None,
+            };
+        };
+        self.open_call(Pending::Companion { batch }, companion::prompt(&moment))
     }
 
     /// A page past the end comes back empty, with the true number of pages.
@@ -255,13 +295,17 @@ impl Story {
                 answer,
             },
             Next::Ask(lore) => {
-                let call = self.next_call;
-                self.next_call = CallId(call.0 + 1);
                 let prompt = lore.prompt().to_string();
-                self.calls.insert(call, Pending { question, lore });
-                Output::ModelCall { call, prompt }
+                self.open_call(Pending::Lore { question, lore }, prompt)
             }
         }
+    }
+
+    fn open_call(&mut self, pending: Pending, prompt: String) -> Output {
+        let call = self.next_call;
+        self.next_call = CallId(call.0 + 1);
+        self.calls.insert(call, pending);
+        Output::ModelCall { call, prompt }
     }
 
     fn take_call(&mut self, call: CallId) -> Result<Pending, StoryError> {

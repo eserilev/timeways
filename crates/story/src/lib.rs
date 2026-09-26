@@ -2,9 +2,11 @@
 
 pub mod character;
 pub mod check;
+pub mod companion;
 pub mod input;
 pub mod journal;
 pub mod lore;
+pub mod moments;
 pub mod pack;
 pub mod prompt;
 pub mod store;

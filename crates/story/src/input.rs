@@ -51,6 +51,10 @@ pub enum Input {
         #[serde(default)]
         page: usize,
     },
+    /// The bridge sends it after the lines of each batch. It gets `events_seen`.
+    BatchEnd {
+        id: MessageId,
+    },
     ModelAnswered {
         call: CallId,
         text: String,
