@@ -3,6 +3,9 @@
 return {
 	build = "1.60.1.70009",
 	globals = {
+		"C_DeathRecap",
+		"C_DeathRecap.GetRecapEvents",
+		"C_DeathRecap.HasRecapEvents",
 		"C_Timer",
 		"C_Timer.NewTicker",
 		"CreateFrame",
@@ -13,11 +16,14 @@ return {
 		"SlashCmdList",
 		"UIParent",
 		"UISpecialFrames",
+		"UnitClassification",
 		"UnitExists",
+		"UnitGUID",
 		"UnitIsPlayer",
 		"UnitLevel",
 		"UnitName",
 		"date",
+		"issecretvalue",
 		"time",
 	},
 	widgets = {

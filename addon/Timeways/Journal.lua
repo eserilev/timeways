@@ -106,6 +106,8 @@ local function DeedTitle(deed)
 			return "Defeated " .. Name(deed.foe)
 		end
 		return string.format("Defeated %s again (%d times)", Name(deed.foe), deed.times)
+	elseif deed.kind == "died" then
+		return deed.killer and ("Fell to " .. Name(deed.killer)) or "Died"
 	end
 end
 

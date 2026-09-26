@@ -181,3 +181,24 @@ fn a_kill_input_reads() {
         }
     );
 }
+
+#[test]
+fn a_death_reads_with_and_without_a_killer() {
+    let with = r#"{"type":"died","at":100,"killer":"Hogger"}"#;
+    let without = r#"{"type":"died","at":100}"#;
+
+    assert_eq!(
+        parse(with).unwrap(),
+        Input::Died {
+            at: Tick(100),
+            killer: Some("Hogger".to_string())
+        }
+    );
+    assert_eq!(
+        parse(without).unwrap(),
+        Input::Died {
+            at: Tick(100),
+            killer: None
+        }
+    );
+}

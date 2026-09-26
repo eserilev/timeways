@@ -315,7 +315,7 @@ fn every_registered_event_has_a_handler() {
          return count",
     );
 
-    assert_eq!(registered, 7);
+    assert_eq!(registered, 13);
 }
 
 #[test]

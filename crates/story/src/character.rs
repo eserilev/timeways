@@ -1,6 +1,6 @@
 //! The world of one character, fed by game events (GAMEPLAY.md 5.1 and 5.2).
 
-use crate::vocabulary::{self, DEFEATED, LEVEL, MET, VISITED};
+use crate::vocabulary::{self, DEATHS, DEFEATED, LEVEL, MET, VISITED};
 use hourglass::{
     EntityId, EntityType, Event, EventHistory, EventKind, LOCATED_IN, Rejection, Tick, World,
 };
@@ -144,7 +144,24 @@ impl Character {
         if let Some(here) = self.world.location_of(self.you) {
             self.settle(at, foe, here)?;
         }
-        self.count_up(at, self.you, DEFEATED, foe)
+        self.count_up(at, self.you, DEFEATED, Some(foe))
+    }
+
+    /// Your death is a deed of the killer, when the addon knows one (GAMEPLAY.md 5.13).
+    /// The count of deaths comes last, so the journal finds the killer just before it.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first refusal of Hourglass.
+    pub fn die(&mut self, at: Tick, killer: Option<&str>) -> Result<(), Refusal> {
+        if let Some(killer) = killer {
+            let foe = self.find_or_create(at, EntityType::Person, killer)?;
+            if let Some(here) = self.world.location_of(self.you) {
+                self.settle(at, foe, here)?;
+            }
+            self.count_up(at, foe, DEFEATED, Some(self.you))?;
+        }
+        self.count_up(at, self.you, DEATHS, None)
     }
 
     /// # Errors
@@ -219,18 +236,18 @@ impl Character {
         at: Tick,
         holder: EntityId,
         name: &str,
-        target: EntityId,
+        target: Option<EntityId>,
     ) -> Result<(), Refusal> {
         let held = self
             .world
             .entity(holder)
-            .and_then(|entity| entity.fact(name, Some(target)))
+            .and_then(|entity| entity.fact(name, target))
             .and_then(|fact| fact.value);
         let kind = match held {
             Some(count) => EventKind::FactUpdate {
                 entity: holder,
                 name: name.to_string(),
-                linked_to: Some(target),
+                linked_to: target,
                 from: count,
                 to: count + 1,
             },
@@ -238,7 +255,7 @@ impl Character {
                 entity: holder,
                 name: name.to_string(),
                 value: Some(1),
-                linked_to: Some(target),
+                linked_to: target,
             },
         };
         self.propose(at, kind)

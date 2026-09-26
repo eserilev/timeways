@@ -267,3 +267,39 @@ fn a_foe_lives_where_you_fought_it() {
     let edge = place(&character, "Forest's Edge");
     assert_eq!(character.world().location_of(hogger), Some(edge));
 }
+
+fn deaths(character: &Character) -> Option<i64> {
+    character
+        .world()
+        .entity(character.you())
+        .unwrap()
+        .value(timeways_story::vocabulary::DEATHS)
+}
+
+#[test]
+fn a_death_to_an_npc_is_a_deed_of_the_npc() {
+    let mut character = Character::new();
+
+    character.die(Tick(1), Some("Murloc Forager")).unwrap();
+    character.die(Tick(2), Some("Murloc Forager")).unwrap();
+
+    let murloc = person(&character, "Murloc Forager");
+    let kills = character
+        .world()
+        .entity(murloc)
+        .unwrap()
+        .fact(timeways_story::vocabulary::DEFEATED, Some(character.you()))
+        .and_then(|fact| fact.value);
+    assert_eq!(kills, Some(2));
+    assert_eq!(deaths(&character), Some(2));
+}
+
+#[test]
+fn a_death_with_no_known_killer_still_counts() {
+    let mut character = Character::new();
+
+    character.die(Tick(1), None).unwrap();
+
+    assert_eq!(deaths(&character), Some(1));
+    assert_eq!(character.world().len(), 1);
+}

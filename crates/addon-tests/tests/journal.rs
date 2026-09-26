@@ -318,3 +318,23 @@ fn a_kill_and_its_echo_show_as_deeds() {
     ];
     assert_eq!(lines(&game, "deeds"), expected);
 }
+
+#[test]
+fn deaths_show_as_deeds_with_the_killer_when_known() {
+    let game = Game::new();
+    let mut character = Character::new();
+    character.enter_zone(Tick(DAY), "Westfall", None).unwrap();
+    character.die(Tick(DAY), Some("Defias Pillager")).unwrap();
+    character.die(Tick(DAY), None).unwrap();
+
+    game.reply(&journal_reply(&character));
+
+    let place = format!("text: Westfall, {}.", day(&game));
+    let expected = [
+        "entry: Fell to Defias Pillager".to_string(),
+        place.clone(),
+        "entry: Died".to_string(),
+        place,
+    ];
+    assert_eq!(lines(&game, "deeds"), expected);
+}

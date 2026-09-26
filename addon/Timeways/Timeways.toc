@@ -11,6 +11,7 @@ Inputs.lua
 Link.lua
 Outbox.lua
 Watch.lua
+Foes.lua
 Lore.lua
 Journal.lua
 JournalFrame.lua

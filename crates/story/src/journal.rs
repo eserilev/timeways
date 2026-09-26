@@ -2,7 +2,7 @@
 //! and its history. No model takes part.
 
 use crate::character::Character;
-use crate::vocabulary::{DEFEATED, LEVEL, MET, VISITED};
+use crate::vocabulary::{DEATHS, DEFEATED, LEVEL, MET, VISITED};
 use hourglass::{EntityId, EventKind, LOCATED_IN, Tick, World};
 use serde::Serialize;
 
@@ -48,6 +48,12 @@ pub enum Deed {
     Defeated {
         foe: String,
         times: i64,
+        at: Tick,
+        place: Option<String>,
+    },
+    /// `killer` is None when the addon did not know it, or when it was a player.
+    Died {
+        killer: Option<String>,
         at: Tick,
         place: Option<String>,
     },
@@ -173,6 +179,8 @@ fn first_links(world: &World, holder: EntityId, fact: &str) -> Vec<(EntityId, Ti
 fn deeds(world: &World, you: EntityId) -> Vec<Deed> {
     let mut deeds = Vec::new();
     let mut here = None;
+    // `die` writes the kill of the killer just before the count of deaths.
+    let mut killer = None;
     for event in world.history() {
         match &event.kind {
             EventKind::FactStart {
@@ -218,6 +226,31 @@ fn deeds(world: &World, you: EntityId) -> Vec<Deed> {
                 deeds.push(Deed::Defeated {
                     foe,
                     times: *times,
+                    at: event.tick,
+                    place,
+                });
+            }
+            EventKind::FactStart {
+                entity: foe,
+                name,
+                linked_to: Some(target),
+                ..
+            }
+            | EventKind::FactUpdate {
+                entity: foe,
+                name,
+                linked_to: Some(target),
+                ..
+            } if *target == you && name == DEFEATED => {
+                killer = Some(name_of(world, *foe));
+            }
+            EventKind::FactStart { entity, name, .. }
+            | EventKind::FactUpdate { entity, name, .. }
+                if *entity == you && name == DEATHS =>
+            {
+                let place = here.map(|place| name_of(world, place));
+                deeds.push(Deed::Died {
+                    killer: killer.take(),
                     at: event.tick,
                     place,
                 });

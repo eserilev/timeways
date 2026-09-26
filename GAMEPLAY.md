@@ -102,7 +102,7 @@ The desktop sends the pages each time the book opens, because the world lives th
 |---|---|---|
 | **Places** | Each zone, with the date of the first visit, and its subzones under it | Built |
 | **People** | Each NPC that you met, with the place and the date | Built |
-| **Deeds** | NPC fights: level milestones, first kills of rares and bosses, repeat kills (echoes, 5.13), and your deaths to mobs | Levels built. Kills and deaths need the combat log. |
+| **Deeds** | NPC fights: level milestones, first kills of rares and bosses, repeat kills (echoes, 5.13), and your deaths | Built: levels, kills of rares and bosses, and deaths |
 | **Nemesis** | Real players from world PvP only: the kill count on each side, the places, and the last time seen (4.1). Aliases only (5.11). | Later |
 | **Chronicle** | One chapter for each play session (3.3) | Later |
 | **Titles** | The joke titles (5.4.1) | Later |
@@ -114,7 +114,7 @@ The social level needs the same world and the same director as the solo level, p
 
 ### 4.1 Nemesis (world PvP)
 
-- The enemy player who kills you becomes your nemesis. The combat log names them.
+- The enemy player who kills you becomes your nemesis. Addons cannot read the combat log in this client (open question 9), so the source of the killer is open.
 - Your chronicle keeps the feud: the kill count on each side, the places, and your revenge.
 - A grudge outlives each fight, and hourglass keeps it: `nemesis` is a fact that stays until you end it.
 - When your nemesis is near, you get a revenge "hunt".
@@ -123,7 +123,7 @@ The social level needs the same world and the same director as the solo level, p
 ### 4.2 The guild saga
 
 - Each boss kill, each first kill, the number of wipes, and the first player to die go into the history of the guild.
-- The sources are the `ENCOUNTER_END` event and the combat log.
+- The sources are `ENCOUNTER_END` and `BOSS_KILL`. Wipes and the first player to die need another source, because the combat log is closed (open question 9).
 - A bard writes each raid night as a saga, and every member with the addon reads the same book.
 
 ### 4.3 The raid herald
@@ -132,7 +132,7 @@ Before a pull, the raid leader gets a short battle speech from the history of th
 
 ### 4.4 The bounty board
 
-Officers set bounties on enemy players or on rare mobs. The addon tracks the kills from the combat log, and the saga names the winner.
+Officers set bounties on enemy players or on rare mobs. The addon tracks the kills with `PARTY_KILL` (5.4), and the saga names the winner.
 
 ### 4.5 A shared guild world
 
@@ -204,13 +204,21 @@ A first list. Each name goes through the API gate of Gnomish Relay (`scripts/wow
 | New zone | `ZONE_CHANGED_NEW_AREA`, `ZONE_CHANGED` |
 | Level up | `PLAYER_LEVEL_UP` |
 | Quest done | `QUEST_TURNED_IN` |
-| Kill, death | `COMBAT_LOG_EVENT_UNFILTERED` (`PARTY_KILL`, `UNIT_DIED`), `PLAYER_DEAD` |
+| Kill of a rare or a boss | `PARTY_KILL` for a unit that the addon saw as rare, rare elite, or world boss (`PLAYER_TARGET_CHANGED`, `UPDATE_MOUSEOVER_UNIT`, `NAME_PLATE_UNIT_ADDED`), and `ENCOUNTER_END` with `success` 1 |
+| Your death | `PLAYER_DEAD`, and the killing blow from `C_DeathRecap.GetRecapEvents()` |
 | Boss fight | `ENCOUNTER_START`, `ENCOUNTER_END` |
 | Talk to an NPC | `GOSSIP_SHOW`, `QUEST_DETAIL` |
 | Loot | `CHAT_MSG_LOOT` |
 | Group and guild | `GROUP_ROSTER_UPDATE`, `GUILD_ROSTER_UPDATE` |
 
 The addon sends game events in batches with the next strip. Nothing needs to arrive at once.
+
+**The combat log is closed to addons in this client.** `COMBAT_LOG_EVENT_UNFILTERED` fires, but only Blizzard code can read its payload (`C_CombatLogSecure` is secure-only). So the addon reads kills and deaths from the events above:
+
+- It keeps, in memory only, the GUID of each rare, rare elite, and world boss that it sees. `PARTY_KILL` gives the GUID of the target of a killing blow of you or your group.
+- A raid boss gives both `PARTY_KILL` and `ENCOUNTER_END`, so one name counts once in 2 minutes.
+- The client can hide a value from addons ("secret values"). The addon checks each GUID and name with `issecretvalue`, and never compares or stores a hidden one.
+- A death names its killer only when the addon saw that name on an NPC and never on a player. So the name of a real player never leaves the computer (5.11).
 
 **What it watches, and what it never watches.** Timeways takes in chosen moments, not every action. A player makes thousands of actions per hour, a strip holds at most 3200 bytes, and a story needs meaning, not a damage log.
 
@@ -226,9 +234,9 @@ Small, silly moments are often the best part of a story. The addon collects them
 
 | Moment | Source |
 |---|---|
-| A critter kill: a squirrel, a rabbit, a cow | The combat log, with the creature type "Critter" |
+| A critter kill: a squirrel, a rabbit, a cow | Open: the combat log is closed (open question 9) |
 | An emote of yours: `/dance` in Goldshire, `/slap` an NPC, `/kiss` a guard | `CHAT_MSG_TEXT_EMOTE` from you, with its target. Emotes are public in the game, not private chat. |
-| A silly death: a fall, drowning, lava, a critter, a mob far below your level | `ENVIRONMENTAL_DAMAGE` and `UNIT_DIED` in the combat log, `PLAYER_DEAD` |
+| A silly death: a fall, drowning, lava, a critter, a mob far below your level | `PLAYER_DEAD` and the death recap: its `environmentalType` and its killer |
 | An odd habit: the same mob 50 times, fishing up boots, a long AFK in a capital | Counts in the addon |
 
 - **Counted locally.** A tally is tiny, for example `dance Goldshire 3`, and it goes out with the next batch. No moment costs a strip of its own.
@@ -505,3 +513,8 @@ The guild world keeps `defeated` from the guild to each boss. So the saga gets a
 6. **The canon seed.** Which canon characters, places, and factions go into every world at the start, and with which facts? The Forever client data (for example its database tables for the Forever build) is the best source.
 7. **Decided: two addons** (5.12). Still open: do 2000 slot folders make the game start slower, and does a `## Group` start folded in the AddOns list? Measure both in the game.
 8. **The strength of the echo lore** (5.13). Off, light, or strong, and which level is the default? Does a strong level need a named bronze dragon, and how does it stay inside the lore cutoff?
+9. **The closed combat log** (5.4). Addons in this client cannot read the combat log. Kills of rares and bosses and your deaths work without it. These features still need a source:
+   - Nemesis (4.1): the death recap names the killer, but gives no GUID, so the addon cannot tell a player from an NPC with the same name for sure.
+   - Critter kills and common mob counts (5.4.1): `UNIT_DIED` gives a GUID, but a GUID can be secret, and the range of the event is not documented.
+   - Wipes and the first player to die in a raid (4.2).
+   - A test in the game settles what `UNIT_DIED`, `PARTY_KILL`, and the recap really give, and when values are secret.

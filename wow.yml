@@ -28,6 +28,17 @@ globals:
     args: []
   GetSubZoneText:
     args: []
+  UnitGUID:
+    args:
+      - type: string
+  UnitClassification:
+    args:
+      - type: string
+  issecretvalue:
+    args:
+      - type: any
+  C_DeathRecap:
+    any: true
   UnitExists:
     args:
       - type: string

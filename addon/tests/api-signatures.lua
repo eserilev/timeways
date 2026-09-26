@@ -5,6 +5,24 @@
 return {
 	build = "1.60.1.70009",
 	functions = {
+		["C_DeathRecap.GetRecapEvents"] = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "recapID", Type = "number", Nilable = true },
+			},
+			Returns = {
+				{ Name = "events", Type = "table", InnerType = "DeathRecapEventInfo", Nilable = false },
+			},
+		},
+		["C_DeathRecap.HasRecapEvents"] = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "recapID", Type = "number", Nilable = true },
+			},
+			Returns = {
+				{ Name = "hasEvents", Type = "bool", Nilable = false },
+			},
+		},
 		["C_Timer.NewTicker"] = {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {
@@ -35,6 +53,15 @@ return {
 				{ Name = "text", Type = "cstring", Nilable = false },
 			},
 		},
+		UnitClassification = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "unit", Type = "UnitToken", Nilable = false },
+			},
+			Returns = {
+				{ Name = "result", Type = "cstring", Nilable = false },
+			},
+		},
 		UnitExists = {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {
@@ -42,6 +69,16 @@ return {
 			},
 			Returns = {
 				{ Name = "result", Type = "bool", Nilable = false },
+			},
+		},
+		UnitGUID = {
+			SecretArguments = "AllowedWhenUntainted",
+			SecretWhenUnitIdentityRestricted = true,
+			Arguments = {
+				{ Name = "unit", Type = "UnitTokenPvPRestrictedForAddOns", Nilable = false },
+			},
+			Returns = {
+				{ Name = "result", Type = "WOWGUID", Nilable = true },
 			},
 		},
 		UnitIsPlayer = {
@@ -72,6 +109,16 @@ return {
 			Returns = {
 				{ Name = "unitName", Type = "cstring", Nilable = false },
 				{ Name = "unitServer", Type = "cstring", Nilable = false },
+			},
+		},
+		issecretvalue = {
+			SecretArguments = "AllowedWhenUntainted",
+			SecureHooksAllowed = false,
+			Arguments = {
+				{ Name = "value", Type = "LuaValueReference", Nilable = false },
+			},
+			Returns = {
+				{ Name = "isSecret", Type = "bool", Nilable = false },
 			},
 		},
 	},
@@ -491,11 +538,39 @@ return {
 		},
 	},
 	events = {
+		ENCOUNTER_END = {
+			SynchronousEvent = true,
+			Payload = {
+				{ Name = "encounterID", Type = "number", Nilable = false },
+				{ Name = "encounterName", Type = "cstring", Nilable = false },
+				{ Name = "difficultyID", Type = "number", Nilable = false },
+				{ Name = "groupSize", Type = "number", Nilable = false },
+				{ Name = "success", Type = "number", Nilable = false },
+				{ Name = "encounterUnitStatus", Type = "table", InnerType = "EncounterUnitStatus", Nilable = false },
+			},
+		},
 		GOSSIP_SHOW = {
 			SynchronousEvent = true,
 			Payload = {
 				{ Name = "uiTextureKit", Type = "textureKit", Nilable = true },
 			},
+		},
+		NAME_PLATE_UNIT_ADDED = {
+			SynchronousEvent = true,
+			Payload = {
+				{ Name = "unitToken", Type = "UnitTokenType", Nilable = false },
+			},
+		},
+		PARTY_KILL = {
+			SecretWhenUnitIdentityRestricted = true,
+			SynchronousEvent = true,
+			Payload = {
+				{ Name = "attackerGUID", Type = "WOWGUID", Nilable = false },
+				{ Name = "targetGUID", Type = "WOWGUID", Nilable = false },
+			},
+		},
+		PLAYER_DEAD = {
+			SynchronousEvent = true,
 		},
 		PLAYER_ENTERING_WORLD = {
 			SynchronousEvent = true,
@@ -518,11 +593,17 @@ return {
 				{ Name = "intellectDelta", Type = "number", Nilable = false },
 			},
 		},
+		PLAYER_TARGET_CHANGED = {
+			SynchronousEvent = true,
+		},
 		QUEST_DETAIL = {
 			SynchronousEvent = true,
 			Payload = {
 				{ Name = "questStartItemID", Type = "number", Nilable = true },
 			},
+		},
+		UPDATE_MOUSEOVER_UNIT = {
+			SynchronousEvent = true,
 		},
 		ZONE_CHANGED = {
 			SynchronousEvent = true,

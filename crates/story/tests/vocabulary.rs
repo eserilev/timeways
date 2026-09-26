@@ -3,7 +3,7 @@ use hourglass::{
     vocabulary_sound,
 };
 use timeways_story::vocabulary::{
-    DEAD, DEFEATED, KNOWS_LORE, LEADER_OF, LEVEL, MEMBER_OF, MET, NEMESIS, QUEST_ACCEPTED,
+    DEAD, DEATHS, DEFEATED, KNOWS_LORE, LEADER_OF, LEVEL, MEMBER_OF, MET, NEMESIS, QUEST_ACCEPTED,
     QUEST_DONE, QUEST_OFFERED, SLAPPED, TITLE, TRUSTS, VISITED, vocabulary,
 };
 
@@ -134,6 +134,7 @@ fn vocabulary_holds_every_name_of_the_spec_and_located_in() {
         VISITED,
         KNOWS_LORE,
         DEAD,
+        DEATHS,
         DEFEATED,
         NEMESIS,
         QUEST_OFFERED,

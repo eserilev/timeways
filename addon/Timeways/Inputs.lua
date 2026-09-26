@@ -26,6 +26,14 @@ function Inputs.Npc(at, name)
 	return { type = "npc_met", at = at, name = name }
 end
 
+function Inputs.Defeated(at, name)
+	return { type = "npc_defeated", at = at, name = name }
+end
+
+function Inputs.Died(at, killer)
+	return { type = "died", at = at, killer = killer }
+end
+
 function Inputs.Level(at, level)
 	return { type = "level_reached", at = at, level = level }
 end

@@ -130,6 +130,9 @@ impl Story {
             Input::NpcDefeated { at, name } => {
                 self.change(|character| character.defeat_npc(at, &name))
             }
+            Input::Died { at, killer } => {
+                self.change(|character| character.die(at, killer.as_deref()))
+            }
             Input::LevelReached { at, level } => {
                 self.change(|character| character.reach_level(at, level))
             }

@@ -86,6 +86,33 @@ function UnitIsPlayer(unit)
 	return u ~= nil and u.player == true
 end
 
+function UnitGUID(unit)
+	local u = wow.units[unit]
+	return u and u.guid
+end
+
+function UnitClassification(unit)
+	local u = wow.units[unit]
+	return u and u.classification or "normal"
+end
+
+-- A test marks a value as hidden by putting it in this set.
+wow.secrets = {}
+function issecretvalue(value)
+	return value ~= nil and wow.secrets[value] == true
+end
+
+-- The recap of the last death: a list of events, the killing blow first.
+wow.recap = nil
+C_DeathRecap = {
+	HasRecapEvents = function()
+		return wow.recap ~= nil
+	end,
+	GetRecapEvents = function()
+		return wow.recap
+	end,
+}
+
 function UnitLevel(unit)
 	local u = wow.units[unit]
 	return u and u.level or 0

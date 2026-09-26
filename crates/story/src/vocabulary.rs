@@ -4,13 +4,15 @@ use hourglass::EntityType::{Faction, Person, Place, Thing};
 use hourglass::{Band, Count, Direction, EntityType, FactRules, FactVocabulary, Shape};
 
 /// A change to a declared name needs a new version and a migration (`hourglass::migrate`).
-pub const VERSION: u32 = 1;
+pub const VERSION: u32 = 2;
 
 pub const MET: &str = "met";
 pub const TRUSTS: &str = "trusts";
 pub const VISITED: &str = "visited";
 pub const KNOWS_LORE: &str = "knows_lore";
 pub const DEAD: &str = "dead";
+/// Your own deaths, with a known killer or not. A known killer also holds `defeated`.
+pub const DEATHS: &str = "deaths";
 pub const DEFEATED: &str = "defeated";
 pub const NEMESIS: &str = "nemesis";
 pub const QUEST_OFFERED: &str = "quest_offered";
@@ -50,6 +52,7 @@ pub fn vocabulary() -> FactVocabulary {
             LEVEL,
             FactRules::solo(Shape::number(LEVELS).moving(Direction::Up)),
         )
+        .declare(DEATHS, FactRules::solo(up_tally()))
         .declare(SLAPPED, linked(up_tally(), Person, &[Person]))
         .declare(TITLE, linked(up_flag(), Person, &[Thing]))
         .declare(MEMBER_OF, linked(Shape::flag(), Person, &[Faction]))

@@ -204,3 +204,35 @@ fn the_first_kill_and_each_echo_are_deeds_with_their_count_and_place() {
     };
     assert_eq!(deeds, [defeated(1, 20), defeated(2, 30)]);
 }
+
+#[test]
+fn each_death_is_a_deed_with_its_killer_when_known() {
+    let mut character = Character::new();
+    character.enter_zone(Tick(10), "Westfall", None).unwrap();
+    character.die(Tick(20), Some("Defias Pillager")).unwrap();
+    character.die(Tick(30), None).unwrap();
+
+    let deeds = journal(&character).deeds;
+
+    let died = |killer: Option<&str>, at| Deed::Died {
+        killer: killer.map(str::to_string),
+        at: Tick(at),
+        place: Some("Westfall".to_string()),
+    };
+    assert_eq!(deeds, [died(Some("Defias Pillager"), 20), died(None, 30)]);
+}
+
+#[test]
+fn a_death_is_not_a_kill_of_yours() {
+    let mut character = Character::new();
+
+    character.die(Tick(1), Some("Hogger")).unwrap();
+
+    let deeds = journal(&character).deeds;
+    assert!(
+        deeds
+            .iter()
+            .all(|deed| !matches!(deed, Deed::Defeated { .. })),
+        "{deeds:?}"
+    );
+}

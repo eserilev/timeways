@@ -12,6 +12,12 @@ local HANDLERS = {
 	PLAYER_LEVEL_UP = ns.Watch.Level,
 	GOSSIP_SHOW = ns.Watch.Npc,
 	QUEST_DETAIL = ns.Watch.Npc,
+	PLAYER_TARGET_CHANGED = ns.Foes.SeeTarget,
+	UPDATE_MOUSEOVER_UNIT = ns.Foes.SeeMouseover,
+	NAME_PLATE_UNIT_ADDED = ns.Foes.See,
+	PARTY_KILL = ns.Foes.PartyKill,
+	ENCOUNTER_END = ns.Foes.EncounterEnd,
+	PLAYER_DEAD = ns.Foes.Died,
 }
 
 local frame = CreateFrame("Frame")
@@ -23,6 +29,12 @@ frame:RegisterEvent("ZONE_CHANGED_INDOORS")
 frame:RegisterEvent("PLAYER_LEVEL_UP")
 frame:RegisterEvent("GOSSIP_SHOW")
 frame:RegisterEvent("QUEST_DETAIL")
+frame:RegisterEvent("PLAYER_TARGET_CHANGED")
+frame:RegisterEvent("UPDATE_MOUSEOVER_UNIT")
+frame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
+frame:RegisterEvent("PARTY_KILL")
+frame:RegisterEvent("ENCOUNTER_END")
+frame:RegisterEvent("PLAYER_DEAD")
 frame:SetScript("OnEvent", function(_, event, ...)
 	HANDLERS[event](...)
 end)
