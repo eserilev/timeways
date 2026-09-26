@@ -59,7 +59,7 @@ fn a_question_goes_to_the_model_and_its_answer_comes_back_with_the_sources() {
     let input = concat!(
         r#"{"type":"zone_entered","at":1,"zone":"Testvale"}"#,
         "\n",
-        r#"{"type":"lore_asked","at":2,"question":"why is this tower in ruins?"}"#,
+        r#"{"type":"lore_asked","id":5,"at":2,"question":"why is this tower in ruins?"}"#,
         "\n",
         r#"{"type":"model_answered","call":1,"text":"Goblins burned it [1]."}"#,
         "\n",
@@ -77,7 +77,20 @@ fn a_question_goes_to_the_model_and_its_answer_comes_back_with_the_sources() {
     );
     assert_eq!(
         lines[1],
-        r#"{"type":"lore_answer","text":"Goblins burned it [1].","passages":[{"text":"The tower of Testvale fell.","source":"https://example.test/1"}]}"#
+        r#"{"type":"lore_answer","id":5,"text":"Goblins burned it [1].","passages":[{"text":"The tower of Testvale fell.","source":"https://example.test/1"}]}"#
+    );
+}
+
+#[test]
+fn a_hello_gets_a_hello_with_the_protocol() {
+    let output = run(
+        &pack_file("hello"),
+        "{\"type\":\"hello\",\"protocol\":1,\"app\":\"timeways\"}\n",
+    );
+
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        "{\"type\":\"hello\",\"protocol\":1}\n"
     );
 }
 

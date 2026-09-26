@@ -1,5 +1,5 @@
 use hourglass::Tick;
-use timeways_story::input::{CallId, Input};
+use timeways_story::input::{CallId, Input, MessageId};
 
 fn parse(line: &str) -> Result<Input, serde_json::Error> {
     serde_json::from_str(line)
@@ -65,11 +65,13 @@ fn a_level_input_reads() {
 
 #[test]
 fn a_lore_input_reads_with_its_target() {
-    let line = r#"{"type":"lore_asked","at":100,"question":"who is this?","target":"Hogger"}"#;
+    let line =
+        r#"{"type":"lore_asked","id":3,"at":100,"question":"who is this?","target":"Hogger"}"#;
 
     let input = parse(line).unwrap();
 
     let expected = Input::LoreAsked {
+        id: MessageId(3),
         at: Tick(100),
         question: "who is this?".to_string(),
         target: Some("Hogger".to_string()),
@@ -114,4 +116,55 @@ fn a_negative_level_is_refused() {
 #[test]
 fn a_game_event_with_no_time_is_refused() {
     assert!(parse(r#"{"type":"npc_met","name":"Innkeeper Farley"}"#).is_err());
+}
+
+#[test]
+fn a_hello_reads_with_the_fields_of_the_bridge() {
+    let line = r#"{"type":"hello","protocol":1,"app":"timeways"}"#;
+
+    assert_eq!(parse(line).unwrap(), Input::Hello);
+}
+
+#[test]
+fn a_game_event_reads_with_the_id_that_the_bridge_adds() {
+    let line = r#"{"type":"level_reached","id":4,"at":100,"level":12}"#;
+
+    assert_eq!(
+        parse(line).unwrap(),
+        Input::LevelReached {
+            at: Tick(100),
+            level: 12
+        }
+    );
+}
+
+#[test]
+fn a_question_with_no_id_is_refused() {
+    assert!(parse(r#"{"type":"lore_asked","at":100,"question":"who?"}"#).is_err());
+}
+
+#[test]
+fn a_journal_request_reads() {
+    let line = r#"{"type":"journal_asked","id":9}"#;
+
+    assert_eq!(
+        parse(line).unwrap(),
+        Input::JournalAsked {
+            id: MessageId(9),
+            page: 0
+        }
+    );
+}
+
+#[test]
+fn a_journal_request_reads_with_its_page() {
+    let line = r#"{"type":"journal_asked","id":9,"page":3}"#;
+
+    assert_eq!(
+        parse(line).unwrap(),
+        Input::JournalAsked {
+            id: MessageId(9),
+            page: 3
+        }
+    );
 }

@@ -6,13 +6,13 @@ Timeways is a World of Warcraft: Forever addon. It adds a story layer to the gam
 
 An AI model writes the words. A rules engine decides what is true. The game itself supplies the facts.
 
-Status: early build. The story program keeps the world of one character in memory. It answers `/lore` with passages from a pack under the spoiler limit, and asks the bridge for a model answer that it checks. No real pack exists yet.
+Status: early build. The story program keeps the world of one character in memory. It answers `/lore` with passages from a pack under the spoiler limit, and asks the bridge for a model answer that it checks. The addon sends game events and `/lore`, and shows answers in the chat window, but it waits for the shared `Messages.lua` of Gnomish Relay to reach the desktop. No real pack exists yet.
 
 ## 1. The four parts
 
 | Part | Job | Where |
 |---|---|---|
-| **Timeways addon** | Watches the game, shows the story, and holds the windows. A separate addon, with its own listing. | This repo (to come) |
+| **Timeways addon** | Watches the game, shows the story, and holds the windows. A separate addon, with its own listing. | This repo, `addon/Timeways` |
 | **`timeways-story`** | The story program on the desktop: the world, the lore pack, the scoring, and the model calls. | This repo, `crates/story` |
 | **Gnomish Relay** | The one desktop program. It owns the screenshots, the slots, and the keys, and it routes each strip to its app. Its own addon, for the coding agents, is optional for a Timeways player. | `~/Documents/Code/Personal/gnomish-relay` |
 | **Hourglass** | Keeps the history of each world, and checks each change that the AI proposes. | Its own public repo: [rusty-hourglass](https://github.com/eserilev/rusty-hourglass), locally `~/Documents/Code/Personal/rusty-hourglass`. The library name is `hourglass`. |
@@ -91,6 +91,22 @@ An innkeeper tells you a rumor, and the rumor becomes a small quest line made fo
 ### 3.5 Talk to an NPC
 
 You target an NPC and type `/talk`. The agent plays that NPC, with its name, its place, its faction, and its quest text as context. What the NPC tells you, and how much it trusts you, go into your world.
+
+### 3.6 The journal
+
+A book in the game, in the look of the classic quest frame: the quest dialog art, the parchment, the book icon of the quest log, and dark brown ink. `/journal` or `/timeways` opens it.
+
+The desktop sends the pages each time the book opens, because the world lives there (5.10). No model takes part. Each page comes from the facts of the world and from its history.
+
+| Section | What it holds | State |
+|---|---|---|
+| **Places** | Each zone, with the date of the first visit, and its subzones under it | Built |
+| **People** | Each NPC that you met, with the place and the date | Built |
+| **Deeds** | NPC fights: level milestones, first kills of rares and bosses, repeat kills (echoes, 5.13), and your deaths to mobs | Levels built. Kills and deaths need the combat log. |
+| **Nemesis** | Real players from world PvP only: the kill count on each side, the places, and the last time seen (4.1). Aliases only (5.11). | Later |
+| **Chronicle** | One chapter for each play session (3.3) | Later |
+| **Titles** | The joke titles (5.4.1) | Later |
+| **Quests** | The personal side quests (3.4) | Later |
 
 ## 4. The social level
 

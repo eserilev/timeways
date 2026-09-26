@@ -1,0 +1,17 @@
+## Interface: 16001
+## Title: Timeways
+## Notes: Azeroth remembers you. Lore, and the story of your character.
+## Version: 0.1.0
+## SavedVariables: TimewaysDB
+
+App.lua
+Text.lua
+Json.lua
+Inputs.lua
+Link.lua
+Outbox.lua
+Watch.lua
+Lore.lua
+Journal.lua
+JournalFrame.lua
+Core.lua

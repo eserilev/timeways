@@ -3,7 +3,7 @@
 use hourglass::Tick;
 use std::path::Path;
 use timeways_story::character::Character;
-use timeways_story::input::{CallId, Input};
+use timeways_story::input::{CallId, Input, MessageId};
 use timeways_story::lore::Answer;
 use timeways_story::pack::{Link, Pack, Passage};
 use timeways_story::story::{Output, Story, StoryError};
@@ -58,6 +58,7 @@ fn meet(story: &mut Story, at: u64, name: &str) {
 
 fn ask(story: &mut Story, question: &str, target: Option<&str>) -> Output {
     let input = Input::LoreAsked {
+        id: MessageId(7),
         at: Tick(100),
         question: question.to_string(),
         target: target.map(str::to_string),
@@ -68,13 +69,13 @@ fn ask(story: &mut Story, question: &str, target: Option<&str>) -> Output {
 fn model_call(output: Output) -> (CallId, String) {
     match output {
         Output::ModelCall { call, prompt } => (call, prompt),
-        Output::LoreAnswer(answer) => panic!("expected a model call, got {answer:?}"),
+        other => panic!("expected a model call, got {other:?}"),
     }
 }
 
 fn answer(output: Option<Output>) -> Answer {
     match output {
-        Some(Output::LoreAnswer(answer)) => answer,
+        Some(Output::LoreAnswer { answer, .. }) => answer,
         other => panic!("expected a lore answer, got {other:?}"),
     }
 }
@@ -82,10 +83,11 @@ fn answer(output: Option<Output>) -> Answer {
 /// The sources that pass the spoiler limit, as a player with no model sees them.
 fn sources(story: &mut Story, question: &str, target: Option<&str>) -> Vec<String> {
     let answer = match ask(story, question, target) {
-        Output::LoreAnswer(answer) => answer,
+        Output::LoreAnswer { answer, .. } => answer,
         Output::ModelCall { call, .. } => {
             answer(story.handle(Input::ModelFailed { call }).unwrap())
         }
+        other => panic!("a question gets no {other:?}"),
     };
     answer
         .passages
@@ -146,12 +148,16 @@ fn a_question_with_no_passages_asks_no_model() {
 
     let output = ask(&mut story, "why is this tower in ruins?", None);
 
+    let answer = Answer {
+        text: None,
+        passages: Vec::new(),
+    };
     assert_eq!(
         output,
-        Output::LoreAnswer(Answer {
-            text: None,
-            passages: Vec::new()
-        })
+        Output::LoreAnswer {
+            id: MessageId(7),
+            answer
+        }
     );
 }
 
@@ -331,4 +337,113 @@ fn an_answer_holds_at_most_eight_passages() {
     let found = sources(&mut story, "tower", None);
 
     assert_eq!(found.len(), 8);
+}
+
+#[test]
+fn a_hello_gets_the_protocol() {
+    let mut story = story_with("hello", &[]);
+
+    let output = story.handle(Input::Hello).unwrap();
+
+    assert_eq!(output, Some(Output::Hello { protocol: 1 }));
+}
+
+#[test]
+fn the_answer_carries_the_id_of_its_question_through_a_retry() {
+    let mut story = story_with("id-through-retry", &[tower()]);
+    enter(&mut story, 1, "Testvale", None);
+    let (call, _) = model_call(ask(&mut story, "why is this tower in ruins?", None));
+    let text = "Goblins burned it.".to_string();
+    let (retry, _) = model_call(
+        story
+            .handle(Input::ModelAnswered { call, text })
+            .unwrap()
+            .unwrap(),
+    );
+
+    let text = "Goblins burned it [1].".to_string();
+    let output = story
+        .handle(Input::ModelAnswered { call: retry, text })
+        .unwrap();
+
+    assert!(
+        matches!(
+            output,
+            Some(Output::LoreAnswer {
+                id: MessageId(7),
+                ..
+            })
+        ),
+        "{output:?}"
+    );
+}
+
+#[test]
+fn a_journal_request_gets_the_first_page_with_its_id() {
+    let mut story = story_with("journal", &[]);
+    enter(&mut story, 1, "Testvale", None);
+
+    let output = story
+        .handle(Input::JournalAsked {
+            id: MessageId(4),
+            page: 0,
+        })
+        .unwrap();
+
+    let Some(Output::Journal { id, page }) = output else {
+        panic!("expected a journal, got {output:?}");
+    };
+    assert_eq!(id, MessageId(4));
+    assert_eq!((page.page, page.pages), (0, 1));
+    assert_eq!(page.journal.places.len(), 1);
+}
+
+fn journal_page(story: &mut Story, page: usize) -> timeways_story::journal::Page {
+    match story
+        .handle(Input::JournalAsked {
+            id: MessageId(1),
+            page,
+        })
+        .unwrap()
+    {
+        Some(Output::Journal { page, .. }) => page,
+        other => panic!("expected a journal, got {other:?}"),
+    }
+}
+
+fn explorer(story: &mut Story, places: u64) {
+    for n in 0..places {
+        let zone = format!("The very long and winding zone name number {n}");
+        enter(story, n + 1, &zone, None);
+    }
+}
+
+#[test]
+fn later_pages_come_from_the_snapshot_of_the_first() {
+    let mut story = story_with("snapshot", &[]);
+    explorer(&mut story, 600);
+    let first = journal_page(&mut story, 0);
+    assert!(first.pages > 1);
+
+    enter(&mut story, 10_000, "A zone after the snapshot", None);
+    let last = journal_page(&mut story, first.pages - 1);
+
+    assert_eq!(last.pages, first.pages);
+    assert!(
+        last.journal
+            .places
+            .iter()
+            .all(|place| place.name != "A zone after the snapshot")
+    );
+}
+
+#[test]
+fn a_page_past_the_end_is_empty_and_names_the_true_count() {
+    let mut story = story_with("past-the-end", &[]);
+    enter(&mut story, 1, "Testvale", None);
+
+    let page = journal_page(&mut story, 5);
+
+    assert_eq!((page.page, page.pages), (5, 1));
+    assert!(page.journal.places.is_empty());
 }

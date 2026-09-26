@@ -1,0 +1,42 @@
+# The WoW API that the addon uses, for selene. Lua 5.1 plus these globals.
+# The API gate of Gnomish Relay (scripts/wow-api.sh) checks each one against the real Forever client.
+base: lua51
+globals:
+  C_Timer:
+    any: true
+  DEFAULT_CHAT_FRAME:
+    any: true
+  SlashCmdList:
+    property: new-fields
+  SLASH_TIMEWAYSLORE1:
+    property: full-write
+  CreateFrame:
+    args: [{type: string}, {type: any, required: false}, {type: any, required: false}, {type: any, required: false}]
+  UIParent:
+    any: true
+  UISpecialFrames:
+    property: new-fields
+  SLASH_TIMEWAYSJOURNAL1:
+    property: full-write
+  SLASH_TIMEWAYSJOURNAL2:
+    property: full-write
+  date:
+    args: [{type: string}, {type: number, required: false}]
+  GetRealZoneText:
+    args: []
+  GetSubZoneText:
+    args: []
+  UnitExists:
+    args:
+      - type: string
+  UnitIsPlayer:
+    args:
+      - type: string
+  UnitLevel:
+    args:
+      - type: string
+  UnitName:
+    args:
+      - type: string
+  time:
+    args: []

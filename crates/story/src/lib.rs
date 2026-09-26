@@ -3,6 +3,7 @@
 pub mod character;
 pub mod check;
 pub mod input;
+pub mod journal;
 pub mod lore;
 pub mod pack;
 pub mod prompt;

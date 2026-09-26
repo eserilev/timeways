@@ -5,9 +5,12 @@ use hourglass::Tick;
 use serde::{Deserialize, Serialize};
 
 /// A game event carries the time from `time()` in the addon, in seconds since the Unix epoch.
+/// The bridge adds the `id` of the addon message to each line. Only a line with a reply keeps it.
 #[derive(Debug, PartialEq, Eq, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Input {
+    /// The first line from the bridge. The bridge compares the protocol of the reply.
+    Hello,
     ZoneEntered {
         at: Tick,
         zone: String,
@@ -23,9 +26,16 @@ pub enum Input {
     },
     /// `/lore`, with the name of the target when there is one.
     LoreAsked {
+        id: MessageId,
         at: Tick,
         question: String,
         target: Option<String>,
+    },
+    /// The journal window opened, and needs its pages. Page 0 takes a new snapshot.
+    JournalAsked {
+        id: MessageId,
+        #[serde(default)]
+        page: usize,
     },
     ModelAnswered {
         call: CallId,
@@ -40,3 +50,8 @@ pub enum Input {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct CallId(pub u64);
+
+/// The addon message of a question. Its answer carries it back.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct MessageId(pub u64);

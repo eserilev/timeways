@@ -31,3 +31,25 @@ jobs:
         with:
           tool: cargo-deny
       - run: cargo deny check
+
+  lua:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      # The API gate lives in Gnomish Relay. Its pin moves with the shared transport.
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          repository: eserilev/gnomish-relay
+          ref: 74a0c306a3739f521ff8d8d188125875f0cde3fa
+          path: target/gnomish-relay
+      - uses: taiki-e/install-action@7623a79cdfecb99d681017af368ca353d9f49bb5 # v2
+        with:
+          tool: stylua,selene
+      - run: stylua --check addon
+      - run: selene addon/Timeways
+      # Every WoW name that the addon uses must be in the pinned client.
+      - run: >
+          target/gnomish-relay/scripts/wow-api.sh --addon addon/Timeways --lint wow.yml
+          --fake addon/tests/wow.lua --api addon/tests/api.lua
+          --signatures addon/tests/api-signatures.lua
+      - run: git diff --exit-code -- addon/tests/api.lua addon/tests/api-signatures.lua
