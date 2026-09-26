@@ -194,6 +194,11 @@ local function Chapters(chapters)
 		if type(chapter.prose) == "string" then
 			lines[#lines + 1] = Line("prose", ns.Plain(chapter.prose))
 		end
+		for _, footnote in ipairs(List(chapter.footnotes)) do
+			if type(footnote) == "string" then
+				lines[#lines + 1] = Line("note", "* " .. ns.Plain(footnote))
+			end
+		end
 		if #List(chapter.zones) > 0 then
 			lines[#lines + 1] = Line("entry", "Traveled to " .. Together(List(chapter.zones)) .. ".")
 		end

@@ -486,3 +486,18 @@ fn a_title_shows_as_a_deed() {
         "entry: Earned the title Lord of the Goldshire Dance Floor"
     );
 }
+
+#[test]
+fn the_footnotes_of_the_bard_follow_its_saga() {
+    let game = Game::new();
+
+    game.reply(
+        r#"{"type":"journal","page":0,"pages":1,"chapters":[{"number":1,"began":1790000000,"zones":[],"people":[],"deeds":[],"left_out":0,"prose":"Our hero rode west.","footnotes":["Nobody knows why.",5]}]}"#,
+    );
+
+    let lines = lines(&game, "chapters");
+    assert_eq!(
+        lines[2..],
+        ["prose: Our hero rode west.", "note: * Nobody knows why."]
+    );
+}

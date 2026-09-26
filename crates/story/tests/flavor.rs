@@ -161,3 +161,23 @@ fn counts_read_as_english_ordinals() {
         ]
     );
 }
+
+#[test]
+fn the_top_moments_of_a_time_are_the_best_scores_in_it() {
+    let character = Character::new();
+    let moments = vec![
+        dance(10, "Westfall", 12),
+        dance(20, "Goldshire", 3),
+        dance(30, "Westfall", 12),
+        dance(99, "Goldshire", 3),
+    ];
+
+    let top =
+        timeways_story::flavor::top_moments(&moments, &[], &character, (Tick(15), Tick(40)), 5);
+
+    let scores: Vec<(u64, i64, usize)> = top
+        .iter()
+        .map(|moment| (moment.flavor.at.0, moment.score, moment.count))
+        .collect();
+    assert_eq!(scores, [(20, 4 + 3 + 2, 2), (30, 4, 3)]);
+}

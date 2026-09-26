@@ -86,7 +86,7 @@ After each play session, the agent writes the session as a short saga in the voi
 - It uses the real events of the session: the zones, the bosses, the deaths, the loot, and the quests.
 - You read it in the game as a book, one chapter per session.
 - The history of the world is the source, so the chronicle never contradicts itself.
-- **The bard** (built): after a batch, the story program asks a model for the saga of the oldest finished chapter that has none yet, one chapter at a time. The last chapter can still grow, so it waits for the next session. The facts of the prompt come from the chapter alone. The saga must be plain text in one paragraph, at most 600 characters, with no name from after the cutoff (5.9). A saga that fails keeps the plain list, and gets no second call in the same run.
+- **The bard** (built): after a batch, the story program asks a model for the saga, and the footnotes (5.4.1), of the oldest finished chapter that has none yet, one chapter at a time. The last chapter can still grow, so it waits for the next session. The facts of the prompt come from the chapter alone. The saga must be plain text in one paragraph, at most 600 characters, with no name from after the cutoff (5.9). A saga that fails keeps the plain list, and gets no second call in the same run.
 - **Without a model** (built): a chapter lists what was new in the session: the zones, the people, and the deeds. A session ends after 30 minutes with no event. A session with nothing new gets no chapter. Each list of a chapter keeps at most 20 entries, so a chapter always fits on one page of the journal (5.5).
 
 ### 3.4 Personal side quests
@@ -281,6 +281,7 @@ The score uses whole numbers only, like Hourglass, so a test can state each rule
 - **An odd hour:** 2 to 5 in the local time of the player, which the addon sends.
 - **Told before:** each telling of the kind in the last 72 hours of game time.
 - **Flavor lines of the companion** (built): a batch with no big moment gives its best flavor moment to the companion, when it scores 8 or more, no flavor line came in the last 20 minutes of game time, and its kind was not told in the last 12 hours. The line counts as told when the call goes out, whatever the model answers. The budget of 3 lines an hour covers flavor lines too.
+- **Footnotes of the chronicle** (built): the bard gets the 5 best flavor moments of a finished chapter, numbered and in plain words. The moments of a chapter run until the next chapter begins, because an emote adds no event to the world. The bard answers in JSON with its saga and at most 3 footnotes, each with the number of its moment. A footnote with no listed moment, a second one for the same moment, or one that breaks the text rules (at most 200 characters) is dropped alone. Each footnote counts as a telling of its kind.
 - **Streaks and votes:** not yet. A streak needs the kills of common mobs (open question 9).
 - The moments and their tellings live in `c_<character id>.flavor.jsonl` next to the history (5.7).
 

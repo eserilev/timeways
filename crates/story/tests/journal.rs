@@ -120,11 +120,13 @@ fn a_journal_serializes_with_a_kind_on_each_deed() {
         "chapters": [{
             "number": 1,
             "began": 5,
+            "ended": 5,
             "zones": [],
             "people": [],
             "deeds": [{ "kind": "level", "from": null, "to": 12, "at": 5, "place": null }],
             "left_out": 0,
             "prose": null,
+            "footnotes": [],
         }],
         "places": [],
         "people": [],
@@ -275,11 +277,13 @@ fn one_session_is_one_chapter_with_its_new_zones_people_and_deeds() {
     let expected = Chapter {
         number: 1,
         began: Tick(HOUR),
+        ended: Tick(HOUR + 120),
         zones: vec!["Westfall".to_string()],
         people: vec!["Gryan Stoutmantle".to_string()],
         deeds: vec![kill],
         left_out: 0,
         prose: None,
+        footnotes: Vec::new(),
     };
     assert_eq!(chapters, [expected]);
 }
@@ -383,6 +387,7 @@ fn the_largest_chapter_still_fits_on_one_page() {
     }
     let mut journal = journal(&character);
     journal.chapters[0].prose = Some("\"".repeat(600));
+    journal.chapters[0].footnotes = vec!["\"".repeat(200); 3];
 
     let sizes: Vec<usize> = pages(journal)
         .into_iter()

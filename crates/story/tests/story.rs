@@ -687,7 +687,7 @@ fn the_saga_of_the_bard_goes_into_its_chapter() {
         panic!("expected a bard call, got {outputs:?}");
     };
 
-    let text = "Our hero rode into the golden fields of Westfall.".to_string();
+    let text = r#"{"saga": "Our hero rode into the golden fields of Westfall."}"#.to_string();
     assert!(
         story
             .handle(Input::ModelAnswered { call, text })
@@ -758,7 +758,7 @@ fn a_saga_for_another_character_is_dropped() {
     enter(&mut story, HOUR, "Durotar", None);
     enter(&mut story, 5 * HOUR, "The Barrens", None);
 
-    let text = "Our hero rode into Westfall.".to_string();
+    let text = r#"{"saga": "Our hero rode into Westfall."}"#.to_string();
     story.handle(Input::ModelAnswered { call, text }).unwrap();
 
     assert_eq!(chapters(&mut story)[0].prose, None);
@@ -1222,5 +1222,39 @@ fn the_same_kind_of_joke_waits_for_the_next_evening() {
     assert!(
         prompt.contains("Boar, 59 levels below the player"),
         "{prompt}"
+    );
+}
+
+#[test]
+fn the_bard_gets_the_small_moments_of_its_chapter_and_its_footnotes_are_kept_and_told() {
+    let mut story = story_with("footnotes", &[]);
+    enter(&mut story, HOUR, "Elwynn Forest", Some("Goldshire"));
+    let _ = close_companion(&mut story, 1);
+    dance_at(&mut story, HOUR + 60, 3);
+    let _ = close_companion(&mut story, 2);
+    meet(&mut story, 5 * HOUR, "Salma Saldean");
+
+    let outputs = story.handle(Input::BatchEnd { id: MessageId(3) }).unwrap();
+    let [_, Output::ModelCall { call, prompt }] = outputs.as_slice() else {
+        panic!("expected a bard call, got {outputs:?}");
+    };
+    assert!(prompt.contains("Small moments:\n1. The player used the emote /dance in Goldshire, at 3 o'clock, for the 1st time."), "{prompt}");
+    let text = r#"{"saga": "Our hero came to Goldshire.", "footnotes": [{"moment": 1, "text": "Nobody knows why."}]}"#;
+    story
+        .handle(Input::ModelAnswered {
+            call: *call,
+            text: text.to_string(),
+        })
+        .unwrap();
+
+    let chapters = chapters(&mut story);
+    assert_eq!(chapters[0].footnotes, ["Nobody knows why."]);
+    dance_at(&mut story, 5 * HOUR + 60, 3);
+    assert_eq!(
+        close_companion(&mut story, 4),
+        Output::EventsSeen {
+            id: MessageId(4),
+            companion: None
+        }
     );
 }

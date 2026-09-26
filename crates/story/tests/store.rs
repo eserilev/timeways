@@ -333,7 +333,7 @@ fn the_saga_of_the_bard_survives_a_restart() {
     let Output::ModelCall { call, .. } = outputs[1].clone() else {
         panic!("expected a bard call, got {outputs:?}");
     };
-    let text = "Our hero rode west.".to_string();
+    let text = r#"{"saga": "Our hero rode west."}"#.to_string();
     first.handle(Input::ModelAnswered { call, text }).unwrap();
     drop(first);
 

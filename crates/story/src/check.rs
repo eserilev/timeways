@@ -95,6 +95,15 @@ pub fn plain_text(text: &str, max_chars: usize, max_bytes: usize) -> Option<Stri
     Some(line)
 }
 
+/// Models often wrap JSON in a code fence or a sentence, so the object is the text from
+/// the first `{` to the last `}`.
+#[must_use]
+pub fn json_object(text: &str) -> Option<&str> {
+    let start = text.find('{')?;
+    let end = text.rfind('}')?;
+    (start < end).then(|| &text[start..=end])
+}
+
 /// The names of the cutoff list that the text holds, as whole words in any case.
 #[must_use]
 pub fn names_after_cutoff(answer: &str) -> Vec<&'static str> {

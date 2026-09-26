@@ -179,3 +179,47 @@ fn ordinal(n: usize) -> String {
     };
     format!("{n}{suffix}")
 }
+
+/// A flavor moment with its score, as the code gave it when it came in.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Scored {
+    pub flavor: Flavor,
+    pub score: i64,
+    /// 1 for the first moment of its kind.
+    pub count: usize,
+}
+
+/// The best `limit` moments from `began` to `ended`, best first. Each one is scored against
+/// the moments and the tellings before it, as it was when it came in.
+#[must_use]
+pub fn top_moments(
+    moments: &[Flavor],
+    told: &[Told],
+    character: &Character,
+    (began, ended): (Tick, Tick),
+    limit: usize,
+) -> Vec<Scored> {
+    let mut scored = Vec::new();
+    for (index, flavor) in moments.iter().enumerate() {
+        if flavor.at < began || flavor.at > ended {
+            continue;
+        }
+        let earlier = &moments[..index];
+        let told_before: Vec<Told> = told
+            .iter()
+            .filter(|telling| telling.at <= flavor.at)
+            .cloned()
+            .collect();
+        let key = flavor.kind.key();
+        let count = earlier.iter().filter(|old| old.kind.key() == key).count() + 1;
+        let score = score(flavor, earlier, &told_before, character);
+        scored.push(Scored {
+            flavor: flavor.clone(),
+            score,
+            count,
+        });
+    }
+    scored.sort_by_key(|moment| std::cmp::Reverse(moment.score));
+    scored.truncate(limit);
+    scored
+}

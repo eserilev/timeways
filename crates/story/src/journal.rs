@@ -36,6 +36,8 @@ pub struct Journal {
 pub struct Chapter {
     pub number: usize,
     pub began: Tick,
+    /// The tick of the last event of the session.
+    pub ended: Tick,
     pub zones: Vec<String>,
     pub people: Vec<String>,
     pub deeds: Vec<Deed>,
@@ -44,6 +46,8 @@ pub struct Chapter {
     pub left_out: usize,
     /// The saga of the bard, once a model wrote it (3.3).
     pub prose: Option<String>,
+    /// The footnotes of the bard: small moments of the chapter (5.4.1).
+    pub footnotes: Vec<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -269,11 +273,13 @@ fn chapters(
         chapters.push(Chapter {
             number,
             began,
+            ended,
             zones,
             people: met,
             deeds: done,
             left_out,
             prose: None,
+            footnotes: Vec::new(),
         });
     }
     chapters

@@ -1,7 +1,7 @@
 //! Talk to an NPC (GAMEPLAY.md 3.5). The model plays the NPC and proposes a change of its
 //! trust. The code checks both before anything shows or lands in the world (5.2).
 
-use crate::check::plain_text;
+use crate::check::{json_object, plain_text};
 use crate::pack::Passage;
 use serde::Deserialize;
 use std::fmt::Write;
@@ -93,12 +93,4 @@ pub fn checked_answer(text: &str) -> Option<Answer> {
         say,
         trust_change: if in_band { reply.trust } else { 0 },
     })
-}
-
-/// Models often wrap JSON in a code fence or a sentence, so the object is the text from
-/// the first `{` to the last `}`.
-fn json_object(text: &str) -> Option<&str> {
-    let start = text.find('{')?;
-    let end = text.rfind('}')?;
-    (start < end).then(|| &text[start..=end])
 }

@@ -118,39 +118,50 @@ impl HistoryFile {
     }
 }
 
-/// The words of the bard for one chapter, as one line of the chronicle file.
+/// The words of the bard for one chapter, as one line of the chronicle file. A line from
+/// before footnotes has none.
 #[derive(Serialize, Deserialize)]
 struct ChapterProse {
     began: Tick,
     text: String,
+    #[serde(default)]
+    footnotes: Vec<String>,
+}
+
+/// The saga of one chapter and its footnotes, as the player reads them.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Written {
+    pub text: String,
+    pub footnotes: Vec<String>,
 }
 
 /// The words of the bard for each chapter, by the tick that began the chapter. The world
 /// holds facts only, so the words live in a file of their own.
 #[derive(Debug, Default)]
 pub struct Prose {
-    chapters: BTreeMap<Tick, String>,
+    chapters: BTreeMap<Tick, Written>,
     path: Option<PathBuf>,
 }
 
 impl Prose {
     #[must_use]
-    pub fn get(&self, began: Tick) -> Option<&str> {
-        self.chapters.get(&began).map(String::as_str)
+    pub fn get(&self, began: Tick) -> Option<&Written> {
+        self.chapters.get(&began)
     }
 
     /// # Errors
     ///
     /// Returns the I/O error of the write, and then keeps nothing.
-    pub fn add(&mut self, began: Tick, text: String) -> Result<(), StoreError> {
+    pub fn add(&mut self, began: Tick, written: Written) -> Result<(), StoreError> {
         if let Some(path) = &self.path {
             let line = ChapterProse {
                 began,
-                text: text.clone(),
+                text: written.text.clone(),
+                footnotes: written.footnotes.clone(),
             };
             append_lines(path, &[line]).map_err(|source| io_error(path, source))?;
         }
-        self.chapters.insert(began, text);
+        self.chapters.insert(began, written);
         Ok(())
     }
 }
@@ -250,7 +261,13 @@ impl Store {
         let prose = Prose {
             chapters: lines
                 .into_iter()
-                .map(|line| (line.began, line.text))
+                .map(|line| {
+                    let written = Written {
+                        text: line.text,
+                        footnotes: line.footnotes,
+                    };
+                    (line.began, written)
+                })
                 .collect(),
             path: Some(prose_path),
         };

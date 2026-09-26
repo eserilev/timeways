@@ -10,7 +10,9 @@ use crate::lore::{Answer, LoreCall, Next};
 use crate::moments::{Moment, best, moments};
 use crate::pack::{Link, Pack, PackError, Passage};
 use crate::prompt::Context;
-use crate::store::{CharacterKey, FlavorLog, HistoryFile, Opened, Prose, Store, StoreError};
+use crate::store::{
+    CharacterKey, FlavorLog, HistoryFile, Opened, Prose, Store, StoreError, Written,
+};
 use crate::talk::{self, Scene};
 use crate::titles;
 use hourglass::Tick;
@@ -30,6 +32,9 @@ const FLAVOR_GAP_SECONDS: u64 = 20 * 60;
 
 /// "No two rabbit jokes in one evening."
 const KIND_COOLDOWN_SECONDS: u64 = 12 * 3600;
+
+/// "The top 5 moments of a session go to the model" (GAMEPLAY.md 5.4.1).
+const CHAPTER_MOMENTS: usize = 5;
 
 /// The chat box of WoW stops a line at 255 bytes.
 pub const MAX_WORDS_BYTES: usize = 255;
@@ -148,10 +153,12 @@ enum Pending {
     Companion {
         batch: MessageId,
     },
-    /// The saga of the chapter that began at `began`, for this character only.
+    /// The saga of the chapter that began at `began`, for this character only. `kinds`
+    /// are the kinds of the small moments of its prompt, in their order.
     Bard {
         key: CharacterKey,
         began: Tick,
+        kinds: Vec<String>,
     },
     /// A talk to `npc`, whose change of trust lands at `at`, for this character only.
     Talk {
@@ -282,11 +289,8 @@ impl Story {
                 id: batch,
                 companion: companion::checked_line(text),
             }],
-            Pending::Bard { key, began } => {
-                let active = self.active.as_mut().filter(|active| active.key == key);
-                if let (Some(active), Some(chapter)) = (active, bard::checked_chapter(text)) {
-                    active.prose.add(began, chapter)?;
-                }
+            Pending::Bard { key, began, kinds } => {
+                self.saga_answered(&key, began, &kinds, text)?;
                 Vec::new()
             }
             Pending::Talk {
@@ -296,6 +300,43 @@ impl Story {
                 at,
             } => vec![self.talk_answered(question, &key, npc, at, text)],
         })
+    }
+
+    /// A footnote tells its kind of moment, so the same joke waits (5.4.1).
+    fn saga_answered(
+        &mut self,
+        key: &CharacterKey,
+        began: Tick,
+        kinds: &[String],
+        text: &str,
+    ) -> Result<(), StoryError> {
+        let Some(active) = self.active.as_mut().filter(|active| &active.key == key) else {
+            return Ok(());
+        };
+        let Some(saga) = bard::checked_saga(text, kinds.len()) else {
+            return Ok(());
+        };
+        let now = active.character.world().tick;
+        for (moment, _) in &saga.footnotes {
+            let told = Told {
+                key: kinds[moment - 1].clone(),
+                at: now,
+            };
+            active.flavor.add_told(told)?;
+        }
+        let footnotes = saga
+            .footnotes
+            .into_iter()
+            .map(|(_, footnote)| footnote)
+            .collect();
+        active.prose.add(
+            began,
+            Written {
+                text: saga.text,
+                footnotes,
+            },
+        )?;
+        Ok(())
     }
 
     /// The words always show. The change of trust lands only for the character that
@@ -535,21 +576,40 @@ impl Story {
     /// at once, so the bard waits until no other call is open: a question of the player
     /// never fails for a saga. The last chapter can still grow, so it waits for the next
     /// session.
+    /// The small moments of a chapter run until the next chapter begins: an emote changes
+    /// nothing in the world, so it can come after the last event of the chapter.
     fn bard_call(&mut self) -> Option<Output> {
         if !self.calls.is_empty() {
             return None;
         }
         let active = self.active.as_ref()?;
         let chapters = journal(&active.character).chapters;
-        let (_, finished) = chapters.split_last()?;
-        let chapter = finished.iter().find(|chapter| {
-            active.prose.get(chapter.began).is_none() && !self.bard_asked.contains(&chapter.began)
-        })?;
+        let (chapter, next) =
+            chapters
+                .windows(2)
+                .map(|pair| (&pair[0], &pair[1]))
+                .find(|(chapter, _)| {
+                    active.prose.get(chapter.began).is_none()
+                        && !self.bard_asked.contains(&chapter.began)
+                })?;
+        let top = flavor::top_moments(
+            active.flavor.moments(),
+            active.flavor.told(),
+            &active.character,
+            (chapter.began, Tick(next.began.0 - 1)),
+            CHAPTER_MOMENTS,
+        );
+        let words: Vec<String> = top
+            .iter()
+            .map(|moment| flavor::describe(&moment.flavor, moment.count))
+            .collect();
+        let kinds = top.iter().map(|moment| moment.flavor.kind.key()).collect();
         let pending = Pending::Bard {
             key: active.key.clone(),
             began: chapter.began,
+            kinds,
         };
-        let prompt = bard::prompt(chapter);
+        let prompt = bard::prompt(chapter, &words);
         self.bard_asked.insert(chapter.began);
         Some(self.open_call(pending, prompt))
     }
@@ -560,7 +620,9 @@ impl Story {
             let active = self.active.as_ref().ok_or(StoryError::NoCharacter)?;
             let mut journal = journal(&active.character);
             for chapter in &mut journal.chapters {
-                chapter.prose = active.prose.get(chapter.began).map(str::to_string);
+                let written = active.prose.get(chapter.began).cloned().unwrap_or_default();
+                chapter.prose = Some(written.text).filter(|text| !text.is_empty());
+                chapter.footnotes = written.footnotes;
             }
             self.journal = pages(journal);
         }
