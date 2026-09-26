@@ -229,17 +229,33 @@ fn a_history_that_another_program_wrote_is_refused() {
 fn a_refused_event_still_saves_the_events_before_it() {
     let folder = fresh_folder("refused-saves");
     let mut first = story(&folder, "Ada");
-    let zone = Input::ZoneEntered {
-        at: Tick(5),
-        zone: "Elwynn Forest".to_string(),
-        subzone: Some(String::new()),
-    };
-    assert!(first.handle(zone).is_err());
-    drop(first);
+    enter(&mut first, 1, "Elwynn Forest");
+    for _ in 0..1000 {
+        first
+            .handle(Input::NpcDefeated {
+                at: Tick(2),
+                name: "Hogger".to_string(),
+            })
+            .unwrap();
+    }
+    enter(&mut first, 3, "Westfall");
+    let lines_before = fs::read_to_string(history_file(&folder, "Ada"))
+        .unwrap()
+        .lines()
+        .count();
 
-    let mut second = story(&folder, "Ada");
+    // Hogger moves to Westfall, and then the count refuses to pass 1000.
+    let refused = first.handle(Input::NpcDefeated {
+        at: Tick(4),
+        name: "Hogger".to_string(),
+    });
 
-    assert_eq!(places(&mut second), ["Elwynn Forest"]);
+    let lines_after = fs::read_to_string(history_file(&folder, "Ada"))
+        .unwrap()
+        .lines()
+        .count();
+    assert!(refused.is_err());
+    assert_eq!(lines_after, lines_before + 1);
 }
 
 #[test]

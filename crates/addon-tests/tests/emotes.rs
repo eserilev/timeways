@@ -79,3 +79,15 @@ fn other_emotes_are_not_sent_yet() {
 
     assert!(sent_after_flush(&game).is_empty());
 }
+
+#[test]
+fn a_slap_on_a_pet_is_never_sent_because_a_player_named_it() {
+    let game = Game::new();
+
+    game.run(
+        "wow.units.target = { name = 'Fluffy', controlled = true }
+         C_ChatInfo.PerformEmote('SLAP', '')",
+    );
+
+    assert!(sent_after_flush(&game).is_empty());
+}

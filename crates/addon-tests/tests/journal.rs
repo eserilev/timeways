@@ -435,3 +435,35 @@ fn the_saga_of_the_bard_comes_before_the_list_of_its_chapter() {
     assert_eq!(lines[2], "prose: Our hero rode west. ||Hfake||h");
     assert_eq!(lines[3], "entry: Traveled to Westfall.");
 }
+
+#[test]
+fn trust_shows_in_words_for_each_band() {
+    let game = Game::new();
+    let people: Vec<String> = [60, 50, 49, 10, 9, -9, -10, -49, -50, -100]
+        .iter()
+        .map(|trust| format!(r#"{{"name":"N","first_met":1790000000,"trust":{trust}}}"#))
+        .collect();
+
+    game.reply(&format!(
+        r#"{{"type":"journal","page":0,"pages":1,"people":[{}]}}"#,
+        people.join(",")
+    ));
+
+    let words: Vec<String> = lines(&game, "people")
+        .into_iter()
+        .filter(|line| !line.starts_with("entry") && !line.contains("Met "))
+        .collect();
+    let expected = [
+        "Trusts you.",
+        "Trusts you.",
+        "Likes you.",
+        "Likes you.",
+        "Thinks little of you.",
+        "Thinks little of you.",
+        "Wary of you.",
+        "Wary of you.",
+        "Distrusts you.",
+        "Distrusts you.",
+    ];
+    assert_eq!(words, expected.map(|word| format!("text: {word}")));
+}

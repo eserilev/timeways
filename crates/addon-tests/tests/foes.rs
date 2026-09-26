@@ -215,3 +215,16 @@ fn a_hidden_killer_name_is_never_used() {
 
     assert_eq!(sent_after_flush(&game), [died(None)]);
 }
+
+#[test]
+fn a_pet_that_kills_you_is_never_named() {
+    let game = Game::new();
+    game.run(
+        "wow.units.mouseover = { name = 'Fluffy', guid = 'Pet-1', controlled = true }
+         wow.Fire('UPDATE_MOUSEOVER_UNIT')
+         wow.recap = { { sourceName = 'Fluffy' } }
+         wow.Fire('PLAYER_DEAD')",
+    );
+
+    assert_eq!(sent_after_flush(&game), [died(None)]);
+}

@@ -330,9 +330,9 @@ fn a_session_with_nothing_new_has_no_chapter_and_leaves_no_gap_in_the_numbers() 
 }
 
 #[test]
-fn a_chapter_keeps_thirty_entries_of_each_list_and_counts_the_rest() {
+fn a_chapter_keeps_twenty_entries_of_each_list_and_counts_the_rest() {
     let mut character = Character::new();
-    for n in 0..35 {
+    for n in 0..25 {
         character
             .enter_zone(Tick(HOUR + n), &format!("Zone {n}"), None)
             .unwrap();
@@ -340,7 +340,7 @@ fn a_chapter_keeps_thirty_entries_of_each_list_and_counts_the_rest() {
 
     let chapters = journal(&character).chapters;
 
-    assert_eq!(chapters[0].zones.len(), 30);
+    assert_eq!(chapters[0].zones.len(), 20);
     assert_eq!(chapters[0].left_out, 5);
 }
 
@@ -357,4 +357,44 @@ fn a_slapped_npc_shows_the_slaps_and_its_lost_trust() {
     let people = journal(&character).people;
 
     assert_eq!((people[0].slapped, people[0].trust), (Some(2), Some(-20)));
+}
+
+#[test]
+fn a_slapped_npc_that_you_never_talked_to_is_on_the_people_page() {
+    let mut character = Character::new();
+
+    character.slap(Tick(12), "Stormwind City Guard").unwrap();
+
+    let people = journal(&character).people;
+    assert_eq!(people.len(), 1);
+    assert_eq!((people[0].slapped, people[0].trust), (Some(1), Some(-10)));
+}
+
+#[test]
+fn the_largest_chapter_still_fits_on_one_page() {
+    let mut character = Character::new();
+    let name = |kind: &str, n: u64| format!("{kind}{n:02}{}", "\"".repeat(92));
+    for n in 0..25 {
+        character
+            .enter_zone(Tick(HOUR + n), &name("Z", n), None)
+            .unwrap();
+        character.meet_npc(Tick(HOUR + n), &name("P", n)).unwrap();
+        character.defeat_npc(Tick(HOUR + n), &name("F", n)).unwrap();
+    }
+    let mut journal = journal(&character);
+    journal.chapters[0].prose = Some("\"".repeat(600));
+
+    let sizes: Vec<usize> = pages(journal)
+        .into_iter()
+        .map(|page| {
+            serde_json::to_string(&Output::Journal {
+                id: MessageId(u64::MAX),
+                page,
+            })
+            .unwrap()
+            .len()
+        })
+        .collect();
+
+    assert!(sizes.iter().all(|size| *size <= PAGE_BYTES), "{sizes:?}");
 }

@@ -15,6 +15,10 @@ use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
 use thiserror::Error;
 
+/// The longest name that the story takes from the game. WoW names are far shorter, so a
+/// longer one comes from a bug or a hostile addon, and it would break the page limit.
+pub const MAX_NAME_BYTES: usize = 96;
+
 /// The version of the lines between the bridge and the story program.
 pub const PROTOCOL: u32 = 1;
 
@@ -66,6 +70,8 @@ pub enum StoryError {
     UnknownCall(CallId),
     #[error("no character yet: a batch starts with character_entered")]
     NoCharacter,
+    #[error("a name is empty, longer than {MAX_NAME_BYTES} bytes, or holds a control character")]
+    BadName,
     #[error(transparent)]
     Store(#[from] StoreError),
 }
@@ -158,14 +164,24 @@ impl Story {
                 Ok(Vec::new())
             }
             Input::ZoneEntered { at, zone, subzone } => {
+                checked_name(&zone)?;
+                subzone.as_deref().map(checked_name).transpose()?;
                 self.change(|character| character.enter_zone(at, &zone, subzone.as_deref()))
             }
-            Input::NpcMet { at, name } => self.change(|character| character.meet_npc(at, &name)),
+            Input::NpcMet { at, name } => {
+                checked_name(&name)?;
+                self.change(|character| character.meet_npc(at, &name))
+            }
             Input::NpcDefeated { at, name } => {
+                checked_name(&name)?;
                 self.change(|character| character.defeat_npc(at, &name))
             }
-            Input::NpcSlapped { at, name } => self.change(|character| character.slap(at, &name)),
+            Input::NpcSlapped { at, name } => {
+                checked_name(&name)?;
+                self.change(|character| character.slap(at, &name))
+            }
             Input::Died { at, killer } => {
+                killer.as_deref().map(checked_name).transpose()?;
                 self.change(|character| character.die(at, killer.as_deref()))
             }
             Input::LevelReached { at, level } => {
@@ -277,22 +293,27 @@ impl Story {
     /// At most one companion line for a batch: about its best moment, within the budget.
     /// A batch can also start the saga of a finished chapter.
     fn end_batch(&mut self, batch: MessageId) -> Vec<Output> {
-        let best = best(std::mem::take(&mut self.moments));
-        let now = self
-            .character()
-            .map_or(Tick(0), |character| character.world().tick);
-        let seen = match best.filter(|_| self.budget.take(now)) {
-            Some(moment) => {
-                self.open_call(Pending::Companion { batch }, companion::prompt(&moment))
-            }
-            None => Output::EventsSeen {
-                id: batch,
-                companion: None,
-            },
-        };
+        let seen = self.companion_call(batch);
         let mut outputs = vec![seen];
         outputs.extend(self.bard_call());
         outputs
+    }
+
+    fn companion_call(&mut self, batch: MessageId) -> Output {
+        let quiet = Output::EventsSeen {
+            id: batch,
+            companion: None,
+        };
+        let Some(moment) = best(std::mem::take(&mut self.moments)) else {
+            return quiet;
+        };
+        let now = self
+            .character()
+            .map_or(Tick(0), |character| character.world().tick);
+        if !self.budget.take(now) {
+            return quiet;
+        }
+        self.open_call(Pending::Companion { batch }, companion::prompt(&moment))
     }
 
     /// The oldest finished chapter with no saga yet. The bridge runs at most 2 model calls
@@ -421,6 +442,13 @@ fn knows_all(character: &Character, links: &[Link]) -> bool {
         Link::Place(name) => character.has_visited(name),
         Link::Npc(name) => character.has_met(name),
     })
+}
+
+fn checked_name(name: &str) -> Result<&str, StoryError> {
+    if name.is_empty() || name.len() > MAX_NAME_BYTES || name.chars().any(char::is_control) {
+        return Err(StoryError::BadName);
+    }
+    Ok(name)
 }
 
 fn reasons(refusal: &Refusal) -> String {

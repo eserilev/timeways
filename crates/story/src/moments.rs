@@ -50,12 +50,16 @@ pub fn moments(world: &World, you: EntityId, events: &[Event]) -> Vec<Moment> {
         .collect()
 }
 
-/// The first moment of the highest rank.
+/// The last moment of the highest rank, because a later moment of one kind holds the newer
+/// count: two level ups in one batch end at the second level.
 #[must_use]
 pub fn best(moments: Vec<Moment>) -> Option<Moment> {
     let mut best: Option<Moment> = None;
     for moment in moments {
-        if best.as_ref().is_none_or(|kept| moment.rank() > kept.rank()) {
+        if best
+            .as_ref()
+            .is_none_or(|kept| moment.rank() >= kept.rank())
+        {
             best = Some(moment);
         }
     }

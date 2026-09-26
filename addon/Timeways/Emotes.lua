@@ -12,7 +12,8 @@ local function NpcTarget(typedName)
 	if typedName ~= nil and typedName ~= "" then
 		return nil
 	end
-	if not UnitExists("target") or UnitIsPlayer("target") then
+	-- A pet has a name that a player chose, so it counts as a player.
+	if not UnitExists("target") or UnitIsPlayer("target") or UnitPlayerControlled("target") then
 		return nil
 	end
 	local name = UnitName("target")

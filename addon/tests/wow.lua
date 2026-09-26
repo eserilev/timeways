@@ -83,6 +83,12 @@ C_DeathRecap = {
 	end,
 }
 
+-- A pet or another unit of a player: `player` or `controlled` in its table.
+function UnitPlayerControlled(unit)
+	local u = wow.units[unit]
+	return u ~= nil and (u.player == true or u.controlled == true)
+end
+
 function UnitLevel(unit)
 	local u = wow.units[unit]
 	return u and u.level or 0

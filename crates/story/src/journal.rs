@@ -15,8 +15,9 @@ const FRAME_BYTES: usize = 160;
 /// No event for this long ends a chapter of the chronicle: the player stopped playing.
 const SESSION_GAP_SECONDS: u64 = 30 * 60;
 
-/// The entries of each list of one chapter, so that a chapter always fits on a page.
-const CHAPTER_LIST: usize = 30;
+/// The entries of each list of one chapter. With names of at most
+/// `story::MAX_NAME_BYTES`, a chapter always fits on one page.
+const CHAPTER_LIST: usize = 20;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
 pub struct Journal {
@@ -35,7 +36,7 @@ pub struct Chapter {
     pub zones: Vec<String>,
     pub people: Vec<String>,
     pub deeds: Vec<Deed>,
-    /// The entries past the first 30 of each list. The other pages of the journal hold
+    /// The entries past the first 20 of each list. The other pages of the journal hold
     /// them all.
     pub left_out: usize,
     /// The saga of the bard, once a model wrote it (3.3).
@@ -230,18 +231,18 @@ fn chapters(
                 .map(|place| place.name.clone()),
             &mut left_out,
         );
-        let people = capped(
+        let met = capped(
             people
                 .iter()
                 .filter(|person| within(person.first_met))
                 .map(|person| person.name.clone()),
             &mut left_out,
         );
-        let deeds = capped(
+        let done = capped(
             deeds.iter().filter(|deed| within(deed.at())).cloned(),
             &mut left_out,
         );
-        if zones.is_empty() && people.is_empty() && deeds.is_empty() {
+        if zones.is_empty() && met.is_empty() && done.is_empty() {
             continue;
         }
         let number = chapters.len() + 1;
@@ -249,8 +250,8 @@ fn chapters(
             number,
             began,
             zones,
-            people,
-            deeds,
+            people: met,
+            deeds: done,
             left_out,
             prose: None,
         });

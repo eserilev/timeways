@@ -46,6 +46,9 @@ globals:
   UnitExists:
     args:
       - type: string
+  UnitPlayerControlled:
+    args:
+      - type: string
   UnitIsPlayer:
     args:
       - type: string

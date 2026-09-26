@@ -786,3 +786,71 @@ fn the_bard_waits_while_another_model_call_is_open() {
         "{after:?}"
     );
 }
+
+#[test]
+fn a_name_that_no_game_sends_is_refused() {
+    let mut story = story_with("bad-name", &[]);
+
+    let long = story.handle(Input::NpcMet {
+        at: Tick(1),
+        name: "N".repeat(97),
+    });
+    let control = story.handle(Input::NpcMet {
+        at: Tick(1),
+        name: "A\u{7}B".to_string(),
+    });
+    let empty_killer = story.handle(Input::Died {
+        at: Tick(1),
+        killer: Some(String::new()),
+    });
+
+    assert!(matches!(long, Err(StoryError::BadName)));
+    assert!(matches!(control, Err(StoryError::BadName)));
+    assert!(matches!(empty_killer, Err(StoryError::BadName)));
+}
+
+#[test]
+fn moments_of_one_character_never_reach_another() {
+    let mut story = story_with("moments-switch", &[]);
+    level(&mut story, 1, 12);
+    level(&mut story, 2, 13);
+    let bren = Input::CharacterEntered {
+        realm: "Testrealm".to_string(),
+        name: "Bren".to_string(),
+    };
+    story.handle(bren).unwrap();
+
+    let output = batch_end(&mut story, 3);
+
+    assert_eq!(
+        output,
+        Output::EventsSeen {
+            id: MessageId(3),
+            companion: None
+        }
+    );
+}
+
+#[test]
+fn a_moment_before_a_refusal_still_counts() {
+    let mut story = story_with("moment-before-refusal", &[]);
+    level(&mut story, 1, 12);
+    let zone = Input::ZoneEntered {
+        at: Tick(5),
+        zone: "Westfall".to_string(),
+        subzone: None,
+    };
+    assert!(story.handle(zone).is_ok());
+    let old_event = Input::LevelReached {
+        at: Tick(6),
+        level: 11,
+    };
+    assert!(story.handle(old_event).is_err());
+
+    let (_, prompt) = model_call(batch_end(&mut story, 3));
+
+    assert!(
+        prompt.ends_with("Moment: The player arrived in Westfall for the first time."),
+        "{prompt}"
+    );
+}

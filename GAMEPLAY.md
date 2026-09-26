@@ -69,10 +69,12 @@ A small character rides along: Sprocket, a gnome engineer.
 - It reacts to big moments. The story program finds them in the events that each batch adds to the world:
   - the first kill of a rare or a boss (the echo of a later kill is not a big moment),
   - a second or later death to the same NPC: "Third time this murloc got you,"
+  - a slap of an NPC, which it remembers (5.4.1),
   - a level up,
   - the first visit of a zone.
-- It speaks at most once for each batch, about the best moment, in the order above.
-- It has a budget: at most 3 lines in one hour of game time.
+- It speaks at most once for each batch, about the best moment, in the order above. Of two moments of one kind, the later one wins, because it holds the newer count.
+- A batch that ends with a question gets no `batch_end` (5.5), so its moments wait for the next batch.
+- It has a budget: at most 3 lines in one hour of game time. The budget lives in memory, so a restart of the story program starts it again. That costs at most 3 more lines once.
 - A model writes each line through the bridge, with no tools. The line must be plain text, at most 300 characters, and hold no name from after the cutoff (5.9). A line that breaks a rule gets no retry: the companion stays silent.
 - It remembers your history across sessions, because the world does.
 - It speaks in the chat window now. A window of its own, and a voice (Gnomish Relay SPEC 13.3), come later.
@@ -407,6 +409,10 @@ The name of a real player never goes to a model, local or cloud. The model does 
 **In Hourglass**, each player is a `Person` entity with the ID as its name. So the history holds `P7`, never the real name. When a guild world syncs its history between members, no real names travel with it. Each member swaps the IDs with their own table.
 
 Canon NPCs, such as Thrall or the innkeeper of Goldshire, keep their real names. They are part of the lore, not people.
+
+**Pets count as players.** A player chose the name of a hunter pet, so the addon treats every unit that a player controls (`UnitPlayerControlled`) as a player: it never sends its name as a target, a foe, or a killer.
+
+**Names have a size limit.** The story program refuses a name that is empty, longer than 96 bytes, or holds a control character. No game name comes close, and the limit keeps each page of the journal inside one reply.
 
 ### 5.12 Two addons, one desktop program
 

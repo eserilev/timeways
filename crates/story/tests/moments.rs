@@ -93,7 +93,7 @@ fn a_zone_seen_before_is_no_moment() {
 }
 
 #[test]
-fn the_best_moment_is_the_first_of_the_highest_rank() {
+fn the_best_moment_is_the_last_of_the_highest_rank() {
     let found = vec![
         Moment::NewZone {
             zone: "Westfall".to_string(),
@@ -110,7 +110,7 @@ fn the_best_moment_is_the_first_of_the_highest_rank() {
     assert_eq!(
         best(found),
         Some(Moment::FirstKill {
-            foe: "Hogger".to_string()
+            foe: "Mother Fang".to_string()
         })
     );
 }
@@ -136,4 +136,11 @@ fn a_slap_is_a_moment_with_its_count() {
             times: 2
         }]
     );
+}
+
+#[test]
+fn two_level_ups_in_one_batch_speak_of_the_newest_level() {
+    let found = vec![Moment::LevelUp { level: 12 }, Moment::LevelUp { level: 13 }];
+
+    assert_eq!(best(found), Some(Moment::LevelUp { level: 13 }));
 }

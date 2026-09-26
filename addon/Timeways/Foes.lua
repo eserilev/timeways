@@ -35,7 +35,8 @@ function Foes.See(unit)
 	if not Readable(guid, name) or type(guid) ~= "string" or type(name) ~= "string" then
 		return
 	end
-	if UnitIsPlayer(unit) then
+	-- A pet has a name that a player chose, so it counts as a player.
+	if UnitIsPlayer(unit) or UnitPlayerControlled(unit) then
 		players[name] = true
 		return
 	end

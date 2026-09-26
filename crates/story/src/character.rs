@@ -160,6 +160,8 @@ impl Character {
         if let Some(here) = self.world.location_of(self.you) {
             self.settle(at, npc, here)?;
         }
+        // A slap is a meeting too, so the NPC shows on the People page.
+        self.start_once(at, self.you, MET, npc)?;
         self.count_up(at, self.you, SLAPPED, Some(npc))?;
         self.change_trust(at, npc, -SLAP_TRUST)
     }

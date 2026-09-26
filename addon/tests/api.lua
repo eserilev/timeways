@@ -23,6 +23,7 @@ return {
 		"UnitIsPlayer",
 		"UnitLevel",
 		"UnitName",
+		"UnitPlayerControlled",
 		"date",
 		"hooksecurefunc",
 		"issecretvalue",

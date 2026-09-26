@@ -111,6 +111,15 @@ return {
 				{ Name = "unitServer", Type = "cstring", Nilable = false },
 			},
 		},
+		UnitPlayerControlled = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "unit", Type = "UnitToken", Nilable = true },
+			},
+			Returns = {
+				{ Name = "result", Type = "bool", Nilable = false },
+			},
+		},
 		issecretvalue = {
 			SecretArguments = "AllowedWhenUntainted",
 			SecureHooksAllowed = false,

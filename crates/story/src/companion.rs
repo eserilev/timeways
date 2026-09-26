@@ -28,7 +28,7 @@ pub struct Budget {
 }
 
 impl Budget {
-    /// True when the companion may speak at `at`, and then that line counts.
+    /// True when the companion has a line left at `at`. That line then counts.
     pub fn take(&mut self, at: Tick) -> bool {
         while self
             .spoken

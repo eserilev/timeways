@@ -1,5 +1,6 @@
--- The pages of the journal: places, people, and deeds (GAMEPLAY.md 3.3). The desktop
--- sends them, because the world lives there and never in the saved variables (5.10).
+-- The pages of the journal: the chronicle, places, people, and deeds (GAMEPLAY.md 3.6).
+-- The desktop sends them, because the world lives there and never in the saved variables
+-- (5.10).
 
 local _, ns = ...
 
@@ -180,8 +181,8 @@ local function Together(names)
 	return table.concat(shown, ", ", 1, #shown - 1) .. " and " .. shown[#shown]
 end
 
--- A chapter is the list of what was new in one session (GAMEPLAY.md 5.6). Once the bard
--- wrote it, its saga comes first (3.3).
+-- A chapter is the list of what was new in one session (GAMEPLAY.md 3.3). Once the bard
+-- wrote it, its saga comes first.
 local function Chapters(chapters)
 	local lines = {}
 	for _, chapter in ipairs(chapters) do
