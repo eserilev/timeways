@@ -59,8 +59,7 @@ function ns.OnReply(text)
 			handler(value)
 		end
 		if type(value) == "table" then
-			-- TODO: read only `narrator` when relay SPEC.md 9.8 renames the field.
-			ns.Narrator.Say(value.narrator or value.companion)
+			ns.Narrator.Say(value.narrator)
 		end
 	end
 end

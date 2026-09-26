@@ -80,8 +80,6 @@ pub enum Output {
     /// The answer to `batch_end`. The bridge shows `narrator` in the game.
     EventsSeen {
         id: MessageId,
-        // TODO: drop the rename when relay SPEC.md 9.8 names the field `narrator`.
-        #[serde(rename = "companion")]
         narrator: Option<String>,
     },
     /// The bridge runs the model with no tools, and answers with `model_answered` or

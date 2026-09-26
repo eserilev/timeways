@@ -98,14 +98,3 @@ fn each_strip_names_the_version_of_timeways() {
 
     assert!(flags.contains(&"ver=1".to_string()), "{flags:?}");
 }
-
-#[test]
-fn a_line_of_the_narrator_under_its_old_field_name_still_shows() {
-    let game = logged_in();
-
-    game.run(
-        r#"ns.Messages.OnReply({ id = "story" }, 1, "done", '{"type":"events_seen","companion":"Our hero fell."}')"#,
-    );
-
-    assert_eq!(game.printed(), ["|cffe6cc80Narrator|r: Our hero fell."]);
-}
