@@ -1,5 +1,5 @@
--- Your emotes (GAMEPLAY.md 5.4.1). Only `/slap` on an NPC has a consequence in the world
--- so far: the NPC counts it, and trusts you less.
+-- Your emotes (GAMEPLAY.md 5.4.1). Each one is a flavor moment. A `/slap` on an NPC also
+-- has a consequence in the world: the NPC counts it, and trusts you less.
 
 local _, ns = ...
 
@@ -15,13 +15,16 @@ local function NpcTarget(typedName)
 	return ns.Units.NpcName("target")
 end
 
--- Runs after each emote of yours, through a hook that changes nothing.
+-- Runs after each emote of yours, through a hook that changes nothing. An emote token is
+-- a word such as "DANCE". Anything else is not an emote of the game.
 function Emotes.Performed(emote, typedName)
-	if type(emote) ~= "string" or emote:upper() ~= "SLAP" then
+	local token = type(emote) == "string" and emote:lower()
+	if not token or #token > 24 or not token:match("^%a+$") then
 		return
 	end
-	local name = NpcTarget(typedName)
-	if name then
-		ns.Outbox.Add(ns.Inputs.Slapped(time(), name))
+	local target = NpcTarget(typedName)
+	ns.Outbox.Add(ns.Inputs.Emote(time(), token, target, ns.Inputs.Hour()))
+	if token == "slap" and target then
+		ns.Outbox.Add(ns.Inputs.Slapped(time(), target))
 	end
 end

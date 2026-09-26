@@ -2,6 +2,7 @@
 //! (GAMEPLAY.md 5.7). The state is never stored. A replay builds it at start.
 
 use crate::character::Character;
+use crate::flavor::{Flavor, Told};
 use hourglass::{Event, EventId, Tick};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -154,11 +155,66 @@ impl Prose {
     }
 }
 
+/// One line of the flavor file: a moment, or a telling of a kind of moment.
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "line", rename_all = "snake_case")]
+enum FlavorLine {
+    Moment(Flavor),
+    Told(Told),
+}
+
+/// The flavor moments of a character and the tellings of them (GAMEPLAY.md 5.4.1). They are
+/// small and silly, not facts, so they live in a file of their own next to the history.
+#[derive(Debug, Default)]
+pub struct FlavorLog {
+    moments: Vec<Flavor>,
+    told: Vec<Told>,
+    path: Option<PathBuf>,
+}
+
+impl FlavorLog {
+    #[must_use]
+    pub fn moments(&self) -> &[Flavor] {
+        &self.moments
+    }
+
+    #[must_use]
+    pub fn told(&self) -> &[Told] {
+        &self.told
+    }
+
+    /// # Errors
+    ///
+    /// Returns the I/O error of the write, and then keeps nothing.
+    pub fn add_moment(&mut self, moment: Flavor) -> Result<(), StoreError> {
+        self.write(&FlavorLine::Moment(moment.clone()))?;
+        self.moments.push(moment);
+        Ok(())
+    }
+
+    /// # Errors
+    ///
+    /// Returns the I/O error of the write, and then keeps nothing.
+    pub fn add_told(&mut self, told: Told) -> Result<(), StoreError> {
+        self.write(&FlavorLine::Told(told.clone()))?;
+        self.told.push(told);
+        Ok(())
+    }
+
+    fn write(&self, line: &FlavorLine) -> Result<(), StoreError> {
+        let Some(path) = &self.path else {
+            return Ok(());
+        };
+        append_lines(path, std::slice::from_ref(line)).map_err(|source| io_error(path, source))
+    }
+}
+
 /// What a character brings from the disk.
 pub struct Opened {
     pub character: Character,
     pub history: Option<HistoryFile>,
     pub prose: Prose,
+    pub flavor: FlavorLog,
 }
 
 impl Store {
@@ -172,6 +228,7 @@ impl Store {
                 character,
                 history: None,
                 prose: Prose::default(),
+                flavor: FlavorLog::default(),
             });
         };
         let path = folder.join(key.relative_path());
@@ -197,6 +254,19 @@ impl Store {
                 .collect(),
             path: Some(prose_path),
         };
+        let flavor_path = path.with_extension("flavor.jsonl");
+        let lines: Vec<FlavorLine> = read_lines(&flavor_path, |_, _| true)
+            .map_err(|source| io_error(&flavor_path, source))?;
+        let mut flavor = FlavorLog {
+            path: Some(flavor_path),
+            ..FlavorLog::default()
+        };
+        for line in lines {
+            match line {
+                FlavorLine::Moment(moment) => flavor.moments.push(moment),
+                FlavorLine::Told(told) => flavor.told.push(told),
+            }
+        }
         let history = HistoryFile {
             path,
             len: events.len(),
@@ -205,6 +275,7 @@ impl Store {
             character,
             history: Some(history),
             prose,
+            flavor,
         })
     }
 }

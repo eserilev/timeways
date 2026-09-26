@@ -2,7 +2,7 @@
 //! and its history. No model takes part.
 
 use crate::character::Character;
-use crate::vocabulary::{DEATHS, DEFEATED, LEVEL, MET, SLAPPED, TRUSTS, VISITED};
+use crate::vocabulary::{DEATHS, DEFEATED, LEVEL, MET, SLAPPED, TITLE, TRUSTS, VISITED};
 use hourglass::{EntityId, EventKind, LOCATED_IN, Tick, World};
 use serde::Serialize;
 
@@ -78,6 +78,12 @@ pub enum Deed {
     Defeated {
         foe: String,
         times: i64,
+        at: Tick,
+        place: Option<String>,
+    },
+    /// A joke title of the journal (5.4.1).
+    Titled {
+        title: String,
         at: Tick,
         place: Option<String>,
     },
@@ -289,7 +295,10 @@ impl Deed {
     #[must_use]
     pub fn at(&self) -> Tick {
         match self {
-            Deed::Level { at, .. } | Deed::Defeated { at, .. } | Deed::Died { at, .. } => *at,
+            Deed::Level { at, .. }
+            | Deed::Defeated { at, .. }
+            | Deed::Titled { at, .. }
+            | Deed::Died { at, .. } => *at,
         }
     }
 }
@@ -380,6 +389,20 @@ fn deeds(world: &World, you: EntityId) -> Vec<Deed> {
                 ..
             } if *target == you && name == DEFEATED => {
                 killer = Some(name_of(world, *foe));
+            }
+            EventKind::FactStart {
+                entity,
+                name,
+                linked_to: Some(title),
+                ..
+            } if *entity == you && name == TITLE => {
+                let place = here.map(|place| name_of(world, place));
+                let title = name_of(world, *title);
+                deeds.push(Deed::Titled {
+                    title,
+                    at: event.tick,
+                    place,
+                });
             }
             EventKind::FactStart { entity, name, .. }
             | EventKind::FactUpdate { entity, name, .. }

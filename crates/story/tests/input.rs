@@ -189,14 +189,20 @@ fn a_death_reads_with_and_without_a_killer() {
         parse(with).unwrap(),
         Input::Died {
             at: Tick(100),
-            killer: Some("Hogger".to_string())
+            killer: Some("Hogger".to_string()),
+            cause: None,
+            killer_level: None,
+            hour: None
         }
     );
     assert_eq!(
         parse(without).unwrap(),
         Input::Died {
             at: Tick(100),
-            killer: None
+            killer: None,
+            cause: None,
+            killer_level: None,
+            hour: None
         }
     );
 }

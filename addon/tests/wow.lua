@@ -204,7 +204,10 @@ end
 
 UIParent = NewWidget("Frame", "UIParent")
 UISpecialFrames = {}
-date = os.date
+-- In UTC on the clock of the fake game, so a test never depends on the zone of its machine.
+function date(format, at)
+	return os.date("!" .. format, at or wow.now)
+end
 
 C_Timer = {
 	NewTicker = function(seconds, callback)

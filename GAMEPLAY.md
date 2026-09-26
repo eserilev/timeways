@@ -240,8 +240,8 @@ Small, silly moments are often the best part of a story. The addon collects them
 | Moment | Source |
 |---|---|
 | A critter kill: a squirrel, a rabbit, a cow | Open: the combat log is closed (open question 9) |
-| An emote of yours: `/dance` in Goldshire, `/slap` an NPC, `/kiss` a guard | A hook on `C_ChatInfo.PerformEmote` (`hooksecurefunc`, which changes nothing). The target counts only when it is the current target and an NPC, because a typed name can be a player's. Built: `/slap`. |
-| A silly death: a fall, drowning, lava, a critter, a mob far below your level | `PLAYER_DEAD` and the death recap: its `environmentalType` and its killer |
+| An emote of yours: `/dance` in Goldshire, `/slap` an NPC, `/kiss` a guard | A hook on `C_ChatInfo.PerformEmote` (`hooksecurefunc`, which changes nothing). The target counts only when it is the current target and an NPC, because a typed name can be a player's. Built: every emote. |
+| A silly death: a fall, drowning, lava, a critter, a mob far below your level | `PLAYER_DEAD` and the death recap: its `environmentalType`, and its killer with the level that the addon saw. Built, but a critter needs the combat log. |
 | An odd habit: the same mob 50 times, fishing up boots, a long AFK in a capital | Counts in the addon |
 
 - **Counted locally.** A tally is tiny, for example `dance Goldshire 3`, and it goes out with the next batch. No moment costs a strip of its own.
@@ -271,6 +271,29 @@ The caps are code, not prompt text:
 - **Votes:** each footnote and flavor line has 👍 and 👎. A vote moves the weight of that kind for you by one point, from -3 to +3.
 
 The score uses whole numbers only, like Hourglass, so a test can state each rule exactly.
+
+**The numbers of the code** (built):
+
+- **Rare for you:** 1 or 2 earlier moments of the kind give +4, 3 to 9 give +3, 10 to 24 give +2, 25 to 49 give +1, and more give 0. A kind is the emote, the cause of a fall, or a humbling death. A dance is a dance, wherever it happens.
+- **Contrast:** +1 for each 10 levels between you and the NPC that killed you, at most +4. A gap of 10 or more makes the death a flavor moment ("humbled").
+- **A famous place:** Goldshire and the 6 capital cities.
+- **A callback:** the NPC holds `trusts` or `defeated` about you, or you hold `slapped` or `defeated` about it. A plain meeting is no history.
+- **An odd hour:** 2 to 5 in the local time of the player, which the addon sends.
+- **Told before:** each telling of the kind in the last 72 hours of game time.
+- **Streaks and votes:** not yet. A streak needs the kills of common mobs (open question 9).
+- The moments and their tellings live in `c_<character id>.flavor.jsonl` next to the history (5.7).
+
+**Joke titles** (built). A title is a rule over the flavor moments and the world. When a rule holds, the title lands in the world as a `title` fact, so it stays for good. It shows as a deed in the journal, and it is the best big moment of the companion (3.2):
+
+| Title | Rule |
+|---|---|
+| Lord of the Goldshire Dance Floor | 3 dances in Goldshire |
+| Dance Machine | 25 dances anywhere |
+| Friend of Gravity | 3 deaths to a fall |
+| Student of the Deep | 3 deaths to drowning |
+| Lava Enthusiast | 2 deaths to lava or fire |
+| The Humbled | 1 death to an NPC 10 or more levels below you |
+| Slap Happy | 5 slaps, of any NPCs |
 
 **Who scores.** A function of the Timeways story module scores the moments, in the bridge. No model takes part. The scoring is not part of Hourglass: Hourglass holds no words of any game, and the scoring is full of WoW (places, critters, emotes). The scoring asks Hourglass two questions:
 

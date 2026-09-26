@@ -1,6 +1,8 @@
 //! The world of one character, fed by game events (GAMEPLAY.md 5.1 and 5.2).
 
-use crate::vocabulary::{self, DEATHS, DEFEATED, LEVEL, MET, SLAPPED, TRUST, TRUSTS, VISITED};
+use crate::vocabulary::{
+    self, DEATHS, DEFEATED, LEVEL, MET, SLAPPED, TITLE, TRUST, TRUSTS, VISITED,
+};
 use hourglass::{
     EntityId, EntityType, Event, EventHistory, EventKind, LOCATED_IN, Rejection, Tick, World,
 };
@@ -95,6 +97,46 @@ impl Character {
         let id = self.find(EntityType::Person, npc)?;
         let place = self.world.location_of(id)?;
         Some(self.world.entity(place)?.name.as_str())
+    }
+
+    /// Your slaps, of every NPC together.
+    #[must_use]
+    pub fn slaps(&self) -> i64 {
+        self.world.entity(self.you).map_or(0, |you| {
+            you.facts_named(SLAPPED).filter_map(|fact| fact.value).sum()
+        })
+    }
+
+    /// A title is a thing that you hold for good (GAMEPLAY.md 5.4.1).
+    ///
+    /// # Errors
+    ///
+    /// Returns the first refusal of Hourglass.
+    pub fn earn_title(&mut self, at: Tick, title: &str) -> Result<(), Refusal> {
+        let thing = self.find_or_create(at, EntityType::Thing, title)?;
+        self.start_once(at, self.you, TITLE, thing)
+    }
+
+    #[must_use]
+    pub fn has_title(&self, title: &str) -> bool {
+        self.holds_about(TITLE, title)
+    }
+
+    /// Does this NPC share a past with you: trust, a slap, or a kill either way? A plain
+    /// meeting is no history, so it makes no callback (GAMEPLAY.md 5.4.1).
+    #[must_use]
+    pub fn has_history_with(&self, npc: &str) -> bool {
+        let Some(id) = self.find(EntityType::Person, npc) else {
+            return false;
+        };
+        let theirs = self.world.entity(id).is_some_and(|entity| {
+            entity.fact(TRUSTS, Some(self.you)).is_some()
+                || entity.fact(DEFEATED, Some(self.you)).is_some()
+        });
+        let yours = self.world.entity(self.you).is_some_and(|you| {
+            you.fact(SLAPPED, Some(id)).is_some() || you.fact(DEFEATED, Some(id)).is_some()
+        });
+        theirs || yours
     }
 
     #[must_use]

@@ -50,6 +50,23 @@ pub enum Input {
     Died {
         at: Tick,
         killer: Option<String>,
+        /// The killer of the world, from the death recap: "falling", "drowning", "lava".
+        #[serde(default)]
+        cause: Option<String>,
+        #[serde(default)]
+        killer_level: Option<u8>,
+        /// The local hour of the player, from 0 to 23.
+        #[serde(default)]
+        hour: Option<u8>,
+    },
+    /// Any emote of yours, with its NPC target when it has one (GAMEPLAY.md 5.4.1).
+    EmoteDone {
+        at: Tick,
+        emote: String,
+        #[serde(default)]
+        target: Option<String>,
+        #[serde(default)]
+        hour: Option<u8>,
     },
     /// `/lore`, with the name of the target when there is one.
     LoreAsked {

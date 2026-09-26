@@ -802,6 +802,9 @@ fn a_name_that_no_game_sends_is_refused() {
     let empty_killer = story.handle(Input::Died {
         at: Tick(1),
         killer: Some(String::new()),
+        cause: None,
+        killer_level: None,
+        hour: None,
     });
 
     assert!(matches!(long, Err(StoryError::BadName)));
@@ -974,4 +977,101 @@ fn a_change_of_trust_for_another_character_is_dropped() {
         "{output:?}"
     );
     assert!(people(&mut story).is_empty());
+}
+
+fn emote(story: &mut Story, at: u64, emote: &str) -> Result<Vec<Output>, StoryError> {
+    story.handle(Input::EmoteDone {
+        at: Tick(at),
+        emote: emote.to_string(),
+        target: None,
+        hour: Some(12),
+    })
+}
+
+fn deeds(story: &mut Story) -> Vec<timeways_story::journal::Deed> {
+    match one(story
+        .handle(Input::JournalAsked {
+            id: MessageId(1),
+            page: 0,
+        })
+        .unwrap())
+    {
+        Some(Output::Journal { page, .. }) => page.journal.deeds,
+        other => panic!("expected a journal, got {other:?}"),
+    }
+}
+
+#[test]
+fn a_third_dance_in_goldshire_earns_a_title_and_the_companion_speaks_of_it() {
+    let mut story = story_with("title-earned", &[]);
+    enter(&mut story, 1, "Elwynn Forest", Some("Goldshire"));
+    let _ = batch_end(&mut story, 1);
+
+    for at in 2..=4 {
+        assert!(emote(&mut story, at, "dance").unwrap().is_empty());
+    }
+    let (_, prompt) = model_call(batch_end(&mut story, 2));
+
+    let titled = deeds(&mut story).into_iter().any(|deed| {
+        matches!(deed, timeways_story::journal::Deed::Titled { ref title, .. } if title == "Lord of the Goldshire Dance Floor")
+    });
+    assert!(titled);
+    assert!(
+        prompt.contains("Lord of the Goldshire Dance Floor"),
+        "{prompt}"
+    );
+}
+
+#[test]
+fn a_title_is_earned_only_once() {
+    let mut story = story_with("title-once", &[]);
+    enter(&mut story, 1, "Elwynn Forest", Some("Goldshire"));
+
+    for at in 2..=8 {
+        emote(&mut story, at, "dance").unwrap();
+    }
+
+    let titles = deeds(&mut story)
+        .into_iter()
+        .filter(|deed| matches!(deed, timeways_story::journal::Deed::Titled { .. }))
+        .count();
+    assert_eq!(titles, 1);
+}
+
+#[test]
+fn a_death_to_a_fall_and_to_a_weak_npc_are_flavor_and_a_fair_fight_is_not() {
+    let mut story = story_with("silly-deaths", &[]);
+    level(&mut story, 1, 60);
+    let died = |killer: Option<&str>, cause: Option<&str>, killer_level| Input::Died {
+        at: Tick(2),
+        killer: killer.map(str::to_string),
+        cause: cause.map(str::to_string),
+        killer_level,
+        hour: Some(3),
+    };
+
+    story.handle(died(None, Some("falling"), None)).unwrap();
+    story.handle(died(Some("Cow"), None, Some(1))).unwrap();
+    story.handle(died(Some("Onyxia"), None, Some(63))).unwrap();
+
+    let humbled = deeds(&mut story).into_iter().any(|deed| {
+        matches!(deed, timeways_story::journal::Deed::Titled { ref title, .. } if title == "The Humbled")
+    });
+    assert!(humbled);
+}
+
+#[test]
+fn an_odd_emote_or_hour_is_refused() {
+    let mut story = story_with("bad-flavor", &[]);
+
+    let upper = emote(&mut story, 1, "DANCE");
+    let long = emote(&mut story, 1, &"a".repeat(25));
+    let hour = story.handle(Input::EmoteDone {
+        at: Tick(1),
+        emote: "dance".to_string(),
+        target: None,
+        hour: Some(24),
+    });
+
+    assert!(upper.is_err() && long.is_err() && hour.is_err());
 }

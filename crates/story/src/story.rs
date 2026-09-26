@@ -3,14 +3,16 @@
 use crate::bard;
 use crate::character::{Character, Refusal};
 use crate::companion::{self, Budget};
+use crate::flavor::{Flavor, HUMBLING_GAP, Kind};
 use crate::input::{CallId, Input, MessageId};
 use crate::journal::{PAGE_BYTES, Page, journal, pages};
 use crate::lore::{Answer, LoreCall, Next};
 use crate::moments::{Moment, best, moments};
 use crate::pack::{Link, Pack, PackError, Passage};
 use crate::prompt::Context;
-use crate::store::{CharacterKey, HistoryFile, Opened, Prose, Store, StoreError};
+use crate::store::{CharacterKey, FlavorLog, HistoryFile, Opened, Prose, Store, StoreError};
 use crate::talk::{self, Scene};
+use crate::titles;
 use hourglass::Tick;
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
@@ -99,6 +101,7 @@ struct Active {
     character: Character,
     file: Option<HistoryFile>,
     prose: Prose,
+    flavor: FlavorLog,
 }
 
 impl Active {
@@ -202,11 +205,36 @@ impl Story {
             }
             Input::NpcSlapped { at, name } => {
                 checked_name(&name)?;
-                self.change(|character| character.slap(at, &name))
+                self.change(|character| character.slap(at, &name))?;
+                self.award_titles(at)
             }
-            Input::Died { at, killer } => {
+            Input::Died {
+                at,
+                killer,
+                cause,
+                killer_level,
+                hour,
+            } => {
                 killer.as_deref().map(checked_name).transpose()?;
-                self.change(|character| character.die(at, killer.as_deref()))
+                cause.as_deref().map(checked_token).transpose()?;
+                checked_hour(hour)?;
+                let level = self.character()?.level();
+                self.change(|character| character.die(at, killer.as_deref()))?;
+                match silly_death(killer, cause, killer_level, level) {
+                    Some(kind) => self.record_flavor(at, hour, kind),
+                    None => Ok(Vec::new()),
+                }
+            }
+            Input::EmoteDone {
+                at,
+                emote,
+                target,
+                hour,
+            } => {
+                checked_token(&emote)?;
+                target.as_deref().map(checked_name).transpose()?;
+                checked_hour(hour)?;
+                self.record_flavor(at, hour, Kind::Emote { emote, target })
             }
             Input::LevelReached { at, level } => {
                 self.change(|character| character.reach_level(at, level))
@@ -328,12 +356,14 @@ impl Story {
             character,
             history,
             prose,
+            flavor,
         } = self.store.open(&key)?;
         self.active = Some(Active {
             key,
             character,
             file: history,
             prose,
+            flavor,
         });
         Ok(())
     }
@@ -360,6 +390,41 @@ impl Story {
             .extend(moments(world, active.character.you(), &added));
         active.save()?;
         changed.map_err(StoryError::Refused)?;
+        Ok(Vec::new())
+    }
+
+    /// A flavor moment where you stand now, and then the titles that it earns.
+    fn record_flavor(
+        &mut self,
+        at: Tick,
+        hour: Option<u8>,
+        kind: Kind,
+    ) -> Result<Vec<Output>, StoryError> {
+        let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
+        let place = active
+            .character
+            .place_names()
+            .first()
+            .map(|place| (*place).to_string());
+        active.flavor.add_moment(Flavor {
+            at,
+            hour,
+            place,
+            kind,
+        })?;
+        self.award_titles(at)
+    }
+
+    /// Each title whose rule now holds and that you do not hold yet lands in the world.
+    fn award_titles(&mut self, at: Tick) -> Result<Vec<Output>, StoryError> {
+        let active = self.active.as_ref().ok_or(StoryError::NoCharacter)?;
+        let new: Vec<&str> = titles::earned(active.flavor.moments(), &active.character)
+            .into_iter()
+            .filter(|title| !active.character.has_title(title))
+            .collect();
+        for title in new {
+            self.change(|character| character.earn_title(at, title))?;
+        }
         Ok(Vec::new())
     }
 
@@ -552,6 +617,37 @@ fn knows_all(character: &Character, links: &[Link]) -> bool {
         Link::Place(name) => character.has_visited(name),
         Link::Npc(name) => character.has_met(name),
     })
+}
+
+/// A death is silly when the world killed you, or an NPC far below your level.
+fn silly_death(
+    killer: Option<String>,
+    cause: Option<String>,
+    killer_level: Option<u8>,
+    level: Option<i64>,
+) -> Option<Kind> {
+    if let Some(cause) = cause {
+        return Some(Kind::FellTo { cause });
+    }
+    let killer = killer?;
+    let gap = level? - i64::from(killer_level?);
+    (gap >= HUMBLING_GAP).then_some(Kind::Humbled { killer, gap })
+}
+
+/// An emote or a cause of death from the game: 1 to 24 lowercase letters.
+fn checked_token(token: &str) -> Result<&str, StoryError> {
+    let letters = token.bytes().all(|byte| byte.is_ascii_lowercase());
+    if token.is_empty() || token.len() > 24 || !letters {
+        return Err(StoryError::BadName);
+    }
+    Ok(token)
+}
+
+fn checked_hour(hour: Option<u8>) -> Result<(), StoryError> {
+    if hour.is_some_and(|hour| hour > 23) {
+        return Err(StoryError::BadName);
+    }
+    Ok(())
 }
 
 fn checked_name(name: &str) -> Result<&str, StoryError> {

@@ -48,6 +48,7 @@ fn deed_fact(deed: &Deed) -> String {
         Deed::Level { to, .. } => format!("Reached level {to}"),
         Deed::Defeated { foe, times: 1, .. } => format!("Defeated {foe} for the first time"),
         Deed::Defeated { foe, times, .. } => format!("Defeated {foe} again, {times} times in all"),
+        Deed::Titled { title, .. } => format!("Earned the joke title \"{title}\""),
         Deed::Died {
             killer: Some(killer),
             ..

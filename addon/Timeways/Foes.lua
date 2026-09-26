@@ -14,7 +14,7 @@ local SAME_KILL_SECONDS = 120
 
 -- Only in memory, and never sent: the names of NPCs and players that you saw, and the rares
 -- and bosses by GUID.
-local npcs, players, notable = {}, {}, {}
+local npcs, players, notable, levels = {}, {}, {}, {}
 local lastKill = {}
 
 -- The client can hide a value from addons. A hidden value is never compared or stored.
@@ -41,6 +41,7 @@ function Foes.See(unit)
 		return
 	end
 	npcs[name] = true
+	levels[name] = UnitLevel(unit)
 	if NOTABLE[UnitClassification(unit)] then
 		notable[guid] = name
 	end
@@ -81,14 +82,21 @@ function Foes.EncounterEnd(_, name, _, _, success)
 	end
 end
 
--- The killing blow is the first event of the recap. A name that was ever on a player
--- stays out, so the name of a real player never leaves the computer (5.11).
-local function Killer()
+-- The killing blow is the first event of the recap.
+local function KillingBlow()
 	if not C_DeathRecap.HasRecapEvents() then
 		return nil
 	end
 	local blow = (C_DeathRecap.GetRecapEvents() or {})[1]
-	if type(blow) ~= "table" or not Readable(blow.sourceName, blow.hideCaster) or blow.hideCaster then
+	if type(blow) == "table" and Readable(blow.sourceName, blow.hideCaster, blow.environmentalType) then
+		return blow
+	end
+end
+
+-- A name that was ever on a player stays out, so the name of a real player never leaves
+-- the computer (5.11).
+local function Killer(blow)
+	if not blow or blow.hideCaster then
 		return nil
 	end
 	local name = blow.sourceName
@@ -97,6 +105,24 @@ local function Killer()
 	end
 end
 
+-- "Falling", "Drowning", "Lava": the world itself killed you.
+local function Cause(blow)
+	local cause = blow and blow.environmentalType
+	if type(cause) == "string" and cause:match("^%a+$") and #cause <= 24 then
+		return cause:lower()
+	end
+end
+
+-- A level of -1 means a boss far above you, so it never makes a humbling death.
+local function KillerLevel(killer)
+	local level = killer and levels[killer]
+	if type(level) == "number" and level > 0 then
+		return level
+	end
+end
+
 function Foes.Died()
-	ns.Outbox.Add(ns.Inputs.Died(time(), Killer()))
+	local blow = KillingBlow()
+	local killer = Killer(blow)
+	ns.Outbox.Add(ns.Inputs.Died(time(), killer, Cause(blow), KillerLevel(killer), ns.Inputs.Hour()))
 end

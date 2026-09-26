@@ -6,6 +6,11 @@ local _, ns = ...
 local Inputs = {}
 ns.Inputs = Inputs
 
+-- The local hour of the player, from 0 to 23, for "a dance in Goldshire at 3 AM".
+function Inputs.Hour()
+	return tonumber(date("%H", time()))
+end
+
 local function Present(s)
 	if s and s ~= "" then
 		return s
@@ -38,8 +43,12 @@ function Inputs.Talk(at, npc, text)
 	return { type = "talk_asked", at = at, npc = npc, text = text }
 end
 
-function Inputs.Died(at, killer)
-	return { type = "died", at = at, killer = killer }
+function Inputs.Died(at, killer, cause, killerLevel, hour)
+	return { type = "died", at = at, killer = killer, cause = cause, killer_level = killerLevel, hour = hour }
+end
+
+function Inputs.Emote(at, emote, target, hour)
+	return { type = "emote_done", at = at, emote = emote, target = target, hour = hour }
 end
 
 function Inputs.Level(at, level)

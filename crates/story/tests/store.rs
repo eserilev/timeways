@@ -355,3 +355,40 @@ fn the_saga_of_the_bard_survives_a_restart() {
     let second_batch = second.handle(Input::BatchEnd { id: MessageId(4) }).unwrap();
     assert_eq!(second_batch.len(), 1);
 }
+
+#[test]
+fn flavor_moments_survive_a_restart_and_keep_counting_toward_a_title() {
+    let folder = fresh_folder("flavor-restart");
+    let mut first = story(&folder, "Ada");
+    let dance = |at| Input::EmoteDone {
+        at: Tick(at),
+        emote: "dance".to_string(),
+        target: None,
+        hour: None,
+    };
+    first
+        .handle(Input::ZoneEntered {
+            at: Tick(1),
+            zone: "Elwynn Forest".to_string(),
+            subzone: Some("Goldshire".to_string()),
+        })
+        .unwrap();
+    first.handle(dance(2)).unwrap();
+    first.handle(dance(3)).unwrap();
+    drop(first);
+
+    let mut second = story(&folder, "Ada");
+    second.handle(dance(4)).unwrap();
+
+    let output = one(second
+        .handle(Input::JournalAsked {
+            id: MessageId(1),
+            page: 0,
+        })
+        .unwrap());
+    let Some(Output::Journal { page, .. }) = output else {
+        panic!("expected a journal, got {output:?}");
+    };
+    let text = serde_json::to_string(&page.journal.deeds).unwrap();
+    assert!(text.contains("Lord of the Goldshire Dance Floor"), "{text}");
+}

@@ -19,6 +19,9 @@ fn died(killer: Option<&str>) -> Input {
     Input::Died {
         at: NOW,
         killer: killer.map(str::to_string),
+        cause: None,
+        killer_level: None,
+        hour: Some(14),
     }
 }
 
@@ -227,4 +230,40 @@ fn a_pet_that_kills_you_is_never_named() {
     );
 
     assert_eq!(sent_after_flush(&game), [died(None)]);
+}
+
+#[test]
+fn a_fall_goes_out_as_the_cause_of_a_death() {
+    let game = Game::new();
+
+    game.run("wow.recap = { { environmentalType = 'Falling' } }; wow.Fire('PLAYER_DEAD')");
+
+    let fall = Input::Died {
+        at: NOW,
+        killer: None,
+        cause: Some("falling".to_string()),
+        killer_level: None,
+        hour: Some(14),
+    };
+    assert_eq!(sent_after_flush(&game), [fall]);
+}
+
+#[test]
+fn a_known_killer_goes_out_with_its_level() {
+    let game = Game::new();
+    game.run(
+        "wow.units.target = { name = 'Cow', guid = 'Creature-9', level = 1 }
+         wow.Fire('PLAYER_TARGET_CHANGED')
+         wow.recap = { { sourceName = 'Cow' } }
+         wow.Fire('PLAYER_DEAD')",
+    );
+
+    let cow = Input::Died {
+        at: NOW,
+        killer: Some("Cow".to_string()),
+        cause: None,
+        killer_level: Some(1),
+        hour: Some(14),
+    };
+    assert_eq!(sent_after_flush(&game), [cow]);
 }

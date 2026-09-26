@@ -1,11 +1,15 @@
 //! The big moments of a batch, found in the events that the batch added to the history
 //! (GAMEPLAY.md 3.2). The companion speaks about the best one.
 
-use crate::vocabulary::{DEFEATED, LEVEL, SLAPPED, VISITED};
+use crate::vocabulary::{DEFEATED, LEVEL, SLAPPED, TITLE, VISITED};
 use hourglass::{EntityId, Event, EventKind, World};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Moment {
+    /// A joke title, the rarest moment of all (5.4.1).
+    Titled {
+        title: String,
+    },
     /// The true kill of a rare or a boss (5.13).
     FirstKill {
         foe: String,
@@ -33,6 +37,7 @@ impl Moment {
     /// A higher rank wins when one batch holds several moments.
     fn rank(&self) -> u8 {
         match self {
+            Moment::Titled { .. } => 6,
             Moment::FirstKill { .. } => 5,
             Moment::SlainAgain { .. } => 4,
             Moment::Slapped { .. } => 3,
@@ -114,6 +119,14 @@ fn moment(world: &World, you: EntityId, kind: &EventKind) -> Option<Moment> {
                 zone: name_of(place)?,
             })
         }
+        EventKind::FactStart {
+            entity,
+            name,
+            linked_to: Some(title),
+            ..
+        } if *entity == you && name == TITLE => Some(Moment::Titled {
+            title: name_of(title)?,
+        }),
         _ => None,
     }
 }

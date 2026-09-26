@@ -51,6 +51,9 @@ impl Budget {
 #[must_use]
 pub fn prompt(moment: &Moment) -> String {
     let what = match moment {
+        Moment::Titled { title } => {
+            format!("The player earned the joke title \"{title}\" in their journal.")
+        }
         Moment::FirstKill { foe } => format!("The player defeated {foe} for the first time."),
         Moment::SlainAgain { killer, times } => {
             format!("{killer} killed the player again. That makes {times} times.")

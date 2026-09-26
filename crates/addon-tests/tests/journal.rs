@@ -467,3 +467,22 @@ fn trust_shows_in_words_for_each_band() {
     ];
     assert_eq!(words, expected.map(|word| format!("text: {word}")));
 }
+
+#[test]
+fn a_title_shows_as_a_deed() {
+    let game = Game::new();
+    let mut character = Character::new();
+    character
+        .enter_zone(Tick(DAY), "Elwynn Forest", Some("Goldshire"))
+        .unwrap();
+    character
+        .earn_title(Tick(DAY), "Lord of the Goldshire Dance Floor")
+        .unwrap();
+
+    game.reply(&journal_reply(&character));
+
+    assert_eq!(
+        lines(&game, "deeds")[0],
+        "entry: Earned the title Lord of the Goldshire Dance Floor"
+    );
+}
