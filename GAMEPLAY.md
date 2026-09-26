@@ -114,6 +114,36 @@ Built:
 - **No retry.** With no model, or with an answer that breaks a rule, the NPC "looks at you and says nothing".
 - The target counts only when it is an NPC: never a player, and never a pet (5.11).
 
+### 3.6 The journal
+
+A book in the game, in the look of the classic quest frame: the quest dialog art, the parchment, the book icon of the quest log, and dark brown ink. `/journal` or `/timeways` opens it.
+
+The desktop sends the pages each time the book opens, because the world lives there (5.10). No model takes part in a page, and the sagas of the bard are stored words. Each page comes from the facts of the world, its history, and the files next to it (5.7).
+
+| Section | What it holds | State |
+|---|---|---|
+| **Hero** | Your sheet and your own lore (3.7) | Built on the desktop. The page of the book comes next. |
+| **Chronicle** | One chapter for each play session (3.3), with the saga and the footnotes of the bard when a model wrote them. The book opens on it. | Built |
+| **Places** | Each zone, with the date of the first visit, and its subzones under it | Built |
+| **People** | Each NPC that you met, with the place, the date, your slaps, and its trust in you | Built |
+| **Deeds** | Level milestones, first kills of rares and bosses, repeat kills (echoes, 5.13), your deaths, and your joke titles (5.4.1) | Built |
+| **Nemesis** | Real players from world PvP only: the kill count on each side, the places, and the last time seen (4.1). Aliases only (5.11). | Later |
+| **Quests** | The personal side quests (3.4) | Later |
+
+### 3.7 The hero
+
+Who your hero is, in your own words, as a player of a tabletop game writes before the first session. It is your hero's own story, never canon: `/lore` never reads it.
+
+- **The sheet:** origin, background, goal, bond, flaw, and traits. Each field is optional, and holds at most 300 characters. You change a field at any time, and an empty text clears it.
+- **Your own lore:** entries that you add at any time, for example "A stranger at the inn knew my father's name." Each entry keeps its time and the place where you stood, and the NPC that you targeted when it is about one. You can remove your own entry.
+- **Nothing is lost.** Each change is a new line in `c_<character id>.hero.jsonl` next to the history (5.7). A removal and an old text of a field stay in the file.
+- **The same rules as other text:** no control character, and no name from after the lore cutoff (5.9). An edit has no reply of its own, so a refused text leaves its reason for the next journal page, and the addon shows it once.
+- **Who reads it:**
+  - The narrator (3.2) and the bard (3.3) get the sheet and the 5 newest entries, under the heading "the hero's own story, not canon".
+  - The bard also gets the entries written during its chapter.
+  - An NPC in `/talk` (3.5) gets only the entries about it or about its place, at most 5.
+- **The journal** carries the sheet on its first page, and the entries as a list like the others.
+
 ## 4. The social level
 
 The social level needs the same world and the same director as the solo level, plus sync between players. So it comes after the solo level.
