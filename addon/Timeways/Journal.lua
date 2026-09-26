@@ -6,8 +6,8 @@ local _, ns = ...
 local Journal = {}
 ns.Journal = Journal
 
-Journal.SECTIONS = { "places", "people", "deeds" }
-Journal.TITLES = { places = "Places", people = "People", deeds = "Deeds" }
+Journal.SECTIONS = { "chapters", "places", "people", "deeds" }
+Journal.TITLES = { chapters = "Chronicle", places = "Places", people = "People", deeds = "Deeds" }
 
 -- A reply holds at most 24 KB, so a long journal comes in pages. More than this many
 -- pages means a broken reply, not a long journal.
@@ -45,7 +45,7 @@ function Journal.Receive(value)
 		return
 	end
 	if page == 0 then
-		collecting = { places = {}, people = {}, deeds = {}, next = 0 }
+		collecting = { chapters = {}, places = {}, people = {}, deeds = {}, next = 0 }
 	end
 	if not collecting or page ~= collecting.next then
 		return
@@ -138,9 +138,48 @@ local function Deeds(deeds)
 	return lines
 end
 
-local BUILDERS = { places = Places, people = People, deeds = Deeds }
+-- "A", "A and B", or "A, B and C".
+local function Together(names)
+	local shown = {}
+	for _, name in ipairs(names) do
+		shown[#shown + 1] = Name(name)
+	end
+	if #shown <= 1 then
+		return shown[1] or ""
+	end
+	return table.concat(shown, ", ", 1, #shown - 1) .. " and " .. shown[#shown]
+end
+
+-- With no model, a chapter is the list of what was new in one session (GAMEPLAY.md 5.6).
+local function Chapters(chapters)
+	local lines = {}
+	for _, chapter in ipairs(chapters) do
+		local number = type(chapter.number) == "number" and chapter.number or "?"
+		lines[#lines + 1] = Line("heading", "Chapter " .. number)
+		lines[#lines + 1] = Line("text", Day(chapter.began) .. ".")
+		if #List(chapter.zones) > 0 then
+			lines[#lines + 1] = Line("entry", "Traveled to " .. Together(List(chapter.zones)) .. ".")
+		end
+		if #List(chapter.people) > 0 then
+			lines[#lines + 1] = Line("entry", "Met " .. Together(List(chapter.people)) .. ".")
+		end
+		for _, deed in ipairs(Entries(chapter.deeds)) do
+			local title = DeedTitle(deed)
+			if title then
+				lines[#lines + 1] = Line("entry", title .. ".")
+			end
+		end
+		if type(chapter.left_out) == "number" and chapter.left_out > 0 then
+			lines[#lines + 1] = Line("text", string.format("And %d more.", chapter.left_out))
+		end
+	end
+	return lines
+end
+
+local BUILDERS = { chapters = Chapters, places = Places, people = People, deeds = Deeds }
 
 local EMPTY = {
+	chapters = "No chapter is written yet.",
 	places = "You have not traveled yet.",
 	people = "You have met no one yet.",
 	deeds = "Your deeds are not written yet.",

@@ -12,11 +12,32 @@ pub const PAGE_BYTES: usize = 24_576;
 /// Room for the type, the id, the page numbers, and the empty lists of a page line.
 const FRAME_BYTES: usize = 160;
 
+/// No event for this long ends a chapter of the chronicle: the player stopped playing.
+const SESSION_GAP_SECONDS: u64 = 30 * 60;
+
+/// The entries of each list of one chapter, so that a chapter always fits on a page.
+const CHAPTER_LIST: usize = 30;
+
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
 pub struct Journal {
+    pub chapters: Vec<Chapter>,
     pub places: Vec<Place>,
     pub people: Vec<Person>,
     pub deeds: Vec<Deed>,
+}
+
+/// One play session of the chronicle, with no model: what was new in it (GAMEPLAY.md
+/// 3.3 and 5.6).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct Chapter {
+    pub number: usize,
+    pub began: Tick,
+    pub zones: Vec<String>,
+    pub people: Vec<String>,
+    pub deeds: Vec<Deed>,
+    /// The entries past the first 30 of each list. The other pages of the journal hold
+    /// them all.
+    pub left_out: usize,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -77,9 +98,10 @@ pub fn pages(journal: Journal) -> Vec<Page> {
     let mut used = 0;
     let budget = PAGE_BYTES - FRAME_BYTES;
     let items = journal
-        .places
+        .chapters
         .into_iter()
-        .map(Item::Place)
+        .map(Item::Chapter)
+        .chain(journal.places.into_iter().map(Item::Place))
         .chain(journal.people.into_iter().map(Item::Person))
         .chain(journal.deeds.into_iter().map(Item::Deed));
     for item in items {
@@ -105,6 +127,7 @@ pub fn pages(journal: Journal) -> Vec<Page> {
 }
 
 enum Item {
+    Chapter(Chapter),
     Place(Place),
     Person(Person),
     Deed(Deed),
@@ -115,6 +138,7 @@ impl Item {
     /// never happens, and it would only put the item on a page of its own.
     fn size(&self) -> usize {
         let bytes = match self {
+            Item::Chapter(chapter) => serde_json::to_vec(chapter),
             Item::Place(place) => serde_json::to_vec(place),
             Item::Person(person) => serde_json::to_vec(person),
             Item::Deed(deed) => serde_json::to_vec(deed),
@@ -124,6 +148,7 @@ impl Item {
 
     fn add_to(self, journal: &mut Journal) {
         match self {
+            Item::Chapter(chapter) => journal.chapters.push(chapter),
             Item::Place(place) => journal.places.push(place),
             Item::Person(person) => journal.people.push(person),
             Item::Deed(deed) => journal.deeds.push(deed),
@@ -136,24 +161,113 @@ impl Item {
 pub fn journal(character: &Character) -> Journal {
     let world = character.world();
     let you = character.you();
+    let places: Vec<Place> = first_links(world, you, VISITED)
+        .into_iter()
+        .map(|(place, first_visit)| Place {
+            name: name_of(world, place),
+            within: world.location_of(place).map(|zone| name_of(world, zone)),
+            first_visit,
+        })
+        .collect();
+    let people: Vec<Person> = first_links(world, you, MET)
+        .into_iter()
+        .map(|(npc, first_met)| Person {
+            name: name_of(world, npc),
+            place: world.location_of(npc).map(|place| name_of(world, place)),
+            first_met,
+        })
+        .collect();
+    let deeds = deeds(world, you);
+    let chapters = chapters(&sessions(world), &places, &people, &deeds);
     Journal {
-        places: first_links(world, you, VISITED)
-            .into_iter()
-            .map(|(place, first_visit)| Place {
-                name: name_of(world, place),
-                within: world.location_of(place).map(|zone| name_of(world, zone)),
-                first_visit,
-            })
-            .collect(),
-        people: first_links(world, you, MET)
-            .into_iter()
-            .map(|(npc, first_met)| Person {
-                name: name_of(world, npc),
-                place: world.location_of(npc).map(|place| name_of(world, place)),
-                first_met,
-            })
-            .collect(),
-        deeds: deeds(world, you),
+        chapters,
+        places,
+        people,
+        deeds,
+    }
+}
+
+/// The first and last tick of each stretch of play. The founding of the character at
+/// tick 0 belongs to no session.
+fn sessions(world: &World) -> Vec<(Tick, Tick)> {
+    let mut sessions: Vec<(Tick, Tick)> = Vec::new();
+    for tick in world
+        .history()
+        .iter()
+        .map(|event| event.tick)
+        .filter(|tick| tick.0 > 0)
+    {
+        match sessions.last_mut() {
+            Some((_, last)) if tick.0.saturating_sub(last.0) <= SESSION_GAP_SECONDS => *last = tick,
+            _ => sessions.push((tick, tick)),
+        }
+    }
+    sessions
+}
+
+/// A session that added nothing new to the journal has no chapter.
+fn chapters(
+    sessions: &[(Tick, Tick)],
+    places: &[Place],
+    people: &[Person],
+    deeds: &[Deed],
+) -> Vec<Chapter> {
+    let mut chapters = Vec::new();
+    for &(began, ended) in sessions {
+        let within = |at: Tick| at >= began && at <= ended;
+        let mut left_out = 0;
+        let zones = capped(
+            places
+                .iter()
+                .filter(|place| place.within.is_none() && within(place.first_visit))
+                .map(|place| place.name.clone()),
+            &mut left_out,
+        );
+        let people = capped(
+            people
+                .iter()
+                .filter(|person| within(person.first_met))
+                .map(|person| person.name.clone()),
+            &mut left_out,
+        );
+        let deeds = capped(
+            deeds.iter().filter(|deed| within(deed.at())).cloned(),
+            &mut left_out,
+        );
+        if zones.is_empty() && people.is_empty() && deeds.is_empty() {
+            continue;
+        }
+        let number = chapters.len() + 1;
+        chapters.push(Chapter {
+            number,
+            began,
+            zones,
+            people,
+            deeds,
+            left_out,
+        });
+    }
+    chapters
+}
+
+fn capped<T>(items: impl Iterator<Item = T>, left_out: &mut usize) -> Vec<T> {
+    let mut kept = Vec::new();
+    for item in items {
+        if kept.len() < CHAPTER_LIST {
+            kept.push(item);
+        } else {
+            *left_out += 1;
+        }
+    }
+    kept
+}
+
+impl Deed {
+    #[must_use]
+    pub fn at(&self) -> Tick {
+        match self {
+            Deed::Level { at, .. } | Deed::Defeated { at, .. } | Deed::Died { at, .. } => *at,
+        }
     }
 }
 

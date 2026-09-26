@@ -3,7 +3,7 @@
 use hourglass::Tick;
 use timeways_story::character::Character;
 use timeways_story::input::MessageId;
-use timeways_story::journal::{Deed, Journal, PAGE_BYTES, Person, Place, journal, pages};
+use timeways_story::journal::{Chapter, Deed, Journal, PAGE_BYTES, Person, Place, journal, pages};
 use timeways_story::story::Output;
 
 fn place(name: &str, within: Option<&str>, first_visit: u64) -> Place {
@@ -115,6 +115,14 @@ fn a_journal_serializes_with_a_kind_on_each_deed() {
     let json = serde_json::to_value(journal(&character)).unwrap();
 
     let expected = serde_json::json!({
+        "chapters": [{
+            "number": 1,
+            "began": 5,
+            "zones": [],
+            "people": [],
+            "deeds": [{ "kind": "level", "from": null, "to": 12, "at": 5, "place": null }],
+            "left_out": 0,
+        }],
         "places": [],
         "people": [],
         "deeds": [{ "kind": "level", "from": null, "to": 12, "at": 5, "place": null }],
@@ -177,6 +185,7 @@ fn the_pages_joined_are_the_whole_journal_in_order() {
 
     let mut joined = Journal::default();
     for page in pages(whole.clone()) {
+        joined.chapters.extend(page.journal.chapters);
         joined.places.extend(page.journal.places);
         joined.people.extend(page.journal.people);
         joined.deeds.extend(page.journal.deeds);
@@ -235,4 +244,98 @@ fn a_death_is_not_a_kill_of_yours() {
             .all(|deed| !matches!(deed, Deed::Defeated { .. })),
         "{deeds:?}"
     );
+}
+
+const HOUR: u64 = 3600;
+
+#[test]
+fn one_session_is_one_chapter_with_its_new_zones_people_and_deeds() {
+    let mut character = Character::new();
+    character
+        .enter_zone(Tick(HOUR), "Westfall", Some("Moonbrook"))
+        .unwrap();
+    character
+        .meet_npc(Tick(HOUR + 60), "Gryan Stoutmantle")
+        .unwrap();
+    character
+        .defeat_npc(Tick(HOUR + 120), "Mother Fang")
+        .unwrap();
+
+    let chapters = journal(&character).chapters;
+
+    let kill = Deed::Defeated {
+        foe: "Mother Fang".to_string(),
+        times: 1,
+        at: Tick(HOUR + 120),
+        place: Some("Moonbrook".to_string()),
+    };
+    let expected = Chapter {
+        number: 1,
+        began: Tick(HOUR),
+        zones: vec!["Westfall".to_string()],
+        people: vec!["Gryan Stoutmantle".to_string()],
+        deeds: vec![kill],
+        left_out: 0,
+    };
+    assert_eq!(chapters, [expected]);
+}
+
+#[test]
+fn a_long_pause_starts_a_new_chapter() {
+    let mut character = Character::new();
+    character.enter_zone(Tick(HOUR), "Westfall", None).unwrap();
+    character
+        .enter_zone(Tick(HOUR + 20 * 60), "Duskwood", None)
+        .unwrap();
+    character
+        .enter_zone(Tick(5 * HOUR), "Redridge Mountains", None)
+        .unwrap();
+
+    let chapters = journal(&character).chapters;
+
+    let summary: Vec<(usize, Vec<String>)> = chapters
+        .into_iter()
+        .map(|chapter| (chapter.number, chapter.zones))
+        .collect();
+    let expected = vec![
+        (1, vec!["Westfall".to_string(), "Duskwood".to_string()]),
+        (2, vec!["Redridge Mountains".to_string()]),
+    ];
+    assert_eq!(summary, expected);
+}
+
+#[test]
+fn a_session_with_nothing_new_has_no_chapter_and_leaves_no_gap_in_the_numbers() {
+    let mut character = Character::new();
+    character.enter_zone(Tick(HOUR), "Westfall", None).unwrap();
+    character
+        .enter_zone(Tick(HOUR + 60), "Duskwood", None)
+        .unwrap();
+    character
+        .enter_zone(Tick(5 * HOUR), "Westfall", None)
+        .unwrap();
+    character
+        .enter_zone(Tick(9 * HOUR), "Redridge Mountains", None)
+        .unwrap();
+
+    let chapters = journal(&character).chapters;
+
+    let numbers: Vec<usize> = chapters.iter().map(|chapter| chapter.number).collect();
+    assert_eq!(numbers, [1, 2]);
+    assert_eq!(chapters[1].zones, ["Redridge Mountains"]);
+}
+
+#[test]
+fn a_chapter_keeps_thirty_entries_of_each_list_and_counts_the_rest() {
+    let mut character = Character::new();
+    for n in 0..35 {
+        character
+            .enter_zone(Tick(HOUR + n), &format!("Zone {n}"), None)
+            .unwrap();
+    }
+
+    let chapters = journal(&character).chapters;
+
+    assert_eq!(chapters[0].zones.len(), 30);
+    assert_eq!(chapters[0].left_out, 5);
 }

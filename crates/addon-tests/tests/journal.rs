@@ -162,6 +162,7 @@ fn the_open_page_shows_the_lines_of_its_section() {
     game.run("wow.Slash('/journal', '')");
 
     game.reply(&journal_reply(&traveler()));
+    game.run("ns.JournalFrame.Open('places')");
 
     let shown: Vec<String> =
         game.eval("wow.ShownTexts(TimewaysJournalFrameScroll:GetScrollChild())");
@@ -350,4 +351,55 @@ fn an_entry_that_is_not_a_table_is_skipped() {
     );
     assert_eq!(lines(&game, "places"), ["note: You have not traveled yet."]);
     assert_eq!(lines(&game, "people")[0], "entry: Ada");
+}
+
+#[test]
+fn the_journal_opens_on_the_chronicle() {
+    let game = Game::new();
+
+    game.run("wow.Slash('/journal', '')");
+
+    assert_eq!(game.eval::<String>("ns.JournalFrame.Section()"), "chapters");
+}
+
+#[test]
+fn a_chapter_tells_what_was_new_in_one_session() {
+    let game = Game::new();
+
+    game.reply(&journal_reply(&traveler()));
+
+    let expected = [
+        "heading: Chapter 1".to_string(),
+        format!("text: {}.", day(&game)),
+        "entry: Traveled to Elwynn Forest and Westfall.".to_string(),
+        "entry: Met Innkeeper Farley.".to_string(),
+        "entry: Began this journal at level 12.".to_string(),
+        "entry: Reached level 13.".to_string(),
+    ];
+    assert_eq!(lines(&game, "chapters"), expected);
+}
+
+#[test]
+fn a_chapter_counts_what_it_left_out() {
+    let game = Game::new();
+
+    game.reply(
+        r#"{"type":"journal","page":0,"pages":1,"chapters":[{"number":4,"began":1790000000,"zones":["A","B","C"],"people":[],"deeds":[],"left_out":12}]}"#,
+    );
+
+    let lines = lines(&game, "chapters");
+    assert_eq!(lines[2], "entry: Traveled to A, B and C.");
+    assert_eq!(lines[3], "text: And 12 more.");
+}
+
+#[test]
+fn no_chapter_yet_shows_a_note() {
+    let game = Game::new();
+
+    game.reply(&journal_reply(&Character::new()));
+
+    assert_eq!(
+        lines(&game, "chapters"),
+        ["note: No chapter is written yet."]
+    );
 }

@@ -84,6 +84,7 @@ After each play session, the agent writes the session as a short saga in the voi
 - It uses the real events of the session: the zones, the bosses, the deaths, the loot, and the quests.
 - You read it in the game as a book, one chapter per session.
 - The history of the world is the source, so the chronicle never contradicts itself.
+- **Without a model** (built): a chapter lists what was new in the session: the zones, the people, and the deeds. A session ends after 30 minutes with no event. A session with nothing new gets no chapter. Each list of a chapter keeps at most 30 entries, so a chapter always fits on one page of the journal (5.5).
 
 ### 3.4 Personal side quests
 
@@ -110,7 +111,7 @@ The desktop sends the pages each time the book opens, because the world lives th
 | **People** | Each NPC that you met, with the place and the date | Built |
 | **Deeds** | NPC fights: level milestones, first kills of rares and bosses, repeat kills (echoes, 5.13), and your deaths | Built: levels, kills of rares and bosses, and deaths |
 | **Nemesis** | Real players from world PvP only: the kill count on each side, the places, and the last time seen (4.1). Aliases only (5.11). | Later |
-| **Chronicle** | One chapter for each play session (3.3) | Later |
+| **Chronicle** | One chapter for each play session (3.3). The book opens on it. | Built without a model. The chapters of a bard come later. |
 | **Titles** | The joke titles (5.4.1) | Later |
 | **Quests** | The personal side quests (3.4) | Later |
 
