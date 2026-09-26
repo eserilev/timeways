@@ -168,3 +168,16 @@ fn a_journal_request_reads_with_its_page() {
         }
     );
 }
+
+#[test]
+fn a_kill_input_reads() {
+    let line = r#"{"type":"npc_defeated","at":100,"name":"Hogger"}"#;
+
+    assert_eq!(
+        parse(line).unwrap(),
+        Input::NpcDefeated {
+            at: Tick(100),
+            name: "Hogger".to_string()
+        }
+    );
+}

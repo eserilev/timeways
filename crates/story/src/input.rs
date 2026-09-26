@@ -29,6 +29,11 @@ pub enum Input {
         at: Tick,
         level: u8,
     },
+    /// The player killed a rare or a boss. Common mobs never come (GAMEPLAY.md 5.13).
+    NpcDefeated {
+        at: Tick,
+        name: String,
+    },
     /// `/lore`, with the name of the target when there is one.
     LoreAsked {
         id: MessageId,

@@ -1,6 +1,6 @@
 //! The world of one character, fed by game events (GAMEPLAY.md 5.1 and 5.2).
 
-use crate::vocabulary::{self, LEVEL, MET, VISITED};
+use crate::vocabulary::{self, DEFEATED, LEVEL, MET, VISITED};
 use hourglass::{
     EntityId, EntityType, Event, EventHistory, EventKind, LOCATED_IN, Rejection, Tick, World,
 };
@@ -133,6 +133,20 @@ impl Character {
         self.start_once(at, self.you, MET, npc)
     }
 
+    /// A kill is a deed of the killer, and the target stays alive, because the game brings
+    /// it back (GAMEPLAY.md 5.13). The foe lives where you fought it last.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first refusal of Hourglass.
+    pub fn defeat_npc(&mut self, at: Tick, name: &str) -> Result<(), Refusal> {
+        let foe = self.find_or_create(at, EntityType::Person, name)?;
+        if let Some(here) = self.world.location_of(self.you) {
+            self.settle(at, foe, here)?;
+        }
+        self.count_up(at, self.you, DEFEATED, foe)
+    }
+
     /// # Errors
     ///
     /// Returns the refusal of Hourglass, for example for a level lower than the one held.
@@ -197,6 +211,37 @@ impl Character {
             return Ok(());
         }
         self.start(at, entity, LOCATED_IN, place)
+    }
+
+    /// Starts a tally at 1, or adds 1 to the tally that the slot holds.
+    fn count_up(
+        &mut self,
+        at: Tick,
+        holder: EntityId,
+        name: &str,
+        target: EntityId,
+    ) -> Result<(), Refusal> {
+        let held = self
+            .world
+            .entity(holder)
+            .and_then(|entity| entity.fact(name, Some(target)))
+            .and_then(|fact| fact.value);
+        let kind = match held {
+            Some(count) => EventKind::FactUpdate {
+                entity: holder,
+                name: name.to_string(),
+                linked_to: Some(target),
+                from: count,
+                to: count + 1,
+            },
+            None => EventKind::FactStart {
+                entity: holder,
+                name: name.to_string(),
+                value: Some(1),
+                linked_to: Some(target),
+            },
+        };
+        self.propose(at, kind)
     }
 
     fn start_once(

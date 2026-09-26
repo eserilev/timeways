@@ -296,3 +296,25 @@ fn the_old_journal_stays_until_every_page_of_the_new_one_came() {
 
     assert_eq!(lines(&game, "places")[0], "heading: Elwynn Forest");
 }
+
+#[test]
+fn a_kill_and_its_echo_show_as_deeds() {
+    let game = Game::new();
+    let mut character = Character::new();
+    character
+        .enter_zone(Tick(DAY), "Elwynn Forest", None)
+        .unwrap();
+    character.defeat_npc(Tick(DAY), "Hogger").unwrap();
+    character.defeat_npc(Tick(DAY), "Hogger").unwrap();
+
+    game.reply(&journal_reply(&character));
+
+    let place = format!("text: Elwynn Forest, {}.", day(&game));
+    let expected = [
+        "entry: Defeated Hogger".to_string(),
+        place.clone(),
+        "entry: Defeated Hogger again (2 times)".to_string(),
+        place,
+    ];
+    assert_eq!(lines(&game, "deeds"), expected);
+}

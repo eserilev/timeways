@@ -224,3 +224,46 @@ fn place_names_are_empty_before_the_first_zone() {
 
     assert!(character.place_names().is_empty());
 }
+
+fn defeated_count(character: &Character, foe: &str) -> Option<i64> {
+    let foe = person(character, foe);
+    let you = character.world().entity(character.you()).unwrap();
+    you.fact(timeways_story::vocabulary::DEFEATED, Some(foe))
+        .and_then(|fact| fact.value)
+}
+
+#[test]
+fn a_first_kill_counts_one() {
+    let mut character = Character::new();
+
+    character.defeat_npc(Tick(1), "Hogger").unwrap();
+
+    assert_eq!(defeated_count(&character, "Hogger"), Some(1));
+}
+
+#[test]
+fn each_later_kill_adds_one_and_the_foe_stays_alive() {
+    let mut character = Character::new();
+    character.defeat_npc(Tick(1), "Hogger").unwrap();
+
+    character.defeat_npc(Tick(2), "Hogger").unwrap();
+    character.defeat_npc(Tick(3), "Hogger").unwrap();
+
+    let hogger = person(&character, "Hogger");
+    assert_eq!(defeated_count(&character, "Hogger"), Some(3));
+    assert!(!character.world().entity(hogger).unwrap().gone());
+}
+
+#[test]
+fn a_foe_lives_where_you_fought_it() {
+    let mut character = Character::new();
+    character
+        .enter_zone(Tick(1), "Elwynn Forest", Some("Forest's Edge"))
+        .unwrap();
+
+    character.defeat_npc(Tick(2), "Hogger").unwrap();
+
+    let hogger = person(&character, "Hogger");
+    let edge = place(&character, "Forest's Edge");
+    assert_eq!(character.world().location_of(hogger), Some(edge));
+}

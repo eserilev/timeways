@@ -2,7 +2,7 @@
 //! and its history. No model takes part.
 
 use crate::character::Character;
-use crate::vocabulary::{LEVEL, MET, VISITED};
+use crate::vocabulary::{DEFEATED, LEVEL, MET, VISITED};
 use hourglass::{EntityId, EventKind, LOCATED_IN, Tick, World};
 use serde::Serialize;
 
@@ -41,6 +41,13 @@ pub enum Deed {
     Level {
         from: Option<i64>,
         to: i64,
+        at: Tick,
+        place: Option<String>,
+    },
+    /// `times` is 1 for the true kill, and more for each echo after a reset (5.13).
+    Defeated {
+        foe: String,
+        times: i64,
         at: Tick,
         place: Option<String>,
     },
@@ -140,7 +147,7 @@ pub fn journal(character: &Character) -> Journal {
                 first_met,
             })
             .collect(),
-        deeds: levels(world, you),
+        deeds: deeds(world, you),
     }
 }
 
@@ -161,8 +168,9 @@ fn first_links(world: &World, holder: EntityId, fact: &str) -> Vec<(EntityId, Ti
         .collect()
 }
 
-/// A walk of the history, because the state holds only the current level and place.
-fn levels(world: &World, you: EntityId) -> Vec<Deed> {
+/// A walk of the history, because the state holds only the current level, place, and
+/// count of kills.
+fn deeds(world: &World, you: EntityId) -> Vec<Deed> {
     let mut deeds = Vec::new();
     let mut here = None;
     for event in world.history() {
@@ -191,6 +199,28 @@ fn levels(world: &World, you: EntityId) -> Vec<Deed> {
                 ..
             } if *entity == you && name == LEVEL => {
                 deeds.push(level_deed(world, Some(*from), *to, event.tick, here));
+            }
+            EventKind::FactStart {
+                entity,
+                name,
+                value: Some(times),
+                linked_to: Some(foe),
+            }
+            | EventKind::FactUpdate {
+                entity,
+                name,
+                to: times,
+                linked_to: Some(foe),
+                ..
+            } if *entity == you && name == DEFEATED => {
+                let place = here.map(|place| name_of(world, place));
+                let foe = name_of(world, *foe);
+                deeds.push(Deed::Defeated {
+                    foe,
+                    times: *times,
+                    at: event.tick,
+                    place,
+                });
             }
             _ => {}
         }

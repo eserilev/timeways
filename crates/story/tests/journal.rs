@@ -184,3 +184,23 @@ fn the_pages_joined_are_the_whole_journal_in_order() {
 
     assert_eq!(joined, whole);
 }
+
+#[test]
+fn the_first_kill_and_each_echo_are_deeds_with_their_count_and_place() {
+    let mut character = Character::new();
+    character
+        .enter_zone(Tick(10), "Elwynn Forest", None)
+        .unwrap();
+    character.defeat_npc(Tick(20), "Hogger").unwrap();
+    character.defeat_npc(Tick(30), "Hogger").unwrap();
+
+    let deeds = journal(&character).deeds;
+
+    let defeated = |times, at| Deed::Defeated {
+        foe: "Hogger".to_string(),
+        times,
+        at: Tick(at),
+        place: Some("Elwynn Forest".to_string()),
+    };
+    assert_eq!(deeds, [defeated(1, 20), defeated(2, 30)]);
+}

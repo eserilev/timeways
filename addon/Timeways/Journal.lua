@@ -92,14 +92,30 @@ local function People(people)
 	return lines
 end
 
+local function Place(deed)
+	return deed.place and (Name(deed.place) .. ", ") or ""
+end
+
+-- The first kill is the true kill. Each later kill is an echo after a reset (5.13).
+local function DeedTitle(deed)
+	if deed.kind == "level" and type(deed.to) == "number" then
+		local what = deed.from and "Reached level %d" or "Began this journal at level %d"
+		return string.format(what, deed.to)
+	elseif deed.kind == "defeated" and type(deed.times) == "number" then
+		if deed.times == 1 then
+			return "Defeated " .. Name(deed.foe)
+		end
+		return string.format("Defeated %s again (%d times)", Name(deed.foe), deed.times)
+	end
+end
+
 local function Deeds(deeds)
 	local lines = {}
 	for _, deed in ipairs(deeds) do
-		if deed.kind == "level" and type(deed.to) == "number" then
-			local what = deed.from and "Reached level %d" or "Began this journal at level %d"
-			lines[#lines + 1] = Line("entry", string.format(what, deed.to))
-			local where = deed.place and (Name(deed.place) .. ", ") or ""
-			lines[#lines + 1] = Line("text", where .. Day(deed.at) .. ".")
+		local title = DeedTitle(deed)
+		if title then
+			lines[#lines + 1] = Line("entry", title)
+			lines[#lines + 1] = Line("text", Place(deed) .. Day(deed.at) .. ".")
 		end
 	end
 	return lines

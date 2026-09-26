@@ -127,6 +127,9 @@ impl Story {
                 self.change(|character| character.enter_zone(at, &zone, subzone.as_deref()))
             }
             Input::NpcMet { at, name } => self.change(|character| character.meet_npc(at, &name)),
+            Input::NpcDefeated { at, name } => {
+                self.change(|character| character.defeat_npc(at, &name))
+            }
             Input::LevelReached { at, level } => {
                 self.change(|character| character.reach_level(at, level))
             }
