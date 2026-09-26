@@ -421,7 +421,11 @@ A web request for each question is slow, depends on one website, and sends whole
 
 **The sources of the pack**, built in CI:
 
-1. **The game files of the Forever build.** The client ships database tables: `BroadcastText` holds most NPC dialogue and gossip, and other tables hold zone names, book and item texts, and creature names. This is exact Forever canon, also for its new content, which no wiki knows yet.
+1. **The game files of the Forever build.** The client holds little text (checked on build 1.60.1.70009, 2026-09-26). The server sends the dialogue, the quest text, the books, and the NPC names, so only the text that the player saw (below) holds them.
+   - `BroadcastText` has 12 rows, all from one cinematic. `Creature` holds only companion pets. `PageText` and `QuestObjective` are not in the client.
+   - The useful tables: `AreaTable` (the zones, with their parent zones and continents), `AreaPOI`, `Map`, `TaxiNodes`, the descriptions of `Faction`, and the flavor text of `ItemSparse`.
+   - No client table links a text to an NPC. A text links to a place only through an ID, or through the whole name of a zone in its words.
+   - The client holds zones before they open, for example Mount Hyjal. So a list of zone phases, with a test for each entry, sets the cutoff.
 2. **Forever-era wiki pages**, from a database dump of warcraft.wiki.gg, cut into short passages, each with its source link. The text is CC BY-SA, so the pack names its sources and keeps that license.
    - **A dump, never a fetch.** The terms of wiki.gg forbid crawling and scraping, and `robots.txt` blocks `/api.php`. The build reads a local dump file.
    - **The infoboxes give the links.** The raw wikitext of a dump holds each infobox call, for example `{{Npcbox}}` with its location. The Cargo tables of the wiki hold only a few of these fields.
@@ -589,7 +593,10 @@ The guild world keeps `defeated` from the guild to each boss. So the saga gets a
 3. **The wiki.** warcraft.wiki.gg text is CC BY-SA. The pack keeps the source of each passage and the license. Answers summarize and cite, and they do not copy long passages.
    - **No dump is available yet** (checked on 2026-09-25). `Special:Statistics` shows none. A request goes through `Special:Contact` on the wiki, or through the wiki.gg service desk. wiki.gg allows one request every 7 days.
    - Until the dump arrives, the tests of the lore code use invented passages only.
-4. **The game files.** Which tool reads the database tables of the Forever build in CI, and which tables hold the text? Quest text is mostly sent by the server, so the pack gets it from what players see.
+4. **The game files** (5.10). The client holds zones and a little text, and no dialogue. Still open:
+   - The tool. The Forever build is on product `wow_classic_beta` now, and its code at launch is unknown. The files come from the public CDN (TACTTool with DBC2CSV, and the WoWDBDefs layouts), or from wago.tools after its owners allow it.
+   - The license. The Blizzard EULA forbids data mining. Names and links in the pack carry less risk than long text. Decide before the first release that ships Blizzard text.
+   - Does the server send gossip as `BroadcastText` rows into the cache of the client? A test in the game settles it.
 5. **The API of the Forever client.** Check each event in 5.4 with the API gate.
 6. **The canon seed.** Which canon characters, places, and factions go into every world at the start, and with which facts? The Forever client data (for example its database tables for the Forever build) is the best source.
 7. **Decided: two addons** (5.12). Still open: do 2000 slot folders make the game start slower, and does a `## Group` start folded in the AddOns list? Measure both in the game.
