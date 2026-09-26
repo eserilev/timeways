@@ -763,3 +763,26 @@ fn a_saga_for_another_character_is_dropped() {
 
     assert_eq!(chapters(&mut story)[0].prose, None);
 }
+
+#[test]
+fn the_bard_waits_while_another_model_call_is_open() {
+    let mut story = story_with("bard-waits-for-calls", &[tower()]);
+    enter(&mut story, 1, "Testvale", None);
+    let (companion, _) =
+        model_call(one(story.handle(Input::BatchEnd { id: MessageId(2) }).unwrap()).unwrap());
+    two_sessions(&mut story);
+    let (question, _) = model_call(ask(&mut story, "why is this tower in ruins?", None));
+
+    let while_open = story.handle(Input::BatchEnd { id: MessageId(3) }).unwrap();
+    story.handle(Input::ModelFailed { call: question }).unwrap();
+    story
+        .handle(Input::ModelFailed { call: companion })
+        .unwrap();
+    let after = story.handle(Input::BatchEnd { id: MessageId(4) }).unwrap();
+
+    assert_eq!(while_open.len(), 1, "{while_open:?}");
+    assert!(
+        matches!(after.as_slice(), [_, Output::ModelCall { .. }]),
+        "{after:?}"
+    );
+}

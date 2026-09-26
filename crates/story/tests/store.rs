@@ -304,8 +304,15 @@ fn a_failed_write_is_written_again_once_the_file_takes_it() {
 fn the_saga_of_the_bard_survives_a_restart() {
     let folder = fresh_folder("saga-restart");
     let mut first = story(&folder, "Ada");
-    enter(&mut first, 3600, "Westfall");
-    enter(&mut first, 5 * 3600, "Duskwood");
+    // Meeting an NPC is no big moment, so no companion call keeps the bard waiting.
+    for (at, npc) in [(3600, "Gryan Stoutmantle"), (5 * 3600, "Salma Saldean")] {
+        first
+            .handle(Input::NpcMet {
+                at: Tick(at),
+                name: npc.to_string(),
+            })
+            .unwrap();
+    }
     let outputs = first.handle(Input::BatchEnd { id: MessageId(3) }).unwrap();
     let Output::ModelCall { call, .. } = outputs[1].clone() else {
         panic!("expected a bard call, got {outputs:?}");

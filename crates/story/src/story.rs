@@ -295,14 +295,12 @@ impl Story {
         outputs
     }
 
-    /// The oldest finished chapter with no saga yet, one call at a time. The last chapter
-    /// can still grow, so it waits for the next session.
+    /// The oldest finished chapter with no saga yet. The bridge runs at most 2 model calls
+    /// at once, so the bard waits until no other call is open: a question of the player
+    /// never fails for a saga. The last chapter can still grow, so it waits for the next
+    /// session.
     fn bard_call(&mut self) -> Option<Output> {
-        if self
-            .calls
-            .values()
-            .any(|pending| matches!(pending, Pending::Bard { .. }))
-        {
+        if !self.calls.is_empty() {
             return None;
         }
         let active = self.active.as_ref()?;
