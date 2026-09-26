@@ -78,6 +78,22 @@ pub fn later_names() -> impl Iterator<Item = &'static str> {
         .filter(|line| !line.is_empty() && !line.starts_with('#'))
 }
 
+/// The text on one line, or None when it is empty, longer than `max_chars`, holds a
+/// control character, or names something from after the cutoff. For the short texts of
+/// the companion, the bard, and a talk.
+#[must_use]
+pub fn plain_text(text: &str, max_chars: usize) -> Option<String> {
+    let line = text.split_whitespace().collect::<Vec<_>>().join(" ");
+    let too_long = line.chars().count() > max_chars;
+    if line.is_empty() || too_long || line.chars().any(char::is_control) {
+        return None;
+    }
+    if !names_after_cutoff(&line).is_empty() {
+        return None;
+    }
+    Some(line)
+}
+
 /// The names of the cutoff list that the text holds, as whole words in any case.
 #[must_use]
 pub fn names_after_cutoff(answer: &str) -> Vec<&'static str> {

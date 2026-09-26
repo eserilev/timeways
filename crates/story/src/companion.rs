@@ -1,7 +1,7 @@
 //! The companion: one short line at a big moment, within a budget (GAMEPLAY.md 3.2). The
 //! words of its prompt live here.
 
-use crate::check::names_after_cutoff;
+use crate::check::plain_text;
 use crate::moments::Moment;
 use hourglass::Tick;
 use std::collections::VecDeque;
@@ -65,13 +65,5 @@ pub fn prompt(moment: &Moment) -> String {
 /// retry: silence costs nothing.
 #[must_use]
 pub fn checked_line(text: &str) -> Option<String> {
-    let line = text.split_whitespace().collect::<Vec<_>>().join(" ");
-    let too_long = line.chars().count() > MAX_LINE_CHARS;
-    if line.is_empty() || too_long || line.chars().any(char::is_control) {
-        return None;
-    }
-    if !names_after_cutoff(&line).is_empty() {
-        return None;
-    }
-    Some(line)
+    plain_text(text, MAX_LINE_CHARS)
 }

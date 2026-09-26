@@ -246,23 +246,45 @@ impl Story {
                 key,
                 npc,
                 at,
-            } => {
-                let answer = talk::checked_answer(text);
-                let same = self.active.as_ref().is_some_and(|active| active.key == key);
-                if let Some(answer) = answer
-                    .as_ref()
-                    .filter(|answer| same && answer.trust_change != 0)
-                {
-                    self.change(|character| character.adjust_trust(at, &npc, answer.trust_change))?;
-                }
-                let text = answer.map(|answer| answer.say);
-                vec![Output::TalkAnswer {
-                    id: question,
-                    npc,
-                    text,
-                }]
-            }
+            } => vec![self.talk_answered(question, &key, npc, at, text)],
         })
+    }
+
+    /// The words always show. The change of trust lands only for the character that
+    /// talked, and never before the last event, because the world can move on while the
+    /// model thinks.
+    fn talk_answered(
+        &mut self,
+        question: MessageId,
+        key: &CharacterKey,
+        npc: String,
+        asked_at: Tick,
+        text: &str,
+    ) -> Output {
+        let Some(answer) = talk::checked_answer(text) else {
+            return Output::TalkAnswer {
+                id: question,
+                npc,
+                text: None,
+            };
+        };
+        let same = self
+            .active
+            .as_ref()
+            .is_some_and(|active| &active.key == key);
+        if same && answer.trust_change != 0 {
+            // A refusal is not possible here, and a failed save keeps the events in
+            // memory for the next save, so the words need not wait for either.
+            let _ = self.change(|character| {
+                let at = asked_at.max(character.world().tick);
+                character.adjust_trust(at, &npc, answer.trust_change)
+            });
+        }
+        Output::TalkAnswer {
+            id: question,
+            npc,
+            text: Some(answer.say),
+        }
     }
 
     fn failed(&mut self, call: CallId) -> Result<Vec<Output>, StoryError> {

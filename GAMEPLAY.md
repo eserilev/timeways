@@ -87,7 +87,7 @@ After each play session, the agent writes the session as a short saga in the voi
 - You read it in the game as a book, one chapter per session.
 - The history of the world is the source, so the chronicle never contradicts itself.
 - **The bard** (built): after a batch, the story program asks a model for the saga of the oldest finished chapter that has none yet, one chapter at a time. The last chapter can still grow, so it waits for the next session. The facts of the prompt come from the chapter alone. The saga must be plain text in one paragraph, at most 600 characters, with no name from after the cutoff (5.9). A saga that fails keeps the plain list, and gets no second call in the same run.
-- **Without a model** (built): a chapter lists what was new in the session: the zones, the people, and the deeds. A session ends after 30 minutes with no event. A session with nothing new gets no chapter. Each list of a chapter keeps at most 30 entries, so a chapter always fits on one page of the journal (5.5).
+- **Without a model** (built): a chapter lists what was new in the session: the zones, the people, and the deeds. A session ends after 30 minutes with no event. A session with nothing new gets no chapter. Each list of a chapter keeps at most 20 entries, so a chapter always fits on one page of the journal (5.5).
 
 ### 3.4 Personal side quests
 
@@ -406,6 +406,8 @@ The name of a real player never goes to a model, local or cloud. The model does 
 **In Hourglass**, each player is a `Person` entity with the ID as its name. So the history holds `P7`, never the real name. When a guild world syncs its history between members, no real names travel with it. Each member swaps the IDs with their own table.
 
 Canon NPCs, such as Thrall or the innkeeper of Goldshire, keep their real names. They are part of the lore, not people.
+
+**Your own words go as you typed them.** A `/lore` question or `/talk` words reach the model as the player wrote them. If you type the name of another player there, it goes with them: the choice is yours, like a message that you send yourself (rule 5). A swap of known player names for aliases in typed text comes with the alias table.
 
 **Pets count as players.** A player chose the name of a hunter pet, so the addon treats every unit that a player controls (`UnitPlayerControlled`) as a player: it never sends its name as a target, a foe, or a killer.
 

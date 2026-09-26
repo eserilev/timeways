@@ -89,3 +89,19 @@ fn a_broken_long_or_late_answer_is_dropped() {
         None
     );
 }
+
+#[test]
+fn a_change_of_trust_at_the_ends_of_i64_is_dropped() {
+    for trust in [i64::MIN, i64::MAX] {
+        let answer = checked_answer(&format!(r#"{{"say": "Hmm.", "trust": {trust}}}"#));
+
+        assert_eq!(
+            answer,
+            Some(Answer {
+                say: "Hmm.".to_string(),
+                trust_change: 0
+            }),
+            "{trust}"
+        );
+    }
+}

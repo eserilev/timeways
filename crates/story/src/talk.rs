@@ -1,7 +1,7 @@
 //! Talk to an NPC (GAMEPLAY.md 3.5). The model plays the NPC and proposes a change of its
 //! trust. The code checks both before anything shows or lands in the world (5.2).
 
-use crate::check::names_after_cutoff;
+use crate::check::plain_text;
 use crate::pack::Passage;
 use serde::Deserialize;
 use std::fmt::Write;
@@ -84,15 +84,8 @@ pub struct Answer {
 #[must_use]
 pub fn checked_answer(text: &str) -> Option<Answer> {
     let reply: Reply = serde_json::from_str(json_object(text)?).ok()?;
-    let say = reply.say.split_whitespace().collect::<Vec<_>>().join(" ");
-    let too_long = say.chars().count() > MAX_SAY_CHARS;
-    if say.is_empty() || too_long || say.chars().any(char::is_control) {
-        return None;
-    }
-    if !names_after_cutoff(&say).is_empty() {
-        return None;
-    }
-    let in_band = reply.trust.abs() <= MAX_TRUST_CHANGE;
+    let say = plain_text(&reply.say, MAX_SAY_CHARS)?;
+    let in_band = (-MAX_TRUST_CHANGE..=MAX_TRUST_CHANGE).contains(&reply.trust);
     Some(Answer {
         say,
         trust_change: if in_band { reply.trust } else { 0 },

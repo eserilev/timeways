@@ -937,3 +937,41 @@ fn empty_long_or_odd_words_are_refused() {
     assert!(matches!(long, Err(StoryError::BadWords)));
     assert!(matches!(control, Err(StoryError::BadWords)));
 }
+
+#[test]
+fn a_talk_answer_after_a_later_event_still_shows_and_lands() {
+    let mut story = story_with("talk-later-event", &[]);
+    let (call, _) =
+        model_call(one(talk(&mut story, "Innkeeper Farley", "any news?").unwrap()).unwrap());
+    level(&mut story, 60, 12);
+
+    let text = r#"{"say": "Nothing but rain.", "trust": 2}"#.to_string();
+    let output = one(story.handle(Input::ModelAnswered { call, text }).unwrap());
+
+    assert!(
+        matches!(output, Some(Output::TalkAnswer { text: Some(_), .. })),
+        "{output:?}"
+    );
+    assert_eq!(people(&mut story)[0].trust, Some(2));
+}
+
+#[test]
+fn a_change_of_trust_for_another_character_is_dropped() {
+    let mut story = story_with("talk-switch", &[]);
+    let (call, _) =
+        model_call(one(talk(&mut story, "Innkeeper Farley", "any news?").unwrap()).unwrap());
+    let bren = Input::CharacterEntered {
+        realm: "Testrealm".to_string(),
+        name: "Bren".to_string(),
+    };
+    story.handle(bren).unwrap();
+
+    let text = r#"{"say": "Nothing but rain.", "trust": 3}"#.to_string();
+    let output = one(story.handle(Input::ModelAnswered { call, text }).unwrap());
+
+    assert!(
+        matches!(output, Some(Output::TalkAnswer { text: Some(_), .. })),
+        "{output:?}"
+    );
+    assert!(people(&mut story).is_empty());
+}

@@ -368,3 +368,16 @@ fn trust_stops_at_minus_one_hundred() {
 
     assert_eq!(trust_of(&character, "Innkeeper Farley"), Some(-100));
 }
+
+#[test]
+fn trust_from_talk_stops_at_one_hundred() {
+    let mut character = Character::new();
+
+    for at in 1..=25 {
+        character
+            .adjust_trust(Tick(at), "Innkeeper Farley", 5)
+            .unwrap();
+    }
+
+    assert_eq!(trust_of(&character, "Innkeeper Farley"), Some(100));
+}

@@ -1,7 +1,7 @@
 //! The bard writes each finished chapter of the chronicle as a short saga (GAMEPLAY.md 3.3).
 //! The words of its prompt live here, and the facts come from the chapter alone.
 
-use crate::check::names_after_cutoff;
+use crate::check::plain_text;
 use crate::journal::{Chapter, Deed};
 
 /// About 100 words. The prompt asks for 80.
@@ -57,13 +57,5 @@ fn deed_fact(deed: &Deed) -> String {
 /// fails keeps its plain list, and gets no retry.
 #[must_use]
 pub fn checked_chapter(text: &str) -> Option<String> {
-    let chapter = text.split_whitespace().collect::<Vec<_>>().join(" ");
-    let too_long = chapter.chars().count() > MAX_CHAPTER_CHARS;
-    if chapter.is_empty() || too_long || chapter.chars().any(char::is_control) {
-        return None;
-    }
-    if !names_after_cutoff(&chapter).is_empty() {
-        return None;
-    }
-    Some(chapter)
+    plain_text(text, MAX_CHAPTER_CHARS)
 }
