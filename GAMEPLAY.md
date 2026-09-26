@@ -261,14 +261,12 @@ Small, silly moments are often the best part of a story. The addon collects them
 | A callback | +4 | The moment touches your world: an NPC that you slapped before, your nemesis, your companion. The world answers this. |
 | An odd hour | +2 | 3 AM |
 | Told before | -3 for each telling in the last chapters | The same kind of joke again |
-| Your taste | -3 to +3 | Your votes (below) |
 
 The caps are code, not prompt text:
 
 - **The chronicle:** the top 5 moments of a session go to the model. It picks at most 3 footnotes for the chapter.
 - **The companion:** at most one flavor line in 20 minutes, and only for a score of 8 or more.
 - **A cooldown for each kind:** no two rabbit jokes in one evening.
-- **Votes:** each footnote and flavor line has 👍 and 👎. A vote moves the weight of that kind for you by one point, from -3 to +3.
 
 The score uses whole numbers only, like Hourglass, so a test can state each rule exactly.
 
@@ -282,7 +280,8 @@ The score uses whole numbers only, like Hourglass, so a test can state each rule
 - **Told before:** each telling of the kind in the last 72 hours of game time.
 - **Flavor lines of the companion** (built): a batch with no big moment gives its best flavor moment to the companion, when it scores 8 or more, no flavor line came in the last 20 minutes of game time, and its kind was not told in the last 12 hours. The line counts as told when the call goes out, whatever the model answers. The budget of 3 lines an hour covers flavor lines too.
 - **Footnotes of the chronicle** (built): the bard gets the 5 best flavor moments of a finished chapter, numbered and in plain words. The moments of a chapter run until the next chapter begins, because an emote adds no event to the world. The bard answers in JSON with its saga and at most 3 footnotes, each with the number of its moment. A footnote with no listed moment, a second one for the same moment, or one that breaks the text rules (at most 200 characters) is dropped alone. Each footnote counts as a telling of its kind.
-- **Streaks and votes:** not yet. A streak needs the kills of common mobs (open question 9).
+- **Streaks:** not yet. A streak needs the kills of common mobs (open question 9).
+- **No votes.** Timeways asks the player for no rating of a joke. The scoring and the cooldowns decide alone.
 - The moments and their tellings live in `c_<character id>.flavor.jsonl` next to the history (5.7).
 
 **Joke titles** (built). A title is a rule over the flavor moments and the world. When a rule holds, the title lands in the world as a `title` fact, so it stays for good. It shows as a deed in the journal, and it is the best big moment of the companion (3.2):
