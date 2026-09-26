@@ -2,10 +2,10 @@
 
 use hourglass::Tick;
 use std::path::Path;
-use timeways_story::character::Character;
 use timeways_story::input::{CallId, Input, MessageId};
 use timeways_story::lore::Answer;
 use timeways_story::pack::{Link, Pack, Passage};
+use timeways_story::store::Store;
 use timeways_story::story::{Output, Story, StoryError};
 
 fn passage(text: &str, source: &str, links: Vec<Link>) -> Passage {
@@ -36,7 +36,13 @@ fn story_with(name: &str, passages: &[Passage]) -> Story {
     let path = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("story-{name}.sqlite"));
     let _ = std::fs::remove_file(&path);
     Pack::write(&path, passages).unwrap();
-    Story::new(Character::new(), Pack::open(&path).unwrap())
+    let mut story = Story::new(Pack::open(&path).unwrap(), Store::Memory);
+    let character = Input::CharacterEntered {
+        realm: "Testrealm".to_string(),
+        name: "Tester".to_string(),
+    };
+    assert_eq!(story.handle(character).unwrap(), None);
+    story
 }
 
 fn enter(story: &mut Story, at: u64, zone: &str, subzone: Option<&str>) {
@@ -446,4 +452,31 @@ fn a_page_past_the_end_is_empty_and_names_the_true_count() {
 
     assert_eq!((page.page, page.pages), (5, 1));
     assert!(page.journal.places.is_empty());
+}
+
+#[test]
+fn a_game_event_before_any_character_is_refused() {
+    let path = Path::new(env!("CARGO_TARGET_TMPDIR")).join("story-no-character.sqlite");
+    let _ = std::fs::remove_file(&path);
+    Pack::write(&path, &[]).unwrap();
+    let mut story = Story::new(Pack::open(&path).unwrap(), Store::Memory);
+
+    let result = story.handle(Input::LevelReached {
+        at: Tick(1),
+        level: 3,
+    });
+
+    assert!(matches!(result, Err(StoryError::NoCharacter)));
+}
+
+#[test]
+fn a_character_with_an_empty_name_is_refused() {
+    let mut story = story_with("empty-name", &[]);
+
+    let result = story.handle(Input::CharacterEntered {
+        realm: "Testrealm".to_string(),
+        name: String::new(),
+    });
+
+    assert!(matches!(result, Err(StoryError::Store(_))));
 }

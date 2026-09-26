@@ -1,7 +1,9 @@
 //! The world of one character, fed by game events (GAMEPLAY.md 5.1 and 5.2).
 
 use crate::vocabulary::{self, LEVEL, MET, VISITED};
-use hourglass::{EntityId, EntityType, EventKind, LOCATED_IN, Rejection, Tick, World};
+use hourglass::{
+    EntityId, EntityType, Event, EventHistory, EventKind, LOCATED_IN, Rejection, Tick, World,
+};
 
 /// Every reason at once, as Hourglass gives them.
 pub type Refusal = Vec<Rejection>;
@@ -32,6 +34,30 @@ impl Character {
         // An empty world has nothing for the check to find.
         world.commit(Tick(0), kind);
         Character { world, you }
+    }
+
+    /// The character of a saved history, or None when the history does not start with
+    /// the founding of the character.
+    #[must_use]
+    pub fn from_history(events: &[Event]) -> Option<Self> {
+        let first = events.first()?;
+        let EventKind::EntityCreated {
+            id: you,
+            entity_type: EntityType::Person,
+            name,
+        } = &first.kind
+        else {
+            return None;
+        };
+        if name != YOU {
+            return None;
+        }
+        let mut history = EventHistory::new();
+        for event in events {
+            history.push(event.tick, event.kind.clone());
+        }
+        let world = World::replay(vocabulary::vocabulary(), &history);
+        Some(Character { world, you: *you })
     }
 
     #[must_use]

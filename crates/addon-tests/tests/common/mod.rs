@@ -33,8 +33,16 @@ pub struct Game {
 }
 
 impl Game {
-    /// The addon with a fake link. `linkUp` and `linkLimit` in Lua change what it takes.
+    /// The addon after login, with a fake link. `linkUp` and `linkLimit` in Lua change what
+    /// the link takes.
     pub fn new() -> Game {
+        let game = Game::before_login();
+        game.run("ns.Outbox.SetCharacter(ns.Inputs.Character('Stormrage', 'Ada'))");
+        game
+    }
+
+    /// The addon before the login event named the character.
+    pub fn before_login() -> Game {
         let lua = Lua::new();
         let wow = std::fs::read_to_string(addon_path("tests/wow.lua")).unwrap();
         let wow: Table = lua.load(wow).set_name("wow.lua").call(()).unwrap();
@@ -77,12 +85,12 @@ impl Game {
         self.eval("sent")
     }
 
-    /// Each line of each message, read as the story program reads it, with the message
-    /// id that the bridge adds.
+    /// Each line of each message after the character line, read as the story program
+    /// reads it, with the message id that the bridge adds.
     pub fn sent_inputs(&self) -> Vec<Input> {
         let mut inputs = Vec::new();
         for (id, message) in self.sent().iter().enumerate() {
-            for line in message.lines() {
+            for line in message.lines().skip(1) {
                 let mut value: serde_json::Value = serde_json::from_str(line).unwrap();
                 value["id"] = serde_json::json!(id + 1);
                 inputs.push(serde_json::from_value(value).unwrap());

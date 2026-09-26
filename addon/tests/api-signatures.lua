@@ -25,6 +25,11 @@ return {
 				{ Name = "text", Type = "cstring", Nilable = false },
 			},
 		},
+		GetRealmName = {
+			Returns = {
+				{ Name = "realmName", Type = "cstring", Nilable = false },
+			},
+		},
 		GetSubZoneText = {
 			Returns = {
 				{ Name = "text", Type = "cstring", Nilable = false },

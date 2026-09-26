@@ -14,6 +14,9 @@ local MAX_WAITING = 500
 local REPLIES = { lore_asked = true, journal_asked = true }
 
 local waiting = {}
+-- The character line starts every batch, so the desktop always knows whose world a batch
+-- changes, also after the story program restarts.
+local character
 
 function Outbox.Add(input)
 	waiting[#waiting + 1] = { line = ns.Json.Encode(input), reply = REPLIES[input.type] == true }
@@ -24,6 +27,10 @@ end
 
 function Outbox.Waiting()
 	return #waiting
+end
+
+function Outbox.SetCharacter(input)
+	character = ns.Json.Encode(input)
 end
 
 local function Batches(entries)
@@ -37,7 +44,7 @@ local function Batches(entries)
 			current.text = current.text .. "\n" .. entry.line
 			current.entries[#current.entries + 1] = entry
 		else
-			current = { text = entry.line, entries = { entry } }
+			current = { text = character .. "\n" .. entry.line, entries = { entry } }
 		end
 		current.ended = entry.reply
 	end
@@ -45,8 +52,12 @@ local function Batches(entries)
 	return batches
 end
 
--- Lines that the link does not take stay, in order, for the next flush.
+-- Lines that the link does not take stay, in order, for the next flush. Before the
+-- character is known, every line waits.
 function Outbox.Flush()
+	if not character then
+		return
+	end
 	local kept = {}
 	for _, batch in ipairs(Batches(waiting)) do
 		if #kept > 0 or not ns.Link.Send(batch.text) then

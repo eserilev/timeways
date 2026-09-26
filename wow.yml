@@ -22,6 +22,8 @@ globals:
     property: full-write
   date:
     args: [{type: string}, {type: number, required: false}]
+  GetRealmName:
+    args: []
   GetRealZoneText:
     args: []
   GetSubZoneText:

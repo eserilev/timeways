@@ -11,6 +11,11 @@ use serde::{Deserialize, Serialize};
 pub enum Input {
     /// The first line from the bridge. The bridge compares the protocol of the reply.
     Hello,
+    /// The first line of each batch: whose world the batch changes.
+    CharacterEntered {
+        realm: String,
+        name: String,
+    },
     ZoneEntered {
         at: Tick,
         zone: String,

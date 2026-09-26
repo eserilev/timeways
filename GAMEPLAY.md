@@ -6,7 +6,7 @@ Timeways is a World of Warcraft: Forever addon. It adds a story layer to the gam
 
 An AI model writes the words. A rules engine decides what is true. The game itself supplies the facts.
 
-Status: early build. The story program keeps the world of one character in memory. It answers `/lore` with passages from a pack under the spoiler limit, and asks the bridge for a model answer that it checks. The addon sends game events and `/lore`, and shows answers in the chat window, but it waits for the shared `Messages.lua` of Gnomish Relay to reach the desktop. No real pack exists yet.
+Status: early build. The story program keeps the world of each character in a file, answers `/lore` with passages under the spoiler limit and a checked model answer, and sends the journal. The addon sends game events, `/lore`, and journal requests, and shows the answers and the journal, but it waits for the shared `Messages.lua` of Gnomish Relay to reach the desktop. No real pack exists yet.
 
 ## 1. The four parts
 
@@ -306,9 +306,12 @@ Timeways uses the transport of Gnomish Relay, with its own key and its own slots
 
 ### 5.7 Storage
 
-- The history of each world is a file in the data folder of the bridge, under `timeways/`. The story program writes only there, inside its sandbox (5.12).
-- Realm and character names come from the game, with spaces, apostrophes, and non-ASCII letters. They map to safe ids, and never become file names directly.
-- The state is not stored. `World::replay` builds it from the history at start.
+- The history of each world is a file in the data folder of the story program: `worlds/<realm id>/<character id>.jsonl`. The bridge gives the folder as the second argument, `<data>/timeways/story/`, and the sandbox lets the story program write only there (5.12).
+- Realm and character names come from the game, with spaces, apostrophes, and non-ASCII letters. They map to safe ids: ASCII letters and digits stay, and every other byte becomes `_` and two hex digits. So two names never share an id, and no id holds a `/`, a `.`, or a space.
+- The file has one JSON line for each Hourglass event, and it only grows. The story program writes the new events after each game event, also after a refusal, because the events before a refusal landed.
+- The state is not stored. `World::replay` builds it from the history when a character enters.
+- **A crash in the middle of a write** leaves a broken last line. The replay stops at the first line that does not read or that has the wrong position, and cuts the file there. New events then follow the good part.
+- **Whose world:** every batch from the addon starts with a `character_entered` line with the realm and the name. So the story program knows the world of each batch, also after it restarts. The addon holds its events until the login names the character.
 - Undo is cheap: cut the history and replay (`World::rewind`).
 
 ### 5.8 Sync between players

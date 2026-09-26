@@ -12,6 +12,12 @@ local function Present(s)
 	end
 end
 
+-- The name of your own character. It names the file of your world on your computer, and
+-- never reaches a model (GAMEPLAY.md 5.11).
+function Inputs.Character(realm, name)
+	return { type = "character_entered", realm = realm, name = name }
+end
+
 function Inputs.Zone(at, zone, subzone)
 	return { type = "zone_entered", at = at, zone = zone, subzone = Present(subzone) }
 end

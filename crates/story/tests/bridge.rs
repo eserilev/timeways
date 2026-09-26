@@ -19,9 +19,15 @@ fn pack_file(name: &str) -> PathBuf {
     path
 }
 
+const CHARACTER: &str = r#"{"type":"character_entered","realm":"Stormrage","name":"Ada"}"#;
+
 fn run(pack: &Path, input: &str) -> Output {
+    run_with(&[pack], input)
+}
+
+fn run_with(args: &[&Path], input: &str) -> Output {
     let mut child = Command::new(env!("CARGO_BIN_EXE_timeways-story"))
-        .arg(pack)
+        .args(args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -39,6 +45,8 @@ fn run(pack: &Path, input: &str) -> Output {
 #[test]
 fn game_events_give_no_output_and_a_clean_exit() {
     let input = concat!(
+        r#"{"type":"character_entered","realm":"Stormrage","name":"Ada"}"#,
+        "\n",
         r#"{"type":"zone_entered","at":1,"zone":"Elwynn Forest","subzone":"Goldshire"}"#,
         "\n",
         r#"{"type":"npc_met","at":2,"name":"Innkeeper Farley"}"#,
@@ -57,6 +65,8 @@ fn game_events_give_no_output_and_a_clean_exit() {
 #[test]
 fn a_question_goes_to_the_model_and_its_answer_comes_back_with_the_sources() {
     let input = concat!(
+        r#"{"type":"character_entered","realm":"Stormrage","name":"Ada"}"#,
+        "\n",
         r#"{"type":"zone_entered","at":1,"zone":"Testvale"}"#,
         "\n",
         r#"{"type":"lore_asked","id":5,"at":2,"question":"why is this tower in ruins?"}"#,
@@ -97,6 +107,8 @@ fn a_hello_gets_a_hello_with_the_protocol() {
 #[test]
 fn a_bad_line_goes_to_stderr_and_the_next_line_still_counts() {
     let input = concat!(
+        r#"{"type":"character_entered","realm":"Stormrage","name":"Ada"}"#,
+        "\n",
         "not json\n",
         r#"{"type":"level_reached","at":1,"level":6}"#,
         "\n",
@@ -132,4 +144,22 @@ fn a_missing_pack_is_a_failure() {
     let output = run(&missing, "");
 
     assert!(!output.status.success());
+}
+
+#[test]
+fn the_world_in_the_data_folder_survives_a_second_run() {
+    let pack = pack_file("second-run");
+    let data = Path::new(env!("CARGO_TARGET_TMPDIR")).join("bridge-second-run-data");
+    let _ = std::fs::remove_dir_all(&data);
+    let first = format!(
+        "{CHARACTER}\n{}\n",
+        r#"{"type":"zone_entered","at":1,"zone":"Testvale"}"#
+    );
+    assert!(run_with(&[&pack, &data], &first).status.success());
+
+    let second = format!("{CHARACTER}\n{}\n", r#"{"type":"journal_asked","id":2}"#);
+    let output = run_with(&[&pack, &data], &second);
+
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains(r#""name":"Testvale""#), "{stdout}");
 }

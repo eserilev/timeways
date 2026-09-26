@@ -3,6 +3,7 @@
 
 local wow = {
 	now = 1790000000,
+	realm = "Stormrage",
 	zone = "",
 	subzone = "",
 	units = {},
@@ -24,6 +25,10 @@ function time()
 	end
 
 	return wow.now
+end
+
+function GetRealmName()
+	return wow.realm
 end
 
 function GetRealZoneText()

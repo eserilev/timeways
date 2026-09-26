@@ -7,5 +7,6 @@ pub mod journal;
 pub mod lore;
 pub mod pack;
 pub mod prompt;
+pub mod store;
 pub mod story;
 pub mod vocabulary;

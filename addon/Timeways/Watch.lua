@@ -35,6 +35,7 @@ end
 
 -- The world starts from what the game shows at login.
 function Watch.Login()
+	ns.Outbox.SetCharacter(ns.Inputs.Character(GetRealmName(), UnitName("player")))
 	Watch.Level(UnitLevel("player"))
 	Watch.Zone()
 end

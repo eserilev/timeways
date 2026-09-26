@@ -8,6 +8,7 @@ return {
 		"CreateFrame",
 		"DEFAULT_CHAT_FRAME",
 		"GetRealZoneText",
+		"GetRealmName",
 		"GetSubZoneText",
 		"SlashCmdList",
 		"UIParent",

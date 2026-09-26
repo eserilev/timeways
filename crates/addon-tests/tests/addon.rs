@@ -336,3 +336,52 @@ fn a_question_and_a_journal_request_never_share_a_batch() {
     assert!(sent[1].contains("journal_asked"));
     assert!(sent[2].contains("level_reached"));
 }
+
+#[test]
+fn every_message_starts_with_the_character_line() {
+    let game = Game::new();
+    game.run(
+        "linkLimit = 200
+         for level = 2, 8 do wow.Fire('PLAYER_LEVEL_UP', level) end
+         wow.RunTickers()",
+    );
+
+    let character = Input::CharacterEntered {
+        realm: "Stormrage".to_string(),
+        name: "Ada".to_string(),
+    };
+    assert!(game.sent().len() > 1);
+    for message in game.sent() {
+        let first: Input = serde_json::from_str(message.lines().next().unwrap()).unwrap();
+        assert_eq!(first, character);
+    }
+}
+
+#[test]
+fn login_names_the_character_of_this_session() {
+    let game = Game::before_login();
+    game.run(
+        "wow.realm = \"Quel'Thalas\"
+         wow.units.player = { name = 'Bren', level = 5 }
+         wow.Fire('PLAYER_ENTERING_WORLD')
+         wow.RunTickers()",
+    );
+
+    let first: Input = serde_json::from_str(game.sent()[0].lines().next().unwrap()).unwrap();
+    assert_eq!(
+        first,
+        Input::CharacterEntered {
+            realm: "Quel'Thalas".to_string(),
+            name: "Bren".to_string()
+        }
+    );
+}
+
+#[test]
+fn events_wait_until_the_character_is_known() {
+    let game = Game::before_login();
+    game.run("wow.Fire('PLAYER_LEVEL_UP', 2); wow.RunTickers()");
+
+    assert!(game.sent().is_empty());
+    assert_eq!(game.eval::<u32>("ns.Outbox.Waiting()"), 1);
+}

@@ -6,19 +6,22 @@ use std::error::Error;
 use std::io::{self, BufRead, Write};
 use std::path::PathBuf;
 use std::process::ExitCode;
-use timeways_story::character::Character;
 use timeways_story::input::Input;
 use timeways_story::pack::Pack;
+use timeways_story::store::Store;
 use timeways_story::story::Story;
 
 fn main() -> ExitCode {
-    let Some(pack) = std::env::args_os().nth(1).map(PathBuf::from) else {
-        eprintln!("usage: timeways-story <lore pack>");
+    let mut args = std::env::args_os().skip(1).map(PathBuf::from);
+    let Some(pack) = args.next() else {
+        eprintln!("usage: timeways-story <lore pack> [<data folder>]");
         return ExitCode::FAILURE;
     };
+    // With no data folder, nothing is saved. That is for a run by hand.
+    let store = args.next().map_or(Store::Memory, Store::Folder);
     let result = Pack::open(&pack)
         .map_err(Box::from)
-        .and_then(|pack| serve(&mut Story::new(Character::new(), pack)));
+        .and_then(|pack| serve(&mut Story::new(pack, store)));
     match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
