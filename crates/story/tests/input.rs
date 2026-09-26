@@ -233,3 +233,34 @@ fn a_talk_reads() {
     };
     assert_eq!(parse(line).unwrap(), expected);
 }
+
+#[test]
+fn the_edits_of_the_hero_read() {
+    let set = r#"{"type":"hero_set","at":1,"field":"goal","text":"Find my brother."}"#;
+    let added = r#"{"type":"hero_added","at":2,"text":"An oath.","npc":"Innkeeper Farley"}"#;
+    let removed = r#"{"type":"hero_removed","at":3,"number":4}"#;
+
+    assert_eq!(
+        parse(set).unwrap(),
+        Input::HeroSet {
+            at: Tick(1),
+            field: "goal".to_string(),
+            text: "Find my brother.".to_string()
+        }
+    );
+    assert_eq!(
+        parse(added).unwrap(),
+        Input::HeroAdded {
+            at: Tick(2),
+            text: "An oath.".to_string(),
+            npc: Some("Innkeeper Farley".to_string())
+        }
+    );
+    assert_eq!(
+        parse(removed).unwrap(),
+        Input::HeroRemoved {
+            at: Tick(3),
+            number: 4
+        }
+    );
+}

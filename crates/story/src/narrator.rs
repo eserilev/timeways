@@ -2,6 +2,7 @@
 //! words of its prompt live here.
 
 use crate::check::plain_text;
+use crate::hero::OWN_WORDS;
 use crate::moments::Moment;
 use hourglass::Tick;
 use std::collections::VecDeque;
@@ -50,7 +51,7 @@ impl Budget {
 }
 
 #[must_use]
-pub fn prompt(moment: &Moment) -> String {
+pub fn prompt(moment: &Moment, portrait: Option<&str>) -> String {
     let what = match moment {
         Moment::Flavor { what } => what.clone(),
         Moment::Titled { title } => {
@@ -66,7 +67,10 @@ pub fn prompt(moment: &Moment) -> String {
         Moment::LevelUp { level } => format!("The player reached level {level}."),
         Moment::NewZone { zone } => format!("The player arrived in {zone} for the first time."),
     };
-    format!("{VOICE}\n\nMoment: {what}")
+    let hero = portrait
+        .map(|portrait| format!("\n\n{OWN_WORDS}\n{portrait}"))
+        .unwrap_or_default();
+    format!("{VOICE}{hero}\n\nMoment: {what}")
 }
 
 /// The line as the player sees it, or None when it breaks a rule. A narrator line gets no

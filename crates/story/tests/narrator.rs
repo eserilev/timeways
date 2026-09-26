@@ -32,7 +32,7 @@ fn a_prompt_names_the_moment() {
         times: 3,
     };
 
-    let prompt = prompt(&slain);
+    let prompt = prompt(&slain, None);
 
     assert!(
         prompt.ends_with("Moment: Murloc Forager killed the player again. That makes 3 times.")

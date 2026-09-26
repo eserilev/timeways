@@ -43,7 +43,7 @@ fn saga(text: &str) -> Saga {
 
 #[test]
 fn a_prompt_holds_every_fact_of_the_chapter_and_asks_for_json() {
-    let prompt = prompt(&chapter(), &[]);
+    let prompt = prompt(&chapter(), &[], None, &[]);
 
     let facts = "Chapter 3. Facts:\n\
         - Traveled to: Westfall, Duskwood.\n\
@@ -67,7 +67,7 @@ fn a_prompt_numbers_the_small_moments_for_footnotes() {
         "The player died to falling.".to_string(),
     ];
 
-    let prompt = prompt(&chapter(), &moments);
+    let prompt = prompt(&chapter(), &moments, None, &[]);
 
     assert!(prompt.contains("Small moments:\n1. The player used the emote /dance in Goldshire.\n2. The player died to falling.\n"), "{prompt}");
     assert!(

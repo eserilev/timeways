@@ -4,6 +4,7 @@ pub mod bard;
 pub mod character;
 pub mod check;
 pub mod flavor;
+pub mod hero;
 pub mod input;
 pub mod journal;
 pub mod lore;

@@ -8,6 +8,7 @@ fn farley() -> Scene<'static> {
         level: Some(12),
         trust: Some(-20),
         slapped: Some(2),
+        own_lore: Vec::new(),
     }
 }
 

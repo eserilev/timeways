@@ -2,6 +2,7 @@
 //! and its history. No model takes part.
 
 use crate::character::Character;
+use crate::hero::{Entry, Hero};
 use crate::vocabulary::{DEATHS, DEFEATED, LEVEL, MET, SLAPPED, TITLE, TRUSTS, VISITED};
 use hourglass::{EntityId, EventKind, LOCATED_IN, Tick, World};
 use serde::Serialize;
@@ -24,6 +25,10 @@ const CHAPTER_LIST: usize = 20;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
 pub struct Journal {
+    /// The sheet of the hero goes on the first page. Its entries are a list like the others.
+    pub hero: Hero,
+    /// Why the last edit of the hero did not stand. It shows once.
+    pub hero_refused: Option<String>,
     pub chapters: Vec<Chapter>,
     pub places: Vec<Place>,
     pub people: Vec<Person>,
@@ -113,13 +118,23 @@ pub struct Page {
 #[must_use]
 pub fn pages(journal: Journal) -> Vec<Page> {
     let mut pages = Vec::new();
-    let mut current = Journal::default();
-    let mut used = 0;
+    let mut current = Journal {
+        hero: Hero {
+            sheet: journal.hero.sheet,
+            entries: Vec::new(),
+        },
+        hero_refused: journal.hero_refused,
+        ..Journal::default()
+    };
+    let mut used = serde_json::to_vec(&current.hero.sheet).map_or(0, |bytes| bytes.len())
+        + current.hero_refused.as_ref().map_or(0, String::len);
     let budget = PAGE_BYTES - FRAME_BYTES;
     let items = journal
-        .chapters
+        .hero
+        .entries
         .into_iter()
-        .map(Item::Chapter)
+        .map(Item::Entry)
+        .chain(journal.chapters.into_iter().map(Item::Chapter))
         .chain(journal.places.into_iter().map(Item::Place))
         .chain(journal.people.into_iter().map(Item::Person))
         .chain(journal.deeds.into_iter().map(Item::Deed));
@@ -147,6 +162,7 @@ pub fn pages(journal: Journal) -> Vec<Page> {
 }
 
 enum Item {
+    Entry(Entry),
     Chapter(Chapter),
     Place(Place),
     Person(Person),
@@ -158,6 +174,7 @@ impl Item {
     /// never happens, and it would only put the item on a page of its own.
     fn size(&self) -> usize {
         let bytes = match self {
+            Item::Entry(entry) => serde_json::to_vec(entry),
             Item::Chapter(chapter) => serde_json::to_vec(chapter),
             Item::Place(place) => serde_json::to_vec(place),
             Item::Person(person) => serde_json::to_vec(person),
@@ -169,6 +186,7 @@ impl Item {
     /// The length of the list of `journal` that this item goes into.
     fn list_len(&self, journal: &Journal) -> usize {
         match self {
+            Item::Entry(_) => journal.hero.entries.len(),
             Item::Chapter(_) => journal.chapters.len(),
             Item::Place(_) => journal.places.len(),
             Item::Person(_) => journal.people.len(),
@@ -178,6 +196,7 @@ impl Item {
 
     fn add_to(self, journal: &mut Journal) {
         match self {
+            Item::Entry(entry) => journal.hero.entries.push(entry),
             Item::Chapter(chapter) => journal.chapters.push(chapter),
             Item::Place(place) => journal.places.push(place),
             Item::Person(person) => journal.people.push(person),
@@ -216,6 +235,7 @@ pub fn journal(character: &Character) -> Journal {
         places,
         people,
         deeds,
+        ..Journal::default()
     }
 }
 

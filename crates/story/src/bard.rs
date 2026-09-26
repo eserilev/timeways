@@ -2,6 +2,7 @@
 //! The words of its prompt live here, and the facts come from the chapter alone.
 
 use crate::check::{json_object, plain_text};
+use crate::hero::OWN_WORDS;
 use crate::journal::{Chapter, Deed};
 use serde::Deserialize;
 use std::fmt::Write;
@@ -62,7 +63,12 @@ struct Footnote {
 
 /// `moments` are the small moments of the chapter in plain words, best first.
 #[must_use]
-pub fn prompt(chapter: &Chapter, moments: &[String]) -> String {
+pub fn prompt(
+    chapter: &Chapter,
+    moments: &[String],
+    portrait: Option<&str>,
+    told: &[String],
+) -> String {
     let mut facts = Vec::new();
     if !chapter.zones.is_empty() {
         facts.push(format!("- Traveled to: {}.", chapter.zones.join(", ")));
@@ -88,6 +94,15 @@ pub fn prompt(chapter: &Chapter, moments: &[String]) -> String {
         }
         prompt.push('\n');
         prompt.push_str(FOOTNOTES);
+    }
+    if let Some(portrait) = portrait {
+        let _ = write!(prompt, "\n\n{OWN_WORDS}\n{portrait}");
+    }
+    if !told.is_empty() {
+        prompt.push_str("\n\nWhat the player wrote in this chapter:\n");
+        for entry in told {
+            let _ = writeln!(prompt, "- {entry}");
+        }
     }
     prompt.push_str("\n\n");
     prompt.push_str(REPLY);

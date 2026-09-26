@@ -3,6 +3,7 @@
 use crate::bard;
 use crate::character::{Character, Refusal};
 use crate::flavor::{self, Flavor, HUMBLING_GAP, Kind, Told};
+use crate::hero::{self, Change, Entry};
 use crate::input::{CallId, Input, MessageId};
 use crate::journal::{PAGE_BYTES, Page, journal, pages};
 use crate::lore::{Answer, LoreCall, Next};
@@ -11,7 +12,7 @@ use crate::narrator::{self, Budget};
 use crate::pack::{Link, Pack, PackError, Passage};
 use crate::prompt::Context;
 use crate::store::{
-    CharacterKey, FlavorLog, HistoryFile, Opened, Prose, Store, StoreError, Written,
+    CharacterKey, FlavorLog, HeroLog, HistoryFile, Opened, Prose, Store, StoreError, Written,
 };
 use crate::talk::{self, Scene};
 use crate::titles;
@@ -118,6 +119,9 @@ struct Active {
     file: Option<HistoryFile>,
     prose: Prose,
     flavor: FlavorLog,
+    hero: HeroLog,
+    /// Why the last edit of the hero did not stand, until a journal page shows it.
+    hero_refused: Option<String>,
 }
 
 impl Active {
@@ -253,6 +257,15 @@ impl Story {
                     Some(kind) => self.record_flavor(at, hour, kind),
                     None => Ok(Vec::new()),
                 }
+            }
+            Input::HeroSet { at, field, text } => self.set_hero_field(at, field, &text),
+            Input::HeroAdded { at, text, npc } => {
+                npc.as_deref().map(checked_name).transpose()?;
+                self.add_hero_entry(at, &text, npc)
+            }
+            Input::HeroRemoved { at, number } => {
+                self.hero_change(Change::Removed { at, number })?;
+                Ok(Vec::new())
             }
             Input::EmoteDone {
                 at,
@@ -421,6 +434,7 @@ impl Story {
             history,
             prose,
             flavor,
+            hero,
         } = self.store.open(&key)?;
         self.active = Some(Active {
             key,
@@ -428,6 +442,8 @@ impl Story {
             file: history,
             prose,
             flavor,
+            hero,
+            hero_refused: None,
         });
         Ok(())
     }
@@ -454,6 +470,70 @@ impl Story {
             .extend(moments(world, active.character.you(), &added));
         active.save()?;
         changed.map_err(StoryError::Refused)?;
+        Ok(Vec::new())
+    }
+
+    /// An empty text clears the field. A text that breaks a rule waits as the reason for the
+    /// next journal page, because an edit has no reply of its own.
+    fn set_hero_field(
+        &mut self,
+        at: Tick,
+        field: String,
+        text: &str,
+    ) -> Result<Vec<Output>, StoryError> {
+        if !hero::FIELDS.contains(&field.as_str()) {
+            return Err(StoryError::BadName);
+        }
+        let text = if text.trim().is_empty() {
+            String::new()
+        } else {
+            match hero::checked_text(text) {
+                Ok(text) => text,
+                Err(reason) => return self.refuse_hero(reason),
+            }
+        };
+        self.hero_change(Change::Set { at, field, text })?;
+        Ok(Vec::new())
+    }
+
+    /// The entry keeps the place where the hero stands now.
+    fn add_hero_entry(
+        &mut self,
+        at: Tick,
+        text: &str,
+        npc: Option<String>,
+    ) -> Result<Vec<Output>, StoryError> {
+        let text = match hero::checked_text(text) {
+            Ok(text) => text,
+            Err(reason) => return self.refuse_hero(reason),
+        };
+        let active = self.active.as_ref().ok_or(StoryError::NoCharacter)?;
+        let number = hero::next_number(active.hero.changes());
+        let place = active
+            .character
+            .place_names()
+            .first()
+            .map(|place| (*place).to_string());
+        self.hero_change(Change::Added(Entry {
+            number,
+            at,
+            text,
+            place,
+            npc,
+        }))?;
+        Ok(Vec::new())
+    }
+
+    fn hero_change(&mut self, change: Change) -> Result<(), StoryError> {
+        let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
+        active.hero.add(change)?;
+        active.hero_refused = None;
+        Ok(())
+    }
+
+    fn refuse_hero(&mut self, reason: String) -> Result<Vec<Output>, StoryError> {
+        let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
+        active.hero_refused = Some(reason);
         Ok(Vec::new())
     }
 
@@ -538,7 +618,14 @@ impl Story {
                 return quiet;
             }
         }
-        self.open_call(Pending::Narrator { batch }, narrator::prompt(&moment))
+        let portrait = self
+            .active
+            .as_ref()
+            .and_then(|active| hero::portrait(&hero::hero(active.hero.changes())));
+        self.open_call(
+            Pending::Narrator { batch },
+            narrator::prompt(&moment, portrait.as_deref()),
+        )
     }
 
     /// The best flavor moment of the batch, when it scores enough, no flavor line came in
@@ -611,7 +698,16 @@ impl Story {
             began: chapter.began,
             kinds,
         };
-        let prompt = bard::prompt(chapter, &words);
+        let hero = hero::hero(active.hero.changes());
+        let written: Vec<String> = hero
+            .entries
+            .iter()
+            .filter(|entry| entry.at >= chapter.began && entry.at < next.began)
+            .rev()
+            .take(hero::PROMPT_ENTRIES)
+            .map(|entry| entry.text.clone())
+            .collect();
+        let prompt = bard::prompt(chapter, &words, hero::portrait(&hero).as_deref(), &written);
         self.bard_asked.insert(chapter.began);
         Some(self.open_call(pending, prompt))
     }
@@ -619,13 +715,15 @@ impl Story {
     /// A page past the end comes back empty, with the true number of pages.
     fn journal_page(&mut self, page: usize) -> Result<Page, StoryError> {
         if page == 0 || self.journal.is_empty() {
-            let active = self.active.as_ref().ok_or(StoryError::NoCharacter)?;
+            let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
             let mut journal = journal(&active.character);
             for chapter in &mut journal.chapters {
                 let written = active.prose.get(chapter.began).cloned().unwrap_or_default();
                 chapter.prose = Some(written.text).filter(|text| !text.is_empty());
                 chapter.footnotes = written.footnotes;
             }
+            journal.hero = hero::hero(active.hero.changes());
+            journal.hero_refused = active.hero_refused.take();
             self.journal = pages(journal);
         }
         let page = self.journal.get(page).cloned().unwrap_or_else(|| Page {
@@ -656,12 +754,26 @@ impl Story {
         let character = &active.character;
         let mut passages = passages_for(&self.pack, character, words, Some(npc))?;
         passages.truncate(TALK_PASSAGES);
+        let place = character.place_of(npc);
+        let hero = hero::hero(active.hero.changes());
+        let own_lore = hero
+            .entries
+            .iter()
+            .filter(|entry| {
+                entry.npc.as_deref() == Some(npc)
+                    || (place.is_some() && entry.place.as_deref() == place)
+            })
+            .rev()
+            .take(hero::PROMPT_ENTRIES)
+            .map(|entry| entry.text.as_str())
+            .collect();
         let scene = Scene {
             npc,
-            place: character.place_of(npc),
+            place,
             level: character.level(),
             trust: character.trust_of(npc),
             slapped: character.slaps_of(npc),
+            own_lore,
         };
         let prompt = talk::prompt(&scene, &passages, words);
         let pending = Pending::Talk {

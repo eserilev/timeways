@@ -3,6 +3,7 @@
 
 use crate::character::Character;
 use crate::flavor::{Flavor, Told};
+use crate::hero::Change;
 use hourglass::{Event, EventId, Tick};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -220,12 +221,40 @@ impl FlavorLog {
     }
 }
 
+/// The changes of the story of the hero, oldest first (see `hero`). They are the player's
+/// own words, not facts, so they live in a file of their own next to the history.
+#[derive(Debug, Default)]
+pub struct HeroLog {
+    changes: Vec<Change>,
+    path: Option<PathBuf>,
+}
+
+impl HeroLog {
+    #[must_use]
+    pub fn changes(&self) -> &[Change] {
+        &self.changes
+    }
+
+    /// # Errors
+    ///
+    /// Returns the I/O error of the write, and then keeps nothing.
+    pub fn add(&mut self, change: Change) -> Result<(), StoreError> {
+        if let Some(path) = &self.path {
+            append_lines(path, std::slice::from_ref(&change))
+                .map_err(|source| io_error(path, source))?;
+        }
+        self.changes.push(change);
+        Ok(())
+    }
+}
+
 /// What a character brings from the disk.
 pub struct Opened {
     pub character: Character,
     pub history: Option<HistoryFile>,
     pub prose: Prose,
     pub flavor: FlavorLog,
+    pub hero: HeroLog,
 }
 
 impl Store {
@@ -240,6 +269,7 @@ impl Store {
                 history: None,
                 prose: Prose::default(),
                 flavor: FlavorLog::default(),
+                hero: HeroLog::default(),
             });
         };
         let path = folder.join(key.relative_path());
@@ -284,6 +314,13 @@ impl Store {
                 FlavorLine::Told(told) => flavor.told.push(told),
             }
         }
+        let hero_path = path.with_extension("hero.jsonl");
+        let changes: Vec<Change> =
+            read_lines(&hero_path, |_, _| true).map_err(|source| io_error(&hero_path, source))?;
+        let hero = HeroLog {
+            changes,
+            path: Some(hero_path),
+        };
         let history = HistoryFile {
             path,
             len: events.len(),
@@ -293,6 +330,7 @@ impl Store {
             history: Some(history),
             prose,
             flavor,
+            hero,
         })
     }
 }

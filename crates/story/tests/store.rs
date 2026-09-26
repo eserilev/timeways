@@ -392,3 +392,52 @@ fn flavor_moments_survive_a_restart_and_keep_counting_toward_a_title() {
     let text = serde_json::to_string(&page.journal.deeds).unwrap();
     assert!(text.contains("Lord of the Goldshire Dance Floor"), "{text}");
 }
+
+#[test]
+fn the_story_of_the_hero_survives_a_restart() {
+    let folder = fresh_folder("hero-restart");
+    let mut first = story(&folder, "Ada");
+    first
+        .handle(Input::HeroSet {
+            at: Tick(1),
+            field: "goal".to_string(),
+            text: "Find my brother.".to_string(),
+        })
+        .unwrap();
+    first
+        .handle(Input::HeroAdded {
+            at: Tick(2),
+            text: "An oath.".to_string(),
+            npc: None,
+        })
+        .unwrap();
+    drop(first);
+
+    let mut second = story(&folder, "Ada");
+    second
+        .handle(Input::HeroAdded {
+            at: Tick(3),
+            text: "A second oath.".to_string(),
+            npc: None,
+        })
+        .unwrap();
+
+    let output = one(second
+        .handle(Input::JournalAsked {
+            id: MessageId(1),
+            page: 0,
+        })
+        .unwrap());
+    let Some(Output::Journal { page, .. }) = output else {
+        panic!("expected a journal, got {output:?}");
+    };
+    let numbers: Vec<u64> = page
+        .journal
+        .hero
+        .entries
+        .iter()
+        .map(|entry| entry.number)
+        .collect();
+    assert_eq!(page.journal.hero.sheet[0].text, "Find my brother.");
+    assert_eq!(numbers, [1, 2]);
+}

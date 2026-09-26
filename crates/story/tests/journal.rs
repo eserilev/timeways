@@ -117,6 +117,8 @@ fn a_journal_serializes_with_a_kind_on_each_deed() {
     let json = serde_json::to_value(journal(&character)).unwrap();
 
     let expected = serde_json::json!({
+        "hero": { "sheet": [], "entries": [] },
+        "hero_refused": null,
         "chapters": [{
             "number": 1,
             "began": 5,
@@ -388,6 +390,14 @@ fn the_largest_chapter_still_fits_on_one_page() {
     let mut journal = journal(&character);
     journal.chapters[0].prose = Some("\"".repeat(600));
     journal.chapters[0].footnotes = vec!["\"".repeat(200); 3];
+    journal.hero.sheet = timeways_story::hero::FIELDS
+        .iter()
+        .map(|field| timeways_story::hero::Field {
+            field: (*field).to_string(),
+            text: "\u{10348}".repeat(300),
+        })
+        .collect();
+    journal.hero_refused = Some("r".repeat(200));
 
     let sizes: Vec<usize> = pages(journal)
         .into_iter()

@@ -23,6 +23,8 @@ pub struct Scene<'a> {
     pub level: Option<i64>,
     pub trust: Option<i64>,
     pub slapped: Option<i64>,
+    /// The entries of the player's own lore about this NPC or its place.
+    pub own_lore: Vec<&'a str>,
 }
 
 #[must_use]
@@ -53,6 +55,15 @@ pub fn prompt(scene: &Scene<'_>, passages: &[Passage], words: &str) -> String {
         prompt.push_str("\nLore that you know:\n");
         for passage in passages {
             let _ = writeln!(prompt, "- {}", passage.text);
+        }
+    }
+    if !scene.own_lore.is_empty() {
+        prompt.push_str(
+            "\nWhat the player told of their own story, about you or this place. It is \
+            their story, not canon:\n",
+        );
+        for entry in &scene.own_lore {
+            let _ = writeln!(prompt, "- {entry}");
         }
     }
     let _ = write!(

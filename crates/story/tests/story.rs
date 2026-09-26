@@ -1256,3 +1256,173 @@ fn the_bard_gets_the_small_moments_of_its_chapter_and_its_footnotes_are_kept_and
         }
     );
 }
+
+fn hero_page(story: &mut Story) -> (timeways_story::hero::Hero, Option<String>) {
+    match one(story
+        .handle(Input::JournalAsked {
+            id: MessageId(1),
+            page: 0,
+        })
+        .unwrap())
+    {
+        Some(Output::Journal { page, .. }) => (page.journal.hero, page.journal.hero_refused),
+        other => panic!("expected a journal, got {other:?}"),
+    }
+}
+
+fn set_field(story: &mut Story, field: &str, text: &str) -> Result<Vec<Output>, StoryError> {
+    story.handle(Input::HeroSet {
+        at: Tick(5),
+        field: field.to_string(),
+        text: text.to_string(),
+    })
+}
+
+fn add_entry(story: &mut Story, at: u64, text: &str, npc: Option<&str>) {
+    let input = Input::HeroAdded {
+        at: Tick(at),
+        text: text.to_string(),
+        npc: npc.map(str::to_string),
+    };
+    assert!(story.handle(input).unwrap().is_empty());
+}
+
+#[test]
+fn the_sheet_and_the_entries_of_the_hero_show_on_the_journal() {
+    let mut story = story_with("hero-page", &[]);
+    enter(&mut story, 1, "Elwynn Forest", Some("Goldshire"));
+
+    set_field(&mut story, "goal", "Find my brother.").unwrap();
+    add_entry(
+        &mut story,
+        6,
+        "A stranger knew my father's name.",
+        Some("Innkeeper Farley"),
+    );
+
+    let (hero, refused) = hero_page(&mut story);
+    assert_eq!(hero.sheet[0].text, "Find my brother.");
+    let entry = &hero.entries[0];
+    assert_eq!(
+        (entry.number, entry.place.as_deref(), entry.npc.as_deref()),
+        (1, Some("Goldshire"), Some("Innkeeper Farley"))
+    );
+    assert_eq!(refused, None);
+}
+
+#[test]
+fn a_refused_edit_shows_its_reason_once_on_the_next_journal_page() {
+    let mut story = story_with("hero-refused", &[]);
+
+    assert!(
+        set_field(&mut story, "goal", "Sail to Pandaria.")
+            .unwrap()
+            .is_empty()
+    );
+
+    let (hero, first) = hero_page(&mut story);
+    let (_, second) = hero_page(&mut story);
+    assert!(hero.sheet.is_empty());
+    assert!(first.is_some_and(|reason| reason.starts_with("Not saved:")));
+    assert_eq!(second, None);
+}
+
+#[test]
+fn a_field_that_the_sheet_does_not_have_is_refused() {
+    let mut story = story_with("hero-field", &[]);
+
+    assert!(matches!(
+        set_field(&mut story, "wealth", "Much."),
+        Err(StoryError::BadName)
+    ));
+}
+
+#[test]
+fn a_removed_entry_leaves_the_journal() {
+    let mut story = story_with("hero-removed", &[]);
+    add_entry(&mut story, 6, "A", None);
+    add_entry(&mut story, 7, "B", None);
+
+    story
+        .handle(Input::HeroRemoved {
+            at: Tick(8),
+            number: 1,
+        })
+        .unwrap();
+
+    let texts: Vec<String> = hero_page(&mut story)
+        .0
+        .entries
+        .into_iter()
+        .map(|entry| entry.text)
+        .collect();
+    assert_eq!(texts, ["B"]);
+}
+
+#[test]
+fn the_narrator_knows_who_our_hero_is() {
+    let mut story = story_with("hero-narrator", &[]);
+    set_field(&mut story, "flaw", "Trusts strangers too fast.").unwrap();
+    level(&mut story, 10, 12);
+    level(&mut story, 11, 13);
+
+    let (_, prompt) = model_call(batch_end(&mut story, 2));
+
+    assert!(
+        prompt.contains("in the player's own words. It is the hero's own story, not canon"),
+        "{prompt}"
+    );
+    assert!(
+        prompt.contains("- flaw: Trusts strangers too fast."),
+        "{prompt}"
+    );
+    assert!(
+        prompt.ends_with("Moment: The player reached level 13."),
+        "{prompt}"
+    );
+}
+
+#[test]
+fn an_npc_hears_only_the_entries_about_it_or_its_place() {
+    let mut story = story_with("hero-talk", &[]);
+    enter(&mut story, 1, "Elwynn Forest", Some("Goldshire"));
+    add_entry(&mut story, 2, "About Farley.", Some("Innkeeper Farley"));
+    add_entry(&mut story, 3, "About Goldshire.", None);
+    enter(&mut story, 4, "Westfall", None);
+    add_entry(&mut story, 5, "About Westfall.", None);
+    enter(&mut story, 6, "Elwynn Forest", Some("Goldshire"));
+
+    let (_, prompt) =
+        model_call(one(talk(&mut story, "Innkeeper Farley", "hello").unwrap()).unwrap());
+
+    assert!(
+        prompt.contains("- About Farley.") && prompt.contains("- About Goldshire."),
+        "{prompt}"
+    );
+    assert!(!prompt.contains("About Westfall."), "{prompt}");
+}
+
+#[test]
+fn the_bard_reads_what_the_player_wrote_in_its_chapter() {
+    let mut story = story_with("hero-bard", &[]);
+    meet(&mut story, HOUR, "Gryan Stoutmantle");
+    add_entry(
+        &mut story,
+        HOUR + 60,
+        "I swore an oath at the Sentinel Hill.",
+        None,
+    );
+    meet(&mut story, 5 * HOUR, "Salma Saldean");
+
+    let outputs = story.handle(Input::BatchEnd { id: MessageId(3) }).unwrap();
+
+    let [_, Output::ModelCall { prompt, .. }] = outputs.as_slice() else {
+        panic!("expected a bard call, got {outputs:?}");
+    };
+    assert!(
+        prompt.contains(
+            "What the player wrote in this chapter:\n- I swore an oath at the Sentinel Hill."
+        ),
+        "{prompt}"
+    );
+}

@@ -59,6 +59,23 @@ pub enum Input {
         #[serde(default)]
         hour: Option<u8>,
     },
+    /// A field of the sheet of the hero. An empty text clears it.
+    HeroSet {
+        at: Tick,
+        field: String,
+        text: String,
+    },
+    /// An entry of the player's own lore, about the NPC that they target when there is one.
+    HeroAdded {
+        at: Tick,
+        text: String,
+        #[serde(default)]
+        npc: Option<String>,
+    },
+    HeroRemoved {
+        at: Tick,
+        number: u64,
+    },
     /// Any emote of yours, with its NPC target when it has one (GAMEPLAY.md 5.4.1).
     EmoteDone {
         at: Tick,
