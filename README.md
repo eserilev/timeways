@@ -2,7 +2,7 @@
 
 **Azeroth remembers you.**
 
-Timeways is a story addon for World of Warcraft: Forever. It gives your character lore on demand, a companion who remembers you, and a journal of your adventure.
+Timeways is a story addon for World of Warcraft: Forever. It gives your character lore on demand, a narrator who remembers you, and a journal of your adventure.
 
 An AI model writes the words. A rules engine, [Hourglass](https://github.com/eserilev/rusty-hourglass), decides what is true. The game itself supplies the facts.
 
@@ -17,7 +17,7 @@ What works:
 - **The world of each character.** An append-only history file on your computer, replayed at start.
 - **`/lore <question>`.** Passages from a lore pack, under a spoiler limit: you see lore only about places you visited and people you met. A model answer is checked for citations and for names from after the Forever timeline. No real lore pack exists yet.
 - **`/journal`.** A book in the look of the classic quest frame, with 4 pages: Chronicle (one chapter for each play session), Places, People, and Deeds.
-- **Sprocket, the companion.** One short line at a big moment, such as a first kill of a rare, a level up, or a third death to the same murloc. At most 3 lines each hour.
+- **The narrator.** One short line in the voice of the chronicle at a big moment, such as a first kill of a rare, a level up, or a third death to the same murloc. At most 3 lines each hour.
 - **Kills, deaths, and slaps.** Addons cannot read the combat log in this client. So the addon reads kills and deaths from other events, and never sends the name of a real player.
 
 ## Layout

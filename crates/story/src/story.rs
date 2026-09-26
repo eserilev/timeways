@@ -2,12 +2,12 @@
 
 use crate::bard;
 use crate::character::{Character, Refusal};
-use crate::companion::{self, Budget};
 use crate::flavor::{self, Flavor, HUMBLING_GAP, Kind, Told};
 use crate::input::{CallId, Input, MessageId};
 use crate::journal::{PAGE_BYTES, Page, journal, pages};
 use crate::lore::{Answer, LoreCall, Next};
 use crate::moments::{Moment, best, moments};
+use crate::narrator::{self, Budget};
 use crate::pack::{Link, Pack, PackError, Passage};
 use crate::prompt::Context;
 use crate::store::{
@@ -24,7 +24,7 @@ use thiserror::Error;
 /// longer one comes from a bug or a hostile addon, and it would break the page limit.
 pub const MAX_NAME_BYTES: usize = 96;
 
-/// A flavor moment needs this score to reach the companion (GAMEPLAY.md 5.4.1).
+/// A flavor moment needs this score to reach the narrator (GAMEPLAY.md 5.4.1).
 const FLAVOR_MIN_SCORE: i64 = 8;
 
 /// At most one flavor line in this time.
@@ -76,10 +76,12 @@ pub enum Output {
         npc: String,
         text: Option<String>,
     },
-    /// The answer to `batch_end`. The bridge shows `companion` in the game.
+    /// The answer to `batch_end`. The bridge shows `narrator` in the game.
     EventsSeen {
         id: MessageId,
-        companion: Option<String>,
+        // TODO: drop the rename when relay SPEC.md 9.8 names the field `narrator`.
+        #[serde(rename = "companion")]
+        narrator: Option<String>,
     },
     /// The bridge runs the model with no tools, and answers with `model_answered` or
     /// `model_failed` for the same call.
@@ -150,7 +152,7 @@ enum Pending {
         question: MessageId,
         lore: LoreCall,
     },
-    Companion {
+    Narrator {
         batch: MessageId,
     },
     /// The saga of the chapter that began at `began`, for this character only. `kinds`
@@ -285,9 +287,9 @@ impl Story {
     fn answered(&mut self, call: CallId, text: &str) -> Result<Vec<Output>, StoryError> {
         Ok(match self.take_call(call)? {
             Pending::Lore { question, lore } => vec![self.follow(question, lore.answered(text))],
-            Pending::Companion { batch } => vec![Output::EventsSeen {
+            Pending::Narrator { batch } => vec![Output::EventsSeen {
                 id: batch,
-                companion: companion::checked_line(text),
+                narrator: narrator::checked_line(text),
             }],
             Pending::Bard { key, began, kinds } => {
                 self.saga_answered(&key, began, &kinds, text)?;
@@ -382,9 +384,9 @@ impl Story {
                 id: question,
                 answer: lore.failed(),
             }],
-            Pending::Companion { batch } => vec![Output::EventsSeen {
+            Pending::Narrator { batch } => vec![Output::EventsSeen {
                 id: batch,
-                companion: None,
+                narrator: None,
             }],
             Pending::Bard { .. } => Vec::new(),
             Pending::Talk { question, npc, .. } => vec![Output::TalkAnswer {
@@ -502,19 +504,19 @@ impl Story {
         Ok(Vec::new())
     }
 
-    /// At most one companion line for a batch: about its best moment, within the budget.
+    /// At most one narrator line for a batch: about its best moment, within the budget.
     /// A batch can also start the saga of a finished chapter.
     fn end_batch(&mut self, batch: MessageId) -> Vec<Output> {
-        let seen = self.companion_call(batch);
+        let seen = self.narrator_call(batch);
         let mut outputs = vec![seen];
         outputs.extend(self.bard_call());
         outputs
     }
 
-    fn companion_call(&mut self, batch: MessageId) -> Output {
+    fn narrator_call(&mut self, batch: MessageId) -> Output {
         let quiet = Output::EventsSeen {
             id: batch,
-            companion: None,
+            narrator: None,
         };
         let now = self
             .character()
@@ -536,7 +538,7 @@ impl Story {
                 return quiet;
             }
         }
-        self.open_call(Pending::Companion { batch }, companion::prompt(&moment))
+        self.open_call(Pending::Narrator { batch }, narrator::prompt(&moment))
     }
 
     /// The best flavor moment of the batch, when it scores enough, no flavor line came in

@@ -320,7 +320,7 @@ fn a_failed_write_is_written_again_once_the_file_takes_it() {
 fn the_saga_of_the_bard_survives_a_restart() {
     let folder = fresh_folder("saga-restart");
     let mut first = story(&folder, "Ada");
-    // Meeting an NPC is no big moment, so no companion call keeps the bard waiting.
+    // Meeting an NPC is no big moment, so no narrator call keeps the bard waiting.
     for (at, npc) in [(3600, "Gryan Stoutmantle"), (5 * 3600, "Salma Saldean")] {
         first
             .handle(Input::NpcMet {

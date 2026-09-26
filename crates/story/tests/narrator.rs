@@ -1,6 +1,6 @@
 use hourglass::Tick;
-use timeways_story::companion::{Budget, MAX_LINE_CHARS, checked_line, prompt};
 use timeways_story::moments::Moment;
+use timeways_story::narrator::{Budget, MAX_LINE_CHARS, checked_line, prompt};
 
 #[test]
 fn the_budget_allows_three_lines_in_an_hour() {

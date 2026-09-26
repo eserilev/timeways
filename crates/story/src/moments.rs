@@ -1,5 +1,5 @@
 //! The big moments of a batch, found in the events that the batch added to the history
-//! (GAMEPLAY.md 3.2). The companion speaks about the best one.
+//! (GAMEPLAY.md 3.2). The narrator speaks about the best one.
 
 use crate::vocabulary::{DEFEATED, LEVEL, SLAPPED, TITLE, VISITED};
 use hourglass::{EntityId, Event, EventKind, World};

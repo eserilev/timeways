@@ -73,7 +73,7 @@ impl Kind {
     }
 }
 
-/// One telling of a kind of joke, by the companion or the bard.
+/// One telling of a kind of joke, by the narrator or the bard.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Told {
     pub key: String,
@@ -138,7 +138,7 @@ fn told_before(key: &str, at: Tick, told: &[Told]) -> i64 {
     i64::try_from(recent).unwrap_or(i64::MAX / 3)
 }
 
-/// The moment in plain words, for the prompt of the companion. `count` is 1 for the first
+/// The moment in plain words, for the prompt of the narrator. `count` is 1 for the first
 /// moment of its kind.
 #[must_use]
 pub fn describe(flavor: &Flavor, count: usize) -> String {

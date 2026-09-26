@@ -50,7 +50,7 @@ local REPLIES = {
 }
 
 -- A reply holds one JSON line: an answer, a journal page, or `events_seen` for a batch of
--- game events. Each one can carry a companion line.
+-- game events. Each one can carry a line of the narrator.
 function ns.OnReply(text)
 	for line in text:gmatch("[^\n]+") do
 		local value = ns.Json.Decode(line)
@@ -59,7 +59,8 @@ function ns.OnReply(text)
 			handler(value)
 		end
 		if type(value) == "table" then
-			ns.Companion.Say(value.companion)
+			-- TODO: read only `narrator` when relay SPEC.md 9.8 renames the field.
+			ns.Narrator.Say(value.narrator or value.companion)
 		end
 	end
 end

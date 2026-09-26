@@ -2,11 +2,11 @@
 
 **Azeroth remembers you.**
 
-Timeways is a World of Warcraft: Forever addon. It adds a story layer to the game: lore on demand, a companion that remembers you, a chronicle of your adventure, personal side quests, and, with a guild, a shared saga and world PvP feuds.
+Timeways is a World of Warcraft: Forever addon. It adds a story layer to the game: lore on demand, a narrator that remembers you, a chronicle of your adventure, personal side quests, and, with a guild, a shared saga and world PvP feuds.
 
 An AI model writes the words. A rules engine decides what is true. The game itself supplies the facts.
 
-Status: early build. The story program keeps the world of each character in a file, and serves `/lore`, `/talk`, the journal, the companion, and the bard. The addon talks to it through the shared transport of Gnomish Relay. Nobody has run the parts together in the game yet, and no real lore pack exists yet.
+Status: early build. The story program keeps the world of each character in a file, and serves `/lore`, `/talk`, the journal, the narrator, and the bard. The addon talks to it through the shared transport of Gnomish Relay. Nobody has run the parts together in the game yet, and no real lore pack exists yet.
 
 ## 1. The four parts
 
@@ -25,7 +25,7 @@ The names tell one story. In WoW lore, the Bronze Dragonflight guards the timewa
  │ Timeways      │  with the       │ Gnomish Relay bridge  │  JSON   │ timeways-story         │
  │  (addon)      │ ─ Timeways key ▶│  routes by key        │ ──────▶ │  Hourglass world       │
  │  lore window  │                 │  owns screenshots,    │         │  lore pack, scoring    │
- │  companion    │ ◀── Timeways ── │  slots, keys          │ ◀────── │  model calls           │
+ │  narrator     │ ◀── Timeways ── │  slots, keys          │ ◀────── │  model calls           │
  │  chronicle    │     slots       │                       │         │                        │
  └───────────────┘                 │  coding agents (only  │         └────────────────────────┘
  ┌───────────────┐                 │  for the relay key)   │
@@ -44,7 +44,7 @@ These rules come before every feature.
 4. **The game is the truth.** A kill, a quest, a zone, and a death come from game events. The AI only proposes what these events mean for the story.
 5. **Private by default.** The story shows only on your screen. The real name of another player never leaves your computer unless you send it yourself. No model ever sees the name of a real player (5.11).
 6. **Only players with the addon take part.** Nobody else sees anything, and nobody else gets a message.
-7. **Talk less, and mean more.** The companion speaks only at big moments. Each line refers to your own history.
+7. **Talk less, and mean more.** The narrator speaks only at big moments. Each line refers to your own history.
 8. **Only WoW Forever lore.** The story never goes past where WoW Forever is in the storyline. Section 5.9 says how.
 
 ## 3. The solo level
@@ -57,25 +57,26 @@ You target an NPC, stand in a place, or hold a quest, and you ask a question: `/
 - **Answers come from sources.** A local search of the lore pack (5.10) finds the best passages, and the answer names their sources. No question needs a web request.
 - **No invented facts.** When no page supports a claim, the answer says "legend says" or "nobody knows".
 - **The spoiler limit.** The agent tells only what your world already holds. Your world holds the places that you visited, the NPCs that you met, and the quests that you finished. The lore of later expansions and of quests that you have not reached stays hidden.
-- **A voice in the world.** The answer comes from a local historian, a bard, or your companion.
+- **A voice in the world.** The answer comes from a local historian or a bard.
 - **A follow-up question** continues the same conversation.
 
 This slice tests the whole chain with one question and one answer: the addon, the relay, the world, the spoiler limit, and the agent.
 
-### 3.2 The companion
+### 3.2 The narrator
 
-A small character rides along: Sprocket, a gnome engineer.
+No invented companion rides along. A narrator tells the big moments as they happen, in one short line in the voice of the chronicle, about "our hero". The chronicle speaks after a session. The narrator is the only voice while you play.
 
 - It reacts to big moments. The story program finds them in the events that each batch adds to the world:
+  - a joke title (5.4.1),
   - the first kill of a rare or a boss (the echo of a later kill is not a big moment),
-  - a second or later death to the same NPC: "Third time this murloc got you,"
+  - a second or later death to the same NPC: "Third time this murloc got our hero,"
   - a slap of an NPC, which it remembers (5.4.1),
   - a level up,
   - the first visit of a zone.
 - It speaks at most once for each batch, about the best moment, in the order above. Of two moments of one kind, the later one wins, because it holds the newer count.
 - A batch that ends with a question gets no `batch_end` (5.5), so its moments wait for the next batch.
 - It has a budget: at most 3 lines in one hour of game time. The budget lives in memory, so a restart of the story program starts it again. That costs at most 3 more lines once.
-- A model writes each line through the bridge, with no tools. The line must be plain text, at most 300 characters, and hold no name from after the cutoff (5.9). A line that breaks a rule gets no retry: the companion stays silent.
+- A model writes each line through the bridge, with no tools. The line must be plain text, at most 300 characters, and hold no name from after the cutoff (5.9). A line that breaks a rule gets no retry: the narrator stays silent.
 - It remembers your history across sessions, because the world does.
 - It speaks in the chat window now. A window of its own, and a voice (Gnomish Relay SPEC 13.3), come later.
 
@@ -107,7 +108,7 @@ Built:
 - **Talking is meeting.** The NPC enters your world with `met` before the model answers.
 - **What the NPC knows:** its place, your level, your slaps (5.4.1), its trust in you, and up to 3 lore passages about it, under the spoiler limit (3.1).
 - **The NPC proposes, and the code decides** (5.2). The model answers in JSON: `{"say": "...", "trust": n}`.
-  - The words follow the rules of a companion line, with at most 400 characters.
+  - The words follow the rules of a narrator line, with at most 400 characters.
   - A change of trust outside -5 to 5 is dropped, and the words still show.
   - A valid change goes through Hourglass, inside the band of -100 to 100.
 - **No retry.** With no model, or with an answer that breaks a rule, the NPC "looks at you and says nothing".
@@ -145,9 +146,9 @@ Officers set bounties on enemy players or on rare mobs. The addon tracks the kil
 - Progress syncs through addon messages.
 - Each shared world has one **keeper**: the bridge of one officer. The keeper accepts or refuses each proposal. The other members replay its history, so two agents never tell two stories.
 
-### 4.6 Companions that talk to each other
+### 4.6 A shared narrator
 
-In a dungeon group, the companion of each player comments, and the companions joke with each other.
+In a dungeon group, the narrator of each player with the addon tells the same big moments of the group. How the narrators avoid saying the same thing twice is open.
 
 ## 5. Technical design
 
@@ -159,7 +160,7 @@ Each character has one Hourglass world. A guild has one more world, held by its 
 
 | Hourglass type | In Timeways |
 |---|---|
-| `Person` | You, your companion, each NPC that you met, each enemy player that you fought |
+| `Person` | You, each NPC that you met, each enemy player that you fought |
 | `Place` | Each zone and subzone that you visited |
 | `Thing` | A named item, a relic, a quest object |
 | `Faction` | A faction of the game, your guild, a band of bandits from a rumor |
@@ -193,7 +194,7 @@ The vocabulary has a version. Hourglass migrates an old world to a new version (
 ### 5.3 The director loop
 
 1. **Brief.** `World::brief(for_entity, budget)` gives the entities that matter and the tail of recent events. Timeways writes the words of the prompt; Hourglass writes none.
-2. **Ask.** The prompt goes to the agent through Gnomish Relay. It holds the briefing, the vocabulary (`FactVocabulary::describe`), the feature (lore, companion, chronicle, quest), and the rules of section 2.
+2. **Ask.** The prompt goes to the agent through Gnomish Relay. It holds the briefing, the vocabulary (`FactVocabulary::describe`), the feature (lore, narrator, chronicle, quest), and the rules of section 2.
 3. **Answer.** The agent returns JSON: a list of proposed events, and the text to show.
 4. **Check.** Each event goes through `World::propose`.
 5. **Show.** The accepted text goes back to the game.
@@ -246,8 +247,8 @@ Small, silly moments are often the best part of a story. The addon collects them
 
 - **Counted locally.** A tally is tiny, for example `dance Goldshire 3`, and it goes out with the next batch. No moment costs a strip of its own.
 - **Marked when it is funny:** a first time, a streak ("12 squirrels in a row"), an odd place or time (a dance in Goldshire at 3 AM), or a contrast (a level 60 that dies to a cow).
-- **Used rarely.** The companion picks one now and then, with a cooldown: "That's the fourth rabbit today. Do they owe you money?" The chronicle gets footnotes: "On the fourth day, our hero danced in Goldshire. Nobody knows why." The journal gets joke titles: "Scourge of Squirrels", "Lord of the Goldshire Dance Floor".
-- **With consequences.** A slap is an event in the world: the `trusts` value of the NPC drops, and a `slapped` fact starts. The innkeeper then remembers it. His rumors get shorter, and the companion brings it up. Hourglass keeps the joke consistent for weeks. Built: each slap costs 10 trust, down to -100. The People page of the journal shows the slaps and the trust in words, and a slap is a big moment for the companion (3.2).
+- **Used rarely.** The narrator picks one now and then, with a cooldown: "The fourth rabbit today. The rabbits of Elwynn begin to talk." The chronicle gets footnotes: "On the fourth day, our hero danced in Goldshire. Nobody knows why." The journal gets joke titles: "Scourge of Squirrels", "Lord of the Goldshire Dance Floor".
+- **With consequences.** A slap is an event in the world: the `trusts` value of the NPC drops, and a `slapped` fact starts. The innkeeper then remembers it. His rumors get shorter, and the narrator brings it up. Hourglass keeps the joke consistent for weeks. Built: each slap costs 10 trust, down to -100. The People page of the journal shows the slaps and the trust in words, and a slap is a big moment for the narrator (3.2).
 
 **Picking the moments.** Code scores each moment, and the model picks only among the best ones. The model never sees the whole pile, so the choice is predictable, testable, and free.
 
@@ -258,14 +259,14 @@ Small, silly moments are often the best part of a story. The addon collects them
 | A streak | +1 per step, at most +5 | 12 squirrels in a row |
 | Contrast | +1 to +4, by the level gap | A level 60 killed by a cow |
 | A famous place | +3 | A dance in Goldshire, a jump off the Stormwind wall. The places are a table of data. |
-| A callback | +4 | The moment touches your world: an NPC that you slapped before, your nemesis, your companion. The world answers this. |
+| A callback | +4 | The moment touches your world: an NPC that you slapped before, or your nemesis. The world answers this. |
 | An odd hour | +2 | 3 AM |
 | Told before | -3 for each telling in the last chapters | The same kind of joke again |
 
 The caps are code, not prompt text:
 
 - **The chronicle:** the top 5 moments of a session go to the model. It picks at most 3 footnotes for the chapter.
-- **The companion:** at most one flavor line in 20 minutes, and only for a score of 8 or more.
+- **The narrator:** at most one flavor line in 20 minutes, and only for a score of 8 or more.
 - **A cooldown for each kind:** no two rabbit jokes in one evening.
 
 The score uses whole numbers only, like Hourglass, so a test can state each rule exactly.
@@ -278,13 +279,13 @@ The score uses whole numbers only, like Hourglass, so a test can state each rule
 - **A callback:** the NPC holds `trusts` or `defeated` about you, or you hold `slapped` or `defeated` about it. A plain meeting is no history.
 - **An odd hour:** 2 to 5 in the local time of the player, which the addon sends.
 - **Told before:** each telling of the kind in the last 72 hours of game time.
-- **Flavor lines of the companion** (built): a batch with no big moment gives its best flavor moment to the companion, when it scores 8 or more, no flavor line came in the last 20 minutes of game time, and its kind was not told in the last 12 hours. The line counts as told when the call goes out, whatever the model answers. The budget of 3 lines an hour covers flavor lines too.
+- **Flavor lines of the narrator** (built): a batch with no big moment gives its best flavor moment to the narrator, when it scores 8 or more, no flavor line came in the last 20 minutes of game time, and its kind was not told in the last 12 hours. The line counts as told when the call goes out, whatever the model answers. The budget of 3 lines an hour covers flavor lines too.
 - **Footnotes of the chronicle** (built): the bard gets the 5 best flavor moments of a finished chapter, numbered and in plain words. The moments of a chapter run until the next chapter begins, because an emote adds no event to the world. The bard answers in JSON with its saga and at most 3 footnotes, each with the number of its moment. A footnote with no listed moment, a second one for the same moment, or one that breaks the text rules (at most 200 characters) is dropped alone. Each footnote counts as a telling of its kind.
 - **Streaks:** not yet. A streak needs the kills of common mobs (open question 9).
 - **No votes.** Timeways asks the player for no rating of a joke. The scoring and the cooldowns decide alone.
 - The moments and their tellings live in `c_<character id>.flavor.jsonl` next to the history (5.7).
 
-**Joke titles** (built). A title is a rule over the flavor moments and the world. When a rule holds, the title lands in the world as a `title` fact, so it stays for good. It shows as a deed in the journal, and it is the best big moment of the companion (3.2):
+**Joke titles** (built). A title is a rule over the flavor moments and the world. When a rule holds, the title lands in the world as a `title` fact, so it stays for good. It shows as a deed in the journal, and it is the best big moment of the narrator (3.2):
 
 | Title | Rule |
 |---|---|
@@ -316,7 +317,7 @@ Hourglass plans a generic salience ranking for its briefing. If that ranking tak
 Timeways uses the transport of Gnomish Relay, with its own key and its own slots (5.12):
 
 - **Out:** game events and questions go in strips signed with the Timeways key. The frame format and the records do not change: Timeways uses its own values in the chat, flags, and text fields. The size limit of a strip (3200 bytes) is enough for a batch of events.
-- **Batches:** after the lines of each batch, the bridge sends `batch_end` with the message id. The story program answers `events_seen`, with a companion line or `null` (3.2). It answers at once when the batch has no big moment. The bridge waits at most 60 s, so a slow story program never blocks the player.
+- **Batches:** after the lines of each batch, the bridge sends `batch_end` with the message id. The story program answers `events_seen`, with a narrator line or `null` (3.2). It answers at once when the batch has no big moment. The bridge waits at most 60 s, so a slow story program never blocks the player.
 - **In:** story text comes back through the Timeways slots. A long text, such as a chronicle chapter, goes into a file of its own, like `Restore.lua` and `Live.lua`, with its own proved writer and size bound. A new file adds new statements to the proofs. It changes no approved statement.
 
 ### 5.6 The model
@@ -327,7 +328,7 @@ Timeways uses the transport of Gnomish Relay, with its own key and its own slots
 2. **A local server that the player already runs**, such as Ollama (`localhost:11434`) or LM Studio (`localhost:1234`). Setup finds it, like it finds agents.
 3. **An optional local model**, only on request. Setup offers it when it finds no model, and it shows the download size first (a small model is 2 to 5 GB). The trade-offs are clear before the player says yes:
    - On the graphics card, the model takes memory from WoW and can lower the frame rate.
-   - On the processor, it does not hurt the game, but a small model writes about 10 to 20 words per second. That is fine for a companion line, and slow for a chronicle chapter.
+   - On the processor, it does not hurt the game, but a small model writes about 10 to 20 words per second. That is fine for a narrator line, and slow for a chronicle chapter.
    - A small model invents more. The lore pack (5.10) and the checks (5.9) matter even more with it.
 
 **With no model at all, the addon still works.** The features that need no model stay on: the chronicle as a list of the real events, the nemesis counts, the guild boss log, and the lore passages of the pack shown as they are, with their sources. A model makes them better, but it is not required.
@@ -335,7 +336,7 @@ Timeways uses the transport of Gnomish Relay, with its own key and its own slots
 **Other rules:**
 
 - Lore answers need no web access: the passages come from the lore pack (5.10).
-- **A budget** limits the use: a number of calls per hour, and a length per answer. The companion and the chronicle use the fewest calls. The budget matters most for a subscription agent, because its calls count against the player's plan.
+- **A budget** limits the use: a number of calls per hour, and a length per answer. The narrator and the chronicle use the fewest calls. The budget matters most for a subscription agent, because its calls count against the player's plan.
 - A story call needs no coding tools. **The story program never starts a model itself.** It asks the bridge for a model call over the app protocol, and the bridge runs the model with no tools and returns only text (Gnomish Relay SPEC 9.7, decision 10):
   - Claude runs with `--tools ""`, no MCP servers, no user or project settings, in an empty temp folder, and behind the `PreToolUse` gate that denies every tool.
   - A local server is called through `curl` on `127.0.0.1` or `[::1]` only, with no redirects and no proxy. Its answer is hostile text, like an agent reply.
@@ -376,7 +377,7 @@ Models know all of WoW's lore up to today, and they leak it. A line in the promp
 
 1. **The game text is canon.** The addon collects the text of the Forever client itself: quest text, NPC gossip, books, and item text. This text is always exactly Forever's lore, also when Forever adds content of its own. It grows as you play, and it also feeds the spoiler limit.
 2. **Sources with a cutoff.** The sources are, in order: the game text, the Forever pages of warcraft.wiki.gg and Wowhead, and Blizzard's Forever news. A Classic page counts only for events before Molten Core. A page about a later raid, a later patch, or a later expansion is refused.
-3. **Canon is read-only.** The canon characters, places, and factions go into the world with their facts as of Forever, for example `leader_of` Thrall and the Horde. Only game events change them. The director can change only your own story: your companion, the NPCs of your rumors, and your quests. The story module refuses a proposal that touches a canon entity before `World::propose` sees it. So "Varian Wrynn returns" can never become true.
+3. **Canon is read-only.** The canon characters, places, and factions go into the world with their facts as of Forever, for example `leader_of` Thrall and the Horde. Only game events change them. The director can change only your own story: the NPCs of your rumors, and your quests. The story module refuses a proposal that touches a canon entity before `World::propose` sees it. So "Varian Wrynn returns" can never become true.
 4. **A check on every answer.** Before an answer shows, the story module checks it against a list of names and events past the cutoff: for example the defeat of Ragnaros, the opening of the Scarab Wall, Naxxramas over the Plaguelands, Shattrath, the fall of the Lich King, the Cataclysm, and Pandaria. A hit means one retry with the reason. A second hit drops the answer. Names that already exist in the lore of 25 ADP, such as Ragnaros, Arthas, Illidan, and Deathwing, stay allowed with their story up to that year only.
 
 The list of later names is data in the repo, with a test for each entry. When Forever moves forward in the story, the cutoff moves with one change to that list and to the canon seed.
@@ -500,7 +501,7 @@ In WoW, the dead come back. A mob respawns, a rare returns, and a raid boss is b
 | A rare or a quest boss | `defeated`. When it comes back, the story treats it as a rival: "Hogger again. He does not learn." |
 | A dungeon or raid boss | `defeated`. The first kill is legend, and each later kill is an echo (below). |
 | An NPC of your own story | `dead`. It stays dead. |
-| You | `defeated` from your killer, and trips to the spirit healer for the companion to joke about. |
+| You | `defeated` from your killer, and trips to the spirit healer for the narrator to joke about. |
 
 **Echoes.** The Bronze Dragonflight guards the timeways, and the name of the addon comes from them. A reset is an echo in the timeways:
 
@@ -515,24 +516,24 @@ The guild world keeps `defeated` from the guild to each boss. So the saga gets a
 **The strength of the echo lore is open** (9.8). The echo idea is a setting of the player, not a fixed voice. The possible levels are:
 
 - **Off:** kills are counts and deeds, with no echo text.
-- **Light:** the companion and the chronicle mention echoes now and then.
+- **Light:** the narrator and the chronicle mention echoes now and then.
 - **Strong:** a bronze dragon voice tells each reset. This voice is an invented character next to canon characters such as Anachronos.
 
 ## 6. Build order
 
 1. **Lore on demand** (3.1): the world of a character, the spoiler limit, the lore cutoff (5.9), a model, and one window.
-2. **The companion** (3.2).
+2. **The narrator** (3.2).
 3. **The chronicle** (3.3).
 4. **Personal side quests** (3.4), and **talk to an NPC** (3.5).
 5. **Nemesis** (4.1): the first social feature. It needs no sync, because the feud lives in your own world.
 6. **The guild saga, the herald, and the bounty board** (4.2 to 4.4): sync, and the keeper.
-7. **The shared guild world** (4.5), and **companion banter** (4.6).
+7. **The shared guild world** (4.5), and **a shared narrator** (4.6).
 
 ## 7. Risks
 
 | Risk | What we do |
 |---|---|
-| The story gets old | The companion talks little. Quests change the world for real. The chronicle shows your choices. |
+| The story gets old | The narrator talks little. Quests change the world for real. The chronicle shows your choices. |
 | Cost to the player | The player's own model, with a budget for every feature. The features that need no model stay on without one. |
 | Invented lore | Answers come from cited wiki pages, and "legend says" marks the rest. Hourglass refuses changes that break the history. |
 | Lore from later expansions | The four layers of 5.9: game text as canon, sources with a cutoff, read-only canon, and a check on every answer. |

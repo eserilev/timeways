@@ -534,13 +534,13 @@ fn a_batch_with_no_big_moment_is_seen_at_once_with_no_line() {
         output,
         Output::EventsSeen {
             id: MessageId(3),
-            companion: None
+            narrator: None
         }
     );
 }
 
 #[test]
-fn a_big_moment_asks_the_model_for_a_companion_line() {
+fn a_big_moment_asks_the_model_for_a_narrator_line() {
     let mut story = story_with("big-moment", &[]);
     level(&mut story, 1, 12);
     level(&mut story, 2, 13);
@@ -553,18 +553,18 @@ fn a_big_moment_asks_the_model_for_a_companion_line() {
         prompt.ends_with("Moment: The player reached level 13."),
         "{prompt}"
     );
-    let companion = Some("Level 13! Your boots still squeak, though.".to_string());
+    let narrator = Some("Level 13! Your boots still squeak, though.".to_string());
     assert_eq!(
         output,
         Some(Output::EventsSeen {
             id: MessageId(3),
-            companion
+            narrator
         })
     );
 }
 
 #[test]
-fn a_failed_or_bad_companion_line_is_silence() {
+fn a_failed_or_bad_narrator_line_is_silence() {
     let mut story = story_with("silent", &[]);
     level(&mut story, 1, 12);
     level(&mut story, 2, 13);
@@ -582,14 +582,14 @@ fn a_failed_or_bad_companion_line_is_silence() {
         after_failure,
         Some(Output::EventsSeen {
             id: MessageId(3),
-            companion: None
+            narrator: None
         })
     );
     assert_eq!(
         after_bad_line,
         Some(Output::EventsSeen {
             id: MessageId(4),
-            companion: None
+            narrator: None
         })
     );
 }
@@ -610,7 +610,7 @@ fn a_spent_budget_asks_no_model() {
         output,
         Output::EventsSeen {
             id: MessageId(4),
-            companion: None
+            narrator: None
         }
     );
 }
@@ -628,7 +628,7 @@ fn each_batch_starts_with_no_moments() {
         output,
         Output::EventsSeen {
             id: MessageId(4),
-            companion: None
+            narrator: None
         }
     );
 }
@@ -636,7 +636,7 @@ fn each_batch_starts_with_no_moments() {
 const HOUR: u64 = 3600;
 
 /// Two sessions of play: the first one is a finished chapter. Meeting an NPC is no big
-/// moment, so the companion stays out of these tests.
+/// moment, so the narrator stays out of these tests.
 fn two_sessions(story: &mut Story) {
     meet(story, HOUR, "Gryan Stoutmantle");
     meet(story, 5 * HOUR, "Salma Saldean");
@@ -666,7 +666,7 @@ fn a_finished_chapter_asks_the_bard_after_the_batch() {
         outputs[0],
         Output::EventsSeen {
             id: MessageId(3),
-            companion: None
+            narrator: None
         }
     );
     let [_, Output::ModelCall { prompt, .. }] = outputs.as_slice() else {
@@ -737,7 +737,7 @@ fn the_last_chapter_waits_for_the_next_session() {
         outputs,
         [Output::EventsSeen {
             id: MessageId(3),
-            companion: None
+            narrator: None
         }]
     );
 }
@@ -768,16 +768,14 @@ fn a_saga_for_another_character_is_dropped() {
 fn the_bard_waits_while_another_model_call_is_open() {
     let mut story = story_with("bard-waits-for-calls", &[tower()]);
     enter(&mut story, 1, "Testvale", None);
-    let (companion, _) =
+    let (narrator, _) =
         model_call(one(story.handle(Input::BatchEnd { id: MessageId(2) }).unwrap()).unwrap());
     two_sessions(&mut story);
     let (question, _) = model_call(ask(&mut story, "why is this tower in ruins?", None));
 
     let while_open = story.handle(Input::BatchEnd { id: MessageId(3) }).unwrap();
     story.handle(Input::ModelFailed { call: question }).unwrap();
-    story
-        .handle(Input::ModelFailed { call: companion })
-        .unwrap();
+    story.handle(Input::ModelFailed { call: narrator }).unwrap();
     let after = story.handle(Input::BatchEnd { id: MessageId(4) }).unwrap();
 
     assert_eq!(while_open.len(), 1, "{while_open:?}");
@@ -829,7 +827,7 @@ fn moments_of_one_character_never_reach_another() {
         output,
         Output::EventsSeen {
             id: MessageId(3),
-            companion: None
+            narrator: None
         }
     );
 }
@@ -1002,7 +1000,7 @@ fn deeds(story: &mut Story) -> Vec<timeways_story::journal::Deed> {
 }
 
 #[test]
-fn a_third_dance_in_goldshire_earns_a_title_and_the_companion_speaks_of_it() {
+fn a_third_dance_in_goldshire_earns_a_title_and_the_narrator_speaks_of_it() {
     let mut story = story_with("title-earned", &[]);
     enter(&mut story, 1, "Elwynn Forest", Some("Goldshire"));
     let _ = batch_end(&mut story, 1);
@@ -1087,8 +1085,8 @@ fn dance_at(story: &mut Story, at: u64, hour: u8) {
 }
 
 /// Ends a batch and lets each model call of it fail, so no call stays open. Gives the
-/// first output: the companion part of the answer.
-fn close_companion(story: &mut Story, batch: u64) -> Output {
+/// first output: the narrator part of the answer.
+fn close_narrator(story: &mut Story, batch: u64) -> Output {
     let outputs = story
         .handle(Input::BatchEnd {
             id: MessageId(batch),
@@ -1117,7 +1115,7 @@ fn humbled_by(story: &mut Story, at: u64, killer: &str) {
 fn a_funny_moment_in_a_quiet_batch_gets_a_flavor_line() {
     let mut story = story_with("flavor-line", &[]);
     enter(&mut story, 1, "Elwynn Forest", Some("Goldshire"));
-    let _ = close_companion(&mut story, 1);
+    let _ = close_narrator(&mut story, 1);
 
     dance_at(&mut story, 100, 3);
     let (_, prompt) = model_call(batch_end(&mut story, 2));
@@ -1134,7 +1132,7 @@ fn a_funny_moment_in_a_quiet_batch_gets_a_flavor_line() {
 fn a_plain_moment_gets_no_line() {
     let mut story = story_with("flavor-plain", &[]);
     enter(&mut story, 1, "Westfall", None);
-    let _ = close_companion(&mut story, 1);
+    let _ = close_narrator(&mut story, 1);
 
     dance_at(&mut story, 100, 12);
 
@@ -1142,7 +1140,7 @@ fn a_plain_moment_gets_no_line() {
         batch_end(&mut story, 2),
         Output::EventsSeen {
             id: MessageId(2),
-            companion: None
+            narrator: None
         }
     );
 }
@@ -1152,7 +1150,7 @@ fn a_big_moment_wins_over_a_funny_one() {
     let mut story = story_with("flavor-loses", &[]);
     enter(&mut story, 1, "Elwynn Forest", Some("Goldshire"));
     level(&mut story, 2, 12);
-    let _ = close_companion(&mut story, 1);
+    let _ = close_narrator(&mut story, 1);
 
     dance_at(&mut story, 100, 3);
     level(&mut story, 101, 13);
@@ -1168,9 +1166,9 @@ fn a_big_moment_wins_over_a_funny_one() {
 fn a_second_flavor_line_waits_twenty_minutes() {
     let mut story = story_with("flavor-gap", &[]);
     enter(&mut story, 1, "Elwynn Forest", Some("Goldshire"));
-    let _ = close_companion(&mut story, 1);
+    let _ = close_narrator(&mut story, 1);
     dance_at(&mut story, 100, 3);
-    let _ = close_companion(&mut story, 2);
+    let _ = close_narrator(&mut story, 2);
 
     let fall = |at| Input::Died {
         at: Tick(at),
@@ -1188,7 +1186,7 @@ fn a_second_flavor_line_waits_twenty_minutes() {
         soon,
         Output::EventsSeen {
             id: MessageId(3),
-            companion: None
+            narrator: None
         }
     );
     assert!(matches!(later, Output::ModelCall { .. }), "{later:?}");
@@ -1200,20 +1198,20 @@ fn the_same_kind_of_joke_waits_for_the_next_evening() {
     level(&mut story, 1, 60);
     enter(&mut story, 2, "Elwynn Forest", Some("Goldshire"));
     humbled_by(&mut story, 10, "Cow");
-    let _ = close_companion(&mut story, 1);
+    let _ = close_narrator(&mut story, 1);
     humbled_by(&mut story, 20_000, "Sheep");
-    let _ = close_companion(&mut story, 2);
+    let _ = close_narrator(&mut story, 2);
 
     humbled_by(&mut story, 20_000 + 2 * 3600, "Goat");
-    let same_evening = close_companion(&mut story, 3);
+    let same_evening = close_narrator(&mut story, 3);
     humbled_by(&mut story, 20_000 + 13 * 3600, "Boar");
-    let next_day = close_companion(&mut story, 4);
+    let next_day = close_narrator(&mut story, 4);
 
     assert_eq!(
         same_evening,
         Output::EventsSeen {
             id: MessageId(3),
-            companion: None
+            narrator: None
         }
     );
     let Output::ModelCall { prompt, .. } = next_day else {
@@ -1229,9 +1227,9 @@ fn the_same_kind_of_joke_waits_for_the_next_evening() {
 fn the_bard_gets_the_small_moments_of_its_chapter_and_its_footnotes_are_kept_and_told() {
     let mut story = story_with("footnotes", &[]);
     enter(&mut story, HOUR, "Elwynn Forest", Some("Goldshire"));
-    let _ = close_companion(&mut story, 1);
+    let _ = close_narrator(&mut story, 1);
     dance_at(&mut story, HOUR + 60, 3);
-    let _ = close_companion(&mut story, 2);
+    let _ = close_narrator(&mut story, 2);
     meet(&mut story, 5 * HOUR, "Salma Saldean");
 
     let outputs = story.handle(Input::BatchEnd { id: MessageId(3) }).unwrap();
@@ -1251,10 +1249,10 @@ fn the_bard_gets_the_small_moments_of_its_chapter_and_its_footnotes_are_kept_and
     assert_eq!(chapters[0].footnotes, ["Nobody knows why."]);
     dance_at(&mut story, 5 * HOUR + 60, 3);
     assert_eq!(
-        close_companion(&mut story, 4),
+        close_narrator(&mut story, 4),
         Output::EventsSeen {
             id: MessageId(4),
-            companion: None
+            narrator: None
         }
     );
 }

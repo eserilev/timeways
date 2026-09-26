@@ -435,42 +435,42 @@ fn a_broken_passage_keeps_the_numbers_of_the_others() {
 }
 
 #[test]
-fn a_companion_line_shows_from_the_answer_to_a_batch() {
+fn a_narrator_line_shows_from_the_answer_to_a_batch() {
     let game = Game::new();
 
-    game.reply(r#"{"type":"events_seen","id":3,"companion":"Level 13! Your boots still squeak."}"#);
+    game.reply(r#"{"type":"events_seen","id":3,"narrator":"Level 13! Your boots still squeak."}"#);
 
     assert_eq!(game.printed().len(), 1);
-    assert!(game.printed()[0].ends_with("Sprocket|r: Level 13! Your boots still squeak."));
+    assert!(game.printed()[0].ends_with("Narrator|r: Level 13! Your boots still squeak."));
 }
 
 #[test]
-fn a_batch_with_no_companion_line_shows_nothing() {
+fn a_batch_with_no_narrator_line_shows_nothing() {
     let game = Game::new();
 
-    game.reply(r#"{"type":"events_seen","id":3,"companion":null}"#);
-    game.reply(r#"{"type":"events_seen","id":4,"companion":5}"#);
+    game.reply(r#"{"type":"events_seen","id":3,"narrator":null}"#);
+    game.reply(r#"{"type":"events_seen","id":4,"narrator":5}"#);
 
     assert!(game.printed().is_empty());
 }
 
 #[test]
-fn a_companion_line_that_the_bridge_escaped_shows_as_it_is() {
+fn a_narrator_line_that_the_bridge_escaped_shows_as_it_is() {
     let game = Game::new();
 
-    game.reply(r#"{"type":"events_seen","id":3,"companion":"||Hitem:1||h[Fake]||h"}"#);
+    game.reply(r#"{"type":"events_seen","id":3,"narrator":"||Hitem:1||h[Fake]||h"}"#);
 
-    assert!(game.printed()[0].ends_with("Sprocket|r: ||Hitem:1||h[Fake]||h"));
+    assert!(game.printed()[0].ends_with("Narrator|r: ||Hitem:1||h[Fake]||h"));
 }
 
 #[test]
-fn a_lore_answer_can_carry_a_companion_line_too() {
+fn a_lore_answer_can_carry_a_narrator_line_too() {
     let game = Game::new();
 
     game.reply(
-        r#"{"type":"lore_answer","id":1,"text":null,"passages":[],"companion":"Nobody? Figures."}"#,
+        r#"{"type":"lore_answer","id":1,"text":null,"passages":[],"narrator":"Nobody? Figures."}"#,
     );
 
     assert_eq!(game.printed().len(), 2);
-    assert!(game.printed()[1].ends_with("Sprocket|r: Nobody? Figures."));
+    assert!(game.printed()[1].ends_with("Narrator|r: Nobody? Figures."));
 }
