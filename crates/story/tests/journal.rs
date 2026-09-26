@@ -398,3 +398,19 @@ fn the_largest_chapter_still_fits_on_one_page() {
 
     assert!(sizes.iter().all(|size| *size <= PAGE_BYTES), "{sizes:?}");
 }
+
+#[test]
+fn no_page_holds_more_than_two_hundred_items_in_one_list() {
+    let mut character = Character::new();
+    for n in 0..450 {
+        character
+            .enter_zone(Tick(HOUR + n), &format!("Z{n}"), None)
+            .unwrap();
+    }
+
+    let pages = pages(journal(&character));
+
+    assert!(pages.iter().all(|page| page.journal.places.len() <= 200));
+    let places: usize = pages.iter().map(|page| page.journal.places.len()).sum();
+    assert_eq!(places, 450);
+}

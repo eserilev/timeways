@@ -62,3 +62,11 @@ fn an_empty_long_or_late_chapter_is_dropped() {
     assert_eq!(checked_chapter(&"a".repeat(MAX_CHAPTER_CHARS + 1)), None);
     assert_eq!(checked_chapter("Our hero sailed to Pandaria."), None);
 }
+
+#[test]
+fn a_chapter_over_the_byte_limit_of_the_bridge_is_dropped() {
+    let wide = "日".repeat(MAX_CHAPTER_CHARS);
+
+    assert!(wide.chars().count() <= MAX_CHAPTER_CHARS);
+    assert_eq!(checked_chapter(&wide), None);
+}

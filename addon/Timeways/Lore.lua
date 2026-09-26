@@ -17,7 +17,7 @@ function Lore.Ask(question)
 		Say("Ask a question, for example: /lore why is this tower in ruins?")
 		return
 	end
-	local input = ns.Inputs.Question(question, ns.Units.NpcName("target"))
+	local input = ns.Inputs.Question(time(), question, ns.Units.NpcName("target"))
 	if not ns.Outbox.Fits(input) then
 		Say("That question is too long.")
 		return

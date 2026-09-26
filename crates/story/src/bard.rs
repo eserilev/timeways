@@ -7,6 +7,9 @@ use crate::journal::{Chapter, Deed};
 /// About 100 words. The prompt asks for 80.
 pub const MAX_CHAPTER_CHARS: usize = 600;
 
+/// The limit of the bridge for one string of the journal (Gnomish Relay SPEC.md 9.8).
+pub const MAX_CHAPTER_BYTES: usize = 1600;
+
 const VOICE: &str = "\
 You are a bard of Azeroth. The year is 25 ADP, before Molten Core.
 Tell one chapter of the saga of a hero, in at most 80 words, from the facts below and \
@@ -57,5 +60,5 @@ fn deed_fact(deed: &Deed) -> String {
 /// fails keeps its plain list, and gets no retry.
 #[must_use]
 pub fn checked_chapter(text: &str) -> Option<String> {
-    plain_text(text, MAX_CHAPTER_CHARS)
+    plain_text(text, MAX_CHAPTER_CHARS, MAX_CHAPTER_BYTES)
 }

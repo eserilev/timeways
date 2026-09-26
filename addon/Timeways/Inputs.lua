@@ -46,8 +46,8 @@ function Inputs.Level(at, level)
 	return { type = "level_reached", at = at, level = level }
 end
 
-function Inputs.Question(question, target)
-	return { type = "lore_asked", question = question, target = Present(target) }
+function Inputs.Question(at, question, target)
+	return { type = "lore_asked", at = at, question = question, target = Present(target) }
 end
 
 function Inputs.JournalAsked(page)

@@ -52,7 +52,7 @@ fn talk_with_no_words_shows_help() {
 fn the_npc_says_its_answer_in_the_chat() {
     let game = Game::new();
 
-    game.reply(r#"{"type":"talk_answer","id":1,"npc":"Innkeeper Farley","text":"Nothing but rain. |Hx|h"}"#);
+    game.reply(r#"{"type":"talk_answer","id":1,"npc":"Innkeeper Farley","text":"Nothing but rain. ||Hx||h"}"#);
 
     assert_eq!(
         game.printed(),

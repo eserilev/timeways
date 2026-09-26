@@ -1,9 +1,10 @@
--- Text from the desktop, made safe to show.
+-- Text from the desktop, as it shows in the game.
 
 local _, ns = ...
 
--- A `|` starts a WoW escape, such as a color or a link. Text from the desktop shows as it
--- is, so a passage can never draw a fake link.
+-- The bridge doubles each `|` of the text of a reply (Gnomish Relay SPEC.md 9.8, S10), so
+-- no text from the desktop can start a WoW escape such as a color or a fake link. A second
+-- escape here would show `||` to the player.
 function ns.Plain(text)
-	return (tostring(text):gsub("|", "||"))
+	return tostring(text)
 end

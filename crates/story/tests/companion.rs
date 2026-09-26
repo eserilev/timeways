@@ -67,3 +67,11 @@ fn a_line_with_a_name_after_the_cutoff_is_dropped() {
 fn a_line_with_a_control_character_is_dropped() {
     assert_eq!(checked_line("Boom\u{7}!"), None);
 }
+
+#[test]
+fn a_line_over_the_byte_limit_of_the_bridge_is_dropped() {
+    let wide = "\u{10348}".repeat(MAX_LINE_CHARS);
+
+    assert!(wide.chars().count() <= MAX_LINE_CHARS);
+    assert_eq!(checked_line(&wide), None);
+}

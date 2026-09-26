@@ -9,6 +9,9 @@ use std::fmt::Write;
 /// About 70 words. The prompt asks for 60.
 pub const MAX_SAY_CHARS: usize = 400;
 
+/// The limit of the bridge for the words of a talk (Gnomish Relay SPEC.md 9.8).
+pub const MAX_SAY_BYTES: usize = 1600;
+
 /// The largest change of trust that one talk proposes.
 pub const MAX_TRUST_CHANGE: i64 = 5;
 
@@ -84,7 +87,7 @@ pub struct Answer {
 #[must_use]
 pub fn checked_answer(text: &str) -> Option<Answer> {
     let reply: Reply = serde_json::from_str(json_object(text)?).ok()?;
-    let say = plain_text(&reply.say, MAX_SAY_CHARS)?;
+    let say = plain_text(&reply.say, MAX_SAY_CHARS, MAX_SAY_BYTES)?;
     let in_band = (-MAX_TRUST_CHANGE..=MAX_TRUST_CHANGE).contains(&reply.trust);
     Some(Answer {
         say,

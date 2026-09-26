@@ -78,13 +78,14 @@ pub fn later_names() -> impl Iterator<Item = &'static str> {
         .filter(|line| !line.is_empty() && !line.starts_with('#'))
 }
 
-/// The text on one line, or None when it is empty, longer than `max_chars`, holds a
-/// control character, or names something from after the cutoff. For the short texts of
-/// the companion, the bard, and a talk.
+/// The text on one line, or None when it is empty, longer than `max_chars` or `max_bytes`,
+/// holds a control character, or names something from after the cutoff. For the short
+/// texts of the companion, the bard, and a talk. The bridge limits bytes, and a character
+/// outside ASCII takes up to 4.
 #[must_use]
-pub fn plain_text(text: &str, max_chars: usize) -> Option<String> {
+pub fn plain_text(text: &str, max_chars: usize, max_bytes: usize) -> Option<String> {
     let line = text.split_whitespace().collect::<Vec<_>>().join(" ");
-    let too_long = line.chars().count() > max_chars;
+    let too_long = line.chars().count() > max_chars || line.len() > max_bytes;
     if line.is_empty() || too_long || line.chars().any(char::is_control) {
         return None;
     }

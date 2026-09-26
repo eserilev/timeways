@@ -205,10 +205,10 @@ fn a_shorter_page_hides_the_lines_of_a_longer_one() {
 }
 
 #[test]
-fn a_bar_in_a_name_cannot_start_a_wow_escape() {
+fn a_name_that_the_bridge_escaped_shows_as_it_is() {
     let game = Game::new();
     let mut character = Character::new();
-    character.meet_npc(Tick(DAY), "|cffff0000Fake|r").unwrap();
+    character.meet_npc(Tick(DAY), "||cffff0000Fake||r").unwrap();
 
     game.reply(&journal_reply(&character));
 
@@ -428,7 +428,7 @@ fn the_saga_of_the_bard_comes_before_the_list_of_its_chapter() {
     let game = Game::new();
 
     game.reply(
-        r#"{"type":"journal","page":0,"pages":1,"chapters":[{"number":1,"began":1790000000,"zones":["Westfall"],"people":[],"deeds":[],"left_out":0,"prose":"Our hero rode west. |Hfake|h"}]}"#,
+        r#"{"type":"journal","page":0,"pages":1,"chapters":[{"number":1,"began":1790000000,"zones":["Westfall"],"people":[],"deeds":[],"left_out":0,"prose":"Our hero rode west. ||Hfake||h"}]}"#,
     );
 
     let lines = lines(&game, "chapters");

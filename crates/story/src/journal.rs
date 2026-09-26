@@ -9,6 +9,9 @@ use serde::Serialize;
 /// The largest reply line that the bridge takes (Gnomish Relay SPEC.md 9.7 and S12).
 pub const PAGE_BYTES: usize = 24_576;
 
+/// The bridge takes at most 200 items in one list (Gnomish Relay SPEC.md 9.8).
+const PAGE_LIST_ITEMS: usize = 200;
+
 /// Room for the type, the id, the page numbers, and the empty lists of a page line.
 const FRAME_BYTES: usize = 160;
 
@@ -112,7 +115,8 @@ pub fn pages(journal: Journal) -> Vec<Page> {
         .chain(journal.deeds.into_iter().map(Item::Deed));
     for item in items {
         let size = item.size() + 1;
-        if used + size > budget && used > 0 {
+        let list_full = item.list_len(&current) >= PAGE_LIST_ITEMS;
+        if (used + size > budget || list_full) && used > 0 {
             pages.push(std::mem::take(&mut current));
             used = 0;
         }
@@ -150,6 +154,16 @@ impl Item {
             Item::Deed(deed) => serde_json::to_vec(deed),
         };
         bytes.map_or(PAGE_BYTES, |bytes| bytes.len())
+    }
+
+    /// The length of the list of `journal` that this item goes into.
+    fn list_len(&self, journal: &Journal) -> usize {
+        match self {
+            Item::Chapter(_) => journal.chapters.len(),
+            Item::Place(_) => journal.places.len(),
+            Item::Person(_) => journal.people.len(),
+            Item::Deed(_) => journal.deeds.len(),
+        }
     }
 
     fn add_to(self, journal: &mut Journal) {

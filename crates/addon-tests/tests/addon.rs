@@ -277,11 +277,11 @@ fn an_answer_with_nothing_says_that_nobody_knows() {
 }
 
 #[test]
-fn a_bar_in_an_answer_cannot_start_a_wow_escape() {
+fn an_answer_that_the_bridge_escaped_shows_as_it_is() {
     let game = Game::new();
 
     game.reply(&reply_line(
-        Some("|cffff0000red|r |Hitem:1|h[Fake]|h [1]"),
+        Some("||cffff0000red||r ||Hitem:1||h[Fake]||h [1]"),
         &[("x", "y")],
     ));
 
@@ -454,10 +454,10 @@ fn a_batch_with_no_companion_line_shows_nothing() {
 }
 
 #[test]
-fn a_companion_line_cannot_start_a_wow_escape() {
+fn a_companion_line_that_the_bridge_escaped_shows_as_it_is() {
     let game = Game::new();
 
-    game.reply(r#"{"type":"events_seen","id":3,"companion":"|Hitem:1|h[Fake]|h"}"#);
+    game.reply(r#"{"type":"events_seen","id":3,"companion":"||Hitem:1||h[Fake]||h"}"#);
 
     assert!(game.printed()[0].ends_with("Sprocket|r: ||Hitem:1||h[Fake]||h"));
 }

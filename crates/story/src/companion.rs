@@ -9,6 +9,9 @@ use std::collections::VecDeque;
 /// About 50 words. The prompt asks for 25.
 pub const MAX_LINE_CHARS: usize = 300;
 
+/// The limit of the bridge for a companion line (Gnomish Relay SPEC.md 9.8).
+pub const MAX_LINE_BYTES: usize = 1000;
+
 const LINES_PER_HOUR: usize = 3;
 const HOUR: u64 = 3600;
 
@@ -65,5 +68,5 @@ pub fn prompt(moment: &Moment) -> String {
 /// retry: silence costs nothing.
 #[must_use]
 pub fn checked_line(text: &str) -> Option<String> {
-    plain_text(text, MAX_LINE_CHARS)
+    plain_text(text, MAX_LINE_CHARS, MAX_LINE_BYTES)
 }
