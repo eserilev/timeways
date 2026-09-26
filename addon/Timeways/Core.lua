@@ -71,6 +71,9 @@ SlashCmdList.TIMEWAYSLORE = ns.Lore.Ask
 SLASH_TIMEWAYSTALK1 = "/talk"
 SlashCmdList.TIMEWAYSTALK = ns.Talk.Ask
 
+SLASH_TIMEWAYSHERO1 = "/hero"
+SlashCmdList.TIMEWAYSHERO = ns.Hero.Command
+
 SLASH_TIMEWAYSJOURNAL1 = "/journal"
 SLASH_TIMEWAYSJOURNAL2 = "/timeways"
 SlashCmdList.TIMEWAYSJOURNAL = ns.JournalFrame.Toggle

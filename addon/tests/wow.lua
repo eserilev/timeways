@@ -77,6 +77,29 @@ C_ChatInfo = {
 	PerformEmote = function() end,
 }
 
+-- Dialogs of the game: each shown one waits in `wow.popups`, with its data.
+StaticPopupDialogs = {}
+wow.popups = {}
+function StaticPopup_Show(which, text, _, data)
+	wow.popups[#wow.popups + 1] = { which = which, text = text, data = data }
+end
+
+-- Saves a text in the last dialog, as a click on Save does.
+function wow.SavePopup(text)
+	local popup = wow.popups[#wow.popups]
+	local dialog = StaticPopupDialogs[popup.which]
+	local editBox = {
+		GetText = function()
+			return text
+		end,
+	}
+	dialog.OnAccept({
+		GetEditBox = function()
+			return editBox
+		end,
+	}, popup.data)
+end
+
 -- The recap of the last death: a list of events, the killing blow first.
 wow.recap = nil
 C_DeathRecap = {

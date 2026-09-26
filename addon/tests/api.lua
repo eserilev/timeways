@@ -33,6 +33,8 @@ return {
 		"Screenshot",
 		"SetCVar",
 		"SlashCmdList",
+		"StaticPopupDialogs",
+		"StaticPopup_Show",
 		"UIErrorsFrame",
 		"UIParent",
 		"UISpecialFrames",

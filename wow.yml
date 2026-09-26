@@ -18,6 +18,12 @@ globals:
     property: new-fields
   SLASH_TIMEWAYSTALK1:
     property: full-write
+  SLASH_TIMEWAYSHERO1:
+    property: full-write
+  StaticPopupDialogs:
+    property: new-fields
+  StaticPopup_Show:
+    args: [{type: string}, {type: any, required: false}, {type: any, required: false}, {type: any, required: false}]
   SLASH_TIMEWAYSJOURNAL1:
     property: full-write
   SLASH_TIMEWAYSJOURNAL2:

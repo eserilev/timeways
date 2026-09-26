@@ -19,9 +19,13 @@ local STYLES = {
 	note = { font = "QuestFontNormalSmall", indent = 0, gap = 0 },
 }
 
+-- 5 tabs fit in the row of buttons of the quest frame at this width.
+local TAB_WIDTH, TAB_STEP = 64, 66
+local ACTION_WIDTH, ACTION_HEIGHT = 58, 18
+
 local frame, scroll, page
-local strings, bullets, tabs = {}, {}, {}
-local section = ns.Journal.SECTIONS[1]
+local strings, bullets, actions, tabs = {}, {}, {}, {}
+local section = "chapters"
 
 local function Art(file, width, height, point, x, y)
 	local texture = frame:CreateTexture(nil, "BORDER")
@@ -78,8 +82,8 @@ end
 local function BuildTabs()
 	for n, name in ipairs(ns.Journal.SECTIONS) do
 		local tab = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-		tab:SetSize(78, 22)
-		tab:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 22 + (n - 1) * 82, 72)
+		tab:SetSize(TAB_WIDTH, 22)
+		tab:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 22 + (n - 1) * TAB_STEP, 72)
 		tab:SetText(ns.Journal.TITLES[name])
 		tab:SetScript("OnClick", function()
 			JournalFrame.Open(name)
@@ -102,6 +106,14 @@ local function Bullet(n)
 	return bullets[n]
 end
 
+local function Action(n)
+	if not actions[n] then
+		actions[n] = CreateFrame("Button", nil, page, "UIPanelButtonTemplate")
+		actions[n]:SetSize(ACTION_WIDTH, ACTION_HEIGHT)
+	end
+	return actions[n]
+end
+
 local function HideFrom(list, first)
 	for n = first, #list do
 		list[n]:Hide()
@@ -114,7 +126,8 @@ local function DrawLine(n, line, y)
 	text:SetFontObject(style.font)
 	text:SetTextColor(INK[1], INK[2], INK[3])
 	text:SetJustifyH("LEFT")
-	text:SetWidth(PAGE_WIDTH - style.indent)
+	local room = line.action and ACTION_WIDTH + 4 or 0
+	text:SetWidth(PAGE_WIDTH - style.indent - room)
 	text:ClearAllPoints()
 	text:SetPoint("TOPLEFT", page, "TOPLEFT", style.indent, -y)
 	text:SetText(line.text)
@@ -123,7 +136,15 @@ local function DrawLine(n, line, y)
 	bullet:ClearAllPoints()
 	bullet:SetPoint("TOPLEFT", page, "TOPLEFT", 0, -y + 1)
 	bullet:SetShown(style.bullet == true)
-	return text:GetStringHeight()
+	local action = Action(n)
+	action:SetShown(line.action ~= nil)
+	if line.action then
+		action:ClearAllPoints()
+		action:SetPoint("TOPRIGHT", page, "TOPRIGHT", 0, -y + 2)
+		action:SetText(line.action.label)
+		action:SetScript("OnClick", line.action.run)
+	end
+	return math.max(text:GetStringHeight(), line.action and ACTION_HEIGHT or 0)
 end
 
 function JournalFrame.Refresh()
@@ -138,6 +159,7 @@ function JournalFrame.Refresh()
 	end
 	HideFrom(strings, #lines + 1)
 	HideFrom(bullets, #lines + 1)
+	HideFrom(actions, #lines + 1)
 	page:SetHeight(math.max(y, 1))
 	for name, tab in pairs(tabs) do
 		tab:SetEnabled(name ~= section)
@@ -164,6 +186,10 @@ function JournalFrame.Toggle()
 	else
 		JournalFrame.Open()
 	end
+end
+
+function JournalFrame.IsShown()
+	return frame ~= nil and frame:IsShown()
 end
 
 function JournalFrame.Section()

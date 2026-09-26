@@ -47,6 +47,18 @@ function Inputs.Died(at, killer, cause, killerLevel, hour)
 	return { type = "died", at = at, killer = killer, cause = cause, killer_level = killerLevel, hour = hour }
 end
 
+function Inputs.HeroSet(at, field, text)
+	return { type = "hero_set", at = at, field = field, text = text }
+end
+
+function Inputs.HeroAdded(at, text, npc)
+	return { type = "hero_added", at = at, text = text, npc = npc }
+end
+
+function Inputs.HeroRemoved(at, number)
+	return { type = "hero_removed", at = at, number = number }
+end
+
 function Inputs.Emote(at, emote, target, hour)
 	return { type = "emote_done", at = at, emote = emote, target = target, hour = hour }
 end

@@ -122,7 +122,7 @@ The desktop sends the pages each time the book opens, because the world lives th
 
 | Section | What it holds | State |
 |---|---|---|
-| **Hero** | Your sheet and your own lore (3.7) | Built on the desktop. The page of the book comes next. |
+| **Hero** | Your sheet and your own lore (3.7), each field with an Edit button, and your entries with Add and Remove. The first time that the book shows an empty hero in a session, it opens here. | Built |
 | **Chronicle** | One chapter for each play session (3.3), with the saga and the footnotes of the bard when a model wrote them. The book opens on it. | Built |
 | **Places** | Each zone, with the date of the first visit, and its subzones under it | Built |
 | **People** | Each NPC that you met, with the place, the date, your slaps, and its trust in you | Built |
@@ -143,6 +143,7 @@ Who your hero is, in your own words, as a player of a tabletop game writes befor
   - The bard also gets the entries written during its chapter.
   - An NPC in `/talk` (3.5) gets only the entries about it or about its place, at most 5.
 - **The journal** carries the sheet on its first page, and the entries as a list like the others.
+- **In the game:** the Hero page of the book, with the dialog of the game for each text, or `/hero`, `/hero add <text>`, `/hero note <text about your target>`, and `/hero set <field> <text>`. Each edit goes out with a journal request, so the page shows the result, or the reason for a refusal, at once.
 
 ## 4. The social level
 

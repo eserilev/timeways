@@ -1,4 +1,5 @@
--- The pages of the journal: the chronicle, places, people, and deeds (GAMEPLAY.md 3.6).
+-- The pages of the journal: the hero, the chronicle, places, people, and deeds
+-- (GAMEPLAY.md 3.6 and 3.7).
 -- The desktop sends them, because the world lives there and never in the saved variables
 -- (5.10).
 
@@ -7,8 +8,11 @@ local _, ns = ...
 local Journal = {}
 ns.Journal = Journal
 
-Journal.SECTIONS = { "chapters", "places", "people", "deeds" }
-Journal.TITLES = { chapters = "Chronicle", places = "Places", people = "People", deeds = "Deeds" }
+Journal.SECTIONS = { "hero", "chapters", "places", "people", "deeds" }
+Journal.TITLES = { hero = "Hero", chapters = "Chronicle", places = "Places", people = "People", deeds = "Deeds" }
+
+-- The lists that come in pages. The sheet of the hero comes on the first page only.
+local LISTS = { "chapters", "places", "people", "deeds" }
 
 -- A reply holds at most 24 KB, so a long journal comes in pages. More than this many
 -- pages means a broken reply, not a long journal.
@@ -45,16 +49,22 @@ function Journal.Receive(value)
 	if type(page) ~= "number" or type(count) ~= "number" or count > MAX_PAGES then
 		return
 	end
+	local hero = type(value.hero) == "table" and value.hero or {}
 	if page == 0 then
 		collecting = { chapters = {}, places = {}, people = {}, deeds = {}, next = 0 }
+		collecting.hero = { sheet = Entries(hero.sheet), entries = {} }
+		ns.Hero.ShowRefused(value.hero_refused)
 	end
 	if not collecting or page ~= collecting.next then
 		return
 	end
-	for _, section in ipairs(Journal.SECTIONS) do
+	for _, section in ipairs(LISTS) do
 		for _, entry in ipairs(Entries(value[section])) do
 			table.insert(collecting[section], entry)
 		end
+	end
+	for _, entry in ipairs(Entries(hero.entries)) do
+		table.insert(collecting.hero.entries, entry)
 	end
 	collecting.next = page + 1
 	if collecting.next < count then
@@ -63,6 +73,7 @@ function Journal.Receive(value)
 	end
 	pages, collecting = collecting, nil
 	ns.JournalFrame.Refresh()
+	ns.Hero.AskOnce(pages.hero)
 end
 
 local function Name(value)
@@ -73,8 +84,9 @@ local function Day(at)
 	return type(at) == "number" and date("%d %b %Y", at) or "an unknown day"
 end
 
-local function Line(style, text)
-	return { style = style, text = text }
+-- `action` is an optional button of the line: { label = ..., run = function }.
+local function Line(style, text, action)
+	return { style = style, text = text, action = action }
 end
 
 local function Places(places)
@@ -218,7 +230,50 @@ local function Chapters(chapters)
 	return lines
 end
 
-local BUILDERS = { chapters = Chapters, places = Places, people = People, deeds = Deeds }
+-- Who the hero is (3.7): each field of the sheet with its button, then the player's own lore.
+local function Hero(hero)
+	local lines = { Line("heading", "Who you are") }
+	local texts = {}
+	for _, field in ipairs(Entries(hero and hero.sheet)) do
+		texts[field.field] = field.text
+	end
+	for _, field in ipairs(ns.Hero.FIELDS) do
+		local text = texts[field]
+		local edit = {
+			label = "Edit",
+			run = function()
+				ns.Hero.Edit(field, text)
+			end,
+		}
+		lines[#lines + 1] = Line("entry", ns.Hero.LABELS[field], edit)
+		if type(text) == "string" then
+			lines[#lines + 1] = Line("text", ns.Plain(text))
+		else
+			lines[#lines + 1] = Line("note", ns.Hero.HINTS[field])
+		end
+	end
+	local add = { label = "Add", run = ns.Hero.Write }
+	lines[#lines + 1] = Line("heading", "Your own lore", add)
+	local entries = Entries(hero and hero.entries)
+	if #entries == 0 then
+		lines[#lines + 1] = Line("note", "Nothing yet. Add a memory, a rumor, or a vow.")
+	end
+	for _, entry in ipairs(entries) do
+		local remove = {
+			label = "Remove",
+			run = function()
+				ns.Hero.Remove(entry)
+			end,
+		}
+		lines[#lines + 1] = Line("entry", ns.Plain(tostring(entry.text)), remove)
+		local about = type(entry.npc) == "string" and ("About " .. Name(entry.npc) .. ". ") or ""
+		local place = type(entry.place) == "string" and (Name(entry.place) .. ", ") or ""
+		lines[#lines + 1] = Line("text", about .. place .. Day(entry.at) .. ".")
+	end
+	return lines
+end
+
+local BUILDERS = { hero = Hero, chapters = Chapters, places = Places, people = People, deeds = Deeds }
 
 local EMPTY = {
 	chapters = "No chapter is written yet.",
@@ -232,7 +287,8 @@ function Journal.Lines(section)
 	if not pages then
 		return { Line("note", "The pages fill with ink...") }
 	end
-	local lines = BUILDERS[section](List(pages[section]))
+	local builder = BUILDERS[section]
+	local lines = section == "hero" and builder(pages.hero) or builder(List(pages[section]))
 	if #lines == 0 then
 		return { Line("note", EMPTY[section]) }
 	end

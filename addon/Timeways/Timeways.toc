@@ -25,6 +25,7 @@ Emotes.lua
 Lore.lua
 Talk.lua
 Narrator.lua
+Hero.lua
 Journal.lua
 JournalFrame.lua
 Core.lua

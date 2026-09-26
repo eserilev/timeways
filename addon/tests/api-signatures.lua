@@ -218,6 +218,9 @@ return {
 		["FrameAPIModelSceneFrameActorBase:Show"] = {
 			Arguments = {},
 		},
+		["FrameAPISimpleCheckout:SetFocus"] = {
+			Arguments = {},
+		},
 		["FrameAPITooltip:SetText"] = {
 			SecretArguments = "AllowedWhenTainted",
 			SecretArgumentsAddAspect = { Enum.SecretAspect.Text },
@@ -281,6 +284,16 @@ return {
 				{ Name = "scaleY", Type = "number", Nilable = false },
 			},
 		},
+		["SimpleBrowserAPI:SetFocus"] = {
+			Arguments = {},
+		},
+		["SimpleButtonAPI:GetText"] = {
+			SecretReturnsForAspect = { Enum.SecretAspect.Text },
+			Arguments = {},
+			Returns = {
+				{ Name = "text", Type = "cstring", Nilable = false },
+			},
+		},
 		["SimpleButtonAPI:SetEnabled"] = {
 			IsProtectedFunction = true,
 			SecretArguments = "AllowedWhenUntainted",
@@ -296,11 +309,22 @@ return {
 				{ Name = "text", Type = "cstring", Nilable = false, Default = "" },
 			},
 		},
+		["SimpleEditBoxAPI:GetText"] = {
+			SecretReturnsForAspect = { Enum.SecretAspect.Text },
+			Arguments = {},
+			Returns = {
+				{ Name = "text", Type = "cstring", Nilable = false },
+			},
+		},
 		["SimpleEditBoxAPI:SetEnabled"] = {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {
 				{ Name = "enabled", Type = "bool", Nilable = false, Default = false },
 			},
+		},
+		["SimpleEditBoxAPI:SetFocus"] = {
+			ChecksForbiddenAspects = { { Argument = "self", Aspect = Enum.ForbiddenAspect.ScriptedInput } },
+			Arguments = {},
 		},
 		["SimpleEditBoxAPI:SetFontObject"] = {
 			SecretArguments = "AllowedWhenUntainted",
@@ -356,6 +380,13 @@ return {
 			Arguments = {},
 			Returns = {
 				{ Name = "height", Type = "uiUnit", Nilable = false },
+			},
+		},
+		["SimpleFontStringAPI:GetText"] = {
+			SecretReturnsForAspect = { Enum.SecretAspect.Text },
+			Arguments = {},
+			Returns = {
+				{ Name = "text", Type = "cstring", Nilable = false },
 			},
 		},
 		["SimpleFontStringAPI:SetFontObject"] = {
@@ -560,6 +591,13 @@ return {
 				{ Name = "colorG", Type = "number", Nilable = false },
 				{ Name = "colorB", Type = "number", Nilable = false },
 				{ Name = "a", Type = "SingleColorValue", Nilable = true },
+			},
+		},
+		["SimpleObjectAPI:GetParent"] = {
+			SecretReturnsForAspect = { Enum.SecretAspect.Hierarchy },
+			Arguments = {},
+			Returns = {
+				{ Name = "parent", Type = "CScriptObject", Nilable = false },
 			},
 		},
 		["SimpleRegionAPI:SetIgnoreParentScale"] = {
