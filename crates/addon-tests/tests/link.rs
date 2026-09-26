@@ -74,3 +74,18 @@ fn a_message_that_cannot_be_sent_tells_the_player() {
         ["|cffc8a064Timeways|r: Not sent. Send it again."]
     );
 }
+
+#[test]
+fn a_strip_waits_while_the_relay_holds_the_shared_corner() {
+    let game = logged_in();
+    game.run(
+        "GnomishStripCorner = { holder = 'GnomishRelayStrip', endsAt = GetTime() + 30, waits = {} }
+         wow.Slash('/lore', 'any news?')
+         for _, timer in ipairs(wow.after) do timer.callback() end",
+    );
+
+    let waiting: bool = game.eval("GnomishStripCorner.waits.TimewaysStrip ~= nil");
+    assert_eq!(game.eval::<u32>("wow.shots"), 0);
+    assert!(waiting);
+    assert_eq!(game.eval::<u32>("#TimewaysDB.sent"), 1);
+}
