@@ -6,7 +6,7 @@ Timeways is a World of Warcraft: Forever addon. It adds a story layer to the gam
 
 An AI model writes the words. A rules engine decides what is true. The game itself supplies the facts.
 
-Status: early build. The story program keeps the world of each character in a file, answers `/lore` with passages under the spoiler limit and a checked model answer, and sends the journal. The addon sends game events, `/lore`, and journal requests, and shows the answers and the journal, but it waits for the shared `Messages.lua` of Gnomish Relay to reach the desktop. No real pack exists yet.
+Status: early build. The story program keeps the world of each character in a file, and serves `/lore`, `/talk`, the journal, the companion, and the bard. The addon talks to it through the shared transport of Gnomish Relay. Nobody has run the parts together in the game yet, and no real lore pack exists yet.
 
 ## 1. The four parts
 
@@ -428,6 +428,8 @@ Timeways and Gnomish Relay are two separate addons, each with its own listing on
 - **What the key split protects.** It stops a bug or a hacked story program from reaching the agents. It does not stop a hostile addon that loads first from reading either key.
 - **A strip signed with the Timeways key reaches only the story program**, never a coding agent. The bridge enforces this: the story route has no access to the agents. So a Timeways bug, a hacked Timeways update, or a hostile addon that drives Timeways gets only story powers: the model budget, false game facts in the world, and fake story text. It gets no path to commands.
 - A player with only Timeways has no coding config: setup asks no folder question and sets up no coding agent. The config has only a `[story]` section for the model.
+
+**The copies in Timeways** (built): `addon/Timeways` holds `Sha256.lua`, `Codec.lua`, `Saved.lua`, `Health.lua`, `Strip.lua`, `Slots.lua`, and `Messages.lua` from the relay, and CI compares each one with the pinned relay commit. `Link.lua` is the seam: it sends each batch in the one chat `story`, gives each done reply to the JSON handlers, and shows each error reply as plain text.
 
 **No public send function.** Each addon carries its own private copy of the Lua transport: `Codec.lua`, `Sha256.lua`, `Strip.lua`, and the slot poll. A shared library addon is refused: its key would pass through a global function, and a hostile addon could hook it. One source folder of the transport, with its tests, lives in the Gnomish Relay repo. The packaging of each addon copies it, with a version pin.
 

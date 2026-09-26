@@ -40,7 +40,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           repository: eserilev/gnomish-relay
-          ref: 74a0c306a3739f521ff8d8d188125875f0cde3fa
+          ref: f2058c9e4b09c066995d5aab132dd696cbff656f
           path: target/gnomish-relay
       - uses: taiki-e/install-action@7623a79cdfecb99d681017af368ca353d9f49bb5 # v2
         with:
@@ -53,3 +53,10 @@ jobs:
           --fake addon/tests/wow.lua --api addon/tests/api.lua
           --signatures addon/tests/api-signatures.lua
       - run: git diff --exit-code -- addon/tests/api.lua addon/tests/api-signatures.lua
+      # The shared transport is a copy of the pinned relay commit (relay SPEC.md 9.7,
+      # decision 14). A change goes to the relay first, then the pin moves.
+      - run: |
+          for file in Sha256 Codec Saved Health Strip Slots Messages; do
+            diff -u target/gnomish-relay/addon/transport/$file.lua addon/Timeways/$file.lua
+          done
+          diff -u target/gnomish-relay/addon/tests/bit.lua addon/tests/bit.lua

@@ -1,17 +1,29 @@
--- The seam to the desktop: `Fits(text)`, `Send(text)`, and a call of ns.OnReply(text)
--- for each reply. Tests put a fake here.
+-- The seam to the desktop: `ns.Link.Fits(text)` and `ns.Link.Send(text)` out, and each
+-- final reply in. The shared `Messages.lua` of Gnomish Relay carries both (relay SPEC.md
+-- 9.8 and 13.2). Timeways has one chat.
 
 local _, ns = ...
 
--- The payload of one strip, less the room of the transport flags.
-local MAX_TEXT = 3000
+local CHAT = { id = "story" }
 
--- TODO: send through the shared Messages.lua when relay SPEC.md 9.7, step 5b, adds it.
 ns.Link = {
 	Fits = function(text)
-		return #text <= MAX_TEXT
+		return ns.Messages.Fits(CHAT, text)
 	end,
-	Send = function()
-		return false
+	Send = function(text)
+		return ns.Messages.Send(CHAT, text) ~= nil
 	end,
 }
+
+-- A done reply holds JSON lines. An error reply is plain text from the bridge, such as
+-- "Timeways story program not running.", and the player sees it as it is.
+ns.Messages.OnReply = function(_, _, status, text)
+	if status == "done" then
+		ns.OnReply(text)
+	elseif type(text) == "string" and text ~= "" then
+		DEFAULT_CHAT_FRAME:AddMessage("|cffc8a064Timeways|r: " .. text)
+	end
+end
+
+ns.Messages.Init()
+C_Timer.NewTicker(1, ns.Messages.Tick)

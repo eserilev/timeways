@@ -42,7 +42,7 @@ globals:
   C_ChatInfo:
     any: true
   hooksecurefunc:
-    args: [{type: table}, {type: string}, {type: function}]
+    args: [{type: any}, {type: any, required: false}, {type: any, required: false}]
   C_DeathRecap:
     any: true
   UnitExists:
@@ -62,3 +62,47 @@ globals:
       - type: string
   time:
     args: []
+  bit:
+    struct: BitLib
+  C_AddOns:
+    any: true
+  C_CVar:
+    any: true
+  SOUNDKIT:
+    any: true
+  UIErrorsFrame:
+    any: true
+  GameTooltip:
+    any: true
+  ActionStatus:
+    any: true
+  ChatFontNormal:
+    any: true
+  GetTime:
+    args: []
+  GetBuildInfo:
+    args: []
+  GetPhysicalScreenSize:
+    args: []
+  InCombatLockdown:
+    args: []
+  ReloadUI:
+    args: []
+  Screenshot:
+    args: []
+  PlaySound:
+    args: [{type: any}]
+  SetCVar:
+    args: [{type: string}, {type: any}]
+  strtrim:
+    args: [{type: string}]
+  unpack:
+    args: [{type: table}, {type: number, required: false}, {type: number, required: false}]
+structs:
+  BitLib:
+    band: {args: [{type: number}, {type: "..."}]}
+    bor: {args: [{type: number}, {type: "..."}]}
+    bxor: {args: [{type: number}, {type: "..."}]}
+    bnot: {args: [{type: number}]}
+    lshift: {args: [{type: number}, {type: number}]}
+    rshift: {args: [{type: number}, {type: number}]}

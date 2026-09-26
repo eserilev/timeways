@@ -10,7 +10,7 @@ An AI model writes the words. A rules engine, [Hourglass](https://github.com/ese
 
 ## Status
 
-Early build. The parts work and have tests, but nobody has run them together in the game yet. That waits for the Gnomish Relay bridge to start the story program and to carry messages (relay SPEC 9.7).
+Early build. The parts work and have tests, but nobody has run them together in the game yet. The Gnomish Relay bridge now starts the story program and carries its messages (relay SPEC 9.8). Real model calls (relay step 6) come next.
 
 What works:
 
@@ -24,7 +24,7 @@ What works:
 
 | Path | What |
 |---|---|
-| `addon/Timeways` | The WoW addon, Lua 5.1 |
+| `addon/Timeways` | The WoW addon, Lua 5.1. `Sha256`, `Codec`, `Saved`, `Health`, `Strip`, `Slots`, and `Messages` are copies of the shared transport of Gnomish Relay, pinned in CI. Change them in the relay first. `Key.lua` comes from the setup of the bridge, and git ignores it. |
 | `crates/story` | `timeways-story`, the story program on the desktop |
 | `crates/addon-tests` | Runs the addon in Lua 5.1 with a fake WoW API (`addon/tests/wow.lua`) |
 

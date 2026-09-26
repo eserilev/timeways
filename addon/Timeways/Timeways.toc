@@ -4,7 +4,15 @@
 ## Version: 0.1.0
 ## SavedVariables: TimewaysDB
 
+Key.lua
 App.lua
+Sha256.lua
+Codec.lua
+Saved.lua
+Health.lua
+Strip.lua
+Slots.lua
+Messages.lua
 Text.lua
 Units.lua
 Json.lua

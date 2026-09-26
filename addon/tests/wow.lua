@@ -3,6 +3,11 @@
 
 local wow = {
 	now = 1790000000,
+	startedAt = 1790000000 - 1000,
+	after = {},
+	loaded = {},
+	cvars = {},
+	shots = 0,
 	realm = "Stormrage",
 	zone = "",
 	subzone = "",
@@ -205,7 +210,67 @@ C_Timer = {
 	NewTicker = function(seconds, callback)
 		wow.tickers[#wow.tickers + 1] = { seconds = seconds, callback = callback }
 	end,
+	-- One-shot timers wait in `wow.after` until a test runs them.
+	After = function(seconds, callback)
+		wow.after[#wow.after + 1] = { seconds = seconds, callback = callback }
+	end,
 }
+
+-- The seconds since the client started, as WoW gives them.
+function GetTime()
+	return wow.now - wow.startedAt
+end
+
+function GetBuildInfo()
+	return "1.60.1", "70009", "Sep 1 2026", 16001
+end
+
+-- No slot addon is installed, so every slot counts as free and loads nothing.
+C_AddOns = {
+	IsAddOnLoaded = function(name)
+		return wow.loaded[name] == true
+	end,
+	EnableAddOn = function() end,
+	LoadAddOn = function(name)
+		wow.loaded[name] = true
+		return false, "MISSING"
+	end,
+}
+
+C_CVar = {
+	GetCVar = function(name)
+		return wow.cvars[name]
+	end,
+	SetCVar = function(name, value)
+		wow.cvars[name] = tostring(value)
+	end,
+}
+
+function SetCVar(name, value)
+	wow.cvars[name] = tostring(value)
+end
+
+-- The game saves the picture and reports success, as it does for each screenshot.
+function Screenshot()
+	wow.shots = wow.shots + 1
+	wow.Fire("SCREENSHOT_SUCCEEDED")
+end
+
+function GetPhysicalScreenSize()
+	return 1920, 1080
+end
+
+function InCombatLockdown()
+	return false
+end
+
+function PlaySound() end
+
+SOUNDKIT = {}
+
+function strtrim(text)
+	return (text:gsub("^%s+", ""):gsub("%s+$", ""))
+end
 
 DEFAULT_CHAT_FRAME = {
 	AddMessage = function(_, text)

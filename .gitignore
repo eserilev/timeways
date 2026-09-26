@@ -1,1 +1,3 @@
 target/
+# The key of the Timeways strip. The bridge of Gnomish Relay writes it at setup.
+addon/Timeways/Key.lua

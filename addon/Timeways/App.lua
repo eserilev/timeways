@@ -10,4 +10,6 @@ ns.App = {
 	live = "Timeways_Live",
 	strip = "TimewaysStrip",
 	saved = "TimewaysDB",
+	title = "Timeways",
+	helloChat = "story",
 }

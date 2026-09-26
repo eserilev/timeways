@@ -12,6 +12,8 @@ use timeways_story::input::Input;
 
 pub const ADDON: &str = "Timeways";
 
+pub const TEST_KEY: &str = "0123456789abcdef0123456789abcdef";
+
 fn addon_path(file: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../addon")
@@ -43,20 +45,7 @@ impl Game {
 
     /// The addon before the login event named the character.
     pub fn before_login() -> Game {
-        let lua = Lua::new();
-        let wow = std::fs::read_to_string(addon_path("tests/wow.lua")).unwrap();
-        let wow: Table = lua.load(wow).set_name("wow.lua").call(()).unwrap();
-        lua.globals().set("wow", wow).unwrap();
-        let ns = lua.create_table().unwrap();
-        for file in toc_files() {
-            let source = std::fs::read_to_string(addon_path(&format!("Timeways/{file}"))).unwrap();
-            lua.load(source)
-                .set_name(file)
-                .call::<()>((ADDON, ns.clone()))
-                .unwrap();
-        }
-        lua.globals().set("ns", ns).unwrap();
-        let game = Game { lua };
+        let game = Game::with_transport();
         game.run(
             "sent = {}
              linkUp = true
@@ -71,6 +60,29 @@ impl Game {
              }",
         );
         game
+    }
+
+    /// The addon with the real seam: the shared `Messages.lua` of Gnomish Relay.
+    pub fn with_transport() -> Game {
+        let lua = Lua::new();
+        let bit = std::fs::read_to_string(addon_path("tests/bit.lua")).unwrap();
+        let bit: Table = lua.load(bit).set_name("bit.lua").call(()).unwrap();
+        lua.globals().set("bit", bit).unwrap();
+        let wow = std::fs::read_to_string(addon_path("tests/wow.lua")).unwrap();
+        let wow: Table = lua.load(wow).set_name("wow.lua").call(()).unwrap();
+        lua.globals().set("wow", wow).unwrap();
+        let ns = lua.create_table().unwrap();
+        // Setup writes the real key into Key.lua. The tests sign with this one.
+        ns.set("key", TEST_KEY).unwrap();
+        for file in toc_files().into_iter().filter(|file| file != "Key.lua") {
+            let source = std::fs::read_to_string(addon_path(&format!("Timeways/{file}"))).unwrap();
+            lua.load(source)
+                .set_name(file)
+                .call::<()>((ADDON, ns.clone()))
+                .unwrap();
+        }
+        lua.globals().set("ns", ns).unwrap();
+        Game { lua }
     }
 
     pub fn run(&self, code: &str) {
