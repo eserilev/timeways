@@ -9,7 +9,7 @@ use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
-use timeways_story::pack::{Link, Pack, Passage};
+use timeways_story::pack::{Link, Origin, Pack, Passage};
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -30,6 +30,7 @@ impl PassageLine {
             text: self.text,
             source: self.source,
             links: places.chain(npcs).collect(),
+            origin: Origin::Pack,
         }
     }
 }

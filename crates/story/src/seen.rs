@@ -2,7 +2,7 @@
 //! client of Forever shows it, so it is canon. The player read it, so it passes the spoiler
 //! limit.
 
-use crate::pack::{Link, Passage, match_query};
+use crate::pack::{Link, Origin, Passage, match_query};
 use rusqlite::{Connection, params};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -41,6 +41,7 @@ impl SeenText {
             text: words.join(" ").replace(PLAYER_NAME, "our hero"),
             source: self.source(),
             links,
+            origin: Origin::Read,
         }
     }
 
@@ -204,6 +205,13 @@ mod tests {
 
         assert_eq!(passage.text, "Well met, our hero. Hogger must die.");
         assert_eq!(passage.source, "the quest \"Wanted: Hogger\"");
+    }
+
+    #[test]
+    fn a_passage_of_seen_text_is_marked_as_read() {
+        let passage = gossip("Innkeeper Farley", "Welcome.").passage();
+
+        assert_eq!(passage.origin, Origin::Read);
     }
 
     #[test]

@@ -6,7 +6,7 @@ use common::Game;
 use hourglass::Tick;
 use timeways_story::input::{Input, MessageId};
 use timeways_story::lore::Answer;
-use timeways_story::pack::Passage;
+use timeways_story::pack::{Origin, Passage};
 use timeways_story::story::Output;
 
 const NOW: Tick = Tick(1_790_000_000);
@@ -26,6 +26,7 @@ fn reply_line(text: Option<&str>, passages: &[(&str, &str)]) -> String {
             text: (*text).to_string(),
             source: (*source).to_string(),
             links: Vec::new(),
+            origin: Origin::Pack,
         })
         .collect();
     let answer = Answer {

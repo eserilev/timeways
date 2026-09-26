@@ -4,7 +4,7 @@ use hourglass::Tick;
 use std::path::Path;
 use timeways_story::input::{CallId, Input, MessageId};
 use timeways_story::lore::Answer;
-use timeways_story::pack::{Link, Pack, Passage};
+use timeways_story::pack::{Link, Origin, Pack, Passage};
 use timeways_story::store::Store;
 use timeways_story::story::{Output, Story, StoryError};
 
@@ -19,6 +19,7 @@ fn passage(text: &str, source: &str, links: Vec<Link>) -> Passage {
         text: text.to_string(),
         source: source.to_string(),
         links,
+        origin: Origin::Pack,
     }
 }
 

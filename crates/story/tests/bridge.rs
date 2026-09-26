@@ -5,7 +5,7 @@
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
-use timeways_story::pack::{Link, Pack, Passage};
+use timeways_story::pack::{Link, Origin, Pack, Passage};
 
 fn pack_file(name: &str) -> PathBuf {
     let path = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("bridge-{name}.sqlite"));
@@ -14,6 +14,7 @@ fn pack_file(name: &str) -> PathBuf {
         text: "The tower of Testvale fell.".to_string(),
         source: "https://example.test/1".to_string(),
         links: vec![Link::Place("Testvale".to_string())],
+        origin: Origin::Pack,
     };
     Pack::write(&path, &[tower]).unwrap();
     path

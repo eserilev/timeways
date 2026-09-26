@@ -3,7 +3,7 @@
 use hourglass::Tick;
 use std::path::{Path, PathBuf};
 use timeways_story::input::{Input, MessageId};
-use timeways_story::pack::{Link, Pack, Passage};
+use timeways_story::pack::{Link, Origin, Pack, Passage};
 use timeways_story::seen::{MAX_SEEN_BYTES, TextKind};
 use timeways_story::store::Store;
 use timeways_story::story::{Output, Story, StoryError};
@@ -74,6 +74,7 @@ fn pack_passage(text: &str, source: &str) -> Passage {
         text: text.to_string(),
         source: source.to_string(),
         links: vec![Link::Place("Elwynn Forest".to_string())],
+        origin: Origin::Pack,
     }
 }
 
@@ -118,7 +119,7 @@ fn text_that_you_saw_passes_the_spoiler_limit() {
 }
 
 #[test]
-fn text_that_you_saw_and_the_pack_take_turns() {
+fn text_that_you_read_comes_first_and_the_pack_fills_the_rest() {
     let pack = [
         pack_passage("Gnolls roam the forest.", "https://example.test/1"),
         pack_passage("Gnolls fear fire.", "https://example.test/2"),
@@ -138,8 +139,8 @@ fn text_that_you_saw_and_the_pack_take_turns() {
 
     assert_eq!(found.len(), 4);
     assert!(found[0].starts_with("Guard Thomas"));
-    assert!(found[1].starts_with("https://"));
-    assert!(found[2].starts_with("Guard Thomas"));
+    assert!(found[1].starts_with("Guard Thomas"));
+    assert!(found[2].starts_with("https://"));
     assert!(found[3].starts_with("https://"));
 }
 

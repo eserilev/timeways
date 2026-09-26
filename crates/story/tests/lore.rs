@@ -1,5 +1,5 @@
 use timeways_story::lore::{Answer, LoreCall, Next};
-use timeways_story::pack::{Link, Passage};
+use timeways_story::pack::{Link, Origin, Passage};
 use timeways_story::prompt::Context;
 
 fn passages() -> Vec<Passage> {
@@ -8,6 +8,7 @@ fn passages() -> Vec<Passage> {
         text: "The tower fell.".to_string(),
         source: "https://example.test/1".to_string(),
         links,
+        origin: Origin::Pack,
     };
     vec![tower]
 }

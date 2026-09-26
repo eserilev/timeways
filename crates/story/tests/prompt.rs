@@ -1,5 +1,5 @@
 use timeways_story::check::Fault;
-use timeways_story::pack::{Link, Passage};
+use timeways_story::pack::{Link, Origin, Passage};
 use timeways_story::prompt::{Context, lore, retry};
 
 fn passage(text: &str) -> Passage {
@@ -8,6 +8,7 @@ fn passage(text: &str) -> Passage {
         text: text.to_string(),
         source: "https://example.test/1".to_string(),
         links,
+        origin: Origin::Pack,
     }
 }
 
@@ -86,4 +87,23 @@ fn a_retry_prompt_quotes_the_answer_and_names_each_fault() {
         prompt.contains("- No passage has the number [4]."),
         "{prompt}"
     );
+}
+
+#[test]
+fn a_lore_prompt_says_where_the_player_learned_a_passage() {
+    let read = Passage {
+        source: "the text of \"The Kingdom of Stormwind\"".to_string(),
+        origin: Origin::Read,
+        ..passage("Long ago, the humans came.")
+    };
+
+    let prompt = lore(
+        "why?",
+        &Context::default(),
+        &[read, passage("Goblins came.")],
+    );
+
+    let expected = "[1] (The player learned this from the text of \"The Kingdom of Stormwind\".) \
+                    Long ago, the humans came.\n[2] Goblins came.";
+    assert!(prompt.contains(expected), "{prompt}");
 }

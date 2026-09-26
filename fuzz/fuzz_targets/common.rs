@@ -4,7 +4,7 @@ use serde_json::Value;
 use std::path::PathBuf;
 use std::sync::OnceLock;
 use timeways_story::journal::PAGE_BYTES;
-use timeways_story::pack::{Link, Pack, Passage};
+use timeways_story::pack::{Link, Pack, Passage, Origin};
 
 /// One pack for each fuzz process, written once.
 pub fn pack() -> Pack {
@@ -17,6 +17,7 @@ pub fn pack() -> Pack {
             text: text.to_string(),
             source: "https://example.test".to_string(),
             links: vec![Link::Place(place.to_string())],
+            origin: Origin::Pack,
         };
         let passages = [
             passage("The tower fell.", "Testvale"),

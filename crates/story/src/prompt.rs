@@ -2,7 +2,7 @@
 //! Hourglass.
 
 use crate::check::Fault;
-use crate::pack::Passage;
+use crate::pack::{Origin, Passage};
 use std::fmt::Write;
 
 const RULES: &str = "\
@@ -11,6 +11,8 @@ A player asks you a question. Answer it from the numbered passages below, and fr
 
 Rules:
 - Cite the passage of each claim with its number, for example [1].
+- A passage marked \"The player learned this\" is what the player read or heard in the game. \
+Tell them where they learned it, for example \"You read in the book of the old tower that...\".
 - If the passages do not answer the question, say \"Nobody knows\" or \"Legend says\".
 - Name no place, person, or event from after the year 25 ADP.
 - Answer in at most 80 words, in plain text, in the voice of a historian.
@@ -44,7 +46,15 @@ pub fn lore(question: &str, context: &Context<'_>, passages: &[Passage]) -> Stri
     }
     prompt.push_str("\nPassages:\n");
     for (index, passage) in passages.iter().enumerate() {
-        let _ = writeln!(prompt, "[{}] {}", index + 1, passage.text);
+        let number = index + 1;
+        let _ = match passage.origin {
+            Origin::Pack => writeln!(prompt, "[{number}] {}", passage.text),
+            Origin::Read => writeln!(
+                prompt,
+                "[{number}] (The player learned this from {}.) {}",
+                passage.source, passage.text
+            ),
+        };
     }
     let _ = write!(prompt, "\nQuestion: {question}");
     prompt

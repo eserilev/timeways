@@ -882,8 +882,8 @@ impl Story {
 
 /// The question and where you stand pick the passages. The spoiler limit then drops each
 /// passage of the pack about something that your world does not hold. The text that you
-/// saw passes it, and takes turns with the pack. The rest stop at the size that leaves room
-/// for a model answer in one reply.
+/// read passes it, and comes first: the pack only fills the gaps (GAMEPLAY.md 3.1.1). The
+/// rest stop at the size that leaves room for a model answer in one reply.
 fn passages_for(
     pack: &Pack,
     seen: &SeenIndex,
@@ -895,14 +895,15 @@ fn passages_for(
     words.extend(character.place_names());
     words.extend(target);
     let words = words.join(" ");
-    let known: Vec<Passage> = pack
-        .search(&words, CANDIDATES)?
-        .into_iter()
-        .filter(|passage| knows_all(character, &passage.links))
-        .collect();
+    let mut found = seen.search(&words, CANDIDATES)?;
+    found.extend(
+        pack.search(&words, CANDIDATES)?
+            .into_iter()
+            .filter(|passage| knows_all(character, &passage.links)),
+    );
     let mut passages = Vec::new();
     let mut used = 0;
-    for passage in take_turns(seen.search(&words, CANDIDATES)?, known) {
+    for passage in found {
         used += serde_json::to_vec(&passage).map_or(PAGE_BYTES, |bytes| bytes.len()) + 1;
         if passages.len() == ANSWER_SIZE || used > PASSAGE_BYTES {
             break;
@@ -910,20 +911,6 @@ fn passages_for(
         passages.push(passage);
     }
     Ok(passages)
-}
-
-fn take_turns(first: Vec<Passage>, second: Vec<Passage>) -> Vec<Passage> {
-    let mut first = first.into_iter();
-    let mut second = second.into_iter();
-    let mut turns = Vec::new();
-    loop {
-        let (a, b) = (first.next(), second.next());
-        if a.is_none() && b.is_none() {
-            return turns;
-        }
-        turns.extend(a);
-        turns.extend(b);
-    }
 }
 
 /// A seen text keeps its line breaks. Any other control character comes from a bug or a

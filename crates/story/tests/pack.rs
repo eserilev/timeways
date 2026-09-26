@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use std::path::{Path, PathBuf};
-use timeways_story::pack::{Link, Pack, PackError, Passage};
+use timeways_story::pack::{Link, Origin, Pack, PackError, Passage};
 
 fn fresh_path(name: &str) -> PathBuf {
     let path = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("pack-{name}.sqlite"));
@@ -14,6 +14,7 @@ fn passage(text: &str, source: &str, links: Vec<Link>) -> Passage {
         text: text.to_string(),
         source: source.to_string(),
         links,
+        origin: Origin::Pack,
     }
 }
 

@@ -62,6 +62,18 @@ You target an NPC, stand in a place, or hold a quest, and you ask a question: `/
 
 This slice tests the whole chain with one question and one answer: the addon, the relay, the world, the spoiler limit, and the agent.
 
+#### 3.1.1 Emergent lore, on a seeded floor
+
+Most lore comes from play. You learn what your character read or heard: quests, gossip, and books (5.10). Two players know different things, and what you know is part of your story.
+
+- **What you read comes first.** A question uses your own text first. The lore pack only fills the gaps. (Built)
+- **The answer says where you learned it:** "You read in *The Kingdom of Stormwind* that…". (Built)
+- **A Learned page** in the journal lists what you read and heard (3.6).
+- **The narrator notices** a first book about a place, or a first story from an NPC, as a small moment.
+- **Only game text is canon.** The words of an NPC in `/talk` come from a model. They go into your journal as a rumor, never as a fact, and `/lore` never cites them.
+
+**The seed is the floor.** Some lore is common knowledge in 25 ADP: the kingdoms, the factions, the big names, and the zones. The seed holds it, so `/lore` is not empty on the first day. It stays small and general. The deep lore of the pack stays behind the spoiler limit (3.1), and opens as you visit places and meet people. The zones come from the game files (5.10), and the rest is a short list that a person checks (open question 6).
+
 ### 3.2 The narrator
 
 No invented companion rides along. A narrator tells the big moments as they happen, in one short line in the voice of the chronicle, about "our hero". The chronicle speaks after a session. The narrator is the only voice while you play.
@@ -128,6 +140,7 @@ The desktop sends the pages each time the book opens, because the world lives th
 | **Places** | Each zone, with the date of the first visit, and its subzones under it | Built |
 | **People** | Each NPC that you met, with the place, the date, your slaps, and its trust in you | Built |
 | **Deeds** | Level milestones, first kills of rares and bosses, repeat kills (echoes, 5.13), your deaths, and your joke titles (5.4.1) | Built |
+| **Learned** | What you read and heard (3.1.1): each book, each quest tale, and each story of an NPC, with the place and the date. A rumor from `/talk` shows as a rumor. | Later |
 | **Nemesis** | Real players from world PvP only: the kill count on each side, the places, and the last time seen (4.1). Aliases only (5.11). | Later |
 | **Quests** | The personal side quests (3.4) | Later |
 
@@ -452,7 +465,7 @@ A web request for each question is slow, depends on one website, and sends whole
 - **The text that the player saw** (built): the addon sends the game text of each quest, gossip window, and book as the player reads it. It covers the text that the server sends and the client files do not hold.
   - The name of the character becomes `$N` in the addon, so no model sees it (5.11). A letter that a player wrote has a creator, and never goes out.
   - A file for each character keeps each text once (`c_<name>.seen.jsonl`). An index in memory searches it, and is built again at each start.
-  - The player read the text, so it passes the spoiler limit. A search takes turns between this text and the pack.
+  - The player read the text, so it passes the spoiler limit. A search uses this text first, and the pack fills the rest (3.1.1).
   - The addon cuts a text at 2000 bytes.
 - **Not in the saved variables.** Any addon can read the saved variables of another addon, so they hold only window state.
 

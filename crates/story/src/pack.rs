@@ -29,6 +29,15 @@ pub struct Passage {
     /// What the passage is about. The spoiler limit shows it only when the world holds all of them.
     #[serde(skip)]
     pub links: Vec<Link>,
+    #[serde(skip)]
+    pub origin: Origin,
+}
+
+/// Where a passage comes from. Text that the player read is their own lore (GAMEPLAY.md 3.1.1).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Origin {
+    Pack,
+    Read,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -115,6 +124,7 @@ impl Pack {
                 text,
                 source,
                 links,
+                origin: Origin::Pack,
             });
         }
         Ok(passages)

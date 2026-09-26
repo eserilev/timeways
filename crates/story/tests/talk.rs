@@ -1,4 +1,4 @@
-use timeways_story::pack::{Link, Passage};
+use timeways_story::pack::{Link, Origin, Passage};
 use timeways_story::talk::{Answer, MAX_SAY_CHARS, Scene, checked_answer, prompt};
 
 fn farley() -> Scene<'static> {
@@ -18,6 +18,7 @@ fn a_prompt_holds_what_the_npc_knows_and_ends_with_the_words_of_the_player() {
         text: "The inn of Testvale is old.".to_string(),
         source: "https://example.test/1".to_string(),
         links: vec![Link::Place("Testvale".to_string())],
+        origin: Origin::Pack,
     };
 
     let prompt = prompt(&farley(), &[lore], "any news?");
