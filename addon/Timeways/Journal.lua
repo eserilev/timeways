@@ -1,5 +1,5 @@
--- The pages of the journal: the hero, the chronicle, places, people, and deeds
--- (GAMEPLAY.md 3.6 and 3.7).
+-- The pages of the journal: the hero, the chronicle, places, people, deeds, and what you
+-- learned (GAMEPLAY.md 3.1.1, 3.6, and 3.7).
 -- The desktop sends them, because the world lives there and never in the saved variables
 -- (5.10).
 
@@ -8,11 +8,18 @@ local _, ns = ...
 local Journal = {}
 ns.Journal = Journal
 
-Journal.SECTIONS = { "hero", "chapters", "places", "people", "deeds" }
-Journal.TITLES = { hero = "Hero", chapters = "Chronicle", places = "Places", people = "People", deeds = "Deeds" }
+Journal.SECTIONS = { "hero", "chapters", "places", "people", "deeds", "learned" }
+Journal.TITLES = {
+	hero = "Hero",
+	chapters = "Chronicle",
+	places = "Places",
+	people = "People",
+	deeds = "Deeds",
+	learned = "Learned",
+}
 
 -- The lists that come in pages. The sheet of the hero comes on the first page only.
-local LISTS = { "chapters", "places", "people", "deeds" }
+local LISTS = { "chapters", "places", "people", "deeds", "learned" }
 
 -- A reply holds at most 24 KB, so a long journal comes in pages. More than this many
 -- pages means a broken reply, not a long journal.
@@ -51,7 +58,7 @@ function Journal.Receive(value)
 	end
 	local hero = type(value.hero) == "table" and value.hero or {}
 	if page == 0 then
-		collecting = { chapters = {}, places = {}, people = {}, deeds = {}, next = 0 }
+		collecting = { chapters = {}, places = {}, people = {}, deeds = {}, learned = {}, next = 0 }
 		collecting.hero = { sheet = Entries(hero.sheet), entries = {} }
 		ns.Hero.ShowRefused(value.hero_refused)
 	end
@@ -230,6 +237,46 @@ local function Chapters(chapters)
 	return lines
 end
 
+-- The desktop keeps `$N` in place of the name of the character, so no model sees it (5.11).
+local function WithName(text)
+	local name = UnitName("player")
+	local shown = type(name) == "string" and not issecretvalue(name) and name:gsub("%%", "%%%%") or "you"
+	return (ns.Plain(text):gsub("%$N", shown))
+end
+
+local LEARNED_TITLES = {
+	book = function(entry)
+		return "Read " .. Name(entry.title)
+	end,
+	quest = function(entry)
+		return "The quest " .. Name(entry.title)
+	end,
+	gossip = function(entry)
+		return "Heard from " .. Name(entry.npc)
+	end,
+	rumor = function(entry)
+		return "A rumor from " .. Name(entry.npc)
+	end,
+}
+
+-- A rumor is the word of a model, never canon (3.1.1), and the page says so.
+local function Learned(entries)
+	local lines = {}
+	for _, entry in ipairs(entries) do
+		local title = LEARNED_TITLES[entry.kind]
+		if title then
+			lines[#lines + 1] = Line("entry", title(entry))
+			if type(entry.excerpt) == "string" then
+				lines[#lines + 1] = Line("prose", WithName(entry.excerpt))
+			end
+			local place = type(entry.place) == "string" and (Name(entry.place) .. ", ") or ""
+			local rumor = entry.kind == "rumor" and "Only a rumor. " or ""
+			lines[#lines + 1] = Line("text", rumor .. place .. Day(entry.at) .. ".")
+		end
+	end
+	return lines
+end
+
 -- Who the hero is (3.7): each field of the sheet with its button, then the player's own lore.
 local function Hero(hero)
 	local lines = { Line("heading", "Who you are") }
@@ -273,13 +320,21 @@ local function Hero(hero)
 	return lines
 end
 
-local BUILDERS = { hero = Hero, chapters = Chapters, places = Places, people = People, deeds = Deeds }
+local BUILDERS = {
+	hero = Hero,
+	chapters = Chapters,
+	places = Places,
+	people = People,
+	deeds = Deeds,
+	learned = Learned,
+}
 
 local EMPTY = {
 	chapters = "No chapter is written yet.",
 	places = "You have not traveled yet.",
 	people = "You have met no one yet.",
 	deeds = "Your deeds are not written yet.",
+	learned = "You have learned nothing yet. Read a book, or listen to the people you meet.",
 }
 
 -- Each line is { style = "heading" | "prose" | "entry" | "text" | "note", text = ... }.

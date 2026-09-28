@@ -5,3 +5,4 @@
 # It is recommended to check this file in to source control so that
 # everyone who runs the test benefits from these saved cases.
 cc b51e8284730ffdc960236c478ba3abc72a9cb5e72ceb82dc0d8e0071b8f0313b # shrinks to changes = [-9223372036854775808, -9223372036854775808]
+cc 2b2d62ed1cf3a18ef87b003fe1735f18cd583fa0b76d15700c838eedc2121616 # shrinks to plays = [HeroAdd(" ")], restarts = []

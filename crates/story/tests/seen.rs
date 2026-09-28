@@ -172,8 +172,8 @@ fn text_that_you_saw_stays_after_a_restart_and_is_written_once() {
         .unwrap()
         .flat_map(|realm| std::fs::read_dir(realm.unwrap().path()).unwrap())
         .map(|entry| entry.unwrap().path())
-        .find(|path| path.to_string_lossy().ends_with(".seen.jsonl"))
-        .expect("a seen file");
+        .find(|path| path.to_string_lossy().ends_with(".learned.jsonl"))
+        .expect("a learned file");
     assert_eq!(std::fs::read_to_string(file).unwrap().lines().count(), 1);
 }
 
@@ -244,4 +244,179 @@ fn an_npc_that_you_talk_to_knows_what_it_told_you() {
         panic!("expected a model call, got {outputs:?}");
     };
     assert!(prompt.contains("The gnolls grow bold."));
+}
+
+fn book(title: &str, text: &str) -> Input {
+    Input::TextSeen {
+        at: Tick(10),
+        kind: TextKind::Book,
+        title: Some(title.to_string()),
+        npc: None,
+        zone: Some("Stormwind City".to_string()),
+        text: text.to_string(),
+    }
+}
+
+fn learned_page(story: &mut Story) -> Vec<serde_json::Value> {
+    let outputs = story
+        .handle(Input::JournalAsked {
+            id: MessageId(9),
+            page: 0,
+        })
+        .unwrap();
+    let json = serde_json::to_value(&outputs[0]).unwrap();
+    json["learned"].as_array().unwrap().clone()
+}
+
+/// Asks an NPC, and answers the model call with `reply`.
+fn talk(story: &mut Story, npc: &str, reply: &str) -> Vec<Output> {
+    let outputs = story
+        .handle(Input::TalkAsked {
+            id: MessageId(3),
+            at: Tick(20),
+            npc: npc.to_string(),
+            text: "any news".to_string(),
+        })
+        .unwrap();
+    let Some(Output::ModelCall { call, .. }) = outputs.first() else {
+        panic!("expected a model call, got {outputs:?}");
+    };
+    story
+        .handle(Input::ModelAnswered {
+            call: *call,
+            text: reply.to_string(),
+        })
+        .unwrap()
+}
+
+#[test]
+fn the_learned_page_lists_what_you_read() {
+    let mut story = story_with("learned-page", &[]);
+    story
+        .handle(book("The Kingdom of Stormwind", "Long ago."))
+        .unwrap();
+
+    let learned = learned_page(&mut story);
+
+    assert_eq!(learned.len(), 1);
+    assert_eq!(learned[0]["kind"], "book");
+    assert_eq!(learned[0]["title"], "The Kingdom of Stormwind");
+    assert_eq!(learned[0]["excerpt"], "Long ago.");
+}
+
+#[test]
+fn the_words_of_an_npc_go_into_the_journal_as_a_rumor() {
+    let mut story = story_with("rumor", &[]);
+
+    talk(
+        &mut story,
+        "Innkeeper Farley",
+        r#"{"say": "The gnolls grow bold.", "trust": 0}"#,
+    );
+
+    let learned = learned_page(&mut story);
+    assert_eq!(learned.len(), 1);
+    assert_eq!(learned[0]["kind"], "rumor");
+    assert_eq!(learned[0]["npc"], "Innkeeper Farley");
+}
+
+#[test]
+fn a_rumor_is_never_a_source_of_lore() {
+    let mut story = story_with("rumor-no-lore", &[]);
+    talk(
+        &mut story,
+        "Innkeeper Farley",
+        r#"{"say": "The dragons hide in the mountain.", "trust": 0}"#,
+    );
+
+    let found = sources(&mut story, "dragons mountain");
+
+    assert!(found.is_empty(), "{found:?}");
+}
+
+#[test]
+fn an_answer_that_breaks_a_rule_leaves_no_rumor() {
+    let mut story = story_with("no-rumor", &[]);
+
+    talk(&mut story, "Innkeeper Farley", "not json");
+
+    assert!(learned_page(&mut story).is_empty());
+}
+
+#[test]
+fn what_you_learned_stays_after_a_restart() {
+    let folder = folder("learned-restart");
+    let mut story = story_in(&folder, &[], Store::Folder(folder.clone()));
+    story
+        .handle(book("The Kingdom of Stormwind", "Long ago."))
+        .unwrap();
+    talk(
+        &mut story,
+        "Innkeeper Farley",
+        r#"{"say": "Welcome back.", "trust": 0}"#,
+    );
+    drop(story);
+
+    let mut story = story_in(&folder, &[], Store::Folder(folder.clone()));
+
+    let kinds: Vec<String> = learned_page(&mut story)
+        .iter()
+        .map(|entry| entry["kind"].as_str().unwrap().to_string())
+        .collect();
+    assert_eq!(kinds, ["book", "rumor"]);
+}
+
+#[test]
+fn a_first_book_reaches_the_narrator() {
+    let mut story = story_with("first-book", &[]);
+    story
+        .handle(book("The Kingdom of Stormwind", "Long ago."))
+        .unwrap();
+
+    let outputs = story.handle(Input::BatchEnd { id: MessageId(4) }).unwrap();
+
+    let prompts: Vec<&String> = outputs
+        .iter()
+        .filter_map(|output| match output {
+            Output::ModelCall { prompt, .. } => Some(prompt),
+            _ => None,
+        })
+        .collect();
+    assert!(
+        prompts
+            .iter()
+            .any(|prompt| prompt.contains("read \"The Kingdom of Stormwind\"")),
+        "{outputs:?}"
+    );
+}
+
+#[test]
+fn the_same_book_twice_is_one_moment() {
+    let mut story = story_with("same-book", &[]);
+    story.handle(book("A History", "Long ago.")).unwrap();
+
+    let again = story.handle(book("A History", "Long ago.")).unwrap();
+
+    assert_eq!(again, []);
+    assert_eq!(learned_page(&mut story).len(), 1);
+}
+
+#[test]
+fn ten_books_earn_the_title_bookworm() {
+    let mut story = story_with("bookworm", &[]);
+
+    for n in 0..10 {
+        story
+            .handle(book(&format!("Book {n}"), "Long ago."))
+            .unwrap();
+    }
+
+    let outputs = story
+        .handle(Input::JournalAsked {
+            id: MessageId(9),
+            page: 0,
+        })
+        .unwrap();
+    let json = serde_json::to_string(&outputs[0]).unwrap();
+    assert!(json.contains("\"title\":\"Bookworm\""), "{json}");
 }

@@ -7,11 +7,14 @@ pub mod flavor;
 pub mod hero;
 pub mod input;
 pub mod journal;
+pub mod learned;
 pub mod lore;
 pub mod moments;
 pub mod narrator;
 pub mod pack;
 pub mod prompt;
+#[cfg(kani)]
+mod proofs;
 pub mod seen;
 pub mod serve;
 pub mod store;

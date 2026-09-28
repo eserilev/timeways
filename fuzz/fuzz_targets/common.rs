@@ -4,7 +4,7 @@ use serde_json::Value;
 use std::path::PathBuf;
 use std::sync::OnceLock;
 use timeways_story::journal::PAGE_BYTES;
-use timeways_story::pack::{Link, Pack, Passage, Origin};
+use timeways_story::pack::{Link, Origin, Pack, Passage};
 
 /// One pack for each fuzz process, written once.
 pub fn pack() -> Pack {

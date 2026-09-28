@@ -362,7 +362,7 @@ impl Character {
             .entity(npc)
             .and_then(|entity| entity.fact(TRUSTS, Some(self.you)))
             .and_then(|fact| fact.value);
-        let to = TRUST.clamp(held.unwrap_or(0).saturating_add(by));
+        let to = next_trust(held, by);
         let kind = match held {
             Some(from) if from == to => return Ok(()),
             Some(from) => EventKind::FactUpdate {
@@ -449,4 +449,10 @@ impl Character {
     fn propose(&mut self, at: Tick, kind: EventKind) -> Result<(), Refusal> {
         self.world.propose(at, kind).map(|_| ())
     }
+}
+
+/// The trust after a change of `by`, inside the band. An NPC with no trust yet starts at 0.
+#[must_use]
+pub fn next_trust(held: Option<i64>, by: i64) -> i64 {
+    TRUST.clamp(held.unwrap_or(0).saturating_add(by))
 }

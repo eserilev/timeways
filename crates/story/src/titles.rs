@@ -10,7 +10,7 @@ struct Rule {
     earned: fn(&[Flavor], &Character) -> bool,
 }
 
-const RULES: [Rule; 7] = [
+const RULES: [Rule; 8] = [
     Rule {
         title: "Lord of the Goldshire Dance Floor",
         earned: |moments, _| dances(moments, Some("Goldshire")) >= 3,
@@ -37,6 +37,16 @@ const RULES: [Rule; 7] = [
             moments
                 .iter()
                 .any(|m| matches!(m.kind, Kind::Humbled { .. }))
+        },
+    },
+    Rule {
+        title: "Bookworm",
+        earned: |moments, _| {
+            moments
+                .iter()
+                .filter(|m| matches!(m.kind, Kind::Read { .. }))
+                .count()
+                >= 10
         },
     },
     Rule {

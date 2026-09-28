@@ -19,8 +19,8 @@ local STYLES = {
 	note = { font = "QuestFontNormalSmall", indent = 0, gap = 0 },
 }
 
--- 5 tabs fit in the row of buttons of the quest frame at this width.
-local TAB_WIDTH, TAB_STEP = 64, 66
+-- 6 tabs with the small font fit in the row of buttons of the quest frame at this width.
+local TAB_WIDTH, TAB_STEP = 54, 55
 local ACTION_WIDTH, ACTION_HEIGHT = 58, 18
 
 local frame, scroll, page
@@ -84,6 +84,9 @@ local function BuildTabs()
 		local tab = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
 		tab:SetSize(TAB_WIDTH, 22)
 		tab:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 22 + (n - 1) * TAB_STEP, 72)
+		tab:SetNormalFontObject("GameFontNormalSmall")
+		tab:SetHighlightFontObject("GameFontHighlightSmall")
+		tab:SetDisabledFontObject("GameFontDisableSmall")
 		tab:SetText(ns.Journal.TITLES[name])
 		tab:SetScript("OnClick", function()
 			JournalFrame.Open(name)

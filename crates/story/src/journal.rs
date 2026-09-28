@@ -3,6 +3,7 @@
 
 use crate::character::Character;
 use crate::hero::{Entry, Hero};
+use crate::learned::Learned;
 use crate::vocabulary::{DEATHS, DEFEATED, LEVEL, MET, SLAPPED, TITLE, TRUSTS, VISITED};
 use hourglass::{EntityId, EventKind, LOCATED_IN, Tick, World};
 use serde::Serialize;
@@ -14,7 +15,7 @@ pub const PAGE_BYTES: usize = 24_576;
 const PAGE_LIST_ITEMS: usize = 200;
 
 /// Room for the type, the id, the page numbers, and the empty lists of a page line.
-const FRAME_BYTES: usize = 160;
+const FRAME_BYTES: usize = 192;
 
 /// No event for this long ends a chapter of the chronicle: the player stopped playing.
 const SESSION_GAP_SECONDS: u64 = 30 * 60;
@@ -33,6 +34,8 @@ pub struct Journal {
     pub places: Vec<Place>,
     pub people: Vec<Person>,
     pub deeds: Vec<Deed>,
+    /// What you read and heard (GAMEPLAY.md 3.1.1).
+    pub learned: Vec<Learned>,
 }
 
 /// One play session of the chronicle, with no model: what was new in it (GAMEPLAY.md
@@ -137,7 +140,8 @@ pub fn pages(journal: Journal) -> Vec<Page> {
         .chain(journal.chapters.into_iter().map(Item::Chapter))
         .chain(journal.places.into_iter().map(Item::Place))
         .chain(journal.people.into_iter().map(Item::Person))
-        .chain(journal.deeds.into_iter().map(Item::Deed));
+        .chain(journal.deeds.into_iter().map(Item::Deed))
+        .chain(journal.learned.into_iter().map(Item::Learned));
     for item in items {
         let size = item.size() + 1;
         let list_full = item.list_len(&current) >= PAGE_LIST_ITEMS;
@@ -167,6 +171,7 @@ enum Item {
     Place(Place),
     Person(Person),
     Deed(Deed),
+    Learned(Learned),
 }
 
 impl Item {
@@ -179,6 +184,7 @@ impl Item {
             Item::Place(place) => serde_json::to_vec(place),
             Item::Person(person) => serde_json::to_vec(person),
             Item::Deed(deed) => serde_json::to_vec(deed),
+            Item::Learned(learned) => serde_json::to_vec(learned),
         };
         bytes.map_or(PAGE_BYTES, |bytes| bytes.len())
     }
@@ -191,6 +197,7 @@ impl Item {
             Item::Place(_) => journal.places.len(),
             Item::Person(_) => journal.people.len(),
             Item::Deed(_) => journal.deeds.len(),
+            Item::Learned(_) => journal.learned.len(),
         }
     }
 
@@ -201,6 +208,7 @@ impl Item {
             Item::Place(place) => journal.places.push(place),
             Item::Person(person) => journal.people.push(person),
             Item::Deed(deed) => journal.deeds.push(deed),
+            Item::Learned(learned) => journal.learned.push(learned),
         }
     }
 }

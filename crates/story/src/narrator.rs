@@ -5,7 +5,6 @@ use crate::check::plain_text;
 use crate::hero::OWN_WORDS;
 use crate::moments::Moment;
 use hourglass::Tick;
-use std::collections::VecDeque;
 
 /// About 50 words. The prompt asks for 25.
 pub const MAX_LINE_CHARS: usize = 300;
@@ -29,23 +28,19 @@ Rules:
 /// Counts the lines of the last hour of game time, so the narrator talks little.
 #[derive(Debug, Default)]
 pub struct Budget {
-    spoken: VecDeque<Tick>,
+    /// The times of the last lines, oldest first. No heap, so Kani proves the budget fast.
+    spoken: [Option<Tick>; LINES_PER_HOUR],
 }
 
 impl Budget {
     /// True when the narrator has a line left at `at`. That line then counts.
     pub fn take(&mut self, at: Tick) -> bool {
-        while self
-            .spoken
-            .front()
-            .is_some_and(|first| at.0.saturating_sub(first.0) >= HOUR)
-        {
-            self.spoken.pop_front();
-        }
-        if self.spoken.len() >= LINES_PER_HOUR {
+        let oldest = self.spoken[0];
+        if oldest.is_some_and(|first| at.0.saturating_sub(first.0) < HOUR) {
             return false;
         }
-        self.spoken.push_back(at);
+        self.spoken.rotate_left(1);
+        self.spoken[LINES_PER_HOUR - 1] = Some(at);
         true
     }
 }

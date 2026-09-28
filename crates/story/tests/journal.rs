@@ -4,7 +4,9 @@ use hourglass::Tick;
 use timeways_story::character::Character;
 use timeways_story::input::MessageId;
 use timeways_story::journal::{Chapter, Deed, Journal, PAGE_BYTES, Person, Place, journal, pages};
-use timeways_story::story::Output;
+use timeways_story::learned::{Read, learned};
+use timeways_story::seen::{MAX_SEEN_BYTES, SeenText, TextKind};
+use timeways_story::story::{MAX_NAME_BYTES, Output};
 
 fn place(name: &str, within: Option<&str>, first_visit: u64) -> Place {
     Place {
@@ -133,6 +135,7 @@ fn a_journal_serializes_with_a_kind_on_each_deed() {
         "places": [],
         "people": [],
         "deeds": [{ "kind": "level", "from": null, "to": 12, "at": 5, "place": null }],
+        "learned": [],
     });
     assert_eq!(json, expected);
 }
@@ -196,6 +199,7 @@ fn the_pages_joined_are_the_whole_journal_in_order() {
         joined.places.extend(page.journal.places);
         joined.people.extend(page.journal.people);
         joined.deeds.extend(page.journal.deeds);
+        joined.learned.extend(page.journal.learned);
     }
 
     assert_eq!(joined, whole);
@@ -428,4 +432,43 @@ fn no_page_holds_more_than_two_hundred_items_in_one_list() {
     assert!(pages.iter().all(|page| page.journal.places.len() <= 200));
     let places: usize = pages.iter().map(|page| page.journal.places.len()).sum();
     assert_eq!(places, 450);
+}
+
+#[test]
+fn a_long_list_of_what_you_learned_fits_on_pages_and_keeps_its_order() {
+    let longest_name = "n".repeat(MAX_NAME_BYTES);
+    let read: Vec<Read> = (0..500)
+        .map(|n| Read {
+            at: Tick(n),
+            text: SeenText {
+                kind: TextKind::Book,
+                title: Some(longest_name.clone()),
+                npc: Some(longest_name.clone()),
+                zone: Some(longest_name.clone()),
+                text: "\u{7a0}".repeat(MAX_SEEN_BYTES / 2),
+            },
+        })
+        .collect();
+    let whole = Journal {
+        learned: learned(&read, &[]),
+        ..Journal::default()
+    };
+
+    let pages = pages(whole.clone());
+
+    let mut joined = Vec::new();
+    for page in pages {
+        assert!(page.journal.learned.len() <= 200);
+        let output = Output::Journal {
+            id: MessageId(u64::MAX),
+            page,
+        };
+        let line = serde_json::to_string(&output).unwrap();
+        assert!(line.len() <= PAGE_BYTES, "{} bytes", line.len());
+        let Output::Journal { page, .. } = output else {
+            unreachable!()
+        };
+        joined.extend(page.journal.learned);
+    }
+    assert_eq!(joined, whole.learned);
 }

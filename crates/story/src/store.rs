@@ -4,7 +4,7 @@
 use crate::character::Character;
 use crate::flavor::{Flavor, Told};
 use crate::hero::Change;
-use crate::seen::SeenText;
+use crate::learned::{Read, Rumor};
 use hourglass::{Event, EventId, Tick};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -249,29 +249,55 @@ impl HeroLog {
     }
 }
 
-/// The game text that the player saw, oldest first (see `seen`).
+/// What the player read and heard, oldest first (see `learned`).
 #[derive(Debug, Default)]
-pub struct SeenLog {
-    texts: Vec<SeenText>,
+pub struct LearnedLog {
+    read: Vec<Read>,
+    rumors: Vec<Rumor>,
     path: Option<PathBuf>,
 }
 
-impl SeenLog {
+#[derive(Serialize, Deserialize)]
+#[serde(tag = "line", rename_all = "snake_case")]
+enum LearnedLine {
+    Read(Read),
+    Rumor(Rumor),
+}
+
+impl LearnedLog {
     #[must_use]
-    pub fn texts(&self) -> &[SeenText] {
-        &self.texts
+    pub fn read(&self) -> &[Read] {
+        &self.read
+    }
+
+    #[must_use]
+    pub fn rumors(&self) -> &[Rumor] {
+        &self.rumors
     }
 
     /// # Errors
     ///
     /// Returns the I/O error of the write, and then keeps nothing.
-    pub fn add(&mut self, text: SeenText) -> Result<(), StoreError> {
-        if let Some(path) = &self.path {
-            append_lines(path, std::slice::from_ref(&text))
-                .map_err(|source| io_error(path, source))?;
-        }
-        self.texts.push(text);
+    pub fn add_read(&mut self, read: Read) -> Result<(), StoreError> {
+        self.write(LearnedLine::Read(read.clone()))?;
+        self.read.push(read);
         Ok(())
+    }
+
+    /// # Errors
+    ///
+    /// Returns the I/O error of the write, and then keeps nothing.
+    pub fn add_rumor(&mut self, rumor: Rumor) -> Result<(), StoreError> {
+        self.write(LearnedLine::Rumor(rumor.clone()))?;
+        self.rumors.push(rumor);
+        Ok(())
+    }
+
+    fn write(&self, line: LearnedLine) -> Result<(), StoreError> {
+        let Some(path) = &self.path else {
+            return Ok(());
+        };
+        append_lines(path, &[line]).map_err(|source| io_error(path, source))
     }
 }
 
@@ -282,7 +308,7 @@ pub struct Opened {
     pub prose: Prose,
     pub flavor: FlavorLog,
     pub hero: HeroLog,
-    pub seen: SeenLog,
+    pub learned: LearnedLog,
 }
 
 impl Store {
@@ -298,7 +324,7 @@ impl Store {
                 prose: Prose::default(),
                 flavor: FlavorLog::default(),
                 hero: HeroLog::default(),
-                seen: SeenLog::default(),
+                learned: LearnedLog::default(),
             });
         };
         let path = folder.join(key.relative_path());
@@ -350,13 +376,19 @@ impl Store {
             changes,
             path: Some(hero_path),
         };
-        let seen_path = path.with_extension("seen.jsonl");
-        let texts: Vec<SeenText> =
-            read_lines(&seen_path, |_, _| true).map_err(|source| io_error(&seen_path, source))?;
-        let seen = SeenLog {
-            texts,
-            path: Some(seen_path),
+        let learned_path = path.with_extension("learned.jsonl");
+        let lines: Vec<LearnedLine> = read_lines(&learned_path, |_, _| true)
+            .map_err(|source| io_error(&learned_path, source))?;
+        let mut learned = LearnedLog {
+            path: Some(learned_path),
+            ..LearnedLog::default()
         };
+        for line in lines {
+            match line {
+                LearnedLine::Read(read) => learned.read.push(read),
+                LearnedLine::Rumor(rumor) => learned.rumors.push(rumor),
+            }
+        }
         let history = HistoryFile {
             path,
             len: events.len(),
@@ -367,7 +399,7 @@ impl Store {
             prose,
             flavor,
             hero,
-            seen,
+            learned,
         })
     }
 }

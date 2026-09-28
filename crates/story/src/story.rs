@@ -6,14 +6,15 @@ use crate::flavor::{self, Flavor, HUMBLING_GAP, Kind, Told};
 use crate::hero::{self, Change, Entry};
 use crate::input::{CallId, Input, MessageId};
 use crate::journal::{PAGE_BYTES, Page, journal, pages};
+use crate::learned::{Read, Rumor, learned};
 use crate::lore::{Answer, LoreCall, Next};
 use crate::moments::{Moment, best, moments};
 use crate::narrator::{self, Budget};
 use crate::pack::{Link, Pack, PackError, Passage};
 use crate::prompt::Context;
-use crate::seen::{MAX_SEEN_BYTES, SeenIndex, SeenText};
+use crate::seen::{MAX_SEEN_BYTES, SeenIndex, SeenText, TextKind};
 use crate::store::{
-    CharacterKey, FlavorLog, HeroLog, HistoryFile, Opened, Prose, SeenLog, Store, StoreError,
+    CharacterKey, FlavorLog, HeroLog, HistoryFile, LearnedLog, Opened, Prose, Store, StoreError,
     Written,
 };
 use crate::talk::{self, Scene};
@@ -126,7 +127,7 @@ struct Active {
     prose: Prose,
     flavor: FlavorLog,
     hero: HeroLog,
-    seen: SeenLog,
+    learned: LearnedLog,
     seen_index: SeenIndex,
     /// Why the last edit of the hero did not stand, until a journal page shows it.
     hero_refused: Option<String>,
@@ -290,7 +291,7 @@ impl Story {
                 self.change(|character| character.reach_level(at, level))
             }
             Input::TextSeen {
-                at: _,
+                at,
                 kind,
                 title,
                 npc,
@@ -304,8 +305,7 @@ impl Story {
                     zone,
                     text,
                 })?;
-                self.add_seen(seen)?;
-                Ok(Vec::new())
+                self.add_seen(at, seen)
             }
             Input::LoreAsked {
                 id,
@@ -402,6 +402,17 @@ impl Story {
             .active
             .as_ref()
             .is_some_and(|active| &active.key == key);
+        if same {
+            let rumor = Rumor {
+                at: asked_at,
+                npc: npc.clone(),
+                text: answer.say.clone(),
+            };
+            // A failed write loses one rumor. The words still show.
+            if let Some(active) = self.active.as_mut() {
+                let _ = active.learned.add_rumor(rumor);
+            }
+        }
         if same && answer.trust_change != 0 {
             // A refusal is not possible here, and a failed save keeps the events in
             // memory for the next save, so the words need not wait for either.
@@ -436,15 +447,27 @@ impl Story {
         })
     }
 
-    /// A text that the character saw before changes nothing, also on the disk.
-    fn add_seen(&mut self, text: SeenText) -> Result<(), StoryError> {
+    /// A text that the character saw before changes nothing, also on the disk. A new book
+    /// is a small moment for the narrator (GAMEPLAY.md 3.1.1).
+    fn add_seen(&mut self, at: Tick, text: SeenText) -> Result<Vec<Output>, StoryError> {
         let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
         if active.seen_index.contains(&text) {
-            return Ok(());
+            return Ok(Vec::new());
         }
-        active.seen.add(text.clone())?;
+        let book = match (text.kind, &text.title) {
+            (TextKind::Book, Some(title)) => Some(title.clone()),
+            _ => None,
+        };
+        let read = Read {
+            at,
+            text: text.clone(),
+        };
+        active.learned.add_read(read)?;
         active.seen_index.add(text)?;
-        Ok(())
+        match book {
+            Some(title) => self.record_flavor(at, None, Kind::Read { title }),
+            None => Ok(Vec::new()),
+        }
     }
 
     /// The same character again changes nothing, so each batch can name it.
@@ -472,9 +495,14 @@ impl Story {
             prose,
             flavor,
             hero,
-            seen,
+            learned,
         } = self.store.open(&key)?;
-        let seen_index = SeenIndex::new(seen.texts())?;
+        let read: Vec<SeenText> = learned
+            .read()
+            .iter()
+            .map(|read| read.text.clone())
+            .collect();
+        let seen_index = SeenIndex::new(&read)?;
         self.active = Some(Active {
             key,
             character,
@@ -482,7 +510,7 @@ impl Story {
             prose,
             flavor,
             hero,
-            seen,
+            learned,
             seen_index,
             hero_refused: None,
         });
@@ -765,6 +793,7 @@ impl Story {
             }
             journal.hero = hero::hero(active.hero.changes());
             journal.hero_refused = active.hero_refused.take();
+            journal.learned = learned(active.learned.read(), active.learned.rumors());
             self.journal = pages(journal);
         }
         let page = self.journal.get(page).cloned().unwrap_or_else(|| Page {

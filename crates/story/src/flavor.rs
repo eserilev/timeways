@@ -49,6 +49,8 @@ pub enum Kind {
     FellTo { cause: String },
     /// A death to an NPC far below your level: "a level 60 killed by a cow".
     Humbled { killer: String, gap: i64 },
+    /// A book that you read for the first time (GAMEPLAY.md 3.1.1).
+    Read { title: String },
 }
 
 impl Kind {
@@ -60,6 +62,7 @@ impl Kind {
             Kind::Emote { emote, .. } => format!("emote:{emote}"),
             Kind::FellTo { cause } => format!("fell:{cause}"),
             Kind::Humbled { .. } => "humbled".to_string(),
+            Kind::Read { .. } => "read".to_string(),
         }
     }
 
@@ -68,7 +71,7 @@ impl Kind {
         match self {
             Kind::Emote { target, .. } => target.as_deref(),
             Kind::Humbled { killer, .. } => Some(killer),
-            Kind::FellTo { .. } => None,
+            Kind::FellTo { .. } | Kind::Read { .. } => None,
         }
     }
 }
@@ -121,10 +124,12 @@ fn rare_for_you(same: usize) -> i64 {
     }
 }
 
-/// +1 for each 10 levels of the gap, at most +4.
+/// +1 for each 10 levels of the gap, at most +4. A hero who reads is odd enough for +3, so
+/// the first book reaches the narrator.
 fn contrast(kind: &Kind) -> i64 {
     match kind {
         Kind::Humbled { gap, .. } => (gap / HUMBLING_GAP).clamp(0, 4),
+        Kind::Read { .. } => 3,
         _ => 0,
     }
 }
@@ -165,6 +170,9 @@ pub fn describe(flavor: &Flavor, count: usize) -> String {
         }
         Kind::Humbled { killer, gap } => {
             format!("{killer}, {gap} levels below the player, killed the player{place}{when}.")
+        }
+        Kind::Read { title } => {
+            format!("The player read \"{title}\"{place}{when}, the {nth} book that they read.")
         }
     }
 }

@@ -10,6 +10,7 @@ use timeways_story::character::Character;
 use timeways_story::input::{Input, MessageId};
 use timeways_story::journal::{Journal, journal, pages};
 use timeways_story::pack::Pack;
+use timeways_story::seen::TextKind;
 use timeways_story::store::{Store, safe_id};
 use timeways_story::story::{Output, Story};
 
@@ -26,6 +27,9 @@ enum Play {
     HeroSet(usize, String),
     HeroAdd(String),
     HeroRemove(u64),
+    Read(TextKind, Option<String>, String),
+    /// A talk, with the words of the model: a rumor.
+    Talk(String, String),
     Wait(u64),
 }
 
@@ -56,6 +60,13 @@ fn play() -> impl Strategy<Value = Play> {
         (0usize..6, "[A-Za-z ]{0,40}").prop_map(|(field, text)| Play::HeroSet(field, text)),
         "[A-Za-z ]{1,40}".prop_map(Play::HeroAdd),
         (1u64..6).prop_map(Play::HeroRemove),
+        (
+            prop::sample::select(vec![TextKind::Quest, TextKind::Gossip, TextKind::Book]),
+            prop::option::of(name()),
+            "[A-Za-z$ \n]{1,300}",
+        )
+            .prop_map(|(kind, title, text)| Play::Read(kind, title, text)),
+        (name(), "[A-Za-z ]{1,60}").prop_map(|(npc, say)| Play::Talk(npc, say)),
         (0u64..20_000).prop_map(Play::Wait),
     ]
 }
@@ -98,6 +109,20 @@ fn input(play: &Play, at: Tick) -> Option<Input> {
             npc: None,
         },
         Play::HeroRemove(number) => Input::HeroRemoved { at, number },
+        Play::Read(kind, title, text) => Input::TextSeen {
+            at,
+            kind,
+            title,
+            npc: None,
+            zone: Some("Goldshire".to_string()),
+            text,
+        },
+        Play::Talk(npc, _) => Input::TalkAsked {
+            id: MessageId(2),
+            at,
+            npc,
+            text: "any news".to_string(),
+        },
         Play::Wait(_) => return None,
     })
 }
@@ -126,7 +151,8 @@ fn story(folder: &Path, files: Store) -> Story {
     story
 }
 
-/// Plays each step, and moves the clock. A refused step is part of the game.
+/// Plays each step, and moves the clock. A refused step is part of the game. The model
+/// answers a talk at once.
 fn run(story: &mut Story, plays: &[Play], clock: &mut u64) {
     for play in plays {
         *clock += if let Play::Wait(seconds) = play {
@@ -134,8 +160,14 @@ fn run(story: &mut Story, plays: &[Play], clock: &mut u64) {
         } else {
             1
         };
-        if let Some(input) = input(play, Tick(*clock)) {
-            let _ = story.handle(input);
+        let Some(input) = input(play, Tick(*clock)) else {
+            continue;
+        };
+        let outputs = story.handle(input).unwrap_or_default();
+        if let (Play::Talk(_, say), Some(Output::ModelCall { call, .. })) = (play, outputs.first())
+        {
+            let text = serde_json::json!({ "say": say, "trust": 1 }).to_string();
+            let _ = story.handle(Input::ModelAnswered { call: *call, text });
         }
     }
 }
@@ -205,6 +237,9 @@ proptest! {
         let mut whole = story(&fresh("restarts-memory"), Store::Memory);
         run(&mut whole, &plays, &mut clock);
 
+        // The reason for a refused edit shows once and is not kept, so a first read clears it.
+        journal_lines(&mut restarted);
+        journal_lines(&mut whole);
         prop_assert_eq!(journal_lines(&mut restarted), journal_lines(&mut whole));
     }
 

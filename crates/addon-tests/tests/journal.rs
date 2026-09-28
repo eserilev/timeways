@@ -6,7 +6,8 @@ use common::Game;
 use hourglass::Tick;
 use timeways_story::character::Character;
 use timeways_story::input::{Input, MessageId};
-use timeways_story::journal::{journal, pages};
+use timeways_story::journal::{Journal, journal, pages};
+use timeways_story::learned::{Learned, LearnedKind};
 use timeways_story::story::Output;
 
 const DAY: u64 = 1_790_000_000;
@@ -500,4 +501,100 @@ fn the_footnotes_of_the_bard_follow_its_saga() {
         lines[2..],
         ["prose: Our hero rode west.", "note: * Nobody knows why."]
     );
+}
+
+fn learned_reply(entries: Vec<Learned>) -> String {
+    let whole = Journal {
+        learned: entries,
+        ..Journal::default()
+    };
+    let page = pages(whole).remove(0);
+    serde_json::to_string(&Output::Journal {
+        id: MessageId(1),
+        page,
+    })
+    .unwrap()
+}
+
+fn learned_entry(kind: LearnedKind, title: Option<&str>, npc: Option<&str>, text: &str) -> Learned {
+    Learned {
+        kind,
+        title: title.map(str::to_string),
+        npc: npc.map(str::to_string),
+        place: Some("Stormwind City".to_string()),
+        at: Tick(DAY),
+        excerpt: text.to_string(),
+    }
+}
+
+#[test]
+fn the_learned_page_shows_a_book_with_the_name_of_your_character() {
+    let game = Game::new();
+    game.run("wow.units.player = { name = 'Ada', player = true }");
+    let book = learned_entry(
+        LearnedKind::Book,
+        Some("The Kingdom of Stormwind"),
+        None,
+        "Well met, $N.",
+    );
+
+    game.reply(&learned_reply(vec![book]));
+
+    assert_eq!(
+        lines(&game, "learned"),
+        [
+            "entry: Read The Kingdom of Stormwind".to_string(),
+            "prose: Well met, Ada.".to_string(),
+            format!("text: Stormwind City, {}.", day(&game)),
+        ]
+    );
+}
+
+#[test]
+fn the_learned_page_marks_a_rumor_as_only_a_rumor() {
+    let game = Game::new();
+    let rumor = learned_entry(
+        LearnedKind::Rumor,
+        None,
+        Some("Innkeeper Farley"),
+        "The gnolls grow bold.",
+    );
+
+    game.reply(&learned_reply(vec![rumor]));
+
+    let shown = lines(&game, "learned");
+    assert_eq!(shown[0], "entry: A rumor from Innkeeper Farley");
+    assert!(shown[2].starts_with("text: Only a rumor."), "{shown:?}");
+}
+
+#[test]
+fn the_learned_page_names_a_quest_and_the_npc_of_gossip() {
+    let game = Game::new();
+    let quest = learned_entry(
+        LearnedKind::Quest,
+        Some("Wanted: Hogger"),
+        None,
+        "Hogger must die.",
+    );
+    let gossip = learned_entry(
+        LearnedKind::Gossip,
+        None,
+        Some("Guard Thomas"),
+        "Stay safe.",
+    );
+
+    game.reply(&learned_reply(vec![quest, gossip]));
+
+    let shown = lines(&game, "learned");
+    assert_eq!(shown[0], "entry: The quest Wanted: Hogger");
+    assert_eq!(shown[3], "entry: Heard from Guard Thomas");
+}
+
+#[test]
+fn an_empty_learned_page_says_how_to_learn() {
+    let game = Game::new();
+
+    game.reply(&learned_reply(Vec::new()));
+
+    assert!(lines(&game, "learned")[0].contains("Read a book"));
 }
