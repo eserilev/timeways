@@ -1,11 +1,15 @@
-//! Random answers of the story program, through the reply writer of the relay, into the
-//! real addon. No reply makes a Lua error, and no text from the desktop starts a WoW
-//! escape: each `|` from the data comes out doubled.
+//! Replies into the real addon: random answers through the reply writer of the relay, or
+//! the replies of a real session through the fake bridge. No reply makes a Lua error, and
+//! no text from the desktop starts a WoW escape: each `|` from the data comes out doubled.
 
 #![no_main]
 
+#[path = "common.rs"]
+mod common;
 #[path = "../../crates/addon-tests/tests/common/mod.rs"]
 mod game;
+#[path = "play.rs"]
+mod play;
 
 use arbitrary::{Arbitrary, Result, Unstructured};
 use libfuzzer_sys::fuzz_target;
@@ -140,13 +144,35 @@ fn has_only_own_escapes(shown: &str) -> bool {
     true
 }
 
-fuzz_target!(|answer: Answer| {
-    let Some(reply) = fake_bridge::game_reply(&answer.0) else {
+/// A reply of any shape, as from a broken desktop, or the replies of a real session.
+#[derive(Arbitrary, Debug)]
+enum Input {
+    Random(Answer),
+    Session(play::Run),
+}
+
+/// The replies that the addon gets for this input.
+fn replies(input: Input) -> Vec<String> {
+    match input {
+        Input::Random(answer) => fake_bridge::game_reply(&answer.0).into_iter().collect(),
+        Input::Session(run) => {
+            let mut played = play::play(run, play::story(common::pack()));
+            let pages = play::journal_pages(&mut played.bridge, played.character);
+            played.replies.into_iter().chain(pages).collect()
+        }
+    }
+}
+
+fuzz_target!(|input: Input| {
+    let replies = replies(input);
+    if replies.is_empty() {
         return;
-    };
+    }
     let game = game::Game::new();
     let receive: mlua::Function = game.eval("ns.Link.Receive");
-    receive.call::<()>((1, "done", reply.as_str())).unwrap();
+    for (id, reply) in (1..).zip(&replies) {
+        receive.call::<()>((id, "done", reply.as_str())).unwrap();
+    }
     let shown: Vec<String> = game.eval(
         "local out = {}
          for _, text in ipairs(wow.printed) do table.insert(out, text) end
@@ -159,7 +185,7 @@ fuzz_target!(|answer: Answer| {
          return out",
     );
     for text in shown {
-        assert!(has_only_own_escapes(&text), "{text:?} from {reply}");
-        assert!(!text.contains('\0'), "{text:?} from {reply}");
+        assert!(has_only_own_escapes(&text), "{text:?} from {replies:?}");
+        assert!(!text.contains('\0'), "{text:?} from {replies:?}");
     }
 });
