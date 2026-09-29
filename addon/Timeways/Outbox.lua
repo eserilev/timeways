@@ -38,6 +38,12 @@ local function Opening(line)
 	return character and (character .. "\n" .. line) or line
 end
 
+-- A batch of this one input, which does not wait in the outbox. Nil before the login
+-- names the character.
+function Outbox.Alone(input)
+	return character and Opening(ns.Json.Encode(input))
+end
+
 function Outbox.Fits(input)
 	return ns.Link.Fits(Opening(ns.Json.Encode(input)))
 end

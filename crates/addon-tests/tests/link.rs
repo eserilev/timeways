@@ -98,3 +98,33 @@ fn each_strip_names_the_version_of_timeways() {
 
     assert!(flags.contains(&"ver=1".to_string()), "{flags:?}");
 }
+
+#[test]
+fn a_claimed_reply_goes_to_its_handler_and_not_to_the_story_code() {
+    let game = logged_in();
+
+    game.run(
+        r#"ns.Link.Claim(7, function(status, text) claimedWith = status .. ": " .. text end)
+           ns.Messages.OnReply({ id = "story" }, 7, "done", '{"type":"events_seen","narrator":"Hello!"}')"#,
+    );
+
+    let claimed: String = game.eval("claimedWith");
+    assert_eq!(
+        claimed,
+        r#"done: {"type":"events_seen","narrator":"Hello!"}"#
+    );
+    assert!(game.printed().is_empty());
+}
+
+#[test]
+fn a_claim_ends_with_its_first_reply() {
+    let game = logged_in();
+
+    game.run(
+        r#"ns.Link.Claim(7, function() end)
+           ns.Messages.OnReply({ id = "story" }, 7, "done", '{"type":"events_seen"}')
+           ns.Messages.OnReply({ id = "story" }, 7, "done", '{"type":"events_seen","narrator":"Again!"}')"#,
+    );
+
+    assert_eq!(game.printed(), ["|cffe6cc80Narrator|r: Again!"]);
+}

@@ -140,7 +140,7 @@ The desktop sends the pages each time the book opens, because the world lives th
 | **Places** | Each zone, with the date of the first visit, and its subzones under it | Built |
 | **People** | Each NPC that you met, with the place, the date, your slaps, and its trust in you | Built |
 | **Deeds** | Level milestones, first kills of rares and bosses, repeat kills (echoes, 5.13), your deaths, and your joke titles (5.4.1) | Built |
-| **Learned** | What you read and heard (3.1.1): each book, each quest tale, and each story of an NPC, with the place and the date. A rumor from `/talk` shows as a rumor. | Later |
+| **Learned** | What you read and heard (3.1.1): each book, each quest tale, and each story of an NPC, with the place and the date. A rumor from `/talk` shows as a rumor. | Built |
 | **Nemesis** | Real players from world PvP only: the kill count on each side, the places, and the last time seen (4.1). Aliases only (5.11). | Later |
 | **Quests** | The personal side quests (3.4) | Later |
 

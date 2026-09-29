@@ -29,4 +29,5 @@ Narrator.lua
 Hero.lua
 Journal.lua
 JournalFrame.lua
+SelfTest.lua
 Core.lua

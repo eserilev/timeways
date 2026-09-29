@@ -98,4 +98,10 @@ SlashCmdList.TIMEWAYSHERO = ns.Hero.Command
 
 SLASH_TIMEWAYSJOURNAL1 = "/journal"
 SLASH_TIMEWAYSJOURNAL2 = "/timeways"
-SlashCmdList.TIMEWAYSJOURNAL = ns.JournalFrame.Toggle
+SlashCmdList.TIMEWAYSJOURNAL = function(message)
+	if message:match("^%s*test%s*$") then
+		ns.SelfTest.Start()
+		return
+	end
+	ns.JournalFrame.Toggle()
+end

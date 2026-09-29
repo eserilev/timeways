@@ -23,10 +23,12 @@ Do them in order. Each batch of events goes out about once a minute, so wait a m
 
 ### 1. The chain works
 
-1. Type `/journal`. The book opens, and after a few seconds the pages fill.
-2. Type `/lore who is Hogger?`.
+1. Type `/timeways test`.
+2. Wait for the line "3 of 3 checks passed." It can take a minute or two.
 
-Any answer passes, also "Nobody here knows". No answer after a minute is a failure.
+The self-test sends two requests that only read your world: the first page of the journal, and one `/lore` question. The lore question can cost one model call. Each check shows as pass or fail in the chat. If a check fails, the line gives the reason.
+
+The last report stays in the saved variables, as `TimewaysDB.selfTest`. WoW writes it to the disk at `/reload` and at logout.
 
 ### 2. The text that you read
 
@@ -51,6 +53,7 @@ Open `c_<name>.seen.jsonl` in the world folder. Your character name is not in th
 ## What to send back
 
 - Each Lua error, as text.
+- The chat lines of `/timeways test`.
 - What the chat showed for each `/lore` question.
 - The first 3 lines of the `.seen.jsonl` file.
 - The result of each open question.

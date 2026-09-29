@@ -327,6 +327,11 @@ function Screenshot()
 	wow.Fire("SCREENSHOT_SUCCEEDED")
 end
 
+wow.reloads = 0
+function ReloadUI()
+	wow.reloads = wow.reloads + 1
+end
+
 function GetPhysicalScreenSize()
 	return 1920, 1080
 end

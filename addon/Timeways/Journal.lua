@@ -50,29 +50,46 @@ function Journal.Request(page)
 	ns.Outbox.Flush()
 end
 
+local function Started(value)
+	local hero = type(value.hero) == "table" and value.hero or {}
+	local journal = { chapters = {}, places = {}, people = {}, deeds = {}, learned = {}, next = 0 }
+	journal.hero = { sheet = Entries(hero.sheet), entries = {} }
+	return journal
+end
+
+local function Append(journal, value)
+	for _, section in ipairs(LISTS) do
+		for _, entry in ipairs(Entries(value[section])) do
+			table.insert(journal[section], entry)
+		end
+	end
+	local hero = type(value.hero) == "table" and value.hero or {}
+	for _, entry in ipairs(Entries(hero.entries)) do
+		table.insert(journal.hero.entries, entry)
+	end
+end
+
+-- The journal of the first page alone, for the self-test.
+function Journal.FirstPage(value)
+	local journal = Started(value)
+	Append(journal, value)
+	return journal
+end
+
 -- A page out of order belongs to an older request, and is dropped.
 function Journal.Receive(value)
 	local page, count = value.page, value.pages
 	if type(page) ~= "number" or type(count) ~= "number" or count > MAX_PAGES then
 		return
 	end
-	local hero = type(value.hero) == "table" and value.hero or {}
 	if page == 0 then
-		collecting = { chapters = {}, places = {}, people = {}, deeds = {}, learned = {}, next = 0 }
-		collecting.hero = { sheet = Entries(hero.sheet), entries = {} }
+		collecting = Started(value)
 		ns.Hero.ShowRefused(value.hero_refused)
 	end
 	if not collecting or page ~= collecting.next then
 		return
 	end
-	for _, section in ipairs(LISTS) do
-		for _, entry in ipairs(Entries(value[section])) do
-			table.insert(collecting[section], entry)
-		end
-	end
-	for _, entry in ipairs(Entries(hero.entries)) do
-		table.insert(collecting.hero.entries, entry)
-	end
+	Append(collecting, value)
 	collecting.next = page + 1
 	if collecting.next < count then
 		Journal.Request(collecting.next)
@@ -338,14 +355,18 @@ local EMPTY = {
 }
 
 -- Each line is { style = "heading" | "prose" | "entry" | "text" | "note", text = ... }.
-function Journal.Lines(section)
-	if not pages then
-		return { Line("note", "The pages fill with ink...") }
-	end
+function Journal.Render(journal, section)
 	local builder = BUILDERS[section]
-	local lines = section == "hero" and builder(pages.hero) or builder(List(pages[section]))
+	local lines = section == "hero" and builder(journal.hero) or builder(List(journal[section]))
 	if #lines == 0 then
 		return { Line("note", EMPTY[section]) }
 	end
 	return lines
+end
+
+function Journal.Lines(section)
+	if not pages then
+		return { Line("note", "The pages fill with ink...") }
+	end
+	return Journal.Render(pages, section)
 end
