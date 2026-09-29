@@ -12,6 +12,9 @@ pub const MAX_SAY_CHARS: usize = 400;
 /// The limit of the bridge for the words of a talk (Gnomish Relay SPEC.md 9.8).
 pub const MAX_SAY_BYTES: usize = 1600;
 
+/// The limit of the bridge for the NPC of a talk (Gnomish Relay SPEC.md 9.8).
+pub const MAX_NPC_BYTES: usize = 64;
+
 /// The largest change of trust that one talk proposes.
 pub const MAX_TRUST_CHANGE: i64 = 5;
 

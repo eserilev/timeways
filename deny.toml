@@ -4,13 +4,23 @@ targets = ["x86_64-unknown-linux-gnu", "aarch64-apple-darwin", "x86_64-apple-dar
 
 [licenses]
 # Unicode-3.0 is the data license of `unicode-ident`, which the serde derive macros use.
-allow = ["MIT", "Apache-2.0", "Unicode-3.0", "Zlib"]
+# BSD-3-Clause is the license of `subtle`, which the relay bridge of the tests uses.
+allow = ["MIT", "Apache-2.0", "Unicode-3.0", "Zlib", "BSD-3-Clause"]
 unused-allowed-license = "allow"
 
 [bans]
 multiple-versions = "deny"
+# Two versions come in only through the relay bridge of the tests (`crates/fake-bridge`).
+skip = [
+    { crate = "miniz_oxide@0.8.9", reason = "png of the relay bridge; the relay skips it too" },
+    { crate = "shlex@1.3.0", reason = "the relay bridge pins shlex 1.3" },
+]
 
 [sources]
 unknown-registry = "deny"
 unknown-git = "deny"
-allow-git = ["https://github.com/eserilev/rusty-hourglass"]
+allow-git = [
+    "https://github.com/eserilev/rusty-hourglass",
+    # The relay bridge, only for the tests (`crates/fake-bridge`).
+    "https://github.com/eserilev/gnomish-relay",
+]

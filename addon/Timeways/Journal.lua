@@ -81,7 +81,8 @@ end
 -- A page out of order belongs to an older request, and is dropped.
 function Journal.Receive(value)
 	local page, count = value.page, value.pages
-	if type(page) ~= "number" or type(count) ~= "number" or count > MAX_PAGES then
+	-- No pages: the desktop failed to read the journal, and the book keeps what it shows.
+	if type(page) ~= "number" or type(count) ~= "number" or count < 1 or count > MAX_PAGES then
 		return
 	end
 	if page == 0 then

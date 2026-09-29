@@ -35,13 +35,12 @@ fn serve(story: &mut Story) -> Result<(), Box<dyn Error>> {
     let mut out = io::stdout().lock();
     let mut log = io::stderr().lock();
     for bytes in io::stdin().lock().split(b'\n') {
-        match serve::line(story, bytes?) {
-            Ok(lines) => {
-                for line in lines {
-                    writeln!(out, "{line}")?;
-                }
-            }
-            Err(message) => writeln!(log, "{message}")?,
+        let served = serve::line(story, bytes?);
+        for line in served.lines {
+            writeln!(out, "{line}")?;
+        }
+        if let Some(error) = served.error {
+            writeln!(log, "{error}")?;
         }
     }
     Ok(())

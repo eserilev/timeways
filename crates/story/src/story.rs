@@ -2,10 +2,11 @@
 
 use crate::bard;
 use crate::character::{Character, Refusal};
+use crate::check;
 use crate::flavor::{self, Flavor, HUMBLING_GAP, Kind, Told};
 use crate::hero::{self, Change, Entry};
 use crate::input::{CallId, Input, MessageId};
-use crate::journal::{PAGE_BYTES, Page, journal, pages};
+use crate::journal::{Page, journal, pages};
 use crate::learned::{Read, Rumor, learned};
 use crate::lore::{Answer, LoreCall, Next};
 use crate::moments::{Moment, best, moments};
@@ -13,6 +14,7 @@ use crate::narrator::{self, Budget};
 use crate::pack::{Link, Pack, PackError, Passage};
 use crate::prompt::Context;
 use crate::quest::{Status, quest_log};
+use crate::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use crate::seen::{MAX_SEEN_BYTES, SeenIndex, SeenText, TextKind};
 use crate::store::{
     CharacterKey, FlavorLog, HeroLog, HistoryFile, LearnedLog, Opened, Prose, QuestLog, Store,
@@ -28,6 +30,13 @@ use thiserror::Error;
 mod quests;
 
 use quests::QuestRequest;
+
+const DAY_SECONDS: u64 = 24 * 3600;
+
+fn now() -> Tick {
+    let since_epoch = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
+    Tick(since_epoch.map_or(0, |elapsed| elapsed.as_secs()))
+}
 
 /// The longest name that the story takes from the game. WoW names are far shorter, so a
 /// longer one comes from a bug or a hostile addon, and it would break the page limit.
@@ -59,9 +68,13 @@ const CANDIDATES: u32 = 50;
 const ANSWER_SIZE: usize = 8;
 
 /// The passages of one answer. The rest of a reply holds the model text of at most
-/// `check::MAX_CHARS` characters, which JSON escaping makes up to 6 times longer, and the
-/// frame.
-const PASSAGE_BYTES: usize = PAGE_BYTES - 8 * 1024;
+/// `check::MAX_CHARS` characters, and the frame. JSON escaping makes the text up to 6 times
+/// longer in the line. In the slot, a character takes up to 4 bytes, and the Lua escape
+/// makes each byte up to 4.
+const PASSAGES: Size = Size {
+    line: MAX_LINE - 8 * 1024,
+    slot: MAX_SLOT - 16 * check::MAX_CHARS - 2048,
+};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -122,6 +135,8 @@ pub enum StoryError {
     Seen(#[from] rusqlite::Error),
     #[error(transparent)]
     Store(#[from] StoreError),
+    #[error("the time {0} is more than a day after the clock of this computer")]
+    FutureTime(u64),
 }
 
 /// The character of the last `character_entered`, and the file of its history.
@@ -241,7 +256,10 @@ impl Story {
     /// Returns the refusal of the world for a game event, the error of the pack for a
     /// question, `UnknownCall` for the answer to a call that is not open, `NoCharacter`
     /// before the first `character_entered`, and the error of the store.
-    pub fn handle(&mut self, input: Input) -> Result<Vec<Output>, StoryError> {
+    pub fn handle(&mut self, mut input: Input) -> Result<Vec<Output>, StoryError> {
+        if let Some(at) = input.at_mut() {
+            *at = self.checked_time(*at)?;
+        }
         match input {
             Input::Hello => Ok(vec![Output::Hello { protocol: PROTOCOL }]),
             Input::CharacterEntered { realm, name } => {
@@ -333,6 +351,21 @@ impl Story {
             Input::ModelAnswered { call, text } => self.answered(call, &text),
             Input::ModelFailed { call } => self.failed(call),
         }
+    }
+
+    /// The addon and this program share the clock of one computer. A time far ahead comes
+    /// from a clock that jumped, and it would freeze the world, because Hourglass refuses
+    /// every event older than its last one. A time before the last event, from a clock that
+    /// went back, counts as the time of the last event.
+    fn checked_time(&self, at: Tick) -> Result<Tick, StoryError> {
+        if at.0 > now().0.saturating_add(DAY_SECONDS) {
+            return Err(StoryError::FutureTime(at.0));
+        }
+        let last = self
+            .active
+            .as_ref()
+            .map_or(Tick(0), |active| active.character.world().tick);
+        Ok(at.max(last))
     }
 
     /// A silly death is also a flavor moment (GAMEPLAY.md 5.4.1).
@@ -826,7 +859,8 @@ impl Story {
         Some(self.open_call(pending, prompt))
     }
 
-    /// A page past the end comes back empty, with the true number of pages.
+    /// A page past the end gets the last page, because the bridge refuses a page number
+    /// that is not below the count. The addon drops a page that it did not ask for.
     fn journal_page(&mut self, page: usize) -> Result<Page, StoryError> {
         if page == 0 || self.journal.is_empty() {
             let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
@@ -845,12 +879,12 @@ impl Story {
                 .collect();
             self.journal = pages(journal);
         }
-        let page = self.journal.get(page).cloned().unwrap_or_else(|| Page {
-            page,
-            pages: self.journal.len(),
-            ..Page::default()
-        });
-        Ok(page)
+        let last = self.journal.len().saturating_sub(1);
+        Ok(self
+            .journal
+            .get(page.min(last))
+            .cloned()
+            .unwrap_or_default())
     }
 
     /// Talking is meeting, so the NPC enters the world before the model answers.
@@ -862,6 +896,9 @@ impl Story {
         words: &str,
     ) -> Result<Output, StoryError> {
         checked_name(npc)?;
+        if npc.len() > talk::MAX_NPC_BYTES {
+            return Err(StoryError::BadName);
+        }
         if words.trim().is_empty()
             || words.len() > MAX_WORDS_BYTES
             || words.chars().any(char::is_control)
@@ -981,10 +1018,12 @@ fn passages_for(
             .filter(|passage| knows_all(character, &passage.links)),
     );
     let mut passages = Vec::new();
-    let mut used = 0;
+    let mut used = Size::default();
     for passage in found {
-        used += serde_json::to_vec(&passage).map_or(PAGE_BYTES, |bytes| bytes.len()) + 1;
-        if passages.len() == ANSWER_SIZE || used > PASSAGE_BYTES {
+        used = used
+            .plus(Size::of(&passage))
+            .plus(Size { line: 1, slot: 1 });
+        if passages.len() == ANSWER_SIZE || !used.fits(PASSAGES) {
             break;
         }
         passages.push(passage);

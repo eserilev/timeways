@@ -4,7 +4,6 @@
 #![no_main]
 
 #[path = "common.rs"]
-#[expect(dead_code, reason = "this target checks no output lines")]
 mod common;
 
 use libfuzzer_sys::fuzz_target;

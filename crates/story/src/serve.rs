@@ -1,26 +1,86 @@
 //! One line from the bridge in, the lines of the answer out (GAMEPLAY.md 5.12). The
 //! program and the fuzzer share this path.
 
-use crate::input::Input;
-use crate::story::Story;
+use crate::input::{Input, MessageId};
+use crate::journal::Page;
+use crate::lore::Answer;
+use crate::story::{Output, Story};
+use crate::talk::MAX_NPC_BYTES;
+use serde_json::Value;
 
-/// The JSON lines for stdout, or the one line for stderr. Nothing that the bridge sends
-/// ends the loop: text that is not UTF-8, or that does not read, is one bad input.
-///
-/// # Errors
-///
-/// Returns the log line of a bad input, of a refusal, or of an output that did not write.
-pub fn line(story: &mut Story, bytes: Vec<u8>) -> Result<Vec<String>, String> {
+/// The JSON lines for stdout, and the line for stderr when the input failed.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct Served {
+    pub lines: Vec<String>,
+    pub error: Option<String>,
+}
+
+/// Nothing that the bridge sends ends the loop: text that is not UTF-8, or that does not
+/// read, is one bad input. A request that fails still gets an empty answer of its type,
+/// because the bridge stops a story program that leaves a request with no answer.
+#[must_use]
+pub fn line(story: &mut Story, bytes: Vec<u8>) -> Served {
     let Ok(line) = String::from_utf8(bytes) else {
-        return Err("bad input: not UTF-8".to_string());
+        return failed(Vec::new(), "bad input: not UTF-8".to_string());
     };
-    let input = serde_json::from_str::<Input>(&line)
-        .map_err(|error| format!("bad input: {error}: {line}"))?;
-    let outputs = story
-        .handle(input)
-        .map_err(|error| format!("{error}: {line}"))?;
-    outputs
-        .iter()
-        .map(|output| serde_json::to_string(output).map_err(|error| format!("{error}: {line}")))
-        .collect()
+    let outputs = serde_json::from_str::<Input>(&line)
+        .map_err(|error| format!("bad input: {error}: {line}"))
+        .and_then(|input| {
+            story
+                .handle(input)
+                .map_err(|error| format!("{error}: {line}"))
+        });
+    match outputs {
+        Ok(outputs) => Served {
+            lines: outputs.iter().map(to_line).collect(),
+            error: None,
+        },
+        Err(error) => failed(empty_answer(&line).iter().map(to_line).collect(), error),
+    }
+}
+
+fn failed(lines: Vec<String>, error: String) -> Served {
+    Served {
+        lines,
+        error: Some(error),
+    }
+}
+
+/// These plain types always serialize.
+fn to_line(output: &Output) -> String {
+    serde_json::to_string(output).unwrap_or_default()
+}
+
+/// The bridge refuses a talk answer with a longer name, so a name past its limit is left out.
+fn echoed_npc(request: &Value) -> String {
+    let npc = request
+        .get("npc")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let fits = npc.len() <= MAX_NPC_BYTES && !npc.chars().any(char::is_control);
+    if fits { npc.to_string() } else { String::new() }
+}
+
+/// The empty answer to a request line, or None for a line that gets no answer of its own.
+/// An event line has none: the `batch_end` of its batch answers it.
+fn empty_answer(line: &str) -> Option<Output> {
+    let value: Value = serde_json::from_str(line).ok()?;
+    let id = MessageId(value.get("id")?.as_u64()?);
+    match value.get("type")?.as_str()? {
+        "lore_asked" => Some(Output::LoreAnswer {
+            id,
+            answer: Answer::default(),
+        }),
+        "talk_asked" => Some(Output::TalkAnswer {
+            id,
+            npc: echoed_npc(&value),
+            text: None,
+        }),
+        // No pages: the addon keeps the journal that it shows.
+        "journal_asked" => Some(Output::Journal {
+            id,
+            page: Page::default(),
+        }),
+        _ => None,
+    }
 }

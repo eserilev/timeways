@@ -1,0 +1,17 @@
+[package]
+name = "fake-bridge"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "The real checks of the Gnomish Relay bridge around the real story program, for tests and fuzzers."
+publish = false
+
+[dependencies]
+# One pin with the transport copy in CI (.github/workflows/ci.yml), which checks that both match.
+bridge = { git = "https://github.com/eserilev/gnomish-relay", rev = "c9626e1861c8a9df4f9573d6cebd730083a65a88" }
+serde_json.workspace = true
+timeways-story = { path = "../story" }
+
+[lints]
+workspace = true

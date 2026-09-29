@@ -138,6 +138,36 @@ pub enum Input {
     },
 }
 
+impl Input {
+    /// The time of a game event or a request of the player, from the clock of the addon.
+    pub fn at_mut(&mut self) -> Option<&mut Tick> {
+        match self {
+            Input::ZoneEntered { at, .. }
+            | Input::NpcMet { at, .. }
+            | Input::LevelReached { at, .. }
+            | Input::NpcDefeated { at, .. }
+            | Input::NpcSlapped { at, .. }
+            | Input::TalkAsked { at, .. }
+            | Input::QuestAsked { at, .. }
+            | Input::QuestAccepted { at }
+            | Input::QuestDeclined { at }
+            | Input::Died { at, .. }
+            | Input::HeroSet { at, .. }
+            | Input::HeroAdded { at, .. }
+            | Input::HeroRemoved { at, .. }
+            | Input::EmoteDone { at, .. }
+            | Input::TextSeen { at, .. } => Some(at),
+            Input::Hello
+            | Input::CharacterEntered { .. }
+            | Input::LoreAsked { .. }
+            | Input::JournalAsked { .. }
+            | Input::BatchEnd { .. }
+            | Input::ModelAnswered { .. }
+            | Input::ModelFailed { .. } => None,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct CallId(pub u64);

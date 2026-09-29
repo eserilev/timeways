@@ -1,0 +1,8 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc ae5c38e3fa45acaf64a94703645ccc6ef3b31e258347caf9863c548862cb6d69 # shrinks to plays = [Journal(1)], answers = [0]
+cc 992cd1ab4fa2e21f6ceebe7389233536678ca0d2cba84e98c019114c99ea8d43 # shrinks to plays = [Clock(400000000), Zone("Goldshire", None)], answers = [0]

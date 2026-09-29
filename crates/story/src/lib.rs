@@ -16,6 +16,7 @@ pub mod prompt;
 #[cfg(kani)]
 mod proofs;
 pub mod quest;
+pub mod reply_size;
 pub mod seen;
 pub mod serve;
 pub mod store;

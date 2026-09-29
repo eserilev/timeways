@@ -299,12 +299,30 @@ return {
 				{ Name = "text", Type = "cstring", Nilable = false },
 			},
 		},
+		["SimpleButtonAPI:SetDisabledFontObject"] = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "font", Type = "SimpleFont", Nilable = false },
+			},
+		},
 		["SimpleButtonAPI:SetEnabled"] = {
 			IsProtectedFunction = true,
 			SecretArguments = "AllowedWhenUntainted",
 			SecretArgumentsAddAspect = { Enum.SecretAspect.ButtonState },
 			Arguments = {
 				{ Name = "enabled", Type = "bool", Nilable = false, Default = false },
+			},
+		},
+		["SimpleButtonAPI:SetHighlightFontObject"] = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "font", Type = "SimpleFont", Nilable = false },
+			},
+		},
+		["SimpleButtonAPI:SetNormalFontObject"] = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "font", Type = "SimpleFont", Nilable = false },
 			},
 		},
 		["SimpleButtonAPI:SetText"] = {

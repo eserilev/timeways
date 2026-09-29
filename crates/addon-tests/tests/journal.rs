@@ -598,3 +598,13 @@ fn an_empty_learned_page_says_how_to_learn() {
 
     assert!(lines(&game, "learned")[0].contains("Read a book"));
 }
+
+#[test]
+fn a_journal_with_no_pages_keeps_the_book_as_it_is() {
+    let game = Game::new();
+    game.reply(&journal_reply(&traveler()));
+
+    game.reply(r#"{"type":"journal","page":0,"pages":0,"narrator":null}"#);
+
+    assert_eq!(lines(&game, "places")[0], "heading: Elwynn Forest");
+}

@@ -11,6 +11,7 @@ use timeways_story::input::{Input, MessageId};
 use timeways_story::journal::{Journal, journal, pages};
 use timeways_story::pack::Pack;
 use timeways_story::quest::{QuestChange, Status, Step, quest_log};
+use timeways_story::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use timeways_story::seen::TextKind;
 use timeways_story::store::{Store, safe_id};
 use timeways_story::story::{Output, Story};
@@ -316,8 +317,9 @@ proptest! {
 
         for line in journal_lines(&mut story) {
             let value: serde_json::Value = serde_json::from_str(&line).unwrap();
-            prop_assert!(line.len() <= timeways_story::journal::PAGE_BYTES);
-            for list in ["chapters", "places", "people", "deeds"] {
+            let limit = Size { line: MAX_LINE, slot: MAX_SLOT };
+            prop_assert!(Size::of_json(line.as_bytes()).fits(limit));
+            for list in ["chapters", "places", "people", "deeds", "learned", "quests"] {
                 prop_assert!(value[list].as_array().unwrap().len() <= 200);
             }
         }

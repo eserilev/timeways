@@ -9,6 +9,7 @@ cargo-fuzz = true
 
 [dependencies]
 arbitrary = { version = "1", features = ["derive"] }
+fake-bridge = { path = "../crates/fake-bridge" }
 libfuzzer-sys = "0.4"
 mlua = { version = "0.12", features = ["lua51", "vendored"] }
 rusty-hourglass = { git = "https://github.com/eserilev/rusty-hourglass", rev = "f1a7bb45b3e4c009789c6f7bdc4341ee310b8baf" }

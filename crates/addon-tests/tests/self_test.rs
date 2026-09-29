@@ -51,14 +51,14 @@ fn traveled(story: &mut Story) {
         r#"{"type":"npc_met","at":1790000000,"name":"Keeper Tessa"}"#,
     ];
     for event in events {
-        serve::line(story, event.as_bytes().to_vec()).unwrap();
+        assert_eq!(serve::line(story, event.as_bytes().to_vec()).error, None);
     }
 }
 
 /// The output lines of one input line. A model call fails at once, as with no model.
 fn serve_line(story: &mut Story, line: String) -> Vec<String> {
     let mut output = Vec::new();
-    for out in serve::line(story, line.into_bytes()).unwrap() {
+    for out in serve::line(story, line.into_bytes()).lines {
         let value: serde_json::Value = serde_json::from_str(&out).unwrap();
         if value["type"] == "model_call" {
             let failed = serde_json::json!({ "type": "model_failed", "call": value["call"] });

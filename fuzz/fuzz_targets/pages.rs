@@ -1,5 +1,5 @@
-//! Random play through the input path of the bridge, then every page of the journal. Each
-//! page keeps the limits of the bridge, and the pages hold every entry once.
+//! Random play through the fake bridge, then every page of the journal. The real checks of
+//! the relay take each answer, and each page fits a slot of the game.
 
 #![no_main]
 
@@ -7,9 +7,12 @@
 mod common;
 
 use arbitrary::Arbitrary;
+use fake_bridge::{FakeBridge, Model, Reply};
 use libfuzzer_sys::fuzz_target;
 use serde_json::{Value, json};
-use timeways_story::serve;
+use std::cell::RefCell;
+use std::collections::VecDeque;
+use std::rc::Rc;
 use timeways_story::store::Store;
 use timeways_story::story::Story;
 
@@ -60,6 +63,8 @@ enum Play {
     Wait(u16),
 }
 
+const CHARACTER: &str = r#"{"type":"character_entered","realm":"Stormrage","name":"Ada"}"#;
+
 const FIELDS: [&str; 6] = ["origin", "background", "goal", "bond", "flaw", "traits"];
 const KINDS: [&str; 3] = ["quest", "gossip", "book"];
 
@@ -98,7 +103,7 @@ fn input(play: &Play, at: u64) -> Option<Value> {
             json!({"type": "text_seen", "at": at, "kind": kind, "title": title, "npc": npc, "zone": "Testvale", "text": text})
         }
         Play::Talk { npc, .. } => {
-            json!({"type": "talk_asked", "id": 99, "at": at, "npc": npc, "text": "any news"})
+            json!({"type": "talk_asked", "at": at, "npc": npc, "text": "any news"})
         }
         Play::Quest { npc, .. } => json!({"type": "quest_asked", "at": at, "npc": npc}),
         Play::Accept => json!({"type": "quest_accepted", "at": at}),
@@ -125,70 +130,36 @@ fn model_text(play: &Play) -> Option<String> {
     }
 }
 
-/// The model answers the call of `line`, when it is a call.
-fn answer(story: &mut Story, line: &str, text: String) {
-    let Ok(call) = serde_json::from_str::<Value>(line) else {
-        return;
-    };
-    if call["type"] != "model_call" {
-        return;
-    }
-    let answered = send(
-        story,
-        &json!({"type": "model_answered", "call": call["call"], "text": text}),
-    );
-    for line in answered {
-        common::check_output(&line);
-    }
-}
-
-fn send(story: &mut Story, value: &Value) -> Vec<String> {
-    serve::line(story, value.to_string().into_bytes()).unwrap_or_default()
-}
-
 fuzz_target!(|plays: Vec<Play>| {
-    let mut story = Story::new(common::pack(), Store::Memory);
-    send(
-        &mut story,
-        &json!({"type": "character_entered", "realm": "Stormrage", "name": "Ada"}),
-    );
+    let answers = Rc::new(RefCell::new(VecDeque::new()));
+    let queue = Rc::clone(&answers);
+    let model: Model = Box::new(move |_| queue.borrow_mut().pop_front());
+    let story = Story::new(common::pack(), Store::Memory);
+    let mut bridge = FakeBridge::new(story).with_model(model);
     let mut at = 1_000;
-    for (batch, play) in plays.iter().enumerate() {
+    for play in &plays {
         match play {
             Play::Wait(seconds) => at += u64::from(*seconds) * 60,
             _ => at += 1,
         }
-        if let Some(value) = input(play, at) {
-            let outputs = send(&mut story, &value);
-            if let (Play::Talk { .. }, Some(line), Some(text)) =
-                (play, outputs.first(), model_text(play))
-            {
-                answer(&mut story, line, text);
-            }
-        }
-        for line in send(&mut story, &json!({"type": "batch_end", "id": batch + 1})) {
-            common::check_output(&line);
-            if let (Play::Quest { .. }, Some(text)) = (play, model_text(play)) {
-                answer(&mut story, &line, text);
-            }
-        }
+        let Some(line) = input(play, at) else {
+            continue;
+        };
+        answers.borrow_mut().extend(model_text(play));
+        bridge.batch(&format!("{CHARACTER}\n{line}"));
     }
-    let first = send(
-        &mut story,
-        &json!({"type": "journal_asked", "id": 1, "page": 0}),
-    );
-    let first: Value = serde_json::from_str(&first[0]).unwrap();
-    let pages = first["pages"].as_u64().unwrap();
-    for page in 0..pages {
-        let lines = send(
-            &mut story,
-            &json!({"type": "journal_asked", "id": 1, "page": page}),
-        );
-        common::check_output(&lines[0]);
-        let value: Value = serde_json::from_str(&lines[0]).unwrap();
-        for list in ["chapters", "places", "people", "deeds", "learned", "quests"] {
-            assert!(value[list].as_array().unwrap().len() <= 200);
-        }
-        assert!(value["hero"]["entries"].as_array().unwrap().len() <= 200);
+    let first = journal_page(&mut bridge, 0);
+    let pages = first["pages"].as_u64().unwrap_or(0);
+    for page in 1..pages {
+        journal_page(&mut bridge, page);
     }
 });
+
+/// The bridge checks the page and each of its lists as it takes it.
+fn journal_page(bridge: &mut FakeBridge, page: u64) -> Value {
+    let asked = json!({"type": "journal_asked", "page": page});
+    match bridge.batch(&format!("{CHARACTER}\n{asked}")) {
+        Reply::Done(text) => serde_json::from_str(&text).unwrap(),
+        Reply::Error(error) => panic!("a journal page failed: {error}"),
+    }
+}

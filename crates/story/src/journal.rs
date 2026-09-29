@@ -5,20 +5,22 @@ use crate::character::Character;
 use crate::hero::{Entry, Hero};
 use crate::learned::Learned;
 use crate::quest::{Tracked, title_of_thing};
+use crate::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use crate::vocabulary::{
     DEATHS, DEFEATED, LEVEL, MET, QUEST_DONE, SLAPPED, TITLE, TRUSTS, VISITED,
 };
 use hourglass::{EntityId, EventKind, LOCATED_IN, Tick, World};
 use serde::Serialize;
 
-/// The largest reply line that the bridge takes (Gnomish Relay SPEC.md 9.7 and S12).
-pub const PAGE_BYTES: usize = 24_576;
-
 /// The bridge takes at most 200 items in one list (Gnomish Relay SPEC.md 9.8).
 const PAGE_LIST_ITEMS: usize = 200;
 
-/// Room for the type, the id, the page numbers, and the empty lists of a page line.
-const FRAME_BYTES: usize = 192;
+/// Room for the type, the id, the page numbers, and the empty lists of a page line. In the
+/// slot, also room for the record and the note of the bridge.
+const FRAME: Size = Size {
+    line: 256,
+    slot: 2048,
+};
 
 /// No event for this long ends a chapter of the chronicle: the player stopped playing.
 const SESSION_GAP_SECONDS: u64 = 30 * 60;
@@ -140,9 +142,12 @@ pub fn pages(journal: Journal) -> Vec<Page> {
         hero_refused: journal.hero_refused,
         ..Journal::default()
     };
-    let mut used = serde_json::to_vec(&current.hero.sheet).map_or(0, |bytes| bytes.len())
-        + current.hero_refused.as_ref().map_or(0, String::len);
-    let budget = PAGE_BYTES - FRAME_BYTES;
+    let first = Size::of(&current.hero.sheet).plus(Size::of(&current.hero_refused));
+    let mut used = first;
+    let budget = Size {
+        line: MAX_LINE - FRAME.line,
+        slot: MAX_SLOT - FRAME.slot,
+    };
     let items = journal
         .hero
         .entries
@@ -154,14 +159,17 @@ pub fn pages(journal: Journal) -> Vec<Page> {
         .chain(journal.deeds.into_iter().map(Item::Deed))
         .chain(journal.learned.into_iter().map(Item::Learned))
         .chain(journal.quests.into_iter().map(Item::Quest));
+    // The comma after an item.
+    let comma = Size { line: 1, slot: 1 };
     for item in items {
-        let size = item.size() + 1;
+        let size = item.size().plus(comma);
         let list_full = item.list_len(&current) >= PAGE_LIST_ITEMS;
-        if (used + size > budget || list_full) && used > 0 {
+        let page_full = !used.plus(size).fits(budget);
+        if (page_full || list_full) && used != Size::default() {
             pages.push(std::mem::take(&mut current));
-            used = 0;
+            used = Size::default();
         }
-        used += size;
+        used = used.plus(size);
         item.add_to(&mut current);
     }
     pages.push(current);
@@ -188,19 +196,16 @@ enum Item {
 }
 
 impl Item {
-    /// The JSON bytes of the item. These plain types always serialize, so the fallback
-    /// never happens, and it would only put the item on a page of its own.
-    fn size(&self) -> usize {
-        let bytes = match self {
-            Item::Entry(entry) => serde_json::to_vec(entry),
-            Item::Chapter(chapter) => serde_json::to_vec(chapter),
-            Item::Place(place) => serde_json::to_vec(place),
-            Item::Person(person) => serde_json::to_vec(person),
-            Item::Deed(deed) => serde_json::to_vec(deed),
-            Item::Learned(learned) => serde_json::to_vec(learned),
-            Item::Quest(quest) => serde_json::to_vec(quest),
-        };
-        bytes.map_or(PAGE_BYTES, |bytes| bytes.len())
+    fn size(&self) -> Size {
+        match self {
+            Item::Entry(entry) => Size::of(entry),
+            Item::Chapter(chapter) => Size::of(chapter),
+            Item::Place(place) => Size::of(place),
+            Item::Person(person) => Size::of(person),
+            Item::Deed(deed) => Size::of(deed),
+            Item::Learned(learned) => Size::of(learned),
+            Item::Quest(quest) => Size::of(quest),
+        }
     }
 
     /// The length of the list of `journal` that this item goes into.

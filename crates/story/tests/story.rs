@@ -443,14 +443,13 @@ fn later_pages_come_from_the_snapshot_of_the_first() {
 }
 
 #[test]
-fn a_page_past_the_end_is_empty_and_names_the_true_count() {
+fn a_page_past_the_end_gets_the_last_page() {
     let mut story = story_with("past-the-end", &[]);
     enter(&mut story, 1, "Testvale", None);
 
     let page = journal_page(&mut story, 5);
 
-    assert_eq!((page.page, page.pages), (5, 1));
-    assert!(page.journal.places.is_empty());
+    assert_eq!((page.page, page.pages), (0, 1));
 }
 
 #[test]
@@ -501,7 +500,7 @@ fn a_lore_answer_with_long_passages_still_fits_in_one_reply() {
 
     let line = serde_json::to_string(&output).unwrap();
     assert!(
-        line.len() <= timeways_story::journal::PAGE_BYTES,
+        line.len() <= timeways_story::reply_size::MAX_LINE,
         "{} bytes",
         line.len()
     );
