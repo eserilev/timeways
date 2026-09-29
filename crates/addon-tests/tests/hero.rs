@@ -260,7 +260,10 @@ fn the_book_has_seven_tabs_with_the_hero_first() {
 fn a_sheet_field_with_no_name_shows_gaps_and_no_error() {
     let game = Game::new();
 
-    game.reply(&hero_reply(r#"{"sheet":[{"text":"x"}],"entries":[]}"#, "null"));
+    game.reply(&hero_reply(
+        r#"{"sheet":[{"text":"x"}],"entries":[]}"#,
+        "null",
+    ));
 
     assert!(!lines(&game).is_empty());
 }
