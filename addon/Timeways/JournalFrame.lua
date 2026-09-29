@@ -7,9 +7,14 @@ local JournalFrame = {}
 ns.JournalFrame = JournalFrame
 
 local NAME = "TimewaysJournalFrame"
-local PAGE_WIDTH = 280
 local INK = { 0.18, 0.12, 0.06 }
 local BULLET = 16
+
+-- The scroll frame covers the parchment. The margins keep the text off its torn edge, and
+-- the right one also keeps it off the scroll bar.
+local SCROLL_WIDTH, SCROLL_HEIGHT = 300, 310
+local MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP = 12, 16, 12
+local PAGE_WIDTH = SCROLL_WIDTH - MARGIN_LEFT - MARGIN_RIGHT
 
 local STYLES = {
 	heading = { font = "QuestTitleFont", indent = 0, gap = 12 },
@@ -19,11 +24,14 @@ local STYLES = {
 	note = { font = "QuestFontNormalSmall", indent = 0, gap = 0 },
 }
 
--- The tabs share the row of buttons of the quest frame, where 6 tabs of 54 fit before.
-local TABS_LEFT, TABS_RIGHT = 22, 351
-local TAB_STEP = math.floor((TABS_RIGHT - TABS_LEFT) / #ns.Journal.SECTIONS)
-local TAB_WIDTH = TAB_STEP - 1
-local ACTION_WIDTH, ACTION_HEIGHT = 58, 18
+-- The tabs stand in two rows where the quest frame puts its Accept and Decline buttons. One
+-- row of seven cuts labels such as "Chronicle".
+local TABS_PER_ROW = 4
+local TABS_LEFT, TABS_BOTTOM = 20, 50
+local TAB_WIDTH, TAB_HEIGHT, TAB_GAP = 76, 22, 3
+
+-- A button on a line uses the small font, so its label fits.
+local ACTION_HEIGHT, ACTION_PADDING = 22, 20
 
 local frame, scroll, page
 local strings, bullets, actions, tabs = {}, {}, {}, {}
@@ -74,18 +82,21 @@ end
 
 local function BuildPage()
 	scroll = CreateFrame("ScrollFrame", NAME .. "Scroll", frame, "UIPanelScrollFrameTemplate")
-	scroll:SetSize(300, 334)
+	scroll:SetSize(SCROLL_WIDTH, SCROLL_HEIGHT)
 	scroll:SetPoint("TOPLEFT", frame, "TOPLEFT", 23, -81)
 	page = CreateFrame("Frame", nil, scroll)
-	page:SetSize(PAGE_WIDTH, 1)
+	page:SetSize(SCROLL_WIDTH, 1)
 	scroll:SetScrollChild(page)
 end
 
 local function BuildTabs()
 	for n, name in ipairs(ns.Journal.SECTIONS) do
 		local tab = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-		tab:SetSize(TAB_WIDTH, 22)
-		tab:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", TABS_LEFT + (n - 1) * TAB_STEP, 72)
+		local column, row = (n - 1) % TABS_PER_ROW, math.floor((n - 1) / TABS_PER_ROW)
+		tab:SetSize(TAB_WIDTH, TAB_HEIGHT)
+		local x = TABS_LEFT + column * (TAB_WIDTH + TAB_GAP)
+		local y = TABS_BOTTOM + (1 - row) * (TAB_HEIGHT + TAB_GAP)
+		tab:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", x, y)
 		tab:SetNormalFontObject("GameFontNormalSmall")
 		tab:SetHighlightFontObject("GameFontHighlightSmall")
 		tab:SetDisabledFontObject("GameFontDisableSmall")
@@ -114,9 +125,21 @@ end
 local function Action(n)
 	if not actions[n] then
 		actions[n] = CreateFrame("Button", nil, page, "UIPanelButtonTemplate")
-		actions[n]:SetSize(ACTION_WIDTH, ACTION_HEIGHT)
+		actions[n]:SetNormalFontObject("GameFontNormalSmall")
+		actions[n]:SetHighlightFontObject("GameFontHighlightSmall")
+		actions[n]:SetHeight(ACTION_HEIGHT)
 	end
 	return actions[n]
+end
+
+-- The button grows to its label, so a longer label never spills out.
+local function FitAction(action, label)
+	action:SetText(label)
+	local text = action:GetFontString()
+	local width = text and text:GetStringWidth() or 0
+	local fitted = math.max(width + ACTION_PADDING, 48)
+	action:SetWidth(fitted)
+	return fitted
 end
 
 local function HideFrom(list, first)
@@ -127,29 +150,40 @@ end
 
 local function DrawLine(n, line, y)
 	local style = STYLES[line.style]
+	local action = Action(n)
+	action:SetShown(line.action ~= nil)
+	local room = 0
+	if line.action then
+		room = FitAction(action, line.action.label) + 6
+		action:ClearAllPoints()
+		action:SetPoint("TOPRIGHT", page, "TOPRIGHT", -MARGIN_RIGHT, -y)
+		action:SetScript("OnClick", line.action.run)
+	end
 	local text = FontString(n)
 	text:SetFontObject(style.font)
 	text:SetTextColor(INK[1], INK[2], INK[3])
 	text:SetJustifyH("LEFT")
-	local room = line.action and ACTION_WIDTH + 4 or 0
 	text:SetWidth(PAGE_WIDTH - style.indent - room)
 	text:ClearAllPoints()
-	text:SetPoint("TOPLEFT", page, "TOPLEFT", style.indent, -y)
+	-- A line with a button sits in the middle of the button's height.
+	local nudge = line.action and 4 or 0
+	text:SetPoint("TOPLEFT", page, "TOPLEFT", MARGIN_LEFT + style.indent, -y - nudge)
 	text:SetText(line.text)
 	text:Show()
 	local bullet = Bullet(n)
 	bullet:ClearAllPoints()
-	bullet:SetPoint("TOPLEFT", page, "TOPLEFT", 0, -y + 1)
+	bullet:SetPoint("TOPLEFT", page, "TOPLEFT", MARGIN_LEFT, -y - nudge + 1)
 	bullet:SetShown(style.bullet == true)
-	local action = Action(n)
-	action:SetShown(line.action ~= nil)
-	if line.action then
-		action:ClearAllPoints()
-		action:SetPoint("TOPRIGHT", page, "TOPRIGHT", 0, -y + 2)
-		action:SetText(line.action.label)
-		action:SetScript("OnClick", line.action.run)
+	return math.max(text:GetStringHeight() + nudge, line.action and ACTION_HEIGHT or 0)
+end
+
+-- The scroll bar shows only when the page is longer than the parchment.
+local function ShowScrollBar(height)
+	-- The template names its bar after the scroll frame.
+	local bar = _G[NAME .. "ScrollScrollBar"]
+	if type(bar) == "table" then
+		bar:SetShown(height > SCROLL_HEIGHT)
 	end
-	return math.max(text:GetStringHeight(), line.action and ACTION_HEIGHT or 0)
 end
 
 function JournalFrame.Refresh()
@@ -157,7 +191,7 @@ function JournalFrame.Refresh()
 		return
 	end
 	local lines = ns.Journal.Lines(section)
-	local y = 0
+	local y = MARGIN_TOP
 	for n, line in ipairs(lines) do
 		y = y + (n > 1 and STYLES[line.style].gap or 0)
 		y = y + DrawLine(n, line, y)
@@ -165,7 +199,8 @@ function JournalFrame.Refresh()
 	HideFrom(strings, #lines + 1)
 	HideFrom(bullets, #lines + 1)
 	HideFrom(actions, #lines + 1)
-	page:SetHeight(math.max(y, 1))
+	page:SetHeight(y + MARGIN_TOP)
+	ShowScrollBar(y + MARGIN_TOP)
 	for name, tab in pairs(tabs) do
 		tab:SetEnabled(name ~= section)
 	end
