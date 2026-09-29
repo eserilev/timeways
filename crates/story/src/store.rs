@@ -152,6 +152,17 @@ impl Prose {
         self.chapters.get(&began)
     }
 
+    /// The chapters that have words of the bard.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.chapters.len()
+    }
+
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.chapters.is_empty()
+    }
+
     /// # Errors
     ///
     /// Returns the I/O error of the write, and then keeps nothing.

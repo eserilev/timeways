@@ -22,9 +22,10 @@ fn folder() -> PathBuf {
 }
 
 /// The counts of what each file gave.
-fn counts(opened: &Opened) -> [usize; 7] {
+fn counts(opened: &Opened) -> [usize; 8] {
     [
         opened.history.as_ref().map_or(0, |file| file.len()),
+        opened.prose.len(),
         opened.flavor.moments().len(),
         opened.flavor.told().len(),
         opened.hero.changes().len(),
