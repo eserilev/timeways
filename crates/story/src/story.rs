@@ -529,7 +529,8 @@ impl Story {
     }
 
     /// A text that the character saw before changes nothing, also on the disk. A new book
-    /// is a small moment for the narrator (GAMEPLAY.md 3.1.1).
+    /// is a small moment for the narrator (GAMEPLAY.md 3.1.1). The game shows a book one
+    /// page at a time, so only its first page is a new book.
     fn add_seen(&mut self, at: Tick, text: SeenText) -> Result<Vec<Output>, StoryError> {
         let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
         if active.seen_index.contains(&text) {
@@ -539,6 +540,13 @@ impl Story {
             (TextKind::Book, Some(title)) => Some(title.clone()),
             _ => None,
         };
+        let read_before = |title: &String| {
+            let moments = active.flavor.moments();
+            moments
+                .iter()
+                .any(|moment| matches!(&moment.kind, Kind::Read { title: read } if read == title))
+        };
+        let book = book.filter(|title| !read_before(title));
         let read = Read {
             at,
             text: text.clone(),

@@ -69,7 +69,16 @@ impl SeenText {
 pub struct SeenIndex {
     connection: Connection,
     texts: Vec<SeenText>,
+    /// Each text with no zone: the zone is where you read it, and a text read again in
+    /// another place is the same text.
     known: HashSet<SeenText>,
+}
+
+fn without_zone(text: &SeenText) -> SeenText {
+    SeenText {
+        zone: None,
+        ..text.clone()
+    }
 }
 
 impl SeenIndex {
@@ -92,7 +101,7 @@ impl SeenIndex {
 
     #[must_use]
     pub fn contains(&self, text: &SeenText) -> bool {
-        self.known.contains(text)
+        self.known.contains(&without_zone(text))
     }
 
     /// A text that the index holds already changes nothing.
@@ -109,7 +118,7 @@ impl SeenIndex {
             "INSERT INTO seen (rowid, text) VALUES (?1, ?2)",
             params![row, text.index_text()],
         )?;
-        self.known.insert(text.clone());
+        self.known.insert(without_zone(&text));
         self.texts.push(text);
         Ok(())
     }

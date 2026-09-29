@@ -420,3 +420,41 @@ fn ten_books_earn_the_title_bookworm() {
     let json = serde_json::to_string(&outputs[0]).unwrap();
     assert!(json.contains("\"title\":\"Bookworm\""), "{json}");
 }
+
+/// The game shows a book one page at a time, and each page is a text of its own.
+#[test]
+fn ten_pages_of_one_book_earn_no_bookworm() {
+    let mut story = story_with("book-pages", &[]);
+    for page in 1..=10 {
+        story
+            .handle(book("One Long Book", &format!("Page {page}.")))
+            .unwrap();
+    }
+
+    let outputs = story
+        .handle(Input::JournalAsked {
+            id: MessageId(9),
+            page: 0,
+        })
+        .unwrap();
+    let json = serde_json::to_string(&outputs[0]).unwrap();
+    assert!(!json.contains("\"title\":\"Bookworm\""), "{json}");
+}
+
+#[test]
+fn a_text_read_again_in_another_zone_is_learned_once() {
+    let mut story = story_with("read-twice", &[]);
+    story.handle(book("A Tale", "Long ago.")).unwrap();
+
+    let elsewhere = Input::TextSeen {
+        at: Tick(11),
+        kind: TextKind::Book,
+        title: Some("A Tale".to_string()),
+        npc: None,
+        zone: Some("Ironforge".to_string()),
+        text: "Long ago.".to_string(),
+    };
+    story.handle(elsewhere).unwrap();
+
+    assert_eq!(learned_page(&mut story).len(), 1);
+}
