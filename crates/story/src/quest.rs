@@ -40,7 +40,7 @@ pub struct Quest {
 #[derive(Debug, Default)]
 pub struct Known<'a> {
     pub giver: &'a str,
-    /// The zones that you visited, or that a text that you read names.
+    /// The zones that you visited.
     pub zones: Vec<&'a str>,
     pub subzones: Vec<&'a str>,
     /// The NPCs that you met, except the dead of your story.

@@ -320,6 +320,22 @@ fn a_long_pause_starts_a_new_chapter() {
     assert_eq!(summary, expected);
 }
 
+/// The number of chapters when two zones come this many seconds apart.
+fn chapters_after_a_pause(seconds: u64) -> usize {
+    let mut character = Character::new();
+    character.enter_zone(Tick(HOUR), "Westfall", None).unwrap();
+    character
+        .enter_zone(Tick(HOUR + seconds), "Duskwood", None)
+        .unwrap();
+    journal(&character).chapters.len()
+}
+
+#[test]
+fn a_session_ends_after_thirty_minutes_with_no_event() {
+    assert_eq!(chapters_after_a_pause(30 * 60), 1);
+    assert_eq!(chapters_after_a_pause(30 * 60 + 1), 2);
+}
+
 #[test]
 fn a_session_with_nothing_new_has_no_chapter_and_leaves_no_gap_in_the_numbers() {
     let mut character = Character::new();

@@ -429,3 +429,19 @@ fn a_new_offer_ends_only_the_waiting_offer_of_the_same_giver() {
         .collect();
     assert_eq!(waiting, [2, 3]);
 }
+
+#[test]
+fn a_slap_counts_as_meeting_the_npc_of_a_step() {
+    let mut story = story("slap");
+    offer(&mut story, 5);
+    accept(&mut story, 6, None);
+    story.handle(zone(7, "Mill Pond")).unwrap();
+
+    let slap = Input::NpcSlapped {
+        at: Tick(8),
+        name: "Farmer Bram".to_string(),
+    };
+    story.handle(slap).unwrap();
+
+    assert_eq!(quests(&mut story)[0].status, Status::Done);
+}

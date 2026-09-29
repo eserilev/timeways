@@ -20,7 +20,7 @@ const FAMOUS_PLACES: [&str; 7] = [
 /// The local hours that make a moment odd: "a dance in Goldshire at 3 AM".
 const ODD_HOURS: std::ops::RangeInclusive<u8> = 2..=5;
 
-/// A telling counts against its kind for this long: "no two rabbit jokes in one evening".
+/// A telling lowers the score of its kind for this long.
 pub const TOLD_SECONDS: u64 = 72 * 3600;
 
 /// A killer this far below your level makes a death a flavor moment.

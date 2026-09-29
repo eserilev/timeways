@@ -203,17 +203,12 @@ fn seen_texts(active: &Active) -> Vec<SeenText> {
         .collect()
 }
 
-/// A zone that a text that you read names counts as a place that you heard of.
+/// The zone of a text that you read is the zone where you read it, so the places that you
+/// visited hold every place that you heard of.
 fn known<'a>(character: &'a Character, giver: &'a str, seen: &'a [SeenText]) -> Known<'a> {
-    let mut zones = character.visited_zones();
-    for zone in seen.iter().filter_map(|text| text.zone.as_deref()) {
-        if !zones.contains(&zone) {
-            zones.push(zone);
-        }
-    }
     Known {
         giver,
-        zones,
+        zones: character.visited_zones(),
         subzones: character.visited_subzones(),
         npcs: character.living_npcs_met(),
         seen,

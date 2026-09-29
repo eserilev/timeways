@@ -1,8 +1,9 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
+use hourglass::Tick;
 use timeways_story::quest::{
-    Known, MAX_OFFER_BYTES, Quest, QuestFault, Step, checked_quest, offer_line, prompt, thing_name,
-    title_of_thing,
+    Known, MAX_OFFER_BYTES, Quest, QuestChange, QuestFault, Status, Step, checked_quest,
+    offer_line, prompt, quest_log, thing_name, title_of_thing,
 };
 use timeways_story::seen::{SeenText, TextKind};
 
@@ -325,4 +326,37 @@ fn a_quest_with_the_same_step_twice_is_refused() {
         checked_quest(&text, &known(&seen)).unwrap_err(),
         QuestFault::RepeatedStep
     );
+}
+
+#[test]
+fn a_step_done_out_of_order_changes_nothing() {
+    let offered = QuestChange::Offered {
+        number: 1,
+        at: Tick(1),
+        giver: GIVER.to_string(),
+        title: "The Lost Lantern".to_string(),
+        text: "Go.".to_string(),
+        steps: vec![
+            Step::Visit {
+                place: "Mill Pond".to_string(),
+            },
+            Step::Meet {
+                npc: "Farmer Bram".to_string(),
+            },
+        ],
+    };
+    let accepted = QuestChange::Accepted {
+        number: 1,
+        at: Tick(2),
+    };
+    let second_first = QuestChange::StepDone {
+        number: 1,
+        step: 1,
+        at: Tick(3),
+    };
+
+    let quests = quest_log(&[offered, accepted, second_first]);
+
+    assert_eq!(quests[0].steps_done, 0);
+    assert_eq!(quests[0].status, Status::Accepted);
 }

@@ -181,3 +181,64 @@ fn the_top_moments_of_a_time_are_the_best_scores_in_it() {
         .collect();
     assert_eq!(scores, [(20, 4 + 3 + 2, 2), (30, 4, 3)]);
 }
+
+#[test]
+fn the_odd_hours_run_from_two_to_five() {
+    let character = Character::new();
+    let earlier = dances(50);
+
+    let scores: Vec<i64> = [1, 2, 5, 6]
+        .iter()
+        .map(|&hour| score(&dance(1000, "Westfall", hour), &earlier, &[], &character))
+        .collect();
+
+    assert_eq!(scores, [0, 2, 2, 0]);
+}
+
+#[test]
+fn trust_and_a_kill_either_way_are_a_past_for_a_callback() {
+    let mut character = Character::new();
+    character
+        .adjust_trust(Tick(1), "Innkeeper Farley", 2)
+        .unwrap();
+    character.defeat_npc(Tick(2), "Hogger").unwrap();
+    character.die(Tick(3), Some("Mother Fang")).unwrap();
+    let kiss = |npc: &str| Flavor {
+        at: Tick(1000),
+        hour: None,
+        place: None,
+        kind: Kind::Emote {
+            emote: "kiss".to_string(),
+            target: Some(npc.to_string()),
+        },
+    };
+
+    let scores: Vec<i64> = ["Innkeeper Farley", "Hogger", "Mother Fang"]
+        .iter()
+        .map(|npc| score(&kiss(npc), &dances(1), &[], &character))
+        .collect();
+
+    assert_eq!(scores, [5 + 4, 5 + 4, 5 + 4]);
+}
+
+#[test]
+fn a_telling_counts_for_seventy_two_hours_and_not_one_second_more() {
+    let character = Character::new();
+    let told = Told {
+        key: "emote:dance".to_string(),
+        at: Tick(1000),
+    };
+    let dance_at = |at| {
+        score(
+            &dance(at, "Westfall", 12),
+            &[],
+            std::slice::from_ref(&told),
+            &character,
+        )
+    };
+
+    let inside = dance_at(1000 + TOLD_SECONDS - 1);
+    let past = dance_at(1000 + TOLD_SECONDS);
+
+    assert_eq!((inside, past), (5 - 3, 5));
+}

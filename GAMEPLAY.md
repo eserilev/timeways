@@ -118,7 +118,7 @@ An innkeeper tells you a rumor, and the rumor becomes a small quest line made fo
 - **The check** (built, `quest.rs`): the code refuses an offer that breaks one of these rules.
   - The answer is JSON with a title (at most 60 characters), a text (at most 400), and 1 to 3 steps. The offer line fits in one narrator line (1000 bytes).
   - Each name is a string of the game, copied exactly, because progress matches it byte for byte.
-  - A place is a zone or subzone that you visited, or a zone that a text that you read names.
+  - A place is a zone or subzone that you visited. The addon names the zone of a text that you read by where you read it, so it adds no place.
   - An NPC is one that you met, is not dead in your story, and is not the giver.
   - No step comes twice, so one event never does two steps.
   - **No overlap:** a subzone or NPC of a step is not in the title or the text of a game quest that you read. The title is not the title of such a quest. A zone is exempt, because most quest texts name their zone. The rule covers only the quests that you read.

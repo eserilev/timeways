@@ -1426,3 +1426,58 @@ fn the_bard_reads_what_the_player_wrote_in_its_chapter() {
         "{prompt}"
     );
 }
+
+#[test]
+fn an_npc_hears_at_most_five_entries_the_newest_first() {
+    let mut story = story_with("hero-talk-cap", &[]);
+    enter(&mut story, 1, "Elwynn Forest", Some("Goldshire"));
+    for n in 1..=7 {
+        add_entry(
+            &mut story,
+            1 + n,
+            &format!("Entry {n}."),
+            Some("Innkeeper Farley"),
+        );
+    }
+
+    let (_, prompt) =
+        model_call(one(talk(&mut story, "Innkeeper Farley", "hello").unwrap()).unwrap());
+
+    let heard: Vec<&str> = prompt
+        .lines()
+        .filter(|line| line.starts_with("- Entry"))
+        .collect();
+    assert_eq!(
+        heard,
+        [
+            "- Entry 7.",
+            "- Entry 6.",
+            "- Entry 5.",
+            "- Entry 4.",
+            "- Entry 3."
+        ]
+    );
+}
+
+#[test]
+fn an_npc_knows_at_most_three_lore_passages() {
+    let farley = |n: u32| {
+        passage(
+            &format!("Innkeeper Farley story {n}."),
+            &format!("https://example.test/{n}"),
+            vec![npc("Innkeeper Farley")],
+        )
+    };
+    let passages: Vec<Passage> = (1..=5).map(farley).collect();
+    let mut story = story_with("talk-passages", &passages);
+    enter(&mut story, 1, "Elwynn Forest", Some("Goldshire"));
+
+    let (_, prompt) =
+        model_call(one(talk(&mut story, "Innkeeper Farley", "your story").unwrap()).unwrap());
+
+    let known = prompt
+        .lines()
+        .filter(|line| line.contains("story "))
+        .count();
+    assert_eq!(known, 3, "{prompt}");
+}
