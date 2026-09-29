@@ -14,8 +14,8 @@ use timeways_story::store::Store;
 use timeways_story::story::Story;
 
 /// The model answers each call as a model does: words, a line, a saga, or a quest.
-fn model(prompt: &str) -> Option<String> {
-    Some(if prompt.contains("You are a bard of Azeroth") {
+fn model(prompt: &str) -> String {
+    if prompt.contains("You are a bard of Azeroth") {
         r#"{"saga": "Our hero came to Goldshire.", "footnotes": []}"#.to_string()
     } else if prompt.contains("small task of your own") {
         r#"{"title": "The Lost Lantern", "text": "Find it.", "steps": [{"goal": "visit", "place": "Goldshire"}]}"#.to_string()
@@ -25,7 +25,7 @@ fn model(prompt: &str) -> Option<String> {
         "Our hero walks on.".to_string()
     } else {
         "Nobody knows.".to_string()
-    })
+    }
 }
 
 fn story() -> Story {
@@ -85,7 +85,7 @@ fn lines(game: &Game, section: &str) -> String {
 #[test]
 fn a_session_of_play_goes_through_the_bridge_and_back_into_the_book() {
     let game = game();
-    let mut bridge = FakeBridge::new(story()).with_model(Box::new(model));
+    let mut bridge = FakeBridge::new(story()).with_model(Box::new(|prompt| Some(model(prompt))));
 
     let session = [
         "wow.units.player = { name = 'Ada', level = 12, player = true }
