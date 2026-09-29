@@ -384,3 +384,14 @@ fn an_offer_of_exactly_one_narrator_line_passes() {
     let line = offer_line(GIVER, &offer.unwrap());
     assert_eq!(line.len(), MAX_OFFER_BYTES);
 }
+
+#[test]
+fn a_title_that_differs_from_a_game_quest_only_in_case_or_marks_is_refused() {
+    let seen = [game_quest("The Lost Lantern", "Find it.")];
+    let text = answer("the lost lantern!", MEET_BRAM);
+
+    assert_eq!(
+        checked_quest(&text, &known(&seen)).unwrap_err(),
+        QuestFault::GameQuest("the lost lantern!".to_string())
+    );
+}

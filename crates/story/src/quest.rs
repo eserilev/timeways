@@ -2,7 +2,7 @@
 //! each step against the world before the offer shows (5.2). The words of the prompt live
 //! here.
 
-use crate::check::{json_object, mentions, plain_text};
+use crate::check::{json_object, mentions, plain_text, same_words};
 use crate::seen::{SeenText, TextKind};
 use hourglass::Tick;
 use serde::{Deserialize, Serialize};
@@ -93,7 +93,8 @@ pub fn checked_quest(answer: &str, known: &Known<'_>) -> Result<Quest, QuestFaul
     if !(1..=MAX_STEPS).contains(&reply.steps.len()) {
         return Err(QuestFault::StepCount(reply.steps.len()));
     }
-    if game_quests(known.seen).any(|seen| seen.title.as_deref() == Some(title.as_str())) {
+    let game_title = |seen: &SeenText| seen.title.as_deref().is_some_and(|t| same_words(t, &title));
+    if game_quests(known.seen).any(game_title) {
         return Err(QuestFault::GameQuest(title));
     }
     for (n, step) in reply.steps.iter().enumerate() {

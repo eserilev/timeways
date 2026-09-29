@@ -104,13 +104,30 @@ pub fn json_object(text: &str) -> Option<&str> {
     (start < end).then(|| &text[start..=end])
 }
 
-/// The names of the cutoff list that the text holds, as whole words in any case.
+/// The names of the cutoff list that the text holds, in any case. The last word of a name
+/// also counts at the start of a longer word, so "Pandarian" counts as "Pandaria".
 #[must_use]
 pub fn names_after_cutoff(answer: &str) -> Vec<&'static str> {
     let words = words_of(answer);
     later_names()
-        .filter(|name| contains_phrase(&words, name))
+        .filter(|name| starts_a_phrase(&words, name))
         .collect()
+}
+
+fn starts_a_phrase(words: &[String], name: &str) -> bool {
+    let phrase = words_of(name);
+    let Some((last, first)) = phrase.split_last() else {
+        return false;
+    };
+    words.windows(phrase.len()).any(|window| {
+        window[..first.len()] == *first && window[first.len()].starts_with(last.as_str())
+    })
+}
+
+/// Do the two texts hold the same words, in any case and with any marks between them?
+#[must_use]
+pub fn same_words(a: &str, b: &str) -> bool {
+    words_of(a) == words_of(b)
 }
 
 /// Does the text hold the name as whole words, in any case?

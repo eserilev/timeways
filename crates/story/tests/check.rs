@@ -1,4 +1,4 @@
-use timeways_story::check::{Fault, MAX_CHARS, check, later_names};
+use timeways_story::check::{Fault, MAX_CHARS, check, later_names, names_after_cutoff};
 
 #[test]
 fn an_answer_that_cites_a_passage_passes() {
@@ -71,11 +71,6 @@ fn a_later_name_matches_in_any_case() {
 }
 
 #[test]
-fn a_later_name_matches_only_whole_words() {
-    assert_eq!(check("The Shattrathian guard stood still [1].", 1), []);
-}
-
-#[test]
 fn every_later_name_in_the_list_is_caught() {
     for name in later_names() {
         let answer = format!("They spoke of {name} [1].");
@@ -116,4 +111,18 @@ fn an_unknown_number_in_a_list_of_citations_fails() {
 #[test]
 fn brackets_with_words_are_not_citations() {
     assert_eq!(check("It fell [see above].", 2), [Fault::NoCitation]);
+}
+
+#[test]
+fn a_word_made_from_a_later_name_is_caught_too() {
+    assert_eq!(
+        names_after_cutoff("The Pandarian monks came."),
+        ["Pandaria"]
+    );
+    assert_eq!(names_after_cutoff("A Shattrathi guard."), ["Shattrath"]);
+}
+
+#[test]
+fn a_word_that_only_ends_like_a_later_name_is_not_caught() {
+    assert!(names_after_cutoff("Xpandaria is no name.").is_empty());
 }
