@@ -11,6 +11,7 @@ fn dance(at: u64, place: &str, hour: u8) -> Flavor {
         at: Tick(at),
         hour: Some(hour),
         place: Some(place.to_string()),
+        zone: None,
         kind,
     }
 }
@@ -27,6 +28,7 @@ fn the_example_of_the_spec_scores_fourteen() {
         at: Tick(100),
         hour: Some(3),
         place: Some("Goldshire".to_string()),
+        zone: None,
         kind: Kind::Humbled {
             killer: "Cow".to_string(),
             gap: 59,
@@ -76,6 +78,7 @@ fn a_callback_to_an_npc_with_a_past_adds_four_and_a_plain_meeting_adds_nothing()
         at: Tick(1000),
         hour: None,
         place: None,
+        zone: None,
         kind: Kind::Emote {
             emote: "kiss".to_string(),
             target: Some(npc.to_string()),
@@ -95,6 +98,7 @@ fn a_contrast_adds_one_for_each_ten_levels_up_to_four() {
         at: Tick(1000),
         hour: None,
         place: None,
+        zone: None,
         kind: Kind::Humbled {
             killer: "Cow".to_string(),
             gap,
@@ -208,6 +212,7 @@ fn trust_and_a_kill_either_way_are_a_past_for_a_callback() {
         at: Tick(1000),
         hour: None,
         place: None,
+        zone: None,
         kind: Kind::Emote {
             emote: "kiss".to_string(),
             target: Some(npc.to_string()),

@@ -8,6 +8,7 @@ fn moment(kind: Kind, place: &str) -> Flavor {
         at: Tick(1),
         hour: None,
         place: Some(place.to_string()),
+        zone: None,
         kind,
     }
 }

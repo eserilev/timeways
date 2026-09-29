@@ -1128,6 +1128,19 @@ fn a_funny_moment_in_a_quiet_batch_gets_a_flavor_line() {
     );
 }
 
+/// In a capital, the game names the subzone, such as the Trade District.
+#[test]
+fn a_moment_in_a_subzone_of_a_famous_city_counts_as_famous() {
+    let mut story = story_with("flavor-capital", &[]);
+    enter(&mut story, 1, "Stormwind City", Some("Trade District"));
+    let _ = close_narrator(&mut story, 1);
+
+    dance_at(&mut story, 100, 12);
+    let line = batch_end(&mut story, 2);
+
+    assert!(matches!(line, Output::ModelCall { .. }), "{line:?}");
+}
+
 #[test]
 fn a_plain_moment_gets_no_line() {
     let mut story = story_with("flavor-plain", &[]);

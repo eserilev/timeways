@@ -33,6 +33,10 @@ pub struct Flavor {
     pub hour: Option<u8>,
     /// Where you stood: the subzone, or the zone.
     pub place: Option<String>,
+    /// The zone around `place` when `place` is a subzone. In a capital, the game names the
+    /// subzone, such as the Trade District.
+    #[serde(default)]
+    pub zone: Option<String>,
     #[serde(flatten)]
     pub kind: Kind,
 }
@@ -107,10 +111,11 @@ pub fn score(flavor: &Flavor, earlier: &[Flavor], told: &[Told], character: &Cha
         .kind
         .npc()
         .is_some_and(|npc| character.has_history_with(npc));
-    let famous = flavor
-        .place
-        .as_deref()
-        .is_some_and(|place| FAMOUS_PLACES.contains(&place));
+    let names = [flavor.place.as_deref(), flavor.zone.as_deref()];
+    let famous = names
+        .into_iter()
+        .flatten()
+        .any(|name| FAMOUS_PLACES.contains(&name));
     let odd_hour = flavor.hour.is_some_and(|hour| ODD_HOURS.contains(&hour));
     first_time(same)
         + rare_for_you(same)

@@ -709,15 +709,12 @@ impl Story {
         kind: Kind,
     ) -> Result<Vec<Output>, StoryError> {
         let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
-        let place = active
-            .character
-            .place_names()
-            .first()
-            .map(|place| (*place).to_string());
+        let places = active.character.place_names();
         let moment = Flavor {
             at,
             hour,
-            place,
+            place: places.first().map(|place| (*place).to_string()),
+            zone: places.get(1).map(|zone| (*zone).to_string()),
             kind,
         };
         let earlier = active.flavor.moments();
