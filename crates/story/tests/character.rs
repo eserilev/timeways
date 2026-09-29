@@ -1,8 +1,8 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-use hourglass::{EntityId, EntityType, Tick};
+use hourglass::{EntityId, EntityType, Event, EventId, EventKind, Tick};
 use timeways_story::character::Character;
-use timeways_story::vocabulary::{LEVEL, MET, VISITED};
+use timeways_story::vocabulary::{DEAD, LEVEL, MET, QUEST_ACCEPTED, QUEST_OFFERED, VISITED};
 
 fn id_of(character: &Character, entity_type: EntityType, name: &str) -> Option<EntityId> {
     character
@@ -405,4 +405,151 @@ fn a_slap_past_the_cap_of_its_count_still_costs_trust() {
 
     assert_eq!(past_the_cap, Ok(()));
     assert_eq!(character.slaps_of("Hogger"), Some(1000));
+}
+
+fn created(id: u32, entity_type: EntityType, name: &str) -> EventKind {
+    EventKind::EntityCreated {
+        id: EntityId(id),
+        entity_type,
+        name: name.to_string(),
+    }
+}
+
+fn history_of(kinds: Vec<EventKind>) -> Vec<Event> {
+    kinds
+        .into_iter()
+        .zip(0..)
+        .map(|(kind, at)| Event {
+            id: EventId(at),
+            tick: Tick(at),
+            kind,
+        })
+        .collect()
+}
+
+#[test]
+fn you_are_the_entity_that_the_saved_history_founds() {
+    let events = history_of(vec![created(3, EntityType::Person, "you")]);
+
+    let character = Character::from_history(&events).unwrap();
+
+    assert_eq!(character.you(), EntityId(3));
+}
+
+#[test]
+fn an_earned_title_is_held() {
+    let mut character = Character::new();
+
+    character.earn_title(Tick(1), "Hogger Slayer").unwrap();
+
+    assert!(character.has_title("Hogger Slayer"));
+    assert!(!character.has_title("Kingslayer"));
+}
+
+#[test]
+fn trust_of_gives_the_trust_that_the_npc_holds() {
+    let mut character = Character::new();
+
+    character
+        .adjust_trust(Tick(1), "Innkeeper Farley", 7)
+        .unwrap();
+
+    assert_eq!(character.trust_of("Innkeeper Farley"), Some(7));
+    assert_eq!(character.trust_of("Hogger"), None);
+}
+
+#[test]
+fn visited_zones_leave_out_the_subzones() {
+    let mut character = Character::new();
+
+    character
+        .enter_zone(Tick(1), "Elwynn Forest", Some("Goldshire"))
+        .unwrap();
+
+    assert_eq!(character.visited_zones(), ["Elwynn Forest"]);
+}
+
+#[test]
+fn an_npc_with_the_dead_fact_is_dead() {
+    let events = history_of(vec![
+        created(0, EntityType::Person, "you"),
+        created(1, EntityType::Person, "Hogger"),
+        EventKind::FactStart {
+            entity: EntityId(1),
+            name: DEAD.to_string(),
+            value: None,
+            linked_to: None,
+        },
+    ]);
+
+    let character = Character::from_history(&events).unwrap();
+
+    assert!(character.is_dead("Hogger"));
+}
+
+#[test]
+fn an_offered_quest_is_a_deed_of_its_giver() {
+    let mut character = Character::new();
+
+    character
+        .offer_quest(Tick(1), "Marshal Dughan", "Wolves Across the Border")
+        .unwrap();
+
+    let dughan = person(&character, "Marshal Dughan");
+    let quest = id_of(&character, EntityType::Thing, "Wolves Across the Border").unwrap();
+    let giver = character.world().entity(dughan).unwrap();
+    assert!(giver.fact(QUEST_OFFERED, Some(quest)).is_some());
+}
+
+#[test]
+fn an_accepted_quest_is_your_deed() {
+    let mut character = Character::new();
+
+    character
+        .accept_quest(Tick(1), "Wolves Across the Border")
+        .unwrap();
+
+    let quest = id_of(&character, EntityType::Thing, "Wolves Across the Border").unwrap();
+    assert!(holds(&character, QUEST_ACCEPTED, quest));
+}
+
+#[test]
+fn only_a_finished_quest_is_done() {
+    let mut character = Character::new();
+    character
+        .accept_quest(Tick(1), "The Fargodeep Mine")
+        .unwrap();
+
+    character
+        .finish_quest(Tick(2), "Marshal Dughan", "Wolves Across the Border")
+        .unwrap();
+
+    assert!(character.has_done_quest("Wolves Across the Border"));
+    assert!(!character.has_done_quest("The Fargodeep Mine"));
+}
+
+#[test]
+fn the_level_that_you_hold_adds_no_event() {
+    let mut character = Character::new();
+    character.reach_level(Tick(1), 5).unwrap();
+    let before = character.world().history().len();
+
+    let result = character.reach_level(Tick(2), 5);
+
+    assert_eq!(result, Ok(()));
+    assert_eq!(character.world().history().len(), before);
+}
+
+#[test]
+fn a_change_of_trust_past_the_end_of_the_band_adds_no_event() {
+    let mut character = Character::new();
+    character
+        .adjust_trust(Tick(1), "Innkeeper Farley", 100)
+        .unwrap();
+    let before = character.world().history().len();
+
+    let result = character.adjust_trust(Tick(2), "Innkeeper Farley", 5);
+
+    assert_eq!(result, Ok(()));
+    assert_eq!(character.world().history().len(), before);
 }

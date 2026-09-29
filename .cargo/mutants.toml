@@ -7,10 +7,26 @@ examine_globs = [
     "crates/story/src/store.rs",
     "crates/story/src/serve.rs",
     "crates/story/src/reply_size.rs",
+    "crates/story/src/story.rs",
+    "crates/story/src/character.rs",
+    "crates/story/src/check.rs",
+    "crates/story/src/flavor.rs",
+    "crates/story/src/titles.rs",
+    "crates/story/src/hero.rs",
 ]
 
 # Mutants that change nothing, each with its reason.
 exclude_re = [
     # Cutting a file to its own length changes nothing, so `<` and `<=` are the same.
     "store.rs:.*replace < with <= in read_lines",
+    # The index of a `{` never equals the index of a `}`.
+    "check.rs:.*replace < with <= in json_object",
+    # `close * 1` leaves the `]` at the front of the rest, and the next search looks only
+    # for a `[`.
+    "check.rs:.*replace \\+ with \\* in citations",
+    # The fallback runs only for a count of tellings past i64::MAX.
+    "flavor.rs:.*replace / with % in told_before",
+    # The slot budget of passages is below their line budget, and the slot counts at least
+    # as many bytes as the line, so a larger line budget changes nothing.
+    "story.rs:75:.*",
 ]

@@ -44,6 +44,11 @@ jobs:
 
   # A mutant that no test catches is a rule with a weak test.
   mutants:
+    # About 700 mutants, so 4 machines share them.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
@@ -54,9 +59,9 @@ jobs:
         with:
           tool: cargo-mutants
       # Exit code 3 means only timeouts: a mutant that loops forever, which counts as caught.
-      - run: cargo mutants -p timeways-story -j 2 || [ $? -eq 3 ]
+      - run: cargo mutants -p timeways-story -j 2 --shard ${{ matrix.shard }}/4 || [ $? -eq 3 ]
       - if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: mutants
+          name: mutants-${{ matrix.shard }}
           path: mutants.out/

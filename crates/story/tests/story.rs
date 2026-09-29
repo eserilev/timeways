@@ -1576,3 +1576,256 @@ fn an_hour_past_23_and_an_emote_that_is_no_word_are_refused() {
     assert!(matches!(late, Err(StoryError::BadHour)), "{late:?}");
     assert!(matches!(shouted, Err(StoryError::BadToken)), "{shouted:?}");
 }
+
+fn clock_seconds() -> u64 {
+    let since_epoch = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
+    since_epoch.unwrap().as_secs()
+}
+
+const DAY: u64 = 24 * HOUR;
+
+/// The clock of the story reads after the clock of the test, so a day ahead of the test is
+/// never more than a day ahead of the story.
+#[test]
+fn a_time_one_day_ahead_is_taken_and_a_later_one_is_refused() {
+    let mut story = story_with("one-day-ahead", &[]);
+    let now = clock_seconds();
+
+    let one_day = story.handle(Input::NpcMet {
+        at: Tick(now + DAY),
+        name: "Tomorrow".to_string(),
+    });
+    let past_the_day = story.handle(Input::NpcMet {
+        at: Tick(now + DAY + 2 * 60),
+        name: "Later".to_string(),
+    });
+
+    assert!(one_day.is_ok(), "{one_day:?}");
+    assert!(
+        matches!(past_the_day, Err(StoryError::FutureTime(_))),
+        "{past_the_day:?}"
+    );
+}
+
+/// Each passage takes about 3,000 bytes in the slot of the game. The slot has room for
+/// four of them next to the longest model text.
+#[test]
+fn long_passages_stop_where_the_model_text_needs_the_room() {
+    let text = "tower ".repeat(492);
+    let passages: Vec<Passage> = (0..8)
+        .map(|n| {
+            passage(
+                &text,
+                &format!("https://example.test/{n}"),
+                vec![place("Testvale")],
+            )
+        })
+        .collect();
+    let mut story = story_with("passage-budget", &passages);
+    enter(&mut story, 1, "Testvale", None);
+
+    let found = sources(&mut story, "tower", None);
+
+    assert_eq!(found.len(), 4);
+}
+
+#[test]
+fn a_talk_answer_with_no_change_of_trust_leaves_the_trust_unset() {
+    let mut story = story_with("talk-no-trust", &[]);
+    let (call, _) =
+        model_call(one(talk(&mut story, "Innkeeper Farley", "any news?").unwrap()).unwrap());
+
+    let text = r#"{"say": "Nothing but rain.", "trust": 0}"#.to_string();
+    story.handle(Input::ModelAnswered { call, text }).unwrap();
+
+    assert_eq!(people(&mut story)[0].trust, None);
+}
+
+fn emote_at(story: &mut Story, at: u64, emote: &str, hour: u8) {
+    let input = Input::EmoteDone {
+        at: Tick(at),
+        emote: emote.to_string(),
+        target: None,
+        hour: Some(hour),
+    };
+    assert!(story.handle(input).unwrap().is_empty());
+}
+
+#[test]
+fn a_moment_of_another_kind_does_not_count_toward_the_times_of_a_dance() {
+    let mut story = story_with("flavor-count", &[]);
+    enter(&mut story, 1, "Elwynn Forest", Some("Goldshire"));
+    let _ = close_narrator(&mut story, 1);
+    emote_at(&mut story, 100, "wave", 3);
+    let _ = close_narrator(&mut story, 2);
+
+    dance_at(&mut story, 100 + 1300, 3);
+    let (_, prompt) = model_call(batch_end(&mut story, 3));
+
+    assert!(
+        prompt.ends_with(
+            "Moment: The player used the emote /dance in Goldshire, at 3 o'clock, for the 1st time."
+        ),
+        "{prompt}"
+    );
+}
+
+/// The dance at 3 o'clock scores 10, and the wave at noon scores 8.
+#[test]
+fn the_flavor_line_is_about_the_best_moment_of_the_batch_not_the_last() {
+    let mut story = story_with("flavor-best", &[]);
+    enter(&mut story, 1, "Elwynn Forest", Some("Goldshire"));
+    let _ = close_narrator(&mut story, 1);
+
+    dance_at(&mut story, 100, 3);
+    emote_at(&mut story, 101, "wave", 12);
+    let (_, prompt) = model_call(batch_end(&mut story, 2));
+
+    assert!(prompt.contains("/dance"), "{prompt}");
+}
+
+/// The first death to a weak NPC earns a title, and the title takes the line. The joke is
+/// told first for the Sheep.
+#[test]
+fn the_same_kind_of_joke_is_told_again_exactly_twelve_hours_later() {
+    let mut story = story_with("flavor-kind-edge", &[]);
+    level(&mut story, 1, 60);
+    enter(&mut story, 2, "Elwynn Forest", Some("Goldshire"));
+    let _ = close_narrator(&mut story, 1);
+    humbled_by(&mut story, 10, "Cow");
+    let _ = close_narrator(&mut story, 2);
+    humbled_by(&mut story, 2000, "Sheep");
+    let _ = close_narrator(&mut story, 3);
+
+    humbled_by(&mut story, 2000 + 12 * HOUR, "Boar");
+    let twelve_hours_later = close_narrator(&mut story, 4);
+
+    assert!(
+        matches!(twelve_hours_later, Output::ModelCall { .. }),
+        "{twelve_hours_later:?}"
+    );
+}
+
+fn bard_prompt(story: &mut Story, batch: u64) -> String {
+    let outputs = story
+        .handle(Input::BatchEnd {
+            id: MessageId(batch),
+        })
+        .unwrap();
+    match outputs.as_slice() {
+        [_, Output::ModelCall { prompt, .. }] => prompt.clone(),
+        _ => panic!("expected a bard call, got {outputs:?}"),
+    }
+}
+
+#[test]
+fn a_small_moment_at_the_start_of_the_next_chapter_stays_out_of_the_saga_before_it() {
+    let mut story = story_with("bard-moment-edge", &[]);
+    meet(&mut story, HOUR, "Gryan Stoutmantle");
+    let _ = close_narrator(&mut story, 1);
+    meet(&mut story, 5 * HOUR, "Salma Saldean");
+
+    dance_at(&mut story, 5 * HOUR, 12);
+    let prompt = bard_prompt(&mut story, 2);
+
+    assert!(!prompt.contains("/dance"), "{prompt}");
+}
+
+#[test]
+fn the_bard_reads_the_entries_from_the_start_of_its_chapter_to_the_start_of_the_next() {
+    let mut story = story_with("bard-entry-edge", &[]);
+    meet(&mut story, HOUR, "Gryan Stoutmantle");
+    add_entry(&mut story, HOUR, "At the start of chapter one.", None);
+    meet(&mut story, 5 * HOUR, "Salma Saldean");
+    add_entry(&mut story, 5 * HOUR, "At the start of chapter two.", None);
+
+    let prompt = bard_prompt(&mut story, 2);
+
+    let written = "What the player wrote in this chapter:\n- At the start of chapter one.\n\n";
+    assert!(prompt.contains(written), "{prompt}");
+}
+
+#[test]
+fn a_talk_at_the_byte_limits_of_the_npc_name_and_the_words_asks_the_model() {
+    let mut story = story_with("talk-limits", &[]);
+    let npc = "N".repeat(64);
+    let words = "w".repeat(255);
+
+    let at_the_limits = talk(&mut story, &npc, &words);
+    let long_npc = talk(&mut story, &"N".repeat(65), "hi");
+
+    assert!(
+        matches!(one(at_the_limits.unwrap()), Some(Output::ModelCall { .. })),
+        "the npc name and the words at their limits are taken"
+    );
+    assert!(matches!(long_npc, Err(StoryError::BadName)), "{long_npc:?}");
+}
+
+fn gossip(story: &mut Story, text: &str) -> Result<Vec<Output>, StoryError> {
+    story.handle(Input::TextSeen {
+        at: Tick(1),
+        kind: timeways_story::seen::TextKind::Gossip,
+        title: None,
+        npc: None,
+        zone: None,
+        text: text.to_string(),
+    })
+}
+
+#[test]
+fn a_seen_text_of_2400_bytes_is_taken_and_one_byte_more_is_refused() {
+    let mut story = story_with("seen-limit", &[]);
+
+    let at_the_limit = gossip(&mut story, &"a".repeat(2400));
+    let past_the_limit = gossip(&mut story, &"b".repeat(2401));
+
+    assert!(at_the_limit.is_ok(), "{at_the_limit:?}");
+    assert!(
+        matches!(past_the_limit, Err(StoryError::BadSeenText)),
+        "{past_the_limit:?}"
+    );
+}
+
+#[test]
+fn an_emote_of_24_letters_at_23_o_clock_is_taken() {
+    let mut story = story_with("token-hour-limit", &[]);
+
+    let result = story.handle(Input::EmoteDone {
+        at: Tick(1),
+        emote: "a".repeat(24),
+        target: None,
+        hour: Some(23),
+    });
+
+    assert!(result.is_ok(), "{result:?}");
+}
+
+#[test]
+fn a_name_of_96_bytes_is_taken() {
+    let mut story = story_with("name-limit", &[]);
+
+    let result = story.handle(Input::NpcMet {
+        at: Tick(1),
+        name: "N".repeat(96),
+    });
+
+    assert!(result.is_ok(), "{result:?}");
+}
+
+#[test]
+fn a_refusal_tells_its_reason() {
+    let mut story = story_with("refusal-text", &[]);
+    level(&mut story, 1, 6);
+
+    let error = story
+        .handle(Input::LevelReached {
+            at: Tick(1),
+            level: 5,
+        })
+        .unwrap_err();
+
+    assert_eq!(
+        error.to_string(),
+        "refused: level moves up, and 6 to 5 does not"
+    );
+}

@@ -1,6 +1,6 @@
 use hourglass::Tick;
 use timeways_story::character::Character;
-use timeways_story::flavor::{Flavor, Kind, TOLD_SECONDS, Teller, Told, score};
+use timeways_story::flavor::{Flavor, Kind, TOLD_SECONDS, Teller, Told, score, top_moments};
 
 fn dance(at: u64, place: &str, hour: u8) -> Flavor {
     let kind = Kind::Emote {
@@ -248,4 +248,60 @@ fn a_telling_counts_for_seventy_two_hours_and_not_one_second_more() {
     let past = dance_at(1000 + TOLD_SECONDS);
 
     assert_eq!((inside, past), (5 - 3, 5));
+}
+
+#[test]
+fn a_telling_seventy_one_hours_ago_still_counts() {
+    let told = Told {
+        key: "emote:dance".to_string(),
+        at: Tick(0),
+        teller: Teller::Narrator,
+    };
+    let later = dance(71 * 3600, "Westfall", 12);
+
+    let scored = score(&later, &[], &[told], &Character::new());
+
+    assert_eq!(scored, 5 - 3);
+}
+
+#[test]
+fn the_top_moments_hold_the_moments_at_both_edges_of_the_time() {
+    let moments = vec![
+        dance(9, "Westfall", 12),
+        dance(10, "Westfall", 12),
+        dance(30, "Westfall", 12),
+        dance(31, "Westfall", 12),
+    ];
+
+    let top = top_moments(&moments, &[], &Character::new(), (Tick(10), Tick(30)), 5);
+
+    let times: Vec<u64> = top.iter().map(|moment| moment.flavor.at.0).collect();
+    assert_eq!(times, [10, 30]);
+}
+
+#[test]
+fn a_top_moment_loses_three_for_a_telling_before_it_or_at_the_same_time() {
+    let tellings = [
+        Told {
+            key: "emote:dance".to_string(),
+            at: Tick(5),
+            teller: Teller::Narrator,
+        },
+        Told {
+            key: "emote:dance".to_string(),
+            at: Tick(20),
+            teller: Teller::Narrator,
+        },
+    ];
+    let moments = vec![dance(20, "Westfall", 12)];
+
+    let top = top_moments(
+        &moments,
+        &tellings,
+        &Character::new(),
+        (Tick(0), Tick(99)),
+        5,
+    );
+
+    assert_eq!(top[0].score, 5 - 3 - 3);
 }

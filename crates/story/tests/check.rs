@@ -1,4 +1,6 @@
-use timeways_story::check::{Fault, MAX_CHARS, check, later_names, names_after_cutoff};
+use timeways_story::check::{
+    Fault, MAX_CHARS, check, later_names, mentions, names_after_cutoff, plain_text,
+};
 
 #[test]
 fn an_answer_that_cites_a_passage_passes() {
@@ -125,4 +127,57 @@ fn a_word_made_from_a_later_name_is_caught_too() {
 #[test]
 fn a_word_that_only_ends_like_a_later_name_is_not_caught() {
     assert!(names_after_cutoff("Xpandaria is no name.").is_empty());
+}
+
+#[test]
+fn an_answer_of_exactly_the_limit_passes() {
+    let answer = format!("{} [1]", "a".repeat(MAX_CHARS - 4));
+
+    let faults = check(&answer, 1);
+
+    assert_eq!(answer.chars().count(), MAX_CHARS);
+    assert_eq!(faults, []);
+}
+
+#[test]
+fn a_plain_text_of_exactly_max_chars_passes() {
+    assert_eq!(plain_text("abc", 3, 100), Some("abc".to_string()));
+    assert_eq!(plain_text("abcd", 3, 100), None);
+}
+
+#[test]
+fn a_plain_text_of_exactly_max_bytes_passes() {
+    assert_eq!(plain_text("é", 10, 2), Some("é".to_string()));
+    assert_eq!(plain_text("é", 10, 1), None);
+}
+
+#[test]
+fn a_name_counts_as_whole_words_in_any_case() {
+    assert!(mentions("Hogger", "hogger"));
+    assert!(mentions("They met Old Blue there.", "old blue"));
+}
+
+#[test]
+fn a_name_that_the_text_lacks_is_not_mentioned() {
+    assert!(!mentions("They met Hogger.", "Farley"));
+    assert!(!mentions("Hoggers ran.", "Hogger"));
+}
+
+#[test]
+fn an_empty_name_is_never_mentioned() {
+    assert!(!mentions("They met Hogger.", ""));
+    assert!(!mentions("They met Hogger.", " !? "));
+}
+
+#[test]
+fn empty_brackets_before_a_citation_do_not_hide_it() {
+    assert_eq!(check("It fell [] [1].", 1), []);
+}
+
+#[test]
+fn two_citations_in_a_row_both_count() {
+    assert_eq!(
+        check("It fell [1][3] later.", 2),
+        [Fault::UnknownCitation { number: 3 }]
+    );
 }
