@@ -441,3 +441,19 @@ fn the_story_of_the_hero_survives_a_restart() {
     assert_eq!(page.journal.hero.sheet[0].text, "Find my brother.");
     assert_eq!(numbers, [1, 2]);
 }
+
+#[test]
+fn a_line_cut_inside_a_character_is_cut_off_and_the_world_opens() {
+    let folder = fresh_folder("torn-utf8");
+    let mut first = story(&folder, "Ada");
+    enter(&mut first, 10, "Elwynn Forest");
+    drop(first);
+    let path = history_file(&folder, "Ada");
+    let mut bytes = fs::read(&path).unwrap();
+    bytes.extend_from_slice(b"{\"id\":99,\"text\":\"Caf\xC3");
+    fs::write(&path, bytes).unwrap();
+
+    let mut second = story(&folder, "Ada");
+
+    assert_eq!(places(&mut second), ["Elwynn Forest"]);
+}

@@ -486,12 +486,14 @@ fn read_lines<T: DeserializeOwned>(
     let mut items = Vec::new();
     let mut good_bytes = 0;
     let mut reader = BufReader::new(file);
-    let mut line = String::new();
+    // Bytes, not a `String`: a crash can cut a line inside a character, and that line is
+    // damage to cut, not an error.
+    let mut line = Vec::new();
     loop {
         line.clear();
-        let read = reader.read_line(&mut line)?;
-        match serde_json::from_str::<T>(line.trim_end()) {
-            Ok(item) if read > 0 && line.ends_with('\n') && accept(&item, items.len()) => {
+        let read = reader.read_until(b'\n', &mut line)?;
+        match serde_json::from_slice::<T>(line.trim_ascii_end()) {
+            Ok(item) if read > 0 && line.ends_with(b"\n") && accept(&item, items.len()) => {
                 items.push(item);
                 good_bytes += read as u64;
             }

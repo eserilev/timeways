@@ -1,17 +1,20 @@
-//! Damaged files of a character. Opening them never panics, and the repair of the first
-//! open leaves files that a second open reads the same way.
+//! Damaged files of a character. Opening them always works, because a crash can leave any
+//! damage (GAMEPLAY.md 5.7). Only a history from another program is refused. The repair of
+//! the first open leaves files that a second open reads the same way.
 
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
 use std::path::PathBuf;
-use timeways_story::store::{CharacterKey, Opened, Store};
+use timeways_story::store::{CharacterKey, Opened, Store, StoreError};
 
-const FILES: [&str; 4] = [
+const FILES: [&str; 6] = [
     "c_Ada.jsonl",
     "c_Ada.flavor.jsonl",
     "c_Ada.hero.jsonl",
     "c_Ada.chronicle.jsonl",
+    "c_Ada.learned.jsonl",
+    "c_Ada.quests.jsonl",
 ];
 
 fn folder() -> PathBuf {
@@ -19,14 +22,16 @@ fn folder() -> PathBuf {
 }
 
 /// The counts of what each file gave.
-fn counts(opened: &Opened) -> (usize, usize, usize, usize) {
-    let history = opened.history.as_ref().map_or(0, |file| file.len());
-    (
-        history,
+fn counts(opened: &Opened) -> [usize; 7] {
+    [
+        opened.history.as_ref().map_or(0, |file| file.len()),
         opened.flavor.moments().len(),
         opened.flavor.told().len(),
         opened.hero.changes().len(),
-    )
+        opened.learned.read().len(),
+        opened.learned.rumors().len(),
+        opened.quests.changes().len(),
+    ]
 }
 
 fuzz_target!(|data: &[u8]| {
@@ -39,8 +44,10 @@ fuzz_target!(|data: &[u8]| {
     }
     let store = Store::Folder(root);
     let key = CharacterKey::new("Stormrage", "Ada").unwrap();
-    let Ok(first) = store.open(&key) else {
-        return;
+    let first = match store.open(&key) {
+        Ok(first) => first,
+        Err(StoreError::Foreign { .. }) => return,
+        Err(error) => panic!("a damaged file locked the character out: {error}"),
     };
     let second = store.open(&key).unwrap();
     assert_eq!(counts(&first), counts(&second));
