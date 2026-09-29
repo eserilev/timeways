@@ -23,21 +23,32 @@ local function Name(value)
 	end
 end
 
--- Lowercase changes only ASCII letters in Lua 5.1, so the positions stay the same.
+-- A letter of ASCII, or a byte of a character past ASCII, which names use too.
+local function IsLetter(byte)
+	return byte ~= nil and (byte >= 128 or string.char(byte):match("%a") ~= nil)
+end
+
+-- Lowercase changes only ASCII letters in Lua 5.1, so the positions stay the same. The name
+-- counts only as a whole word: "Ed" is not the end of "killed".
 local function WithoutName(text)
 	local name = UnitName("player")
 	if not Readable(name) then
 		return text
 	end
 	local lower, needle = text:lower(), name:lower()
-	local parts, start = {}, 1
+	local parts, start, from = {}, 1, 1
 	while true do
-		local from, to = lower:find(needle, start, true)
+		local to
+		from, to = lower:find(needle, from, true)
 		if not from then
 			break
 		end
-		parts[#parts + 1] = text:sub(start, from - 1) .. "$N"
-		start = to + 1
+		if IsLetter(lower:byte(from - 1)) or IsLetter(lower:byte(to + 1)) then
+			from = from + 1
+		else
+			parts[#parts + 1] = text:sub(start, from - 1) .. "$N"
+			start, from = to + 1, to + 1
+		end
 	end
 	parts[#parts + 1] = text:sub(start)
 	return table.concat(parts)

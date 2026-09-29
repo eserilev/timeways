@@ -172,6 +172,25 @@ fn the_name_of_your_character_becomes_a_mark_in_any_case() {
 }
 
 #[test]
+fn the_name_of_your_character_inside_another_word_stays() {
+    let game = game();
+
+    game.run(
+        "wow.units.player.name = 'Ed'
+         wow.text.gossip = 'Ed, you killed the wolf. Well met, ed.'
+         wow.Fire('GOSSIP_SHOW')",
+    );
+
+    let gossip = seen(
+        TextKind::Gossip,
+        None,
+        Some("Innkeeper Farley"),
+        "$N, you killed the wolf. Well met, $N.",
+    );
+    assert_eq!(sent_texts(&game), [gossip]);
+}
+
+#[test]
 fn the_same_text_goes_out_once() {
     let game = game();
 
