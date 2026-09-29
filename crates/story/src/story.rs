@@ -3,7 +3,7 @@
 use crate::bard;
 use crate::character::{Character, Refusal};
 use crate::check;
-use crate::flavor::{self, Flavor, HUMBLING_GAP, Kind, Told};
+use crate::flavor::{self, Flavor, HUMBLING_GAP, Kind, Teller, Told};
 use crate::hero::{self, Change, Entry};
 use crate::input::{CallId, Input, MessageId};
 use crate::journal::{Page, journal, pages};
@@ -231,6 +231,9 @@ pub struct Story {
     /// failed chapter keeps its plain list, and gets no second call.
     bard_asked: BTreeSet<Tick>,
     quest_request: Option<QuestRequest>,
+    /// The newest time of an input from the addon. An emote or a book changes no world, so
+    /// the tick of the world can be much older.
+    newest: Tick,
     /// Why the last answer to an offer did not stand, for the narrator line of its batch.
     quest_note: Option<String>,
 }
@@ -250,6 +253,7 @@ impl Story {
             budget: Budget::default(),
             bard_asked: BTreeSet::new(),
             quest_request: None,
+            newest: Tick(0),
             quest_note: None,
         }
     }
@@ -262,6 +266,7 @@ impl Story {
     pub fn handle(&mut self, mut input: Input) -> Result<Vec<Output>, StoryError> {
         if let Some(at) = input.at_mut() {
             *at = self.checked_time(*at)?;
+            self.newest = self.newest.max(*at);
         }
         match input {
             Input::Hello => Ok(vec![Output::Hello { protocol: PROTOCOL }]),
@@ -431,11 +436,12 @@ impl Story {
         let Some(saga) = bard::checked_saga(text, kinds.len()) else {
             return Ok(());
         };
-        let now = active.character.world().tick;
+        let now = self.newest;
         for (moment, _) in &saga.footnotes {
             let told = Told {
                 key: kinds[moment - 1].clone(),
                 at: now,
+                teller: Teller::Bard,
             };
             active.flavor.add_told(told)?;
         }
@@ -759,9 +765,7 @@ impl Story {
         if bard_writes {
             return quiet;
         }
-        let now = self
-            .character()
-            .map_or(Tick(0), |character| character.world().tick);
+        let now = self.newest;
         let candidates = std::mem::take(&mut self.candidates);
         let (moment, telling) = match best(std::mem::take(&mut self.moments)) {
             Some(moment) => (moment, None),
@@ -809,9 +813,9 @@ impl Story {
         let key = best.flavor.kind.key();
         let told = self.active.as_ref()?.flavor.told();
         let since = |telling: &Told| now.0.saturating_sub(telling.at.0);
-        let recent_line = told
-            .iter()
-            .any(|telling| since(telling) < FLAVOR_GAP_SECONDS);
+        let recent_line = told.iter().any(|telling| {
+            telling.teller == Teller::Narrator && since(telling) < FLAVOR_GAP_SECONDS
+        });
         let kind_told = told
             .iter()
             .any(|telling| telling.key == key && since(telling) < KIND_COOLDOWN_SECONDS);
@@ -819,7 +823,12 @@ impl Story {
             return None;
         }
         let what = flavor::describe(&best.flavor, best.count);
-        Some((Moment::Flavor { what }, Told { key, at: now }))
+        let told = Told {
+            key,
+            at: now,
+            teller: Teller::Narrator,
+        };
+        Some((Moment::Flavor { what }, told))
     }
 
     /// The oldest finished chapter with no saga yet. The bridge runs at most 2 model calls

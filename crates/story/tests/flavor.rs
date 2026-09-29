@@ -1,6 +1,6 @@
 use hourglass::Tick;
 use timeways_story::character::Character;
-use timeways_story::flavor::{Flavor, Kind, TOLD_SECONDS, Told, score};
+use timeways_story::flavor::{Flavor, Kind, TOLD_SECONDS, Teller, Told, score};
 
 fn dance(at: u64, place: &str, hour: u8) -> Flavor {
     let kind = Kind::Emote {
@@ -116,6 +116,7 @@ fn each_recent_telling_of_the_kind_takes_three() {
     let told = |at| Told {
         key: "emote:dance".to_string(),
         at: Tick(at),
+        teller: Teller::Narrator,
     };
     let now = TOLD_SECONDS + 1000;
     let tellings = [told(now - 10), told(now - 20), told(500), told(now + 5)];
@@ -227,6 +228,7 @@ fn a_telling_counts_for_seventy_two_hours_and_not_one_second_more() {
     let told = Told {
         key: "emote:dance".to_string(),
         at: Tick(1000),
+        teller: Teller::Bard,
     };
     let dance_at = |at| {
         score(

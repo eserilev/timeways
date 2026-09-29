@@ -81,6 +81,18 @@ impl Kind {
 pub struct Told {
     pub key: String,
     pub at: Tick,
+    #[serde(default)]
+    pub teller: Teller,
+}
+
+/// Only a flavor line of the narrator starts the gap between flavor lines. A telling from
+/// before this field counts as one of the narrator.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Teller {
+    #[default]
+    Narrator,
+    Bard,
 }
 
 /// The score of `flavor`, given the moments before it and the tellings so far.

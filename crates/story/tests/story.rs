@@ -1192,6 +1192,38 @@ fn a_second_flavor_line_waits_twenty_minutes() {
     assert!(matches!(later, Output::ModelCall { .. }), "{later:?}");
 }
 
+/// An emote changes no world, so the time of a telling comes from the newest input, not
+/// from the last event of the world.
+#[test]
+fn the_gap_between_flavor_lines_counts_from_the_time_of_the_line() {
+    let mut story = story_with("flavor-clock", &[]);
+    enter(&mut story, 1, "Elwynn Forest", Some("Goldshire"));
+    let _ = close_narrator(&mut story, 1);
+    let line_at = 11 * HOUR + 50 * 60;
+    dance_at(&mut story, line_at, 3);
+    let _ = close_narrator(&mut story, 2);
+    meet(&mut story, line_at + 5 * 60, "Innkeeper Farley");
+    let _ = close_narrator(&mut story, 3);
+
+    let fall = Input::Died {
+        at: Tick(line_at + 6 * 60),
+        killer: None,
+        cause: Some("falling".to_string()),
+        killer_level: None,
+        hour: Some(3),
+    };
+    story.handle(fall).unwrap();
+    let six_minutes_later = batch_end(&mut story, 4);
+
+    assert_eq!(
+        six_minutes_later,
+        Output::EventsSeen {
+            id: MessageId(4),
+            narrator: None
+        }
+    );
+}
+
 #[test]
 fn the_same_kind_of_joke_waits_for_the_next_evening() {
     let mut story = story_with("flavor-kind", &[]);
@@ -1255,6 +1287,39 @@ fn the_bard_gets_the_small_moments_of_its_chapter_and_its_footnotes_are_kept_and
             narrator: None
         }
     );
+}
+
+/// Only a flavor line of the narrator starts the gap of 20 minutes (GAMEPLAY.md 5.4.1).
+#[test]
+fn a_footnote_of_the_bard_does_not_hold_back_the_next_flavor_line() {
+    let mut story = story_with("footnote-gap", &[]);
+    enter(&mut story, HOUR, "Elwynn Forest", Some("Goldshire"));
+    let _ = close_narrator(&mut story, 1);
+    dance_at(&mut story, HOUR + 60, 12);
+    let _ = close_narrator(&mut story, 2);
+    meet(&mut story, 5 * HOUR, "Salma Saldean");
+    let outputs = story.handle(Input::BatchEnd { id: MessageId(3) }).unwrap();
+    let [_, Output::ModelCall { call, .. }] = outputs.as_slice() else {
+        panic!("expected a bard call, got {outputs:?}");
+    };
+    let text = r#"{"saga": "Our hero came.", "footnotes": [{"moment": 1, "text": "A dance."}]}"#;
+    let saga = Input::ModelAnswered {
+        call: *call,
+        text: text.to_string(),
+    };
+    story.handle(saga).unwrap();
+
+    let fall = Input::Died {
+        at: Tick(5 * HOUR + 60),
+        killer: None,
+        cause: Some("falling".to_string()),
+        killer_level: None,
+        hour: Some(3),
+    };
+    story.handle(fall).unwrap();
+    let line = batch_end(&mut story, 4);
+
+    assert!(matches!(line, Output::ModelCall { .. }), "{line:?}");
 }
 
 fn hero_page(story: &mut Story) -> (timeways_story::hero::Hero, Option<String>) {
