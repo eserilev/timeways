@@ -255,3 +255,24 @@ fn the_book_has_seven_tabs_with_the_hero_first() {
         ]
     );
 }
+
+#[test]
+fn a_sheet_field_with_no_name_shows_gaps_and_no_error() {
+    let game = Game::new();
+
+    game.reply(&hero_reply(r#"{"sheet":[{"text":"x"}],"entries":[]}"#, "null"));
+
+    assert!(!lines(&game).is_empty());
+}
+
+#[test]
+fn an_entry_number_that_is_no_whole_number_removes_nothing_and_raises_no_error() {
+    let game = Game::new();
+    let hero = r#"{"sheet":[],"entries":[{"number":1.5,"at":1790000000,"text":"An oath."}]}"#;
+    game.reply(&hero_reply(hero, "null"));
+
+    click(&game, "An oath.");
+
+    assert_eq!(game.eval::<u32>("#wow.popups"), 0);
+    assert!(game.sent().is_empty());
+}

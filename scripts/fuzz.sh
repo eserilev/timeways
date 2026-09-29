@@ -9,7 +9,7 @@ seconds="${1:-30}"
 shift || true
 targets=("$@")
 if [ ${#targets[@]} -eq 0 ]; then
-  targets=(input store answers json_lua pages)
+  targets=(input store answers json_lua pages replies)
 fi
 # The prebuilt cargo-fuzz of CI is a musl build, and it builds for its own target by
 # default. The address sanitizer needs the dynamic libc of the host target.

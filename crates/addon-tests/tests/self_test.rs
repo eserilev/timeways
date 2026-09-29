@@ -267,3 +267,34 @@ fn a_missing_client_function_fails_the_client_check() {
     assert!(printed.contains("no Screenshot"), "{printed}");
     assert_eq!(checks(&game)[0], check("client", false));
 }
+
+#[test]
+fn a_step_with_no_reply_fails_after_five_minutes_and_the_test_goes_on() {
+    let game = game(true);
+    game.run("wow.Slash('/timeways', 'test')");
+
+    game.run("for _, timer in ipairs(wow.after) do timer.callback() end");
+    game.run("for _, timer in ipairs(wow.after) do timer.callback() end");
+
+    assert_eq!(
+        checks(&game),
+        [
+            check("client", true),
+            check("journal", false),
+            check("lore", false)
+        ]
+    );
+}
+
+#[test]
+fn a_reply_after_its_step_timed_out_changes_nothing() {
+    let game = game(true);
+    game.run(
+        "wow.Slash('/timeways', 'test')
+         for _, timer in ipairs(wow.after) do timer.callback() end",
+    );
+
+    game.run("ns.Link.Receive(1, 'done', '{\"type\":\"journal\",\"page\":0,\"pages\":1}')");
+
+    assert_eq!(checks(&game)[1], check("journal", false));
+}

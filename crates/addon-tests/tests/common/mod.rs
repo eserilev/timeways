@@ -14,10 +14,14 @@ pub const ADDON: &str = "Timeways";
 
 pub const TEST_KEY: &str = "0123456789abcdef0123456789abcdef";
 
+/// The fuzz crate loads this harness too, so the root is the first folder up that holds
+/// the addon.
 fn addon_path(file: &str) -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../addon")
-        .join(file)
+    let mut root = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    while !root.join("addon/Timeways").is_dir() {
+        assert!(root.pop(), "no addon folder above the crate");
+    }
+    root.join("addon").join(file)
 }
 
 /// The Lua files in the order of the TOC, as WoW loads them.

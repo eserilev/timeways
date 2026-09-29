@@ -128,3 +128,12 @@ fn a_claim_ends_with_its_first_reply() {
 
     assert_eq!(game.printed(), ["|cffe6cc80Narrator|r: Again!"]);
 }
+
+#[test]
+fn a_done_reply_with_no_text_raises_no_error() {
+    let game = logged_in();
+
+    game.run(r#"ns.Messages.OnReply({ id = "story" }, 1, "done", nil)"#);
+
+    assert!(game.printed().is_empty());
+}

@@ -17,6 +17,12 @@ end
 
 -- The report of the test that runs, or nil.
 local report
+-- The message id that the step that runs waits for, or nil.
+local waitingFor
+
+-- The bridge answers within its timeout of 120 s. A step with no reply by then fails, so
+-- the test always ends.
+local STEP_SECONDS = 300
 
 local function Check(name, ok, detail)
 	report.checks[#report.checks + 1] = { name = name, ok = ok, detail = detail }
@@ -109,9 +115,20 @@ local function Run(index)
 		Run(index + 1)
 		return
 	end
+	waitingFor = id
 	ns.Link.Claim(id, function(status, reply)
-		Check(step.name, Judge(step, status, reply))
-		Run(index + 1)
+		if waitingFor == id then
+			waitingFor = nil
+			Check(step.name, Judge(step, status, reply))
+			Run(index + 1)
+		end
+	end)
+	C_Timer.After(STEP_SECONDS, function()
+		if waitingFor == id then
+			waitingFor = nil
+			Check(step.name, false, "no reply in 5 minutes")
+			Run(index + 1)
+		end
 	end)
 end
 

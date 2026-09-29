@@ -121,8 +121,10 @@ function Hero.Write()
 	})
 end
 
+-- The number goes out in JSON, which takes only a whole number.
 function Hero.Remove(entry)
-	if type(entry.number) == "number" then
+	local number = entry.number
+	if type(number) == "number" and number >= 0 and number % 1 == 0 then
 		StaticPopup_Show("TIMEWAYS_HERO_REMOVE", ns.Plain(tostring(entry.text)), nil, { number = entry.number })
 	end
 end

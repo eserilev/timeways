@@ -230,3 +230,17 @@ pub fn checked_line(line: &str) -> Checked {
         reply,
     }
 }
+
+/// The line that the game gets for a line of the story program, or None when the bridge
+/// refuses the line or cannot fit its reply in a slot.
+#[must_use]
+pub fn game_reply(line: &str) -> Option<String> {
+    let FromStory::Answer {
+        answer: Some(answer),
+        ..
+    } = read_line(line.as_bytes()).ok()?
+    else {
+        return None;
+    };
+    reply_text(&answer, Some(NO_SANDBOX))
+}

@@ -53,3 +53,10 @@ path = "fuzz_targets/pages.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "replies"
+path = "fuzz_targets/replies.rs"
+test = false
+doc = false
+bench = false

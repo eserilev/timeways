@@ -360,7 +360,9 @@ local function Hero(hero)
 	local lines = { Line("heading", "Who you are") }
 	local texts = {}
 	for _, field in ipairs(Entries(hero and hero.sheet)) do
-		texts[field.field] = field.text
+		if type(field.field) == "string" then
+			texts[field.field] = field.text
+		end
 	end
 	for _, field in ipairs(ns.Hero.FIELDS) do
 		local text = texts[field]

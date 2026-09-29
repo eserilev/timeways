@@ -75,6 +75,9 @@ local REPLIES = {
 -- A reply holds one JSON line: an answer, a journal page, or `events_seen` for a batch of
 -- game events. Each one can carry a line of the narrator.
 function ns.OnReply(text)
+	if type(text) ~= "string" then
+		return
+	end
 	for line in text:gmatch("[^\n]+") do
 		local value = ns.Json.Decode(line)
 		local handler = type(value) == "table" and REPLIES[value.type]
