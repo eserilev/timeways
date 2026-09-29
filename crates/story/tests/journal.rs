@@ -490,3 +490,20 @@ fn a_long_list_of_what_you_learned_fits_on_pages_and_keeps_its_order() {
     }
     assert_eq!(joined, whole.learned);
 }
+
+/// Trust is a fact that an NPC holds about you too, but no kill.
+#[test]
+fn a_death_with_no_killer_names_no_one_after_an_npc_starts_to_trust_you() {
+    let mut character = Character::new();
+    character
+        .adjust_trust(Tick(1), "Innkeeper Farley", 2)
+        .unwrap();
+
+    character.die(Tick(2), None).unwrap();
+
+    let deeds = journal(&character).deeds;
+    assert!(
+        matches!(deeds.last(), Some(Deed::Died { killer: None, .. })),
+        "{deeds:?}"
+    );
+}

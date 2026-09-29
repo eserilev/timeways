@@ -457,3 +457,69 @@ fn a_line_cut_inside_a_character_is_cut_off_and_the_world_opens() {
 
     assert_eq!(places(&mut second), ["Elwynn Forest"]);
 }
+
+/// A history that the program may not open is an error, never an empty world that then
+/// takes the place of the real one.
+#[cfg(unix)]
+#[test]
+fn a_history_that_cannot_be_opened_is_an_error_and_not_an_empty_world() {
+    use std::os::unix::fs::PermissionsExt;
+    let folder = fresh_folder("unreadable");
+    let mut first = story(&folder, "Ada");
+    enter(&mut first, 1, "Elwynn Forest");
+    drop(first);
+    let path = history_file(&folder, "Ada");
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o000)).unwrap();
+
+    let opened = Store::Folder(folder).open(&CharacterKey::new("Stormrage", "Ada").unwrap());
+
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).unwrap();
+    assert!(matches!(opened, Err(StoreError::Io { .. })));
+}
+
+#[test]
+fn a_new_character_opens_with_empty_files() {
+    let folder = fresh_folder("new-files");
+    let store = Store::Folder(folder);
+
+    let opened = store
+        .open(&CharacterKey::new("Stormrage", "Ada").unwrap())
+        .unwrap();
+
+    let history = opened.history.unwrap();
+    assert!(history.is_empty());
+    assert_eq!(history.len(), 0);
+    assert!(opened.prose.is_empty());
+    assert_eq!(opened.prose.len(), 0);
+}
+
+#[test]
+fn the_words_of_the_bard_come_back_after_a_restart() {
+    let folder = fresh_folder("prose-back");
+    let key = CharacterKey::new("Stormrage", "Ada").unwrap();
+    let mut first = Store::Folder(folder.clone()).open(&key).unwrap();
+    let written = timeways_story::store::Written {
+        text: "Our hero came.".to_string(),
+        footnotes: Vec::new(),
+    };
+    first.prose.add(Tick(5), written).unwrap();
+
+    let again = Store::Folder(folder).open(&key).unwrap();
+
+    assert!(!again.prose.is_empty());
+    assert_eq!(again.prose.len(), 1);
+}
+
+#[test]
+fn a_history_with_events_opens_as_not_empty() {
+    let folder = fresh_folder("not-empty");
+    let mut first = story(&folder, "Ada");
+    enter(&mut first, 1, "Elwynn Forest");
+    drop(first);
+
+    let opened = Store::Folder(folder)
+        .open(&CharacterKey::new("Stormrage", "Ada").unwrap())
+        .unwrap();
+
+    assert!(!opened.history.unwrap().is_empty());
+}

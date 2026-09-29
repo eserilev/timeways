@@ -1,3 +1,16 @@
 # The files whose tests catch every mutant (TESTING.md, "Mutation checks"). A file joins
 # the list when `cargo mutants -p timeways-story -f <file>` misses none.
-examine_globs = ["crates/story/src/quest.rs", "crates/story/src/story/quests.rs"]
+examine_globs = [
+    "crates/story/src/quest.rs",
+    "crates/story/src/story/quests.rs",
+    "crates/story/src/journal.rs",
+    "crates/story/src/store.rs",
+    "crates/story/src/serve.rs",
+    "crates/story/src/reply_size.rs",
+]
+
+# Mutants that change nothing, each with its reason.
+exclude_re = [
+    # Cutting a file to its own length changes nothing, so `<` and `<=` are the same.
+    "store.rs:.*replace < with <= in read_lines",
+]

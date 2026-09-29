@@ -504,7 +504,7 @@ fn read_lines<T: DeserializeOwned>(
         line.clear();
         let read = reader.read_until(b'\n', &mut line)?;
         match serde_json::from_slice::<T>(line.trim_ascii_end()) {
-            Ok(item) if read > 0 && line.ends_with(b"\n") && accept(&item, items.len()) => {
+            Ok(item) if line.ends_with(b"\n") && accept(&item, items.len()) => {
                 items.push(item);
                 good_bytes += read as u64;
             }
