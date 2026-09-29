@@ -17,25 +17,46 @@ local function Readable(value)
 	return type(value) == "string" and not issecretvalue(value) and value ~= ""
 end
 
+-- The bridge drops a line with a control character, and game text holds line breaks. The
+-- search needs no line breaks, and the Learned page shows one line anyway.
+local function OneLine(text)
+	return (text:gsub("%c+", " "))
+end
+
 local function Name(value)
 	if Readable(value) and #value <= MAX_NAME_BYTES then
-		return value
+		return OneLine(value)
 	end
 end
 
--- A letter of ASCII, or a byte of a character past ASCII, which names use too.
-local function IsLetter(byte)
-	return byte ~= nil and (byte >= 128 or string.char(byte):match("%a") ~= nil)
+-- Small letters for ASCII and for the capitals of Latin-1, such as É and Ö: the letters of
+-- names on US and EU realms. Each capital of Latin-1 is 0xC3 0x80 to 0xC3 0x9E, and its small
+-- letter adds 0x20 to the second byte, so the positions in the text stay the same. 0xC3 0x97
+-- is the sign ×.
+local function Fold(text)
+	local folded = text:lower():gsub("\195([\128-\158])", function(byte)
+		if byte == "\151" then
+			return nil
+		end
+		return "\195" .. string.char(byte:byte() + 32)
+	end)
+	return folded
 end
 
--- Lowercase changes only ASCII letters in Lua 5.1, so the positions stay the same. The name
--- counts only as a whole word: "Ed" is not the end of "killed".
+-- A letter of ASCII. A character past ASCII can be a quote mark, as in "«Ada»", and Lua 5.1
+-- cannot tell, so it counts as no letter: a name next to it becomes a mark. Replacing too
+-- much costs a word, and replacing too little sends the name.
+local function IsLetter(byte)
+	return byte ~= nil and byte < 128 and string.char(byte):match("%a") ~= nil
+end
+
+-- The name counts only as a whole word: "Ed" is not the end of "killed".
 local function WithoutName(text)
 	local name = UnitName("player")
 	if not Readable(name) then
 		return text
 	end
-	local lower, needle = text:lower(), name:lower()
+	local lower, needle = Fold(text), Fold(name)
 	local parts, start, from = {}, 1, 1
 	while true do
 		local to
@@ -43,7 +64,12 @@ local function WithoutName(text)
 		if not from then
 			break
 		end
-		if IsLetter(lower:byte(from - 1)) or IsLetter(lower:byte(to + 1)) then
+		-- Right after a mark, the name starts a word: the letter before it is gone.
+		local before = lower:byte(from - 1)
+		if from == start and start > 1 then
+			before = nil
+		end
+		if IsLetter(before) or IsLetter(lower:byte(to + 1)) then
 			from = from + 1
 		else
 			parts[#parts + 1] = text:sub(start, from - 1) .. "$N"
@@ -67,7 +93,7 @@ local function Add(kind, title, npc, text)
 	if not Readable(text) then
 		return
 	end
-	text = Cut(WithoutName(text))
+	text = Cut(WithoutName(OneLine(text)))
 	if strtrim(text) == "" then
 		return
 	end
@@ -95,7 +121,7 @@ end
 function Seen.QuestDetail()
 	local text, objectives = GetQuestText(), GetObjectiveText()
 	if Readable(text) and Readable(objectives) then
-		text = text .. "\n\n" .. objectives
+		text = text .. " " .. objectives
 	end
 	Add("quest", GetTitleText(), Speaker(), text)
 end

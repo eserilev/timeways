@@ -8,6 +8,7 @@ description = "Runs the Timeways addon in Lua 5.1 with a fake WoW API."
 publish = false
 
 [dev-dependencies]
+fake-bridge = { path = "../fake-bridge" }
 mlua = { version = "0.12", features = ["lua51", "vendored"] }
 serde_json.workspace = true
 timeways-story = { path = "../story" }

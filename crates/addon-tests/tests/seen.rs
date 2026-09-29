@@ -78,7 +78,7 @@ fn a_quest_goes_out_with_its_title_and_objectives() {
         TextKind::Quest,
         Some("Wanted: Hogger"),
         Some("Innkeeper Farley"),
-        "Hogger must die.\n\nKill Hogger.",
+        "Hogger must die. Kill Hogger.",
     );
     assert_eq!(sent_texts(&game), [quest]);
 }
@@ -186,6 +186,61 @@ fn the_name_of_your_character_inside_another_word_stays() {
         None,
         Some("Innkeeper Farley"),
         "$N, you killed the wolf. Well met, $N.",
+    );
+    assert_eq!(sent_texts(&game), [gossip]);
+}
+
+/// The bridge drops a line of the addon with a control character, and game text holds
+/// line breaks.
+#[test]
+fn a_text_with_line_breaks_goes_out_on_one_line_that_the_bridge_takes() {
+    let game = game();
+
+    game.run("wow.text.gossip = 'Line one.\\n\\nLine two.\\r\\n\\tEnd.'; wow.Fire('GOSSIP_SHOW')");
+
+    let gossip = seen(
+        TextKind::Gossip,
+        None,
+        Some("Innkeeper Farley"),
+        "Line one. Line two. End.",
+    );
+    assert_eq!(sent_texts(&game), [gossip]);
+    for batch in game.sent() {
+        assert_eq!(fake_bridge::dropped_lines_of(&batch), Some(0), "{batch}");
+    }
+}
+
+/// Quote marks past ASCII, as in a French client, are no letters.
+#[test]
+fn the_name_between_marks_past_ascii_becomes_a_mark() {
+    let game = game();
+
+    game.run("wow.text.gossip = '«Ada» and Ada’s friend.'; wow.Fire('GOSSIP_SHOW')");
+
+    let gossip = seen(
+        TextKind::Gossip,
+        None,
+        Some("Innkeeper Farley"),
+        "«$N» and $N’s friend.",
+    );
+    assert_eq!(sent_texts(&game), [gossip]);
+}
+
+#[test]
+fn a_name_with_a_capital_past_ascii_becomes_a_mark_in_any_case() {
+    let game = game();
+
+    game.run(
+        "wow.units.player.name = 'Éowyn'
+         wow.text.gossip = 'ÉOWYN! Hail, éowyn.'
+         wow.Fire('GOSSIP_SHOW')",
+    );
+
+    let gossip = seen(
+        TextKind::Gossip,
+        None,
+        Some("Innkeeper Farley"),
+        "$N! Hail, $N.",
     );
     assert_eq!(sent_texts(&game), [gossip]);
 }

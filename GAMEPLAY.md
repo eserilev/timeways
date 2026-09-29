@@ -485,6 +485,8 @@ A web request for each question is slow, depends on one website, and sends whole
 
 - **The world:** the Hourglass history, one append-only file per character (5.7).
 - **The text that the player saw** (built): the addon sends the game text of each quest, gossip window, and book as the player reads it. It covers the text that the server sends and the client files do not hold.
+  - The text goes on one line: each run of control characters, such as the line breaks of a quest, becomes one space. The bridge drops a line of the addon with a control character.
+  - The name of your character becomes `$N` as a whole word, in any case of ASCII and Latin-1 letters. A character past ASCII, such as the quote marks of "«Ada»", counts as no letter, so a name next to it becomes a mark too.
   - The name of the character becomes `$N` in the addon, so no model sees it (5.11). A letter that a player wrote has a creator, and never goes out.
   - A file for each character keeps each text once (`c_<name>.learned.jsonl`, which also keeps the rumors (3.1.1)). An index in memory searches it, and is built again at each start.
   - The player read the text, so it passes the spoiler limit. A search uses this text first, and the pack fills the rest (3.1.1).

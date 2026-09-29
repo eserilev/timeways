@@ -34,6 +34,27 @@ fn toc_files() -> Vec<String> {
         .collect()
 }
 
+/// The name and the source of each file of the addon, read once for each process: the
+/// fuzzers make a game for each input.
+fn addon_sources() -> &'static [(String, String)] {
+    static SOURCES: std::sync::OnceLock<Vec<(String, String)>> = std::sync::OnceLock::new();
+    SOURCES.get_or_init(|| {
+        let files = toc_files().into_iter().filter(|file| file != "Key.lua");
+        let read = |file: String| {
+            let source = std::fs::read_to_string(addon_path(&format!("Timeways/{file}")));
+            (file, source.unwrap())
+        };
+        files.map(read).collect()
+    })
+}
+
+fn test_source(file: &str) -> &'static str {
+    static BIT: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    static WOW: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    let cell = if file == "bit.lua" { &BIT } else { &WOW };
+    cell.get_or_init(|| std::fs::read_to_string(addon_path(&format!("tests/{file}"))).unwrap())
+}
+
 pub struct Game {
     pub lua: Lua,
 }
@@ -75,19 +96,24 @@ impl Game {
     /// The addon with the real seam: the shared `Messages.lua` of Gnomish Relay.
     pub fn with_transport() -> Game {
         let lua = Lua::new();
-        let bit = std::fs::read_to_string(addon_path("tests/bit.lua")).unwrap();
-        let bit: Table = lua.load(bit).set_name("bit.lua").call(()).unwrap();
+        let bit: Table = lua
+            .load(test_source("bit.lua"))
+            .set_name("bit.lua")
+            .call(())
+            .unwrap();
         lua.globals().set("bit", bit).unwrap();
-        let wow = std::fs::read_to_string(addon_path("tests/wow.lua")).unwrap();
-        let wow: Table = lua.load(wow).set_name("wow.lua").call(()).unwrap();
+        let wow: Table = lua
+            .load(test_source("wow.lua"))
+            .set_name("wow.lua")
+            .call(())
+            .unwrap();
         lua.globals().set("wow", wow).unwrap();
         let ns = lua.create_table().unwrap();
         // Setup writes the real key into Key.lua. The tests sign with this one.
         ns.set("key", TEST_KEY).unwrap();
-        for file in toc_files().into_iter().filter(|file| file != "Key.lua") {
-            let source = std::fs::read_to_string(addon_path(&format!("Timeways/{file}"))).unwrap();
-            lua.load(source)
-                .set_name(file)
+        for (file, source) in addon_sources() {
+            lua.load(source.as_str())
+                .set_name(file.as_str())
                 .call::<()>((ADDON, ns.clone()))
                 .unwrap();
         }

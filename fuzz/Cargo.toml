@@ -60,3 +60,10 @@ path = "fuzz_targets/replies.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "seen"
+path = "fuzz_targets/seen.rs"
+test = false
+doc = false
+bench = false

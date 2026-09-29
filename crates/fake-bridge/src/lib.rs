@@ -253,3 +253,9 @@ pub fn game_reply(line: &str) -> Option<String> {
     };
     reply_text(&answer, Some(NO_SANDBOX))
 }
+
+/// The lines of an addon batch that the bridge drops, or None when it refuses the batch.
+#[must_use]
+pub fn dropped_lines_of(batch: &str) -> Option<usize> {
+    read_batch(batch).ok().map(|batch| batch.dropped.len())
+}
