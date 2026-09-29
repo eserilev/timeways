@@ -21,6 +21,9 @@ workers=$((cores / ${#targets[@]}))
 if [ "$workers" -lt 1 ]; then
   workers=1
 fi
+# libFuzzer starts with short inputs and grows them slowly, so a short run from few seeds
+# never makes a long play. These start long at once, up to a play of some hundred steps.
+max_len=16384
 runs=$(mktemp -d)
 trap 'rm -rf "$runs"' EXIT
 
@@ -42,6 +45,7 @@ run() {
   (cd "$runs/$target" && cargo +nightly fuzz run --fuzz-dir "$fuzz" --target "$host" \
     --debug-assertions "$target" "$fuzz/corpus/$target" "$fuzz/seeds/$target" -- \
     -max_total_time="$seconds" -fork="$workers" -artifact_prefix="$fuzz/artifacts/$target/" \
+    -len_control=0 -max_len="$max_len" \
     "${dict[@]}" >"$runs/$target.log" 2>&1)
 }
 

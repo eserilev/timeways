@@ -18,6 +18,7 @@ use bridge::app_protocol::{
     CallId, FromStory, NarratorCheck, RequestId, batch_end_line, model_answered_line,
     model_failed_line, read_line, reply_text,
 };
+use bridge::model::clean_answer;
 use bridge::story::NO_SANDBOX;
 use std::collections::{BTreeMap, VecDeque};
 use timeways_story::serve;
@@ -115,7 +116,8 @@ impl FakeBridge {
         while let Some((call, prompt)) = self.open_calls.pop_front() {
             let words = self.model.as_mut().and_then(|model| model(&prompt));
             match words {
-                Some(words) => self.write_line(&model_answered_line(call, &words)),
+                // The bridge cleans every answer of a model before the story program sees it.
+                Some(words) => self.write_line(&model_answered_line(call, &clean_answer(&words))),
                 None => self.write_line(&model_failed_line(call)),
             }
         }

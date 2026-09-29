@@ -1,164 +1,266 @@
-//! Random play through the fake bridge, then every page of the journal. The real checks of
-//! the relay take each answer, and each page fits a slot of the game.
+//! Random play through the fake bridge, with a model that answers each kind of call, then
+//! every page of the journal. The real checks of the relay take each answer, and each page
+//! fits a slot of the game.
 
 #![no_main]
 
 #[path = "common.rs"]
 mod common;
 
-use arbitrary::Arbitrary;
+use arbitrary::{Arbitrary, Unstructured};
+use fake_bridge::edges::{NAMES, WORDS};
 use fake_bridge::{FakeBridge, Model, Reply};
 use libfuzzer_sys::fuzz_target;
 use serde_json::{Value, json};
-use std::cell::RefCell;
-use std::collections::VecDeque;
-use std::rc::Rc;
 use timeways_story::store::Store;
 use timeways_story::story::Story;
+
+const CHARACTERS: [&str; 2] = [
+    r#"{"type":"character_entered","realm":"Stormrage","name":"Ada"}"#,
+    r#"{"type":"character_entered","realm":"Stormrage","name":"Bea"}"#,
+];
+
+const FIELDS: [&str; 6] = ["origin", "background", "goal", "bond", "flaw", "traits"];
+const KINDS: [&str; 3] = ["quest", "gossip", "book"];
+const EMOTES: [&str; 5] = ["dance", "kiss", "wave", "cheer", "flex"];
+const CAUSES: [&str; 4] = ["falling", "drowning", "lava", "fire"];
+
+/// Plain words that pass the checks of a model answer.
+const PROSE: [&str; 4] = [
+    "Our hero walks on.",
+    "The Lost Lantern",
+    "A dance in the rain.",
+    "Nobody knows why.",
+];
+
+/// Text from a list most of the time, and any text now and then. A uniform draw almost
+/// never makes a name that the story takes, or words that pass a check.
+#[derive(Debug)]
+struct Pick<const LIST: u8>(String);
+
+type Name = Pick<0>;
+type Prose = Pick<1>;
+type Emote = Pick<2>;
+type Cause = Pick<3>;
+
+impl<'a, const LIST: u8> Arbitrary<'a> for Pick<LIST> {
+    fn arbitrary(u: &mut Unstructured<'a>) -> arbitrary::Result<Self> {
+        let list: &[&str] = match LIST {
+            0 => &NAMES,
+            1 if u.arbitrary()? => &WORDS,
+            1 => &PROSE,
+            2 => &EMOTES,
+            _ => &CAUSES,
+        };
+        let text = if u.int_in_range(0..=3)? == 0 {
+            u.arbitrary()?
+        } else {
+            (*u.choose(list)?).to_string()
+        };
+        Ok(Pick(text))
+    }
+}
+
+fn text<const LIST: u8>(pick: &Option<Pick<LIST>>) -> Option<&str> {
+    pick.as_ref().map(|pick| pick.0.as_str())
+}
 
 #[derive(Arbitrary, Debug)]
 enum Play {
     Zone {
-        zone: String,
-        subzone: Option<String>,
+        zone: Name,
+        subzone: Option<Name>,
     },
-    Meet(String),
-    Defeat(String),
+    Meet(Name),
+    Defeat(Name),
     Die {
-        killer: Option<String>,
-        cause: Option<String>,
+        killer: Option<Name>,
+        cause: Option<Cause>,
         killer_level: Option<u8>,
     },
-    Slap(String),
+    Slap(Name),
     Level(u8),
     Emote {
-        emote: String,
+        emote: Emote,
         hour: Option<u8>,
     },
     SetHero {
         field: u8,
-        text: String,
+        text: Prose,
     },
-    AddHero(String),
+    AddHero(Prose),
     RemoveHero(u64),
     Read {
         kind: u8,
-        title: Option<String>,
-        npc: Option<String>,
-        text: String,
+        title: Option<Prose>,
+        npc: Option<Name>,
+        text: Prose,
     },
-    /// A talk, and the words of the model: a rumor.
-    Talk {
-        npc: String,
-        say: String,
-    },
-    /// `/quest`, and the steps that the model proposes: `true` visits.
-    Quest {
-        npc: String,
-        steps: Vec<(bool, String)>,
-    },
-    Accept,
-    Decline,
+    Talk(Name),
+    Lore(Prose),
+    Quest(Name),
+    Accept(Option<u8>),
+    Decline(Option<u8>),
+    /// The next batches come from the other character.
+    Switch,
     /// Seconds of game time before the next play, so sessions and chapters form.
     Wait(u16),
 }
 
-const CHARACTER: &str = r#"{"type":"character_entered","realm":"Stormrage","name":"Ada"}"#;
+/// The words of the model for one call. A call takes the next one, and the list repeats.
+#[derive(Arbitrary, Debug)]
+struct Words {
+    fails: bool,
+    saga: Prose,
+    footnotes: Vec<(u8, Prose)>,
+    line: Prose,
+    trust: i8,
+    title: Prose,
+    text: Prose,
+    /// Steps by the index of a name that the prompt lists: `true` visits a place.
+    steps: Vec<(bool, u8)>,
+    /// A name that the prompt does not list, for a step that the check refuses.
+    stranger: Option<Name>,
+}
 
-const FIELDS: [&str; 6] = ["origin", "background", "goal", "bond", "flaw", "traits"];
-const KINDS: [&str; 3] = ["quest", "gossip", "book"];
+/// The plays come last, so they take every byte that is left: a long input is a long play.
+#[derive(Arbitrary, Debug)]
+struct Run {
+    words: Words,
+    more_words: Vec<Words>,
+    plays: Vec<Play>,
+}
 
 fn input(play: &Play, at: u64) -> Option<Value> {
     Some(match play {
         Play::Zone { zone, subzone } => {
-            json!({"type": "zone_entered", "at": at, "zone": zone, "subzone": subzone})
+            json!({"type": "zone_entered", "at": at, "zone": zone.0, "subzone": text(subzone)})
         }
-        Play::Meet(name) => json!({"type": "npc_met", "at": at, "name": name}),
-        Play::Defeat(name) => json!({"type": "npc_defeated", "at": at, "name": name}),
+        Play::Meet(name) => json!({"type": "npc_met", "at": at, "name": name.0}),
+        Play::Defeat(name) => json!({"type": "npc_defeated", "at": at, "name": name.0}),
         Play::Die {
             killer,
             cause,
             killer_level,
-        } => {
-            json!({"type": "died", "at": at, "killer": killer, "cause": cause, "killer_level": killer_level})
-        }
-        Play::Slap(name) => json!({"type": "npc_slapped", "at": at, "name": name}),
+        } => json!({"type": "died", "at": at, "killer": text(killer), "cause": text(cause),
+            "killer_level": killer_level}),
+        Play::Slap(name) => json!({"type": "npc_slapped", "at": at, "name": name.0}),
         Play::Level(level) => json!({"type": "level_reached", "at": at, "level": level}),
         Play::Emote { emote, hour } => {
-            json!({"type": "emote_done", "at": at, "emote": emote, "hour": hour})
+            json!({"type": "emote_done", "at": at, "emote": emote.0, "hour": hour})
         }
         Play::SetHero { field, text } => {
             let field = FIELDS[usize::from(*field) % FIELDS.len()];
-            json!({"type": "hero_set", "at": at, "field": field, "text": text})
+            json!({"type": "hero_set", "at": at, "field": field, "text": text.0})
         }
-        Play::AddHero(text) => json!({"type": "hero_added", "at": at, "text": text}),
+        Play::AddHero(text) => json!({"type": "hero_added", "at": at, "text": text.0}),
         Play::RemoveHero(number) => json!({"type": "hero_removed", "at": at, "number": number}),
         Play::Read {
             kind,
             title,
             npc,
-            text,
+            text: words,
         } => {
             let kind = KINDS[usize::from(*kind) % KINDS.len()];
-            json!({"type": "text_seen", "at": at, "kind": kind, "title": title, "npc": npc, "zone": "Testvale", "text": text})
+            json!({"type": "text_seen", "at": at, "kind": kind, "title": text(title),
+                "npc": text(npc), "zone": "Testvale", "text": words.0})
         }
-        Play::Talk { npc, .. } => {
-            json!({"type": "talk_asked", "at": at, "npc": npc, "text": "any news"})
+        Play::Talk(npc) => {
+            json!({"type": "talk_asked", "at": at, "npc": npc.0, "text": "any news"})
         }
-        Play::Quest { npc, .. } => json!({"type": "quest_asked", "at": at, "npc": npc}),
-        Play::Accept => json!({"type": "quest_accepted", "at": at}),
-        Play::Decline => json!({"type": "quest_declined", "at": at}),
-        Play::Wait(_) => return None,
+        Play::Lore(question) => json!({"type": "lore_asked", "at": at, "question": question.0}),
+        Play::Quest(npc) => json!({"type": "quest_asked", "at": at, "npc": npc.0}),
+        Play::Accept(number) => json!({"type": "quest_accepted", "at": at, "number": number}),
+        Play::Decline(number) => json!({"type": "quest_declined", "at": at, "number": number}),
+        Play::Wait(_) | Play::Switch => return None,
     })
 }
 
-/// The words of the model for the call of this play, if the play makes one.
-fn model_text(play: &Play) -> Option<String> {
-    match play {
-        Play::Talk { say, .. } => Some(json!({"say": say, "trust": 0}).to_string()),
-        Play::Quest { steps, .. } => {
-            let steps: Vec<Value> = steps
-                .iter()
-                .map(|(visit, name)| match visit {
-                    true => json!({"goal": "visit", "place": name}),
-                    false => json!({"goal": "meet", "npc": name}),
-                })
-                .collect();
-            Some(json!({"title": "A Task", "text": "Go.", "steps": steps}).to_string())
-        }
-        _ => None,
-    }
+/// The names of the list under `heading` in a prompt.
+fn listed<'a>(prompt: &'a str, heading: &str) -> Vec<&'a str> {
+    let Some((_, after)) = prompt.split_once(heading) else {
+        return Vec::new();
+    };
+    let lines = after.lines().skip(1);
+    let items = lines.take_while(|line| line.starts_with("- "));
+    items.map(|line| &line[2..]).collect()
 }
 
-fuzz_target!(|plays: Vec<Play>| {
-    let answers = Rc::new(RefCell::new(VecDeque::new()));
-    let queue = Rc::clone(&answers);
-    let model: Model = Box::new(move |_| queue.borrow_mut().pop_front());
-    let story = Story::new(common::pack(), Store::Memory);
-    let mut bridge = FakeBridge::new(story).with_model(model);
-    let mut at = 1_000;
-    for play in &plays {
-        match play {
-            Play::Wait(seconds) => at += u64::from(*seconds) * 60,
-            _ => at += 1,
-        }
-        let Some(line) = input(play, at) else {
+/// Steps from the names that the prompt lists, so most quests pass the check.
+fn quest(prompt: &str, words: &Words) -> Value {
+    let places = listed(prompt, "Places that the player can visit:");
+    let people = listed(prompt, "People that the player can meet:");
+    let mut steps: Vec<Value> = Vec::new();
+    for (visit, index) in &words.steps {
+        let names = if *visit { &places } else { &people };
+        let Some(name) = names.get(usize::from(*index) % names.len().max(1)) else {
             continue;
         };
-        answers.borrow_mut().extend(model_text(play));
-        bridge.batch(&format!("{CHARACTER}\n{line}"));
+        steps.push(match visit {
+            true => json!({"goal": "visit", "place": name}),
+            false => json!({"goal": "meet", "npc": name}),
+        });
     }
-    let first = journal_page(&mut bridge, 0);
+    if let Some(stranger) = &words.stranger {
+        steps.push(json!({"goal": "meet", "npc": stranger.0}));
+    }
+    json!({"title": words.title.0, "text": words.text.0, "steps": steps})
+}
+
+/// The answer of a model that knows which call it answers.
+fn answer(prompt: &str, words: &Words) -> Option<String> {
+    if words.fails {
+        return None;
+    }
+    let footnote = |(moment, text): &(u8, Prose)| json!({"moment": moment % 6, "text": text.0});
+    let footnotes: Vec<Value> = words.footnotes.iter().map(footnote).collect();
+    Some(if prompt.contains("You are a bard of Azeroth") {
+        json!({"saga": words.saga.0, "footnotes": footnotes}).to_string()
+    } else if prompt.contains("You are the narrator") {
+        words.line.0.clone()
+    } else if prompt.contains("small task of your own") {
+        quest(prompt, words).to_string()
+    } else if prompt.contains("A player speaks to you") {
+        json!({"say": words.text.0, "trust": words.trust}).to_string()
+    } else {
+        format!("{} [1]", words.text.0)
+    })
+}
+
+fuzz_target!(|run: Run| {
+    let mut words = run.more_words;
+    words.insert(0, run.words);
+    let mut next = 0;
+    let model: Model = Box::new(move |prompt| {
+        let chosen = &words[next % words.len()];
+        next += 1;
+        answer(prompt, chosen)
+    });
+    let story = Story::new(common::pack(), Store::Memory);
+    let mut bridge = FakeBridge::new(story).with_model(model);
+    let mut character = 0;
+    let mut at = 1_000;
+    for play in &run.plays {
+        match play {
+            Play::Wait(seconds) => at += u64::from(*seconds) * 60,
+            Play::Switch => character = 1 - character,
+            _ => at += 1,
+        }
+        if let Some(line) = input(play, at) {
+            bridge.batch(&format!("{}\n{line}", CHARACTERS[character]));
+        }
+    }
+    let first = journal_page(&mut bridge, CHARACTERS[character], 0);
     let pages = first["pages"].as_u64().unwrap_or(0);
     for page in 1..pages {
-        journal_page(&mut bridge, page);
+        journal_page(&mut bridge, CHARACTERS[character], page);
     }
 });
 
 /// The bridge checks the page and each of its lists as it takes it.
-fn journal_page(bridge: &mut FakeBridge, page: u64) -> Value {
+fn journal_page(bridge: &mut FakeBridge, character: &str, page: u64) -> Value {
     let asked = json!({"type": "journal_asked", "page": page});
-    match bridge.batch(&format!("{CHARACTER}\n{asked}")) {
+    match bridge.batch(&format!("{character}\n{asked}")) {
         Reply::Done(text) => serde_json::from_str(&text).unwrap(),
         Reply::Error(error) => panic!("a journal page failed: {error}"),
     }
