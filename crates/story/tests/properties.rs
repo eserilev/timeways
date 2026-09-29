@@ -165,8 +165,8 @@ fn input(play: &Play, at: Tick) -> Option<Input> {
             text: "any news".to_string(),
         },
         Play::Quest(npc, _) => Input::QuestAsked { at, npc },
-        Play::Accept => Input::QuestAccepted { at },
-        Play::Decline => Input::QuestDeclined { at },
+        Play::Accept => Input::QuestAccepted { at, number: None },
+        Play::Decline => Input::QuestDeclined { at, number: None },
         Play::Wait(_) => return None,
     })
 }
@@ -373,7 +373,7 @@ proptest! {
     }
 
     #[test]
-    fn a_quest_log_never_skips_a_step_and_holds_at_most_one_offer(
+    fn a_quest_log_never_skips_a_step_and_each_giver_holds_at_most_one_offer(
         changes in prop::collection::vec(quest_change(), 0..40),
     ) {
         let quests = quest_log(&changes);

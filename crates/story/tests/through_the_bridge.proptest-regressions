@@ -6,3 +6,4 @@
 # everyone who runs the test benefits from these saved cases.
 cc ae5c38e3fa45acaf64a94703645ccc6ef3b31e258347caf9863c548862cb6d69 # shrinks to plays = [Journal(1)], answers = [0]
 cc 992cd1ab4fa2e21f6ceebe7389233536678ca0d2cba84e98c019114c99ea8d43 # shrinks to plays = [Clock(400000000), Zone("Goldshire", None)], answers = [0]
+cc 1f681ad8d94310dfc04ffbbfd55a5318676067180dfa50d74537fa12eba3e2ae # shrinks to plays = [Quest("Keeper Tessa"), Zone("Goldshire", None), Quest("Keeper Tessa"), Quest("Keeper Tessa"), Zone("Elwynn Forest", Some("Goldshire")), Quest("Keeper Tessa"), Quest("Keeper Tessa"), Quest("Hogger"), Quest("Keeper Tessa"), Quest("Keeper Tessa"), Quest("Guard Rolf"), Quest("Keeper Tessa"), AskLater("Keeper Tessa"), AskLater("Keeper Tessa"), Talk("Smith Hana", "any news?"), Talk("Keeper Tessa", "any news?"), Quest("Innkeeper Pell"), AskLater("Innkeeper Pell"), Accept(None), Accept(None)]

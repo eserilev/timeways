@@ -37,7 +37,10 @@ impl Story {
         };
         let quests = quest_log(active.quests.changes());
         let giver = request.giver.as_str();
-        if let Some(refusal) = refusal(&quests, giver, active.character.is_dead(giver)) {
+        if active.character.is_dead(giver) {
+            return no_offer(batch, giver);
+        }
+        if let Some(refusal) = refusal(&quests, giver) {
             return narrator_line(batch, Some(refusal));
         }
         let seen = seen_texts(active);
@@ -52,7 +55,8 @@ impl Story {
         self.open_call(pending, prompt)
     }
 
-    /// An offer for another character, or one that breaks a rule, shows no task.
+    /// An offer for another character, or one that breaks a rule, shows no task. The limits
+    /// hold again here, because the world can move on while the model thinks.
     pub(super) fn quest_answered(
         &mut self,
         batch: MessageId,
@@ -65,6 +69,10 @@ impl Story {
         let Some(active) = self.active.as_mut().filter(|active| &active.key == key) else {
             return none;
         };
+        let quests = quest_log(active.quests.changes());
+        if let Some(refusal) = refusal(&quests, giver) {
+            return narrator_line(batch, Some(refusal));
+        }
         let seen = seen_texts(active);
         let Ok(offer) = quest::checked_quest(text, &known(&active.character, giver, &seen)) else {
             return none;
@@ -90,20 +98,30 @@ impl Story {
         narrator_line(batch, Some(line))
     }
 
-    /// Accepting can finish a step at once: you can stand in its place already.
+    /// The answer names its offer by number. With no number, it takes the newest offer.
+    /// Accepting holds the limits again, and can finish a step at once: you can stand in its
+    /// place already.
     pub(super) fn answer_quest(
         &mut self,
         at: Tick,
         status: Status,
+        number: Option<u64>,
     ) -> Result<Vec<Output>, StoryError> {
         let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
         let quests = quest_log(active.quests.changes());
-        let Some(offer) = quests.iter().find(|quest| quest.status == Status::Offered) else {
+        let answers = |quest: &&Tracked| {
+            quest.status == Status::Offered && number.is_none_or(|n| quest.number == n)
+        };
+        let Some(offer) = quests.iter().rev().find(answers) else {
             return Ok(Vec::new());
         };
         let number = offer.number;
         if status == Status::Declined {
             active.quests.add(QuestChange::Declined { number, at })?;
+            return Ok(Vec::new());
+        }
+        if let Some(refusal) = refusal(&quests, &offer.giver) {
+            self.quest_note = Some(refusal);
             return Ok(Vec::new());
         }
         active.quests.add(QuestChange::Accepted { number, at })?;
@@ -142,7 +160,7 @@ impl Story {
     }
 }
 
-fn narrator_line(batch: MessageId, line: Option<String>) -> Output {
+pub(super) fn narrator_line(batch: MessageId, line: Option<String>) -> Output {
     Output::EventsSeen {
         id: batch,
         narrator: line,
@@ -158,11 +176,8 @@ fn no_task(giver: &str) -> String {
     format!("{giver} has no task for you now.")
 }
 
-/// The reason in words when the giver cannot offer a quest now.
-fn refusal(quests: &[Tracked], giver: &str, dead: bool) -> Option<String> {
-    if dead {
-        return Some(no_task(giver));
-    }
+/// The reason in words when the giver cannot give you a quest now.
+fn refusal(quests: &[Tracked], giver: &str) -> Option<String> {
     let open: Vec<&Tracked> = quests
         .iter()
         .filter(|quest| quest.status == Status::Accepted)

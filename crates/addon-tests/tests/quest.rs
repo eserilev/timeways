@@ -121,7 +121,10 @@ fn quest_accept_and_decline_answer_the_offer() {
     assert!(
         matches!(
             inputs.as_slice(),
-            [Input::QuestAccepted { .. }, Input::QuestDeclined { .. }]
+            [
+                Input::QuestAccepted { number: None, .. },
+                Input::QuestDeclined { number: None, .. }
+            ]
         ),
         "{inputs:?}"
     );
@@ -182,7 +185,7 @@ fn an_offer_shows_with_its_buttons() {
 }
 
 #[test]
-fn the_buttons_of_an_offer_answer_it() {
+fn the_buttons_of_an_offer_answer_it_by_its_number() {
     let game = Game::new();
     game.reply(&quest_reply(lantern(Status::Offered, 0)));
 
@@ -193,7 +196,16 @@ fn the_buttons_of_an_offer_answer_it() {
     assert!(
         matches!(
             inputs.as_slice(),
-            [Input::QuestAccepted { .. }, Input::QuestDeclined { .. }]
+            [
+                Input::QuestAccepted {
+                    number: Some(1),
+                    ..
+                },
+                Input::QuestDeclined {
+                    number: Some(1),
+                    ..
+                }
+            ]
         ),
         "{inputs:?}"
     );

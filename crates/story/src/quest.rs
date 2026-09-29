@@ -67,6 +67,8 @@ pub enum QuestFault {
     UnknownNpc(String),
     #[error("a step sends you back to the giver")]
     MeetGiver,
+    #[error("two steps are the same")]
+    RepeatedStep,
     #[error("\"{0}\" belongs to a quest of the game")]
     GameQuest(String),
 }
@@ -94,8 +96,11 @@ pub fn checked_quest(answer: &str, known: &Known<'_>) -> Result<Quest, QuestFaul
     if game_quests(known.seen).any(|seen| seen.title.as_deref() == Some(title.as_str())) {
         return Err(QuestFault::GameQuest(title));
     }
-    for step in &reply.steps {
+    for (n, step) in reply.steps.iter().enumerate() {
         check_step(step, known)?;
+        if reply.steps[..n].contains(step) {
+            return Err(QuestFault::RepeatedStep);
+        }
     }
     let quest = Quest {
         title,
@@ -251,8 +256,9 @@ impl Tracked {
     }
 }
 
-/// The quests of a log, oldest first. At most one offer waits: a new offer ends the old
-/// one. A change that does not fit the state of its quest changes nothing.
+/// The quests of a log, oldest first. At most one offer of each giver waits: a new offer
+/// ends the old one of the same giver. A change that does not fit the state of its quest
+/// changes nothing.
 #[must_use]
 pub fn quest_log(changes: &[QuestChange]) -> Vec<Tracked> {
     let mut quests: Vec<Tracked> = Vec::new();
@@ -272,7 +278,8 @@ fn apply(quests: &mut Vec<Tracked>, change: &QuestChange) {
             text,
             steps,
         } => {
-            for waiting in quests.iter_mut().filter(|q| q.status == Status::Offered) {
+            let same_giver = |q: &&mut Tracked| q.status == Status::Offered && &q.giver == giver;
+            for waiting in quests.iter_mut().filter(same_giver) {
                 waiting.status = Status::Declined;
             }
             quests.push(Tracked {

@@ -310,9 +310,18 @@ local function StepText(step)
 end
 
 -- An offer carries its two buttons, because the chat line of the offer scrolls away.
+-- A number from the desktop that is no whole number goes out as no number: the newest offer.
+local function QuestNumber(quest)
+	local number = quest.number
+	return type(number) == "number" and number >= 1 and number % 1 == 0 and number or nil
+end
+
 local function QuestStatus(quest)
 	if quest.status == "offered" then
-		return Line("note", "An offer. Do you take it?", { label = "Decline", run = ns.Quest.Decline })
+		local decline = function()
+			ns.Quest.Decline(QuestNumber(quest))
+		end
+		return Line("note", "An offer. Do you take it?", { label = "Decline", run = decline })
 	end
 	if quest.status == "done" then
 		return Line("note", "Done on " .. Day(quest.done_at) .. ".")
@@ -323,7 +332,14 @@ end
 local function Quests(quests)
 	local lines = {}
 	for _, quest in ipairs(quests) do
-		local accept = quest.status == "offered" and { label = "Accept", run = ns.Quest.Accept } or nil
+		local accept = quest.status == "offered"
+				and {
+					label = "Accept",
+					run = function()
+						ns.Quest.Accept(QuestNumber(quest))
+					end,
+				}
+			or nil
 		lines[#lines + 1] = Line("heading", Name(quest.title), accept)
 		lines[#lines + 1] = Line("text", "From " .. Name(quest.giver) .. ", on " .. Day(quest.offered_at) .. ".")
 		if type(quest.text) == "string" then

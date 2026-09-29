@@ -18,12 +18,15 @@ const START: u64 = 1_790_000_000;
 
 const CHARACTER: &str = r#"{"type":"character_entered","realm":"Stormrage","name":"Ada"}"#;
 
-/// What a model says: nothing, a talk, a quest, or plain words.
-const MODEL_ANSWERS: [Option<&str>; 4] = [
+/// What a model says: nothing, a talk, two quests, or plain words.
+const MODEL_ANSWERS: [Option<&str>; 5] = [
     None,
     Some(r#"{"say": "Well met.", "trust": 3}"#),
     Some(
         r#"{"title": "A Task", "text": "Go.", "steps": [{"goal": "visit", "place": "Goldshire"}, {"goal": "meet", "npc": "Hogger"}]}"#,
+    ),
+    Some(
+        r#"{"title": "Hogger Twice", "text": "Go.", "steps": [{"goal": "meet", "npc": "Hogger"}, {"goal": "meet", "npc": "Hogger"}]}"#,
     ),
     Some("Our hero walks on."),
 ];
@@ -42,8 +45,11 @@ enum Play {
     Lore(String),
     Journal(u32),
     Quest(String),
-    Accept,
-    Decline,
+    /// `/quest`, and the model call stays open until `Settle`.
+    AskLater(String),
+    Settle,
+    Accept(Option<u64>),
+    Decline(Option<u64>),
     HeroAdd(String),
     Clock(i64),
 }
@@ -78,8 +84,8 @@ fn play() -> impl Strategy<Value = Play> {
         words().prop_map(Play::Lore),
         prop::sample::select(PAGES.to_vec()).prop_map(Play::Journal),
         name().prop_map(Play::Quest),
-        Just(Play::Accept),
-        Just(Play::Decline),
+        prop::option::of(1u64..5).prop_map(Play::Accept),
+        prop::option::of(1u64..5).prop_map(Play::Decline),
         words().prop_map(Play::HeroAdd),
         prop::sample::select(CLOCK_STEPS.to_vec()).prop_map(Play::Clock),
     ]
@@ -102,11 +108,13 @@ fn addon_line(play: &Play, at: u64) -> Option<Value> {
         Play::Talk(npc, text) => json!({"type": "talk_asked", "at": at, "npc": npc, "text": text}),
         Play::Lore(question) => json!({"type": "lore_asked", "at": at, "question": question}),
         Play::Journal(page) => json!({"type": "journal_asked", "page": page}),
-        Play::Quest(npc) => json!({"type": "quest_asked", "at": at, "npc": npc}),
-        Play::Accept => json!({"type": "quest_accepted", "at": at}),
-        Play::Decline => json!({"type": "quest_declined", "at": at}),
+        Play::Quest(npc) | Play::AskLater(npc) => {
+            json!({"type": "quest_asked", "at": at, "npc": npc})
+        }
+        Play::Accept(number) => json!({"type": "quest_accepted", "at": at, "number": number}),
+        Play::Decline(number) => json!({"type": "quest_declined", "at": at, "number": number}),
         Play::HeroAdd(text) => json!({"type": "hero_added", "at": at, "text": text}),
-        Play::Clock(_) => return None,
+        Play::Clock(_) | Play::Settle => return None,
     })
 }
 
@@ -134,16 +142,34 @@ fn step(clock: u64, seconds: i64) -> u64 {
     clock.saturating_add_signed(seconds)
 }
 
-fn place_names(reply: &Reply) -> Vec<String> {
+fn list(reply: &Reply, name: &str) -> Vec<Value> {
     let Reply::Done(text) = reply else {
         panic!("expected a journal, got {reply:?}");
     };
     let page: Value = serde_json::from_str(text).unwrap();
-    let places = page["places"].as_array().cloned().unwrap_or_default();
+    page[name].as_array().cloned().unwrap_or_default()
+}
+
+fn place_names(reply: &Reply) -> Vec<String> {
+    let places = list(reply, "places");
     places
         .iter()
         .filter_map(|place| place["name"].as_str().map(String::from))
         .collect()
+}
+
+/// The givers of the quests with this status, one entry for each quest.
+fn givers(quests: &[Value], status: &str) -> Vec<String> {
+    let with_status = quests.iter().filter(|quest| quest["status"] == status);
+    with_status
+        .filter_map(|quest| quest["giver"].as_str().map(String::from))
+        .collect()
+}
+
+fn has_repeats(names: &[String]) -> bool {
+    let mut sorted = names.to_vec();
+    sorted.sort();
+    sorted.windows(2).any(|pair| pair[0] == pair[1])
 }
 
 proptest! {
@@ -171,6 +197,11 @@ proptest! {
         batch(&mut bridge, &zone);
         let journal = batch(&mut bridge, &json!({"type": "journal_asked", "page": 0}));
         prop_assert!(place_names(&journal).contains(&"Newvale".to_string()));
+        let quests = list(&journal, "quests");
+        let open = givers(&quests, "accepted");
+        prop_assert!(open.len() <= 3, "{quests:?}");
+        prop_assert!(!has_repeats(&open), "{quests:?}");
+        prop_assert!(!has_repeats(&givers(&quests, "offered")), "{quests:?}");
     }
 }
 
@@ -208,6 +239,82 @@ proptest! {
         for page in 1..pages {
             let reply = batch(&mut bridge, &json!({"type": "journal_asked", "page": page}));
             prop_assert!(matches!(reply, Reply::Done(_)));
+        }
+    }
+}
+
+const GIVERS: [&str; 5] = [
+    "Keeper Tessa",
+    "Innkeeper Pell",
+    "Guard Rolf",
+    "Smith Hana",
+    "Hogger",
+];
+
+/// Play around quests: few givers, and the places and NPCs of the steps of `QUESTS`.
+fn quest_play() -> impl Strategy<Value = Play> {
+    let giver = || prop::sample::select(GIVERS.to_vec()).prop_map(String::from);
+    prop_oneof![
+        2 => giver().prop_map(Play::Quest),
+        2 => giver().prop_map(Play::AskLater),
+        1 => Just(Play::Settle),
+        2 => prop::option::of(1u64..8).prop_map(Play::Accept),
+        1 => prop::option::of(1u64..8).prop_map(Play::Decline),
+        1 => Just(Play::Zone("Goldshire".to_string(), None)),
+        1 => Just(Play::Zone("Elwynn Forest".to_string(), Some("Goldshire".to_string()))),
+        1 => giver().prop_map(Play::Meet),
+        1 => giver().prop_map(|npc| Play::Talk(npc, "any news?".to_string())),
+    ]
+}
+
+/// Quests whose steps name the places and NPCs of `quest_play`, with other titles.
+fn quest_answer(n: usize) -> String {
+    let steps = [
+        r#"[{"goal": "visit", "place": "Goldshire"}]"#,
+        r#"[{"goal": "meet", "npc": "Hogger"}, {"goal": "visit", "place": "Elwynn Forest"}]"#,
+        r#"[{"goal": "meet", "npc": "Guard Rolf"}, {"goal": "meet", "npc": "Smith Hana"}]"#,
+    ];
+    format!(
+        r#"{{"title": "Task {n}", "text": "Go.", "steps": {}}}"#,
+        steps[n % steps.len()]
+    )
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(128))]
+
+    #[test]
+    fn the_quest_limits_hold_for_any_play(plays in prop::collection::vec(quest_play(), 1..60)) {
+        let mut next = 0;
+        let model = Box::new(move |_: &str| {
+            next += 1;
+            Some(quest_answer(next))
+        });
+        let mut bridge = FakeBridge::new(story()).with_model(model);
+        let mut clock = START;
+        for play in &plays {
+            clock += 60;
+            match (play, addon_line(play, clock)) {
+                (Play::Settle, _) => bridge.settle(),
+                (Play::AskLater(_), Some(line)) => {
+                    bridge.send(&format!("{CHARACTER}\n{line}"));
+                }
+                (_, Some(line)) => {
+                    batch(&mut bridge, &line);
+                }
+                (_, None) => {}
+            }
+
+            // A journal needs no model call, so its reply comes at once, and the open calls
+            // stay open.
+            let asked = json!({"type": "journal_asked", "page": 0});
+            let id = bridge.send(&format!("{CHARACTER}\n{asked}"));
+            let journal = bridge.reply(id);
+            let quests = list(&journal, "quests");
+            let open = givers(&quests, "accepted");
+            prop_assert!(open.len() <= 3, "{quests:?}");
+            prop_assert!(!has_repeats(&open), "{quests:?}");
+            prop_assert!(!has_repeats(&givers(&quests, "offered")), "{quests:?}");
         }
     }
 }

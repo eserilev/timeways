@@ -231,6 +231,8 @@ pub struct Story {
     /// failed chapter keeps its plain list, and gets no second call.
     bard_asked: BTreeSet<Tick>,
     quest_request: Option<QuestRequest>,
+    /// Why the last answer to an offer did not stand, for the narrator line of its batch.
+    quest_note: Option<String>,
 }
 
 impl Story {
@@ -248,6 +250,7 @@ impl Story {
             budget: Budget::default(),
             bard_asked: BTreeSet::new(),
             quest_request: None,
+            quest_note: None,
         }
     }
 
@@ -341,8 +344,8 @@ impl Story {
             } => Ok(vec![self.ask(id, &question, target.as_deref())?]),
             Input::TalkAsked { id, at, npc, text } => Ok(vec![self.talk(id, at, &npc, &text)?]),
             Input::QuestAsked { at, npc } => self.ask_quest(at, npc),
-            Input::QuestAccepted { at } => self.answer_quest(at, Status::Accepted),
-            Input::QuestDeclined { at } => self.answer_quest(at, Status::Declined),
+            Input::QuestAccepted { at, number } => self.answer_quest(at, Status::Accepted, number),
+            Input::QuestDeclined { at, number } => self.answer_quest(at, Status::Declined, number),
             Input::JournalAsked { id, page } => {
                 let page = self.journal_page(page)?;
                 Ok(vec![Output::Journal { id, page }])
@@ -561,6 +564,7 @@ impl Story {
         self.candidates.clear();
         self.bard_asked.clear();
         self.quest_request = None;
+        self.quest_note = None;
         let key = key?;
         let Opened {
             character,
@@ -731,9 +735,10 @@ impl Story {
     /// At most one narrator line for a batch: about its best moment, within the budget.
     /// A batch can also start the saga of a finished chapter.
     fn end_batch(&mut self, batch: MessageId) -> Vec<Output> {
-        let seen = match self.quest_request.take() {
-            Some(request) => self.quest_call(batch, request),
-            None => self.narrator_call(batch),
+        let seen = match (self.quest_request.take(), self.quest_note.take()) {
+            (Some(request), _) => self.quest_call(batch, request),
+            (None, Some(note)) => quests::narrator_line(batch, Some(note)),
+            (None, None) => self.narrator_call(batch),
         };
         let mut outputs = vec![seen];
         outputs.extend(self.bard_call());

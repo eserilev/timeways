@@ -53,12 +53,17 @@ pub enum Input {
         at: Tick,
         npc: String,
     },
-    /// The answer to the offer that waits.
+    /// The answer to an offer that waits: the offer with this number, or with none, the
+    /// newest offer.
     QuestAccepted {
         at: Tick,
+        #[serde(default)]
+        number: Option<u64>,
     },
     QuestDeclined {
         at: Tick,
+        #[serde(default)]
+        number: Option<u64>,
     },
     /// You died. `killer` is an NPC that the addon is sure of, and never a player (5.11).
     Died {
@@ -149,8 +154,8 @@ impl Input {
             | Input::NpcSlapped { at, .. }
             | Input::TalkAsked { at, .. }
             | Input::QuestAsked { at, .. }
-            | Input::QuestAccepted { at }
-            | Input::QuestDeclined { at }
+            | Input::QuestAccepted { at, .. }
+            | Input::QuestDeclined { at, .. }
             | Input::Died { at, .. }
             | Input::HeroSet { at, .. }
             | Input::HeroAdded { at, .. }

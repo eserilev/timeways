@@ -47,12 +47,13 @@ function Inputs.QuestAsked(at, npc)
 	return { type = "quest_asked", at = at, npc = npc }
 end
 
-function Inputs.QuestAccepted(at)
-	return { type = "quest_accepted", at = at }
+-- With no number, the answer takes the newest offer.
+function Inputs.QuestAccepted(at, number)
+	return { type = "quest_accepted", at = at, number = number }
 end
 
-function Inputs.QuestDeclined(at)
-	return { type = "quest_declined", at = at }
+function Inputs.QuestDeclined(at, number)
+	return { type = "quest_declined", at = at, number = number }
 end
 
 function Inputs.Died(at, killer, cause, killerLevel, hour)

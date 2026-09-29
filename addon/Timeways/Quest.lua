@@ -25,19 +25,28 @@ function Quest.Ask()
 	Say("You ask " .. ns.Plain(npc) .. " for a task.")
 end
 
--- A meet step needs a new `npc_met`, also for an NPC that you met in this session.
-function Quest.Accept()
+-- A meet step needs a new `npc_met`, also for an NPC that you met in this session. The
+-- buttons of the book name their quest. The chat command answers the newest offer.
+function Quest.Accept(number)
 	ns.Watch.ForgetMet()
-	Send(ns.Inputs.QuestAccepted(time()))
+	Send(ns.Inputs.QuestAccepted(time(), number))
 	Say("You accept the task. It is in your journal.")
 end
 
-function Quest.Decline()
-	Send(ns.Inputs.QuestDeclined(time()))
+function Quest.Decline(number)
+	Send(ns.Inputs.QuestDeclined(time(), number))
 	Say("You decline the task.")
 end
 
-local WORDS = { [""] = Quest.Ask, accept = Quest.Accept, decline = Quest.Decline }
+local WORDS = {
+	[""] = Quest.Ask,
+	accept = function()
+		Quest.Accept()
+	end,
+	decline = function()
+		Quest.Decline()
+	end,
+}
 
 function Quest.Command(message)
 	local run = WORDS[message:match("^%s*(%S*)"):lower()]

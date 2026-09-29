@@ -315,3 +315,14 @@ fn a_title_that_looks_like_a_quest_is_no_quest() {
     assert_eq!(title_of_thing("quest of doom: the end"), None);
     assert_eq!(title_of_thing("Scourge of Squirrels"), None);
 }
+
+#[test]
+fn a_quest_with_the_same_step_twice_is_refused() {
+    let seen = [];
+    let text = answer("The Lost Lantern", &format!("{MEET_BRAM}, {MEET_BRAM}"));
+
+    assert_eq!(
+        checked_quest(&text, &known(&seen)).unwrap_err(),
+        QuestFault::RepeatedStep
+    );
+}

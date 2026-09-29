@@ -57,9 +57,14 @@ fn meet(at: u64, name: &str) -> Input {
 
 /// `/quest` to the giver, and the end of its batch.
 fn ask(story: &mut Story, at: u64) -> Output {
+    ask_from(story, GIVER, at)
+}
+
+/// `/quest` to this giver, and the end of its batch.
+fn ask_from(story: &mut Story, giver: &str, at: u64) -> Output {
     let asked = Input::QuestAsked {
         at: Tick(at),
-        npc: GIVER.to_string(),
+        npc: giver.to_string(),
     };
     assert_eq!(story.handle(asked).unwrap(), []);
     story
@@ -181,7 +186,12 @@ fn an_offer_that_breaks_a_rule_shows_no_task_and_stays_out_of_the_log() {
 fn a_quest_ends_when_its_steps_happen_in_order_and_the_giver_trusts_you_more() {
     let mut story = story("done");
     offer(&mut story, 5);
-    story.handle(Input::QuestAccepted { at: Tick(6) }).unwrap();
+    story
+        .handle(Input::QuestAccepted {
+            at: Tick(6),
+            number: None,
+        })
+        .unwrap();
 
     story.handle(meet(7, "Farmer Bram")).unwrap();
     assert_eq!(quests(&mut story)[0].steps_done, 0);
@@ -198,7 +208,12 @@ fn a_quest_ends_when_its_steps_happen_in_order_and_the_giver_trusts_you_more() {
 fn a_finished_quest_is_a_deed_with_its_title() {
     let mut story = story("deed");
     offer(&mut story, 5);
-    story.handle(Input::QuestAccepted { at: Tick(6) }).unwrap();
+    story
+        .handle(Input::QuestAccepted {
+            at: Tick(6),
+            number: None,
+        })
+        .unwrap();
 
     story.handle(zone(8, "Mill Pond")).unwrap();
     story.handle(meet(9, "Farmer Bram")).unwrap();
@@ -220,7 +235,12 @@ fn a_step_that_holds_at_accept_is_done_at_once() {
     offer(&mut story, 5);
     story.handle(zone(6, "Mill Pond")).unwrap();
 
-    story.handle(Input::QuestAccepted { at: Tick(7) }).unwrap();
+    story
+        .handle(Input::QuestAccepted {
+            at: Tick(7),
+            number: None,
+        })
+        .unwrap();
 
     assert_eq!(quests(&mut story)[0].steps_done, 1);
 }
@@ -229,7 +249,12 @@ fn a_step_that_holds_at_accept_is_done_at_once() {
 fn a_talk_counts_as_meeting_the_npc_of_a_step() {
     let mut story = story("talk");
     offer(&mut story, 5);
-    story.handle(Input::QuestAccepted { at: Tick(6) }).unwrap();
+    story
+        .handle(Input::QuestAccepted {
+            at: Tick(6),
+            number: None,
+        })
+        .unwrap();
     story.handle(zone(7, "Mill Pond")).unwrap();
 
     let talk = Input::TalkAsked {
@@ -248,7 +273,12 @@ fn a_declined_offer_leaves_the_journal() {
     let mut story = story("declined");
     offer(&mut story, 5);
 
-    story.handle(Input::QuestDeclined { at: Tick(6) }).unwrap();
+    story
+        .handle(Input::QuestDeclined {
+            at: Tick(6),
+            number: None,
+        })
+        .unwrap();
 
     assert!(quests(&mut story).is_empty());
 }
@@ -257,7 +287,12 @@ fn a_declined_offer_leaves_the_journal() {
 fn an_answer_with_no_offer_waiting_changes_nothing() {
     let mut story = story("no-offer");
 
-    let outputs = story.handle(Input::QuestAccepted { at: Tick(6) }).unwrap();
+    let outputs = story
+        .handle(Input::QuestAccepted {
+            at: Tick(6),
+            number: None,
+        })
+        .unwrap();
 
     assert_eq!(outputs, []);
     assert!(quests(&mut story).is_empty());
@@ -267,7 +302,12 @@ fn an_answer_with_no_offer_waiting_changes_nothing() {
 fn a_giver_waits_for_you_to_finish_its_open_quest() {
     let mut story = story("waits");
     offer(&mut story, 5);
-    story.handle(Input::QuestAccepted { at: Tick(6) }).unwrap();
+    story
+        .handle(Input::QuestAccepted {
+            at: Tick(6),
+            number: None,
+        })
+        .unwrap();
 
     let output = ask(&mut story, 7);
 
@@ -294,4 +334,98 @@ fn a_quest_request_meets_its_giver() {
 
     let people = page(&mut story).journal.people;
     assert!(people.iter().any(|person| person.name == "Innkeeper Pell"));
+}
+
+fn answer_with(story: &mut Story, call: CallId, title: &str) -> Option<String> {
+    let text = OFFER.replace("The Lost Lantern", title);
+    narrator(story.handle(Input::ModelAnswered { call, text }).unwrap())
+}
+
+fn accept(story: &mut Story, at: u64, number: Option<u64>) -> Vec<Output> {
+    let accepted = Input::QuestAccepted {
+        at: Tick(at),
+        number,
+    };
+    story.handle(accepted).unwrap()
+}
+
+fn open_quests(story: &mut Story) -> usize {
+    let quests = quests(story);
+    quests
+        .iter()
+        .filter(|q| q.status == Status::Accepted)
+        .count()
+}
+
+#[test]
+fn two_offers_of_one_giver_never_make_two_open_quests() {
+    let mut story = story("two-offers");
+    let (first, _) = call_of(ask(&mut story, 5));
+    let (second, _) = call_of(ask(&mut story, 6));
+    answer_with(&mut story, first, "The Lost Lantern");
+    accept(&mut story, 7, None);
+
+    let line = answer_with(&mut story, second, "The Old Well");
+    accept(&mut story, 8, None);
+
+    assert_eq!(
+        line.as_deref(),
+        Some("Keeper Tessa waits for you to finish \"The Lost Lantern\".")
+    );
+    assert_eq!(open_quests(&mut story), 1);
+}
+
+#[test]
+fn an_accept_past_three_open_quests_is_refused_in_the_narrator_line() {
+    let mut story = story("full-log");
+    let givers = ["Keeper Tessa", "Innkeeper Pell", "Guard Rolf", "Smith Hana"];
+    for (n, giver) in (0u64..).zip(givers) {
+        story.handle(meet(10 + n, giver)).unwrap();
+        let (call, _) = call_of(ask_from(&mut story, giver, 20 + n));
+        answer_with(&mut story, call, &format!("Task {n}"));
+    }
+
+    for n in 1..=4 {
+        accept(&mut story, 30 + n, Some(n));
+    }
+    let batch = story.handle(Input::BatchEnd { id: BATCH }).unwrap();
+
+    assert_eq!(open_quests(&mut story), 3);
+    assert_eq!(
+        narrator(batch).as_deref(),
+        Some("Your quest log is full. Finish a quest first.")
+    );
+}
+
+#[test]
+fn an_accept_with_a_number_takes_that_offer_and_not_the_newest() {
+    let mut story = story("by-number");
+    story.handle(meet(10, "Innkeeper Pell")).unwrap();
+    offer(&mut story, 11);
+    let (call, _) = call_of(ask_from(&mut story, "Innkeeper Pell", 12));
+    answer_with(&mut story, call, "The Old Well");
+
+    accept(&mut story, 13, Some(1));
+
+    let quests = quests(&mut story);
+    assert_eq!(quests[0].status, Status::Accepted);
+    assert_eq!(quests[1].status, Status::Offered);
+}
+
+#[test]
+fn a_new_offer_ends_only_the_waiting_offer_of_the_same_giver() {
+    let mut story = story("same-giver");
+    story.handle(meet(10, "Innkeeper Pell")).unwrap();
+    offer(&mut story, 11);
+    let (call, _) = call_of(ask_from(&mut story, "Innkeeper Pell", 12));
+    answer_with(&mut story, call, "The Old Well");
+
+    offer(&mut story, 13);
+
+    let waiting: Vec<u64> = quests(&mut story)
+        .iter()
+        .filter(|q| q.status == Status::Offered)
+        .map(|q| q.number)
+        .collect();
+    assert_eq!(waiting, [2, 3]);
 }
