@@ -7,7 +7,7 @@
 mod common;
 
 use libfuzzer_sys::fuzz_target;
-use timeways_story::check::{check, later_names, names_after_cutoff, plain_text};
+use timeways_story::check::{check, later_names, names_after_cutoff, plain_text, same_words};
 use timeways_story::quest::{self, Known, Step};
 use timeways_story::seen::{SeenText, TextKind};
 use timeways_story::{bard, narrator, talk};
@@ -47,6 +47,11 @@ fn assert_quest(text: &str) {
     assert_plain(&offer.title, quest::MAX_TITLE_CHARS, quest::MAX_OFFER_BYTES);
     assert_plain(&offer.text, quest::MAX_TEXT_CHARS, quest::MAX_OFFER_BYTES);
     assert!((1..=quest::MAX_STEPS).contains(&offer.steps.len()));
+    assert!(
+        !same_words(&offer.title, "Rats"),
+        "the title of a game quest: {}",
+        offer.title
+    );
     assert!(quest::offer_line(known.giver, &offer).len() <= quest::MAX_OFFER_BYTES);
     for step in &offer.steps {
         match step {

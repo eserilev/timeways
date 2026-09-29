@@ -113,14 +113,21 @@ impl FakeBridge {
 
     /// Answers every open model call, oldest first, until none is open.
     pub fn settle(&mut self) {
-        while let Some((call, prompt)) = self.open_calls.pop_front() {
-            let words = self.model.as_mut().and_then(|model| model(&prompt));
-            match words {
-                // The bridge cleans every answer of a model before the story program sees it.
-                Some(words) => self.write_line(&model_answered_line(call, &clean_answer(&words))),
-                None => self.write_line(&model_failed_line(call)),
-            }
+        while self.settle_one() {}
+    }
+
+    /// Answers the oldest open model call, and gives false when none is open.
+    pub fn settle_one(&mut self) -> bool {
+        let Some((call, prompt)) = self.open_calls.pop_front() else {
+            return false;
+        };
+        let words = self.model.as_mut().and_then(|model| model(&prompt));
+        match words {
+            // The bridge cleans every answer of a model before the story program sees it.
+            Some(words) => self.write_line(&model_answered_line(call, &clean_answer(&words))),
+            None => self.write_line(&model_failed_line(call)),
         }
+        true
     }
 
     /// The reply of a batch. A batch with no answer fails the test, because the real

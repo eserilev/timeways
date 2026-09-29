@@ -99,12 +99,19 @@ enum Play {
     Talk(Name),
     Lore(Prose),
     Quest(Name),
+    /// `/quest`, and the model call stays open until `Settle` or the next batch, so two
+    /// calls overlap.
+    AskLater(Name),
+    /// The oldest open model call ends.
+    Settle,
     Accept(Option<u8>),
     Decline(Option<u8>),
     /// The next batches come from the other character.
     Switch,
     /// Seconds of game time before the next play, so sessions and chapters form.
     Wait(u16),
+    /// The clock of the computer jumps: back, far ahead, or to its end.
+    Clock(i64),
 }
 
 /// The words of the model for one call. A call takes the next one, and the list repeats.
@@ -169,10 +176,12 @@ fn input(play: &Play, at: u64) -> Option<Value> {
             json!({"type": "talk_asked", "at": at, "npc": npc.0, "text": "any news"})
         }
         Play::Lore(question) => json!({"type": "lore_asked", "at": at, "question": question.0}),
-        Play::Quest(npc) => json!({"type": "quest_asked", "at": at, "npc": npc.0}),
+        Play::Quest(npc) | Play::AskLater(npc) => {
+            json!({"type": "quest_asked", "at": at, "npc": npc.0})
+        }
         Play::Accept(number) => json!({"type": "quest_accepted", "at": at, "number": number}),
         Play::Decline(number) => json!({"type": "quest_declined", "at": at, "number": number}),
-        Play::Wait(_) | Play::Switch => return None,
+        Play::Wait(_) | Play::Switch | Play::Clock(_) | Play::Settle => return None,
     })
 }
 
@@ -239,23 +248,84 @@ fuzz_target!(|run: Run| {
     let story = Story::new(common::pack(), Store::Memory);
     let mut bridge = FakeBridge::new(story).with_model(model);
     let mut character = 0;
-    let mut at = 1_000;
+    let mut at: u64 = 1_000;
     for play in &run.plays {
-        match play {
-            Play::Wait(seconds) => at += u64::from(*seconds) * 60,
-            Play::Switch => character = 1 - character,
-            _ => at += 1,
-        }
-        if let Some(line) = input(play, at) {
-            bridge.batch(&format!("{}\n{line}", CHARACTERS[character]));
+        at = match play {
+            Play::Wait(seconds) => at.saturating_add(u64::from(*seconds) * 60),
+            Play::Clock(seconds) => at.saturating_add_signed(*seconds),
+            _ => at.saturating_add(1),
+        };
+        let batch = input(play, at).map(|line| format!("{}\n{line}", CHARACTERS[character]));
+        match (play, batch) {
+            (Play::Switch, _) => character = 1 - character,
+            (Play::Settle, _) => {
+                bridge.settle_one();
+            }
+            (Play::AskLater(_), Some(batch)) => {
+                bridge.send(&batch);
+            }
+            (_, Some(batch)) => {
+                bridge.batch(&batch);
+            }
+            (_, None) => {}
         }
     }
-    let first = journal_page(&mut bridge, CHARACTERS[character], 0);
-    let pages = first["pages"].as_u64().unwrap_or(0);
-    for page in 1..pages {
-        journal_page(&mut bridge, CHARACTERS[character], page);
-    }
+
+    // After any play, an event at the time of the clock still lands in the world.
+    let zone = json!({"type": "zone_entered", "at": now(), "zone": "Newvale"});
+    bridge.batch(&format!("{}\n{zone}", CHARACTERS[character]));
+    let journal = whole_journal(&mut bridge, CHARACTERS[character]);
+    let places = journal["places"].as_array().cloned().unwrap_or_default();
+    assert!(
+        places.iter().any(|place| place["name"] == "Newvale"),
+        "an event after the play did not land"
+    );
+    assert_quest_limits(&journal["quests"]);
 });
+
+fn now() -> u64 {
+    let since_epoch = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
+    since_epoch.map_or(0, |elapsed| elapsed.as_secs())
+}
+
+/// Every page, with the lists of each page joined in order.
+fn whole_journal(bridge: &mut FakeBridge, character: &str) -> Value {
+    let first = journal_page(bridge, character, 0);
+    let pages = first["pages"].as_u64().unwrap_or(0);
+    let mut lists: serde_json::Map<String, Value> = serde_json::Map::new();
+    for page in (0..pages.max(1)).map(|page| journal_page(bridge, character, page)) {
+        for name in ["places", "quests"] {
+            let items = page[name].as_array().cloned().unwrap_or_default();
+            let joined = lists.entry(name).or_insert_with(|| json!([]));
+            joined
+                .as_array_mut()
+                .into_iter()
+                .for_each(|list| list.extend(items.clone()));
+        }
+    }
+    Value::Object(lists)
+}
+
+/// At most 3 open quests, at most one open quest and one waiting offer for each giver
+/// (GAMEPLAY.md 3.4).
+fn assert_quest_limits(quests: &Value) {
+    let quests = quests.as_array().cloned().unwrap_or_default();
+    for status in ["accepted", "offered"] {
+        let mut givers: Vec<&str> = quests
+            .iter()
+            .filter(|quest| quest["status"] == status)
+            .filter_map(|quest| quest["giver"].as_str())
+            .collect();
+        if status == "accepted" {
+            assert!(givers.len() <= 3, "{} open quests", givers.len());
+        }
+        givers.sort_unstable();
+        assert!(
+            givers.windows(2).all(|pair| pair[0] != pair[1]),
+            "two {status} quests of one giver"
+        );
+    }
+}
 
 /// The bridge checks the page and each of its lists as it takes it.
 fn journal_page(bridge: &mut FakeBridge, character: &str, page: u64) -> Value {
