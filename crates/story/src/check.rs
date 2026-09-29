@@ -113,6 +113,12 @@ pub fn names_after_cutoff(answer: &str) -> Vec<&'static str> {
         .collect()
 }
 
+/// Does the text hold the name as whole words, in any case?
+#[must_use]
+pub fn mentions(text: &str, name: &str) -> bool {
+    contains_phrase(&words_of(text), name)
+}
+
 fn contains_phrase(words: &[String], name: &str) -> bool {
     let phrase = words_of(name);
     !phrase.is_empty()

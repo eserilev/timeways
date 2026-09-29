@@ -1,0 +1,1 @@
+{"title": "The Lost Lantern", "text": "Bring word to the tower.", "steps": [{"goal": "visit", "place": "Old Tower"}, {"goal": "meet", "npc": "Farmer Bram"}]}

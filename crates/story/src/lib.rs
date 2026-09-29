@@ -15,6 +15,7 @@ pub mod pack;
 pub mod prompt;
 #[cfg(kani)]
 mod proofs;
+pub mod quest;
 pub mod seen;
 pub mod serve;
 pub mod store;

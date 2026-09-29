@@ -112,6 +112,17 @@ An innkeeper tells you a rumor, and the rumor becomes a small quest line made fo
 - The rewards are story: a title in your journal, a line in your chronicle, and an NPC who trusts you more and tells you more lore later.
 - Hourglass keeps the quests consistent. A quest cannot send you to an NPC who died in your story, or to a place that you never heard of.
 
+**The first slice.** The combat log is closed and no loot event comes yet, so a step has one of two goals: `visit` a place, or `meet` an NPC.
+
+- **The offer** (planned): you target an NPC that you met and type `/quest`. The event `quest_asked` has no reply of its own. At the end of the batch, the model call of the quest takes the place of the narrator call. The offer comes back as the narrator line, so the relay needs no change.
+- **The check** (built, `quest.rs`): the code refuses an offer that breaks one of these rules.
+  - The answer is JSON with a title (at most 60 characters), a text (at most 400), and 1 to 3 steps. The offer line fits in one narrator line (1000 bytes).
+  - Each name is a string of the game, copied exactly, because progress matches it byte for byte.
+  - A place is a zone or subzone that you visited, or a zone that a text that you read names.
+  - An NPC is one that you met, is not dead in your story, and is not the giver.
+  - **No overlap:** a subzone or NPC of a step is not in the title or the text of a game quest that you read. The title is not the title of such a quest. A zone is exempt, because most quest texts name their zone. The rule covers only the quests that you read.
+- **Accept and progress** (planned): `/quest accept` or `/quest decline`. The story program checks each step against later `zone_entered` and `npc_met` events, in order. At the end, you get `quest_done`, and the giver trusts you 10 more. The model never picks this number.
+
 ### 3.5 Talk to an NPC
 
 You target an NPC and type `/talk <words>`. The agent plays that NPC. What the NPC tells you, and how much it trusts you, go into your world.
