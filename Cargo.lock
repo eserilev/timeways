@@ -6,6 +6,7 @@ version = 4
 name = "addon-tests"
 version = "0.1.0"
 dependencies = [
+ "fake-bridge",
  "mlua",
  "rusty-hourglass",
  "serde_json",
