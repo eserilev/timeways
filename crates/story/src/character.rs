@@ -2,7 +2,7 @@
 
 use crate::vocabulary::{
     self, DEAD, DEATHS, DEFEATED, LEVEL, MET, QUEST_ACCEPTED, QUEST_DONE, QUEST_OFFERED, SLAPPED,
-    TITLE, TRUST, TRUSTS, VISITED,
+    TALLY, TITLE, TRUST, TRUSTS, VISITED,
 };
 use hourglass::{
     Entity, EntityId, EntityType, Event, EventHistory, EventKind, LOCATED_IN, Rejection, Tick,
@@ -467,7 +467,7 @@ impl Character {
         self.propose(at, kind)
     }
 
-    /// Starts a tally at 1, or adds 1 to the tally that the slot holds.
+    /// Starts a tally at 1, or adds 1 to the tally that the slot holds, up to its top.
     fn count_up(
         &mut self,
         at: Tick,
@@ -481,6 +481,9 @@ impl Character {
             .and_then(|entity| entity.fact(name, target))
             .and_then(|fact| fact.value);
         let kind = match held {
+            // Hourglass refuses a count past its band, and the refusal would lose the rest
+            // of the event, such as the trust that a slap costs.
+            Some(count) if count >= TALLY.max => return Ok(()),
             Some(count) => EventKind::FactUpdate {
                 entity: holder,
                 name: name.to_string(),

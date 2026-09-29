@@ -30,7 +30,9 @@ pub const TRUST: Band = Band {
     max: 100,
 };
 const LEVELS: Band = Band { min: 1, max: 60 };
-const TALLY: Band = Band { min: 0, max: 1000 };
+/// The band of the counts: deaths, kills, and slaps. Public, because a count stops at its
+/// top.
+pub const TALLY: Band = Band { min: 0, max: 1000 };
 
 #[must_use]
 pub fn vocabulary() -> FactVocabulary {

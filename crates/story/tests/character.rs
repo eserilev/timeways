@@ -381,3 +381,28 @@ fn trust_from_talk_stops_at_one_hundred() {
 
     assert_eq!(trust_of(&character, "Innkeeper Farley"), Some(100));
 }
+
+#[test]
+fn a_death_past_the_cap_of_its_count_still_lands() {
+    let mut character = Character::new();
+    for at in 1..=1000 {
+        character.die(Tick(at), None).unwrap();
+    }
+
+    let past_the_cap = character.die(Tick(1001), Some("Hogger"));
+
+    assert_eq!(past_the_cap, Ok(()));
+}
+
+#[test]
+fn a_slap_past_the_cap_of_its_count_still_costs_trust() {
+    let mut character = Character::new();
+    for at in 1..=1000 {
+        character.slap(Tick(at), "Hogger").unwrap();
+    }
+
+    let past_the_cap = character.slap(Tick(1001), "Hogger");
+
+    assert_eq!(past_the_cap, Ok(()));
+    assert_eq!(character.slaps_of("Hogger"), Some(1000));
+}

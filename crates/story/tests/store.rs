@@ -226,8 +226,8 @@ fn a_history_that_another_program_wrote_is_refused() {
 }
 
 #[test]
-fn a_refused_event_still_saves_the_events_before_it() {
-    let folder = fresh_folder("refused-saves");
+fn a_kill_past_the_cap_still_moves_the_foe_and_is_saved() {
+    let folder = fresh_folder("past-the-cap");
     let mut first = story(&folder, "Ada");
     enter(&mut first, 1, "Elwynn Forest");
     for _ in 0..1000 {
@@ -244,8 +244,8 @@ fn a_refused_event_still_saves_the_events_before_it() {
         .lines()
         .count();
 
-    // Hogger moves to Westfall, and then the count refuses to pass 1000.
-    let refused = first.handle(Input::NpcDefeated {
+    // Hogger moves to Westfall, and the count stays at 1000.
+    let kill = first.handle(Input::NpcDefeated {
         at: Tick(4),
         name: "Hogger".to_string(),
     });
@@ -254,7 +254,7 @@ fn a_refused_event_still_saves_the_events_before_it() {
         .unwrap()
         .lines()
         .count();
-    assert!(refused.is_err());
+    assert!(kill.is_ok());
     assert_eq!(lines_after, lines_before + 1);
 }
 

@@ -242,6 +242,8 @@ Each character has one Hourglass world. A guild has one more world, held by its 
 | `member_of` | flag | free | person to faction | Guild membership, and faction ties. |
 | `leader_of` | flag | free | person to faction | A canon leader, for example Thrall and the Horde. Only the canon seed and game events change it (5.9). |
 
+A count stops at 1000. A death, a kill, or a slap past it still lands: the NPC moves, and the slap still costs trust.
+
 The vocabulary has a version. Hourglass migrates an old world to a new version (`migrate.rs`).
 
 ### 5.2 Two sources of change
