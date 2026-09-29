@@ -1559,3 +1559,20 @@ fn an_npc_knows_at_most_three_lore_passages() {
         .count();
     assert_eq!(known, 3, "{prompt}");
 }
+
+#[test]
+fn an_hour_past_23_and_an_emote_that_is_no_word_are_refused() {
+    let mut story = story_with("bad-hour-token", &[]);
+    let emote = |emote: &str, hour| Input::EmoteDone {
+        at: Tick(1),
+        emote: emote.to_string(),
+        target: None,
+        hour: Some(hour),
+    };
+
+    let late = story.handle(emote("dance", 24));
+    let shouted = story.handle(emote("Dance!", 3));
+
+    assert!(matches!(late, Err(StoryError::BadHour)), "{late:?}");
+    assert!(matches!(shouted, Err(StoryError::BadToken)), "{shouted:?}");
+}

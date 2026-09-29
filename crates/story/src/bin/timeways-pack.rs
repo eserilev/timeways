@@ -53,7 +53,7 @@ fn main() -> ExitCode {
     }
 }
 
-/// A pack is never written over: an old pack with new passages would mix two sources.
+/// A pack is never written over, because an old pack with new passages mixes two sources.
 fn build(passages: &Path, pack: &Path) -> Result<usize, Box<dyn Error>> {
     if pack.exists() {
         return Err(format!("{} exists already", pack.display()).into());

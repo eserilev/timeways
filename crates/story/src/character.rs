@@ -481,7 +481,7 @@ impl Character {
             .and_then(|entity| entity.fact(name, target))
             .and_then(|fact| fact.value);
         let kind = match held {
-            // Hourglass refuses a count past its band, and the refusal would lose the rest
+            // Hourglass refuses a count past its band, and the refusal loses the rest
             // of the event, such as the trust that a slap costs.
             Some(count) if count >= TALLY.max => return Ok(()),
             Some(count) => EventKind::FactUpdate {

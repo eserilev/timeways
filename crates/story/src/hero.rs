@@ -16,6 +16,15 @@ pub const FIELDS: [&str; 6] = ["origin", "background", "goal", "bond", "flaw", "
 /// The entries that one prompt carries, newest first, so a long story keeps the prompt short.
 pub const PROMPT_ENTRIES: usize = 5;
 
+/// The texts of the entries that `keep` takes, newest first, for a prompt.
+#[must_use]
+pub fn newest_texts(entries: &[Entry], keep: impl Fn(&Entry) -> bool) -> Vec<&str> {
+    let kept = entries.iter().rev().filter(|entry| keep(entry));
+    kept.take(PROMPT_ENTRIES)
+        .map(|entry| entry.text.as_str())
+        .collect()
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
 pub struct Hero {
     /// Each field that holds a text, in the order of `FIELDS`.

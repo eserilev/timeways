@@ -6,7 +6,7 @@ Timeways is a World of Warcraft: Forever addon. It adds a story layer to the gam
 
 An AI model writes the words. A rules engine decides what is true. The game itself supplies the facts.
 
-Status: early build. The story program keeps the world of each character in a file, and serves `/lore`, `/talk`, the journal, the narrator, and the bard. The addon talks to it through the shared transport of Gnomish Relay. Nobody has run the parts together in the game yet, and no real lore pack exists yet.
+Status: early build. The story program keeps the world of each character in a file, and serves `/lore`, `/talk`, `/quest`, the journal, the narrator, and the bard. The addon talks to it through the shared transport of Gnomish Relay. Nobody has run the parts together in the game yet, and no real lore pack exists yet.
 
 ## 1. The four parts
 
@@ -238,6 +238,7 @@ Each character has one Hourglass world. A guild has one more world, held by its 
 | `nemesis` | number, 0 to 1000 | free | person to person | The kill count of a feud. Each side has its own value: `nemesis` on `P7` linked to you counts the kills of `P7`, and `nemesis` on you linked to `P7` counts yours. |
 | `quest_offered`, `quest_accepted`, `quest_done` | flag | up | person to thing | A personal quest and its state. |
 | `level` | number, 1 to 60 | up | none | Your level. It only rises. |
+| `deaths` | number, 0 to 1000 | up | none | Your deaths, with a known killer or not. A known killer also holds `defeated`. |
 | `slapped` | number, 0 to 1000 | up | person to person | How often you slapped an NPC. It never ends. |
 | `title` | flag | up | person to thing | A joke title of your journal, such as "Scourge of Squirrels". |
 | `member_of` | flag | free | person to faction | Guild membership, and faction ties. |
@@ -335,9 +336,9 @@ The score uses whole numbers only, like Hourglass, so a test can state each rule
 
 **The numbers of the code** (built):
 
-- **Rare for you:** 1 or 2 earlier moments of the kind give +4, 3 to 9 give +3, 10 to 24 give +2, 25 to 49 give +1, and more give 0. A kind is the emote, the cause of a fall, or a humbling death. A dance is a dance, wherever it happens.
-- **Contrast:** +1 for each 10 levels between you and the NPC that killed you, at most +4. A gap of 10 or more makes the death a flavor moment ("humbled").
-- **A famous place:** Goldshire and the 6 capital cities.
+- **Rare for you:** 1 or 2 earlier moments of the kind give +4, 3 to 9 give +3, 10 to 24 give +2, 25 to 49 give +1, and more give 0. A kind is the emote, the cause of a fall, a humbling death, or a book that you read. A dance is a dance, wherever it happens.
+- **Contrast:** +1 for each 10 levels between you and the NPC that killed you, at most +4. A gap of 10 or more makes the death a flavor moment ("humbled"). A book gives +3: a hero who reads is odd enough, so the first book reaches the narrator. A book counts once, for all its pages.
+- **A famous place:** Goldshire and the 6 capital cities, also in a subzone of one, such as the Trade District.
 - **A callback:** the NPC holds `trusts` or `defeated` about you, or you hold `slapped` or `defeated` about it. A plain meeting is no history.
 - **An odd hour:** 2 to 5 in the local time of the player, which the addon sends.
 - **Told before:** each telling of the kind in the last 72 hours of game time.
@@ -358,6 +359,7 @@ The score uses whole numbers only, like Hourglass, so a test can state each rule
 | Lava Enthusiast | 2 deaths to lava or fire |
 | The Humbled | 1 death to an NPC 10 or more levels below you |
 | Slap Happy | 5 slaps, of any NPCs |
+| Bookworm | 10 books |
 
 **Who scores.** A function of the Timeways story module scores the moments, in the bridge. No model takes part. The scoring is not part of Hourglass: Hourglass holds no words of any game, and the scoring is full of WoW (places, critters, emotes). The scoring asks Hourglass two questions:
 

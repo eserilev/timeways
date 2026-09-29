@@ -1,4 +1,4 @@
-//! One input in, at most one output out (GAMEPLAY.md 3.1, 5.2, and 5.6).
+//! One input in, and the outputs for it out (GAMEPLAY.md 3.1, 5.2, and 5.6).
 
 use crate::bard;
 use crate::character::{Character, Refusal};
@@ -39,7 +39,7 @@ fn now() -> Tick {
 }
 
 /// The longest name that the story takes from the game. WoW names are far shorter, so a
-/// longer one comes from a bug or a hostile addon, and it would break the page limit.
+/// longer one comes from a bug or a hostile addon, and it breaks the page limit.
 pub const MAX_NAME_BYTES: usize = 96;
 
 /// A flavor moment needs this score to reach the narrator (GAMEPLAY.md 5.4.1).
@@ -137,6 +137,10 @@ pub enum StoryError {
     Store(#[from] StoreError),
     #[error("the time {0} is more than a day after the clock of this computer")]
     FutureTime(u64),
+    #[error("an emote or a cause of death is empty, longer than 24 bytes, or not lowercase")]
+    BadToken,
+    #[error("an hour is past 23")]
+    BadHour,
 }
 
 /// The character of the last `character_entered`, and the file of its history.
@@ -362,7 +366,7 @@ impl Story {
     }
 
     /// The addon and this program share the clock of one computer. A time far ahead comes
-    /// from a clock that jumped, and it would freeze the world, because Hourglass refuses
+    /// from a clock that jumped, and it freezes the world, because Hourglass refuses
     /// every event older than its last one. A time before the last event, from a clock that
     /// went back, counts as the time of the last event.
     fn checked_time(&self, at: Tick) -> Result<Tick, StoryError> {
@@ -699,7 +703,6 @@ impl Story {
         Ok(Vec::new())
     }
 
-    /// A flavor moment where you stand now, and then the titles that it earns.
     /// A flavor moment where you stand now, scored against the moments before it, and then
     /// the titles that it earns.
     fn record_flavor(
@@ -783,8 +786,11 @@ impl Story {
             return quiet;
         }
         if let Some(told) = telling {
-            let active = self.active.as_mut();
-            if active.is_none_or(|active| active.flavor.add_told(told).is_err()) {
+            let Some(active) = self.active.as_mut() else {
+                return quiet;
+            };
+            // A telling that is not on the disk comes again after a restart, so the line waits.
+            if active.flavor.add_told(told).is_err() {
                 return quiet;
             }
         }
@@ -874,14 +880,8 @@ impl Story {
             kinds,
         };
         let hero = hero::hero(active.hero.changes());
-        let written: Vec<String> = hero
-            .entries
-            .iter()
-            .filter(|entry| entry.at >= chapter.began && entry.at < next.began)
-            .rev()
-            .take(hero::PROMPT_ENTRIES)
-            .map(|entry| entry.text.clone())
-            .collect();
+        let in_chapter = |entry: &Entry| entry.at >= chapter.began && entry.at < next.began;
+        let written = hero::newest_texts(&hero.entries, in_chapter);
         let prompt = bard::prompt(chapter, &words, hero::portrait(&hero).as_deref(), &written);
         self.bard_asked.insert(chapter.began);
         Some(self.open_call(pending, prompt))
@@ -942,17 +942,11 @@ impl Story {
         passages.truncate(TALK_PASSAGES);
         let place = character.place_of(npc);
         let hero = hero::hero(active.hero.changes());
-        let own_lore = hero
-            .entries
-            .iter()
-            .filter(|entry| {
-                entry.npc.as_deref() == Some(npc)
-                    || (place.is_some() && entry.place.as_deref() == place)
-            })
-            .rev()
-            .take(hero::PROMPT_ENTRIES)
-            .map(|entry| entry.text.as_str())
-            .collect();
+        let about = |entry: &Entry| {
+            entry.npc.as_deref() == Some(npc)
+                || (place.is_some() && entry.place.as_deref() == place)
+        };
+        let own_lore = hero::newest_texts(&hero.entries, about);
         let scene = Scene {
             npc,
             place,
@@ -1099,14 +1093,14 @@ fn silly_death(
 fn checked_token(token: &str) -> Result<&str, StoryError> {
     let letters = token.bytes().all(|byte| byte.is_ascii_lowercase());
     if token.is_empty() || token.len() > 24 || !letters {
-        return Err(StoryError::BadName);
+        return Err(StoryError::BadToken);
     }
     Ok(token)
 }
 
 fn checked_hour(hour: Option<u8>) -> Result<(), StoryError> {
     if hour.is_some_and(|hour| hour > 23) {
-        return Err(StoryError::BadName);
+        return Err(StoryError::BadHour);
     }
     Ok(())
 }

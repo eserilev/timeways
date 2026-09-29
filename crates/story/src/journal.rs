@@ -1,5 +1,5 @@
-//! The journal of a character: the places, the people, and the deeds, all from the world
-//! and its history. No model takes part.
+//! The journal of a character: the chronicle, the places, the people, the deeds, the hero,
+//! what you learned, and your side quests. No model takes part.
 
 use crate::character::Character;
 use crate::hero::{Entry, Hero};
@@ -142,23 +142,19 @@ pub fn pages(journal: Journal) -> Vec<Page> {
         hero_refused: journal.hero_refused,
         ..Journal::default()
     };
-    let first = Size::of(&current.hero.sheet).plus(Size::of(&current.hero_refused));
-    let mut used = first;
+    let mut used = Size::of(&current.hero.sheet).plus(Size::of(&current.hero_refused));
     let budget = Size {
         line: MAX_LINE - FRAME.line,
         slot: MAX_SLOT - FRAME.slot,
     };
-    let items = journal
-        .hero
-        .entries
-        .into_iter()
-        .map(Item::Entry)
-        .chain(journal.chapters.into_iter().map(Item::Chapter))
-        .chain(journal.places.into_iter().map(Item::Place))
-        .chain(journal.people.into_iter().map(Item::Person))
-        .chain(journal.deeds.into_iter().map(Item::Deed))
-        .chain(journal.learned.into_iter().map(Item::Learned))
-        .chain(journal.quests.into_iter().map(Item::Quest));
+    // In the order of the lists, so each list stays in order across the pages.
+    let mut items: Vec<Item> = journal.hero.entries.into_iter().map(Item::Entry).collect();
+    items.extend(journal.chapters.into_iter().map(Item::Chapter));
+    items.extend(journal.places.into_iter().map(Item::Place));
+    items.extend(journal.people.into_iter().map(Item::Person));
+    items.extend(journal.deeds.into_iter().map(Item::Deed));
+    items.extend(journal.learned.into_iter().map(Item::Learned));
+    items.extend(journal.quests.into_iter().map(Item::Quest));
     // The comma after an item.
     let comma = Size { line: 1, slot: 1 };
     for item in items {

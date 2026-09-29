@@ -67,7 +67,7 @@ pub fn prompt(
     chapter: &Chapter,
     moments: &[String],
     portrait: Option<&str>,
-    told: &[String],
+    told: &[&str],
 ) -> String {
     let mut facts = Vec::new();
     if !chapter.zones.is_empty() {

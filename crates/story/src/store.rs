@@ -449,7 +449,7 @@ fn io_error(path: &Path, source: io::Error) -> StoreError {
 }
 
 /// Appends one JSON line for each item. A failed write puts the file back to its length
-/// before, because a torn line in the middle would end the file there at the next read.
+/// before, because the next read ends the file at a torn line in the middle.
 fn append_lines<T: Serialize>(path: &Path, items: &[T]) -> io::Result<()> {
     if items.is_empty() {
         return Ok(());
