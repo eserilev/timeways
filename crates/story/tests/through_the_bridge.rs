@@ -318,3 +318,44 @@ proptest! {
         }
     }
 }
+
+/// The bard, the narrator, and a question at once. The relay runs 2 model calls of the
+/// story program, so the story program keeps one slot for the player.
+#[test]
+fn a_question_gets_a_model_call_while_the_bard_writes() {
+    let pack = story_with_lore();
+    let model = Box::new(|_: &str| Some("Our hero walks on.".to_string()));
+    let mut bridge = FakeBridge::new(pack).with_model(model);
+    let event = |at: u64, zone: &str| json!({"type": "zone_entered", "at": at, "zone": zone, "subzone": null});
+
+    // Two sessions, and each narrator call ends.
+    bridge.batch(&format!("{CHARACTER}\n{}", event(START, "Testvale")));
+    bridge.batch(&format!(
+        "{CHARACTER}\n{}",
+        event(START + 7200, "Goldshire")
+    ));
+    // A quiet batch starts the saga of the first session, and the bard is slow.
+    bridge.send(&format!("{CHARACTER}\n{}", event(START + 7250, "Testvale")));
+    // A new zone wants the narrator, and then the player asks.
+    bridge.send(&format!(
+        "{CHARACTER}\n{}",
+        event(START + 7300, "Elwynn Forest")
+    ));
+    let question = json!({"type": "lore_asked", "at": START + 7301, "question": "the tower"});
+    bridge.send(&format!("{CHARACTER}\n{question}"));
+
+    assert_eq!(bridge.refused_calls(), 0);
+}
+
+fn story_with_lore() -> Story {
+    let path = Path::new(env!("CARGO_TARGET_TMPDIR")).join("through-lore.sqlite");
+    let _ = std::fs::remove_file(&path);
+    let tower = timeways_story::pack::Passage {
+        text: "The tower of Testvale fell.".to_string(),
+        source: "https://example.test/1".to_string(),
+        links: vec![timeways_story::pack::Link::Place("Testvale".to_string())],
+        origin: timeways_story::pack::Origin::Pack,
+    };
+    Pack::write(&path, &[tower]).unwrap();
+    Story::new(Pack::open(&path).unwrap(), Store::Memory)
+}

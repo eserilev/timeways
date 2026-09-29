@@ -745,11 +745,20 @@ impl Story {
         outputs
     }
 
+    /// The relay runs at most 2 model calls of the story program at once. While the bard
+    /// writes, the narrator stays quiet, so a question of the player always gets a call.
     fn narrator_call(&mut self, batch: MessageId) -> Output {
         let quiet = Output::EventsSeen {
             id: batch,
             narrator: None,
         };
+        let bard_writes = self
+            .calls
+            .values()
+            .any(|pending| matches!(pending, Pending::Bard { .. }));
+        if bard_writes {
+            return quiet;
+        }
         let now = self
             .character()
             .map_or(Tick(0), |character| character.world().tick);
