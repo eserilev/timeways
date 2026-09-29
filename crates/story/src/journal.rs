@@ -4,6 +4,7 @@
 use crate::character::Character;
 use crate::hero::{Entry, Hero};
 use crate::learned::Learned;
+use crate::quest::Tracked;
 use crate::vocabulary::{DEATHS, DEFEATED, LEVEL, MET, SLAPPED, TITLE, TRUSTS, VISITED};
 use hourglass::{EntityId, EventKind, LOCATED_IN, Tick, World};
 use serde::Serialize;
@@ -36,6 +37,8 @@ pub struct Journal {
     pub deeds: Vec<Deed>,
     /// What you read and heard (GAMEPLAY.md 3.1.1).
     pub learned: Vec<Learned>,
+    /// The side quests that you did not decline (3.4).
+    pub quests: Vec<Tracked>,
 }
 
 /// One play session of the chronicle, with no model: what was new in it (GAMEPLAY.md
@@ -141,7 +144,8 @@ pub fn pages(journal: Journal) -> Vec<Page> {
         .chain(journal.places.into_iter().map(Item::Place))
         .chain(journal.people.into_iter().map(Item::Person))
         .chain(journal.deeds.into_iter().map(Item::Deed))
-        .chain(journal.learned.into_iter().map(Item::Learned));
+        .chain(journal.learned.into_iter().map(Item::Learned))
+        .chain(journal.quests.into_iter().map(Item::Quest));
     for item in items {
         let size = item.size() + 1;
         let list_full = item.list_len(&current) >= PAGE_LIST_ITEMS;
@@ -172,6 +176,7 @@ enum Item {
     Person(Person),
     Deed(Deed),
     Learned(Learned),
+    Quest(Tracked),
 }
 
 impl Item {
@@ -185,6 +190,7 @@ impl Item {
             Item::Person(person) => serde_json::to_vec(person),
             Item::Deed(deed) => serde_json::to_vec(deed),
             Item::Learned(learned) => serde_json::to_vec(learned),
+            Item::Quest(quest) => serde_json::to_vec(quest),
         };
         bytes.map_or(PAGE_BYTES, |bytes| bytes.len())
     }
@@ -198,6 +204,7 @@ impl Item {
             Item::Person(_) => journal.people.len(),
             Item::Deed(_) => journal.deeds.len(),
             Item::Learned(_) => journal.learned.len(),
+            Item::Quest(_) => journal.quests.len(),
         }
     }
 
@@ -209,6 +216,7 @@ impl Item {
             Item::Person(person) => journal.people.push(person),
             Item::Deed(deed) => journal.deeds.push(deed),
             Item::Learned(learned) => journal.learned.push(learned),
+            Item::Quest(quest) => journal.quests.push(quest),
         }
     }
 }

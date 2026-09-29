@@ -114,14 +114,16 @@ An innkeeper tells you a rumor, and the rumor becomes a small quest line made fo
 
 **The first slice.** The combat log is closed and no loot event comes yet, so a step has one of two goals: `visit` a place, or `meet` an NPC.
 
-- **The offer** (planned): you target an NPC that you met and type `/quest`. The event `quest_asked` has no reply of its own. At the end of the batch, the model call of the quest takes the place of the narrator call. The offer comes back as the narrator line, so the relay needs no change.
+- **The offer** (built in the story program, the addon comes next): you target an NPC that you met and type `/quest`. The event `quest_asked` has no reply of its own. At the end of the batch, the model call of the quest takes the place of the narrator call. The offer comes back as the narrator line, so the relay needs no change. Asking is meeting, as a talk is. With no model, or with an offer that breaks a rule, the line says that the NPC has no task for you now.
 - **The check** (built, `quest.rs`): the code refuses an offer that breaks one of these rules.
   - The answer is JSON with a title (at most 60 characters), a text (at most 400), and 1 to 3 steps. The offer line fits in one narrator line (1000 bytes).
   - Each name is a string of the game, copied exactly, because progress matches it byte for byte.
   - A place is a zone or subzone that you visited, or a zone that a text that you read names.
   - An NPC is one that you met, is not dead in your story, and is not the giver.
   - **No overlap:** a subzone or NPC of a step is not in the title or the text of a game quest that you read. The title is not the title of such a quest. A zone is exempt, because most quest texts name their zone. The rule covers only the quests that you read.
-- **Accept and progress** (planned): `/quest accept` or `/quest decline`. The story program checks each step against later `zone_entered` and `npc_met` events, in order. At the end, you get `quest_done`, and the giver trusts you 10 more. The model never picks this number.
+- **Limits** (built): at most one offer waits, and a new offer ends the old one. A giver with an open quest waits for you to finish it. You hold at most 3 open quests.
+- **Accept and progress** (built in the story program): `/quest accept` or `/quest decline` answers the offer that waits. The story program checks each step against later `zone_entered`, `npc_met`, `talk_asked`, and `npc_slapped` events, in order. A step that holds when it becomes the next step is done at once, because the addon sends a zone only when it changes. At the end, you get `quest_done`, and the giver trusts you 10 more. The model never picks this number.
+- **Storage** (built): the quest file `c_<name>.quests.jsonl` holds the offers, the answers, and the steps done. The world holds the facts: the giver holds `quest_offered`, and you hold `quest_accepted` and `quest_done`. The quest thing is named "quest <number>: <title>", so it never merges with a title.
 
 ### 3.5 Talk to an NPC
 

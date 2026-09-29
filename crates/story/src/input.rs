@@ -47,6 +47,19 @@ pub enum Input {
         npc: String,
         text: String,
     },
+    /// `/quest` to the NPC that you target (GAMEPLAY.md 3.4). The offer comes back as the
+    /// narrator line of the batch, so this line has no reply of its own.
+    QuestAsked {
+        at: Tick,
+        npc: String,
+    },
+    /// The answer to the offer that waits.
+    QuestAccepted {
+        at: Tick,
+    },
+    QuestDeclined {
+        at: Tick,
+    },
     /// You died. `killer` is an NPC that the addon is sure of, and never a player (5.11).
     Died {
         at: Tick,

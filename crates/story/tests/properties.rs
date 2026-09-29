@@ -10,6 +10,7 @@ use timeways_story::character::Character;
 use timeways_story::input::{Input, MessageId};
 use timeways_story::journal::{Journal, journal, pages};
 use timeways_story::pack::Pack;
+use timeways_story::quest::{QuestChange, Status, Step, quest_log};
 use timeways_story::seen::TextKind;
 use timeways_story::store::{Store, safe_id};
 use timeways_story::story::{Output, Story};
@@ -30,6 +31,10 @@ enum Play {
     Read(TextKind, Option<String>, String),
     /// A talk, with the words of the model: a rumor.
     Talk(String, String),
+    /// `/quest` to an NPC, and the steps that the model proposes: `true` visits.
+    Quest(String, Vec<(bool, String)>),
+    Accept,
+    Decline,
     Wait(u64),
 }
 
@@ -67,7 +72,42 @@ fn play() -> impl Strategy<Value = Play> {
         )
             .prop_map(|(kind, title, text)| Play::Read(kind, title, text)),
         (name(), "[A-Za-z ]{1,60}").prop_map(|(npc, say)| Play::Talk(npc, say)),
+        (name(), prop::collection::vec((any::<bool>(), name()), 0..5))
+            .prop_map(|(npc, steps)| Play::Quest(npc, steps)),
+        Just(Play::Accept),
+        Just(Play::Decline),
         (0u64..20_000).prop_map(Play::Wait),
+    ]
+}
+
+/// Few numbers and short quests, so that most changes find their quest.
+fn quest_change() -> impl Strategy<Value = QuestChange> {
+    let number = 1u64..4;
+    let step = Step::Meet {
+        npc: "Farmer Bram".to_string(),
+    };
+    prop_oneof![
+        (number.clone(), 0usize..4).prop_map(move |(number, steps)| QuestChange::Offered {
+            number,
+            at: Tick(1),
+            giver: "Keeper Tessa".to_string(),
+            title: "A Task".to_string(),
+            text: "Go.".to_string(),
+            steps: vec![step.clone(); steps],
+        }),
+        number.clone().prop_map(|number| QuestChange::Accepted {
+            number,
+            at: Tick(2)
+        }),
+        number.clone().prop_map(|number| QuestChange::Declined {
+            number,
+            at: Tick(2)
+        }),
+        (number, 0usize..4).prop_map(|(number, step)| QuestChange::StepDone {
+            number,
+            step,
+            at: Tick(3),
+        }),
     ]
 }
 
@@ -123,8 +163,23 @@ fn input(play: &Play, at: Tick) -> Option<Input> {
             npc,
             text: "any news".to_string(),
         },
+        Play::Quest(npc, _) => Input::QuestAsked { at, npc },
+        Play::Accept => Input::QuestAccepted { at },
+        Play::Decline => Input::QuestDeclined { at },
         Play::Wait(_) => return None,
     })
+}
+
+/// The answer of a model to a quest call, with the steps of the play.
+fn quest_answer(steps: &[(bool, String)]) -> String {
+    let steps: Vec<serde_json::Value> = steps
+        .iter()
+        .map(|(visit, name)| match visit {
+            true => serde_json::json!({ "goal": "visit", "place": name }),
+            false => serde_json::json!({ "goal": "meet", "npc": name }),
+        })
+        .collect();
+    serde_json::json!({ "title": "A Task", "text": "Go.", "steps": steps }).to_string()
 }
 
 fn fresh(name: &str) -> PathBuf {
@@ -152,7 +207,7 @@ fn story(folder: &Path, files: Store) -> Story {
 }
 
 /// Plays each step, and moves the clock. A refused step is part of the game. The model
-/// answers a talk at once.
+/// answers a talk and a quest at once.
 fn run(story: &mut Story, plays: &[Play], clock: &mut u64) {
     for play in plays {
         *clock += if let Play::Wait(seconds) = play {
@@ -163,12 +218,21 @@ fn run(story: &mut Story, plays: &[Play], clock: &mut u64) {
         let Some(input) = input(play, Tick(*clock)) else {
             continue;
         };
-        let outputs = story.handle(input).unwrap_or_default();
-        if let (Play::Talk(_, say), Some(Output::ModelCall { call, .. })) = (play, outputs.first())
-        {
-            let text = serde_json::json!({ "say": say, "trust": 1 }).to_string();
-            let _ = story.handle(Input::ModelAnswered { call: *call, text });
+        let mut outputs = story.handle(input).unwrap_or_default();
+        if let Play::Quest(..) = play {
+            outputs = story
+                .handle(Input::BatchEnd { id: MessageId(3) })
+                .unwrap_or_default();
         }
+        let Some(Output::ModelCall { call, .. }) = outputs.first() else {
+            continue;
+        };
+        let text = match play {
+            Play::Talk(_, say) => serde_json::json!({ "say": say, "trust": 1 }).to_string(),
+            Play::Quest(_, steps) => quest_answer(steps),
+            _ => continue,
+        };
+        let _ = story.handle(Input::ModelAnswered { call: *call, text });
     }
 }
 
@@ -303,6 +367,22 @@ proptest! {
             character.adjust_trust(Tick(at as u64 + 1), "Innkeeper Farley", *by).unwrap();
             let trust = character.trust_of("Innkeeper Farley").unwrap_or(0);
             prop_assert!((-100..=100).contains(&trust), "{}", trust);
+        }
+    }
+
+    #[test]
+    fn a_quest_log_never_skips_a_step_and_holds_at_most_one_offer(
+        changes in prop::collection::vec(quest_change(), 0..40),
+    ) {
+        let quests = quest_log(&changes);
+
+        let offers = quests.iter().filter(|quest| quest.status == Status::Offered).count();
+        prop_assert!(offers <= 1);
+        for quest in &quests {
+            prop_assert!(quest.steps_done <= quest.steps.len());
+            let finished = !quest.steps.is_empty() && quest.steps_done == quest.steps.len();
+            prop_assert_eq!(quest.status == Status::Done, finished);
+            prop_assert_eq!(quest.done_at.is_some(), finished);
         }
     }
 }

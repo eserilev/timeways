@@ -1,10 +1,12 @@
 //! The world of one character, fed by game events (GAMEPLAY.md 5.1 and 5.2).
 
 use crate::vocabulary::{
-    self, DEATHS, DEFEATED, LEVEL, MET, SLAPPED, TITLE, TRUST, TRUSTS, VISITED,
+    self, DEAD, DEATHS, DEFEATED, LEVEL, MET, QUEST_ACCEPTED, QUEST_DONE, QUEST_OFFERED, SLAPPED,
+    TITLE, TRUST, TRUSTS, VISITED,
 };
 use hourglass::{
-    EntityId, EntityType, Event, EventHistory, EventKind, LOCATED_IN, Rejection, Tick, World,
+    Entity, EntityId, EntityType, Event, EventHistory, EventKind, LOCATED_IN, Rejection, Tick,
+    World,
 };
 
 /// Every reason at once, as Hourglass gives them.
@@ -14,6 +16,9 @@ const YOU: &str = "you";
 
 /// The trust that one slap costs.
 const SLAP_TRUST: i64 = 10;
+
+/// The trust that a finished side quest earns with its giver. The model never picks it.
+pub const QUEST_TRUST: i64 = 10;
 
 pub struct Character {
     world: World,
@@ -149,6 +154,86 @@ impl Character {
     pub fn slaps_of(&self, npc: &str) -> Option<i64> {
         let id = self.find(EntityType::Person, npc)?;
         self.world.entity(self.you)?.fact(SLAPPED, Some(id))?.value
+    }
+
+    /// The zones that you visited: the places in no other place.
+    #[must_use]
+    pub fn visited_zones(&self) -> Vec<&str> {
+        self.visited(|place| place.location().is_none())
+    }
+
+    #[must_use]
+    pub fn visited_subzones(&self) -> Vec<&str> {
+        self.visited(|place| place.location().is_some())
+    }
+
+    fn visited(&self, keep: impl Fn(&Entity) -> bool) -> Vec<&str> {
+        self.linked_by_you(VISITED)
+            .into_iter()
+            .filter(|place| keep(place))
+            .map(|place| place.name.as_str())
+            .collect()
+    }
+
+    /// The NPCs that you met, except the dead of your story.
+    #[must_use]
+    pub fn living_npcs_met(&self) -> Vec<&str> {
+        self.linked_by_you(MET)
+            .into_iter()
+            .filter(|npc| npc.fact(DEAD, None).is_none())
+            .map(|npc| npc.name.as_str())
+            .collect()
+    }
+
+    #[must_use]
+    pub fn is_dead(&self, npc: &str) -> bool {
+        self.find(EntityType::Person, npc)
+            .and_then(|id| self.world.entity(id))
+            .is_some_and(|entity| entity.fact(DEAD, None).is_some())
+    }
+
+    fn linked_by_you(&self, fact: &str) -> Vec<&Entity> {
+        let Some(you) = self.world.entity(self.you) else {
+            return Vec::new();
+        };
+        you.facts_named(fact)
+            .filter_map(|fact| fact.linked_to)
+            .filter_map(|target| self.world.entity(target))
+            .collect()
+    }
+
+    /// A quest is a thing that its giver offers you (GAMEPLAY.md 3.4).
+    ///
+    /// # Errors
+    ///
+    /// Returns the first refusal of Hourglass.
+    pub fn offer_quest(&mut self, at: Tick, giver: &str, quest: &str) -> Result<(), Refusal> {
+        let giver = self.find_or_create(at, EntityType::Person, giver)?;
+        let quest = self.find_or_create(at, EntityType::Thing, quest)?;
+        self.start_once(at, giver, QUEST_OFFERED, quest)
+    }
+
+    /// # Errors
+    ///
+    /// Returns the first refusal of Hourglass.
+    pub fn accept_quest(&mut self, at: Tick, quest: &str) -> Result<(), Refusal> {
+        let quest = self.find_or_create(at, EntityType::Thing, quest)?;
+        self.start_once(at, self.you, QUEST_ACCEPTED, quest)
+    }
+
+    /// # Errors
+    ///
+    /// Returns the first refusal of Hourglass.
+    pub fn finish_quest(&mut self, at: Tick, giver: &str, quest: &str) -> Result<(), Refusal> {
+        let quest = self.find_or_create(at, EntityType::Thing, quest)?;
+        self.start_once(at, self.you, QUEST_DONE, quest)?;
+        let giver = self.find_or_create(at, EntityType::Person, giver)?;
+        self.change_trust(at, giver, QUEST_TRUST)
+    }
+
+    #[must_use]
+    pub fn has_done_quest(&self, quest: &str) -> bool {
+        self.holds_about(QUEST_DONE, quest)
     }
 
     /// Where you stand, then each place around it: the subzone, then the zone.

@@ -4,6 +4,7 @@
 
 use crate::check::{json_object, mentions, plain_text};
 use crate::seen::{SeenText, TextKind};
+use hourglass::Tick;
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
 use thiserror::Error;
@@ -182,5 +183,152 @@ fn list(prompt: &mut String, heading: &str, names: &[&str]) {
     let _ = write!(prompt, "\n{heading}:\n");
     for name in names.iter().take(PROMPT_NAMES) {
         let _ = writeln!(prompt, "- {name}");
+    }
+}
+
+/// Past this, a new quest waits until you finish one.
+pub const MAX_OPEN_QUESTS: usize = 3;
+
+/// One change of the quest log. The quest file holds these lines, oldest first. The words
+/// of a quest are not facts, so they live next to the history, as the hero does.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "line", rename_all = "snake_case")]
+pub enum QuestChange {
+    Offered {
+        number: u64,
+        at: Tick,
+        giver: String,
+        title: String,
+        text: String,
+        steps: Vec<Step>,
+    },
+    Accepted {
+        number: u64,
+        at: Tick,
+    },
+    Declined {
+        number: u64,
+        at: Tick,
+    },
+    StepDone {
+        number: u64,
+        step: usize,
+        at: Tick,
+    },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Status {
+    Offered,
+    Accepted,
+    Declined,
+    Done,
+}
+
+/// A quest as the log stands now.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct Tracked {
+    pub number: u64,
+    pub offered_at: Tick,
+    pub giver: String,
+    pub title: String,
+    pub text: String,
+    pub steps: Vec<Step>,
+    /// The steps done, from the first. The next step has this index.
+    pub steps_done: usize,
+    pub status: Status,
+    /// When the last step was done.
+    pub done_at: Option<Tick>,
+}
+
+impl Tracked {
+    #[must_use]
+    pub fn next_step(&self) -> Option<&Step> {
+        (self.status == Status::Accepted)
+            .then(|| self.steps.get(self.steps_done))
+            .flatten()
+    }
+}
+
+/// The quests of a log, oldest first. At most one offer waits: a new offer ends the old
+/// one. A change that does not fit the state of its quest changes nothing.
+#[must_use]
+pub fn quest_log(changes: &[QuestChange]) -> Vec<Tracked> {
+    let mut quests: Vec<Tracked> = Vec::new();
+    for change in changes {
+        apply(&mut quests, change);
+    }
+    quests
+}
+
+fn apply(quests: &mut Vec<Tracked>, change: &QuestChange) {
+    match change {
+        QuestChange::Offered {
+            number,
+            at,
+            giver,
+            title,
+            text,
+            steps,
+        } => {
+            for waiting in quests.iter_mut().filter(|q| q.status == Status::Offered) {
+                waiting.status = Status::Declined;
+            }
+            quests.push(Tracked {
+                number: *number,
+                offered_at: *at,
+                giver: giver.clone(),
+                title: title.clone(),
+                text: text.clone(),
+                steps: steps.clone(),
+                steps_done: 0,
+                status: Status::Offered,
+                done_at: None,
+            });
+        }
+        QuestChange::Accepted { number, .. } => answer_offer(quests, *number, Status::Accepted),
+        QuestChange::Declined { number, .. } => answer_offer(quests, *number, Status::Declined),
+        QuestChange::StepDone { number, step, at } => {
+            let Some(quest) = quests.iter_mut().find(|q| q.number == *number) else {
+                return;
+            };
+            let next = quest.status == Status::Accepted && quest.steps_done == *step;
+            if !next || *step >= quest.steps.len() {
+                return;
+            }
+            quest.steps_done += 1;
+            if quest.steps_done == quest.steps.len() {
+                quest.status = Status::Done;
+                quest.done_at = Some(*at);
+            }
+        }
+    }
+}
+
+fn answer_offer(quests: &mut [Tracked], number: u64, status: Status) {
+    if let Some(quest) = quests
+        .iter_mut()
+        .find(|q| q.number == number && q.status == Status::Offered)
+    {
+        quest.status = status;
+    }
+}
+
+/// Numbers are never reused, so a line names one quest for good.
+#[must_use]
+pub fn next_number(changes: &[QuestChange]) -> u64 {
+    let offers = changes
+        .iter()
+        .filter(|change| matches!(change, QuestChange::Offered { .. }));
+    u64::try_from(offers.count()).map_or(u64::MAX, |count| count.saturating_add(1))
+}
+
+/// Does the step hold at this moment: you stand in its place, or you meet its NPC?
+#[must_use]
+pub fn step_holds(step: &Step, places_here: &[&str], npc: Option<&str>) -> bool {
+    match step {
+        Step::Visit { place } => places_here.contains(&place.as_str()),
+        Step::Meet { npc: wanted } => npc == Some(wanted.as_str()),
     }
 }

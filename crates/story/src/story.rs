@@ -12,10 +12,11 @@ use crate::moments::{Moment, best, moments};
 use crate::narrator::{self, Budget};
 use crate::pack::{Link, Pack, PackError, Passage};
 use crate::prompt::Context;
+use crate::quest::{Status, quest_log};
 use crate::seen::{MAX_SEEN_BYTES, SeenIndex, SeenText, TextKind};
 use crate::store::{
-    CharacterKey, FlavorLog, HeroLog, HistoryFile, LearnedLog, Opened, Prose, Store, StoreError,
-    Written,
+    CharacterKey, FlavorLog, HeroLog, HistoryFile, LearnedLog, Opened, Prose, QuestLog, Store,
+    StoreError, Written,
 };
 use crate::talk::{self, Scene};
 use crate::titles;
@@ -23,6 +24,10 @@ use hourglass::Tick;
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
 use thiserror::Error;
+
+mod quests;
+
+use quests::QuestRequest;
 
 /// The longest name that the story takes from the game. WoW names are far shorter, so a
 /// longer one comes from a bug or a hostile addon, and it would break the page limit.
@@ -128,6 +133,7 @@ struct Active {
     flavor: FlavorLog,
     hero: HeroLog,
     learned: LearnedLog,
+    quests: QuestLog,
     seen_index: SeenIndex,
     /// Why the last edit of the hero did not stand, until a journal page shows it.
     hero_refused: Option<String>,
@@ -175,6 +181,14 @@ enum Pending {
         began: Tick,
         kinds: Vec<String>,
     },
+    /// A side quest from `giver`, asked at `at`, for this character only. Its offer is the
+    /// narrator line of `batch`.
+    Quest {
+        batch: MessageId,
+        key: CharacterKey,
+        giver: String,
+        at: Tick,
+    },
     /// A talk to `npc`, whose change of trust lands at `at`, for this character only.
     Talk {
         question: MessageId,
@@ -201,6 +215,7 @@ pub struct Story {
     /// The chapters of the active character that the bard was asked for in this run. A
     /// failed chapter keeps its plain list, and gets no second call.
     bard_asked: BTreeSet<Tick>,
+    quest_request: Option<QuestRequest>,
 }
 
 impl Story {
@@ -217,6 +232,7 @@ impl Story {
             candidates: Vec::new(),
             budget: Budget::default(),
             bard_asked: BTreeSet::new(),
+            quest_request: None,
         }
     }
 
@@ -235,11 +251,13 @@ impl Story {
             Input::ZoneEntered { at, zone, subzone } => {
                 checked_name(&zone)?;
                 subzone.as_deref().map(checked_name).transpose()?;
-                self.change(|character| character.enter_zone(at, &zone, subzone.as_deref()))
+                self.change(|character| character.enter_zone(at, &zone, subzone.as_deref()))?;
+                self.advance_quests(at, None)
             }
             Input::NpcMet { at, name } => {
                 checked_name(&name)?;
-                self.change(|character| character.meet_npc(at, &name))
+                self.change(|character| character.meet_npc(at, &name))?;
+                self.advance_quests(at, Some(&name))
             }
             Input::NpcDefeated { at, name } => {
                 checked_name(&name)?;
@@ -248,6 +266,7 @@ impl Story {
             Input::NpcSlapped { at, name } => {
                 checked_name(&name)?;
                 self.change(|character| character.slap(at, &name))?;
+                self.advance_quests(at, Some(&name))?;
                 self.award_titles(at)
             }
             Input::Died {
@@ -256,17 +275,7 @@ impl Story {
                 cause,
                 killer_level,
                 hour,
-            } => {
-                killer.as_deref().map(checked_name).transpose()?;
-                cause.as_deref().map(checked_token).transpose()?;
-                checked_hour(hour)?;
-                let level = self.character()?.level();
-                self.change(|character| character.die(at, killer.as_deref()))?;
-                match silly_death(killer, cause, killer_level, level) {
-                    Some(kind) => self.record_flavor(at, hour, kind),
-                    None => Ok(Vec::new()),
-                }
-            }
+            } => self.die(at, killer, cause, killer_level, hour),
             Input::HeroSet { at, field, text } => self.set_hero_field(at, field, &text),
             Input::HeroAdded { at, text, npc } => {
                 npc.as_deref().map(checked_name).transpose()?;
@@ -313,6 +322,9 @@ impl Story {
                 target,
             } => Ok(vec![self.ask(id, &question, target.as_deref())?]),
             Input::TalkAsked { id, at, npc, text } => Ok(vec![self.talk(id, at, &npc, &text)?]),
+            Input::QuestAsked { at, npc } => self.ask_quest(at, npc),
+            Input::QuestAccepted { at } => self.answer_quest(at, Status::Accepted),
+            Input::QuestDeclined { at } => self.answer_quest(at, Status::Declined),
             Input::JournalAsked { id, page } => {
                 let page = self.journal_page(page)?;
                 Ok(vec![Output::Journal { id, page }])
@@ -320,6 +332,26 @@ impl Story {
             Input::BatchEnd { id } => Ok(self.end_batch(id)),
             Input::ModelAnswered { call, text } => self.answered(call, &text),
             Input::ModelFailed { call } => self.failed(call),
+        }
+    }
+
+    /// A silly death is also a flavor moment (GAMEPLAY.md 5.4.1).
+    fn die(
+        &mut self,
+        at: Tick,
+        killer: Option<String>,
+        cause: Option<String>,
+        killer_level: Option<u8>,
+        hour: Option<u8>,
+    ) -> Result<Vec<Output>, StoryError> {
+        killer.as_deref().map(checked_name).transpose()?;
+        cause.as_deref().map(checked_token).transpose()?;
+        checked_hour(hour)?;
+        let level = self.character()?.level();
+        self.change(|character| character.die(at, killer.as_deref()))?;
+        match silly_death(killer, cause, killer_level, level) {
+            Some(kind) => self.record_flavor(at, hour, kind),
+            None => Ok(Vec::new()),
         }
     }
 
@@ -340,6 +372,12 @@ impl Story {
                 npc,
                 at,
             } => vec![self.talk_answered(question, &key, npc, at, text)],
+            Pending::Quest {
+                batch,
+                key,
+                giver,
+                at,
+            } => vec![self.quest_answered(batch, &key, &giver, at, text)],
         })
     }
 
@@ -444,6 +482,7 @@ impl Story {
                 npc,
                 text: None,
             }],
+            Pending::Quest { batch, giver, .. } => vec![quests::no_offer(batch, &giver)],
         })
     }
 
@@ -488,6 +527,7 @@ impl Story {
         self.moments.clear();
         self.candidates.clear();
         self.bard_asked.clear();
+        self.quest_request = None;
         let key = key?;
         let Opened {
             character,
@@ -496,6 +536,7 @@ impl Story {
             flavor,
             hero,
             learned,
+            quests,
         } = self.store.open(&key)?;
         let read: Vec<SeenText> = learned
             .read()
@@ -511,6 +552,7 @@ impl Story {
             flavor,
             hero,
             learned,
+            quests,
             seen_index,
             hero_refused: None,
         });
@@ -656,7 +698,10 @@ impl Story {
     /// At most one narrator line for a batch: about its best moment, within the budget.
     /// A batch can also start the saga of a finished chapter.
     fn end_batch(&mut self, batch: MessageId) -> Vec<Output> {
-        let seen = self.narrator_call(batch);
+        let seen = match self.quest_request.take() {
+            Some(request) => self.quest_call(batch, request),
+            None => self.narrator_call(batch),
+        };
         let mut outputs = vec![seen];
         outputs.extend(self.bard_call());
         outputs
@@ -794,6 +839,10 @@ impl Story {
             journal.hero = hero::hero(active.hero.changes());
             journal.hero_refused = active.hero_refused.take();
             journal.learned = learned(active.learned.read(), active.learned.rumors());
+            journal.quests = quest_log(active.quests.changes())
+                .into_iter()
+                .filter(|quest| quest.status != Status::Declined)
+                .collect();
             self.journal = pages(journal);
         }
         let page = self.journal.get(page).cloned().unwrap_or_else(|| Page {
@@ -820,6 +869,7 @@ impl Story {
             return Err(StoryError::BadWords);
         }
         self.change(|character| character.meet_npc(at, npc))?;
+        self.advance_quests(at, Some(npc))?;
         let active = self.active.as_ref().ok_or(StoryError::NoCharacter)?;
         let character = &active.character;
         let mut passages =

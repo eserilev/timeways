@@ -136,6 +136,7 @@ fn a_journal_serializes_with_a_kind_on_each_deed() {
         "people": [],
         "deeds": [{ "kind": "level", "from": null, "to": 12, "at": 5, "place": null }],
         "learned": [],
+        "quests": [],
     });
     assert_eq!(json, expected);
 }

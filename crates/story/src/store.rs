@@ -5,6 +5,7 @@ use crate::character::Character;
 use crate::flavor::{Flavor, Told};
 use crate::hero::Change;
 use crate::learned::{Read, Rumor};
+use crate::quest::QuestChange;
 use hourglass::{Event, EventId, Tick};
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -301,6 +302,32 @@ impl LearnedLog {
     }
 }
 
+/// The changes of the side quests, oldest first (see `quest`).
+#[derive(Debug, Default)]
+pub struct QuestLog {
+    changes: Vec<QuestChange>,
+    path: Option<PathBuf>,
+}
+
+impl QuestLog {
+    #[must_use]
+    pub fn changes(&self) -> &[QuestChange] {
+        &self.changes
+    }
+
+    /// # Errors
+    ///
+    /// Returns the I/O error of the write, and then keeps nothing.
+    pub fn add(&mut self, change: QuestChange) -> Result<(), StoreError> {
+        if let Some(path) = &self.path {
+            append_lines(path, std::slice::from_ref(&change))
+                .map_err(|source| io_error(path, source))?;
+        }
+        self.changes.push(change);
+        Ok(())
+    }
+}
+
 /// What a character brings from the disk.
 pub struct Opened {
     pub character: Character,
@@ -309,6 +336,7 @@ pub struct Opened {
     pub flavor: FlavorLog,
     pub hero: HeroLog,
     pub learned: LearnedLog,
+    pub quests: QuestLog,
 }
 
 impl Store {
@@ -325,6 +353,7 @@ impl Store {
                 flavor: FlavorLog::default(),
                 hero: HeroLog::default(),
                 learned: LearnedLog::default(),
+                quests: QuestLog::default(),
             });
         };
         let path = folder.join(key.relative_path());
@@ -389,6 +418,13 @@ impl Store {
                 LearnedLine::Rumor(rumor) => learned.rumors.push(rumor),
             }
         }
+        let quest_path = path.with_extension("quests.jsonl");
+        let changes: Vec<QuestChange> =
+            read_lines(&quest_path, |_, _| true).map_err(|source| io_error(&quest_path, source))?;
+        let quests = QuestLog {
+            changes,
+            path: Some(quest_path),
+        };
         let history = HistoryFile {
             path,
             len: events.len(),
@@ -400,6 +436,7 @@ impl Store {
             flavor,
             hero,
             learned,
+            quests,
         })
     }
 }
