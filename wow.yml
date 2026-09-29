@@ -36,6 +36,26 @@ globals:
     args: []
   GetSubZoneText:
     args: []
+  C_GossipInfo:
+    any: true
+  GetGreetingText:
+    args: []
+  GetQuestText:
+    args: []
+  GetObjectiveText:
+    args: []
+  GetProgressText:
+    args: []
+  GetRewardText:
+    args: []
+  GetTitleText:
+    args: []
+  ItemTextGetCreator:
+    args: []
+  ItemTextGetItem:
+    args: []
+  ItemTextGetText:
+    args: []
   UnitGUID:
     args:
       - type: string
