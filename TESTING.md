@@ -41,11 +41,23 @@ The last report stays in the saved variables, as `TimewaysDB.selfTest`. WoW writ
 
 The answer uses that text, and says where you learned it.
 
-### 3. Your name stays private
+### 3. A side quest
+
+This test needs a model. Without one, the NPC "has no task for you now", and the rest of the test does not apply.
+
+1. Visit two subzones, and talk to two NPCs there.
+2. Target one of those NPCs, and type `/quest`.
+3. Wait a minute. The narrator line shows the offer.
+4. Type `/quest accept`. Open `/journal` on the Quests page.
+5. Do the steps of the quest. Check the page after each step.
+
+The quest shows "Done on" with the day, and the giver trusts you more on the People page.
+
+### 4. Your name stays private
 
 Open `c_<name>.seen.jsonl` in the world folder. Your character name is not in the file. `$N` stands in its place.
 
-### 4. Open questions of the design
+### 5. Open questions of the design
 
 1. While a book from a table or a shelf is open, type `/dump UnitName("npc")`. Write down what it shows.
 2. Kill a rare, and die to a mob. Open `/journal` and check the Deeds page.
@@ -55,6 +67,7 @@ Open `c_<name>.seen.jsonl` in the world folder. Your character name is not in th
 - Each Lua error, as text.
 - The chat lines of `/timeways test`.
 - What the chat showed for each `/lore` question.
+- The offer line of `/quest`, and the Quests page at the end.
 - The first 3 lines of the `.seen.jsonl` file.
 - The result of each open question.
 

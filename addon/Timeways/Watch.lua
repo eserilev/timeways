@@ -30,6 +30,10 @@ function Watch.Npc()
 	ns.Outbox.Add(ns.Inputs.Npc(time(), name))
 end
 
+function Watch.ForgetMet()
+	met = {}
+end
+
 function Watch.Level(level)
 	ns.Outbox.Add(ns.Inputs.Level(time(), level))
 end

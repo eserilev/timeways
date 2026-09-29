@@ -93,6 +93,9 @@ SlashCmdList.TIMEWAYSLORE = ns.Lore.Ask
 SLASH_TIMEWAYSTALK1 = "/talk"
 SlashCmdList.TIMEWAYSTALK = ns.Talk.Ask
 
+SLASH_TIMEWAYSQUEST1 = "/quest"
+SlashCmdList.TIMEWAYSQUEST = ns.Quest.Command
+
 SLASH_TIMEWAYSHERO1 = "/hero"
 SlashCmdList.TIMEWAYSHERO = ns.Hero.Command
 

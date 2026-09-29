@@ -1,5 +1,5 @@
--- The pages of the journal: the hero, the chronicle, places, people, deeds, and what you
--- learned (GAMEPLAY.md 3.1.1, 3.6, and 3.7).
+-- The pages of the journal: the hero, the chronicle, places, people, deeds, what you
+-- learned, and your side quests (GAMEPLAY.md 3.1.1, 3.4, 3.6, and 3.7).
 -- The desktop sends them, because the world lives there and never in the saved variables
 -- (5.10).
 
@@ -8,7 +8,7 @@ local _, ns = ...
 local Journal = {}
 ns.Journal = Journal
 
-Journal.SECTIONS = { "hero", "chapters", "places", "people", "deeds", "learned" }
+Journal.SECTIONS = { "hero", "chapters", "places", "people", "deeds", "learned", "quests" }
 Journal.TITLES = {
 	hero = "Hero",
 	chapters = "Chronicle",
@@ -16,10 +16,11 @@ Journal.TITLES = {
 	people = "People",
 	deeds = "Deeds",
 	learned = "Learned",
+	quests = "Quests",
 }
 
 -- The lists that come in pages. The sheet of the hero comes on the first page only.
-local LISTS = { "chapters", "places", "people", "deeds", "learned" }
+local LISTS = { "chapters", "places", "people", "deeds", "learned", "quests" }
 
 -- A reply holds at most 24 KB, so a long journal comes in pages. More than this many
 -- pages means a broken reply, not a long journal.
@@ -52,7 +53,8 @@ end
 
 local function Started(value)
 	local hero = type(value.hero) == "table" and value.hero or {}
-	local journal = { chapters = {}, places = {}, people = {}, deeds = {}, learned = {}, next = 0 }
+	local journal = { chapters = {}, places = {}, people = {}, deeds = {}, learned = {}, quests = {} }
+	journal.next = 0
 	journal.hero = { sheet = Entries(hero.sheet), entries = {} }
 	return journal
 end
@@ -294,6 +296,46 @@ local function Learned(entries)
 	return lines
 end
 
+local function StepText(step)
+	if step.goal == "visit" then
+		return "Visit " .. Name(step.place) .. "."
+	end
+	if step.goal == "meet" then
+		return "Speak with " .. Name(step.npc) .. "."
+	end
+	return "?"
+end
+
+-- An offer carries its two buttons, because the chat line of the offer scrolls away.
+local function QuestStatus(quest)
+	if quest.status == "offered" then
+		return Line("note", "An offer. Do you take it?", { label = "Decline", run = ns.Quest.Decline })
+	end
+	if quest.status == "done" then
+		return Line("note", "Done on " .. Day(quest.done_at) .. ".")
+	end
+	return Line("note", "In progress.")
+end
+
+local function Quests(quests)
+	local lines = {}
+	for _, quest in ipairs(quests) do
+		local accept = quest.status == "offered" and { label = "Accept", run = ns.Quest.Accept } or nil
+		lines[#lines + 1] = Line("heading", Name(quest.title), accept)
+		lines[#lines + 1] = Line("text", "From " .. Name(quest.giver) .. ", on " .. Day(quest.offered_at) .. ".")
+		if type(quest.text) == "string" then
+			lines[#lines + 1] = Line("prose", ns.Plain(quest.text))
+		end
+		local done = type(quest.steps_done) == "number" and quest.steps_done or 0
+		for n, step in ipairs(Entries(quest.steps)) do
+			local mark = n <= done and "(done) " or ""
+			lines[#lines + 1] = Line("entry", mark .. StepText(step))
+		end
+		lines[#lines + 1] = QuestStatus(quest)
+	end
+	return lines
+end
+
 -- Who the hero is (3.7): each field of the sheet with its button, then the player's own lore.
 local function Hero(hero)
 	local lines = { Line("heading", "Who you are") }
@@ -344,6 +386,7 @@ local BUILDERS = {
 	people = People,
 	deeds = Deeds,
 	learned = Learned,
+	quests = Quests,
 }
 
 local EMPTY = {
@@ -352,6 +395,7 @@ local EMPTY = {
 	people = "You have met no one yet.",
 	deeds = "Your deeds are not written yet.",
 	learned = "You have learned nothing yet. Read a book, or listen to the people you meet.",
+	quests = "No task yet. Target someone, and type /quest.",
 }
 
 -- Each line is { style = "heading" | "prose" | "entry" | "text" | "note", text = ... }.

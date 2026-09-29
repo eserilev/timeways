@@ -43,6 +43,18 @@ function Inputs.Talk(at, npc, text)
 	return { type = "talk_asked", at = at, npc = npc, text = text }
 end
 
+function Inputs.QuestAsked(at, npc)
+	return { type = "quest_asked", at = at, npc = npc }
+end
+
+function Inputs.QuestAccepted(at)
+	return { type = "quest_accepted", at = at }
+end
+
+function Inputs.QuestDeclined(at)
+	return { type = "quest_declined", at = at }
+end
+
 function Inputs.Died(at, killer, cause, killerLevel, hour)
 	return { type = "died", at = at, killer = killer, cause = cause, killer_level = killerLevel, hour = hour }
 end

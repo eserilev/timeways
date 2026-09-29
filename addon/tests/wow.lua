@@ -167,7 +167,8 @@ function UnitLevel(unit)
 	return u and u.level or 0
 end
 
--- A widget keeps what the tests read: its text, scripts, events, and whether it shows.
+-- A widget keeps what the tests read: its text, scripts, events, size, anchor, and whether
+-- it shows.
 -- Any other capitalized method is a no-op, like the layout calls.
 local Widget = {}
 local function Nothing() end
@@ -192,6 +193,14 @@ local function NewWidget(kind, name, parent, template)
 		_G[name] = widget
 	end
 	return widget
+end
+
+function Widget:SetSize(width, height)
+	self.width, self.height = width, height
+end
+
+function Widget:SetPoint(...)
+	self.point = { ... }
 end
 
 function Widget:RegisterEvent(event)

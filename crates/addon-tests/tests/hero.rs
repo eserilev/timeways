@@ -228,7 +228,7 @@ fn an_empty_hero_opens_the_hero_page_once_and_a_written_one_does_not() {
 }
 
 #[test]
-fn the_book_has_six_tabs_with_the_hero_first() {
+fn the_book_has_seven_tabs_with_the_hero_first() {
     let game = Game::new();
 
     game.run("wow.Slash('/journal', '')");
@@ -244,6 +244,14 @@ fn the_book_has_six_tabs_with_the_hero_first() {
     );
     assert_eq!(
         tabs,
-        ["Hero", "Chronicle", "Places", "People", "Deeds", "Learned"]
+        [
+            "Hero",
+            "Chronicle",
+            "Places",
+            "People",
+            "Deeds",
+            "Learned",
+            "Quests"
+        ]
     );
 }

@@ -1,0 +1,49 @@
+-- `/quest` asks the NPC that you target for a task. `/quest accept` and `/quest decline`
+-- answer the offer that waits (GAMEPLAY.md 3.4). The offer comes back as a narrator line.
+
+local _, ns = ...
+
+local Quest = {}
+ns.Quest = Quest
+
+local function Say(text)
+	DEFAULT_CHAT_FRAME:AddMessage("|cffc8a064Timeways|r: " .. text)
+end
+
+local function Send(input)
+	ns.Outbox.Add(input)
+	ns.Outbox.Flush()
+end
+
+function Quest.Ask()
+	local npc = ns.Units.NpcName("target")
+	if not npc then
+		Say("Target someone to ask for a task first.")
+		return
+	end
+	Send(ns.Inputs.QuestAsked(time(), npc))
+	Say("You ask " .. ns.Plain(npc) .. " for a task.")
+end
+
+-- A meet step needs a new `npc_met`, also for an NPC that you met in this session.
+function Quest.Accept()
+	ns.Watch.ForgetMet()
+	Send(ns.Inputs.QuestAccepted(time()))
+	Say("You accept the task. It is in your journal.")
+end
+
+function Quest.Decline()
+	Send(ns.Inputs.QuestDeclined(time()))
+	Say("You decline the task.")
+end
+
+local WORDS = { [""] = Quest.Ask, accept = Quest.Accept, decline = Quest.Decline }
+
+function Quest.Command(message)
+	local run = WORDS[message:match("^%s*(%S*)"):lower()]
+	if not run then
+		Say("Type /quest to ask your target for a task, then /quest accept or /quest decline.")
+		return
+	end
+	run()
+end

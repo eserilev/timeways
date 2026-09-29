@@ -49,6 +49,13 @@ enum Play {
         npc: String,
         say: String,
     },
+    /// `/quest`, and the steps that the model proposes: `true` visits.
+    Quest {
+        npc: String,
+        steps: Vec<(bool, String)>,
+    },
+    Accept,
+    Decline,
     /// Seconds of game time before the next play, so sessions and chapters form.
     Wait(u16),
 }
@@ -93,16 +100,39 @@ fn input(play: &Play, at: u64) -> Option<Value> {
         Play::Talk { npc, .. } => {
             json!({"type": "talk_asked", "id": 99, "at": at, "npc": npc, "text": "any news"})
         }
+        Play::Quest { npc, .. } => json!({"type": "quest_asked", "at": at, "npc": npc}),
+        Play::Accept => json!({"type": "quest_accepted", "at": at}),
+        Play::Decline => json!({"type": "quest_declined", "at": at}),
         Play::Wait(_) => return None,
     })
 }
 
-/// The model answers the call of `line` with `say` as the words of the NPC.
-fn answer(story: &mut Story, line: &str, say: &str) {
+/// The words of the model for the call of this play, if the play makes one.
+fn model_text(play: &Play) -> Option<String> {
+    match play {
+        Play::Talk { say, .. } => Some(json!({"say": say, "trust": 0}).to_string()),
+        Play::Quest { steps, .. } => {
+            let steps: Vec<Value> = steps
+                .iter()
+                .map(|(visit, name)| match visit {
+                    true => json!({"goal": "visit", "place": name}),
+                    false => json!({"goal": "meet", "npc": name}),
+                })
+                .collect();
+            Some(json!({"title": "A Task", "text": "Go.", "steps": steps}).to_string())
+        }
+        _ => None,
+    }
+}
+
+/// The model answers the call of `line`, when it is a call.
+fn answer(story: &mut Story, line: &str, text: String) {
     let Ok(call) = serde_json::from_str::<Value>(line) else {
         return;
     };
-    let text = json!({"say": say, "trust": 0}).to_string();
+    if call["type"] != "model_call" {
+        return;
+    }
     let answered = send(
         story,
         &json!({"type": "model_answered", "call": call["call"], "text": text}),
@@ -130,12 +160,17 @@ fuzz_target!(|plays: Vec<Play>| {
         }
         if let Some(value) = input(play, at) {
             let outputs = send(&mut story, &value);
-            if let (Play::Talk { say, .. }, Some(line)) = (play, outputs.first()) {
-                answer(&mut story, line, say);
+            if let (Play::Talk { .. }, Some(line), Some(text)) =
+                (play, outputs.first(), model_text(play))
+            {
+                answer(&mut story, line, text);
             }
         }
         for line in send(&mut story, &json!({"type": "batch_end", "id": batch + 1})) {
             common::check_output(&line);
+            if let (Play::Quest { .. }, Some(text)) = (play, model_text(play)) {
+                answer(&mut story, &line, text);
+            }
         }
     }
     let first = send(
@@ -151,7 +186,7 @@ fuzz_target!(|plays: Vec<Play>| {
         );
         common::check_output(&lines[0]);
         let value: Value = serde_json::from_str(&lines[0]).unwrap();
-        for list in ["chapters", "places", "people", "deeds", "learned"] {
+        for list in ["chapters", "places", "people", "deeds", "learned", "quests"] {
             assert!(value[list].as_array().unwrap().len() <= 200);
         }
         assert!(value["hero"]["entries"].as_array().unwrap().len() <= 200);

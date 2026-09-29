@@ -25,6 +25,7 @@ Foes.lua
 Emotes.lua
 Lore.lua
 Talk.lua
+Quest.lua
 Narrator.lua
 Hero.lua
 Journal.lua
