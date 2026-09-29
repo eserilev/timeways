@@ -6,7 +6,7 @@ The steps to test Timeways in WoW: Forever, and what to send back.
 
 The game runs a stable copy of the code, so work in the repo does not change the game in the middle of a test.
 
-- **The addon:** the `Timeways` link in the AddOns folder points to `../timeways-test/addon/Timeways`. That folder is a git worktree of commit `604634f`.
+- **The addon:** the `Timeways` link in the AddOns folder points to `../timeways-test/addon/Timeways`. That folder is a git worktree of commit `dc70b96`.
 - **The story program:** `~/.local/bin/timeways-story`, built from the same commit. The old program is `~/.local/bin/timeways-story.old`.
 - **The world files:** `~/.local/share/gnomish-relay/timeways/story/worlds/r_<realm>/c_<name>.*.jsonl`.
 
