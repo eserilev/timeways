@@ -7,7 +7,7 @@ mod common;
 use common::Game;
 use hourglass::Tick;
 use timeways_story::input::{Input, MessageId};
-use timeways_story::journal::{Journal, pages};
+use timeways_story::journal::{Deed, Journal, pages};
 use timeways_story::quest::{Status, Step, Tracked};
 use timeways_story::story::Output;
 
@@ -269,4 +269,28 @@ fn the_tabs_stay_inside_the_row_of_the_frame() {
          return right",
     );
     assert!(right <= 351.0, "{right}");
+}
+
+#[test]
+fn a_finished_quest_shows_as_a_deed() {
+    let game = Game::new();
+    let journal = Journal {
+        deeds: vec![Deed::QuestDone {
+            title: "The Lost Lantern".to_string(),
+            at: Tick(DAY),
+            place: None,
+        }],
+        ..Journal::default()
+    };
+    let page = pages(journal).remove(0);
+    let reply = serde_json::to_string(&Output::Journal {
+        id: MessageId(1),
+        page,
+    })
+    .unwrap();
+
+    game.reply(&reply);
+
+    let first: String = game.eval("ns.Journal.Lines('deeds')[1].text");
+    assert_eq!(first, "Finished the task The Lost Lantern");
 }

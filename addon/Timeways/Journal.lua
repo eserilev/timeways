@@ -192,6 +192,8 @@ local function DeedTitle(deed)
 		return string.format("Defeated %s again (%d times)", Name(deed.foe), deed.times)
 	elseif deed.kind == "titled" then
 		return "Earned the title " .. Name(deed.title)
+	elseif deed.kind == "quest_done" then
+		return "Finished the task " .. Name(deed.title)
 	elseif deed.kind == "died" then
 		return deed.killer and ("Fell to " .. Name(deed.killer)) or "Died"
 	end

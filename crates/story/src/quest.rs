@@ -324,6 +324,21 @@ pub fn next_number(changes: &[QuestChange]) -> u64 {
     u64::try_from(offers.count()).map_or(u64::MAX, |count| count.saturating_add(1))
 }
 
+/// The name of the quest thing in the world. The number keeps it apart from a title or
+/// another quest with the same words.
+#[must_use]
+pub fn thing_name(number: u64, title: &str) -> String {
+    format!("quest {number}: {title}")
+}
+
+/// The title of a quest thing, or None for a thing that is no quest.
+#[must_use]
+pub fn title_of_thing(name: &str) -> Option<&str> {
+    let (number, title) = name.strip_prefix("quest ")?.split_once(": ")?;
+    number.parse::<u64>().ok()?;
+    Some(title)
+}
+
 /// Does the step hold at this moment: you stand in its place, or you meet its NPC?
 #[must_use]
 pub fn step_holds(step: &Step, places_here: &[&str], npc: Option<&str>) -> bool {

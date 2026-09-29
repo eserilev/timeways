@@ -61,6 +61,23 @@ fn a_prompt_holds_every_fact_of_the_chapter_and_asks_for_json() {
 }
 
 #[test]
+fn a_finished_quest_is_a_fact_of_its_chapter() {
+    let mut chapter = chapter();
+    chapter.deeds = vec![Deed::QuestDone {
+        title: "The Lost Lantern".to_string(),
+        at: Tick(110),
+        place: None,
+    }];
+
+    let prompt = prompt(&chapter, &[], None, &[]);
+
+    assert!(
+        prompt.contains("- Finished the task \"The Lost Lantern\"."),
+        "{prompt}"
+    );
+}
+
+#[test]
 fn a_prompt_numbers_the_small_moments_for_footnotes() {
     let moments = [
         "The player used the emote /dance in Goldshire.".to_string(),

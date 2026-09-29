@@ -4,8 +4,10 @@
 use crate::character::Character;
 use crate::hero::{Entry, Hero};
 use crate::learned::Learned;
-use crate::quest::Tracked;
-use crate::vocabulary::{DEATHS, DEFEATED, LEVEL, MET, SLAPPED, TITLE, TRUSTS, VISITED};
+use crate::quest::{Tracked, title_of_thing};
+use crate::vocabulary::{
+    DEATHS, DEFEATED, LEVEL, MET, QUEST_DONE, SLAPPED, TITLE, TRUSTS, VISITED,
+};
 use hourglass::{EntityId, EventKind, LOCATED_IN, Tick, World};
 use serde::Serialize;
 
@@ -98,6 +100,12 @@ pub enum Deed {
     },
     /// A joke title of the journal (5.4.1).
     Titled {
+        title: String,
+        at: Tick,
+        place: Option<String>,
+    },
+    /// A side quest that you finished (3.4).
+    QuestDone {
         title: String,
         at: Tick,
         place: Option<String>,
@@ -340,6 +348,7 @@ impl Deed {
             Deed::Level { at, .. }
             | Deed::Defeated { at, .. }
             | Deed::Titled { at, .. }
+            | Deed::QuestDone { at, .. }
             | Deed::Died { at, .. } => *at,
         }
     }
@@ -435,16 +444,11 @@ fn deeds(world: &World, you: EntityId) -> Vec<Deed> {
             EventKind::FactStart {
                 entity,
                 name,
-                linked_to: Some(title),
+                linked_to: Some(thing),
                 ..
-            } if *entity == you && name == TITLE => {
+            } if *entity == you && (name == TITLE || name == QUEST_DONE) => {
                 let place = here.map(|place| name_of(world, place));
-                let title = name_of(world, *title);
-                deeds.push(Deed::Titled {
-                    title,
-                    at: event.tick,
-                    place,
-                });
+                deeds.push(thing_deed(name, name_of(world, *thing), event.tick, place));
             }
             EventKind::FactStart { entity, name, .. }
             | EventKind::FactUpdate { entity, name, .. }
@@ -461,6 +465,19 @@ fn deeds(world: &World, you: EntityId) -> Vec<Deed> {
         }
     }
     deeds
+}
+
+/// A title that you earned, or a quest that you finished: both are things that you hold.
+fn thing_deed(fact: &str, thing: String, at: Tick, place: Option<String>) -> Deed {
+    if fact != QUEST_DONE {
+        return Deed::Titled {
+            title: thing,
+            at,
+            place,
+        };
+    }
+    let title = title_of_thing(&thing).map_or_else(|| thing.clone(), str::to_string);
+    Deed::QuestDone { title, at, place }
 }
 
 fn level_deed(world: &World, from: Option<i64>, to: i64, at: Tick, here: Option<EntityId>) -> Deed {

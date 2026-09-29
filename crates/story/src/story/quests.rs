@@ -6,6 +6,7 @@ use crate::character::Character;
 use crate::input::MessageId;
 use crate::quest::{
     self, Known, MAX_OPEN_QUESTS, QuestChange, Status, Tracked, next_number, quest_log, step_holds,
+    thing_name,
 };
 use crate::seen::SeenText;
 use crate::store::CharacterKey;
@@ -17,12 +18,6 @@ use hourglass::Tick;
 pub(super) struct QuestRequest {
     giver: String,
     at: Tick,
-}
-
-/// The name of the quest thing in the world. The number keeps it apart from a title or
-/// another quest with the same words.
-fn thing_name(number: u64, title: &str) -> String {
-    format!("quest {number}: {title}")
 }
 
 impl Story {

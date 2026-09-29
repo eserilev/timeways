@@ -1,7 +1,8 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use timeways_story::quest::{
-    Known, MAX_OFFER_BYTES, Quest, QuestFault, Step, checked_quest, offer_line, prompt,
+    Known, MAX_OFFER_BYTES, Quest, QuestFault, Step, checked_quest, offer_line, prompt, thing_name,
+    title_of_thing,
 };
 use timeways_story::seen::{SeenText, TextKind};
 
@@ -299,4 +300,18 @@ fn the_prompt_lists_the_names_that_a_quest_can_use() {
     for name in ["- Testvale", "- Old Tower", "- Mill Pond", "- Farmer Bram"] {
         assert!(text.contains(name), "{name}: {text}");
     }
+}
+
+#[test]
+fn a_quest_thing_gives_back_its_title() {
+    let name = thing_name(12, "The Lost Lantern: Part 2");
+
+    assert_eq!(name, "quest 12: The Lost Lantern: Part 2");
+    assert_eq!(title_of_thing(&name), Some("The Lost Lantern: Part 2"));
+}
+
+#[test]
+fn a_title_that_looks_like_a_quest_is_no_quest() {
+    assert_eq!(title_of_thing("quest of doom: the end"), None);
+    assert_eq!(title_of_thing("Scourge of Squirrels"), None);
 }

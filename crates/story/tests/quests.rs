@@ -7,7 +7,7 @@ use hourglass::Tick;
 use std::path::Path;
 use timeways_story::character::QUEST_TRUST;
 use timeways_story::input::{CallId, Input, MessageId};
-use timeways_story::journal::Page;
+use timeways_story::journal::{Deed, Page};
 use timeways_story::pack::Pack;
 use timeways_story::quest::{Status, Tracked};
 use timeways_story::store::Store;
@@ -192,6 +192,26 @@ fn a_quest_ends_when_its_steps_happen_in_order_and_the_giver_trusts_you_more() {
     assert_eq!(done.status, Status::Done);
     assert_eq!(done.done_at, Some(Tick(9)));
     assert_eq!(trust_of_giver(&mut story), Some(QUEST_TRUST));
+}
+
+#[test]
+fn a_finished_quest_is_a_deed_with_its_title() {
+    let mut story = story("deed");
+    offer(&mut story, 5);
+    story.handle(Input::QuestAccepted { at: Tick(6) }).unwrap();
+
+    story.handle(zone(8, "Mill Pond")).unwrap();
+    story.handle(meet(9, "Farmer Bram")).unwrap();
+
+    let deeds = page(&mut story).journal.deeds;
+    assert_eq!(
+        deeds.last(),
+        Some(&Deed::QuestDone {
+            title: "The Lost Lantern".to_string(),
+            at: Tick(9),
+            place: Some("Mill Pond".to_string()),
+        })
+    );
 }
 
 #[test]
