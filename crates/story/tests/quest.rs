@@ -2,8 +2,8 @@
 
 use hourglass::Tick;
 use timeways_story::quest::{
-    Known, MAX_OFFER_BYTES, Quest, QuestChange, QuestFault, Status, Step, checked_quest,
-    offer_line, prompt, quest_log, thing_name, title_of_thing,
+    Known, MAX_OFFER_BYTES, MAX_TITLE_CHARS, Quest, QuestChange, QuestFault, Status, Step,
+    checked_quest, offer_line, prompt, quest_log, thing_name, title_of_thing,
 };
 use timeways_story::seen::{SeenText, TextKind};
 
@@ -359,4 +359,28 @@ fn a_step_done_out_of_order_changes_nothing() {
 
     assert_eq!(quests[0].steps_done, 0);
     assert_eq!(quests[0].status, Status::Accepted);
+}
+
+#[test]
+fn an_offer_of_exactly_one_narrator_line_passes() {
+    let seen = [];
+    let frame = offer_line(
+        GIVER,
+        &Quest {
+            title: String::new(),
+            text: String::new(),
+            steps: Vec::new(),
+        },
+    )
+    .len();
+    // A text has at most 400 characters, so it reaches the byte limit with 3-byte ones.
+    let title = "T".repeat(MAX_TITLE_CHARS);
+    let rest = MAX_OFFER_BYTES - frame - MAX_TITLE_CHARS;
+    let text = "€".repeat(rest / 3) + &"w".repeat(rest % 3);
+    let answer = format!(r#"{{"title": "{title}", "text": "{text}", "steps": [{MEET_BRAM}]}}"#);
+
+    let offer = checked_quest(&answer, &known(&seen));
+
+    let line = offer_line(GIVER, &offer.unwrap());
+    assert_eq!(line.len(), MAX_OFFER_BYTES);
 }

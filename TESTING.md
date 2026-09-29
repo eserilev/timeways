@@ -79,3 +79,11 @@ To go back to the working copy of the addon:
 ln -sfn ~/Documents/Code/Personal/timeways/addon/Timeways \
   "$HOME/Games/battlenet/drive_c/Program Files (x86)/World of Warcraft/_classic_beta_/Interface/AddOns/Timeways"
 ```
+
+# Mutation checks
+
+`cargo mutants` changes the code in small ways, one at a time, and runs the tests. A change that no test catches shows a rule with a weak test.
+
+- `.cargo/mutants.toml` lists the files whose tests catch every mutant. The nightly job checks them and fails on a mutant that survives.
+- To add a file, run `cargo mutants -p timeways-story -f <file>`. Add a test for each mutant that survives, until none does. Then add the file to the list.
+- A timeout counts as caught: the mutant loops forever.

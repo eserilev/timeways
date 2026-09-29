@@ -1,0 +1,3 @@
+# The files whose tests catch every mutant (TESTING.md, "Mutation checks"). A file joins
+# the list when `cargo mutants -p timeways-story -f <file>` misses none.
+examine_globs = ["crates/story/src/quest.rs", "crates/story/src/story/quests.rs"]

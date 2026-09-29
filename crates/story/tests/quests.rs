@@ -445,3 +445,24 @@ fn a_slap_counts_as_meeting_the_npc_of_a_step() {
 
     assert_eq!(quests(&mut story)[0].status, Status::Done);
 }
+
+#[test]
+fn an_offer_that_sends_you_to_the_npc_of_a_game_quest_that_you_read_shows_no_task() {
+    let mut story = story("game-quest");
+    let read = Input::TextSeen {
+        at: Tick(5),
+        kind: timeways_story::seen::TextKind::Quest,
+        title: Some("Wheat for the Mill".to_string()),
+        npc: None,
+        zone: Some("Testvale".to_string()),
+        text: "Speak with Farmer Bram about his wheat.".to_string(),
+    };
+    story.handle(read).unwrap();
+
+    let line = offer(&mut story, 6);
+
+    assert_eq!(
+        line.as_deref(),
+        Some("Keeper Tessa has no task for you now.")
+    );
+}
