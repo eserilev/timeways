@@ -21,10 +21,16 @@ ns.Link = {
 	Claim = function(id, handler)
 		claimed[id] = handler
 	end,
+	-- An error reply is plain text from the bridge, such as "Timeways story program not
+	-- running.", and the player sees it as it is.
+	ShowError = function(text)
+		if type(text) == "string" and text ~= "" then
+			DEFAULT_CHAT_FRAME:AddMessage("|cffc8a064Timeways|r: " .. text)
+		end
+	end,
 }
 
--- A done reply holds JSON lines. An error reply is plain text from the bridge, such as
--- "Timeways story program not running.", and the player sees it as it is.
+-- A done reply holds JSON lines.
 function ns.Link.Receive(id, status, text)
 	local handler = claimed[id]
 	if handler then
@@ -32,8 +38,8 @@ function ns.Link.Receive(id, status, text)
 		handler(status, text)
 	elseif status == "done" then
 		ns.OnReply(text)
-	elseif type(text) == "string" and text ~= "" then
-		DEFAULT_CHAT_FRAME:AddMessage("|cffc8a064Timeways|r: " .. text)
+	else
+		ns.Link.ShowError(text)
 	end
 end
 

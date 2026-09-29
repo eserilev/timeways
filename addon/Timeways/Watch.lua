@@ -7,7 +7,11 @@ local Watch = {}
 ns.Watch = Watch
 
 local lastZone, lastSubzone
+-- The time of the last meeting that went out, for each NPC.
 local met = {}
+-- A second meeting adds nothing to the world, but a quest step to meet an NPC needs a
+-- meeting after the step became the next one (GAMEPLAY.md 3.4).
+local MEET_AGAIN_SECONDS = 300
 
 function Watch.Zone()
 	local zone, subzone = GetRealZoneText(), GetSubZoneText()
@@ -19,14 +23,15 @@ function Watch.Zone()
 	ns.Outbox.Add(ns.Inputs.Zone(time(), zone, subzone))
 end
 
--- The world adds nothing for a second meeting, so one per UI session is enough. A party
--- member who shares a quest is the "npc" unit too, and a player's name stays out (5.11).
+-- A party member who shares a quest is the "npc" unit too, and a player's name stays out
+-- (5.11).
 function Watch.Npc()
 	local name = UnitName("npc")
-	if not name or met[name] or UnitIsPlayer("npc") then
+	local recent = met[name] and time() - met[name] < MEET_AGAIN_SECONDS
+	if not name or recent or UnitIsPlayer("npc") then
 		return
 	end
-	met[name] = true
+	met[name] = time()
 	ns.Outbox.Add(ns.Inputs.Npc(time(), name))
 end
 

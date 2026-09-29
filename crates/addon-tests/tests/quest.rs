@@ -114,7 +114,8 @@ fn quest_accept_and_decline_answer_the_offer() {
 
     game.run(
         "wow.Slash('/quest', 'accept')
-         wow.Slash('/quest', 'DECLINE')",
+         wow.Slash('/quest', 'DECLINE')
+         wow.RunTickers()",
     );
 
     let inputs = game.sent_inputs();
@@ -153,7 +154,7 @@ fn accepting_sends_an_npc_that_you_met_in_this_session_again() {
          wow.Fire('GOSSIP_SHOW')
          wow.Slash('/quest', 'accept')
          wow.Fire('GOSSIP_SHOW')
-         ns.Outbox.Flush()",
+         wow.RunTickers()",
     );
 
     let meetings = game
@@ -191,6 +192,7 @@ fn the_buttons_of_an_offer_answer_it_by_its_number() {
 
     click(&game, "Accept");
     click(&game, "Decline");
+    game.run("wow.RunTickers()");
 
     let inputs = game.sent_inputs();
     assert!(

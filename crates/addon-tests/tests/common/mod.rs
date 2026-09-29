@@ -35,8 +35,9 @@ pub struct Game {
 }
 
 impl Game {
-    /// The addon after login, with a fake link. `linkUp` and `linkLimit` in Lua change what
-    /// the link takes.
+    /// The addon after login, with a fake link to a quick bridge: each tick, the bridge
+    /// answers every batch that it took. `linkUp` and `linkLimit` in Lua change what the
+    /// link takes.
     pub fn new() -> Game {
         let game = Game::before_login();
         game.run("ns.Outbox.SetCharacter(ns.Inputs.Character('Stormrage', 'Ada'))");
@@ -47,17 +48,22 @@ impl Game {
     pub fn before_login() -> Game {
         let game = Game::with_transport();
         game.run(
-            "sent = {}
+            r#"sent = {}
+             answered = 0
              linkUp = true
              linkLimit = 3000
-             ns.Link = {
-                 Fits = function(text) return #text <= linkLimit end,
-                 Send = function(text)
-                     local taken = linkUp and #text <= linkLimit
-                     if taken then table.insert(sent, text) end
-                     return taken
-                 end,
-             }",
+             ns.Link.Fits = function(text) return #text <= linkLimit end
+             ns.Link.Send = function(text)
+                 if not linkUp or #text > linkLimit then return nil end
+                 table.insert(sent, text)
+                 return #sent
+             end
+             C_Timer.NewTicker(1, function()
+                 while answered < #sent do
+                     answered = answered + 1
+                     ns.Link.Receive(answered, "done", '{"type":"events_seen","narrator":null}')
+                 end
+             end)"#,
         );
         game
     }

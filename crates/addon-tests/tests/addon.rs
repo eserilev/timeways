@@ -100,7 +100,7 @@ fn a_loading_screen_sends_no_zone() {
 }
 
 #[test]
-fn an_npc_is_sent_once_per_session() {
+fn an_npc_is_sent_once_in_five_minutes() {
     let game = Game::new();
     game.run(
         "wow.units.npc = { name = 'Innkeeper Farley' }
@@ -114,6 +114,27 @@ fn an_npc_is_sent_once_per_session() {
         name: "Innkeeper Farley".to_string(),
     };
     assert_eq!(game.sent_inputs(), [met]);
+}
+
+/// A quest step to meet this NPC needs a later meeting (GAMEPLAY.md 3.4).
+#[test]
+fn an_npc_is_sent_again_after_five_minutes() {
+    let game = Game::new();
+    game.run(
+        "wow.units.npc = { name = 'Innkeeper Farley' }
+         wow.Fire('GOSSIP_SHOW')
+         wow.RunTickers()
+         wow.now = wow.now + 300
+         wow.Fire('GOSSIP_SHOW')
+         wow.RunTickers()",
+    );
+
+    let meetings = game
+        .sent_inputs()
+        .into_iter()
+        .filter(|input| matches!(input, Input::NpcMet { .. }))
+        .count();
+    assert_eq!(meetings, 2);
 }
 
 #[test]

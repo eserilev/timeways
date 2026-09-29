@@ -14,15 +14,23 @@ local MAX_WAITING = 500
 local REPLIES = { lore_asked = true, journal_asked = true, talk_asked = true }
 
 local waiting = {}
+-- The batch of game events on its way, until its reply comes. A bridge that is down never
+-- answers, so one batch at a time keeps the strips few, and its events come back after the
+-- transport gives up.
+local eventsOnTheWay = false
 -- The character line starts every batch, so the desktop always knows whose world a batch
 -- changes, also after the story program restarts.
 local character
 
-function Outbox.Add(input)
-	waiting[#waiting + 1] = { line = ns.Json.Encode(input), reply = REPLIES[input.type] == true }
-	if #waiting > MAX_WAITING then
+local function Bound()
+	while #waiting > MAX_WAITING do
 		table.remove(waiting, 1)
 	end
+end
+
+function Outbox.Add(input)
+	waiting[#waiting + 1] = { line = ns.Json.Encode(input), reply = REPLIES[input.type] == true }
+	Bound()
 end
 
 function Outbox.Waiting()
@@ -69,15 +77,58 @@ local function Batches(entries)
 	return batches
 end
 
--- Lines that the link does not take stay, in order, for the next flush. Before the
--- character is known, every line waits.
+-- The game events of a batch go back to the front, in order. A question does not: it
+-- was for that moment, and its error tells the player.
+local function Return(batch)
+	for i = #batch.entries, 1, -1 do
+		if not batch.entries[i].reply then
+			table.insert(waiting, 1, batch.entries[i])
+		end
+	end
+	Bound()
+end
+
+local function Answered(batch, status, text)
+	if not batch.ended then
+		eventsOnTheWay = false
+	end
+	if status == "done" then
+		ns.OnReply(text)
+		-- The bridge is up, so the next batch of a backlog goes now, not at the next tick.
+		Outbox.Flush()
+		return
+	end
+	Return(batch)
+	if batch.ended then
+		ns.Link.ShowError(text)
+	end
+end
+
+-- A question always goes. A batch of game events waits while another one is on its way.
+local function Send(batch)
+	if not batch.ended and eventsOnTheWay then
+		return false
+	end
+	local id = ns.Link.Send(batch.text)
+	if not id then
+		return false
+	end
+	eventsOnTheWay = eventsOnTheWay or not batch.ended
+	ns.Link.Claim(id, function(status, text)
+		Answered(batch, status, text)
+	end)
+	return true
+end
+
+-- Lines that do not go stay, in order, for the next flush. Before the character is known,
+-- every line waits.
 function Outbox.Flush()
 	if not character then
 		return
 	end
 	local kept = {}
 	for _, batch in ipairs(Batches(waiting)) do
-		if #kept > 0 or not ns.Link.Send(batch.text) then
+		if #kept > 0 or not Send(batch) then
 			for _, entry in ipairs(batch.entries) do
 				kept[#kept + 1] = entry
 			end
