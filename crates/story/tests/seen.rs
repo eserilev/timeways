@@ -4,7 +4,7 @@ use hourglass::Tick;
 use std::path::{Path, PathBuf};
 use timeways_story::input::{Input, MessageId};
 use timeways_story::pack::{Link, Origin, Pack, Passage};
-use timeways_story::seen::{MAX_SEEN_BYTES, TextKind};
+use timeways_story::seen::{MAX_SEEN_BYTES, SeenText, TextKind};
 use timeways_story::store::Store;
 use timeways_story::story::{Output, Story, StoryError};
 
@@ -457,4 +457,17 @@ fn a_text_read_again_in_another_zone_is_learned_once() {
     story.handle(elsewhere).unwrap();
 
     assert_eq!(learned_page(&mut story).len(), 1);
+}
+
+#[test]
+fn a_book_names_its_title_as_its_source_also_when_an_npc_holds_it() {
+    let book = SeenText {
+        kind: TextKind::Book,
+        title: Some("A Tale".to_string()),
+        npc: Some("Librarian Mae".to_string()),
+        zone: Some("Stormwind City".to_string()),
+        text: "Long ago.".to_string(),
+    };
+
+    assert_eq!(book.passage().source, "the text of \"A Tale\"");
 }

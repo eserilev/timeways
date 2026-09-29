@@ -395,3 +395,26 @@ fn a_title_that_differs_from_a_game_quest_only_in_case_or_marks_is_refused() {
         QuestFault::GameQuest("the lost lantern!".to_string())
     );
 }
+
+#[test]
+fn an_accept_by_number_takes_that_offer_when_another_one_waits_first() {
+    let offer = |number: u64, giver: &str| QuestChange::Offered {
+        number,
+        at: Tick(1),
+        giver: giver.to_string(),
+        title: format!("Task {number}"),
+        text: "Go.".to_string(),
+        steps: vec![Step::Meet {
+            npc: "Farmer Bram".to_string(),
+        }],
+    };
+    let accepted = QuestChange::Accepted {
+        number: 2,
+        at: Tick(2),
+    };
+
+    let quests = quest_log(&[offer(1, GIVER), offer(2, "Innkeeper Pell"), accepted]);
+
+    assert_eq!(quests[0].status, Status::Offered);
+    assert_eq!(quests[1].status, Status::Accepted);
+}

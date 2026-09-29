@@ -144,3 +144,15 @@ fn two_level_ups_in_one_batch_speak_of_the_newest_level() {
 
     assert_eq!(best(found), Some(Moment::LevelUp { level: 13 }));
 }
+
+#[test]
+fn a_level_up_wins_over_a_new_zone_that_comes_after_it() {
+    let level = Moment::LevelUp { level: 13 };
+    let zone = Moment::NewZone {
+        zone: "Westfall".to_string(),
+    };
+
+    let chosen = best(vec![level.clone(), zone]);
+
+    assert_eq!(chosen, Some(level));
+}
