@@ -26,6 +26,7 @@ pub mod reply_size;
 pub mod samples;
 pub mod seen;
 pub mod serve;
+pub mod spot;
 pub mod store;
 pub mod story;
 pub mod talk;

@@ -8,6 +8,7 @@ use crate::learned::Learned;
 use crate::places::{self, PlaceKind};
 use crate::quest::{Tracked, title_of_thing};
 use crate::reply_size::{MAX_LINE, MAX_SLOT, Size};
+use crate::spot::{Spot, spot_of};
 use crate::vocabulary::{
     CLASS_QUEST, DEATHS, DEFEATED, GAME_QUEST_DONE, LEVEL, MARK_OF, MARKED_BY, MET, QUEST_DONE,
     SLAPPED, TITLE, TRUSTS, VISITED,
@@ -72,6 +73,9 @@ pub struct Place {
     /// The place around it: the zone of a subzone. None for a zone.
     pub within: Option<String>,
     pub first_visit: Tick,
+    /// Where you stood on the map at the first visit that had a position.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub spot: Option<Spot>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -82,6 +86,9 @@ pub struct Person {
     /// How much this NPC trusts you, from -100 to 100, once anything changed it.
     pub trust: Option<i64>,
     pub slapped: Option<i64>,
+    /// Where you stood on the map at the first meeting that had a position.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub spot: Option<Spot>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -262,6 +269,7 @@ pub fn journal(character: &Character) -> Journal {
             kind: places::kind_of(world, place),
             within: world.location_of(place).map(|zone| name_of(world, zone)),
             first_visit,
+            spot: spot_of(world, place),
         })
         .collect();
     let people: Vec<Person> = first_links(world, you, MET)
@@ -272,6 +280,7 @@ pub fn journal(character: &Character) -> Journal {
             first_met,
             trust: fact_value(world, npc, TRUSTS, you),
             slapped: fact_value(world, you, SLAPPED, npc),
+            spot: spot_of(world, npc),
         })
         .collect();
     let deeds = deeds(world, you);

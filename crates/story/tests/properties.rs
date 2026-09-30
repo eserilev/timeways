@@ -19,6 +19,7 @@ use timeways_story::places::InstanceKind;
 use timeways_story::quest::{QuestChange, Status, Step, quest_log};
 use timeways_story::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use timeways_story::seen::TextKind;
+use timeways_story::spot::{MAP_IDS, Spot, THOUSANDTHS, spot_of};
 use timeways_story::store::{Store, safe_id};
 use timeways_story::story::{Output, Story};
 use timeways_story::wikitext::plain;
@@ -26,8 +27,8 @@ use timeways_story::wikitext::plain;
 /// One step of play, as the addon sends it.
 #[derive(Clone, Debug)]
 enum Play {
-    Zone(String, Option<String>),
-    Meet(String),
+    Zone(String, Option<String>, Option<Spot>),
+    Meet(String, Option<Spot>),
     Defeat(String),
     Slap(String),
     Die(Option<String>),
@@ -69,8 +70,9 @@ fn name() -> impl Strategy<Value = String> {
 
 fn play() -> impl Strategy<Value = Play> {
     prop_oneof![
-        (name(), prop::option::of(name())).prop_map(|(zone, subzone)| Play::Zone(zone, subzone)),
-        name().prop_map(Play::Meet),
+        (name(), prop::option::of(name()), prop::option::of(spot()))
+            .prop_map(|(zone, subzone, spot)| Play::Zone(zone, subzone, spot)),
+        (name(), prop::option::of(spot())).prop_map(|(name, spot)| Play::Meet(name, spot)),
         name().prop_map(Play::Defeat),
         name().prop_map(Play::Slap),
         prop::option::of(name()).prop_map(Play::Die),
@@ -104,6 +106,16 @@ fn play() -> impl Strategy<Value = Play> {
             .prop_map(|(title, kind, done)| Play::GameQuest(title, kind, done)),
         (0u64..20_000).prop_map(Play::Wait),
     ]
+}
+
+/// A position on a map. The ends of each band come often, because a uniform draw almost
+/// never reaches them.
+fn spot() -> impl Strategy<Value = Spot> {
+    let map = prop_oneof![Just(MAP_IDS.min), Just(MAP_IDS.max), 1400i64..1460];
+    let edge = || prop_oneof![Just(THOUSANDTHS.min), Just(THOUSANDTHS.max), 0i64..=1000];
+    (map, edge(), edge()).prop_map(|(map, x, y)| {
+        serde_json::from_value(serde_json::json!({ "map": map, "x": x, "y": y })).unwrap()
+    })
 }
 
 /// Few numbers and short quests, so that most changes find their quest.
@@ -175,8 +187,13 @@ const FIELDS: [&str; 6] = ["origin", "background", "goal", "bond", "flaw", "trai
 
 fn input(play: &Play, at: Tick) -> Option<Input> {
     Some(match play.clone() {
-        Play::Zone(zone, subzone) => Input::ZoneEntered { at, zone, subzone },
-        Play::Meet(name) => Input::NpcMet { at, name },
+        Play::Zone(zone, subzone, spot) => Input::ZoneEntered {
+            at,
+            zone,
+            subzone,
+            spot,
+        },
+        Play::Meet(name, spot) => Input::NpcMet { at, name, spot },
         Play::Defeat(name) => Input::NpcDefeated { at, name },
         Play::Slap(name) => Input::NpcSlapped { at, name },
         Play::Mark(quest, mark) => Input::QuestMarked { at, quest, mark },
@@ -391,8 +408,8 @@ proptest! {
             clock += if let Play::Wait(seconds) = play { *seconds } else { 1 };
             let at = Tick(clock);
             let _ = match play {
-                Play::Zone(zone, subzone) => character.enter_zone(at, zone, subzone.as_deref()),
-                Play::Meet(name) => character.meet_npc(at, name),
+                Play::Zone(zone, subzone, _) => character.enter_zone(at, zone, subzone.as_deref()),
+                Play::Meet(name, _) => character.meet_npc(at, name),
                 Play::Defeat(name) => character.defeat_npc(at, name),
                 Play::Slap(name) => character.slap(at, name),
                 Play::Die(killer) => character.die(at, killer.as_deref()),
@@ -440,6 +457,30 @@ proptest! {
         let inside = &fenced[4..fenced.len() - 4];
         prop_assert!(!inside.contains("<<<") && !inside.contains(">>>"), "{:?}", fenced);
         prop_assert_eq!(fenced.matches(">>>").count(), 1);
+    }
+
+    #[test]
+    fn a_place_or_an_npc_never_moves_from_its_first_spot(plays in prop::collection::vec(play(), 0..120)) {
+        let mut character = Character::new();
+        let mut first = std::collections::BTreeMap::new();
+        for (n, play) in plays.iter().enumerate() {
+            let at = Tick(1_000 + n as u64);
+            let _ = match play {
+                Play::Zone(zone, subzone, spot) => character
+                    .enter_zone(at, zone, subzone.as_deref())
+                    .and_then(|()| spot.map_or(Ok(()), |spot| character.mark_here(at, spot))),
+                Play::Meet(name, spot) => character
+                    .meet_npc(at, name)
+                    .and_then(|()| spot.map_or(Ok(()), |spot| character.mark_npc(at, name, spot))),
+                _ => Ok(()),
+            };
+            let world = character.world();
+            for entity in world.entities() {
+                if let Some(spot) = spot_of(world, entity.id) {
+                    prop_assert_eq!(*first.entry(entity.id).or_insert(spot), spot);
+                }
+            }
+        }
     }
 
     #[test]

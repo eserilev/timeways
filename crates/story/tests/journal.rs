@@ -16,6 +16,7 @@ fn place(name: &str, within: Option<&str>, first_visit: u64) -> Place {
         kind: PlaceKind::Zone,
         within: within.map(str::to_string),
         first_visit: Tick(first_visit),
+        spot: None,
     }
 }
 
@@ -88,6 +89,7 @@ fn people_carry_the_place_where_you_met_them() {
         first_met: Tick(first_met),
         trust: None,
         slapped: None,
+        spot: None,
     };
     assert_eq!(
         people,

@@ -63,8 +63,9 @@ pub enum Play {
     Zone {
         zone: Name,
         subzone: Option<Name>,
+        spot: Option<(u16, u16, u16)>,
     },
-    Meet(Name),
+    Meet(Name, Option<(u16, u16, u16)>),
     Defeat(Name),
     Die {
         killer: Option<Name>,
@@ -131,12 +132,23 @@ pub struct Run {
     plays: Vec<Play>,
 }
 
+/// A position as the addon sends it. A number past 1000 is off the map, and counts as no
+/// position.
+fn spot_json((map, x, y): (u16, u16, u16)) -> Value {
+    json!({"map": map, "x": x % 1100, "y": y % 1100})
+}
+
 fn input(play: &Play, at: u64) -> Option<Value> {
     Some(match play {
-        Play::Zone { zone, subzone } => {
-            json!({"type": "zone_entered", "at": at, "zone": zone.0, "subzone": text(subzone)})
+        Play::Zone {
+            zone,
+            subzone,
+            spot,
+        } => json!({"type": "zone_entered", "at": at, "zone": zone.0, "subzone": text(subzone),
+            "spot": spot.map(spot_json)}),
+        Play::Meet(name, spot) => {
+            json!({"type": "npc_met", "at": at, "name": name.0, "spot": spot.map(spot_json)})
         }
-        Play::Meet(name) => json!({"type": "npc_met", "at": at, "name": name.0}),
         Play::Defeat(name) => json!({"type": "npc_defeated", "at": at, "name": name.0}),
         Play::Die {
             killer,

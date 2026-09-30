@@ -45,6 +45,7 @@ fn zone(at: u64, subzone: &str) -> Input {
         at: Tick(at),
         zone: "Testvale".to_string(),
         subzone: Some(subzone.to_string()),
+        spot: None,
     }
 }
 
@@ -52,6 +53,7 @@ fn meet(at: u64, name: &str) -> Input {
     Input::NpcMet {
         at: Tick(at),
         name: name.to_string(),
+        spot: None,
     }
 }
 

@@ -18,6 +18,7 @@ use crate::prompt::Context;
 use crate::quest::{Status, quest_log};
 use crate::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use crate::seen::{MAX_SEEN_BYTES, SeenIndex, SeenText, TextKind};
+use crate::spot::Spot;
 use crate::store::{
     CharacterKey, FlavorLog, HeroLog, HistoryFile, LearnedLog, Opened, Prose, QuestLog, Store,
     StoreError, Written,
@@ -286,18 +287,14 @@ impl Story {
                 self.enter_character(&realm, &name)?;
                 Ok(Vec::new())
             }
-            Input::ZoneEntered { at, zone, subzone } => {
-                checked_name(&zone)?;
-                subzone.as_deref().map(checked_name).transpose()?;
-                self.change(|character| character.enter_zone(at, &zone, subzone.as_deref()))?;
-                self.advance_quests(at, None)
-            }
+            Input::ZoneEntered {
+                at,
+                zone,
+                subzone,
+                spot,
+            } => self.enter_zone(at, &zone, subzone.as_deref(), spot),
             Input::InstanceEntered { at, zone, kind } => self.mark_instance(at, &zone, kind),
-            Input::NpcMet { at, name } => {
-                checked_name(&name)?;
-                self.change(|character| character.meet_npc(at, &name))?;
-                self.advance_quests(at, Some(&name))
-            }
+            Input::NpcMet { at, name, spot } => self.meet_npc(at, &name, spot),
             Input::NpcDefeated { at, name } => {
                 checked_name(&name)?;
                 self.change(|character| character.defeat_npc(at, &name))
@@ -376,6 +373,36 @@ impl Story {
             Input::ModelAnswered { call, text } => self.answered(call, &text),
             Input::ModelFailed { call } => self.failed(call),
         }
+    }
+
+    fn enter_zone(
+        &mut self,
+        at: Tick,
+        zone: &str,
+        subzone: Option<&str>,
+        spot: Option<Spot>,
+    ) -> Result<Vec<Output>, StoryError> {
+        checked_name(zone)?;
+        subzone.map(checked_name).transpose()?;
+        self.change(|character| {
+            character.enter_zone(at, zone, subzone)?;
+            spot.map_or(Ok(()), |spot| character.mark_here(at, spot))
+        })?;
+        self.advance_quests(at, None)
+    }
+
+    fn meet_npc(
+        &mut self,
+        at: Tick,
+        name: &str,
+        spot: Option<Spot>,
+    ) -> Result<Vec<Output>, StoryError> {
+        checked_name(name)?;
+        self.change(|character| {
+            character.meet_npc(at, name)?;
+            spot.map_or(Ok(()), |spot| character.mark_npc(at, name, spot))
+        })?;
+        self.advance_quests(at, Some(name))
     }
 
     fn mark_instance(

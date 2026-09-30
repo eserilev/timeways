@@ -1,10 +1,11 @@
 //! The fact names of a Timeways world, and their rules (GAMEPLAY.md 5.1).
 
+use crate::spot::{MAP_IDS, THOUSANDTHS};
 use hourglass::EntityType::{Faction, Person, Place, Thing};
 use hourglass::{Band, Count, Direction, EntityType, FactRules, FactVocabulary, Shape};
 
 /// A change to a declared name needs a new version and a migration (`hourglass::migrate`).
-pub const VERSION: u32 = 5;
+pub const VERSION: u32 = 6;
 
 pub const MET: &str = "met";
 pub const TRUSTS: &str = "trusts";
@@ -35,6 +36,11 @@ pub const SLAPPED: &str = "slapped";
 pub const TITLE: &str = "title";
 pub const MEMBER_OF: &str = "member_of";
 pub const LEADER_OF: &str = "leader_of";
+/// The map of the game where a place began or an NPC was met. `map_x` and `map_y` give
+/// the point on it.
+pub const ON_MAP: &str = "on_map";
+pub const MAP_X: &str = "map_x";
+pub const MAP_Y: &str = "map_y";
 
 /// The band of `trusts`. Public, because a change of trust stops at its ends.
 pub const TRUST: Band = Band {
@@ -78,7 +84,10 @@ pub fn vocabulary() -> FactVocabulary {
         .declare(SLAPPED, linked(up_tally(), Person, &[Person]))
         .declare(TITLE, linked(up_flag(), Person, &[Thing]))
         .declare(MEMBER_OF, linked(Shape::flag(), Person, &[Faction]))
-        .declare(LEADER_OF, linked(Shape::flag(), Person, &[Faction]));
+        .declare(LEADER_OF, linked(Shape::flag(), Person, &[Faction]))
+        .declare(ON_MAP, FactRules::solo(Shape::number(MAP_IDS)))
+        .declare(MAP_X, FactRules::solo(Shape::number(THOUSANDTHS)))
+        .declare(MAP_Y, FactRules::solo(Shape::number(THOUSANDTHS)));
     vocabulary
 }
 

@@ -58,6 +58,7 @@ fn enter(story: &mut Story, at: u64, zone: &str, subzone: Option<&str>) {
         at: Tick(at),
         zone: zone.to_string(),
         subzone: subzone.map(str::to_string),
+        spot: None,
     };
     assert_eq!(one(story.handle(input).unwrap()), None);
 }
@@ -66,6 +67,7 @@ fn meet(story: &mut Story, at: u64, name: &str) {
     let input = Input::NpcMet {
         at: Tick(at),
         name: name.to_string(),
+        spot: None,
     };
     assert_eq!(one(story.handle(input).unwrap()), None);
 }
@@ -1048,10 +1050,12 @@ fn a_name_that_no_game_sends_is_refused() {
     let long = story.handle(Input::NpcMet {
         at: Tick(1),
         name: "N".repeat(97),
+        spot: None,
     });
     let control = story.handle(Input::NpcMet {
         at: Tick(1),
         name: "A\u{7}B".to_string(),
+        spot: None,
     });
     let empty_killer = story.handle(Input::Died {
         at: Tick(1),
@@ -1096,6 +1100,7 @@ fn a_moment_before_a_refusal_still_counts() {
         at: Tick(5),
         zone: "Westfall".to_string(),
         subzone: None,
+        spot: None,
     };
     assert!(story.handle(zone).is_ok());
     let old_event = Input::LevelReached {
@@ -1860,10 +1865,12 @@ fn a_time_one_day_ahead_is_taken_and_a_later_one_is_refused() {
     let one_day = story.handle(Input::NpcMet {
         at: Tick(now + DAY),
         name: "Tomorrow".to_string(),
+        spot: None,
     });
     let past_the_day = story.handle(Input::NpcMet {
         at: Tick(now + DAY + 2 * 60),
         name: "Later".to_string(),
+        spot: None,
     });
 
     assert!(one_day.is_ok(), "{one_day:?}");
@@ -2076,6 +2083,7 @@ fn a_name_of_96_bytes_is_taken() {
     let result = story.handle(Input::NpcMet {
         at: Tick(1),
         name: "N".repeat(96),
+        spot: None,
     });
 
     assert!(result.is_ok(), "{result:?}");

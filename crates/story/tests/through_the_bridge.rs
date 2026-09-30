@@ -33,8 +33,8 @@ const MODEL_ANSWERS: [Option<&str>; 5] = [
 
 #[derive(Clone, Debug)]
 enum Play {
-    Zone(String, Option<String>),
-    Meet(String),
+    Zone(String, Option<String>, Value),
+    Meet(String, Value),
     Slap(String),
     Defeat(String),
     Die(Option<String>),
@@ -70,10 +70,23 @@ fn words() -> impl Strategy<Value = String> {
     ]
 }
 
+/// A position as the addon sends it: at the ends of the map, none, or broken.
+fn spot() -> impl Strategy<Value = Value> {
+    let number = || prop_oneof![Just(0i64), Just(1000), Just(1001), Just(-1), any::<i64>()];
+    prop_oneof![
+        Just(Value::Null),
+        (number(), number(), number()).prop_map(|(map, x, y)| json!({"map": map, "x": x, "y": y})),
+        (1i64..2000, 0i64..=1000, 0i64..=1000)
+            .prop_map(|(map, x, y)| json!({"map": map, "x": x, "y": y})),
+        Just(json!({"map": 1420, "x": 0.5, "y": "top"})),
+    ]
+}
+
 fn play() -> impl Strategy<Value = Play> {
     prop_oneof![
-        (name(), prop::option::of(name())).prop_map(|(zone, sub)| Play::Zone(zone, sub)),
-        name().prop_map(Play::Meet),
+        (name(), prop::option::of(name()), spot())
+            .prop_map(|(zone, sub, spot)| Play::Zone(zone, sub, spot)),
+        (name(), spot()).prop_map(|(name, spot)| Play::Meet(name, spot)),
         name().prop_map(Play::Slap),
         name().prop_map(Play::Defeat),
         prop::option::of(name()).prop_map(Play::Die),
@@ -94,10 +107,10 @@ fn play() -> impl Strategy<Value = Play> {
 /// The line of the addon for this play, as `Inputs.lua` writes it.
 fn addon_line(play: &Play, at: u64) -> Option<Value> {
     Some(match play {
-        Play::Zone(zone, subzone) => {
-            json!({"type": "zone_entered", "at": at, "zone": zone, "subzone": subzone})
+        Play::Zone(zone, subzone, spot) => {
+            json!({"type": "zone_entered", "at": at, "zone": zone, "subzone": subzone, "spot": spot})
         }
-        Play::Meet(name) => json!({"type": "npc_met", "at": at, "name": name}),
+        Play::Meet(name, spot) => json!({"type": "npc_met", "at": at, "name": name, "spot": spot}),
         Play::Slap(name) => json!({"type": "npc_slapped", "at": at, "name": name}),
         Play::Defeat(name) => json!({"type": "npc_defeated", "at": at, "name": name}),
         Play::Die(killer) => json!({"type": "died", "at": at, "killer": killer}),
@@ -208,8 +221,9 @@ proptest! {
 /// A game event that adds an entry to the journal.
 fn entry() -> impl Strategy<Value = Play> {
     prop_oneof![
-        (name(), prop::option::of(name())).prop_map(|(zone, sub)| Play::Zone(zone, sub)),
-        name().prop_map(Play::Meet),
+        (name(), prop::option::of(name()), spot())
+            .prop_map(|(zone, sub, spot)| Play::Zone(zone, sub, spot)),
+        (name(), spot()).prop_map(|(name, spot)| Play::Meet(name, spot)),
         name().prop_map(Play::Defeat),
         (name(), words()).prop_map(|(title, text)| Play::Read(title, text)),
     ]
@@ -260,9 +274,9 @@ fn quest_play() -> impl Strategy<Value = Play> {
         1 => Just(Play::Settle),
         2 => prop::option::of(1u64..8).prop_map(Play::Accept),
         1 => prop::option::of(1u64..8).prop_map(Play::Decline),
-        1 => Just(Play::Zone("Goldshire".to_string(), None)),
-        1 => Just(Play::Zone("Elwynn Forest".to_string(), Some("Goldshire".to_string()))),
-        1 => giver().prop_map(Play::Meet),
+        1 => Just(Play::Zone("Goldshire".to_string(), None, Value::Null)),
+        1 => Just(Play::Zone("Elwynn Forest".to_string(), Some("Goldshire".to_string()), Value::Null)),
+        1 => giver().prop_map(|npc| Play::Meet(npc, Value::Null)),
         1 => giver().prop_map(|npc| Play::Talk(npc, "any news?".to_string())),
     ]
 }

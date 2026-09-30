@@ -1,0 +1,6 @@
+{"type":"zone_entered","at":1,"zone":"Testvale","subzone":"Mockshire","spot":{"map":1420,"x":0,"y":1000}}
+{"type":"zone_entered","at":2,"zone":"Testvale","spot":{"map":1420,"x":1001,"y":5}}
+{"type":"npc_met","at":3,"name":"Keeper Stubbs","spot":{"map":1420,"x":500,"y":250}}
+{"type":"npc_met","at":4,"name":"Keeper Stubbs","spot":{"map":0,"x":0.5,"y":"top"}}
+{"type":"npc_met","at":5,"name":"Mother Fang","spot":[1420,1,2]}
+{"type":"journal_asked","id":1,"page":0}

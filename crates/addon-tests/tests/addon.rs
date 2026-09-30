@@ -16,6 +16,7 @@ fn zone(zone: &str, subzone: Option<&str>) -> Input {
         at: NOW,
         zone: zone.to_string(),
         subzone: subzone.map(str::to_string),
+        spot: None,
     }
 }
 
@@ -116,6 +117,7 @@ fn an_npc_is_sent_once_in_five_minutes() {
     let met = Input::NpcMet {
         at: NOW,
         name: "Innkeeper Farley".to_string(),
+        spot: None,
     };
     assert_eq!(game.sent_inputs(), [met]);
 }

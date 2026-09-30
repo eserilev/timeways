@@ -4,8 +4,8 @@ use hourglass::{
 };
 use timeways_story::vocabulary::{
     CLASS_QUEST, DEAD, DEATHS, DEFEATED, DUNGEON, GAME_QUEST_DONE, GAME_QUEST_TAKEN, KNOWS_LORE,
-    LEADER_OF, LEVEL, MARK_OF, MARKED_BY, MEMBER_OF, MET, NEMESIS, QUEST_ACCEPTED, QUEST_DONE,
-    QUEST_OFFERED, RAID, SLAPPED, TITLE, TRUSTS, VISITED, vocabulary,
+    LEADER_OF, LEVEL, MAP_X, MAP_Y, MARK_OF, MARKED_BY, MEMBER_OF, MET, NEMESIS, ON_MAP,
+    QUEST_ACCEPTED, QUEST_DONE, QUEST_OFFERED, RAID, SLAPPED, TITLE, TRUSTS, VISITED, vocabulary,
 };
 
 const NOW: Tick = Tick(1);
@@ -153,6 +153,9 @@ fn vocabulary_holds_every_name_of_the_spec_and_located_in() {
         TITLE,
         MEMBER_OF,
         LEADER_OF,
+        ON_MAP,
+        MAP_X,
+        MAP_Y,
         hourglass::LOCATED_IN,
     ];
 
@@ -341,4 +344,17 @@ fn a_member_can_leave_the_guild() {
     let result = end(&mut cast.world, cast.you, MEMBER_OF, Some(cast.guild));
 
     assert!(result.is_ok());
+}
+
+#[test]
+fn a_point_stays_on_its_map() {
+    let mut cast = cast();
+
+    let inside = start(&mut cast.world, cast.goldshire, MAP_X, Some(1000), None);
+    let past = start(&mut cast.world, cast.innkeeper, MAP_Y, Some(1001), None);
+    let no_map = start(&mut cast.world, cast.innkeeper, ON_MAP, Some(0), None);
+
+    assert!(inside.is_ok());
+    assert!(past.is_err());
+    assert!(no_map.is_err());
 }

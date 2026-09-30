@@ -35,6 +35,7 @@ fn met(name: &str) -> Input {
     Input::NpcMet {
         at: NOW,
         name: name.to_string(),
+        spot: None,
     }
 }
 

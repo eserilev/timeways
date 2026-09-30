@@ -16,6 +16,7 @@ fn a_zone_input_reads_with_its_subzone() {
         at: Tick(100),
         zone: "Elwynn Forest".to_string(),
         subzone: Some("Goldshire".to_string()),
+        spot: None,
     };
     assert_eq!(input, expected);
 }
@@ -30,6 +31,7 @@ fn a_zone_input_reads_with_no_subzone() {
         at: Tick(100),
         zone: "Elwynn Forest".to_string(),
         subzone: None,
+        spot: None,
     };
     assert_eq!(input, expected);
 }
@@ -44,7 +46,8 @@ fn an_npc_input_reads() {
         input,
         Input::NpcMet {
             at: Tick(100),
-            name: "Innkeeper Farley".to_string()
+            name: "Innkeeper Farley".to_string(),
+            spot: None,
         }
     );
 }

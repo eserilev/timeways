@@ -2,10 +2,11 @@
 
 use crate::input::GameQuestKind;
 use crate::places::InstanceKind;
+use crate::spot::{self, Spot};
 use crate::vocabulary::{
     self, CLASS_QUEST, DEAD, DEATHS, DEFEATED, DUNGEON, GAME_QUEST_DONE, GAME_QUEST_TAKEN, LEVEL,
-    MARK_OF, MARKED_BY, MET, QUEST_ACCEPTED, QUEST_DONE, QUEST_OFFERED, RAID, SLAPPED, TALLY,
-    TITLE, TRUST, TRUSTS, VISITED,
+    MAP_X, MAP_Y, MARK_OF, MARKED_BY, MET, ON_MAP, QUEST_ACCEPTED, QUEST_DONE, QUEST_OFFERED, RAID,
+    SLAPPED, TALLY, TITLE, TRUST, TRUSTS, VISITED,
 };
 use hourglass::{
     Entity, EntityId, EntityType, Event, EventHistory, EventKind, LOCATED_IN, Rejection, Tick,
@@ -368,6 +369,51 @@ impl Character {
             linked_to: None,
         };
         self.propose(at, mark)
+    }
+
+    /// The place where you stand keeps its first position. A later visit changes nothing.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first refusal of Hourglass.
+    pub fn mark_here(&mut self, at: Tick, spot: Spot) -> Result<(), Refusal> {
+        let Some(here) = self.world.location_of(self.you) else {
+            return Ok(());
+        };
+        self.mark_spot(at, here, spot)
+    }
+
+    /// An NPC keeps the position of the first meeting that had one.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first refusal of Hourglass.
+    pub fn mark_npc(&mut self, at: Tick, npc: &str, spot: Spot) -> Result<(), Refusal> {
+        let Some(npc) = self.find(EntityType::Person, npc) else {
+            return Ok(());
+        };
+        self.mark_spot(at, npc, spot)
+    }
+
+    fn mark_spot(&mut self, at: Tick, entity: EntityId, spot: Spot) -> Result<(), Refusal> {
+        if spot::spot_of(&self.world, entity).is_some() {
+            return Ok(());
+        }
+        let facts = [
+            (ON_MAP, i64::from(spot.map)),
+            (MAP_X, i64::from(spot.x)),
+            (MAP_Y, i64::from(spot.y)),
+        ];
+        for (name, value) in facts {
+            let kind = EventKind::FactStart {
+                entity,
+                name: name.to_string(),
+                value: Some(value),
+                linked_to: None,
+            };
+            self.propose(at, kind)?;
+        }
+        Ok(())
     }
 
     /// # Errors

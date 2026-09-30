@@ -46,6 +46,7 @@ fn enter(story: &mut Story, at: u64, zone: &str) {
         at: Tick(at),
         zone: zone.to_string(),
         subzone: None,
+        spot: None,
     };
     one(story.handle(input).unwrap());
 }
@@ -282,6 +283,7 @@ fn a_refused_character_switch_leaves_no_character_active() {
         at: Tick(1),
         zone: "Westfall".to_string(),
         subzone: None,
+        spot: None,
     });
 
     assert!(matches!(result, Err(StoryError::NoCharacter)));
@@ -303,6 +305,7 @@ fn a_failed_write_is_written_again_once_the_file_takes_it() {
         at: Tick(2),
         zone: "Westfall".to_string(),
         subzone: None,
+        spot: None,
     });
     fs::set_permissions(&file, fs::Permissions::from_mode(0o644)).unwrap();
     enter(&mut story, 3, "Duskwood");
@@ -347,6 +350,7 @@ fn the_saga_survives_a_restart() {
             at: Tick(at),
             zone: zone.to_string(),
             subzone: subzone.map(str::to_string),
+            spot: None,
         };
         first.handle(entered).unwrap();
         fail_each_call(&mut first, 90 + batch as u64);
@@ -393,6 +397,7 @@ fn flavor_moments_survive_a_restart_and_keep_counting_toward_a_title() {
             at: Tick(1),
             zone: "Elwynn Forest".to_string(),
             subzone: Some("Goldshire".to_string()),
+            spot: None,
         })
         .unwrap();
     first.handle(dance(2)).unwrap();

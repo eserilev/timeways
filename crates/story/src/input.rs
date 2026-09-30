@@ -3,6 +3,7 @@
 
 use crate::places::InstanceKind;
 use crate::seen::TextKind;
+use crate::spot::{self, Spot};
 use hourglass::Tick;
 use serde::{Deserialize, Serialize};
 
@@ -18,10 +19,13 @@ pub enum Input {
         realm: String,
         name: String,
     },
+    /// `spot` is where the player stands as the place begins.
     ZoneEntered {
         at: Tick,
         zone: String,
         subzone: Option<String>,
+        #[serde(default, deserialize_with = "spot::lenient")]
+        spot: Option<Spot>,
     },
     /// The zone that just came is an instance. It follows its `ZoneEntered`.
     InstanceEntered {
@@ -29,9 +33,12 @@ pub enum Input {
         zone: String,
         kind: InstanceKind,
     },
+    /// `spot` is where the player stands at the meeting.
     NpcMet {
         at: Tick,
         name: String,
+        #[serde(default, deserialize_with = "spot::lenient")]
+        spot: Option<Spot>,
     },
     LevelReached {
         at: Tick,

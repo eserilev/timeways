@@ -26,6 +26,7 @@ fn zone(name: &str) -> Input {
         at: NOW,
         zone: name.to_string(),
         subzone: None,
+        spot: None,
     }
 }
 

@@ -216,6 +216,7 @@ fn the_facts_say_which_zone_is_a_dungeon_a_raid_or_a_capital() {
         kind,
         within: None,
         first_visit: Tick(1),
+        spot: None,
     };
     let places = [
         place("The Deadmines", PlaceKind::Dungeon),
