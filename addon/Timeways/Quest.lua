@@ -15,6 +15,27 @@ local function Send(input)
 	ns.Outbox.Flush()
 end
 
+-- The answers that the book shows before the desktop confirms them, by quest number.
+local answered = {}
+
+function Quest.Answered(number)
+	return answered[number]
+end
+
+function Quest.JournalCame()
+	answered = {}
+end
+
+-- The journal comes back in the same batch as the answer, and confirms it.
+local function Answer(number, answer, input)
+	if number then
+		answered[number] = answer
+	end
+	ns.Outbox.Add(input)
+	ns.Journal.Request(0)
+	ns.JournalFrame.Refresh()
+end
+
 function Quest.Ask()
 	local npc = ns.Units.FriendlyNpcName("target")
 	local other = ns.Units.NpcName("target")
@@ -34,12 +55,12 @@ end
 -- buttons of the book name their quest. The chat command answers the newest offer.
 function Quest.Accept(number)
 	ns.Watch.ForgetMet()
-	Send(ns.Inputs.QuestAccepted(time(), number))
+	Answer(number, "accepted", ns.Inputs.QuestAccepted(time(), number))
 	Say("You take the task. It's in your journal.")
 end
 
 function Quest.Decline(number)
-	Send(ns.Inputs.QuestDeclined(time(), number))
+	Answer(number, "declined", ns.Inputs.QuestDeclined(time(), number))
 	Say("You turn the task down.")
 end
 
@@ -51,9 +72,7 @@ StaticPopupDialogs.TIMEWAYS_QUEST_ABANDON = {
 	whileDead = 1,
 	hideOnEscape = 1,
 	OnAccept = function(_, data)
-		ns.Outbox.Add(ns.Inputs.QuestAbandoned(time(), data.number))
-		-- The journal comes back in the same batch, so the task leaves the book.
-		ns.Journal.Request(0)
+		Answer(data.number, "abandoned", ns.Inputs.QuestAbandoned(time(), data.number))
 		Say("Task abandoned.")
 	end,
 }

@@ -100,6 +100,7 @@ function Journal.Receive(value)
 	end
 	pages, collecting = collecting, nil
 	ns.Hero.JournalCame()
+	ns.Quest.JournalCame()
 	ns.JournalFrame.Refresh()
 	ns.Hero.AskOnce(pages.hero)
 end
@@ -317,7 +318,12 @@ local function QuestNumber(quest)
 	return type(number) == "number" and number >= 1 and number % 1 == 0 and number or nil
 end
 
-local function QuestStatus(quest)
+local SAVING = "Saving..."
+
+local function QuestStatus(quest, saving)
+	if saving then
+		return Line("hint", SAVING)
+	end
 	if quest.status == "offered" then
 		local decline = function()
 			ns.Quest.Decline(QuestNumber(quest))
@@ -337,33 +343,44 @@ local function QuestStatus(quest)
 	return Line("note", "In progress.", { label = "Abandon", run = abandon })
 end
 
-local function Quests(quests)
-	local lines = {}
-	for _, quest in ipairs(quests) do
-		local accept = quest.status == "offered"
-				and {
-					label = "Accept",
-					run = function()
-						ns.Quest.Accept(QuestNumber(quest))
-					end,
-				}
-			or nil
-		lines[#lines + 1] = Line("heading", Name(quest.title), accept)
-		lines[#lines + 1] = Line("text", "From " .. Name(quest.giver) .. ", on " .. Day(quest.offered_at) .. ".")
-		if type(quest.text) == "string" then
-			lines[#lines + 1] = Line("prose", ns.Plain(quest.text))
-		end
-		local done = type(quest.steps_done) == "number" and quest.steps_done or 0
-		for n, step in ipairs(Entries(quest.steps)) do
-			local mark = n <= done and "(done) " or ""
-			lines[#lines + 1] = Line("entry", mark .. StepText(step))
-		end
-		lines[#lines + 1] = QuestStatus(quest)
+-- An accepted offer shows as saving until the journal confirms it.
+local function Quest(quest, saving)
+	local accept = quest.status == "offered"
+			and not saving
+			and {
+				label = "Accept",
+				run = function()
+					ns.Quest.Accept(QuestNumber(quest))
+				end,
+			}
+		or nil
+	local lines = { Line("heading", Name(quest.title), accept) }
+	lines[#lines + 1] = Line("text", "From " .. Name(quest.giver) .. ", on " .. Day(quest.offered_at) .. ".")
+	if type(quest.text) == "string" then
+		lines[#lines + 1] = Line("prose", ns.Plain(quest.text))
 	end
+	local done = type(quest.steps_done) == "number" and quest.steps_done or 0
+	for n, step in ipairs(Entries(quest.steps)) do
+		local mark = n <= done and "(done) " or ""
+		lines[#lines + 1] = Line("entry", mark .. StepText(step))
+	end
+	lines[#lines + 1] = QuestStatus(quest, saving)
 	return lines
 end
 
-local SAVING = "Saving..."
+-- A declined or abandoned task leaves the page at once.
+local function Quests(quests)
+	local lines = {}
+	for _, quest in ipairs(quests) do
+		local answer = ns.Quest.Answered(QuestNumber(quest))
+		if answer ~= "declined" and answer ~= "abandoned" then
+			for _, line in ipairs(Quest(quest, answer == "accepted")) do
+				lines[#lines + 1] = line
+			end
+		end
+	end
+	return lines
+end
 
 -- The texts of the sheet by field, with the edits that the desktop did not confirm yet.
 local function SheetTexts(hero, unsaved)

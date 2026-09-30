@@ -124,7 +124,9 @@ fn quest_accept_and_decline_answer_the_offer() {
             inputs.as_slice(),
             [
                 Input::QuestAccepted { number: None, .. },
-                Input::QuestDeclined { number: None, .. }
+                Input::JournalAsked { page: 0, .. },
+                Input::QuestDeclined { number: None, .. },
+                Input::JournalAsked { page: 0, .. }
             ]
         ),
         "{inputs:?}"
@@ -186,12 +188,11 @@ fn an_offer_shows_with_its_buttons() {
 }
 
 #[test]
-fn the_buttons_of_an_offer_answer_it_by_its_number() {
+fn accept_answers_its_offer_by_number_and_asks_for_the_journal() {
     let game = Game::new();
     game.reply(&quest_reply(lantern(Status::Offered, 0)));
 
     click(&game, "Accept");
-    click(&game, "Decline");
     game.run("wow.RunTickers()");
 
     let inputs = game.sent_inputs();
@@ -203,14 +204,87 @@ fn the_buttons_of_an_offer_answer_it_by_its_number() {
                     number: Some(1),
                     ..
                 },
-                Input::QuestDeclined {
-                    number: Some(1),
-                    ..
-                }
+                Input::JournalAsked { page: 0, .. }
             ]
         ),
         "{inputs:?}"
     );
+}
+
+#[test]
+fn decline_answers_its_offer_by_number_and_asks_for_the_journal() {
+    let game = Game::new();
+    game.reply(&quest_reply(lantern(Status::Offered, 0)));
+
+    click(&game, "Decline");
+    game.run("wow.RunTickers()");
+
+    let inputs = game.sent_inputs();
+    assert!(
+        matches!(
+            inputs.as_slice(),
+            [
+                Input::QuestDeclined {
+                    number: Some(1),
+                    ..
+                },
+                Input::JournalAsked { page: 0, .. }
+            ]
+        ),
+        "{inputs:?}"
+    );
+}
+
+#[test]
+fn an_accepted_offer_shows_as_saving_at_once() {
+    let game = Game::new();
+    game.reply(&quest_reply(lantern(Status::Offered, 0)));
+
+    click(&game, "Accept");
+
+    let shown = lines(&game);
+    assert_eq!(shown[0], "heading: The Lost Lantern");
+    assert_eq!(shown[5], "hint: Saving...");
+}
+
+#[test]
+fn a_declined_offer_leaves_the_page_at_once() {
+    let game = Game::new();
+    game.reply(&quest_reply(lantern(Status::Offered, 0)));
+
+    click(&game, "Decline");
+
+    let shown = lines(&game);
+    assert!(
+        !shown.iter().any(|line| line.contains("The Lost Lantern")),
+        "{shown:?}"
+    );
+}
+
+#[test]
+fn an_abandoned_task_leaves_the_page_at_once() {
+    let game = Game::new();
+    game.reply(&quest_reply(lantern(Status::Accepted, 1)));
+
+    click(&game, "Abandon");
+    game.run("wow.AcceptPopup()");
+
+    let shown = lines(&game);
+    assert!(
+        !shown.iter().any(|line| line.contains("The Lost Lantern")),
+        "{shown:?}"
+    );
+}
+
+#[test]
+fn the_journal_replaces_the_answer_that_waits() {
+    let game = Game::new();
+    game.reply(&quest_reply(lantern(Status::Offered, 0)));
+    click(&game, "Accept");
+
+    game.reply(&quest_reply(lantern(Status::Accepted, 0)));
+
+    assert_eq!(lines(&game)[5], "note: In progress. [Abandon]");
 }
 
 #[test]
