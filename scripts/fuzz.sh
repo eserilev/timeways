@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Runs the fuzz targets side by side for SECONDS (default 30): the TARGETs, or every target.
 # The targets share the cores: each one runs as many libFuzzer workers (-fork) as its share.
-# CI runs each target short on a machine of its own, and the nightly job runs them all long.
+# CI runs them all short on one machine, and the nightly job runs each one long on its own.
 # A crash leaves its input in fuzz/artifacts/. Turn it into a regression test first.
 # Overflow checks stay on, because a number that wraps is a bug that a release build hides.
 set -euo pipefail

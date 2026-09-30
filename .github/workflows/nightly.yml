@@ -24,7 +24,7 @@ jobs:
       - uses: taiki-e/install-action@7623a79cdfecb99d681017af368ca353d9f49bb5 # v2.87.19
         with:
           tool: cargo-fuzz
-      # The inputs that the fuzzer keeps grow from run to run, in CI and in the nightly job.
+      # The inputs that the fuzzer keeps grow from night to night.
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: fuzz/corpus/${{ matrix.target }}
@@ -41,6 +41,21 @@ jobs:
         with:
           name: fuzz-${{ matrix.target }}
           path: fuzz/artifacts/
+
+  # CI runs these only for a tag, so a break on macOS or Windows shows up here first.
+  rust-os:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # master
+        with:
+          toolchain: stable
+      - run: cargo build --release --locked --bin timeways-story --bin timeways-pack
+      - run: cargo test --locked
 
   # A mutant that no test catches is a rule with a weak test.
   mutants:
