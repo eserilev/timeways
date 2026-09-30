@@ -305,3 +305,30 @@ fn a_done_task_cannot_be_canceled() {
 
     assert_eq!(received_status(&corvin, &id).as_deref(), Some("done"));
 }
+
+#[test]
+fn giving_up_reaches_the_giver() {
+    let (ada, corvin, id) = accepted();
+
+    corvin.run(&format!("ns.PlayerTasks.GiveUp('{}')", received_key(&id)));
+    exchange(&ada, &corvin);
+
+    assert_eq!(given_status(&ada, &id), "declined");
+}
+
+#[test]
+fn a_doer_holds_at_most_twenty_open_tasks() {
+    let (ada, corvin) = ada_and_corvin();
+    corvin.run(
+        "local received = ns.TaskStore.Data().received
+         for n = 1, 20 do
+             received['Bram-Stormrage/t' .. n] = { id = 't' .. n, giver = 'Bram-Stormrage', doer = 'Corvin-Stormrage',
+                 title = 'Old', text = 'Old.', reward = '', status = 'accepted', sentAt = 1, claims = {},
+                 steps = { { kind = 'place', target = 'Brill', count = 1 } } }
+         end",
+    );
+
+    let id = give(&ada, &corvin);
+
+    assert_eq!(received_status(&corvin, &id), None);
+}

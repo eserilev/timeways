@@ -40,6 +40,7 @@ TaskPins.lua
 TaskWire.lua
 TaskChunks.lua
 TaskPeople.lua
+TaskSaved.lua
 TaskStore.lua
 TaskProof.lua
 TaskChannel.lua

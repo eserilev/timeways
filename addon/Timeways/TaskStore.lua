@@ -23,6 +23,9 @@ local function Table(value)
 	return type(value) == "table" and value or {}
 end
 
+-- The table that TaskSaved checked. The check runs once for each table that the game loads.
+local checked
+
 -- The game loads the saved variables after the files of the addon run, so the table is
 -- read only when a player acts, never while the file loads.
 function TaskStore.Data()
@@ -37,6 +40,10 @@ function TaskStore.Data()
 		data[kind] = Table(data[kind])
 	end
 	data.nextId = type(data.nextId) == "number" and data.nextId or 0
+	if checked ~= data then
+		ns.TaskSaved.Clean(data)
+		checked = data
+	end
 	return data
 end
 

@@ -81,3 +81,10 @@ path = "fuzz_targets/task_wire.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "task_play"
+path = "fuzz_targets/task_play.rs"
+test = false
+doc = false
+bench = false
