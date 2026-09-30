@@ -53,6 +53,9 @@ function Lore.Ask(question)
 		Say("That question is too long. Try a shorter one.")
 		return
 	end
+	if ns.Welcome.OpenIfNoApp() then
+		return
+	end
 	local entry = { question = question, state = "asking" }
 	Keep(entry)
 	ns.Outbox.Add(input, Failed(entry))

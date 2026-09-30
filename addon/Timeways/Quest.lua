@@ -47,6 +47,9 @@ function Quest.Ask()
 		Say("Target someone to ask first.")
 		return
 	end
+	if ns.Welcome.OpenIfNoApp() then
+		return
+	end
 	Send(ns.Inputs.QuestAsked(time(), npc))
 	Say("You ask " .. ns.Plain(npc) .. " for a task.")
 end

@@ -159,6 +159,19 @@ function Welcome.IsShown()
 	return frame ~= nil and frame:IsShown()
 end
 
+-- With no key, nothing can reach the desktop app, so a question would wait forever. The
+-- caller asks nothing when this returns true.
+function Welcome.OpenIfNoApp()
+	if ns.key then
+		return false
+	end
+	DEFAULT_CHAT_FRAME:AddMessage(
+		"|cffc8a064Timeways|r: Timeways needs its desktop app for that. Here's how to install it."
+	)
+	Welcome.Open("setup")
+	return true
+end
+
 local function OpenIfNeeded()
 	local reason = Welcome.Reason()
 	if reason then

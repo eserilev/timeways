@@ -30,6 +30,9 @@ function Talk.Ask(words)
 		Say("That's too long. Try something shorter.")
 		return
 	end
+	if ns.Welcome.OpenIfNoApp() then
+		return
+	end
 	ns.Outbox.Add(input)
 	ns.Outbox.Flush()
 end

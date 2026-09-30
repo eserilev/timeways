@@ -273,3 +273,67 @@ fn the_readme_gives_the_same_install_lines_as_the_window() {
     assert!(readme.contains(&windows), "{windows}");
     assert!(readme.contains(&unix), "{unix}");
 }
+
+/// A game after login whose link can take a message, but with no key to sign it.
+fn logged_in_with_no_key() -> Game {
+    let game = Game::new();
+    game.run("ns.key = nil");
+    game
+}
+
+fn nothing_waits_to_go(game: &Game) -> bool {
+    game.eval("ns.Outbox.Waiting() == 0 and #sent == 0")
+}
+
+fn told_to_install(game: &Game) -> bool {
+    game.printed()
+        .iter()
+        .any(|line| line.contains("needs its desktop app"))
+}
+
+#[test]
+fn lore_with_no_desktop_app_opens_the_setup_window_and_asks_nothing() {
+    let game = logged_in_with_no_key();
+
+    game.run("wow.Slash('/lore', 'why is this tower in ruins?')");
+
+    assert!(shown(&game));
+    assert!(told_to_install(&game));
+    assert!(nothing_waits_to_go(&game));
+    assert_eq!(game.eval::<usize>("#ns.Lore.Entries()"), 0);
+}
+
+#[test]
+fn talk_with_no_desktop_app_opens_the_setup_window_and_sends_nothing() {
+    let game = logged_in_with_no_key();
+    game.run("wow.units.target = { name = 'Innkeeper Farley' }");
+
+    game.run("wow.Slash('/talk', 'hello')");
+
+    assert!(shown(&game));
+    assert!(told_to_install(&game));
+    assert!(nothing_waits_to_go(&game));
+}
+
+#[test]
+fn quest_with_no_desktop_app_opens_the_setup_window_and_asks_nothing() {
+    let game = logged_in_with_no_key();
+    game.run("wow.units.target = { name = 'Innkeeper Farley' }");
+
+    game.run("wow.Slash('/quest', '')");
+
+    assert!(shown(&game));
+    assert!(told_to_install(&game));
+    assert!(nothing_waits_to_go(&game));
+}
+
+#[test]
+fn writing_help_with_no_desktop_app_opens_the_setup_window() {
+    let game = logged_in_with_no_key();
+
+    game.run("ns.TaskDraftHelp.Open()");
+
+    assert!(shown(&game));
+    assert!(told_to_install(&game));
+    assert!(game.eval::<bool>("ns.TaskDraftHelp.State() == nil"));
+}
