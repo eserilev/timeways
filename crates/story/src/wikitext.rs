@@ -80,12 +80,17 @@ pub fn listed_pages(text: &str) -> Vec<String> {
         .collect()
 }
 
-/// The page title of the start of a link target: `:Page_name#Part|label]]` gives
-/// `Page name`.
+/// The page title of the start of a link target: `:page_name#Part|label]]` gives
+/// `Page name`. MediaWiki makes the first letter upper case.
 fn page_title(link: &str) -> String {
     let end = link.find(['|', ']', '#']).unwrap_or(link.len());
     let title = link[..end].trim().trim_start_matches(':');
-    title.replace('_', " ").trim().to_string()
+    let title = title.replace('_', " ");
+    let mut letters = title.trim().chars();
+    let Some(first) = letters.next() else {
+        return String::new();
+    };
+    first.to_uppercase().chain(letters).collect()
 }
 
 /// The `content=` of the book on a page, as wikitext. A page can hold a copy of the book
@@ -97,17 +102,23 @@ pub fn book_content(text: &str) -> Option<&str> {
         .iter()
         .find(|block| !book_title(block).contains("(site)"))
         .or(books.first())?;
-    let content = chosen.find("content=")?;
-    Some(&chosen[content + "content=".len()..])
+    let content = arguments(chosen)
+        .into_iter()
+        .find_map(|argument| argument.trim_start().strip_prefix("content="))?;
+    Some(content.trim())
 }
 
-/// The inside of each `{{Book ...}}` call, with its nested calls. A call that never
-/// closes runs to the end of the page.
+/// The inside of each `{{Book|...}}` call, with its nested calls. A call that never
+/// closes runs to the end of the page. A template such as `{{Bookshelf}}` is no book.
 fn book_blocks(text: &str) -> Vec<&str> {
     let mut blocks = Vec::new();
     let mut from = 0;
-    while let Some(found) = text[from..].find("{{Book") {
+    while let Some(found) = text[from..].find("{{") {
         let start = from + found;
+        if !is_book_call(&text[start + "{{".len()..]) {
+            from = start + "{{".len();
+            continue;
+        }
         let (inside_end, next) = match closing_braces(text, start) {
             Some(end) => (end - "}}".len(), end),
             None => (text.len(), text.len()),
@@ -116,6 +127,44 @@ fn book_blocks(text: &str) -> Vec<&str> {
         from = next;
     }
     blocks
+}
+
+/// The name of a template takes either case in its first letter.
+fn is_book_call(call: &str) -> bool {
+    let Some(rest) = call
+        .strip_prefix("Book")
+        .or_else(|| call.strip_prefix("book"))
+    else {
+        return false;
+    };
+    rest.trim_start_matches(' ').starts_with(['|', '\n'])
+}
+
+/// The arguments of a template call, split at each `|` outside a nested call or link.
+fn arguments(block: &str) -> Vec<&str> {
+    let bytes = block.as_bytes();
+    let mut arguments = Vec::new();
+    let mut depth = 0usize;
+    let mut start = 0;
+    let mut at = 0;
+    while at < bytes.len() {
+        let pair = &bytes[at..bytes.len().min(at + 2)];
+        if pair == b"{{" || pair == b"[[" {
+            depth += 1;
+            at += 2;
+        } else if pair == b"}}" || pair == b"]]" {
+            depth = depth.saturating_sub(1);
+            at += 2;
+        } else {
+            if bytes[at] == b'|' && depth == 0 {
+                arguments.push(&block[start..at]);
+                start = at + 1;
+            }
+            at += 1;
+        }
+    }
+    arguments.push(&block[start..]);
+    arguments
 }
 
 /// The byte after the `}}` that closes the `{{` at `start`.
@@ -142,7 +191,7 @@ fn closing_braces(text: &str, start: usize) -> Option<usize> {
 
 /// The first argument of a book call: `Book|Title|content=...` gives `Title`.
 fn book_title(block: &str) -> &str {
-    block.split('|').nth(1).unwrap_or("")
+    arguments(block).get(1).map_or("", |title| title.trim())
 }
 
 /// The words of wikitext with the markup gone: references, comments, HTML tags,

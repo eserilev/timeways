@@ -601,9 +601,10 @@ A web request for each question is slow, depends on one website, and sends whole
 
 - **From a dump:** `timeways-pack from-dump <dump> <pack>` reads the MediaWiki XML export of the wiki, as a `.7z` archive or unpacked. It streams the file and keeps only the listed pages.
 - **The list is data:** `crates/story/data/pack_sources.toml` holds the pages, and the repo holds no lore text.
-  - The index page "History of Warcraft" and its chapters I to V. Each `* [[Page]]` line of a chapter is a book. The builder takes the `{{Book}}` text of the page. A copy from a website, with "(site)" in its title, comes only when the page has no other copy. Each book passage is common.
+  - The index page "History of Warcraft" and its chapters I to V. Each `* [[Page]]` line of a chapter is a book. The builder takes the `content=` argument of the `{{Book}}` call of the page, and no other argument. A template with a longer name, such as `{{Bookshelf}}`, is no book. A copy from a website, with "(site)" in its title, comes only when the page has no other copy. Each book passage is common.
   - Wiki pages, each with its kept sections, and its places, its NPCs, or `common`.
   - Later terms: regular expressions for the names of later expansions and of their people and places. A paragraph of a wiki page that matches one goes out.
+- **A title** gets an upper case first letter, as in MediaWiki: `[[night elf]]` is the page "Night elf".
 - **A redirect** is followed one step. Two titles that lead to one book give its passages once.
 - **Plain text:** references, comments, HTML tags, templates, tables, pictures, and bold and italic marks go. A link keeps its label. Broken markup leaves no marks.
 - **A passage** is one line of plain text with at least 80 characters. A list line, a table line, or an indented line is no passage. The source is `the book "<title>"` or `the wiki page "<title>"`.
