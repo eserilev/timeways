@@ -156,7 +156,7 @@ fn a_death_to_an_npc_that_you_saw_names_the_killer() {
     let game = Game::new();
     target(&game, "Murloc Forager", "Creature-4", "normal");
 
-    game.run("wow.recap = { { sourceName = 'Murloc Forager' } }; wow.Fire('PLAYER_DEAD')");
+    game.run("wow.recap = { { sourceName = 'Murloc Forager', sourceGUID = 'Creature-4' } }; wow.Fire('PLAYER_DEAD')");
 
     assert_eq!(sent_after_flush(&game), [died(Some("Murloc Forager"))]);
 }
@@ -182,7 +182,7 @@ fn a_name_that_was_ever_on_a_player_is_never_sent_as_a_killer() {
     game.run(
         "wow.units.target = { name = 'Hogger', guid = 'Player-8', player = true }
          wow.Fire('PLAYER_TARGET_CHANGED')
-         wow.recap = { { sourceName = 'Hogger' } }
+         wow.recap = { { sourceName = 'Hogger', sourceGUID = 'Creature-5' } }
          wow.Fire('PLAYER_DEAD')",
     );
 
@@ -210,11 +210,54 @@ fn a_death_with_an_unseen_killer_no_recap_or_a_hidden_caster_names_no_one() {
 }
 
 #[test]
+fn a_killer_with_no_guid_is_never_named() {
+    let game = Game::new();
+    target(&game, "Hogger", "Creature-5", "normal");
+
+    game.run("wow.recap = { { sourceName = 'Hogger' } }; wow.Fire('PLAYER_DEAD')");
+
+    assert_eq!(sent_after_flush(&game), [died(None)]);
+}
+
+/// A player that you never saw has a name that no filter of names knows.
+#[test]
+fn a_killer_with_a_player_guid_is_never_named() {
+    let game = Game::new();
+
+    game.run("wow.recap = { { sourceName = 'Grimtusk', sourceGUID = 'Player-1-0ABC' } }; wow.Fire('PLAYER_DEAD')");
+
+    assert!(!game.sent().concat().contains("Grimtusk"));
+    assert_eq!(sent_after_flush(&game), [died(None)]);
+}
+
+#[test]
+fn a_killer_with_a_vehicle_guid_is_named() {
+    let game = Game::new();
+
+    game.run("wow.recap = { { sourceName = 'Siege Engine', sourceGUID = 'Vehicle-0-1-2-3-4-5' } }; wow.Fire('PLAYER_DEAD')");
+
+    assert_eq!(sent_after_flush(&game), [died(Some("Siege Engine"))]);
+}
+
+#[test]
+fn a_hidden_killer_guid_is_never_used() {
+    let game = Game::new();
+
+    game.run(
+        "wow.secrets['Creature-5'] = true
+         wow.recap = { { sourceName = 'Hogger', sourceGUID = 'Creature-5' } }
+         wow.Fire('PLAYER_DEAD')",
+    );
+
+    assert_eq!(sent_after_flush(&game), [died(None)]);
+}
+
+#[test]
 fn a_hidden_killer_name_is_never_used() {
     let game = Game::new();
     target(&game, "Hogger", "Creature-5", "normal");
 
-    game.run("wow.secrets['Hogger'] = true; wow.recap = { { sourceName = 'Hogger' } }; wow.Fire('PLAYER_DEAD')");
+    game.run("wow.secrets['Hogger'] = true; wow.recap = { { sourceName = 'Hogger', sourceGUID = 'Creature-5' } }; wow.Fire('PLAYER_DEAD')");
 
     assert_eq!(sent_after_flush(&game), [died(None)]);
 }
@@ -254,7 +297,7 @@ fn a_known_killer_goes_out_with_its_level() {
     game.run(
         "wow.units.target = { name = 'Cow', guid = 'Creature-9', level = 1 }
          wow.Fire('PLAYER_TARGET_CHANGED')
-         wow.recap = { { sourceName = 'Cow' } }
+         wow.recap = { { sourceName = 'Cow', sourceGUID = 'Creature-9' } }
          wow.Fire('PLAYER_DEAD')",
     );
 

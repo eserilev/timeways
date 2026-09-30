@@ -411,7 +411,7 @@ The addon sends game events in batches with the next strip. Nothing needs to arr
 - It keeps, in memory only, the GUID of each rare, rare elite, and world boss that it sees. `PARTY_KILL` gives the GUID of the target of a killing blow of you or your group.
 - A raid boss gives both `PARTY_KILL` and `ENCOUNTER_END`, so one name counts once in 2 minutes.
 - The client can hide a value from addons ("secret values"). The addon checks each GUID and name with `issecretvalue`, and never compares or stores a hidden one.
-- A death names its killer only when the addon saw that name on an NPC and never on a player. So the name of a real player never leaves the computer (5.11).
+- A death names its killer only when the killing blow of the recap has the GUID of an NPC (`Creature-` or `Vehicle-`), and the addon never saw the name on a player. With no GUID, the death names no killer. So the name of a real player never leaves the computer (5.11).
 
 **What it watches, and what it never watches.** Timeways takes in chosen moments, not every action. A player makes thousands of actions per hour, a strip holds at most 3200 bytes, and a story needs meaning, not a damage log.
 
@@ -778,7 +778,7 @@ The guild world keeps `defeated` from the guild to each boss. So the saga gets a
 7. **Decided: two addons** (5.12). Still open: do 2000 slot folders make the game start slower, and does a `## Group` start folded in the AddOns list? Measure both in the game.
 8. **The strength of the echo lore** (5.13). Off, light, or strong, and which level is the default? Does a strong level need a named bronze dragon, and how does it stay inside the lore cutoff?
 9. **The closed combat log** (5.4). Addons in this client cannot read the combat log. Kills of rares and bosses and your deaths work without it. These features still need a source:
-   - Nemesis (4.1): the death recap names the killer, but gives no GUID, so the addon cannot tell a player from an NPC with the same name for sure.
+   - Nemesis (4.1): the death recap names the killer, but its documentation lists no GUID, so the addon cannot tell a player from an NPC with the same name for sure. The addon reads `sourceGUID` when the recap gives it. If the recap gives none, no death names a killer.
    - Critter kills and common mob counts (5.4.1): `UNIT_DIED` gives a GUID, but a GUID can be secret, and the range of the event is not documented. A kill step of a task (3.4) counts only the units of its creature that the addon saw, from `PARTY_KILL`.
    - Wipes and the first player to die in a raid (4.2).
    - A test in the game settles what `UNIT_DIED`, `PARTY_KILL`, and the recap really give, and when values are secret.

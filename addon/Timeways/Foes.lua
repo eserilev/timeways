@@ -13,9 +13,9 @@ local NOTABLE = { rare = true, rareelite = true, worldboss = true }
 -- A raid boss gives both PARTY_KILL and ENCOUNTER_END, so a name counts once in this time.
 local SAME_KILL_SECONDS = 120
 
--- Only in memory, and never sent: the names of NPCs and players that you saw, and the rares
--- and bosses by GUID.
-local npcs, players, notable, levels = {}, {}, {}, {}
+-- Only in memory, and never sent: the names of players that you saw, the levels of NPCs,
+-- and the rares and bosses by GUID.
+local players, notable, levels = {}, {}, {}
 local lastKill = {}
 -- The creatures of the next kill step of each task in progress, and the units of them that
 -- you saw and can attack, by GUID. A common mob counts only when a task hunts it.
@@ -49,7 +49,6 @@ function Foes.See(unit)
 		players[name] = true
 		return
 	end
-	npcs[name] = true
 	levels[name] = UnitLevel(unit)
 	if hunted[name] and UnitCanAttack("player", unit) then
 		prey[guid] = name
@@ -176,19 +175,26 @@ local function KillingBlow()
 		return nil
 	end
 	local blow = (C_DeathRecap.GetRecapEvents() or {})[1]
-	if type(blow) == "table" and Readable(blow.sourceName, blow.hideCaster, blow.environmentalType) then
+	if
+		type(blow) == "table" and Readable(blow.sourceName, blow.sourceGUID, blow.hideCaster, blow.environmentalType)
+	then
 		return blow
 	end
 end
 
--- A name that was ever on a player stays out, so the name of a real player never leaves
--- the computer (5.11).
+local function IsNpcGuid(guid)
+	return type(guid) == "string" and (guid:match("^Creature%-") or guid:match("^Vehicle%-")) ~= nil
+end
+
+-- Only a killer with the GUID of an NPC is named, because a name alone can be a player's.
+-- A name that was ever on a player stays out too. So the name of a real player never
+-- leaves the computer (5.11).
 local function Killer(blow)
-	if not blow or blow.hideCaster then
+	if not blow or blow.hideCaster or not IsNpcGuid(blow.sourceGUID) then
 		return nil
 	end
 	local name = blow.sourceName
-	if type(name) == "string" and npcs[name] and not players[name] then
+	if type(name) == "string" and not players[name] then
 		return name
 	end
 end
