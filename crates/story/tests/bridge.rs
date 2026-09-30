@@ -100,7 +100,7 @@ fn a_question_goes_to_the_model_and_its_answer_comes_back_with_the_sources() {
     );
     assert_eq!(
         lines[1],
-        r#"{"type":"lore_answer","id":5,"text":"Goblins burned it [1].","passages":[{"text":"The tower of Testvale fell.","source":"https://example.test/1"}]}"#
+        r#"{"type":"lore_answer","id":5,"text":"Goblins burned it.","passages":[{"text":"The tower of Testvale fell.","source":"https://example.test/1"}]}"#
     );
 }
 

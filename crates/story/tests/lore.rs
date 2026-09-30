@@ -38,7 +38,7 @@ fn a_good_answer_shows_with_its_passages() {
     assert_eq!(
         answer,
         Answer {
-            text: Some("It fell to goblins [1].".to_string()),
+            text: Some("It fell to goblins.".to_string()),
             passages: passages()
         }
     );
@@ -61,7 +61,7 @@ fn a_good_retry_shows() {
 
     let answer = done(retry.answered("It fell to goblins [1]."));
 
-    assert_eq!(answer.text.as_deref(), Some("It fell to goblins [1]."));
+    assert_eq!(answer.text.as_deref(), Some("It fell to goblins."));
 }
 
 #[test]

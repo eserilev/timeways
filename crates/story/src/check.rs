@@ -249,14 +249,34 @@ fn citations(text: &str) -> Vec<usize> {
         let Some(close) = rest.find(']') else {
             break;
         };
-        let parsed: Result<Vec<usize>, _> = rest[..close]
-            .split(',')
-            .map(|part| part.trim().parse())
-            .collect();
-        if let Ok(parsed) = parsed {
-            numbers.extend(parsed);
-        }
+        numbers.extend(citation(&rest[..close]).unwrap_or_default());
         rest = &rest[close + 1..];
     }
     numbers
+}
+
+fn citation(inside: &str) -> Option<Vec<usize>> {
+    inside
+        .split(',')
+        .map(|part| part.trim().parse().ok())
+        .collect()
+}
+
+/// The citations serve the check. The player reads the answer without them.
+#[must_use]
+pub fn without_citations(text: &str) -> String {
+    let mut kept = String::new();
+    let mut rest = text;
+    while let Some(open) = rest.find('[') {
+        let close = rest[open..].find(']').map(|close| open + close);
+        let Some(close) = close.filter(|&close| citation(&rest[open + 1..close]).is_some()) else {
+            kept.push_str(&rest[..=open]);
+            rest = &rest[open + 1..];
+            continue;
+        };
+        kept.push_str(rest[..open].trim_end());
+        rest = &rest[close + 1..];
+    }
+    kept.push_str(rest);
+    kept.trim().to_string()
 }

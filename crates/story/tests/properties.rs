@@ -7,6 +7,7 @@ use proptest::prelude::*;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use timeways_story::character::Character;
+use timeways_story::check::{Fault, check, without_citations};
 use timeways_story::house::fenced;
 use timeways_story::input::{Input, MessageId};
 use timeways_story::journal::{Journal, journal, pages};
@@ -365,6 +366,18 @@ proptest! {
         prop_assume!(a != b);
         prop_assert_ne!(safe_id(&a), safe_id(&b));
         prop_assert!(safe_id(&a).bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'_'));
+    }
+
+    /// Mostly brackets, digits, and commas, so that broken and nested citations come often.
+    #[test]
+    fn an_answer_without_citations_cites_nothing(text in "[\\[\\]0-9, a.]{0,30}") {
+        let plain = without_citations(&text);
+
+        let faults = check(&plain, 0);
+        prop_assert!(
+            !faults.iter().any(|fault| matches!(fault, Fault::UnknownCitation { .. })),
+            "{:?} became {:?}", text, plain
+        );
     }
 
     /// Mostly angle marks, so that broken and joined fence marks come often.

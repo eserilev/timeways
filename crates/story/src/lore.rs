@@ -2,14 +2,14 @@
 //! passages alone (GAMEPLAY.md 3.1, 5.6, and 5.9). No I/O: the caller carries each prompt
 //! to the model, and each answer back.
 
-use crate::check::check;
+use crate::check::{check, without_citations};
 use crate::pack::Passage;
 use crate::prompt::{self, Context};
 use serde::Serialize;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
 pub struct Answer {
-    /// The words of the model, with `[n]` for passage n. None shows the passages alone.
+    /// The words of the model, without its citations. None shows the passages alone.
     pub text: Option<String>,
     pub passages: Vec<Passage>,
 }
@@ -54,7 +54,7 @@ impl LoreCall {
     pub fn answered(self, text: &str) -> Next {
         let faults = check(text, self.passages.len());
         if faults.is_empty() {
-            let text = Some(text.trim().to_string());
+            let text = Some(without_citations(text.trim()));
             return Next::Done(Answer {
                 text,
                 passages: self.passages,

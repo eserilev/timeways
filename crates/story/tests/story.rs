@@ -183,7 +183,7 @@ fn the_model_answer_shows_with_the_passages() {
     let output = one(story.handle(Input::ModelAnswered { call, text }).unwrap());
 
     let expected = Answer {
-        text: Some("Goblins burned it [1].".to_string()),
+        text: Some("Goblins burned it.".to_string()),
         passages: vec![tower()],
     };
     assert_eq!(answer(output), expected);

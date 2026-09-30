@@ -3,7 +3,7 @@
 use hourglass::Tick;
 use timeways_story::check::{
     Fault, MAX_CHARS, banned_words, banned_words_in, check, in_voice, later_names, mentions,
-    names_after_cutoff, names_in_no_fact, plain_text, voice_text,
+    names_after_cutoff, names_in_no_fact, plain_text, voice_text, without_citations,
 };
 use timeways_story::flavor::{self, Flavor, Kind};
 use timeways_story::journal::{Chapter, Deed};
@@ -419,4 +419,22 @@ fn describe_flavor(kind: &Kind) -> String {
         kind: kind.clone(),
     };
     flavor::describe(&flavor, 2)
+}
+
+#[test]
+fn citations_leave_the_answer_in_every_form() {
+    let text =
+        "[3] The Forsaken took Lordaeron [1]. They built a city below [8, 6], and wait [2,4].";
+
+    assert_eq!(
+        without_citations(text),
+        "The Forsaken took Lordaeron. They built a city below, and wait."
+    );
+}
+
+#[test]
+fn brackets_that_are_no_citation_stay() {
+    let text = "The [Scourge] came [soon], [] and [1a].";
+
+    assert_eq!(without_citations(text), text);
 }
