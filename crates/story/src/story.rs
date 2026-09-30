@@ -13,6 +13,7 @@ use crate::memory;
 use crate::moments::{Moment, best, moments};
 use crate::narrator::{self, Budget};
 use crate::pack::{Link, Pack, PackError, Passage};
+use crate::places::InstanceKind;
 use crate::prompt::Context;
 use crate::quest::{Status, quest_log};
 use crate::reply_size::{MAX_LINE, MAX_SLOT, Size};
@@ -291,6 +292,7 @@ impl Story {
                 self.change(|character| character.enter_zone(at, &zone, subzone.as_deref()))?;
                 self.advance_quests(at, None)
             }
+            Input::InstanceEntered { at, zone, kind } => self.mark_instance(at, &zone, kind),
             Input::NpcMet { at, name } => {
                 checked_name(&name)?;
                 self.change(|character| character.meet_npc(at, &name))?;
@@ -373,6 +375,16 @@ impl Story {
             Input::ModelAnswered { call, text } => self.answered(call, &text),
             Input::ModelFailed { call } => self.failed(call),
         }
+    }
+
+    fn mark_instance(
+        &mut self,
+        at: Tick,
+        zone: &str,
+        kind: InstanceKind,
+    ) -> Result<Vec<Output>, StoryError> {
+        checked_name(zone)?;
+        self.change(|character| character.mark_instance(at, zone, kind))
     }
 
     fn take_game_quest(
@@ -899,7 +911,8 @@ impl Story {
             return None;
         }
         let active = self.active.as_ref()?;
-        let chapters = journal(&active.character).chapters;
+        let journal = journal(&active.character);
+        let chapters = journal.chapters;
         let index = (1..chapters.len()).map(|next| next - 1).find(|&index| {
             let began = chapters[index].began;
             active.prose.get(began).is_none() && !self.chronicle_asked.contains(&began)
@@ -931,7 +944,14 @@ impl Story {
         let sheet_is_news =
             index == 0 || hero::sheet_changed(active.hero.changes(), chapter.began, next.began);
         let portrait = sheet_is_news.then(|| hero::portrait(&hero)).flatten();
-        let prompt = chronicle::prompt(chapter, earlier, &words, portrait.as_deref(), &written);
+        let prompt = chronicle::prompt(
+            &journal.places,
+            chapter,
+            earlier,
+            &words,
+            portrait.as_deref(),
+            &written,
+        );
         self.chronicle_asked.insert(chapter.began);
         Some(self.open_call(pending, prompt))
     }

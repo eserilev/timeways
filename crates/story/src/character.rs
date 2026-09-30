@@ -1,9 +1,11 @@
 //! The world of one character, fed by game events (GAMEPLAY.md 5.1 and 5.2).
 
 use crate::input::GameQuestKind;
+use crate::places::InstanceKind;
 use crate::vocabulary::{
-    self, CLASS_QUEST, DEAD, DEATHS, DEFEATED, GAME_QUEST_DONE, GAME_QUEST_TAKEN, LEVEL, MET,
-    QUEST_ACCEPTED, QUEST_DONE, QUEST_OFFERED, SLAPPED, TALLY, TITLE, TRUST, TRUSTS, VISITED,
+    self, CLASS_QUEST, DEAD, DEATHS, DEFEATED, DUNGEON, GAME_QUEST_DONE, GAME_QUEST_TAKEN, LEVEL,
+    MET, QUEST_ACCEPTED, QUEST_DONE, QUEST_OFFERED, RAID, SLAPPED, TALLY, TITLE, TRUST, TRUSTS,
+    VISITED,
 };
 use hourglass::{
     Entity, EntityId, EntityType, Event, EventHistory, EventKind, LOCATED_IN, Rejection, Tick,
@@ -322,6 +324,38 @@ impl Character {
         let subzone_id = self.place(at, subzone, Some(zone_id))?;
         self.start_once(at, self.you, VISITED, subzone_id)?;
         self.settle(at, self.you, subzone_id)
+    }
+
+    /// The zone is an instance of the game. The mark stays, because an instance stays one.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first refusal of Hourglass.
+    pub fn mark_instance(
+        &mut self,
+        at: Tick,
+        zone: &str,
+        kind: InstanceKind,
+    ) -> Result<(), Refusal> {
+        let zone = self.place(at, zone, None)?;
+        let name = match kind {
+            InstanceKind::Dungeon => DUNGEON,
+            InstanceKind::Raid => RAID,
+        };
+        if self
+            .world
+            .entity(zone)
+            .is_some_and(|place| place.fact(name, None).is_some())
+        {
+            return Ok(());
+        }
+        let mark = EventKind::FactStart {
+            entity: zone,
+            name: name.to_string(),
+            value: None,
+            linked_to: None,
+        };
+        self.propose(at, mark)
     }
 
     /// # Errors

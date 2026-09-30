@@ -103,13 +103,20 @@ fn side_quest_chapter() -> String {
         ["The player used the emote /dance in Sentinel Hill, for the 1st time.".to_string()];
     let told = ["The lantern belonged to my brother."];
     let earlier = earlier_chapters();
-    chronicle::prompt(&chapter, &earlier, &moments, portrait().as_deref(), &told)
+    chronicle::prompt(
+        &[],
+        &chapter,
+        &earlier,
+        &moments,
+        portrait().as_deref(),
+        &told,
+    )
 }
 
 fn quiet_chapter() -> String {
     let chapter = chapter(5, &["Redridge Mountains"], Vec::new());
     let earlier = earlier_chapters();
-    chronicle::prompt(&chapter, &earlier, &[], portrait().as_deref(), &[])
+    chronicle::prompt(&[], &chapter, &earlier, &[], portrait().as_deref(), &[])
 }
 
 /// The three chapters that a chapter prompt recalls.

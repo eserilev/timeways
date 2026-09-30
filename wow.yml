@@ -69,6 +69,8 @@ globals:
   UnitClass:
     args:
       - type: string
+  IsInInstance:
+    args: []
   C_QuestLog:
     any: true
   issecretvalue:

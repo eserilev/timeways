@@ -2,8 +2,9 @@ use hourglass::Tick;
 use timeways_story::chronicle::{
     MAX_CHAPTER_CHARS, MAX_FOOTNOTE_CHARS, Saga, checked_saga, prompt,
 };
-use timeways_story::journal::{Chapter, Deed};
+use timeways_story::journal::{Chapter, Deed, Place};
 use timeways_story::narrator::PERSONA;
+use timeways_story::places::PlaceKind;
 use timeways_story::samples::{Voice, rotated};
 
 fn chapter() -> Chapter {
@@ -47,7 +48,7 @@ fn saga(text: &str) -> Saga {
 
 #[test]
 fn a_prompt_holds_every_fact_of_the_chapter_and_asks_for_json() {
-    let prompt = prompt(&chapter(), &[], &[], None, &[]);
+    let prompt = prompt(&[], &chapter(), &[], &[], None, &[]);
 
     let facts = "The facts of chapter 3:\n<<<\n\
         - Traveled to: Westfall, Duskwood.\n\
@@ -66,7 +67,7 @@ fn a_prompt_holds_every_fact_of_the_chapter_and_asks_for_json() {
 
 #[test]
 fn a_chapter_starts_with_the_persona_of_the_narrator_and_ends_with_its_note() {
-    let prompt = prompt(&chapter(), &[], &[], None, &[]);
+    let prompt = prompt(&[], &chapter(), &[], &[], None, &[]);
 
     assert!(prompt.starts_with(PERSONA), "{prompt}");
     let note = prompt.rsplit(">>>").next().unwrap();
@@ -81,7 +82,7 @@ fn a_chapter_recalls_the_chapters_before_it_from_their_facts() {
     first.people.clear();
     first.zones = vec!["Elwynn Forest".to_string()];
 
-    let prompt = prompt(&chapter(), &[first], &[], None, &[]);
+    let prompt = prompt(&[], &chapter(), &[first], &[], None, &[]);
 
     let memory = "What came before, as the chronicle holds it. Do not tell it again:\n\
         <<<\n- Chapter 1: traveled to Elwynn Forest.\n>>>";
@@ -90,14 +91,14 @@ fn a_chapter_recalls_the_chapters_before_it_from_their_facts() {
 
 #[test]
 fn the_first_chapter_recalls_nothing() {
-    let prompt = prompt(&chapter(), &[], &[], None, &[]);
+    let prompt = prompt(&[], &chapter(), &[], &[], None, &[]);
 
     assert!(!prompt.contains("What came before"), "{prompt}");
 }
 
 #[test]
 fn the_number_of_a_chapter_picks_its_samples() {
-    let prompt = prompt(&chapter(), &[], &[], None, &[]);
+    let prompt = prompt(&[], &chapter(), &[], &[], None, &[]);
 
     for sample in rotated(Voice::Chapter, 3) {
         assert!(prompt.contains(sample), "{sample}");
@@ -113,7 +114,7 @@ fn a_finished_quest_is_a_fact_of_its_chapter() {
         place: None,
     }];
 
-    let prompt = prompt(&chapter, &[], &[], None, &[]);
+    let prompt = prompt(&[], &chapter, &[], &[], None, &[]);
 
     assert!(
         prompt.contains("- Finished the task \"The Lost Lantern\"."),
@@ -128,7 +129,7 @@ fn a_prompt_numbers_the_small_moments_for_footnotes() {
         "The player died to falling.".to_string(),
     ];
 
-    let prompt = prompt(&chapter(), &[], &moments, None, &[]);
+    let prompt = prompt(&[], &chapter(), &[], &moments, None, &[]);
 
     assert!(prompt.contains("Small moments:\n<<<\n1. The player used the emote /dance in Goldshire.\n2. The player died to falling.\n>>>\n"), "{prompt}");
     assert!(
@@ -202,4 +203,32 @@ fn a_broken_empty_long_late_or_wide_saga_is_dropped() {
         None
     );
     assert_eq!(checked_saga(&wide, 0), None);
+}
+
+#[test]
+fn the_facts_say_which_zone_is_a_dungeon_a_raid_or_a_capital() {
+    let mut chapter = chapter();
+    chapter.zones = ["Westfall", "The Deadmines", "Molten Core", "Stormwind City"]
+        .map(String::from)
+        .to_vec();
+    let place = |name: &str, kind| Place {
+        name: name.to_string(),
+        kind,
+        within: None,
+        first_visit: Tick(1),
+    };
+    let places = [
+        place("The Deadmines", PlaceKind::Dungeon),
+        place("Molten Core", PlaceKind::Raid),
+        place("Stormwind City", PlaceKind::Capital),
+    ];
+
+    let prompt = prompt(&places, &chapter, &[], &[], None, &[]);
+
+    assert!(
+        prompt.contains(
+            "- Traveled to: Westfall, The Deadmines (a dungeon), Molten Core (a raid), Stormwind City (a capital city)."
+        ),
+        "{prompt}"
+    );
 }

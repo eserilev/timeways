@@ -1,5 +1,6 @@
 use hourglass::Tick;
 use timeways_story::input::{CallId, GameQuestKind, Input, MessageId};
+use timeways_story::places::InstanceKind;
 
 fn parse(line: &str) -> Result<Input, serde_json::Error> {
     serde_json::from_str(line)
@@ -297,6 +298,38 @@ fn a_quest_of_the_game_reads_with_its_kind() {
 #[test]
 fn a_quest_of_the_game_with_an_unknown_kind_is_refused() {
     let line = r#"{"type":"game_quest_done","at":6,"title":"X","kind":"epic"}"#;
+
+    assert!(parse(line).is_err());
+}
+
+#[test]
+fn an_instance_reads_as_a_dungeon_or_a_raid() {
+    let dungeon =
+        parse(r#"{"type":"instance_entered","at":5,"zone":"The Deadmines","kind":"party"}"#)
+            .unwrap();
+    let raid =
+        parse(r#"{"type":"instance_entered","at":5,"zone":"Molten Core","kind":"raid"}"#).unwrap();
+
+    assert_eq!(
+        dungeon,
+        Input::InstanceEntered {
+            at: Tick(5),
+            zone: "The Deadmines".to_string(),
+            kind: InstanceKind::Dungeon,
+        }
+    );
+    assert!(matches!(
+        raid,
+        Input::InstanceEntered {
+            kind: InstanceKind::Raid,
+            ..
+        }
+    ));
+}
+
+#[test]
+fn a_battleground_is_no_instance_of_the_story() {
+    let line = r#"{"type":"instance_entered","at":5,"zone":"Warsong Gulch","kind":"pvp"}"#;
 
     assert!(parse(line).is_err());
 }

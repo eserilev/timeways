@@ -195,6 +195,12 @@ return {
 				{ Name = "time", Type = "number", Nilable = false },
 			},
 		},
+		IsInInstance = {
+			Returns = {
+				{ Name = "isInInstance", Type = "bool", Nilable = false },
+				{ Name = "instanceType", Type = "cstring", Nilable = false },
+			},
+		},
 		Screenshot = {},
 		UnitCanAttack = {
 			SecretArguments = "AllowedWhenUntainted",

@@ -15,6 +15,7 @@ use timeways_story::house::fenced;
 use timeways_story::input::{GameQuestKind, Input, MessageId};
 use timeways_story::journal::{Journal, journal, pages};
 use timeways_story::pack::Pack;
+use timeways_story::places::InstanceKind;
 use timeways_story::quest::{QuestChange, Status, Step, quest_log};
 use timeways_story::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use timeways_story::seen::TextKind;
@@ -41,6 +42,8 @@ enum Play {
     Quest(String, Vec<(bool, String)>),
     Accept,
     Decline,
+    /// A zone that the game calls an instance.
+    Instance(String, InstanceKind),
     /// A quest of the game: taken, or turned in.
     GameQuest(String, GameQuestKind, bool),
     Wait(u64),
@@ -84,6 +87,11 @@ fn play() -> impl Strategy<Value = Play> {
             .prop_map(|(npc, steps)| Play::Quest(npc, steps)),
         Just(Play::Accept),
         Just(Play::Decline),
+        (
+            name(),
+            prop::sample::select(vec![InstanceKind::Dungeon, InstanceKind::Raid]),
+        )
+            .prop_map(|(zone, kind)| Play::Instance(zone, kind)),
         (
             name(),
             prop::sample::select(vec![GameQuestKind::Normal, GameQuestKind::Class]),
@@ -167,6 +175,7 @@ fn input(play: &Play, at: Tick) -> Option<Input> {
         Play::Meet(name) => Input::NpcMet { at, name },
         Play::Defeat(name) => Input::NpcDefeated { at, name },
         Play::Slap(name) => Input::NpcSlapped { at, name },
+        Play::Instance(zone, kind) => Input::InstanceEntered { at, zone, kind },
         Play::GameQuest(title, kind, false) => Input::GameQuestAccepted { at, title, kind },
         Play::GameQuest(title, kind, true) => Input::GameQuestDone { at, title, kind },
         Play::Die(killer) => Input::Died {

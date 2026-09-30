@@ -5,6 +5,7 @@ use crate::check::voice_text;
 use crate::hero::OWN_WORDS;
 use crate::house::{HOUSE_RULES, fenced};
 use crate::moments::Moment;
+use crate::places::InstanceKind;
 use crate::samples::{self, Voice};
 use hourglass::Tick;
 use std::fmt::Write;
@@ -78,6 +79,17 @@ fn what_happened(moment: &Moment) -> String {
         }
         Moment::LevelUp { level } => format!("The player reached level {level}."),
         Moment::NewZone { zone } => format!("The player arrived in {zone} for the first time."),
+        Moment::FirstInstance {
+            zone,
+            kind: InstanceKind::Dungeon,
+        } => format!("The player entered the dungeon {zone} for the first time."),
+        Moment::FirstInstance {
+            zone,
+            kind: InstanceKind::Raid,
+        } => format!("The player entered the raid {zone} for the first time."),
+        Moment::FirstCapital { city } => {
+            format!("The player arrived in the capital city {city} for the first time.")
+        }
         Moment::ClassQuestDone { title } => {
             format!("The player finished \"{title}\", a quest of their class.")
         }

@@ -5,6 +5,7 @@ use crate::chapters::{chapter_starts, is_level_milestone, sessions};
 use crate::character::{Character, title_of_game_quest};
 use crate::hero::{Entry, Hero};
 use crate::learned::Learned;
+use crate::places::{self, PlaceKind};
 use crate::quest::{Tracked, title_of_thing};
 use crate::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use crate::vocabulary::{
@@ -67,6 +68,7 @@ pub struct Chapter {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Place {
     pub name: String,
+    pub kind: PlaceKind,
     /// The place around it: the zone of a subzone. None for a zone.
     pub within: Option<String>,
     pub first_visit: Tick,
@@ -250,6 +252,7 @@ pub fn journal(character: &Character) -> Journal {
         .into_iter()
         .map(|(place, first_visit)| Place {
             name: name_of(world, place),
+            kind: places::kind_of(world, place),
             within: world.location_of(place).map(|zone| name_of(world, zone)),
             first_visit,
         })

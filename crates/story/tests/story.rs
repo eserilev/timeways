@@ -5,6 +5,7 @@ use std::path::Path;
 use timeways_story::input::{CallId, GameQuestKind, Input, MessageId};
 use timeways_story::lore::Answer;
 use timeways_story::pack::{Link, Origin, Pack, Passage};
+use timeways_story::places::InstanceKind;
 use timeways_story::store::Store;
 use timeways_story::story::{Output, Story, StoryError};
 
@@ -609,6 +610,25 @@ fn a_turned_in_class_quest_asks_the_narrator_for_a_line() {
         prompt.contains(
             "The moment:\n<<<\nThe player finished \"Rediscovering the Light\", a quest of their class.\n>>>"
         ),
+        "{prompt}"
+    );
+}
+
+#[test]
+fn a_first_dungeon_asks_the_narrator_for_a_line() {
+    let mut story = story_with("first-dungeon", &[]);
+    enter(&mut story, 1, "The Deadmines", None);
+    let entered = Input::InstanceEntered {
+        at: Tick(1),
+        zone: "The Deadmines".to_string(),
+        kind: InstanceKind::Dungeon,
+    };
+    assert!(story.handle(entered).unwrap().is_empty());
+
+    let (_, prompt) = model_call(batch_end(&mut story, 2));
+
+    assert!(
+        prompt.contains("The player entered the dungeon The Deadmines for the first time."),
         "{prompt}"
     );
 }

@@ -2,7 +2,10 @@
 //! (GAMEPLAY.md 3.2). The narrator speaks about the best one.
 
 use crate::character::title_of_game_quest;
-use crate::vocabulary::{CLASS_QUEST, DEFEATED, GAME_QUEST_DONE, LEVEL, SLAPPED, TITLE, VISITED};
+use crate::places::{InstanceKind, is_capital};
+use crate::vocabulary::{
+    CLASS_QUEST, DEFEATED, DUNGEON, GAME_QUEST_DONE, LEVEL, RAID, SLAPPED, TITLE, VISITED,
+};
 use hourglass::{EntityId, Event, EventKind, World};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -40,6 +43,15 @@ pub enum Moment {
     NewZone {
         zone: String,
     },
+    /// The first entry into a dungeon or a raid: a zone that the game called an instance.
+    FirstInstance {
+        zone: String,
+        kind: InstanceKind,
+    },
+    /// The first visit of a capital city.
+    FirstCapital {
+        city: String,
+    },
 }
 
 impl Moment {
@@ -49,10 +61,10 @@ impl Moment {
             Moment::ClassQuestDone { .. } => 7,
             Moment::Titled { .. } => 6,
             Moment::Flavor { .. } => 0,
-            Moment::FirstKill { .. } => 5,
+            Moment::FirstKill { .. } | Moment::FirstInstance { .. } => 5,
             Moment::SlainAgain { .. } => 4,
             Moment::Slapped { .. } => 3,
-            Moment::LevelUp { .. } => 2,
+            Moment::LevelUp { .. } | Moment::FirstCapital { .. } => 2,
             Moment::NewZone { .. } => 1,
         }
     }
@@ -126,8 +138,26 @@ fn moment(world: &World, you: EntityId, kind: &EventKind) -> Option<Moment> {
             linked_to: Some(place),
             ..
         } if *entity == you && name == VISITED && world.location_of(*place).is_none() => {
-            Some(Moment::NewZone {
+            let zone = name_of(place)?;
+            if is_capital(&zone) {
+                return Some(Moment::FirstCapital { city: zone });
+            }
+            Some(Moment::NewZone { zone })
+        }
+        EventKind::FactStart {
+            entity: place,
+            name,
+            linked_to: None,
+            ..
+        } if name == DUNGEON || name == RAID => {
+            let kind = if name == RAID {
+                InstanceKind::Raid
+            } else {
+                InstanceKind::Dungeon
+            };
+            Some(Moment::FirstInstance {
                 zone: name_of(place)?,
+                kind,
             })
         }
         EventKind::FactStart {

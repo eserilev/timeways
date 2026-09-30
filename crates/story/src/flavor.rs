@@ -2,20 +2,14 @@
 //! numbers, so a test can state each rule. No model takes part.
 
 use crate::character::Character;
+use crate::places::is_capital;
 use hourglass::Tick;
 use serde::{Deserialize, Serialize};
 
 /// A moment that the spec example scores: a dance in Goldshire, or a death in a capital.
 /// Names of the game, not claims of lore.
-const FAMOUS_PLACES: [&str; 7] = [
-    "Goldshire",
-    "Stormwind City",
-    "Ironforge",
-    "Darnassus",
-    "Orgrimmar",
-    "Thunder Bluff",
-    "Undercity",
-];
+/// Besides the capitals, the one place that every player of the classic world knows.
+const FAMOUS_VILLAGE: &str = "Goldshire";
 
 /// The local hours that make a moment odd: "a dance in Goldshire at 3 AM".
 const ODD_HOURS: std::ops::RangeInclusive<u8> = 2..=5;
@@ -117,7 +111,7 @@ pub fn score(flavor: &Flavor, earlier: &[Flavor], told: &[Told], character: &Cha
     let famous = names
         .into_iter()
         .flatten()
-        .any(|name| FAMOUS_PLACES.contains(&name));
+        .any(|name| name == FAMOUS_VILLAGE || is_capital(name));
     let odd_hour = flavor.hour.is_some_and(|hour| ODD_HOURS.contains(&hour));
     first_time(same)
         + rare_for_you(same)

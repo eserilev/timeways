@@ -21,6 +21,21 @@ function Watch.Zone()
 	end
 	lastZone, lastSubzone = zone, subzone
 	ns.Outbox.Add(ns.Inputs.Zone(time(), zone, subzone))
+	local kind = Watch.InstanceKind()
+	if kind then
+		ns.Outbox.Add(ns.Inputs.Instance(time(), zone, kind))
+	end
+end
+
+-- "party" for a dungeon and "raid" for a raid. A battleground or an arena is no story
+-- place, so it counts as none.
+local INSTANCE_KINDS = { party = true, raid = true }
+
+function Watch.InstanceKind()
+	local inside, kind = IsInInstance()
+	if inside and INSTANCE_KINDS[kind] then
+		return kind
+	end
 end
 
 -- A party member who shares a quest is the "npc" unit too, and a player's name stays out

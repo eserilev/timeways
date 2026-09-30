@@ -5,6 +5,7 @@ use timeways_story::character::Character;
 use timeways_story::input::{GameQuestKind, MessageId};
 use timeways_story::journal::{Chapter, Deed, Journal, Person, Place, journal, pages};
 use timeways_story::learned::{Read, learned};
+use timeways_story::places::{InstanceKind, PlaceKind};
 use timeways_story::reply_size::MAX_LINE;
 use timeways_story::seen::{MAX_SEEN_BYTES, SeenText, TextKind};
 use timeways_story::story::{MAX_NAME_BYTES, Output};
@@ -12,6 +13,7 @@ use timeways_story::story::{MAX_NAME_BYTES, Output};
 fn place(name: &str, within: Option<&str>, first_visit: u64) -> Place {
     Place {
         name: name.to_string(),
+        kind: PlaceKind::Zone,
         within: within.map(str::to_string),
         first_visit: Tick(first_visit),
     }
@@ -620,4 +622,76 @@ fn a_quest_taken_again_after_a_turn_in_adds_no_second_deed() {
     }
 
     assert_eq!(journal(&character).deeds.len(), 1);
+}
+
+/// The kind of each place, by name.
+fn kinds(character: &Character) -> Vec<(String, PlaceKind)> {
+    journal(character)
+        .places
+        .into_iter()
+        .map(|place| (place.name, place.kind))
+        .collect()
+}
+
+#[test]
+fn an_instance_and_a_capital_have_their_kind_and_a_zone_is_plain() {
+    let mut character = Character::new();
+    character.enter_zone(Tick(HOUR), "Westfall", None).unwrap();
+    character
+        .enter_zone(Tick(HOUR), "The Deadmines", None)
+        .unwrap();
+    character
+        .mark_instance(Tick(HOUR), "The Deadmines", InstanceKind::Dungeon)
+        .unwrap();
+    character
+        .enter_zone(Tick(HOUR), "Molten Core", None)
+        .unwrap();
+    character
+        .mark_instance(Tick(HOUR), "Molten Core", InstanceKind::Raid)
+        .unwrap();
+    character
+        .enter_zone(Tick(HOUR), "Undercity", Some("Trade Quarter"))
+        .unwrap();
+
+    let expected = [
+        ("Westfall", PlaceKind::Zone),
+        ("The Deadmines", PlaceKind::Dungeon),
+        ("Molten Core", PlaceKind::Raid),
+        ("Undercity", PlaceKind::Capital),
+        ("Trade Quarter", PlaceKind::Zone),
+    ]
+    .map(|(name, kind)| (name.to_string(), kind));
+    assert_eq!(kinds(&character), expected);
+}
+
+#[test]
+fn a_subzone_with_the_name_of_a_capital_is_no_capital() {
+    let mut character = Character::new();
+
+    character
+        .enter_zone(Tick(HOUR), "Tirisfal Glades", Some("Undercity"))
+        .unwrap();
+
+    assert_eq!(
+        kinds(&character)[1],
+        ("Undercity".to_string(), PlaceKind::Zone)
+    );
+}
+
+#[test]
+fn a_second_mark_of_an_instance_adds_no_event() {
+    let mut character = Character::new();
+    character
+        .enter_zone(Tick(HOUR), "The Deadmines", None)
+        .unwrap();
+    character
+        .mark_instance(Tick(HOUR), "The Deadmines", InstanceKind::Dungeon)
+        .unwrap();
+    let before = character.world().history().len();
+
+    character
+        .mark_instance(Tick(HOUR + 60), "The Deadmines", InstanceKind::Dungeon)
+        .unwrap();
+
+    assert_eq!(character.world().history().len(), before);
 }

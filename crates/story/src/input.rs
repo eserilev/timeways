@@ -1,6 +1,7 @@
 //! What the bridge sends, one JSON object per line: game events from the addon, and the
 //! answers to model calls (GAMEPLAY.md 3.1, 5.4, and 5.6).
 
+use crate::places::InstanceKind;
 use crate::seen::TextKind;
 use hourglass::Tick;
 use serde::{Deserialize, Serialize};
@@ -21,6 +22,12 @@ pub enum Input {
         at: Tick,
         zone: String,
         subzone: Option<String>,
+    },
+    /// The zone that just came is an instance. It follows its `ZoneEntered`.
+    InstanceEntered {
+        at: Tick,
+        zone: String,
+        kind: InstanceKind,
     },
     NpcMet {
         at: Tick,
@@ -175,6 +182,7 @@ impl Input {
         match self {
             Input::ZoneEntered { at, .. }
             | Input::NpcMet { at, .. }
+            | Input::InstanceEntered { at, .. }
             | Input::LevelReached { at, .. }
             | Input::NpcDefeated { at, .. }
             | Input::NpcSlapped { at, .. }

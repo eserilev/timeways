@@ -4,9 +4,10 @@
 use crate::check::{json_object, voice_text};
 use crate::hero::OWN_WORDS;
 use crate::house::{HOUSE_RULES, bulleted, fenced};
-use crate::journal::{Chapter, Deed};
+use crate::journal::{Chapter, Deed, Place};
 use crate::memory;
 use crate::narrator::PERSONA;
+use crate::places::PlaceKind;
 use crate::samples::{self, Voice};
 use serde::Deserialize;
 use std::fmt::Write;
@@ -60,9 +61,10 @@ struct Footnote {
 
 /// `earlier` are the chapters just before this one, oldest first. `moments` are the small
 /// moments of the chapter in plain words, best first. `told` is what the player wrote in
-/// the chapter.
+/// the chapter. `places` tell the kind of each zone: a dungeon, a raid, or a capital.
 #[must_use]
 pub fn prompt(
+    places: &[Place],
     chapter: &Chapter,
     earlier: &[Chapter],
     moments: &[String],
@@ -78,7 +80,7 @@ pub fn prompt(
     let _ = write!(
         prompt,
         "\n\nThe facts of chapter {number}:\n{}",
-        fenced(&facts(chapter))
+        fenced(&facts(places, chapter))
     );
     prompt.push_str(&small_moments(moments));
     prompt.push_str(&own_words(portrait, told));
@@ -125,10 +127,15 @@ fn own_words(portrait: Option<&str>, told: &[&str]) -> String {
     words
 }
 
-fn facts(chapter: &Chapter) -> String {
+fn facts(places: &[Place], chapter: &Chapter) -> String {
     let mut facts = Vec::new();
     if !chapter.zones.is_empty() {
-        facts.push(format!("- Traveled to: {}.", chapter.zones.join(", ")));
+        let zones: Vec<String> = chapter
+            .zones
+            .iter()
+            .map(|zone| described(places, zone))
+            .collect();
+        facts.push(format!("- Traveled to: {}.", zones.join(", ")));
     }
     if !chapter.people.is_empty() {
         facts.push(format!("- Met: {}.", chapter.people.join(", ")));
@@ -171,6 +178,14 @@ pub fn checked_saga(text: &str, moment_count: usize) -> Option<Saga> {
         text: saga,
         footnotes,
     })
+}
+
+fn described(places: &[Place], zone: &str) -> String {
+    let kind = places
+        .iter()
+        .find(|place| place.name == zone && place.within.is_none())
+        .map_or(PlaceKind::Zone, |place| place.kind);
+    kind.described(zone)
 }
 
 fn deed_fact(deed: &Deed) -> String {

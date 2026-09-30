@@ -46,6 +46,7 @@ return {
 		"GetTime",
 		"GetTitleText",
 		"InCombatLockdown",
+		"IsInInstance",
 		"ItemTextGetCreator",
 		"ItemTextGetItem",
 		"ItemTextGetText",

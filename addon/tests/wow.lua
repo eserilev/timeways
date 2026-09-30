@@ -33,6 +33,13 @@ function GetSubZoneText()
 	return wow.subzone
 end
 
+-- "none" outside, or "party", "raid", "pvp", "arena".
+wow.instance = "none"
+
+function IsInInstance()
+	return wow.instance ~= "none", wow.instance
+end
+
 function UnitExists(unit)
 	return wow.units[unit] ~= nil
 end

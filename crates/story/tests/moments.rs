@@ -2,6 +2,7 @@ use hourglass::Tick;
 use timeways_story::character::Character;
 use timeways_story::input::GameQuestKind;
 use timeways_story::moments::{Moment, best, moments};
+use timeways_story::places::InstanceKind;
 
 /// The moments of what `act` adds to the world of `character`.
 fn moments_of(character: &mut Character, act: impl FnOnce(&mut Character)) -> Vec<Moment> {
@@ -177,6 +178,49 @@ fn a_finished_class_quest_is_the_biggest_moment_and_a_plain_quest_is_none() {
         best(class),
         Some(Moment::ClassQuestDone {
             title: "Rediscovering the Light".to_string()
+        })
+    );
+}
+
+#[test]
+fn a_first_dungeon_outranks_its_new_zone_and_a_second_entry_is_no_moment() {
+    let mut character = Character::new();
+
+    let first = moments_of(&mut character, |c| {
+        c.enter_zone(Tick(1), "The Deadmines", None).unwrap();
+        c.mark_instance(Tick(1), "The Deadmines", InstanceKind::Dungeon)
+            .unwrap();
+    });
+    let again = moments_of(&mut character, |c| {
+        c.enter_zone(Tick(2), "The Deadmines", None).unwrap();
+        c.mark_instance(Tick(2), "The Deadmines", InstanceKind::Dungeon)
+            .unwrap();
+    });
+
+    assert_eq!(
+        best(first),
+        Some(Moment::FirstInstance {
+            zone: "The Deadmines".to_string(),
+            kind: InstanceKind::Dungeon,
+        })
+    );
+    assert!(again.is_empty(), "{again:?}");
+}
+
+#[test]
+fn the_first_visit_of_a_capital_is_its_own_moment_and_outranks_a_new_zone() {
+    let mut character = Character::new();
+
+    let moments = moments_of(&mut character, |c| {
+        c.enter_zone(Tick(1), "Undercity", Some("Trade Quarter"))
+            .unwrap();
+        c.enter_zone(Tick(1), "Tirisfal Glades", None).unwrap();
+    });
+
+    assert_eq!(
+        best(moments),
+        Some(Moment::FirstCapital {
+            city: "Undercity".to_string()
         })
     );
 }

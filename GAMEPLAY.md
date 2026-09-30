@@ -124,7 +124,8 @@ A chapter follows the progress of the character, not the clock. The narrator (3.
   - A milestone after less than 45 minutes of play in the chapter joins that chapter. So two milestones close together make one chapter, not two thin ones.
   - Only play counts. A stretch of 30 minutes with no event ends a session, and the time away is no play. A pause alone never begins a chapter.
   - A finished class quest is a milestone too (5.4).
-  - Planned milestones: the first entry into a dungeon, and the first visit of a capital city.
+  - A dungeon, a raid, and a capital city are zones of their own, so the first entry into one is already the first visit of a zone.
+- **The kind of a place** (built): after the zone of an instance, the addon sends `instance_entered` with "party" for a dungeon or "raid" (from `IsInInstance`). A battleground and an arena send nothing. The story program marks the zone, and the six capitals are known by name. The facts of a saga name the kind ("The Deadmines (a dungeon)"). A first dungeon or raid is a big moment for the narrator, as high as a first kill, and a first capital ranks above a new zone.
 - **The saga** (built): after a batch, the story program asks a model for the saga, and the footnotes (5.4.1), of the oldest finished chapter that has none yet, one chapter at a time. The last chapter can still grow, so it waits for the next milestone. The facts of the prompt come from the chapter alone. The saga must be plain text in one paragraph, at most 600 characters, with no name from after the cutoff (5.9). A saga that fails keeps the plain list, and gets no retry and no second call in the same run. A saga is stored by the tick where its chapter begins. A change of these rules moves the beginnings, so an old saga can lose its chapter.
 - **Chapter memory** (built): the prompt of a chapter also carries a short summary of each of the 3 chapters before it. The code writes each summary from the facts of its chapter. The model never writes one.
 - **The hero sheet in a saga** (built): the sheet (3.7) goes only into the prompt of the first chapter, and of a chapter in which the player changed it. So the chapters do not all open with the same portrait. The entries that the player wrote in a chapter always go into its prompt.
@@ -274,6 +275,7 @@ Each character has one Hourglass world. A guild has one more world, held by its 
 | `quest_offered`, `quest_accepted`, `quest_done` | flag | up | person to thing | A personal quest and its state. |
 | `game_quest_taken`, `game_quest_done` | flag | up | person to thing | A quest of the game that you took, and that you turned in. The thing is named `game quest: <title>`. |
 | `class_quest` | flag | up | none | On the thing of a game quest that only your class gets. |
+| `dungeon`, `raid` | flag | up | none | On a zone that the game called an instance. |
 | `level` | number, 1 to 60 | up | none | Your level. It only rises. |
 | `deaths` | number, 0 to 1000 | up | none | Your deaths, with a known killer or not. A known killer also holds `defeated`. |
 | `slapped` | number, 0 to 1000 | up | person to person | How often you slapped an NPC. It never ends. |

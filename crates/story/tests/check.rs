@@ -318,7 +318,7 @@ fn fact_texts() -> Vec<String> {
         .map(|prompt| fenced_part(&prompt, "The moment:\n"))
         .collect();
     texts.push(fenced_part(
-        &chronicle::prompt(&chapter_of_every_deed(), &[], &[], None, &[]),
+        &chronicle::prompt(&[], &chapter_of_every_deed(), &[], &[], None, &[]),
         "The facts of chapter 1:\n",
     ));
     texts.extend(flavor_kinds().iter().map(describe_flavor));

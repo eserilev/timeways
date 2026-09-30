@@ -27,6 +27,11 @@ function Inputs.Zone(at, zone, subzone)
 	return { type = "zone_entered", at = at, zone = zone, subzone = Present(subzone) }
 end
 
+-- `kind` is "party" for a dungeon, or "raid".
+function Inputs.Instance(at, zone, kind)
+	return { type = "instance_entered", at = at, zone = zone, kind = kind }
+end
+
 function Inputs.Npc(at, name)
 	return { type = "npc_met", at = at, name = name }
 end

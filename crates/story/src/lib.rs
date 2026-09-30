@@ -15,6 +15,7 @@ pub mod memory;
 pub mod moments;
 pub mod narrator;
 pub mod pack;
+pub mod places;
 pub mod prompt;
 #[cfg(kani)]
 mod proofs;
