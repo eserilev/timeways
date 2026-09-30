@@ -2,13 +2,22 @@
 //! tabletop game writes before the first session, and entries of their own lore that they
 //! add at any time. It is the hero's own story, never canon: `/lore` never reads it.
 
-use crate::check::plain_text;
+use crate::check::one_line;
+use crate::reply_size::Size;
 use hourglass::Tick;
 use serde::{Deserialize, Serialize};
 
-/// About 50 words for a field or an entry.
-pub const MAX_TEXT_CHARS: usize = 300;
-const MAX_TEXT_BYTES: usize = 1200;
+/// About 170 words for a field or an entry.
+pub const MAX_TEXT_CHARS: usize = 1000;
+pub const MAX_TEXT_BYTES: usize = 1200;
+
+/// The sheet goes on the first page of the journal, so its 6 fields fit one slot together.
+/// A byte outside ASCII takes 4 bytes in the slot, and a quote takes 8 with its escape, so a
+/// text outside ASCII fits and a text full of quotes does not.
+const MAX_TEXT_SLOT: usize = 4 * MAX_TEXT_BYTES + 8;
+
+/// A prompt takes this much of each text of the hero, so a long story keeps it short.
+pub const PROMPT_TEXT_CHARS: usize = 300;
 
 /// The fields of the sheet, in the order of the page.
 pub const FIELDS: [&str; 6] = ["origin", "background", "goal", "bond", "flaw", "traits"];
@@ -16,13 +25,30 @@ pub const FIELDS: [&str; 6] = ["origin", "background", "goal", "bond", "flaw", "
 /// The entries that one prompt carries, newest first, so a long story keeps the prompt short.
 pub const PROMPT_ENTRIES: usize = 5;
 
-/// The texts of the entries that `keep` takes, newest first, for a prompt.
+/// The texts of the entries that `keep` takes, newest first and cut short, for a prompt.
 #[must_use]
 pub fn newest_texts(entries: &[Entry], keep: impl Fn(&Entry) -> bool) -> Vec<&str> {
     let kept = entries.iter().rev().filter(|entry| keep(entry));
     kept.take(PROMPT_ENTRIES)
-        .map(|entry| entry.text.as_str())
+        .map(|entry| cut(&entry.text))
         .collect()
+}
+
+/// The first `PROMPT_TEXT_CHARS` characters of a text.
+#[must_use]
+pub fn cut(text: &str) -> &str {
+    text.char_indices()
+        .nth(PROMPT_TEXT_CHARS)
+        .map_or(text, |(end, _)| &text[..end])
+}
+
+/// Every text of the hero, sheet and entries, in one string. A check of a model answer
+/// allows the later names in it, because the player wrote them first.
+#[must_use]
+pub fn player_text(hero: &Hero) -> String {
+    let fields = hero.sheet.iter().map(|field| field.text.as_str());
+    let entries = hero.entries.iter().map(|entry| entry.text.as_str());
+    fields.chain(entries).collect::<Vec<_>>().join("\n")
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
@@ -117,20 +143,28 @@ pub fn next_number(changes: &[Change]) -> u64 {
 }
 
 /// The text on one line, or the reason that it cannot stand. The reason goes back to the
-/// player, because an edit has no reply of its own.
+/// player, because an edit has no reply of its own. The words are the player's own, so no
+/// check reads them (GAMEPLAY.md 3.7).
 ///
 /// # Errors
 ///
-/// Returns the reason for a text that is too long, holds a control character, or names
-/// something from after the lore cutoff.
+/// Returns the reason for a text that is empty, too long, or holds a control character.
 pub fn checked_text(text: &str) -> Result<String, String> {
-    plain_text(text, MAX_TEXT_CHARS, MAX_TEXT_BYTES).ok_or_else(|| {
-        format!(
-            "Couldn't save that. Keep it to {MAX_TEXT_CHARS} characters, and leave out names \
-             from later expansions."
-        )
-    })
+    if text.trim().is_empty() {
+        return Err(EMPTY.to_string());
+    }
+    if text.chars().any(|c| c.is_control() && !c.is_whitespace()) {
+        return Err(ODD_CHARACTERS.to_string());
+    }
+    one_line(text, MAX_TEXT_CHARS, MAX_TEXT_BYTES)
+        .filter(|line| Size::of(line).slot <= MAX_TEXT_SLOT)
+        .ok_or_else(|| TOO_LONG.to_string())
 }
+
+const EMPTY: &str = "Couldn't save an empty note.";
+const ODD_CHARACTERS: &str =
+    "Couldn't save that: it has special characters. Take them out and try again.";
+const TOO_LONG: &str = "Couldn't save that: it's too long. Try a shorter version.";
 
 /// The heading of the story of the hero in a prompt. It keeps the player's words apart
 /// from canon.
@@ -144,9 +178,13 @@ pub fn portrait(hero: &Hero) -> Option<String> {
     let mut lines: Vec<String> = hero
         .sheet
         .iter()
-        .map(|field| format!("- {}: {}", field.field, field.text))
+        .map(|field| format!("- {}: {}", field.field, cut(&field.text)))
         .collect();
-    let newest = hero.entries.iter().rev().take(PROMPT_ENTRIES);
-    lines.extend(newest.map(|entry| format!("- Told by the player: {}", entry.text)));
+    let newest = newest_texts(&hero.entries, |_| true);
+    lines.extend(
+        newest
+            .iter()
+            .map(|text| format!("- Told by the player: {text}")),
+    );
     (!lines.is_empty()).then(|| lines.join("\n"))
 }

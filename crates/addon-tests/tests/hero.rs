@@ -230,8 +230,50 @@ fn the_editor_stops_at_the_limit_of_the_desktop_and_counts_the_letters() {
     let limit: usize = game.eval("wow.EditBox().maxLetters");
     assert_eq!(limit, timeways_story::hero::MAX_TEXT_CHARS);
     let count = format!("16 / {limit}");
-    let shown: Vec<String> = game.eval("wow.ShownTexts(wow.EditBox().parent)");
+    let shown: Vec<String> = game.eval("wow.ShownTexts(wow.EditBox().parent.parent)");
     assert!(shown.contains(&count), "{shown:?}");
+}
+
+#[test]
+fn the_editor_stops_at_the_byte_limit_of_the_desktop() {
+    let game = Game::new();
+
+    let limit: usize = game.eval("return ns.Hero.MAX_BYTES");
+
+    assert_eq!(limit, timeways_story::hero::MAX_TEXT_BYTES);
+}
+
+#[test]
+fn a_text_too_long_to_save_stays_in_the_editor_with_the_reason() {
+    let game = open_book(FILLED);
+    click(&game, GOAL);
+    let wide = "\u{e9}".repeat(700);
+
+    write(&game, &wide);
+
+    assert!(game.eval::<bool>("return ns.Editor.IsShown()"));
+    assert_eq!(editor_text(&game), wide);
+    let shown: Vec<String> = game.eval("wow.ShownTexts(wow.EditBox().parent.parent)");
+    assert!(
+        shown.contains(&"Too long to save. Try a shorter version.".to_string()),
+        "{shown:?}"
+    );
+    assert_eq!(game.sent().len(), 1);
+}
+
+#[test]
+fn the_box_scrolls_to_keep_the_cursor_in_view() {
+    let game = open_book(FILLED);
+    click(&game, GOAL);
+
+    let offset: f64 = game.eval(
+        "local box = wow.EditBox()
+         box.parent:SetHeight(100)
+         box.scripts.OnCursorChanged(box, 0, -130, 2, 14)
+         return box.parent:GetVerticalScroll()",
+    );
+
+    assert!((offset - 44.0).abs() < f64::EPSILON, "{offset}");
 }
 
 #[test]

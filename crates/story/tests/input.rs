@@ -1,5 +1,5 @@
 use hourglass::Tick;
-use timeways_story::input::{CallId, GameQuestKind, Input, MessageId};
+use timeways_story::input::{CallId, GameQuestKind, Input, MessageId, Reaction};
 use timeways_story::places::InstanceKind;
 
 fn parse(line: &str) -> Result<Input, serde_json::Error> {
@@ -347,6 +347,62 @@ fn a_quest_mark_reads_with_its_quest() {
             at: Tick(5),
             quest: "Rediscovering the Light".to_string(),
             mark: "Touched by the Light".to_string(),
+        }
+    );
+}
+
+#[test]
+fn a_sighting_reads_with_its_reaction_and_creature_type() {
+    let line =
+        r#"{"type":"npc_seen","at":100,"name":"Duskbat","reaction":"hostile","creature":"beast"}"#;
+
+    let input = parse(line).unwrap();
+
+    assert_eq!(
+        input,
+        Input::NpcSeen {
+            at: Tick(100),
+            name: "Duskbat".to_string(),
+            reaction: Reaction::Hostile,
+            creature: Some("beast".to_string()),
+        }
+    );
+}
+
+#[test]
+fn a_sighting_reads_with_no_creature_type() {
+    let line = r#"{"type":"npc_seen","at":100,"name":"Keeper Tessa","reaction":"friendly"}"#;
+
+    let input = parse(line).unwrap();
+
+    assert!(matches!(
+        input,
+        Input::NpcSeen {
+            reaction: Reaction::Friendly,
+            creature: None,
+            ..
+        }
+    ));
+}
+
+#[test]
+fn a_sighting_with_an_unknown_reaction_is_refused() {
+    let line = r#"{"type":"npc_seen","at":100,"name":"Duskbat","reaction":"angry"}"#;
+
+    assert!(parse(line).is_err());
+}
+
+#[test]
+fn a_kill_for_a_task_reads() {
+    let line = r#"{"type":"npc_killed","at":100,"name":"Duskbat"}"#;
+
+    let input = parse(line).unwrap();
+
+    assert_eq!(
+        input,
+        Input::NpcKilled {
+            at: Tick(100),
+            name: "Duskbat".to_string(),
         }
     );
 }

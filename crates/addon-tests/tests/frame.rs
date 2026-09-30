@@ -303,6 +303,6 @@ fn the_editor_writes_on_the_parchment() {
     game.run("ns.Hero.Write()");
 
     let inside: bool =
-        game.eval("return wow.EditBox().parent.parent == TimewaysJournalFrameScroll.parent");
+        game.eval("return TimewaysEditorScroll.parent.parent == TimewaysJournalFrameScroll.parent");
     assert!(inside);
 }

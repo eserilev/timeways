@@ -100,6 +100,9 @@ globals:
   UnitLevel:
     args:
       - type: string
+  UnitCreatureType:
+    args:
+      - type: string
   UnitName:
     args:
       - type: string

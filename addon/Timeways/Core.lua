@@ -50,8 +50,14 @@ local HANDLERS = {
 		ns.Seen.QuestComplete()
 	end,
 	ITEM_TEXT_READY = ns.Seen.Book,
-	PLAYER_TARGET_CHANGED = ns.Foes.SeeTarget,
-	UPDATE_MOUSEOVER_UNIT = ns.Foes.SeeMouseover,
+	PLAYER_TARGET_CHANGED = function()
+		ns.Foes.SeeTarget()
+		ns.Sightings.SeeTarget()
+	end,
+	UPDATE_MOUSEOVER_UNIT = function()
+		ns.Foes.SeeMouseover()
+		ns.Sightings.SeeMouseover()
+	end,
 	NAME_PLATE_UNIT_ADDED = ns.Foes.See,
 	PARTY_KILL = ns.Foes.PartyKill,
 	ENCOUNTER_END = ns.Foes.EncounterEnd,

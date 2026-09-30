@@ -18,8 +18,8 @@ const START: u64 = 1_790_000_000;
 
 const CHARACTER: &str = r#"{"type":"character_entered","realm":"Stormrage","name":"Ada"}"#;
 
-/// What a model says: nothing, a talk, two quests, or plain words.
-const MODEL_ANSWERS: [Option<&str>; 5] = [
+/// What a model says: nothing, a talk, three quests, or plain words.
+const MODEL_ANSWERS: [Option<&str>; 6] = [
     None,
     Some(r#"{"say": "Well met.", "trust": 3}"#),
     Some(
@@ -28,6 +28,9 @@ const MODEL_ANSWERS: [Option<&str>; 5] = [
     Some(
         r#"{"title": "Hogger Twice", "text": "Go.", "steps": [{"goal": "meet", "npc": "Hogger"}, {"goal": "meet", "npc": "Hogger"}]}"#,
     ),
+    Some(
+        r#"{"title": "The Hunt", "text": "Go.", "steps": [{"goal": "kill", "creature": "Hogger", "count": 2}]}"#,
+    ),
     Some("Our hero walks on."),
 ];
 
@@ -35,6 +38,9 @@ const MODEL_ANSWERS: [Option<&str>; 5] = [
 enum Play {
     Zone(String, Option<String>, Value),
     Meet(String, Value),
+    /// A sighting: `true` for a hostile NPC.
+    See(String, bool),
+    Kill(String),
     Slap(String),
     Defeat(String),
     Die(Option<String>),
@@ -87,6 +93,8 @@ fn play() -> impl Strategy<Value = Play> {
         (name(), prop::option::of(name()), spot())
             .prop_map(|(zone, sub, spot)| Play::Zone(zone, sub, spot)),
         (name(), spot()).prop_map(|(name, spot)| Play::Meet(name, spot)),
+        (name(), any::<bool>()).prop_map(|(name, hostile)| Play::See(name, hostile)),
+        name().prop_map(Play::Kill),
         name().prop_map(Play::Slap),
         name().prop_map(Play::Defeat),
         prop::option::of(name()).prop_map(Play::Die),
@@ -111,6 +119,12 @@ fn addon_line(play: &Play, at: u64) -> Option<Value> {
             json!({"type": "zone_entered", "at": at, "zone": zone, "subzone": subzone, "spot": spot})
         }
         Play::Meet(name, spot) => json!({"type": "npc_met", "at": at, "name": name, "spot": spot}),
+        Play::See(name, hostile) => {
+            let reaction = if *hostile { "hostile" } else { "friendly" };
+            json!({"type": "npc_seen", "at": at, "name": name, "reaction": reaction,
+                "creature": "beast"})
+        }
+        Play::Kill(name) => json!({"type": "npc_killed", "at": at, "name": name}),
         Play::Slap(name) => json!({"type": "npc_slapped", "at": at, "name": name}),
         Play::Defeat(name) => json!({"type": "npc_defeated", "at": at, "name": name}),
         Play::Die(killer) => json!({"type": "died", "at": at, "killer": killer}),

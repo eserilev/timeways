@@ -5,9 +5,15 @@ use hourglass::EntityType::{Faction, Person, Place, Thing};
 use hourglass::{Band, Count, Direction, EntityType, FactRules, FactVocabulary, Shape};
 
 /// A change to a declared name needs a new version and a migration (`hourglass::migrate`).
-pub const VERSION: u32 = 6;
+pub const VERSION: u32 = 7;
 
 pub const MET: &str = "met";
+/// You saw this NPC, by a hover or a target. Talking is meeting; seeing is not.
+pub const SEEN: &str = "seen";
+/// You can attack this NPC. The last sighting decides, so it can end.
+pub const HOSTILE: &str = "hostile";
+/// A beast or a critter: no one to talk to.
+pub const ANIMAL: &str = "animal";
 pub const TRUSTS: &str = "trusts";
 pub const VISITED: &str = "visited";
 pub const KNOWS_LORE: &str = "knows_lore";
@@ -57,6 +63,9 @@ pub fn vocabulary() -> FactVocabulary {
     let mut vocabulary = FactVocabulary::new(VERSION);
     vocabulary
         .declare(MET, linked(up_flag(), Person, &[Person]))
+        .declare(SEEN, linked(up_flag(), Person, &[Person]))
+        .declare(HOSTILE, FactRules::solo(Shape::flag()))
+        .declare(ANIMAL, FactRules::solo(up_flag()))
         .declare(TRUSTS, linked(Shape::number(TRUST), Person, &[Person]))
         .declare(VISITED, linked(up_flag(), Person, &[Place]))
         .declare(KNOWS_LORE, linked(up_flag(), Person, &[Thing, Place]))

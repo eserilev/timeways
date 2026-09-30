@@ -3,9 +3,10 @@ use hourglass::{
     vocabulary_sound,
 };
 use timeways_story::vocabulary::{
-    CLASS_QUEST, DEAD, DEATHS, DEFEATED, DUNGEON, GAME_QUEST_DONE, GAME_QUEST_TAKEN, KNOWS_LORE,
-    LEADER_OF, LEVEL, MAP_X, MAP_Y, MARK_OF, MARKED_BY, MEMBER_OF, MET, NEMESIS, ON_MAP,
-    QUEST_ACCEPTED, QUEST_DONE, QUEST_OFFERED, RAID, SLAPPED, TITLE, TRUSTS, VISITED, vocabulary,
+    ANIMAL, CLASS_QUEST, DEAD, DEATHS, DEFEATED, DUNGEON, GAME_QUEST_DONE, GAME_QUEST_TAKEN,
+    HOSTILE, KNOWS_LORE, LEADER_OF, LEVEL, MAP_X, MAP_Y, MARK_OF, MARKED_BY, MEMBER_OF, MET,
+    NEMESIS, ON_MAP, QUEST_ACCEPTED, QUEST_DONE, QUEST_OFFERED, RAID, SEEN, SLAPPED, TITLE, TRUSTS,
+    VISITED, vocabulary,
 };
 
 const NOW: Tick = Tick(1);
@@ -131,6 +132,9 @@ fn vocabulary_is_sound() {
 fn vocabulary_holds_every_name_of_the_spec_and_located_in() {
     let names = [
         MET,
+        SEEN,
+        HOSTILE,
+        ANIMAL,
         TRUSTS,
         VISITED,
         KNOWS_LORE,
@@ -194,6 +198,45 @@ fn the_dead_stay_dead() {
     let result = end(&mut cast.world, cast.innkeeper, DEAD, None);
 
     assert!(refused_as_backward(result));
+}
+
+#[test]
+fn a_sighting_never_ends() {
+    let Cast {
+        mut world,
+        you,
+        innkeeper,
+        ..
+    } = cast();
+    start(&mut world, you, SEEN, None, Some(innkeeper)).unwrap();
+
+    assert!(end(&mut world, you, SEEN, Some(innkeeper)).is_err());
+}
+
+#[test]
+fn a_hostile_npc_can_turn_friendly() {
+    let Cast {
+        mut world,
+        innkeeper,
+        ..
+    } = cast();
+    start(&mut world, innkeeper, HOSTILE, None, None).unwrap();
+
+    assert!(end(&mut world, innkeeper, HOSTILE, None).is_ok());
+}
+
+#[test]
+fn an_animal_stays_an_animal() {
+    let Cast {
+        mut world,
+        innkeeper,
+        ..
+    } = cast();
+    start(&mut world, innkeeper, ANIMAL, None, None).unwrap();
+
+    assert!(refused_as_backward(end(
+        &mut world, innkeeper, ANIMAL, None
+    )));
 }
 
 #[test]

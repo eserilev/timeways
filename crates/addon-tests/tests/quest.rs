@@ -29,6 +29,7 @@ fn lantern(status: Status, steps_done: usize) -> Tracked {
             },
         ],
         steps_done,
+        kills: 0,
         status,
         done_at: (status == Status::Done).then_some(Tick(DAY)),
     }
@@ -121,7 +122,7 @@ fn quest_needs_an_npc_target() {
     assert!(game.sent().is_empty());
     assert_eq!(
         game.printed(),
-        ["|cffc8a064Timeways|r: Who are you asking? Target someone first."]
+        ["|cffc8a064Timeways|r: Target someone to ask first."]
     );
 }
 
@@ -314,7 +315,7 @@ fn a_quest_in_progress_marks_its_steps_done() {
 
     let shown = lines(&game);
     assert_eq!(shown[1], "note: In progress.");
-    assert_eq!(shown[4], "entry: (done) Visit Mill Pond.");
+    assert_eq!(shown[4], "entry: Visit Mill Pond. (Complete)");
     assert_eq!(shown[5], "entry: Speak with Farmer Bram.");
 }
 
@@ -535,4 +536,43 @@ fn a_task_belongs_to_the_zone_of_its_giver() {
 
     let zone: String = game.eval("ns.Journal.Page('quests').zone");
     assert_eq!(zone, "Tirisfal Glades");
+}
+
+fn bat_hunt(steps_done: usize, kills: u8) -> Tracked {
+    let mut quest = lantern(Status::Accepted, steps_done);
+    quest.steps[1] = Step::Kill {
+        creature: "Duskbat".to_string(),
+        count: 6,
+    };
+    quest.kills = kills;
+    quest
+}
+
+#[test]
+fn a_kill_step_shows_its_kills_as_the_game_does() {
+    let game = Game::new();
+
+    game.reply(&quest_reply(bat_hunt(1, 2)));
+
+    let shown = lines(&game);
+    assert_eq!(shown[4], "entry: Visit Mill Pond. (Complete)");
+    assert_eq!(shown[5], "entry: Duskbat slain: 2/6");
+}
+
+#[test]
+fn a_done_kill_step_shows_all_its_kills() {
+    let game = Game::new();
+
+    game.reply(&quest_reply(bat_hunt(2, 0)));
+
+    assert_eq!(lines(&game)[5], "entry: Duskbat slain: 6/6 (Complete)");
+}
+
+#[test]
+fn a_kill_step_after_the_next_step_shows_no_kills_yet() {
+    let game = Game::new();
+
+    game.reply(&quest_reply(bat_hunt(0, 0)));
+
+    assert_eq!(lines(&game)[5], "entry: Duskbat slain: 0/6");
 }

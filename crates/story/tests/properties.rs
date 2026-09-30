@@ -4,6 +4,7 @@
 
 use hourglass::Tick;
 use proptest::prelude::*;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use timeways_story::best_of_two::{Next, Round};
@@ -11,15 +12,16 @@ use timeways_story::chapters::{
     MIN_CHAPTER_PLAY_SECONDS, SESSION_GAP_SECONDS, chapter_starts, sessions,
 };
 use timeways_story::character::Character;
-use timeways_story::check::{Fault, check, without_citations};
+use timeways_story::check::{Fault, check, later_names, without_citations};
 use timeways_story::chronicle::{Pick, Saga};
+use timeways_story::hero::{MAX_TEXT_BYTES, MAX_TEXT_CHARS, checked_text};
 use timeways_story::house::fenced;
-use timeways_story::input::{GameQuestKind, Input, MessageId};
+use timeways_story::input::{GameQuestKind, Input, MessageId, Reaction};
 use timeways_story::journal::{Journal, journal, pages};
 use timeways_story::pace::{Pace, WINDOW_SECONDS};
 use timeways_story::pack::Pack;
 use timeways_story::places::InstanceKind;
-use timeways_story::quest::{QuestChange, Status, Step, quest_log};
+use timeways_story::quest::{MAX_KILLS, QuestChange, Status, Step, quest_log};
 use timeways_story::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use timeways_story::seen::TextKind;
 use timeways_story::spot::{MAP_IDS, Spot, THOUSANDTHS, spot_of};
@@ -43,8 +45,12 @@ enum Play {
     Read(TextKind, Option<String>, String),
     /// A talk, with the words of the model: a rumor.
     Talk(String, String),
-    /// `/quest` to an NPC, and the steps that the model proposes: `true` visits.
-    Quest(String, Vec<(bool, String)>),
+    /// `/quest` to an NPC, and the steps that the model proposes.
+    Quest(String, Vec<TaskStep>),
+    /// A hover or a target: the NPC, whether you can attack it, and its creature type.
+    See(String, Reaction, Option<String>),
+    /// A kill for a kill step.
+    Kill(String),
     Accept,
     Decline,
     /// A lasting buff or debuff of a quest of the game.
@@ -56,8 +62,64 @@ enum Play {
     Wait(u64),
 }
 
+/// A step as a model proposes it. The count of a kill sits often at its edges.
+#[derive(Clone, Debug)]
+enum TaskStep {
+    Visit(String),
+    Meet(String),
+    Kill(String, u8),
+}
+
+fn task_step(names: impl Strategy<Value = String> + Clone) -> impl Strategy<Value = TaskStep> {
+    let count = prop_oneof![
+        Just(0u8),
+        Just(1),
+        Just(MAX_KILLS),
+        Just(MAX_KILLS + 1),
+        0u8..=12
+    ];
+    prop_oneof![
+        names.clone().prop_map(TaskStep::Visit),
+        names.clone().prop_map(TaskStep::Meet),
+        (names, count).prop_map(|(creature, count)| TaskStep::Kill(creature, count)),
+    ]
+}
+
+fn sighting(names: impl Strategy<Value = String>) -> impl Strategy<Value = Play> {
+    (
+        names,
+        prop::sample::select(vec![Reaction::Hostile, Reaction::Friendly]),
+        prop::option::of(prop::sample::select(vec!["beast", "critter", "humanoid"])),
+    )
+        .prop_map(|(name, reaction, creature)| {
+            Play::See(name, reaction, creature.map(String::from))
+        })
+}
+
+/// Four names for every role, so that a task often names what the player knows.
+fn target_name() -> impl Strategy<Value = String> + Clone {
+    prop::sample::select(vec!["Mill Pond", "Keeper Tessa", "Duskbat", "Farmer Bram"])
+        .prop_map(String::from)
+}
+
+/// The plays that change what a task can name.
+fn target_play() -> impl Strategy<Value = Play> {
+    let names = target_name;
+    prop_oneof![
+        (names(), prop::option::of(names())).prop_map(|(zone, sub)| Play::Zone(zone, sub, None)),
+        names().prop_map(|name| Play::Meet(name, None)),
+        names().prop_map(Play::Slap),
+        sighting(names()),
+        (names(), prop::collection::vec(task_step(names()), 1..3))
+            .prop_map(|(npc, steps)| Play::Quest(npc, steps)),
+        Just(Play::Accept),
+        Just(Play::Decline),
+        names().prop_map(Play::Kill),
+    ]
+}
+
 /// Few names, so that the same NPC and the same place come back.
-fn name() -> impl Strategy<Value = String> {
+fn name() -> impl Strategy<Value = String> + Clone {
     prop_oneof![
         prop::sample::select(vec![
             "Goldshire",
@@ -71,6 +133,15 @@ fn name() -> impl Strategy<Value = String> {
     ]
 }
 
+/// Mostly short, and often near the limits: long, outside ASCII, or full of quotes.
+fn hero_text() -> impl Strategy<Value = String> {
+    prop_oneof![
+        "[A-Za-z ]{0,40}",
+        "[a\"|\u{e9}\u{10348}]{250,320}",
+        "[A-Za-z\"]{900,1000}",
+    ]
+}
+
 fn play() -> impl Strategy<Value = Play> {
     prop_oneof![
         (name(), prop::option::of(name()), prop::option::of(spot()))
@@ -81,7 +152,7 @@ fn play() -> impl Strategy<Value = Play> {
         prop::option::of(name()).prop_map(Play::Die),
         (1u8..=60).prop_map(Play::Level),
         ("[a-z]{1,8}", 0u8..24).prop_map(|(emote, hour)| Play::Emote(emote, hour)),
-        (0usize..6, "[A-Za-z ]{0,40}").prop_map(|(field, text)| Play::HeroSet(field, text)),
+        (0usize..6, hero_text()).prop_map(|(field, text)| Play::HeroSet(field, text)),
         "[A-Za-z ]{1,40}".prop_map(Play::HeroAdd),
         (1u64..6).prop_map(Play::HeroRemove),
         (
@@ -91,8 +162,10 @@ fn play() -> impl Strategy<Value = Play> {
         )
             .prop_map(|(kind, title, text)| Play::Read(kind, title, text)),
         (name(), "[A-Za-z ]{1,60}").prop_map(|(npc, say)| Play::Talk(npc, say)),
-        (name(), prop::collection::vec((any::<bool>(), name()), 0..5))
+        (name(), prop::collection::vec(task_step(name()), 0..5))
             .prop_map(|(npc, steps)| Play::Quest(npc, steps)),
+        sighting(name()),
+        name().prop_map(Play::Kill),
         Just(Play::Accept),
         Just(Play::Decline),
         (name(), name()).prop_map(|(quest, mark)| Play::Mark(quest, mark)),
@@ -243,6 +316,13 @@ fn input(play: &Play, at: Tick) -> Option<Input> {
             text: "any news".to_string(),
         },
         Play::Quest(npc, _) => Input::QuestAsked { at, npc },
+        Play::See(name, reaction, creature) => Input::NpcSeen {
+            at,
+            name,
+            reaction,
+            creature,
+        },
+        Play::Kill(name) => Input::NpcKilled { at, name },
         Play::Accept => Input::QuestAccepted { at, number: None },
         Play::Decline => Input::QuestDeclined { at, number: None },
         Play::Wait(_) => return None,
@@ -250,12 +330,15 @@ fn input(play: &Play, at: Tick) -> Option<Input> {
 }
 
 /// The answer of a model to a quest call, with the steps of the play.
-fn quest_answer(steps: &[(bool, String)]) -> String {
+fn quest_answer(steps: &[TaskStep]) -> String {
     let steps: Vec<serde_json::Value> = steps
         .iter()
-        .map(|(visit, name)| match visit {
-            true => serde_json::json!({ "goal": "visit", "place": name }),
-            false => serde_json::json!({ "goal": "meet", "npc": name }),
+        .map(|step| match step {
+            TaskStep::Visit(place) => serde_json::json!({ "goal": "visit", "place": place }),
+            TaskStep::Meet(npc) => serde_json::json!({ "goal": "meet", "npc": npc }),
+            TaskStep::Kill(creature, count) => {
+                serde_json::json!({ "goal": "kill", "creature": creature, "count": count })
+            }
         })
         .collect();
     serde_json::json!({ "title": "A Task", "text": "Go.", "steps": steps }).to_string()
@@ -285,34 +368,116 @@ fn story(folder: &Path, files: Store) -> Story {
     story
 }
 
-/// Plays each step, and moves the clock. A refused step is part of the game. The model
-/// answers a talk and a quest at once.
+/// Plays each step, and moves the clock. A refused step is part of the game.
 fn run(story: &mut Story, plays: &[Play], clock: &mut u64) {
     for play in plays {
-        *clock += if let Play::Wait(seconds) = play {
-            *seconds
-        } else {
-            1
-        };
-        let Some(input) = input(play, Tick(*clock)) else {
-            continue;
-        };
-        let mut outputs = story.handle(input).unwrap_or_default();
-        if let Play::Quest(..) = play {
-            outputs = story
-                .handle(Input::BatchEnd { id: MessageId(3) })
-                .unwrap_or_default();
-        }
-        let Some(Output::ModelCall { call, .. }) = outputs.first() else {
-            continue;
-        };
-        let text = match play {
-            Play::Talk(_, say) => serde_json::json!({ "say": say, "trust": 1 }).to_string(),
-            Play::Quest(_, steps) => quest_answer(steps),
-            _ => continue,
-        };
-        let _ = story.handle(Input::ModelAnswered { call: *call, text });
+        play_once(story, play, clock);
     }
+}
+
+/// Plays one step. The model answers a talk and a quest at once, and the outputs of its
+/// answer come back.
+fn play_once(story: &mut Story, play: &Play, clock: &mut u64) -> Vec<Output> {
+    *clock += if let Play::Wait(seconds) = play {
+        *seconds
+    } else {
+        1
+    };
+    let Some(input) = input(play, Tick(*clock)) else {
+        return Vec::new();
+    };
+    let mut outputs = story.handle(input).unwrap_or_default();
+    if let Play::Quest(..) = play {
+        outputs = story
+            .handle(Input::BatchEnd { id: MessageId(3) })
+            .unwrap_or_default();
+    }
+    let Some(Output::ModelCall { call, .. }) = outputs.first() else {
+        return Vec::new();
+    };
+    let text = match play {
+        Play::Talk(_, say) => serde_json::json!({ "say": say, "trust": 1 }).to_string(),
+        Play::Quest(_, steps) => quest_answer(steps),
+        _ => return Vec::new(),
+    };
+    let call = *call;
+    story
+        .handle(Input::ModelAnswered { call, text })
+        .unwrap_or_default()
+}
+
+/// The rules of 3.4 for the targets of a task, stated again apart from the story, from
+/// what the plays tell: the places that you visited, the NPCs that you met, and the last
+/// sighting of each NPC.
+#[derive(Default)]
+struct Targets {
+    places: Vec<String>,
+    met: Vec<String>,
+    /// The last reaction of each NPC that you saw, and whether a sighting found an animal.
+    seen: HashMap<String, (Reaction, bool)>,
+    /// The targets of the newest offer.
+    last: Vec<String>,
+}
+
+impl Targets {
+    fn watch(&mut self, play: &Play) {
+        match play {
+            Play::Zone(zone, subzone, _) => {
+                self.places.push(zone.clone());
+                self.places.extend(subzone.clone());
+            }
+            Play::Meet(npc, _) | Play::Slap(npc) | Play::Talk(npc, _) | Play::Quest(npc, _) => {
+                self.met.push(npc.clone());
+            }
+            Play::See(name, reaction, creature) => {
+                let animal = matches!(creature.as_deref(), Some("beast" | "critter"));
+                let was_animal = self.seen.get(name).is_some_and(|(_, animal)| *animal);
+                self.seen
+                    .insert(name.clone(), (*reaction, animal || was_animal));
+            }
+            _ => {}
+        }
+    }
+
+    fn allows(&self, giver: &str, step: &TaskStep) -> bool {
+        if self.last.contains(&target(step).to_string()) {
+            return false;
+        }
+        match step {
+            TaskStep::Visit(place) => self.places.contains(place),
+            TaskStep::Meet(npc) => {
+                let sighting = self.seen.get(npc);
+                let known = self.met.contains(npc) || sighting.is_some();
+                let friendly = sighting
+                    .is_none_or(|(reaction, animal)| *reaction == Reaction::Friendly && !animal);
+                npc != giver && known && friendly
+            }
+            TaskStep::Kill(creature, count) => {
+                let seen = self.seen.get(creature);
+                let hostile = seen.is_some_and(|(reaction, _)| *reaction == Reaction::Hostile);
+                hostile && (1..=MAX_KILLS).contains(count)
+            }
+        }
+    }
+}
+
+fn target(step: &TaskStep) -> &str {
+    match step {
+        TaskStep::Visit(name) | TaskStep::Meet(name) | TaskStep::Kill(name, _) => name,
+    }
+}
+
+/// The giver of an offer that came back as the narrator line, or None.
+fn offer_giver(outputs: &[Output]) -> Option<&str> {
+    let Some(Output::EventsSeen {
+        narrator: Some(line),
+        ..
+    }) = outputs.first()
+    else {
+        return None;
+    };
+    line.split_once(" has a task for you: ")
+        .map(|(giver, _)| giver)
 }
 
 /// Every page of the journal as the bridge gets it.
@@ -515,6 +680,44 @@ proptest! {
         }
 
         prop_assert_eq!(joined, whole);
+    }
+
+    #[test]
+    fn the_player_may_write_any_words_in_their_own_text(
+        words in prop::collection::vec(
+            prop_oneof![
+                prop::sample::select(later_names().collect::<Vec<_>>()).prop_map(String::from),
+                "[A-Za-z,.'!?]{1,12}",
+            ],
+            1..40,
+        )
+    ) {
+        let text = words.join(" ");
+        prop_assume!(text.chars().count() <= MAX_TEXT_CHARS && text.len() <= MAX_TEXT_BYTES);
+
+        prop_assert_eq!(checked_text(&text), Ok(text.clone()));
+    }
+
+    #[test]
+    fn an_offered_task_only_names_allowed_targets(
+        plays in prop::collection::vec(target_play(), 0..150)
+    ) {
+        let folder = fresh("targets");
+        let mut story = story(&folder, Store::Memory);
+        let mut targets = Targets::default();
+        let mut clock = 1_000;
+
+        for play in &plays {
+            targets.watch(play);
+            let outputs = play_once(&mut story, play, &mut clock);
+            let (Some(giver), Play::Quest(_, steps)) = (offer_giver(&outputs), play) else {
+                continue;
+            };
+            for step in steps {
+                prop_assert!(targets.allows(giver, step), "{step:?} from {giver}");
+            }
+            targets.last = steps.iter().map(|step| target(step).to_string()).collect();
+        }
     }
 
     #[test]

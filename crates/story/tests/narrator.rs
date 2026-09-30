@@ -76,35 +76,46 @@ fn the_story_of_the_hero_is_fenced_as_data() {
 #[test]
 fn a_line_is_trimmed_and_joined_into_one_line() {
     assert_eq!(
-        checked_line("  Third time,\n friend!  ").as_deref(),
+        checked_line("  Third time,\n friend!  ", "").as_deref(),
         Some("Third time, friend!")
     );
 }
 
 #[test]
 fn an_empty_line_is_dropped() {
-    assert_eq!(checked_line(" \n "), None);
+    assert_eq!(checked_line(" \n ", ""), None);
 }
 
 #[test]
 fn a_long_line_is_dropped() {
-    assert_eq!(checked_line(&"a".repeat(MAX_LINE_CHARS + 1)), None);
+    assert_eq!(checked_line(&"a".repeat(MAX_LINE_CHARS + 1), ""), None);
 }
 
 #[test]
 fn a_line_with_a_name_after_the_cutoff_is_dropped() {
-    assert_eq!(checked_line("Off to Shattrath next!"), None);
+    assert_eq!(checked_line("Off to Shattrath next!", ""), None);
+}
+
+#[test]
+fn a_line_may_name_what_the_player_wrote_first() {
+    let player_text = "My mother waits in Shattrath.";
+
+    assert_eq!(
+        checked_line("Off to Shattrath next!", player_text).as_deref(),
+        Some("Off to Shattrath next!")
+    );
+    assert_eq!(checked_line("Off to Pandaria next!", player_text), None);
 }
 
 #[test]
 fn a_line_out_of_voice_is_dropped() {
-    assert_eq!(checked_line("Level 20, guys!"), None);
-    assert_eq!(checked_line("The sands ran on."), None);
+    assert_eq!(checked_line("Level 20, guys!", ""), None);
+    assert_eq!(checked_line("The sands ran on.", ""), None);
 }
 
 #[test]
 fn a_line_with_a_control_character_is_dropped() {
-    assert_eq!(checked_line("Boom\u{7}!"), None);
+    assert_eq!(checked_line("Boom\u{7}!", ""), None);
 }
 
 #[test]
@@ -112,5 +123,5 @@ fn a_line_over_the_byte_limit_of_the_bridge_is_dropped() {
     let wide = "\u{10348}".repeat(MAX_LINE_CHARS);
 
     assert!(wide.chars().count() <= MAX_LINE_CHARS);
-    assert_eq!(checked_line(&wide), None);
+    assert_eq!(checked_line(&wide, ""), None);
 }

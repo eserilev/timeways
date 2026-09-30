@@ -92,7 +92,7 @@ No invented companion rides along. A narrator tells the big moments as they happ
 - It speaks at most once for each batch, about the best moment, in the order above. Of two moments of one kind, the later one wins, because it holds the newer count.
 - A batch that ends with a question gets no `batch_end` (5.5), so its moments wait for the next batch.
 - It has a budget: at most 3 lines in one hour of game time. The budget lives in memory, so a restart of the story program starts it again. That costs at most 3 more lines once.
-- A model writes each line through the bridge, with no tools. The line must be plain text, at most 300 characters, and hold no name from after the cutoff (5.9). A line that breaks a rule gets no retry, and the player sees nothing.
+- A model writes each line through the bridge, with no tools. The line must be plain text, at most 300 characters, and hold no name from after the cutoff (5.9), except a name that the player wrote first (3.7). A line that breaks a rule gets no retry, and the player sees nothing.
 - It remembers your history across sessions, because the world does.
 - It speaks in the chat window now. A window of its own, and a voice (Gnomish Relay SPEC 13.3), come later.
 
@@ -158,19 +158,25 @@ An innkeeper tells you a rumor, and the rumor becomes a small quest line made fo
 - The rewards are story: a title in your journal, a line in your chronicle, and an NPC who trusts you more and tells you more lore later.
 - Hourglass keeps the quests consistent. A quest cannot send you to an NPC who died in your story, or to a place that you never heard of.
 
-**The first slice.** The combat log is closed and no loot event comes yet, so a step has one of two goals: `visit` a place, or `meet` an NPC.
+**The first slice.** The combat log is closed and no loot event comes yet, so a step has one of three goals: `visit` a place, `meet` an NPC, or `kill` a count of one creature ("Kill 6 Duskbats").
+
+- **Seen and met** (built). The addon sends each NPC that you hover or target once in a session (`npc_seen`): its name, `hostile` when you can attack it (`UnitCanAttack`) or `friendly`, and its creature type in English (`UnitCreatureType`, by its id: "beast", "humanoid"). The addon keys a session by the NPC id of `UnitGUID`, and never sends the GUID. It never sends a player or a pet, and it checks the name, the GUID, the reaction, and the type with `issecretvalue`. The world keeps `seen`, apart from `met`: seeing is not talking. The last sighting says whether the NPC is `hostile`, and a beast or a critter is an `animal` for good (5.1).
 
 - **The offer** (built): you target an NPC that you met and type `/quest`. The event `quest_asked` has no reply of its own. At the end of the batch, the model call of the quest takes the place of the narrator call. The offer comes back as the narrator line, so the relay needs no change. Asking is meeting, as a talk is. With no model, or with an offer that breaks a rule, the line says that the NPC has no task for you now.
 - **The check** (built, `quest.rs`): the code refuses an offer that breaks one of these rules.
   - The answer is JSON with a title (at most 60 characters), a text (at most 400), and 1 to 3 steps. The offer line fits in one narrator line (1000 bytes).
   - Each name is a string of the game, copied exactly, because progress matches it byte for byte.
   - A place is a zone or subzone that you visited. The addon names the zone of a text that you read by where you read it, so it adds no place.
-  - An NPC is one that you met, is not dead in your story, and is not the giver.
-  - No step comes twice, so one event never does two steps.
-  - **No overlap:** a subzone or NPC of a step is not in the title or the text of a game quest that you read. The title does not have the words of the title of such a quest, in any case. A zone is exempt, because most quest texts name their zone. The rule covers only the quests that you read.
+  - An NPC to meet is one that you met or saw. It is not hostile, not an animal, not dead in your story, and not the giver. So a task never sends you to talk to a bat.
+  - A creature to kill is one that you saw hostile, and not dead in your story. A kill step asks for 1 to 10 kills.
+  - Each step names a different target, so one event never does two steps.
+  - **No target twice in a row:** no place, NPC, or creature of your newest task comes again in the next one, from the same giver or any other. The newest task is the last offer in the log, in any state.
+  - **No overlap:** a subzone, NPC, or creature of a step is not in the title or the text of a game quest that you read. The title does not have the words of the title of such a quest, in any case. A zone is exempt, because most quest texts name their zone. The rule covers only the quests that you read.
+- **The prompt lists only what the check allows** (built): the places that you can visit, the NPCs that you can meet, and the creatures that you can hunt, at most 20 of each. One function of the code decides both the lists and the check, so they never disagree.
 - **Limits** (built): each giver has at most one offer that waits, and a new offer of the giver ends the old one. A giver with an open quest waits for you to finish it. You hold at most 3 open quests. The limits hold when you ask, when the offer comes, and when you accept, because the world moves on while the model thinks. A refused accept comes back as the narrator line of its batch.
-- **Accept and progress** (built): the buttons of the Tasks page name their quest by its number, so you accept the offer that you read. `/quest accept` or `/quest decline` answers the newest offer. The story program checks each step against later `zone_entered`, `npc_met`, `talk_asked`, and `npc_slapped` events, in order. A step that holds when it becomes the next step is done at once, because the addon sends a zone only when it changes. The addon sends an NPC again only after 5 minutes, and it forgets the NPCs that you met when you accept a quest. At the end, you get `quest_done`, and the giver trusts you 10 more. The model never picks this number. The finished quest is a deed, so it shows on the Deeds page and in the chronicle, and the saga gets it as a fact of the chapter.
-- **Storage** (built): the quest file `c_<name>.quests.jsonl` holds the offers, the answers, and the steps done. The world holds the facts: the giver holds `quest_offered`, and you hold `quest_accepted` and `quest_done`. The quest thing is named "quest <number>: <title>", so it never merges with a title.
+- **Accept and progress** (built): the buttons of the Tasks page name their quest by its number, so you accept the offer that you read. `/quest accept` or `/quest decline` answers the newest offer. The story program checks each step against later `zone_entered`, `npc_met`, `talk_asked`, `npc_slapped`, and `npc_killed` events, in order. A step that holds when it becomes the next step is done at once, because the addon sends a zone only when it changes. The addon sends an NPC again only after 5 minutes, and it forgets the NPCs that you met when you accept a quest.
+- **Kills** (built): the journal tells the addon the creature of the next step of each task in progress, when that step is a kill. The addon keeps, in memory only, the GUID of each unit of such a creature that you see and can attack. `PARTY_KILL` for one of these units sends `npc_killed` with the name, once for each unit. The story program counts a kill only for the next step of an accepted task, and only up to its count, in the quest file. A kill before you accept counts nothing. The Tasks page shows the count as the game does: "Duskbat slain: 2/6". At the end of a task, you get `quest_done`, and the giver trusts you 10 more. The model never picks this number. The finished quest is a deed, so it shows on the Deeds page and in the chronicle, and the saga gets it as a fact of the chapter.
+- **Storage** (built): the quest file `c_<name>.quests.jsonl` holds the offers, the answers, the kills, and the steps done. The world holds the facts: the giver holds `quest_offered`, and you hold `quest_accepted` and `quest_done`. The quest thing is named "quest <number>: <title>", so it never merges with a title.
 
 ### 3.5 Talk to an NPC
 
@@ -216,16 +222,17 @@ The desktop sends the pages each time the book opens, because the world lives th
 
 Who your hero is, in your own words, as a player of a tabletop game writes before the first session. It is your hero's own story, never canon: `/lore` never reads it.
 
-- **The sheet:** origin, background, goal, bond, flaw, and traits. Each field is optional, and holds at most 300 characters. You change a field at any time, and an empty text clears it.
+- **The sheet:** origin, background, goal, bond, flaw, and traits. Each field is optional, and holds at most 1000 characters. You change a field at any time, and an empty text clears it.
 - **Your own lore:** entries that you add at any time, for example "A stranger at the inn knew my father's name." Each entry keeps its time and the place where you stood, and the NPC that you targeted when it is about one. You can remove your own entry.
 - **Nothing is lost.** Each change is a new line in `c_<character id>.hero.jsonl` next to the history (5.7). A removal and an old text of a field stay in the file.
-- **The same rules as other text:** no control character, and no name from after the lore cutoff (5.9). An edit has no reply of its own, so a refused text leaves its reason for the next journal page, and the addon shows it once.
+- **Your words are free.** No check reads the words of the player: a name from after the lore cutoff (5.9) is fine in your own story. A text has only these limits: an entry is not empty, no control character, at most 1000 characters, and at most 1200 bytes. The six fields go together on the first page of the journal, so a text also fits a sixth of a slot of the game: a text full of quotes is too long. An edit has no reply of its own, so a refused text leaves its reason for the next journal page, and the addon shows it once. The editor of the book stops at 1000 letters, and keeps a text over 1200 bytes open with the reason under it.
+- **A later name in a model answer:** the narrator, a chapter, and an NPC can name something from after the cutoff when your own text names it first. The check of the cutoff reads your sheet and your entries as allowed words.
 - **Who reads it:**
-  - The narrator (3.2) gets the sheet and the 5 newest entries, under the heading "the hero's own story, not canon", for a line and for a chapter (3.3).
+  - The narrator (3.2) gets the sheet and the 5 newest entries, under the heading "the hero's own story, not canon", for a line and for a chapter (3.3). A prompt takes the first 300 characters of each text, so a long story keeps the prompt small.
   - The prompt of a chapter also gets the entries written during the chapter.
   - An NPC in `/talk` (3.5) gets only the entries about it or about its place, at most 5.
 - **The journal** carries the sheet on its first page, and the entries as a list like the others.
-- **In the game:** the Hero page of the book, or `/hero`, `/hero add <text>`, `/hero note <text about your target>`, and `/hero set <field> <text>`. Edit and Add open a writing page in the book: a box of several lines that stops at 300 characters, with Save and Cancel. Remove asks first in a dialog of the game.
+- **In the game:** the Hero page of the book, or `/hero`, `/hero add <text>`, `/hero note <text about your target>`, and `/hero set <field> <text>`. Edit and Add open a writing page in the book: a box of several lines that scrolls, stops at 1000 characters, and counts them ("16 / 1000"), with Save and Cancel. Remove asks first in a dialog of the game.
 - **An edit shows at once.** The book shows the new text, marked "Saving...", until the next journal comes. Each edit goes out with a journal request, so that journal comes soon. It shows what the desktop saved, or leaves out a refused edit and shows the reason.
 
 ## 4. The social level
@@ -285,6 +292,9 @@ Each character has one Hourglass world. A guild has one more world, held by its 
 |---|---|---|---|---|
 | `located_in` | flag | free | one place | Declared by Hourglass itself. Where an NPC lives, or where you are. |
 | `met` | flag | up | person to person | You talked to this NPC. It never ends. |
+| `seen` | flag | up | person to person | You hovered or targeted this NPC (3.4). Seeing is not meeting. It never ends. |
+| `hostile` | flag | free | none | You can attack this NPC. The last sighting starts or ends it. |
+| `animal` | flag | up | none | A beast or a critter: no one to talk to. |
 | `trusts` | number, -100 to 100 | free | person to person | How much an NPC trusts you. |
 | `visited` | flag | up | person to place | You were in this place. It feeds the spoiler limit. |
 | `knows_lore` | flag | up | person to thing or place | You heard this piece of lore. It feeds the spoiler limit. |
@@ -336,6 +346,8 @@ A first list. Each name goes through the API gate of Gnomish Relay (`scripts/wow
 | Quest of the game taken and done (built) | `QUEST_ACCEPTED` and `QUEST_TURNED_IN`, with the title from `C_QuestLog.GetInfo`. The log puts a quest of your class under a header with the name of the class (`UnitClass`), so the addon marks it as a class quest. The log is read at login too, so a quest taken before still counts. A finished class quest is a big moment for the narrator (3.2) and a chapter milestone (3.3). |
 | Lasting buff or debuff of a quest (built) | `UNIT_AURA` for the player only, with its `addedAuras`. An aura counts only if it starts within 60 seconds after an event of a quest of the game (`QUEST_ACCEPTED`, `QUEST_WATCH_UPDATE`, `QUEST_TURNED_IN`), and it belongs to that quest. It must come from no player or pet, last 10 minutes or more (or have no end), and start out of combat. The state at login (`isFullUpdate`) and any hidden value never count. A short list of spell IDs drops Resurrection Sickness, the world buffs, and the Darkmoon fortunes. Each mark counts once. It is a deed, a fact of its chapter, and a moment for the narrator below a finished class quest. |
 | Kill of a rare or a boss | `PARTY_KILL` for a unit that the addon saw as rare, rare elite, or world boss (`PLAYER_TARGET_CHANGED`, `UPDATE_MOUSEOVER_UNIT`, `NAME_PLATE_UNIT_ADDED`), and `ENCOUNTER_END` with `success` 1 |
+| An NPC that you see (built) | `PLAYER_TARGET_CHANGED` and `UPDATE_MOUSEOVER_UNIT`, with `UnitCanAttack`, `UnitCreatureType`, and the NPC id of `UnitGUID`. Once for each NPC in a session (3.4). |
+| Kill for a task (built) | `PARTY_KILL` for a unit of the creature of a kill step that comes next (3.4) |
 | Your death | `PLAYER_DEAD`, and the killing blow from `C_DeathRecap.GetRecapEvents()` |
 | Boss fight | `ENCOUNTER_START`, `ENCOUNTER_END` |
 | Talk to an NPC | `GOSSIP_SHOW`, `QUEST_GREETING`, `QUEST_DETAIL`, `QUEST_PROGRESS`, `QUEST_COMPLETE` |
@@ -509,7 +521,7 @@ Models know all of WoW's lore up to today, and they leak it. A line in the promp
 1. **The game text is canon.** The addon collects the text of the Forever client itself: quest text, NPC gossip, books, and item text. This text is always exactly Forever's lore, also when Forever adds content of its own. It grows as you play, and it also feeds the spoiler limit.
 2. **Sources with a cutoff.** The sources are, in order: the game text, the Forever pages of warcraft.wiki.gg and Wowhead, and Blizzard's Forever news. A Classic page counts only for events before Molten Core. A page about a later raid, a later patch, or a later expansion is refused.
 3. **Canon is read-only.** The canon characters, places, and factions go into the world with their facts as of Forever, for example `leader_of` Thrall and the Horde. Only game events change them. The director can change only your own story: the NPCs of your rumors, and your quests. The story module refuses a proposal that touches a canon entity before `World::propose` sees it. So "Varian Wrynn returns" can never become true.
-4. **A check on every answer.** Before an answer shows, the story module checks it against a list of names and events past the cutoff: for example the defeat of Ragnaros, the opening of the Scarab Wall, Naxxramas over the Plaguelands, Shattrath, the fall of the Lich King, the Cataclysm, and Pandaria. The check reads words in any case, and the last word of a name also counts at the start of a longer word: "Pandarian" counts as Pandaria. For `/lore`, a hit means one retry with the reason, and a second hit drops the answer. Only `/lore` retries: a narrator line, a chapter, a talk, or a quest offer that fails the checks gets no retry, and shows nothing. Names that already exist in the lore of 25 ADP, such as Ragnaros, Arthas, Illidan, and Deathwing, stay allowed with their story up to that year only.
+4. **A check on every answer.** Before an answer shows, the story module checks it against a list of names and events past the cutoff: for example the defeat of Ragnaros, the opening of the Scarab Wall, Naxxramas over the Plaguelands, Shattrath, the fall of the Lich King, the Cataclysm, and Pandaria. The check reads words in any case, and the last word of a name also counts at the start of a longer word: "Pandarian" counts as Pandaria. For `/lore`, a hit means one retry with the reason, and a second hit drops the answer. Only `/lore` retries: a narrator line, a chapter, a talk, or a quest offer that fails the checks gets no retry, and shows nothing. A narrator line, a chapter, and a talk can name what the player's own text of the hero names (3.7): the player wrote it first. The player's own text gets no check of the cutoff. Names that already exist in the lore of 25 ADP, such as Ragnaros, Arthas, Illidan, and Deathwing, stay allowed with their story up to that year only.
 
 The list of later names is data in the repo, with a test for each entry. When Forever moves forward in the story, the cutoff moves with one change to that list and to the canon seed.
 
@@ -718,6 +730,6 @@ The guild world keeps `defeated` from the guild to each boss. So the saga gets a
 8. **The strength of the echo lore** (5.13). Off, light, or strong, and which level is the default? Does a strong level need a named bronze dragon, and how does it stay inside the lore cutoff?
 9. **The closed combat log** (5.4). Addons in this client cannot read the combat log. Kills of rares and bosses and your deaths work without it. These features still need a source:
    - Nemesis (4.1): the death recap names the killer, but gives no GUID, so the addon cannot tell a player from an NPC with the same name for sure.
-   - Critter kills and common mob counts (5.4.1): `UNIT_DIED` gives a GUID, but a GUID can be secret, and the range of the event is not documented.
+   - Critter kills and common mob counts (5.4.1): `UNIT_DIED` gives a GUID, but a GUID can be secret, and the range of the event is not documented. A kill step of a task (3.4) counts only the units of its creature that the addon saw, from `PARTY_KILL`.
    - Wipes and the first player to die in a raid (4.2).
    - A test in the game settles what `UNIT_DIED`, `PARTY_KILL`, and the recap really give, and when values are secret.

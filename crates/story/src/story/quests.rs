@@ -5,8 +5,7 @@ use super::{Active, Pending, Story, StoryError, checked_name};
 use crate::character::Character;
 use crate::input::MessageId;
 use crate::quest::{
-    self, Known, MAX_OPEN_QUESTS, QuestChange, Status, Tracked, next_number, quest_log, step_holds,
-    thing_name,
+    self, Known, MAX_OPEN_QUESTS, QuestChange, Status, Tracked, next_number, quest_log, thing_name,
 };
 use crate::seen::SeenText;
 use crate::store::CharacterKey;
@@ -44,7 +43,7 @@ impl Story {
             return narrator_line(batch, Some(refusal));
         }
         let seen = seen_texts(active);
-        let known = known(&active.character, giver, &seen);
+        let known = known(&active.character, giver, &seen, &quests);
         let prompt = quest::prompt(&known, active.character.place_of(giver));
         let pending = Pending::Quest {
             batch,
@@ -74,7 +73,8 @@ impl Story {
             return narrator_line(batch, Some(refusal));
         }
         let seen = seen_texts(active);
-        let Ok(offer) = quest::checked_quest(text, &known(&active.character, giver, &seen)) else {
+        let known = known(&active.character, giver, &seen, &quests);
+        let Ok(offer) = quest::checked_quest(text, &known) else {
             return none;
         };
         let at = asked_at.max(active.character.world().tick);
@@ -158,11 +158,10 @@ impl Story {
             let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
             let places = active.character.place_names();
             let quests = quest_log(active.quests.changes());
-            let Some(quest) = quests.iter().find(|quest| {
-                quest
-                    .next_step()
-                    .is_some_and(|step| step_holds(step, &places, npc))
-            }) else {
+            let Some(quest) = quests
+                .iter()
+                .find(|quest| quest.next_step_holds(&places, npc))
+            else {
                 return Ok(Vec::new());
             };
             let (number, step) = (quest.number, quest.steps_done);
@@ -174,6 +173,20 @@ impl Story {
                 self.change(|character| character.finish_quest(at, &giver, &name))?;
             }
         }
+    }
+
+    /// A kill counts for each accepted quest whose next step hunts this creature. The last
+    /// kill of a step finishes it.
+    pub(super) fn count_kill(&mut self, at: Tick, name: &str) -> Result<Vec<Output>, StoryError> {
+        let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
+        let quests = quest_log(active.quests.changes());
+        for quest in quests.iter().filter(|quest| quest.hunts(name)) {
+            let (number, step) = (quest.number, quest.steps_done);
+            active
+                .quests
+                .add(QuestChange::Killed { number, step, at })?;
+        }
+        self.advance_quests(at, None)
     }
 }
 
@@ -224,12 +237,27 @@ fn seen_texts(active: &Active) -> Vec<SeenText> {
 
 /// The zone of a text that you read is the zone where you read it, so the places that you
 /// visited hold every place that you heard of.
-fn known<'a>(character: &'a Character, giver: &'a str, seen: &'a [SeenText]) -> Known<'a> {
+fn known<'a>(
+    character: &'a Character,
+    giver: &'a str,
+    seen: &'a [SeenText],
+    quests: &'a [Tracked],
+) -> Known<'a> {
     Known {
         giver,
         zones: character.visited_zones(),
         subzones: character.visited_subzones(),
-        npcs: character.living_npcs_met(),
+        npcs: character.npcs_to_meet(),
+        foes: character.foes_seen(),
+        last_targets: last_targets(quests),
         seen,
     }
+}
+
+/// The targets of the newest task of the log, from any giver and in any state.
+fn last_targets(quests: &[Tracked]) -> Vec<&str> {
+    let newest = quests.iter().max_by_key(|quest| quest.number);
+    newest.map_or_else(Vec::new, |quest| {
+        quest.steps.iter().map(quest::Step::target).collect()
+    })
 }

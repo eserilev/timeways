@@ -1,0 +1,1 @@
+{"title": "Bats in the Belfry", "text": "Clear the belfry.", "steps": [{"goal": "visit", "place": "Old Tower"}, {"goal": "kill", "creature": "Duskbat", "count": 10}]}

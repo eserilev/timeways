@@ -60,6 +60,7 @@ fn lantern(status: Status, steps_done: usize) -> Tracked {
             },
         ],
         steps_done,
+        kills: 0,
         status,
         done_at: None,
     }

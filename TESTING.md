@@ -46,10 +46,12 @@ The answer uses that text, and says where you learned it.
 This test needs a model. Without one, the NPC "has no task for you now", and the rest of the test does not apply.
 
 1. Visit two subzones, and talk to two NPCs there.
-2. Target one of those NPCs, and type `/quest`.
-3. Wait a minute. The narrator line shows the offer.
-4. Type `/quest accept`. Open `/journal` on the Quests page.
-5. Do the steps of the quest. Check the page after each step.
+2. Hover your mouse over two hostile creatures, for example two kinds of wolves.
+3. Target one of those NPCs, and type `/quest`.
+4. Wait a minute. The narrator line shows the offer. A task never sends you to talk to a creature that you can attack.
+5. Type `/quest accept`. Open `/journal` on the Tasks page.
+6. Do the steps of the quest. For a kill step, hover or target each creature before you kill it. Check the page after each step: a kill step shows "<creature> slain: 1/<count>".
+7. Type `/quest` to another NPC. The new task names no place, NPC, or creature of the last one.
 
 The quest shows "Done on" with the day, and the giver trusts you more on the People page.
 

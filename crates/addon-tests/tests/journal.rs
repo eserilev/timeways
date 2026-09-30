@@ -107,7 +107,7 @@ fn deeds_begin_at_the_first_level_and_follow_each_level_up() {
     game.reply(&journal_reply(&traveler()));
 
     let expected = [
-        "entry: Began this journal at level 12".to_string(),
+        "entry: Started at level 12".to_string(),
         format!("text: {}.", day(&game)),
         "entry: Reached level 13".to_string(),
         format!("text: Sentinel Hill, {}.", day(&game)),
@@ -136,7 +136,7 @@ fn the_open_page_shows_the_lines_of_its_section() {
         game.eval("wow.ShownTexts(TimewaysJournalFrameScroll:GetScrollChild())");
     assert_eq!(
         shown.first().map(String::as_str),
-        Some("Began this journal at level 12")
+        Some("Started at level 12")
     );
     assert_eq!(shown.len(), 4);
 }
@@ -281,10 +281,7 @@ fn the_old_journal_stays_until_every_page_of_the_new_one_came() {
 
     game.reply(&page_reply(pages(journal(&explorer())).remove(0)));
 
-    assert_eq!(
-        lines(&game, "deeds")[0],
-        "entry: Began this journal at level 12"
-    );
+    assert_eq!(lines(&game, "deeds")[0], "entry: Started at level 12");
 }
 
 #[test]
@@ -363,7 +360,7 @@ fn a_chapter_tells_what_was_new_in_one_session() {
         "section: People you met".to_string(),
         "text: Innkeeper Farley.".to_string(),
         "section: What you did".to_string(),
-        "entry: Began this journal at level 12.".to_string(),
+        "entry: Started at level 12.".to_string(),
         "entry: Reached level 13.".to_string(),
     ];
     assert_eq!(lines(&game, "chapters"), expected);
@@ -617,10 +614,7 @@ fn a_journal_with_no_pages_keeps_the_book_as_it_is() {
 
     game.reply(r#"{"type":"journal","page":0,"pages":0,"narrator":null}"#);
 
-    assert_eq!(
-        lines(&game, "deeds")[0],
-        "entry: Began this journal at level 12"
-    );
+    assert_eq!(lines(&game, "deeds")[0], "entry: Started at level 12");
 }
 
 #[test]

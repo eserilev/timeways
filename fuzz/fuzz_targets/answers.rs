@@ -8,12 +8,13 @@ mod common;
 
 use libfuzzer_sys::fuzz_target;
 use timeways_story::check::{
-    check, in_voice, later_names, names_after_cutoff, plain_text, same_words,
+    check, in_voice, later_names, names_after_cutoff, names_after_cutoff_except, plain_text,
+    same_words,
 };
 use timeways_story::house::without_fence_marks;
 use timeways_story::quest::{self, Known, Step};
 use timeways_story::seen::{SeenText, TextKind};
-use timeways_story::{chronicle, narrator, talk};
+use timeways_story::{chronicle, hero, narrator, talk};
 
 fn assert_plain(text: &str, max_chars: usize, max_bytes: usize) {
     assert!(
@@ -34,8 +35,10 @@ fn known(seen: &[SeenText]) -> Known<'_> {
     Known {
         giver: "Keeper Tessa",
         zones: vec!["Testvale"],
-        subzones: vec!["Old Tower"],
+        subzones: vec!["Old Tower", "Old Mill"],
         npcs: vec!["Keeper Tessa", "Farmer Bram"],
+        foes: vec!["Duskbat"],
+        last_targets: vec!["Old Mill"],
         seen,
     }
 }
@@ -65,15 +68,24 @@ fn assert_quest(text: &str) {
         match step {
             Step::Visit { place } => assert!(["Testvale", "Old Tower"].contains(&place.as_str())),
             Step::Meet { npc } => assert_eq!(npc, "Farmer Bram"),
+            Step::Kill { creature, count } => {
+                assert_eq!(creature, "Duskbat");
+                assert!((1..=quest::MAX_KILLS).contains(count));
+            }
         }
     }
+    let targets: Vec<&str> = offer.steps.iter().map(Step::target).collect();
+    let mut distinct = targets.clone();
+    distinct.sort_unstable();
+    distinct.dedup();
+    assert_eq!(distinct.len(), targets.len(), "a target twice: {targets:?}");
 }
 
 fuzz_target!(|data: &[u8]| {
     let moments = data.first().map_or(0, |byte| usize::from(byte % 9));
     let text = String::from_utf8_lossy(data);
 
-    if let Some(saga) = chronicle::checked_saga(&text, moments) {
+    if let Some(saga) = chronicle::checked_saga(&text, moments, "") {
         assert_voice(
             &saga.text,
             chronicle::MAX_CHAPTER_CHARS,
@@ -85,17 +97,26 @@ fuzz_target!(|data: &[u8]| {
             assert_voice(footnote, chronicle::MAX_FOOTNOTE_CHARS, 1600);
         }
     }
-    if let Some(answer) = talk::checked_answer(&text) {
+    if let Some(answer) = talk::checked_answer(&text, "") {
         assert_voice(&answer.say, talk::MAX_SAY_CHARS, talk::MAX_SAY_BYTES);
         assert!((-talk::MAX_TRUST_CHANGE..=talk::MAX_TRUST_CHANGE).contains(&answer.trust_change));
     }
     assert_quest(&text);
-    if let Some(line) = narrator::checked_line(&text) {
+    if let Some(line) = narrator::checked_line(&text, "") {
         assert_voice(&line, narrator::MAX_LINE_CHARS, narrator::MAX_LINE_BYTES);
     }
     if let Some(line) = plain_text(&text, 50, 200) {
         assert_plain(&line, 50, 200);
     }
+    if let Ok(own) = hero::checked_text(&text) {
+        assert!(own.chars().count() <= hero::MAX_TEXT_CHARS, "{own:?}");
+        assert!(own.len() <= hero::MAX_TEXT_BYTES, "{own:?}");
+        assert!(!own.chars().any(char::is_control), "{own:?}");
+    }
+    assert!(
+        names_after_cutoff_except(&text, &text).is_empty(),
+        "the player's own names: {text:?}"
+    );
     let _ = check(&text, moments);
     let known: Vec<&str> = later_names().collect();
     assert!(

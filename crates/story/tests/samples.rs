@@ -67,9 +67,9 @@ fn a_copy_of_a_sample_is_refused() {
     let sample = Voice::NarratorLine.samples()[0];
     let say = Voice::NpcReply.samples()[0];
 
-    assert_eq!(narrator::checked_line(sample), None);
+    assert_eq!(narrator::checked_line(sample, ""), None);
     let answer = format!(r#"{{"say": "{say}", "trust": 0}}"#);
-    assert_eq!(talk::checked_answer(&answer), None);
+    assert_eq!(talk::checked_answer(&answer, ""), None);
 }
 
 #[test]

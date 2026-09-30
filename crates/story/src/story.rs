@@ -5,7 +5,7 @@ use crate::character::{Character, Refusal};
 use crate::check;
 use crate::flavor::{self, Flavor, HUMBLING_GAP, Kind, Teller, Told};
 use crate::hero::{self, Change, Entry};
-use crate::input::{CallId, GameQuestKind, Input, MessageId};
+use crate::input::{CallId, GameQuestKind, Input, MessageId, Reaction};
 use crate::journal::{Page, journal, pages};
 use crate::learned::{Read, Rumor, learned};
 use crate::lore::{Answer, LoreCall, Next};
@@ -300,10 +300,14 @@ impl Story {
             } => self.enter_zone(at, &zone, subzone.as_deref(), spot),
             Input::InstanceEntered { at, zone, kind } => self.mark_instance(at, &zone, kind),
             Input::NpcMet { at, name, spot } => self.meet_npc(at, &name, spot),
-            Input::NpcDefeated { at, name } => {
-                checked_name(&name)?;
-                self.change(|character| character.defeat_npc(at, &name))
-            }
+            Input::NpcSeen {
+                at,
+                name,
+                reaction,
+                creature,
+            } => self.see_npc(at, &name, reaction, creature.as_deref()),
+            Input::NpcKilled { at, name } => self.count_kill(at, checked_name(&name)?),
+            Input::NpcDefeated { at, name } => self.defeat_npc(at, &name),
             Input::GameQuestAccepted { at, title, kind } => self.take_game_quest(at, &title, kind),
             Input::GameQuestDone { at, title, kind } => self.finish_game_quest(at, &title, kind),
             Input::QuestMarked { at, quest, mark } => self.take_quest_mark(at, &quest, &mark),
@@ -410,6 +414,23 @@ impl Story {
         self.advance_quests(at, Some(name))
     }
 
+    fn defeat_npc(&mut self, at: Tick, name: &str) -> Result<Vec<Output>, StoryError> {
+        checked_name(name)?;
+        self.change(|character| character.defeat_npc(at, name))
+    }
+
+    fn see_npc(
+        &mut self,
+        at: Tick,
+        name: &str,
+        reaction: Reaction,
+        creature: Option<&str>,
+    ) -> Result<Vec<Output>, StoryError> {
+        checked_name(name)?;
+        creature.map(checked_token).transpose()?;
+        self.change(|character| character.see_npc(at, name, reaction, creature))
+    }
+
     fn mark_instance(
         &mut self,
         at: Tick,
@@ -486,6 +507,18 @@ impl Story {
         }
     }
 
+    /// The hero of the active character in the player's own words, or nothing when `key`
+    /// names another character.
+    fn player_text(&self, key: Option<&CharacterKey>) -> String {
+        let active = self
+            .active
+            .as_ref()
+            .filter(|active| key.is_none_or(|key| &active.key == key));
+        active.map_or_else(String::new, |active| {
+            hero::player_text(&hero::hero(active.hero.changes()))
+        })
+    }
+
     /// The lines for the log since the last call, oldest first.
     pub fn take_notes(&mut self) -> Vec<String> {
         std::mem::take(&mut self.notes)
@@ -498,7 +531,7 @@ impl Story {
             Pending::Lore { question, lore } => vec![self.follow(question, lore.answered(text))],
             Pending::Narrator { batch } => vec![Output::EventsSeen {
                 id: batch,
-                narrator: narrator::checked_line(text),
+                narrator: narrator::checked_line(text, &self.player_text(None)),
             }],
             Pending::Chronicle { key, began } => self.saga_answered(&key, began, Some(text))?,
             Pending::Talk {
@@ -527,7 +560,7 @@ impl Story {
         asked_at: Tick,
         text: &str,
     ) -> Output {
-        let Some(answer) = talk::checked_answer(text) else {
+        let Some(answer) = talk::checked_answer(text, &self.player_text(Some(key))) else {
             return Output::TalkAnswer {
                 id: question,
                 npc,

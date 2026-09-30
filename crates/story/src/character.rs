@@ -1,12 +1,12 @@
 //! The world of one character, fed by game events (GAMEPLAY.md 5.1 and 5.2).
 
-use crate::input::GameQuestKind;
+use crate::input::{GameQuestKind, Reaction};
 use crate::places::InstanceKind;
 use crate::spot::{self, Spot};
 use crate::vocabulary::{
-    self, CLASS_QUEST, DEAD, DEATHS, DEFEATED, DUNGEON, GAME_QUEST_DONE, GAME_QUEST_TAKEN, LEVEL,
-    MAP_X, MAP_Y, MARK_OF, MARKED_BY, MET, ON_MAP, QUEST_ACCEPTED, QUEST_DONE, QUEST_OFFERED, RAID,
-    SLAPPED, TALLY, TITLE, TRUST, TRUSTS, VISITED,
+    self, ANIMAL, CLASS_QUEST, DEAD, DEATHS, DEFEATED, DUNGEON, GAME_QUEST_DONE, GAME_QUEST_TAKEN,
+    HOSTILE, LEVEL, MAP_X, MAP_Y, MARK_OF, MARKED_BY, MET, ON_MAP, QUEST_ACCEPTED, QUEST_DONE,
+    QUEST_OFFERED, RAID, SEEN, SLAPPED, TALLY, TITLE, TRUST, TRUSTS, VISITED,
 };
 use hourglass::{
     Entity, EntityId, EntityType, Event, EventHistory, EventKind, LOCATED_IN, Rejection, Tick,
@@ -179,14 +179,37 @@ impl Character {
             .collect()
     }
 
-    /// The NPCs that you met, except the dead of your story.
+    /// The NPCs that a task can send you to meet: met or seen, alive, never hostile, and
+    /// never a beast (GAMEPLAY.md 3.4).
     #[must_use]
-    pub fn living_npcs_met(&self) -> Vec<&str> {
-        self.linked_by_you(MET)
+    pub fn npcs_to_meet(&self) -> Vec<&str> {
+        let mut known = self.linked_by_you(MET);
+        known.extend(self.linked_by_you(SEEN));
+        let mut names: Vec<&str> = Vec::new();
+        for npc in known {
+            let blocked = [DEAD, HOSTILE, ANIMAL]
+                .iter()
+                .any(|flag| holds_flag(npc, flag));
+            if !blocked && !names.contains(&npc.name.as_str()) {
+                names.push(npc.name.as_str());
+            }
+        }
+        names
+    }
+
+    /// The creatures that a task can send you to kill: seen hostile, and alive.
+    #[must_use]
+    pub fn foes_seen(&self) -> Vec<&str> {
+        self.linked_by_you(SEEN)
             .into_iter()
-            .filter(|npc| npc.fact(DEAD, None).is_none())
+            .filter(|npc| holds_flag(npc, HOSTILE) && !holds_flag(npc, DEAD))
             .map(|npc| npc.name.as_str())
             .collect()
+    }
+
+    #[must_use]
+    pub fn has_seen(&self, npc: &str) -> bool {
+        self.holds_about(SEEN, npc)
     }
 
     #[must_use]
@@ -425,6 +448,70 @@ impl Character {
             self.settle(at, npc, here)?;
         }
         self.start_once(at, self.you, MET, npc)
+    }
+
+    /// Seeing is not meeting. The last sighting says whether you can attack the NPC. The NPC
+    /// lives where you saw it last.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first refusal of Hourglass.
+    pub fn see_npc(
+        &mut self,
+        at: Tick,
+        name: &str,
+        reaction: Reaction,
+        creature: Option<&str>,
+    ) -> Result<(), Refusal> {
+        let npc = self.find_or_create(at, EntityType::Person, name)?;
+        if let Some(here) = self.world.location_of(self.you) {
+            self.settle(at, npc, here)?;
+        }
+        self.start_once(at, self.you, SEEN, npc)?;
+        self.set_hostile(at, npc, reaction)?;
+        if creature.is_some_and(is_animal) {
+            self.flag_once(at, npc, ANIMAL)?;
+        }
+        Ok(())
+    }
+
+    fn set_hostile(&mut self, at: Tick, npc: EntityId, reaction: Reaction) -> Result<(), Refusal> {
+        let held = self
+            .world
+            .entity(npc)
+            .is_some_and(|entity| holds_flag(entity, HOSTILE));
+        let kind = match (reaction, held) {
+            (Reaction::Hostile, false) => EventKind::FactStart {
+                entity: npc,
+                name: HOSTILE.to_string(),
+                value: None,
+                linked_to: None,
+            },
+            (Reaction::Friendly, true) => EventKind::FactEnd {
+                entity: npc,
+                name: HOSTILE.to_string(),
+                linked_to: None,
+            },
+            _ => return Ok(()),
+        };
+        self.propose(at, kind)
+    }
+
+    fn flag_once(&mut self, at: Tick, entity: EntityId, name: &str) -> Result<(), Refusal> {
+        let held = self
+            .world
+            .entity(entity)
+            .is_some_and(|holder| holds_flag(holder, name));
+        if held {
+            return Ok(());
+        }
+        let flag = EventKind::FactStart {
+            entity,
+            name: name.to_string(),
+            value: None,
+            linked_to: None,
+        };
+        self.propose(at, flag)
     }
 
     /// A kill is a deed of the killer, and the target stays alive, because the game brings
@@ -681,6 +768,16 @@ impl Character {
     fn propose(&mut self, at: Tick, kind: EventKind) -> Result<(), Refusal> {
         self.world.propose(at, kind).map(|_| ())
     }
+}
+
+fn holds_flag(entity: &Entity, flag: &str) -> bool {
+    entity.fact(flag, None).is_some()
+}
+
+/// The creature types of the game that are animals. The addon sends the English name, in
+/// lower case.
+fn is_animal(creature: &str) -> bool {
+    matches!(creature, "beast" | "critter")
 }
 
 /// The trust after a change of `by`, inside the band. An NPC with no trust yet starts at 0.

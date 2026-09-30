@@ -244,18 +244,28 @@ fn numbered(moments: &[String]) -> String {
 
 /// The saga as the player reads it, or None when it breaks a rule. A footnote that breaks
 /// a rule, or names no moment of the list, is dropped alone. A chapter that fails keeps
-/// its plain list, and gets no retry.
+/// its plain list, and gets no retry. `player_text` is the hero in the player's own words.
 #[must_use]
-pub fn checked_saga(text: &str, moment_count: usize) -> Option<Saga> {
+pub fn checked_saga(text: &str, moment_count: usize, player_text: &str) -> Option<Saga> {
     let reply: Reply = serde_json::from_str(json_object(text)?).ok()?;
-    let saga = voice_text(&reply.saga, MAX_CHAPTER_CHARS, MAX_CHAPTER_BYTES)?;
+    let saga = voice_text(
+        &reply.saga,
+        MAX_CHAPTER_CHARS,
+        MAX_CHAPTER_BYTES,
+        player_text,
+    )?;
     let mut footnotes: Vec<(usize, String)> = Vec::new();
     for footnote in reply.footnotes {
         let known = (1..=moment_count).contains(&footnote.moment);
         let new = footnotes
             .iter()
             .all(|(moment, _)| *moment != footnote.moment);
-        let text = voice_text(&footnote.text, MAX_FOOTNOTE_CHARS, MAX_FOOTNOTE_BYTES);
+        let text = voice_text(
+            &footnote.text,
+            MAX_FOOTNOTE_CHARS,
+            MAX_FOOTNOTE_BYTES,
+            player_text,
+        );
         if let (true, true, Some(text)) = (known, new, text) {
             footnotes.push((footnote.moment, text));
         }

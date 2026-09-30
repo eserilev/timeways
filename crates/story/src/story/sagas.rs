@@ -122,7 +122,8 @@ impl Story {
     /// A draft that repeats an earlier saga of the character is refused (3.3).
     fn checked_draft(&self, round: &Round, text: &str) -> Option<Saga> {
         let active = self.active.as_ref()?;
-        let saga = chronicle::checked_saga(text, round.kinds.len())?;
+        let player_text = hero::player_text(&hero::hero(active.hero.changes()));
+        let saga = chronicle::checked_saga(text, round.kinds.len(), &player_text)?;
         let earlier: Vec<&str> = active
             .prose
             .before(round.began)

@@ -47,3 +47,8 @@
 "\"spot\":{\"map\":"
 "\"x\":"
 "\"y\":"
+"{\"type\":\"npc_seen\",\"at\":"
+"\"reaction\":\"hostile\""
+"\"reaction\":\"friendly\""
+"\"creature\":\"beast\""
+"{\"type\":\"npc_killed\",\"at\":"

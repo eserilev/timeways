@@ -1,6 +1,7 @@
 use hourglass::Tick;
 use timeways_story::hero::{
-    Change, Entry, Field, MAX_TEXT_CHARS, checked_text, hero, next_number, portrait,
+    Change, Entry, Field, MAX_TEXT_BYTES, MAX_TEXT_CHARS, PROMPT_TEXT_CHARS, checked_text, hero,
+    newest_texts, next_number, player_text, portrait,
 };
 
 fn set(field: &str, text: &str) -> Change {
@@ -80,16 +81,91 @@ fn a_removed_entry_is_gone_and_its_number_is_never_used_again() {
 }
 
 #[test]
-fn a_text_that_breaks_a_rule_gets_a_reason_for_the_player() {
-    assert!(
-        checked_text(&"a".repeat(MAX_TEXT_CHARS + 1))
-            .unwrap_err()
-            .starts_with("Couldn't save that.")
-    );
-    assert!(checked_text("My father sailed to Pandaria.").is_err());
+fn a_text_goes_on_one_line() {
     assert_eq!(
         checked_text("  A farm\n near Goldshire. "),
         Ok("A farm near Goldshire.".to_string())
+    );
+}
+
+#[test]
+fn the_players_own_text_is_never_checked_for_its_words() {
+    assert_eq!(
+        checked_text("My father sailed to Pandaria."),
+        Ok("My father sailed to Pandaria.".to_string())
+    );
+}
+
+#[test]
+fn a_text_holds_up_to_a_thousand_characters() {
+    assert!(checked_text(&"a".repeat(MAX_TEXT_CHARS)).is_ok());
+
+    let reason = checked_text(&"a".repeat(MAX_TEXT_CHARS + 1)).unwrap_err();
+
+    assert_eq!(
+        reason,
+        "Couldn't save that: it's too long. Try a shorter version."
+    );
+}
+
+#[test]
+fn a_text_outside_ascii_stops_at_the_byte_limit() {
+    let widest = "\u{10348}".repeat(MAX_TEXT_BYTES / 4);
+
+    assert!(checked_text(&widest).is_ok());
+    assert!(checked_text(&format!("{widest}a")).is_err());
+}
+
+#[test]
+fn a_text_full_of_quotes_is_too_long_for_the_first_journal_page() {
+    let quotes = "\"".repeat(700);
+
+    assert!(checked_text(&quotes).is_err());
+}
+
+#[test]
+fn an_empty_note_gets_its_own_reason() {
+    assert_eq!(
+        checked_text("  \n "),
+        Err("Couldn't save an empty note.".to_string())
+    );
+}
+
+#[test]
+fn a_control_character_is_refused() {
+    assert!(
+        checked_text("A farm\u{7}.")
+            .unwrap_err()
+            .contains("special characters")
+    );
+}
+
+#[test]
+fn a_prompt_takes_the_start_of_a_long_text() {
+    let long = "b".repeat(MAX_TEXT_CHARS);
+    let changes = [set("goal", &long), added(1, &long)];
+    let cut = "b".repeat(PROMPT_TEXT_CHARS);
+
+    let portrait = portrait(&hero(&changes)).unwrap();
+
+    assert_eq!(
+        portrait,
+        format!("- goal: {cut}\n- Told by the player: {cut}")
+    );
+    assert_eq!(newest_texts(&hero(&changes).entries, |_| true), [cut]);
+}
+
+#[test]
+fn the_player_text_holds_the_sheet_and_every_entry() {
+    let changes = (1..=7).map(|n| added(n, &format!("Entry {n}")));
+    let mut changes: Vec<Change> = changes.collect();
+    changes.push(set("origin", "Pandaria."));
+
+    let text = player_text(&hero(&changes));
+
+    assert!(
+        text.contains("Pandaria.") && text.contains("Entry 1"),
+        "{text}"
     );
 }
 

@@ -225,6 +225,14 @@ function UnitCanAttack(_, unit)
 	return u ~= nil and u.hostile == true
 end
 
+-- `creature` in the table of a unit is its creature type: { name, id }.
+function UnitCreatureType(unit)
+	local u = wow.units[unit]
+	if u and u.creature then
+		return u.creature[1], u.creature[2]
+	end
+end
+
 function UnitLevel(unit)
 	local u = wow.units[unit]
 	return u and u.level or 0
@@ -359,10 +367,23 @@ function Widget:SetShown(shown)
 	end
 end
 
--- An edit box cuts a longer text at its limit, as the game does.
+-- The first `count` letters of a UTF-8 text. A letter starts at each byte that does not
+-- continue a letter.
+local function FirstLetters(text, count)
+	local seen = 0
+	for at in text:gmatch("()[^\128-\191]") do
+		if seen == count then
+			return text:sub(1, at - 1)
+		end
+		seen = seen + 1
+	end
+	return text
+end
+
+-- An edit box cuts a longer text at its limit in letters, as the game does.
 function Widget:SetText(text)
 	if self.maxLetters and self.maxLetters > 0 then
-		text = text:sub(1, self.maxLetters)
+		text = FirstLetters(text, self.maxLetters)
 	end
 	self.text = text
 end
@@ -389,7 +410,8 @@ function Widget:SetMaxLetters(letters)
 end
 
 function Widget:GetNumLetters()
-	return #(self.text or "")
+	local _, letters = (self.text or ""):gsub("[^\128-\191]", "")
+	return letters
 end
 
 -- A button stands in for its own label.
@@ -417,6 +439,18 @@ end
 
 function Widget:IsEnabled()
 	return self.enabled
+end
+
+function Widget:GetHeight()
+	return self.height or 0
+end
+
+function Widget:GetVerticalScroll()
+	return self.verticalScroll or 0
+end
+
+function Widget:SetVerticalScroll(offset)
+	self.verticalScroll = offset
 end
 
 function Widget:SetScrollChild(child)

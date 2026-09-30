@@ -40,6 +40,20 @@ pub enum Input {
         #[serde(default, deserialize_with = "spot::lenient")]
         spot: Option<Spot>,
     },
+    /// You hovered or targeted an NPC. The addon sends each NPC once in a session, and never
+    /// a player or a pet. `creature` is the English creature type in lower case: "beast".
+    NpcSeen {
+        at: Tick,
+        name: String,
+        reaction: Reaction,
+        #[serde(default)]
+        creature: Option<String>,
+    },
+    /// You or your group killed a creature of the kill step of a task (GAMEPLAY.md 3.4).
+    NpcKilled {
+        at: Tick,
+        name: String,
+    },
     LevelReached {
         at: Tick,
         level: u8,
@@ -180,6 +194,14 @@ pub enum Input {
     },
 }
 
+/// Can you attack the NPC? A hostile one is a foe to hunt, never someone to meet.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Reaction {
+    Hostile,
+    Friendly,
+}
+
 /// The quest log of the game puts a quest of your class under a header with the name of
 /// the class.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -195,6 +217,8 @@ impl Input {
         match self {
             Input::ZoneEntered { at, .. }
             | Input::NpcMet { at, .. }
+            | Input::NpcSeen { at, .. }
+            | Input::NpcKilled { at, .. }
             | Input::InstanceEntered { at, .. }
             | Input::LevelReached { at, .. }
             | Input::NpcDefeated { at, .. }
