@@ -162,6 +162,23 @@ fn the_dead_of_your_story_are_not_in_the_known_npcs_so_no_quest_sends_you_to_the
 }
 
 #[test]
+fn a_quest_never_asks_you_to_kill_its_giver() {
+    let seen = [];
+    let mut known = known(&seen);
+    known.foes.push(GIVER);
+    let text = answer(
+        "The Lost Lantern",
+        r#"{"goal": "kill", "creature": "Keeper Tessa", "count": 1}"#,
+    );
+
+    assert_eq!(
+        checked_quest(&text, &known).unwrap_err(),
+        QuestFault::KillGiver
+    );
+    assert!(!known.prey().contains(&GIVER));
+}
+
+#[test]
 fn a_quest_never_sends_you_back_to_its_giver() {
     let seen = [];
     let text = answer(

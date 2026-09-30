@@ -220,6 +220,14 @@ impl Character {
         self.holds_about(SEEN, npc)
     }
 
+    /// A hostile NPC or a beast has no task to give, and nothing to say (GAMEPLAY.md 3.4).
+    #[must_use]
+    pub fn is_hostile_or_animal(&self, npc: &str) -> bool {
+        self.find(EntityType::Person, npc)
+            .and_then(|id| self.world.entity(id))
+            .is_some_and(|entity| holds_flag(entity, HOSTILE) || holds_flag(entity, ANIMAL))
+    }
+
     #[must_use]
     pub fn is_dead(&self, npc: &str) -> bool {
         self.find(EntityType::Person, npc)
@@ -512,6 +520,18 @@ impl Character {
             self.flag_once(at, npc, ANIMAL)?;
         }
         Ok(())
+    }
+
+    /// A talk in the game shows that the NPC is a friend now, so it is no longer hostile.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first refusal of Hourglass.
+    pub fn befriend(&mut self, at: Tick, npc: &str) -> Result<(), Refusal> {
+        let Some(npc) = self.find(EntityType::Person, npc) else {
+            return Ok(());
+        };
+        self.set_hostile(at, npc, Reaction::Friendly)
     }
 
     fn set_hostile(&mut self, at: Tick, npc: EntityId, reaction: Reaction) -> Result<(), Refusal> {

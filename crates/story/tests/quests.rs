@@ -726,3 +726,57 @@ fn the_prompt_lists_the_people_and_places_of_the_zone_of_the_giver_first() {
     assert_eq!(places[0], "Testvale");
     assert_eq!(places.last(), Some(&"Far Farm"));
 }
+
+/// `/quest` to this giver and the end of its batch, when no model call goes out.
+fn refused_ask(story: &mut Story, giver: &str, at: u64) -> Option<String> {
+    let asked = Input::QuestAsked {
+        at: Tick(at),
+        npc: giver.to_string(),
+    };
+    assert_eq!(story.handle(asked).unwrap(), []);
+    notice(story.handle(Input::BatchEnd { id: BATCH }).unwrap())
+}
+
+fn has_met(story: &mut Story, name: &str) -> bool {
+    let people = page(story).journal.people;
+    people.iter().any(|person| person.name == name)
+}
+
+#[test]
+fn a_hostile_npc_gives_no_task_and_asking_does_not_meet_it() {
+    let mut story = story("hostile-giver");
+    sight(&mut story, 5, "Murloc Scout", Reaction::Hostile, "humanoid");
+
+    let line = refused_ask(&mut story, "Murloc Scout", 6);
+
+    assert_eq!(
+        line.as_deref(),
+        Some("Murloc Scout has no task for you now.")
+    );
+    assert!(!has_met(&mut story, "Murloc Scout"));
+}
+
+#[test]
+fn a_beast_gives_no_task() {
+    let mut story = story("beast-giver");
+    sight(&mut story, 5, "Old Hound", Reaction::Friendly, "beast");
+
+    let line = refused_ask(&mut story, "Old Hound", 6);
+
+    assert_eq!(line.as_deref(), Some("Old Hound has no task for you now."));
+    assert!(!has_met(&mut story, "Old Hound"));
+}
+
+#[test]
+fn an_npc_that_you_talk_to_in_the_game_is_no_longer_a_foe() {
+    let mut story = story("met-foe");
+    sight(&mut story, 5, "Guard Rolf", Reaction::Hostile, "humanoid");
+
+    story.handle(meet(6, "Guard Rolf")).unwrap();
+
+    let (_, prompt) = call_of(ask(&mut story, 7));
+    let people = prompt_list(&prompt, "People that the player can meet:");
+    let foes = prompt_list(&prompt, "Creatures that the player can hunt:");
+    assert!(people.contains(&"Guard Rolf"), "{people:?}");
+    assert!(!foes.contains(&"Guard Rolf"), "{foes:?}");
+}

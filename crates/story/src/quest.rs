@@ -124,6 +124,7 @@ impl Known<'_> {
                 in_game_quests(npc, self.seen)
             }
             Step::Meet { npc } => Some(QuestFault::UnknownNpc(npc.clone())),
+            Step::Kill { creature, .. } if creature == self.giver => Some(QuestFault::KillGiver),
             Step::Kill { count, .. } if !(1..=MAX_KILLS).contains(count) => {
                 Some(QuestFault::KillCount(*count))
             }
@@ -157,6 +158,8 @@ pub enum QuestFault {
     KillCount(u8),
     #[error("a step sends you back to the giver")]
     MeetGiver,
+    #[error("a step asks you to kill the giver")]
+    KillGiver,
     #[error("two steps are the same")]
     RepeatedStep,
     #[error("\"{0}\" belongs to a quest of the game")]

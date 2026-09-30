@@ -20,10 +20,13 @@ pub(super) struct QuestRequest {
 }
 
 impl Story {
-    /// Asking is meeting, as a talk is.
+    /// Asking is meeting, as a talk is. A hostile NPC or a beast is not met: it has
+    /// nothing to say.
     pub(super) fn ask_quest(&mut self, at: Tick, npc: String) -> Result<Vec<Output>, StoryError> {
         checked_name(&npc)?;
-        self.change(|character| character.meet_npc(at, &npc))?;
+        if !self.character()?.is_hostile_or_animal(&npc) {
+            self.change(|character| character.meet_npc(at, &npc))?;
+        }
         self.quest_request = Some(QuestRequest { giver: npc, at });
         Ok(Vec::new())
     }
@@ -36,7 +39,7 @@ impl Story {
         };
         let quests = quest_log(active.quests.changes());
         let giver = request.giver.as_str();
-        if active.character.is_dead(giver) {
+        if active.character.is_dead(giver) || active.character.is_hostile_or_animal(giver) {
             return no_offer(batch, giver);
         }
         if let Some(refusal) = refusal(&quests, giver) {

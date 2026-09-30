@@ -422,6 +422,7 @@ impl Story {
         checked_name(name)?;
         self.change(|character| {
             character.meet_npc(at, name)?;
+            character.befriend(at, name)?;
             spot.map_or(Ok(()), |spot| character.mark_npc(at, name, spot))
         })?;
         self.advance_quests(at, Some(name))
