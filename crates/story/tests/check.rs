@@ -3,7 +3,8 @@
 use hourglass::Tick;
 use timeways_story::check::{
     Fault, MAX_CHARS, banned_words, banned_words_in, check, in_voice, later_names, mentions,
-    names_after_cutoff, names_in_no_fact, plain_text, voice_text, without_citations,
+    names_after_cutoff, names_after_cutoff_except, names_in_no_fact, plain_text, voice_text,
+    without_citations,
 };
 use timeways_story::flavor::{self, Flavor, Kind};
 use timeways_story::journal::{Chapter, Deed};
@@ -115,6 +116,16 @@ fn an_unknown_number_in_a_list_of_citations_fails() {
     assert_eq!(
         check("It fell [1, 9].", 2),
         [Fault::UnknownCitation { number: 9 }]
+    );
+}
+
+#[test]
+fn a_later_name_that_the_player_wrote_is_allowed() {
+    let answer = "From Shattrath to Pandaria.";
+
+    assert_eq!(
+        names_after_cutoff_except(answer, "I dream of Pandaria."),
+        ["Shattrath"]
     );
 }
 
@@ -239,11 +250,11 @@ fn no_banned_word_is_a_word_of_the_facts() {
 #[test]
 fn a_voice_text_is_a_plain_text_in_voice() {
     assert_eq!(
-        voice_text(" Our hero\n rested. ", 50, 200).as_deref(),
+        voice_text(" Our hero\n rested. ", 50, 200, "").as_deref(),
         Some("Our hero rested.")
     );
     assert_eq!(
-        voice_text("Our hero, like, literally rested.", 50, 200),
+        voice_text("Our hero, like, literally rested.", 50, 200, ""),
         None
     );
 }

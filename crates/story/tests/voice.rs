@@ -189,11 +189,11 @@ fn lore_question() -> String {
 }
 
 fn narrator_shown(answer: &str) -> Option<String> {
-    narrator::checked_line(answer)
+    narrator::checked_line(answer, "")
 }
 
 fn saga_shown(answer: &str) -> Option<String> {
-    let saga = chronicle::checked_saga(answer, 1)?;
+    let saga = chronicle::checked_saga(answer, 1, "")?;
     let footnotes: Vec<String> = saga.footnotes.into_iter().map(|(_, text)| text).collect();
     Some(format!(
         "{} | Footnotes: {}",
@@ -203,7 +203,7 @@ fn saga_shown(answer: &str) -> Option<String> {
 }
 
 fn talk_shown(answer: &str) -> Option<String> {
-    let answer = talk::checked_answer(answer)?;
+    let answer = talk::checked_answer(answer, "")?;
     Some(format!("{} (trust {:+})", answer.say, answer.trust_change))
 }
 

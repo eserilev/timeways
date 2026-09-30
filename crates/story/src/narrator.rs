@@ -102,8 +102,8 @@ fn what_happened(moment: &Moment) -> String {
 }
 
 /// The line as the player sees it, or None when it breaks a rule. A narrator line gets no
-/// retry: silence costs nothing.
+/// retry: silence costs nothing. `player_text` is the hero in the player's own words.
 #[must_use]
-pub fn checked_line(text: &str) -> Option<String> {
-    voice_text(text, MAX_LINE_CHARS, MAX_LINE_BYTES)
+pub fn checked_line(text: &str, player_text: &str) -> Option<String> {
+    voice_text(text, MAX_LINE_CHARS, MAX_LINE_BYTES, player_text)
 }

@@ -142,7 +142,7 @@ fn a_prompt_numbers_the_small_moments_for_footnotes() {
 fn a_saga_reads_with_its_footnotes() {
     let text = r#"{"saga": "Our hero rode west.", "footnotes": [{"moment": 2, "text": "Nobody knows why."}]}"#;
 
-    let read = checked_saga(text, 2);
+    let read = checked_saga(text, 2, "");
 
     let expected = Saga {
         text: "Our hero rode west.".to_string(),
@@ -154,7 +154,7 @@ fn a_saga_reads_with_its_footnotes() {
 #[test]
 fn a_saga_with_no_footnotes_reads() {
     assert_eq!(
-        checked_saga(r#"{"saga": "  Our hero\n rode west.  "}"#, 0),
+        checked_saga(r#"{"saga": "  Our hero\n rode west.  "}"#, 0, ""),
         Some(saga("Our hero rode west."))
     );
 }
@@ -166,7 +166,7 @@ fn a_footnote_of_no_listed_moment_twice_the_same_or_too_long_is_dropped_alone() 
         r#"{{"saga": "Our hero rode west.", "footnotes": [{{"moment": 3, "text": "x"}}, {{"moment": 1, "text": "Why?"}}, {{"moment": 1, "text": "Again?"}}, {{"moment": 2, "text": "{long}"}}]}}"#
     );
 
-    let read = checked_saga(&text, 2).unwrap();
+    let read = checked_saga(&text, 2, "").unwrap();
 
     assert_eq!(read.footnotes, [(1, "Why?".to_string())]);
 }
@@ -176,10 +176,10 @@ fn a_saga_out_of_voice_is_dropped_and_a_footnote_out_of_voice_is_dropped_alone()
     let footnote = r#"{"saga": "Our hero rode west.", "footnotes": [{"moment": 1, "text": "lol"}, {"moment": 2, "text": "Why?"}]}"#;
 
     assert_eq!(
-        checked_saga(r#"{"saga": "Like sand in an hourglass."}"#, 0),
+        checked_saga(r#"{"saga": "Like sand in an hourglass."}"#, 0, ""),
         None
     );
-    let read = checked_saga(footnote, 2).unwrap();
+    let read = checked_saga(footnote, 2, "").unwrap();
     assert_eq!(read.footnotes, [(2, "Why?".to_string())]);
 }
 
@@ -187,7 +187,7 @@ fn a_saga_out_of_voice_is_dropped_and_a_footnote_out_of_voice_is_dropped_alone()
 fn a_saga_keeps_at_most_three_footnotes() {
     let text = r#"{"saga": "S", "footnotes": [{"moment": 1, "text": "a"}, {"moment": 2, "text": "b"}, {"moment": 3, "text": "c"}, {"moment": 4, "text": "d"}]}"#;
 
-    assert_eq!(checked_saga(text, 5).unwrap().footnotes.len(), 3);
+    assert_eq!(checked_saga(text, 5, "").unwrap().footnotes.len(), 3);
 }
 
 #[test]
@@ -195,14 +195,23 @@ fn a_broken_empty_long_late_or_wide_saga_is_dropped() {
     let long = format!(r#"{{"saga": "{}"}}"#, "a".repeat(MAX_CHAPTER_CHARS + 1));
     let wide = format!(r#"{{"saga": "{}"}}"#, "日".repeat(MAX_CHAPTER_CHARS));
 
-    assert_eq!(checked_saga("Our hero rode west.", 0), None);
-    assert_eq!(checked_saga(r#"{"saga": "  "}"#, 0), None);
-    assert_eq!(checked_saga(&long, 0), None);
+    assert_eq!(checked_saga("Our hero rode west.", 0, ""), None);
+    assert_eq!(checked_saga(r#"{"saga": "  "}"#, 0, ""), None);
+    assert_eq!(checked_saga(&long, 0, ""), None);
     assert_eq!(
-        checked_saga(r#"{"saga": "Our hero sailed to Pandaria."}"#, 0),
+        checked_saga(r#"{"saga": "Our hero sailed to Pandaria."}"#, 0, ""),
         None
     );
-    assert_eq!(checked_saga(&wide, 0), None);
+    assert_eq!(checked_saga(&wide, 0, ""), None);
+}
+
+#[test]
+fn a_saga_may_name_what_the_player_wrote_first() {
+    let saga = r#"{"saga": "Our hero dreamed of Pandaria."}"#;
+
+    let read = checked_saga(saga, 0, "I was born in Pandaria.").unwrap();
+
+    assert_eq!(read.text, "Our hero dreamed of Pandaria.");
 }
 
 #[test]

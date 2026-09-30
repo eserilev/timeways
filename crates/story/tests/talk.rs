@@ -121,13 +121,13 @@ fn an_answer_reads_from_plain_or_fenced_json() {
         say: "Welcome, traveler.".to_string(),
         trust_change: 2,
     });
-    assert_eq!(checked_answer(plain), expected);
-    assert_eq!(checked_answer(fenced), expected);
+    assert_eq!(checked_answer(plain, ""), expected);
+    assert_eq!(checked_answer(fenced, ""), expected);
 }
 
 #[test]
 fn a_change_of_trust_outside_the_band_is_dropped_and_the_words_stay() {
-    let answer = checked_answer(r#"{"say": "I love you!", "trust": 50}"#);
+    let answer = checked_answer(r#"{"say": "I love you!", "trust": 50}"#, "");
 
     assert_eq!(
         answer,
@@ -141,7 +141,7 @@ fn a_change_of_trust_outside_the_band_is_dropped_and_the_words_stay() {
 #[test]
 fn an_answer_out_of_voice_is_dropped() {
     assert_eq!(
-        checked_answer(r#"{"say": "Okay, cool, I will help.", "trust": 1}"#),
+        checked_answer(r#"{"say": "Okay, cool, I will help.", "trust": 1}"#, ""),
         None
     );
 }
@@ -153,19 +153,29 @@ fn a_broken_long_or_late_answer_is_dropped() {
         "a".repeat(MAX_SAY_CHARS + 1)
     );
 
-    assert_eq!(checked_answer("I will not answer in JSON."), None);
-    assert_eq!(checked_answer(r#"{"say": "hi"}"#), None);
-    assert_eq!(checked_answer(&long), None);
+    assert_eq!(checked_answer("I will not answer in JSON.", ""), None);
+    assert_eq!(checked_answer(r#"{"say": "hi"}"#, ""), None);
+    assert_eq!(checked_answer(&long, ""), None);
     assert_eq!(
-        checked_answer(r#"{"say": "Off to Shattrath!", "trust": 1}"#),
+        checked_answer(r#"{"say": "Off to Shattrath!", "trust": 1}"#, ""),
         None
     );
 }
 
 #[test]
+fn an_npc_may_name_what_the_player_wrote_first() {
+    let answer = checked_answer(
+        r#"{"say": "Shattrath? Never heard of it.", "trust": 0}"#,
+        "I search for Shattrath.",
+    );
+
+    assert!(answer.is_some());
+}
+
+#[test]
 fn a_change_of_trust_at_the_ends_of_i64_is_dropped() {
     for trust in [i64::MIN, i64::MAX] {
-        let answer = checked_answer(&format!(r#"{{"say": "Hmm.", "trust": {trust}}}"#));
+        let answer = checked_answer(&format!(r#"{{"say": "Hmm.", "trust": {trust}}}"#), "");
 
         assert_eq!(
             answer,

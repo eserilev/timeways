@@ -10,7 +10,8 @@ use timeways_story::chapters::{
     MIN_CHAPTER_PLAY_SECONDS, SESSION_GAP_SECONDS, chapter_starts, sessions,
 };
 use timeways_story::character::Character;
-use timeways_story::check::{Fault, check, without_citations};
+use timeways_story::check::{Fault, check, later_names, without_citations};
+use timeways_story::hero::{MAX_TEXT_BYTES, MAX_TEXT_CHARS, checked_text};
 use timeways_story::house::fenced;
 use timeways_story::input::{GameQuestKind, Input, MessageId};
 use timeways_story::journal::{Journal, journal, pages};
@@ -67,6 +68,15 @@ fn name() -> impl Strategy<Value = String> {
     ]
 }
 
+/// Mostly short, and often near the limits: long, outside ASCII, or full of quotes.
+fn hero_text() -> impl Strategy<Value = String> {
+    prop_oneof![
+        "[A-Za-z ]{0,40}",
+        "[a\"|\u{e9}\u{10348}]{250,320}",
+        "[A-Za-z\"]{900,1000}",
+    ]
+}
+
 fn play() -> impl Strategy<Value = Play> {
     prop_oneof![
         (name(), prop::option::of(name())).prop_map(|(zone, subzone)| Play::Zone(zone, subzone)),
@@ -76,7 +86,7 @@ fn play() -> impl Strategy<Value = Play> {
         prop::option::of(name()).prop_map(Play::Die),
         (1u8..=60).prop_map(Play::Level),
         ("[a-z]{1,8}", 0u8..24).prop_map(|(emote, hour)| Play::Emote(emote, hour)),
-        (0usize..6, "[A-Za-z ]{0,40}").prop_map(|(field, text)| Play::HeroSet(field, text)),
+        (0usize..6, hero_text()).prop_map(|(field, text)| Play::HeroSet(field, text)),
         "[A-Za-z ]{1,40}".prop_map(Play::HeroAdd),
         (1u64..6).prop_map(Play::HeroRemove),
         (
@@ -411,6 +421,22 @@ proptest! {
         }
 
         prop_assert_eq!(joined, whole);
+    }
+
+    #[test]
+    fn the_player_may_write_any_words_in_their_own_text(
+        words in prop::collection::vec(
+            prop_oneof![
+                prop::sample::select(later_names().collect::<Vec<_>>()).prop_map(String::from),
+                "[A-Za-z,.'!?]{1,12}",
+            ],
+            1..40,
+        )
+    ) {
+        let text = words.join(" ");
+        prop_assume!(text.chars().count() <= MAX_TEXT_CHARS && text.len() <= MAX_TEXT_BYTES);
+
+        prop_assert_eq!(checked_text(&text), Ok(text.clone()));
     }
 
     #[test]

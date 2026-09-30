@@ -129,11 +129,11 @@ pub struct Answer {
 }
 
 /// None when the words break a rule. A change of trust outside the band is dropped, and
-/// the words still show.
+/// the words still show. `player_text` is the hero in the player's own words.
 #[must_use]
-pub fn checked_answer(text: &str) -> Option<Answer> {
+pub fn checked_answer(text: &str, player_text: &str) -> Option<Answer> {
     let reply: Reply = serde_json::from_str(json_object(text)?).ok()?;
-    let say = voice_text(&reply.say, MAX_SAY_CHARS, MAX_SAY_BYTES)?;
+    let say = voice_text(&reply.say, MAX_SAY_CHARS, MAX_SAY_BYTES, player_text)?;
     let in_band = (-MAX_TRUST_CHANGE..=MAX_TRUST_CHANGE).contains(&reply.trust);
     Some(Answer {
         say,

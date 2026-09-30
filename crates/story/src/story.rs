@@ -454,6 +454,18 @@ impl Story {
         }
     }
 
+    /// The hero of the active character in the player's own words, or nothing when `key`
+    /// names another character.
+    fn player_text(&self, key: Option<&CharacterKey>) -> String {
+        let active = self
+            .active
+            .as_ref()
+            .filter(|active| key.is_none_or(|key| &active.key == key));
+        active.map_or_else(String::new, |active| {
+            hero::player_text(&hero::hero(active.hero.changes()))
+        })
+    }
+
     /// The lines for the log since the last call, oldest first.
     pub fn take_notes(&mut self) -> Vec<String> {
         std::mem::take(&mut self.notes)
@@ -466,7 +478,7 @@ impl Story {
             Pending::Lore { question, lore } => vec![self.follow(question, lore.answered(text))],
             Pending::Narrator { batch } => vec![Output::EventsSeen {
                 id: batch,
-                narrator: narrator::checked_line(text),
+                narrator: narrator::checked_line(text, &self.player_text(None)),
             }],
             Pending::Chronicle { key, began, kinds } => {
                 self.saga_answered(&key, began, &kinds, text)?;
@@ -498,7 +510,8 @@ impl Story {
         let Some(active) = self.active.as_mut().filter(|active| &active.key == key) else {
             return Ok(());
         };
-        let Some(saga) = chronicle::checked_saga(text, kinds.len()) else {
+        let player_text = hero::player_text(&hero::hero(active.hero.changes()));
+        let Some(saga) = chronicle::checked_saga(text, kinds.len(), &player_text) else {
             return Ok(());
         };
         let earlier: Vec<&str> = active
@@ -544,7 +557,7 @@ impl Story {
         asked_at: Tick,
         text: &str,
     ) -> Output {
-        let Some(answer) = talk::checked_answer(text) else {
+        let Some(answer) = talk::checked_answer(text, &self.player_text(Some(key))) else {
             return Output::TalkAnswer {
                 id: question,
                 npc,

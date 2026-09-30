@@ -26,7 +26,10 @@ Hero.HINTS = {
 }
 
 -- The desktop refuses a longer text, so the editor stops at the same length.
-Hero.MAX_LETTERS = 300
+Hero.MAX_LETTERS = 1000
+-- A letter outside ASCII takes up to 4 bytes, and the desktop also limits the bytes.
+Hero.MAX_BYTES = 1200
+local TOO_LONG = "Too long to save. Try a shorter version."
 
 local asked = false
 
@@ -62,6 +65,12 @@ end
 local function Clean(text)
 	local flat = tostring(text or ""):gsub("%s*[\r\n]+%s*", " ")
 	return (flat:match("^%s*(.-)%s*$"))
+end
+
+function Hero.Problem(text)
+	if #Clean(text) > Hero.MAX_BYTES then
+		return TOO_LONG
+	end
 end
 
 function Hero.Unsaved()
@@ -108,6 +117,7 @@ function Hero.Edit(field, current)
 		hint = Hero.HINTS[field],
 		text = current,
 		limit = Hero.MAX_LETTERS,
+		problem = Hero.Problem,
 		save = function(text)
 			if Clean(text) ~= (current or "") then
 				Hero.Set(field, text)
@@ -122,6 +132,7 @@ function Hero.Write()
 		hint = "Anything about your character. It becomes part of your story.",
 		text = "",
 		limit = Hero.MAX_LETTERS,
+		problem = Hero.Problem,
 		save = Hero.Add,
 	})
 end

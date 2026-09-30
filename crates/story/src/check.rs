@@ -92,10 +92,19 @@ pub(crate) fn data_lines(file: &'static str) -> impl Iterator<Item = &'static st
 /// This many words in a row of a golden sample make a copy of it.
 pub const COPIED_WORDS: usize = 8;
 
-/// A plain text (see `plain_text`) that is in voice, and copies no golden sample.
+/// A plain text (see `plain_text`) that is in voice, and copies no golden sample. A later
+/// name that `player_text` holds is allowed: the player wrote it first (GAMEPLAY.md 3.7).
 #[must_use]
-pub fn voice_text(text: &str, max_chars: usize, max_bytes: usize) -> Option<String> {
-    let line = plain_text(text, max_chars, max_bytes)?;
+pub fn voice_text(
+    text: &str,
+    max_chars: usize,
+    max_bytes: usize,
+    player_text: &str,
+) -> Option<String> {
+    let line = one_line(text, max_chars, max_bytes)?;
+    if !names_after_cutoff_except(&line, player_text).is_empty() {
+        return None;
+    }
     let own_words = !copies_a_sample(&line, &samples::every_sample());
     (in_voice(&line) && own_words).then_some(line)
 }
@@ -161,16 +170,20 @@ fn is_name(word: &str) -> bool {
 
 /// The text on one line, or None when it is empty, longer than `max_chars` or `max_bytes`,
 /// holds a control character, or names something from after the cutoff. For the short
-/// texts of the narrator, the chronicle, and a talk. The bridge limits bytes, and a character
-/// outside ASCII takes up to 4.
+/// texts of a model. The bridge limits bytes, and a character outside ASCII takes up to 4.
 #[must_use]
 pub fn plain_text(text: &str, max_chars: usize, max_bytes: usize) -> Option<String> {
+    let line = one_line(text, max_chars, max_bytes)?;
+    names_after_cutoff(&line).is_empty().then_some(line)
+}
+
+/// The text on one line, or None when it is empty, longer than `max_chars` or `max_bytes`,
+/// or holds a control character. The words are free: the player's own text gets only this.
+#[must_use]
+pub fn one_line(text: &str, max_chars: usize, max_bytes: usize) -> Option<String> {
     let line = text.split_whitespace().collect::<Vec<_>>().join(" ");
     let too_long = line.chars().count() > max_chars || line.len() > max_bytes;
     if line.is_empty() || too_long || line.chars().any(char::is_control) {
-        return None;
-    }
-    if !names_after_cutoff(&line).is_empty() {
         return None;
     }
     Some(line)
@@ -192,6 +205,16 @@ pub fn names_after_cutoff(answer: &str) -> Vec<&'static str> {
     let words = words_of(answer);
     later_names()
         .filter(|name| starts_a_phrase(&words, name))
+        .collect()
+}
+
+/// The names of the cutoff list that the answer holds and `player_text` does not.
+#[must_use]
+pub fn names_after_cutoff_except(answer: &str, player_text: &str) -> Vec<&'static str> {
+    let allowed = names_after_cutoff(player_text);
+    names_after_cutoff(answer)
+        .into_iter()
+        .filter(|name| !allowed.contains(name))
         .collect()
 }
 

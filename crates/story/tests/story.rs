@@ -2,6 +2,7 @@
 
 use hourglass::Tick;
 use std::path::Path;
+use timeways_story::hero::MAX_TEXT_CHARS;
 use timeways_story::input::{CallId, GameQuestKind, Input, MessageId};
 use timeways_story::lore::Answer;
 use timeways_story::pack::{Link, Origin, Pack, Passage};
@@ -1657,7 +1658,7 @@ fn a_refused_edit_shows_its_reason_once_on_the_next_journal_page() {
     let mut story = story_with("hero-refused", &[]);
 
     assert!(
-        set_field(&mut story, "goal", "Sail to Pandaria.")
+        set_field(&mut story, "goal", &"a".repeat(MAX_TEXT_CHARS + 1))
             .unwrap()
             .is_empty()
     );
@@ -1665,8 +1666,19 @@ fn a_refused_edit_shows_its_reason_once_on_the_next_journal_page() {
     let (hero, first) = hero_page(&mut story);
     let (_, second) = hero_page(&mut story);
     assert!(hero.sheet.is_empty());
-    assert!(first.is_some_and(|reason| reason.starts_with("Couldn't save that.")));
+    assert!(first.is_some_and(|reason| reason.contains("too long")));
     assert_eq!(second, None);
+}
+
+#[test]
+fn the_player_may_name_anything_in_their_own_text() {
+    let mut story = story_with("hero-free", &[]);
+
+    set_field(&mut story, "goal", "Sail to Pandaria.").unwrap();
+
+    let (hero, refused) = hero_page(&mut story);
+    assert_eq!(hero.sheet[0].text, "Sail to Pandaria.");
+    assert_eq!(refused, None);
 }
 
 #[test]
@@ -1722,6 +1734,40 @@ fn the_narrator_knows_who_our_hero_is() {
         prompt.contains("The moment:\n<<<\nThe player reached level 13.\n>>>"),
         "{prompt}"
     );
+}
+
+#[test]
+fn the_narrator_may_name_a_later_place_that_the_player_wrote() {
+    let mut story = story_with("hero-later-name", &[]);
+    set_field(&mut story, "goal", "Find the road to Shattrath.").unwrap();
+    level(&mut story, 10, 12);
+    level(&mut story, 11, 13);
+    let (call, _) = model_call(batch_end(&mut story, 2));
+
+    let text = "Still no road to Shattrath.".to_string();
+    let output = one(story.handle(Input::ModelAnswered { call, text }).unwrap());
+
+    assert_eq!(
+        output,
+        Some(Output::EventsSeen {
+            id: MessageId(2),
+            narrator: Some("Still no road to Shattrath.".to_string())
+        })
+    );
+}
+
+#[test]
+fn a_talk_carries_the_start_of_a_long_note() {
+    let mut story = story_with("hero-long-note", &[]);
+    enter(&mut story, 1, "Elwynn Forest", Some("Goldshire"));
+    let long = format!("{}{}", "q".repeat(300), "Q".repeat(700));
+    add_entry(&mut story, 2, &long, Some("Innkeeper Farley"));
+
+    let (_, prompt) =
+        model_call(one(talk(&mut story, "Innkeeper Farley", "hello").unwrap()).unwrap());
+
+    assert!(prompt.contains(&"q".repeat(300)), "{prompt}");
+    assert!(!prompt.contains("qQ"), "{prompt}");
 }
 
 #[test]

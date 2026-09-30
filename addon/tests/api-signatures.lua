@@ -850,6 +850,17 @@ return {
 				{ Name = "enable", Type = "bool", Nilable = false, Default = false },
 			},
 		},
+		["SimpleScriptRegionAPI:GetHeight"] = {
+			ConstSecretAccessor = true,
+			SecretArguments = "AllowedWhenUntainted",
+			SecretWhenAnchoringSecret = true,
+			Arguments = {
+				{ Name = "ignoreRect", Type = "bool", Nilable = false, Default = false },
+			},
+			Returns = {
+				{ Name = "height", Type = "uiUnit", Nilable = false },
+			},
+		},
 		["SimpleScriptRegionAPI:Hide"] = {
 			Arguments = {},
 		},
@@ -937,6 +948,13 @@ return {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {
 				{ Name = "width", Type = "uiUnit", Nilable = false },
+			},
+		},
+		["SimpleScrollFrameAPI:GetVerticalScroll"] = {
+			SecretReturnsForAspect = { Enum.SecretAspect.ScrollOffset },
+			Arguments = {},
+			Returns = {
+				{ Name = "offset", Type = "uiUnit", Nilable = false },
 			},
 		},
 		["SimpleScrollFrameAPI:SetScrollChild"] = {
