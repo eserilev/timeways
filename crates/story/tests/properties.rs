@@ -6,6 +6,9 @@ use hourglass::Tick;
 use proptest::prelude::*;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
+use timeways_story::chapters::{
+    MIN_CHAPTER_PLAY_SECONDS, SESSION_GAP_SECONDS, chapter_starts, sessions,
+};
 use timeways_story::character::Character;
 use timeways_story::check::{Fault, check, without_citations};
 use timeways_story::house::fenced;
@@ -119,6 +122,31 @@ fn quest_change() -> impl Strategy<Value = QuestChange> {
 }
 
 /// The edges of `i64` come often, because a uniform draw almost never reaches them.
+/// Steps between two events of play. Most sit at the edges of the session gap, where a
+/// uniform draw almost never lands.
+fn play_step() -> impl Strategy<Value = u64> {
+    prop_oneof![
+        Just(SESSION_GAP_SECONDS),
+        Just(SESSION_GAP_SECONDS + 1),
+        Just(MIN_CHAPTER_PLAY_SECONDS),
+        Just(MIN_CHAPTER_PLAY_SECONDS - 1),
+        0..SESSION_GAP_SECONDS + 60,
+        0..10 * SESSION_GAP_SECONDS,
+    ]
+}
+
+/// The seconds of play between two ticks, counted the slow way: one second at a time
+/// that lies inside a session.
+fn played_slowly(sessions: &[(Tick, Tick)], from: Tick, to: Tick) -> u64 {
+    (from.0..to.0)
+        .filter(|second| {
+            sessions
+                .iter()
+                .any(|(began, ended)| began.0 <= *second && *second < ended.0)
+        })
+        .count() as u64
+}
+
 fn change_of_trust() -> impl Strategy<Value = i64> {
     prop_oneof![Just(i64::MAX), Just(i64::MIN), -10i64..=10, any::<i64>()]
 }
@@ -397,6 +425,31 @@ proptest! {
             character.adjust_trust(Tick(at as u64 + 1), "Innkeeper Farley", *by).unwrap();
             let trust = character.trust_of("Innkeeper Farley").unwrap_or(0);
             prop_assert!((-100..=100).contains(&trust), "{}", trust);
+        }
+    }
+
+    #[test]
+    fn a_chapter_begins_only_at_a_milestone_after_enough_play(
+        steps in prop::collection::vec(play_step(), 1..12),
+        picks in prop::collection::vec(any::<prop::sample::Index>(), 0..6),
+    ) {
+        let mut ticks = vec![Tick(1)];
+        for step in &steps {
+            ticks.push(Tick(ticks[ticks.len() - 1].0 + step));
+        }
+        let milestones: Vec<Tick> = picks.iter().map(|pick| *pick.get(&ticks)).collect();
+        let sessions = sessions(ticks.iter().copied());
+
+        let starts = chapter_starts(&sessions, &milestones);
+
+        prop_assert_eq!(starts[0], Tick(1));
+        for pair in starts.windows(2) {
+            prop_assert!(milestones.contains(&pair[1]));
+            prop_assert!(played_slowly(&sessions, pair[0], pair[1]) >= MIN_CHAPTER_PLAY_SECONDS);
+        }
+        for milestone in milestones.iter().filter(|milestone| !starts.contains(milestone)) {
+            let began = starts.iter().rev().find(|start| *start <= milestone).unwrap();
+            prop_assert!(played_slowly(&sessions, *began, *milestone) < MIN_CHAPTER_PLAY_SECONDS);
         }
     }
 

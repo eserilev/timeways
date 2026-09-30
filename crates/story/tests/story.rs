@@ -687,10 +687,27 @@ fn each_batch_starts_with_no_moments() {
 
 const HOUR: u64 = 3600;
 
-/// Two sessions of play: the first one is a finished chapter. Meeting an NPC is no big
-/// moment, so the narrator stays out of these tests.
+/// 50 minutes of play in one zone from `from`, so that a milestone after it starts a new
+/// chapter (GAMEPLAY.md 3.3). The batch stays open, so no saga is asked here.
+fn play_fifty_minutes(story: &mut Story, from: u64, zone: &str) {
+    enter(story, from, zone, None);
+    enter(story, from + 25 * 60, zone, Some("Camp One"));
+    enter(story, from + 50 * 60, zone, Some("Camp Two"));
+}
+
+/// The first visit of a zone: the milestone that starts the next chapter. The narrator
+/// line of the zone gets no answer, and it keeps the saga from this batch.
+fn new_chapter(story: &mut Story, at: u64, zone: &str, batch: u64) {
+    enter(story, at, zone, None);
+    let _ = close_narrator(story, batch);
+}
+
+/// Two chapters: the first one is finished. The narrator lines of the zones get no
+/// answer, so no call keeps the saga waiting.
 fn two_sessions(story: &mut Story) {
     meet(story, HOUR, "Gryan Stoutmantle");
+    play_fifty_minutes(story, HOUR, "Westfall");
+    new_chapter(story, 5 * HOUR, "Duskwood", 91);
     meet(story, 5 * HOUR, "Salma Saldean");
 }
 
@@ -725,7 +742,9 @@ fn a_finished_chapter_asks_for_its_saga_after_the_batch() {
         panic!("expected a saga call, got {outputs:?}");
     };
     assert!(
-        prompt.contains("The facts of chapter 1:\n<<<\n- Met: Gryan Stoutmantle."),
+        prompt.contains(
+            "The facts of chapter 1:\n<<<\n- Traveled to: Westfall.\n- Met: Gryan Stoutmantle."
+        ),
         "{prompt}"
     );
 }
@@ -781,8 +800,13 @@ fn a_saga_is_asked_once_for_each_chapter() {
 #[test]
 fn a_saga_recalls_the_last_chapters_before_it() {
     let mut story = story_with("saga-memory", &[]);
-    two_sessions(&mut story);
+    meet(&mut story, HOUR, "Gryan Stoutmantle");
+    play_fifty_minutes(&mut story, HOUR, "Westfall");
+    enter(&mut story, 5 * HOUR, "Duskwood", None);
+    play_fifty_minutes(&mut story, 5 * HOUR, "Duskwood");
+    enter(&mut story, 9 * HOUR, "Redridge Mountains", None);
     meet(&mut story, 9 * HOUR, "Marshal Dughan");
+    let _ = close_narrator(&mut story, 90);
     let outputs = story.handle(Input::BatchEnd { id: MessageId(3) }).unwrap();
     let Output::ModelCall { call, prompt } = outputs[1].clone() else {
         panic!("expected a saga call, got {outputs:?}");
@@ -793,7 +817,7 @@ fn a_saga_recalls_the_last_chapters_before_it() {
 
     assert!(!prompt.contains("What came before"), "{prompt}");
     assert!(
-        second.contains("<<<\n- Chapter 1: met Gryan Stoutmantle.\n>>>"),
+        second.contains("<<<\n- Chapter 1: traveled to Westfall; met Gryan Stoutmantle.\n>>>"),
         "{second}"
     );
 }
@@ -840,9 +864,11 @@ fn a_saga_for_another_character_is_dropped() {
 fn the_saga_waits_while_another_model_call_is_open() {
     let mut story = story_with("saga-waits-for-calls", &[tower()]);
     enter(&mut story, 1, "Testvale", None);
+    meet(&mut story, HOUR, "Gryan Stoutmantle");
+    play_fifty_minutes(&mut story, HOUR, "Westfall");
+    enter(&mut story, 5 * HOUR, "Duskwood", None);
     let (narrator, _) =
         model_call(one(story.handle(Input::BatchEnd { id: MessageId(2) }).unwrap()).unwrap());
-    two_sessions(&mut story);
     let (question, _) = model_call(ask(&mut story, "why is this tower in ruins?", None));
 
     let while_open = story.handle(Input::BatchEnd { id: MessageId(3) }).unwrap();
@@ -1349,6 +1375,8 @@ fn the_saga_gets_the_small_moments_of_its_chapter_and_its_footnotes_are_kept_and
     let _ = close_narrator(&mut story, 1);
     dance_at(&mut story, HOUR + 60, 3);
     let _ = close_narrator(&mut story, 2);
+    play_fifty_minutes(&mut story, HOUR + 120, "Elwynn Forest");
+    new_chapter(&mut story, 5 * HOUR, "Westfall", 91);
     meet(&mut story, 5 * HOUR, "Salma Saldean");
 
     let outputs = story.handle(Input::BatchEnd { id: MessageId(3) }).unwrap();
@@ -1384,6 +1412,10 @@ fn a_footnote_of_the_chronicle_does_not_hold_back_the_next_flavor_line() {
     let _ = close_narrator(&mut story, 1);
     dance_at(&mut story, HOUR + 60, 12);
     let _ = close_narrator(&mut story, 2);
+    play_fifty_minutes(&mut story, HOUR + 120, "Elwynn Forest");
+    new_chapter(&mut story, 4 * HOUR, "Westfall", 91);
+    // Back in Goldshire, a famous place, so the fall scores as high as the dance did.
+    enter(&mut story, 5 * HOUR, "Elwynn Forest", Some("Goldshire"));
     meet(&mut story, 5 * HOUR, "Salma Saldean");
     let outputs = story.handle(Input::BatchEnd { id: MessageId(3) }).unwrap();
     let [_, Output::ModelCall { call, .. }] = outputs.as_slice() else {
@@ -1564,6 +1596,8 @@ fn the_saga_reads_what_the_player_wrote_in_its_chapter() {
         "I swore an oath at the Sentinel Hill.",
         None,
     );
+    play_fifty_minutes(&mut story, HOUR + 60, "Westfall");
+    new_chapter(&mut story, 5 * HOUR, "Duskwood", 91);
     meet(&mut story, 5 * HOUR, "Salma Saldean");
 
     let outputs = story.handle(Input::BatchEnd { id: MessageId(3) }).unwrap();
@@ -1795,6 +1829,8 @@ fn a_small_moment_at_the_start_of_the_next_chapter_stays_out_of_the_saga_before_
     let mut story = story_with("saga-moment-edge", &[]);
     meet(&mut story, HOUR, "Gryan Stoutmantle");
     let _ = close_narrator(&mut story, 1);
+    play_fifty_minutes(&mut story, HOUR, "Westfall");
+    new_chapter(&mut story, 5 * HOUR, "Duskwood", 91);
     meet(&mut story, 5 * HOUR, "Salma Saldean");
 
     dance_at(&mut story, 5 * HOUR, 12);
@@ -1808,6 +1844,8 @@ fn the_saga_reads_the_entries_from_the_start_of_its_chapter_to_the_start_of_the_
     let mut story = story_with("saga-entry-edge", &[]);
     meet(&mut story, HOUR, "Gryan Stoutmantle");
     add_entry(&mut story, HOUR, "At the start of chapter one.", None);
+    play_fifty_minutes(&mut story, HOUR, "Westfall");
+    new_chapter(&mut story, 5 * HOUR, "Duskwood", 91);
     meet(&mut story, 5 * HOUR, "Salma Saldean");
     add_entry(&mut story, 5 * HOUR, "At the start of chapter two.", None);
 

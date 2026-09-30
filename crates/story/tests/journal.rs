@@ -296,65 +296,91 @@ fn one_session_is_one_chapter_with_its_new_zones_people_and_deeds() {
     assert_eq!(chapters, [expected]);
 }
 
-#[test]
-fn a_long_pause_starts_a_new_chapter() {
+/// The zones of each chapter, in order.
+fn chapter_zones(character: &Character) -> Vec<Vec<String>> {
+    journal(character)
+        .chapters
+        .into_iter()
+        .map(|chapter| chapter.zones)
+        .collect()
+}
+
+/// A character at level 8 who plays in Westfall from the first hour, with an event each
+/// 10 minutes for `minutes`.
+fn played_in_westfall(minutes: u64) -> Character {
     let mut character = Character::new();
+    character.reach_level(Tick(HOUR), 8).unwrap();
     character.enter_zone(Tick(HOUR), "Westfall", None).unwrap();
+    for n in 1..=minutes / 10 {
+        character
+            .enter_zone(Tick(HOUR + n * 600), "Westfall", Some(&format!("Farm {n}")))
+            .unwrap();
+    }
+    character
+}
+
+#[test]
+fn a_new_zone_after_enough_play_starts_a_chapter() {
+    let mut character = played_in_westfall(50);
+
+    character
+        .enter_zone(Tick(HOUR + 50 * 60), "Duskwood", None)
+        .unwrap();
+
+    assert_eq!(chapter_zones(&character), [["Westfall"], ["Duskwood"]]);
+}
+
+#[test]
+fn a_new_zone_soon_after_the_chapter_began_joins_it() {
+    let mut character = played_in_westfall(20);
+
     character
         .enter_zone(Tick(HOUR + 20 * 60), "Duskwood", None)
         .unwrap();
+
+    assert_eq!(chapter_zones(&character), [["Westfall", "Duskwood"]]);
+}
+
+#[test]
+fn a_pause_alone_starts_no_chapter_and_time_away_is_no_play() {
+    let mut character = played_in_westfall(20);
+
     character
-        .enter_zone(Tick(5 * HOUR), "Redridge Mountains", None)
+        .enter_zone(Tick(9 * HOUR), "Duskwood", None)
         .unwrap();
 
-    let chapters = journal(&character).chapters;
+    assert_eq!(chapter_zones(&character), [["Westfall", "Duskwood"]]);
+}
 
-    let summary: Vec<(usize, Vec<String>)> = chapters
-        .into_iter()
-        .map(|chapter| (chapter.number, chapter.zones))
+#[test]
+fn every_tenth_level_starts_a_chapter_and_other_levels_do_not() {
+    let mut character = played_in_westfall(50);
+
+    character.reach_level(Tick(HOUR + 50 * 60), 9).unwrap();
+    character.reach_level(Tick(HOUR + 100 * 60), 10).unwrap();
+
+    let chapters = journal(&character).chapters;
+    assert_eq!(chapters.len(), 2);
+    assert_eq!(chapters[1].began, Tick(HOUR + 100 * 60));
+}
+
+#[test]
+fn the_first_kill_of_a_rare_starts_a_chapter_and_its_echo_does_not() {
+    let mut character = played_in_westfall(50);
+
+    character
+        .defeat_npc(Tick(HOUR + 50 * 60), "Mother Fang")
+        .unwrap();
+    character
+        .defeat_npc(Tick(HOUR + 200 * 60), "Mother Fang")
+        .unwrap();
+
+    let starts: Vec<Tick> = journal(&character)
+        .chapters
+        .iter()
+        .map(|chapter| chapter.began)
         .collect();
-    let expected = vec![
-        (1, vec!["Westfall".to_string(), "Duskwood".to_string()]),
-        (2, vec!["Redridge Mountains".to_string()]),
-    ];
-    assert_eq!(summary, expected);
-}
-
-/// The number of chapters when two zones come this many seconds apart.
-fn chapters_after_a_pause(seconds: u64) -> usize {
-    let mut character = Character::new();
-    character.enter_zone(Tick(HOUR), "Westfall", None).unwrap();
-    character
-        .enter_zone(Tick(HOUR + seconds), "Duskwood", None)
-        .unwrap();
-    journal(&character).chapters.len()
-}
-
-#[test]
-fn a_session_ends_after_thirty_minutes_with_no_event() {
-    assert_eq!(chapters_after_a_pause(30 * 60), 1);
-    assert_eq!(chapters_after_a_pause(30 * 60 + 1), 2);
-}
-
-#[test]
-fn a_session_with_nothing_new_has_no_chapter_and_leaves_no_gap_in_the_numbers() {
-    let mut character = Character::new();
-    character.enter_zone(Tick(HOUR), "Westfall", None).unwrap();
-    character
-        .enter_zone(Tick(HOUR + 60), "Duskwood", None)
-        .unwrap();
-    character
-        .enter_zone(Tick(5 * HOUR), "Westfall", None)
-        .unwrap();
-    character
-        .enter_zone(Tick(9 * HOUR), "Redridge Mountains", None)
-        .unwrap();
-
-    let chapters = journal(&character).chapters;
-
-    let numbers: Vec<usize> = chapters.iter().map(|chapter| chapter.number).collect();
-    assert_eq!(numbers, [1, 2]);
-    assert_eq!(chapters[1].zones, ["Redridge Mountains"]);
+    assert_eq!(starts, [Tick(HOUR), Tick(HOUR + 50 * 60)]);
 }
 
 #[test]

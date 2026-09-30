@@ -316,18 +316,40 @@ fn a_failed_write_is_written_again_once_the_file_takes_it() {
     );
 }
 
+/// Ends a batch, and lets each model call of it fail, so no narrator call keeps the saga
+/// waiting.
+fn fail_each_call(story: &mut Story, batch: u64) {
+    let outputs = story
+        .handle(Input::BatchEnd {
+            id: MessageId(batch),
+        })
+        .unwrap();
+    for output in outputs {
+        if let Output::ModelCall { call, .. } = output {
+            story.handle(Input::ModelFailed { call }).unwrap();
+        }
+    }
+}
+
 #[test]
 fn the_saga_survives_a_restart() {
     let folder = fresh_folder("saga-restart");
     let mut first = story(&folder, "Ada");
-    // Meeting an NPC is no big moment, so no narrator call keeps the saga waiting.
-    for (at, npc) in [(3600, "Gryan Stoutmantle"), (5 * 3600, "Salma Saldean")] {
-        first
-            .handle(Input::NpcMet {
-                at: Tick(at),
-                name: npc.to_string(),
-            })
-            .unwrap();
+    // 50 minutes of play, then a new zone: the milestone of a second chapter.
+    let zones = [
+        (3600, "Westfall", None),
+        (3600 + 25 * 60, "Westfall", Some("Moonbrook")),
+        (3600 + 50 * 60, "Westfall", Some("Sentinel Hill")),
+        (5 * 3600, "Duskwood", None),
+    ];
+    for (batch, (at, zone, subzone)) in zones.into_iter().enumerate() {
+        let entered = Input::ZoneEntered {
+            at: Tick(at),
+            zone: zone.to_string(),
+            subzone: subzone.map(str::to_string),
+        };
+        first.handle(entered).unwrap();
+        fail_each_call(&mut first, 90 + batch as u64);
     }
     let outputs = first.handle(Input::BatchEnd { id: MessageId(3) }).unwrap();
     let Output::ModelCall { call, .. } = outputs[1].clone() else {

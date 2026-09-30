@@ -1,6 +1,7 @@
 //! The journal of a character: the chronicle, the places, the people, the deeds, the hero,
 //! what you learned, and your side quests. No model takes part.
 
+use crate::chapters::{chapter_starts, is_level_milestone, sessions};
 use crate::character::Character;
 use crate::hero::{Entry, Hero};
 use crate::learned::Learned;
@@ -22,9 +23,6 @@ const FRAME: Size = Size {
     slot: 2048,
 };
 
-/// No event for this long ends a chapter of the chronicle: the player stopped playing.
-const SESSION_GAP_SECONDS: u64 = 30 * 60;
-
 /// The entries of each list of one chapter. With names of at most
 /// `story::MAX_NAME_BYTES`, a chapter always fits on one page.
 const CHAPTER_LIST: usize = 20;
@@ -45,13 +43,13 @@ pub struct Journal {
     pub quests: Vec<Tracked>,
 }
 
-/// One play session of the chronicle, with no model: what was new in it (GAMEPLAY.md
-/// 3.3 and 5.6).
+/// One chapter of the chronicle, from one milestone to the next, with no model: what was
+/// new in it (GAMEPLAY.md 3.3 and 5.6).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Chapter {
     pub number: usize,
     pub began: Tick,
-    /// The tick of the last event of the session.
+    /// The tick of the last event of the chapter.
     pub ended: Tick,
     pub zones: Vec<String>,
     pub people: Vec<String>,
@@ -254,7 +252,7 @@ pub fn journal(character: &Character) -> Journal {
         })
         .collect();
     let deeds = deeds(world, you);
-    let chapters = chapters(&sessions(world), &places, &people, &deeds);
+    let chapters = chapters(world, &places, &people, &deeds);
     Journal {
         chapters,
         places,
@@ -264,34 +262,18 @@ pub fn journal(character: &Character) -> Journal {
     }
 }
 
-/// The first and last tick of each stretch of play. The founding of the character at
-/// tick 0 belongs to no session.
-fn sessions(world: &World) -> Vec<(Tick, Tick)> {
-    let mut sessions: Vec<(Tick, Tick)> = Vec::new();
-    for tick in world
-        .history()
-        .iter()
-        .map(|event| event.tick)
-        .filter(|tick| tick.0 > 0)
-    {
-        match sessions.last_mut() {
-            Some((_, last)) if tick.0.saturating_sub(last.0) <= SESSION_GAP_SECONDS => *last = tick,
-            _ => sessions.push((tick, tick)),
-        }
-    }
-    sessions
-}
-
-/// A session that added nothing new to the journal has no chapter.
-fn chapters(
-    sessions: &[(Tick, Tick)],
-    places: &[Place],
-    people: &[Person],
-    deeds: &[Deed],
-) -> Vec<Chapter> {
+/// A chapter with nothing new has no number.
+fn chapters(world: &World, places: &[Place], people: &[Person], deeds: &[Deed]) -> Vec<Chapter> {
+    let ticks: Vec<Tick> = world.history().iter().map(|event| event.tick).collect();
+    let sessions = sessions(ticks.iter().copied());
+    let starts = chapter_starts(&sessions, &milestones(places, deeds));
     let mut chapters = Vec::new();
-    for &(began, ended) in sessions {
-        let within = |at: Tick| at >= began && at <= ended;
+    for (index, &began) in starts.iter().enumerate() {
+        let next = starts.get(index + 1).copied();
+        let within = |at: Tick| at >= began && next.is_none_or(|next| at < next);
+        let Some(ended) = ticks.iter().copied().filter(|&at| within(at)).max() else {
+            continue;
+        };
         let mut left_out = 0;
         let zones = capped(
             places
@@ -328,6 +310,25 @@ fn chapters(
         });
     }
     chapters
+}
+
+/// The ticks that can begin a chapter: the first visit of a zone, every tenth level, and
+/// the first kill of a rare or a boss.
+fn milestones(places: &[Place], deeds: &[Deed]) -> Vec<Tick> {
+    let zones = places
+        .iter()
+        .filter(|place| place.within.is_none())
+        .map(|place| place.first_visit);
+    let big_deeds = deeds.iter().filter(|deed| is_milestone(deed)).map(Deed::at);
+    zones.chain(big_deeds).collect()
+}
+
+fn is_milestone(deed: &Deed) -> bool {
+    match deed {
+        Deed::Level { from, to, .. } => from.is_some() && is_level_milestone(*to),
+        Deed::Defeated { times, .. } => *times == 1,
+        Deed::Titled { .. } | Deed::QuestDone { .. } | Deed::Died { .. } => false,
+    }
 }
 
 fn capped<T>(items: impl Iterator<Item = T>, left_out: &mut usize) -> Vec<T> {
