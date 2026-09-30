@@ -997,12 +997,7 @@ impl Story {
         if npc.len() > talk::MAX_NPC_BYTES {
             return Err(StoryError::BadName);
         }
-        if words.trim().is_empty()
-            || words.len() > MAX_WORDS_BYTES
-            || words.chars().any(char::is_control)
-        {
-            return Err(StoryError::BadWords);
-        }
+        checked_words(words)?;
         self.change(|character| character.meet_npc(at, npc))?;
         self.advance_quests(at, Some(npc))?;
         let active = self.active.as_ref().ok_or(StoryError::NoCharacter)?;
@@ -1042,6 +1037,8 @@ impl Story {
         question: &str,
         target: Option<&str>,
     ) -> Result<Output, StoryError> {
+        checked_words(question)?;
+        target.map(checked_name).transpose()?;
         let active = self.active.as_ref().ok_or(StoryError::NoCharacter)?;
         let character = &active.character;
         let passages = passages_for(&self.pack, &active.seen_index, character, question, target)?;
@@ -1202,6 +1199,17 @@ fn checked_name(name: &str) -> Result<&str, StoryError> {
         return Err(StoryError::BadName);
     }
     Ok(name)
+}
+
+/// Words that the player typed: one chat line.
+fn checked_words(words: &str) -> Result<&str, StoryError> {
+    if words.trim().is_empty()
+        || words.len() > MAX_WORDS_BYTES
+        || words.chars().any(char::is_control)
+    {
+        return Err(StoryError::BadWords);
+    }
+    Ok(words)
 }
 
 fn reasons(refusal: &Refusal) -> String {

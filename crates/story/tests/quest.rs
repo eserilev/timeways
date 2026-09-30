@@ -299,7 +299,7 @@ fn the_prompt_lists_the_names_that_a_quest_can_use() {
 
     let text = prompt(&known(&seen), Some("Testvale"));
 
-    assert!(text.contains("You are Keeper Tessa"), "{text}");
+    assert!(text.contains("Name: Keeper Tessa"), "{text}");
     for name in ["- Testvale", "- Old Tower", "- Mill Pond", "- Farmer Bram"] {
         assert!(text.contains(name), "{name}: {text}");
     }

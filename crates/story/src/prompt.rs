@@ -29,15 +29,8 @@ pub struct Context<'a> {
 #[must_use]
 pub fn lore(question: &str, context: &Context<'_>, passages: &[Passage]) -> String {
     let mut prompt = format!("{RULES}\n{HOUSE_RULES}\n\n");
-    if !context.places.is_empty() {
-        let _ = writeln!(
-            prompt,
-            "The player stands in: {}",
-            context.places.join(", ")
-        );
-    }
-    if let Some(target) = context.target {
-        let _ = writeln!(prompt, "The player looks at: {target}");
+    if let Some(around) = around(context) {
+        let _ = writeln!(prompt, "Where the player is:\n{}", fenced(&around));
     }
     if let Some(level) = context.level {
         let _ = writeln!(prompt, "The player is level {level}.");
@@ -49,6 +42,21 @@ pub fn lore(question: &str, context: &Context<'_>, passages: &[Passage]) -> Stri
         fenced(question)
     );
     prompt
+}
+
+/// The names of the places and of the target come from the addon, so they are data.
+fn around(context: &Context<'_>) -> Option<String> {
+    let mut lines = Vec::new();
+    if !context.places.is_empty() {
+        lines.push(format!(
+            "The player stands in: {}",
+            context.places.join(", ")
+        ));
+    }
+    if let Some(target) = context.target {
+        lines.push(format!("The player looks at: {target}"));
+    }
+    (!lines.is_empty()).then(|| lines.join("\n"))
 }
 
 fn numbered(passages: &[Passage]) -> String {

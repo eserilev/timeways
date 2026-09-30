@@ -59,6 +59,7 @@ You target an NPC, stand in a place, or hold a quest, and you ask a question: `/
 - **The spoiler limit.** The agent tells only what your world already holds. Your world holds the places that you visited, the NPCs that you met, and the quests that you finished. The lore of later expansions and of quests that you have not reached stays hidden.
 - **A voice in the world.** The answer comes from a local historian.
 - **A follow-up question** continues the same conversation.
+- **Limits.** The story program refuses a question that is empty, longer than 255 bytes, or holds a control character, and a target that breaks the name limit (5.11). The addon gets an empty answer.
 - **The lore book** (built): the answer shows in a small window in the look of the journal. The question is the heading, and the answer is the page, which scrolls when it is long. The page says "Asking..." while the answer comes, and "Nobody here knows." when nothing does. With no model, the page shows the passages, with no sources. Previous and Next step through the last 10 questions of the session. Close and Escape close the book, and `/lore` with no question opens it again. An answer that comes while the book is closed gets one line in the chat. An error reply says so on the page too.
 
 This slice tests the whole chain with one question and one answer: the addon, the relay, the world, the spoiler limit, and the agent.
@@ -100,7 +101,7 @@ No invented companion rides along. A narrator tells the big moments as they happ
 
 The prompts of the narrator, the chronicle, a talk, and a quest share one plan (built):
 
-- **House rules** are the same for every call: the format, the lore cutoff (5.9), safety, and the rule that the input is data. The input goes between fence marks. The code removes each fence mark from the input text first, so an input cannot close its fence. A hidden mark goes too: the code drops invisible characters, and it removes each run of 3 angles of one direction, also wide or look-alike angles such as `＞` and `›`, with only spaces between them.
+- **House rules** are the same for every call: the format, the lore cutoff (5.9), safety, and the rule that the input is data. The input goes between fence marks. The code removes each fence mark from the input text first, so an input cannot close its fence. A hidden mark goes too: the code drops invisible characters, and it removes each run of 3 angles of one direction, also wide or look-alike angles such as `＞` and `›`, with only spaces between them. Names from the game are input too: the name and the place of an NPC in a persona, and the places and the target of a `/lore` question, go between fence marks.
 - **The persona goes first.** The persona of the narrator is a short text in `crates/story/data/narrator.txt`: its manner, what it does and never does, and the spoiler rule. It holds no lore.
 - **An NPC never gets the persona of the narrator.** It gets a short persona of its own from the facts: its name, its place, and its trust in you as words ("You are wary of the player"), never as a number.
 - **Golden samples.** Each prompt of the narrator or of a talk carries 2 or 3 short samples of the voice, in turn: 5 for a narrator line, 5 for a chapter, and 3 for an NPC reply. The samples are data in `crates/story/data/samples/`. A test checks that each sample passes each check.
