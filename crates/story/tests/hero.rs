@@ -1,4 +1,5 @@
 use hourglass::Tick;
+use timeways_story::check::names_after_cutoff_except;
 use timeways_story::hero::{
     Change, Entry, Field, MAX_TEXT_BYTES, MAX_TEXT_CHARS, PROMPT_TEXT_CHARS, checked_text, hero,
     newest_texts, next_number, player_text, portrait,
@@ -189,4 +190,27 @@ fn a_portrait_holds_the_sheet_and_the_five_newest_entries() {
 #[test]
 fn an_empty_story_has_no_portrait() {
     assert_eq!(portrait(&hero(&[])), None);
+}
+
+#[test]
+fn a_later_name_split_across_two_texts_of_the_player_is_not_allowed() {
+    let changes = [
+        set("origin", "Born near the caverns"),
+        set("goal", "Of time I know nothing."),
+    ];
+    let text = player_text(&hero(&changes));
+
+    let refused = names_after_cutoff_except("Our hero dreams of the Caverns of Time.", &text);
+
+    assert_eq!(refused, ["Caverns of Time"]);
+}
+
+#[test]
+fn a_later_name_inside_one_text_of_the_player_is_allowed() {
+    let changes = [set("origin", "Born near the Caverns of Time.")];
+    let text = player_text(&hero(&changes));
+
+    let refused = names_after_cutoff_except("Our hero dreams of the Caverns of Time.", &text);
+
+    assert!(refused.is_empty(), "{refused:?}");
 }
