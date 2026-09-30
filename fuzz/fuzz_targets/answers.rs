@@ -11,9 +11,12 @@ use timeways_story::check::{
     check, in_voice, later_names, names_after_cutoff, names_after_cutoff_except, plain_text,
     same_words,
 };
+use timeways_story::draft;
 use timeways_story::house::without_fence_marks;
+use timeways_story::input::MessageId;
 use timeways_story::quest::{self, Known, Step};
 use timeways_story::seen::{SeenText, TextKind};
+use timeways_story::story::Output;
 use timeways_story::{chronicle, hero, narrator, talk};
 
 fn assert_plain(text: &str, max_chars: usize, max_bytes: usize) {
@@ -81,6 +84,40 @@ fn assert_quest(text: &str) {
     assert_eq!(distinct.len(), targets.len(), "a target twice: {targets:?}");
 }
 
+/// A draft that passes fits the addon messages of a player task, and a reply of the bridge.
+fn assert_draft(text: &str) {
+    let known = draft::Known {
+        zones: vec!["Testvale"],
+        subzones: vec!["Old Tower"],
+        npcs: vec!["Farmer Bram"],
+        foes: vec!["Old Gnasher"],
+    };
+    let Ok(checked) = draft::checked_draft(text, &known) else {
+        return;
+    };
+    assert_voice(
+        &checked.title,
+        draft::MAX_TITLE_BYTES,
+        draft::MAX_TITLE_BYTES,
+    );
+    assert_voice(&checked.text, draft::MAX_TEXT_BYTES, draft::MAX_TEXT_BYTES);
+    assert!(!checked.title.contains('|') && !checked.text.contains('|'));
+    assert!((1..=draft::MAX_STEPS).contains(&checked.steps.len()));
+    for step in &checked.steps {
+        assert!(
+            ["place", "npc", "kill", "item"].contains(&step.goal.as_str()),
+            "{step:?}"
+        );
+        assert!(step.target.len() <= draft::MAX_TARGET_BYTES, "{step:?}");
+    }
+    let line = serde_json::to_string(&Output::DraftAnswer {
+        id: MessageId(1),
+        draft: Some(checked),
+    })
+    .unwrap();
+    assert!(fake_bridge::game_reply(&line).is_some(), "{line}");
+}
+
 fuzz_target!(|data: &[u8]| {
     let moments = data.first().map_or(0, |byte| usize::from(byte % 9));
     let text = String::from_utf8_lossy(data);
@@ -102,6 +139,7 @@ fuzz_target!(|data: &[u8]| {
         assert!((-talk::MAX_TRUST_CHANGE..=talk::MAX_TRUST_CHANGE).contains(&answer.trust_change));
     }
     assert_quest(&text);
+    assert_draft(&text);
     if let Some(line) = narrator::checked_line(&text, "") {
         assert_voice(&line, narrator::MAX_LINE_CHARS, narrator::MAX_LINE_BYTES);
     }

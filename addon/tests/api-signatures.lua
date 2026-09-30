@@ -5,6 +5,16 @@
 return {
 	build = "1.60.1.70009",
 	functions = {
+		Ambiguate = {
+			SecretArguments = "AllowedWhenTainted",
+			Arguments = {
+				{ Name = "fullName", Type = "cstring", Nilable = false },
+				{ Name = "context", Type = "cstring", Nilable = false, NeverSecret = true },
+			},
+			Returns = {
+				{ Name = "result", Type = "string", Nilable = false },
+			},
+		},
 		["C_AddOns.EnableAddOn"] = {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {
@@ -32,6 +42,27 @@ return {
 				{ Name = "value", Type = "string", Nilable = true },
 			},
 		},
+		["C_ChatInfo.RegisterAddonMessagePrefix"] = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "prefix", Type = "cstring", Nilable = false },
+			},
+			Returns = {
+				{ Name = "result", Type = "RegisterAddonMessagePrefixResult", Nilable = false },
+			},
+		},
+		["C_ChatInfo.SendAddonMessage"] = {
+			SecretArguments = "NotAllowed",
+			Arguments = {
+				{ Name = "prefix", Type = "cstring", Nilable = false },
+				{ Name = "message", Type = "cstring", Nilable = false },
+				{ Name = "chatType", Type = "cstring", Nilable = true },
+				{ Name = "target", Type = "cstring", Nilable = true },
+			},
+			Returns = {
+				{ Name = "result", Type = "SendAddonMessageResult", Nilable = false },
+			},
+		},
 		["C_DeathRecap.GetRecapEvents"] = {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {
@@ -48,6 +79,34 @@ return {
 			},
 			Returns = {
 				{ Name = "hasEvents", Type = "bool", Nilable = false },
+			},
+		},
+		["C_FriendList.GetFriendInfo"] = {
+			MayReturnNothing = true,
+			RequiresFriendList = true,
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "name", Type = "cstring", Nilable = false },
+			},
+			Returns = {
+				{ Name = "info", Type = "FriendInfo", Nilable = false },
+			},
+		},
+		["C_FriendList.GetFriendInfoByIndex"] = {
+			MayReturnNothing = true,
+			RequiresFriendList = true,
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "index", Type = "luaIndex", Nilable = false },
+			},
+			Returns = {
+				{ Name = "info", Type = "FriendInfo", Nilable = false },
+			},
+		},
+		["C_FriendList.GetNumFriends"] = {
+			RequiresFriendList = true,
+			Returns = {
+				{ Name = "numFriends", Type = "number", Nilable = false },
 			},
 		},
 		["C_GossipInfo.GetText"] = {
@@ -165,6 +224,16 @@ return {
 				{ Name = "cbObject", Type = "TickerCallback", Nilable = false },
 			},
 		},
+		CheckInteractDistance = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "unitGUID", Type = "UnitToken", Nilable = false },
+				{ Name = "distIndex", Type = "luaIndex", Nilable = false },
+			},
+			Returns = {
+				{ Name = "result", Type = "bool", Nilable = false },
+			},
+		},
 		GetBuildInfo = {
 			Returns = {
 				{ Name = "buildVersion", Type = "cstring", Nilable = false },
@@ -173,6 +242,11 @@ return {
 				{ Name = "interfaceVersion", Type = "number", Nilable = false },
 				{ Name = "localizedVersion", Type = "cstring", Nilable = false },
 				{ Name = "buildInfo", Type = "string", Nilable = false },
+			},
+		},
+		GetNormalizedRealmName = {
+			Returns = {
+				{ Name = "result", Type = "cstring", Nilable = false },
 			},
 		},
 		GetPhysicalScreenSize = {
@@ -203,6 +277,11 @@ return {
 		GetTime = {
 			Returns = {
 				{ Name = "time", Type = "number", Nilable = false },
+			},
+		},
+		IsInGuild = {
+			Returns = {
+				{ Name = "result", Type = "bool", Nilable = false },
 			},
 		},
 		IsInInstance = {
@@ -272,6 +351,15 @@ return {
 			},
 			Returns = {
 				{ Name = "result", Type = "WOWGUID", Nilable = true },
+			},
+		},
+		UnitIsConnected = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "unit", Type = "UnitToken", Nilable = false },
+			},
+			Returns = {
+				{ Name = "isConnected", Type = "bool", Nilable = false },
 			},
 		},
 		UnitIsPlayer = {
@@ -1085,6 +1173,20 @@ return {
 				{ Name = "containsBindings", Type = "bool", Nilable = false },
 			},
 		},
+		CHAT_MSG_ADDON = {
+			SynchronousEvent = true,
+			Payload = {
+				{ Name = "prefix", Type = "cstring", Nilable = false },
+				{ Name = "text", Type = "cstring", Nilable = false },
+				{ Name = "channel", Type = "cstring", Nilable = false },
+				{ Name = "sender", Type = "cstring", Nilable = false },
+				{ Name = "target", Type = "cstring", Nilable = false },
+				{ Name = "zoneChannelID", Type = "number", Nilable = false },
+				{ Name = "localID", Type = "number", Nilable = false },
+				{ Name = "name", Type = "cstring", Nilable = false },
+				{ Name = "instanceID", Type = "number", Nilable = false },
+			},
+		},
 		ENCOUNTER_END = {
 			SynchronousEvent = true,
 			Payload = {
@@ -1101,6 +1203,9 @@ return {
 			Payload = {
 				{ Name = "uiTextureKit", Type = "textureKit", Nilable = true },
 			},
+		},
+		GROUP_ROSTER_UPDATE = {
+			UniqueEvent = true,
 		},
 		ITEM_TEXT_READY = {
 			SynchronousEvent = true,
@@ -1190,6 +1295,19 @@ return {
 		SCREENSHOT_SUCCEEDED = {
 			SynchronousEvent = true,
 		},
+		TRADE_ACCEPT_UPDATE = {
+			SynchronousEvent = true,
+			Payload = {
+				{ Name = "playerAccepted", Type = "number", Nilable = false },
+				{ Name = "targetAccepted", Type = "number", Nilable = false },
+			},
+		},
+		TRADE_CLOSED = {
+			SynchronousEvent = true,
+		},
+		TRADE_SHOW = {
+			SynchronousEvent = true,
+		},
 		UNIT_AURA = {
 			SecretWhenAurasRestricted = true,
 			SynchronousEvent = true,
@@ -1214,12 +1332,20 @@ return {
 	undocumented = {
 		"CreateFrame",
 		"GetGreetingText",
+		"GetGuildRosterInfo",
+		"GetNumGuildMembers",
 		"GetObjectiveText",
+		"GetPlayerTradeMoney",
 		"GetProgressText",
 		"GetQuestText",
 		"GetRewardText",
+		"GetTargetTradeMoney",
 		"GetTitleText",
+		"GetTradePlayerItemInfo",
+		"GetTradeTargetItemInfo",
 		"InCombatLockdown",
+		"IsInGroup",
+		"IsInRaid",
 		"ItemTextGetCreator",
 		"ItemTextGetItem",
 		"ItemTextGetText",

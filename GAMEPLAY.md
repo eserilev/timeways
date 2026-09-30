@@ -216,7 +216,7 @@ The desktop sends the pages each time the book opens, because the world lives th
 | **Deeds** | Level milestones, first kills of rares and bosses, repeat kills (echoes, 5.13), your deaths, and your joke titles (5.4.1) | Built |
 | **Knowledge** | What you read and heard (3.1.1): each book, each quest tale, and each story of an NPC, with the place and the date. A rumor from `/talk` shows as a rumor. | Built |
 | **Nemesis** | Real players from world PvP only: the kill count on each side, the places, and the last time seen (4.1). Aliases only (5.11). | Later |
-| **Tasks** | The personal side quests (3.4). The list groups the offers, the tasks in progress, and the done ones. The open task shows its steps, its state, and its rewards, with Accept and Decline for an offer, and Abandon for a task in progress. | Built |
+| **Tasks** | The personal side quests (3.4). The list groups the offers, the tasks in progress, and the done ones. The open task shows its steps, its state, and its rewards, with Accept and Decline for an offer, and Abandon for a task in progress. Then the tasks of players (4.7): the ones from players, Give a task, and the ones that you gave. They need no desktop, so they show while the journal loads. | Built |
 
 ### 3.7 The hero
 
@@ -270,6 +270,54 @@ Officers set bounties on enemy players or on rare mobs. The addon tracks the kil
 ### 4.6 A shared narrator
 
 In a dungeon group, the narrator of each player with the addon tells the same big moments of the group. How the narrators avoid saying the same thing twice is open.
+
+### 4.7 Player tasks
+
+One player writes a task for another player who also has Timeways. The giver is the author, the game checks what it can, and the giver decides at the end. Built, in the addon only: no task goes to the desktop in this version.
+
+**Who can send.** A task goes only to a player in your party, your guild, or your friends list, who has Timeways and is online. The form asks with a `hello` to the group, the guild, and each friend online. Each addon that hears it from one of these players answers `here`. The receiver checks the same rule for every offer, and a player can block a giver. The giver's addon learns of the block and sends no more tasks.
+
+**The task.** A title (at most 60 characters), a text (at most 400), an optional promise (at most 100), and 1 to 5 steps. A step is only what the game can check, and its name comes from the game, never from typing, except the name of an item:
+
+| Step | The doer's addon sees it when | The giver's addon witnesses it when |
+|---|---|---|
+| Go to a place (where the giver stood) | the zone or subzone is the place, also at the accept | the giver stood in the place at that time, in a party with the doer |
+| Talk to an NPC (the giver's target) | a talk window of that NPC opens | the giver's addon saw that NPC within 2 minutes, in a party with the doer |
+| Defeat a creature or a player (the giver's target) | `PARTY_KILL` of a unit with that name, as many times as the count | the giver's addon saw as many kills of it by the doer, from its party unit |
+| Find a player (the giver's target) | the doer targets that player at trade distance | only for the giver: the giver's addon saw the doer next to it |
+| Bring an item to the giver ("10 Linen Cloth") | trades with the giver hand over the count | the giver's trades got the count |
+
+The same foe added again raises its count. The last step is always the turn-in, face to face.
+
+**The flow.** The giver sends the offer. The doer reads it in the Tasks section of the journal, and clicks Accept, Decline, or Block player. The doer's addon claims each step with its time and zone, and tells the giver. When every step is done, the doer clicks Turn in. That message carries every claim again, so a lost message costs nothing. The giver's addon shows the turn-in card: each step with its proof, and Complete task or Not yet. Complete task works only when the doer stands at trade distance (`CheckInteractDistance`). The doer can give up, and the giver can cancel an open task.
+
+**Proof.** Nothing can be guaranteed, because the doer's addon runs on the doer's computer. So each step on the card has a level (`TaskProof.lua`, pure functions):
+
+- **Witnessed:** the giver's addon saw it too.
+- **Seen:** only the doer's addon recorded it.
+- **Not confirmed:** the giver's addon was in a place to see it, and saw nothing. That is a step done in a party with the giver, in the zone where the giver was. A party in different zones gives Seen, because a kill of a party member reaches only members nearby. An item step is Witnessed or Not confirmed, because a trade is face to face.
+- A party is never required. The giver's addon records each stretch of party time with a doer (`GROUP_ROSTER_UPDATE`), and the zones where the giver was, with times. The clocks of two computers differ, so "the same time" means within 2 minutes.
+
+**The reward** is a promise, never mail. The giver hands it over in a normal trade. The giver's addon watches the trade window with the doer (`TRADE_SHOW`, `TRADE_ACCEPT_UPDATE`, `TRADE_CLOSED`, and the items and money of each side). A trade counts when both players accepted and the window closed. The line reads "Reward: promised", "Reward: paid in trade" after any trade in which the giver gave the doer money or an item, or "Reward: not paid" for a finished task with no such trade. Whether a trade that fails after both accepts (full bags) also closes the window is open: a test in the game settles it.
+
+**The chronicle.** A finished task shows on the doer's page with one line for the Chronicle: "Corvin finished Trouble at Agamand Mills for Ada. They met face to face in Brill to turn it in." The line names two real players, so it stays in the addon: it never goes to the story program, and no model sees it (5.11).
+
+**Help me write this** (built). A model turns the giver's idea into a title, a text, and steps, and the giver picks "Use this" or "Keep mine". Nothing changes until the giver picks, and every field stays editable after.
+
+- The addon sends `draft_asked` with the idea, at most 255 bytes. The idea loses the names of the players who can get a task ("my friend"), and the giver's own name becomes `$N` (5.11).
+- The story program asks a model with no tools, with the places and NPCs of the world: the places that you visited, the NPCs that you met and that live, and the rares and bosses that you defeated. No player is in the prompt.
+- The code checks the draft (`draft.rs`) before it goes back as `draft_answer`: JSON with a title of at most 60 bytes, a text of at most 400 bytes, and 1 to 5 steps, with the limits of the addon messages. A title or a text holds no `|`, no control character, no emoji, no banned word, and no name from after the cutoff (5.9). A step is `place` (a zone or subzone that you visited), `npc` (an NPC that you met and that lives), `kill` (such an NPC, or a foe that you defeated), or `item`, and no step comes twice. A `kill` or an `item` can start with a count from 1 to 250: "3 Rattlecage Soldier", "10 Linen Cloth". A draft that breaks a rule, or a failed call, comes back as no draft, and the form says "Timeways couldn't turn that into a task."
+- The addon checks the draft again with the rules of the wire, because the bridge doubles each `|`.
+
+**The messages** go with `C_ChatInfo.SendAddonMessage` and the prefix `Timeways` (5.8), as whispers, and a `hello` to the group or the guild.
+
+- Each message is `1;<type>;<fields>`, with `%` and `;` escaped. The types are `hello`, `here`, `offer`, `accept`, `decline`, `block`, `cancel`, `step`, `turnin`, and `result`. The receiver checks the version, the type, the exact number of fields, each text against its limit, and each number against its range. A text with a control character or a `|` is refused, because a `|` starts a WoW escape such as a fake link.
+- An offer comes only from party, guild, or friends. Every other type comes only from the other player of its task.
+- A message goes in parts of at most 255 bytes: `<number>:<part>:<parts>:<text>`, at most 16 parts. The receiver keeps at most 4 open messages for each sender and 32 senders, and drops a part after 60 seconds.
+- Rate limits: the addon sends at most 8 parts in a burst and one each second after it. A peer gets 24 parts in a burst and one each 2 seconds after it: a peer that floods loses its own parts, and nobody else's. A giver has at most 3 offers waiting for you, and you hold at most 20 open tasks.
+- A whisper waits until its player is online, because a whisper to a player who is offline puts an error in the chat. Waiting messages live in memory.
+
+**Storage.** The saved variables of each character, `TimewaysTasks`, hold the tasks, the blocked players, and the giver's records, each list cut to its newest 100. Any addon can read them (5.10). So they hold only what the two players already share in the game: the task, the names, and times, never a key. Any addon can also write them, so the addon checks each task and record when it first reads them (`TaskSaved.lua`), and drops a broken one.
 
 ## 5. Technical design
 
@@ -354,6 +402,7 @@ A first list. Each name goes through the API gate of Gnomish Relay (`scripts/wow
 | The text that you read | The same events, and `ITEM_TEXT_READY` for a book (5.10) |
 | Loot | `CHAT_MSG_LOOT` |
 | Group and guild | `GROUP_ROSTER_UPDATE`, `GUILD_ROSTER_UPDATE` |
+| Player tasks (4.7) | `CHAT_MSG_ADDON`, `TRADE_SHOW`, `TRADE_ACCEPT_UPDATE`, `TRADE_CLOSED`, and the events above for the steps |
 
 The addon sends game events in batches with the next strip. Nothing needs to arrive at once.
 
@@ -580,7 +629,7 @@ A web request for each question is slow, depends on one website, and sends whole
   - A file for each character keeps each text once (`c_<name>.learned.jsonl`, which also keeps the rumors (3.1.1)). An index in memory searches it, and is built again at each start.
   - The player read the text, so it passes the spoiler limit. A search uses this text first, and the pack fills the rest (3.1.1).
   - The addon cuts a text at 2000 bytes.
-- **Not in the saved variables.** Any addon can read the saved variables of another addon, so they hold only window state.
+- **Not in the saved variables.** Any addon can read the saved variables of another addon, so they hold only window state. Player tasks are the one exception (4.7): they live between two players, not in a world.
 
 ### 5.11 Player names: the alias table
 

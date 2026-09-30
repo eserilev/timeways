@@ -148,6 +148,34 @@ globals:
     args: [{type: string}]
   unpack:
     args: [{type: table}, {type: number, required: false}, {type: number, required: false}]
+  GetNormalizedRealmName:
+    args: []
+  Ambiguate:
+    args: [{type: string}, {type: string}]
+  IsInGroup:
+    args: []
+  IsInRaid:
+    args: []
+  IsInGuild:
+    args: []
+  GetNumGuildMembers:
+    args: []
+  GetGuildRosterInfo:
+    args: [{type: number}]
+  C_FriendList:
+    any: true
+  UnitIsConnected:
+    args: [{type: string}]
+  CheckInteractDistance:
+    args: [{type: string}, {type: number}]
+  GetTradePlayerItemInfo:
+    args: [{type: number}]
+  GetTradeTargetItemInfo:
+    args: [{type: number}]
+  GetPlayerTradeMoney:
+    args: []
+  GetTargetTradeMoney:
+    args: []
 structs:
   BitLib:
     band: {args: [{type: number}, {type: "..."}]}

@@ -465,6 +465,8 @@ fn the_task_list_groups_offers_then_tasks_in_progress_then_done_ones() {
             "item: The Mill (Farmer Bram) [1 of 2]",
             "group: Done",
             "item: Old Bones (Keeper Tessa) [Done]",
+            "group: Tasks I gave",
+            "item: Give a task (Write one for a friend)",
         ]
     );
 }

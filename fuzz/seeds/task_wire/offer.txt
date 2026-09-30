@@ -1,0 +1,1 @@
+1:1:1:1;offer;a1;Title;Text;5 gold;2;npc;Innkeeper Renee;1;kill;Gregor Agamand;3

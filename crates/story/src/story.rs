@@ -3,6 +3,7 @@
 use crate::best_of_two::Round;
 use crate::character::{Character, Refusal};
 use crate::check;
+use crate::draft::Draft;
 use crate::flavor::{self, Flavor, HUMBLING_GAP, Kind, Teller, Told};
 use crate::hero::{self, Change, Entry};
 use crate::input::{CallId, GameQuestKind, Input, MessageId, Reaction};
@@ -30,6 +31,7 @@ use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
 use thiserror::Error;
 
+mod drafts;
 mod quests;
 mod sagas;
 
@@ -109,6 +111,11 @@ pub enum Output {
         /// A line of Timeways itself, not of the narrator: "You already have 3 tasks.".
         #[serde(skip_serializing_if = "Option::is_none")]
         notice: Option<String>,
+    },
+    /// A draft of a player task, or null when no model answered or the draft broke a rule.
+    DraftAnswer {
+        id: MessageId,
+        draft: Option<Draft>,
     },
     /// The bridge runs the model with no tools, and answers with `model_answered` or
     /// `model_failed` for the same call.
@@ -214,6 +221,11 @@ enum Pending {
         giver: String,
         at: Tick,
     },
+    /// A draft of a player task, for this character only.
+    Draft {
+        question: MessageId,
+        key: CharacterKey,
+    },
     /// A talk to `npc`, whose change of trust lands at `at`, for this character only.
     Talk {
         question: MessageId,
@@ -314,12 +326,7 @@ impl Story {
             Input::GameQuestAccepted { at, title, kind } => self.take_game_quest(at, &title, kind),
             Input::GameQuestDone { at, title, kind } => self.finish_game_quest(at, &title, kind),
             Input::QuestMarked { at, quest, mark } => self.take_quest_mark(at, &quest, &mark),
-            Input::NpcSlapped { at, name } => {
-                checked_name(&name)?;
-                self.change(|character| character.slap(at, &name))?;
-                self.advance_quests(at, Some(&name))?;
-                self.award_titles(at)
-            }
+            Input::NpcSlapped { at, name } => self.slap_npc(at, &name),
             Input::Died {
                 at,
                 killer,
@@ -373,6 +380,7 @@ impl Story {
                 target,
             } => Ok(vec![self.ask(id, &question, target.as_deref())?]),
             Input::TalkAsked { id, at, npc, text } => Ok(vec![self.talk(id, at, &npc, &text)?]),
+            Input::DraftAsked { id, idea, .. } => Ok(vec![self.ask_draft(id, &idea)?]),
             Input::QuestAsked { at, npc } => self.ask_quest(at, npc),
             Input::QuestAccepted { at, number } => self.answer_quest(at, Status::Accepted, number),
             Input::QuestDeclined { at, number } => self.answer_quest(at, Status::Declined, number),
@@ -453,6 +461,14 @@ impl Story {
         checked_name(quest)?;
         checked_name(mark)?;
         self.change(|character| character.take_quest_mark(at, quest, mark))
+    }
+
+    /// A slap is a meeting too, and it can earn a title (5.4.1).
+    fn slap_npc(&mut self, at: Tick, name: &str) -> Result<Vec<Output>, StoryError> {
+        checked_name(name)?;
+        self.change(|character| character.slap(at, name))?;
+        self.advance_quests(at, Some(name))?;
+        self.award_titles(at)
     }
 
     fn take_game_quest(
@@ -550,6 +566,7 @@ impl Story {
                 giver,
                 at,
             } => vec![self.quest_answered(batch, &key, &giver, at, text)],
+            Pending::Draft { question, key } => vec![self.draft_answered(question, &key, text)],
         })
     }
 
@@ -623,6 +640,7 @@ impl Story {
                 text: None,
             }],
             Pending::Quest { batch, giver, .. } => vec![quests::no_offer(batch, &giver)],
+            Pending::Draft { question, .. } => vec![drafts::draft_answer(question, None)],
         })
     }
 

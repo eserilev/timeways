@@ -1,0 +1,1 @@
+{"title": "Trouble at the Mill", "text": "Help my friend.", "steps": [{"goal": "place", "target": "Old Tower"}, {"goal": "kill", "target": "3 Old Gnasher"}, {"goal": "item", "target": "10 Linen Cloth"}]}
