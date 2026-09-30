@@ -27,16 +27,39 @@ What works:
 
 ## Install
 
-Timeways has two parts: the addon in the game, and a desktop app on your computer. The addon comes from CurseForge. The desktop app, Gnomish Relay, is not on CurseForge, because CurseForge only ships addon files.
+Timeways has two parts: the addon in the game, and a desktop app on your computer (Gnomish Relay). The addon comes only from CurseForge. The desktop app never installs or changes the addon folder.
 
-1. Install the **Timeways** addon with the CurseForge app. The project page comes with the first release.
-2. Close WoW. The game only finds new addon files when it starts.
-3. Run the installer of the desktop app:
+### What you need
+
+- WoW: Forever, and the CurseForge app.
+- Windows 10 or later, macOS, or Linux (x86_64).
+- For the story text, an AI model on your computer: the `claude` program (Claude Code), Ollama, or LM Studio. Without one, Timeways still works: lore shows the passages as they are, and the chapters show plain lists.
+- About 200 MB of free disk space for a short time: setup downloads the Wowpedia dump (about 133 MB) to build the lore, then deletes it.
+
+### Steps
+
+1. In the CurseForge app, install **Timeways**. CurseForge installs **Gnomish Relay** with it.
+2. Close WoW.
+3. Open a terminal: PowerShell on Windows, Terminal on macOS or Linux.
+4. Run the installer of the desktop app:
    - Windows (PowerShell): `& ([scriptblock]::Create((irm https://raw.githubusercontent.com/eserilev/gnomish-relay/main/scripts/install.ps1))) --timeways`
-   - macOS and Linux (Terminal): `curl -fsSL https://raw.githubusercontent.com/eserilev/gnomish-relay/main/scripts/install.sh | sh -s -- --timeways`
-4. Answer the questions of setup. It installs Gnomish Relay and the Timeways programs, finds an AI model, and builds the lore pack on your computer (it downloads the Wowpedia dump, about 133 MB, and deletes it after). Then start WoW.
+   - macOS and Linux: `curl -fsSL https://raw.githubusercontent.com/eserilev/gnomish-relay/main/scripts/install.sh | sh -s -- --timeways`
+5. Answer the questions of setup. It asks only what it can't find out itself.
+6. Start WoW.
 
-When the game can't reach the desktop app, Timeways opens a setup window with these steps. Type `/timeways help` to open it again.
+Setup finds the Timeways addon and writes its key. It installs the story program from the latest Timeways release, and adds a `[story]` part to the desktop app's `config.toml` with the model that it finds. It then builds the lore on your computer. With only Timeways and no coding agent, setup asks no folder question.
+
+### Check that it works
+
+1. In the game, type `/timeways test`.
+2. Wait for the line "3 of 3 checks passed." It can take a minute.
+
+If a check fails, its line says why. When the game can't reach the desktop app, Timeways opens a setup window with these steps. Type `/timeways help` to open it again.
+
+### Later
+
+- `gnomish-relay update` updates the desktop app and the Timeways programs.
+- `gnomish-relay setup --timeways` installs the story program again, and builds fresh lore.
 
 ## Layout
 
