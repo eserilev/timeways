@@ -71,6 +71,8 @@ pub enum SourcesError {
     Dump(#[from] DumpError),
     #[error("pack sources: the dump has no page \"{0}\"")]
     NoIndex(String),
+    #[error("pack sources: the page \"{0}\" has no place, no NPC, and is not common")]
+    Unlinked(String),
 }
 
 impl Sources {
@@ -83,9 +85,14 @@ impl Sources {
 
     /// # Errors
     ///
-    /// Returns an error when the text is not a valid list of sources.
+    /// Returns an error when the text is not a valid list of sources, or when a page has
+    /// no link.
     pub fn parse(text: &str) -> Result<Sources, SourcesError> {
-        Ok(toml::from_str(text)?)
+        let sources: Sources = toml::from_str(text)?;
+        if let Some(page) = sources.pages.iter().find(|page| links(page).is_empty()) {
+            return Err(SourcesError::Unlinked(page.title.clone()));
+        }
+        Ok(sources)
     }
 }
 

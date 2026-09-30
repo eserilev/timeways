@@ -335,6 +335,33 @@ fn the_bundled_sources_read_and_their_later_terms_compile() {
     assert_eq!(built.report.len(), bundled.pages.len());
 }
 
+/// Its passages pass no spoiler limit, so the pack would refuse them at the end of a long
+/// build.
+#[test]
+fn a_page_with_no_place_no_npc_and_not_common_is_refused_when_the_list_is_read() {
+    let text = format!(
+        "[books]\nindex = \"{INDEX}\"\nchapters = []\n\n\
+         [[pages]]\ntitle = \"Testvale\"\nsections = []\n"
+    );
+
+    let result = Sources::parse(&text);
+
+    assert!(
+        matches!(&result, Err(SourcesError::Unlinked(title)) if title == "Testvale"),
+        "{result:?}"
+    );
+}
+
+#[test]
+fn every_bundled_page_has_a_place_an_npc_or_is_common() {
+    let bundled = Sources::bundled().unwrap();
+
+    for page in &bundled.pages {
+        let linked = !page.places.is_empty() || !page.npcs.is_empty() || page.common;
+        assert!(linked, "{}", page.title);
+    }
+}
+
 #[test]
 fn short_lines_and_list_lines_are_no_paragraphs() {
     let text = format!(
