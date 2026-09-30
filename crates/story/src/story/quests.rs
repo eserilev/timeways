@@ -247,22 +247,33 @@ fn seen_texts(active: &Active) -> Vec<SeenText> {
 }
 
 /// The zone of a text that you read is the zone where you read it, so the places that you
-/// visited hold every place that you heard of.
+/// visited hold every place that you heard of. Each list holds the newest first, and the
+/// targets in the zone of the giver before the rest, because the prompt shows only the
+/// start of a list.
 fn known<'a>(
     character: &'a Character,
     giver: &'a str,
     seen: &'a [SeenText],
     quests: &'a [Tracked],
 ) -> Known<'a> {
+    let home = character.zone_of_npc(giver);
+    let near_place = |place: &str| home.is_some() && character.zone_of_place(place) == home;
+    let near_npc = |npc: &str| home.is_some() && character.zone_of_npc(npc) == home;
     Known {
         giver,
-        zones: character.visited_zones(),
-        subzones: character.visited_subzones(),
-        npcs: character.npcs_to_meet(),
-        foes: character.foes_seen(),
+        zones: near_first(character.visited_zones(), near_place),
+        subzones: near_first(character.visited_subzones(), near_place),
+        npcs: near_first(character.npcs_to_meet(), near_npc),
+        foes: near_first(character.foes_seen(), near_npc),
         last_targets: last_targets(quests),
         seen,
     }
+}
+
+/// The order stays the same inside each group.
+fn near_first(mut names: Vec<&str>, near: impl Fn(&str) -> bool) -> Vec<&str> {
+    names.sort_by_key(|name| !near(name));
+    names
 }
 
 /// The targets of the newest task of the log, from any giver and in any state.

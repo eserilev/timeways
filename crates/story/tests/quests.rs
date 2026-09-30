@@ -642,3 +642,87 @@ fn a_task_finished_after_the_clock_went_back_still_earns_its_trust() {
     assert_eq!(done.status, Status::Done);
     assert_eq!(trust_of_giver(&mut story), Some(QUEST_TRUST));
 }
+
+/// The lines of one list of the prompt, from its heading to the end of its fence.
+fn prompt_list<'a>(prompt: &'a str, heading: &str) -> Vec<&'a str> {
+    let list = prompt.split(heading).nth(1).unwrap();
+    let list = list.split(">>>").next().unwrap();
+    list.lines()
+        .filter_map(|line| line.strip_prefix("- "))
+        .collect()
+}
+
+#[test]
+fn the_prompt_lists_the_newest_foes() {
+    let mut story = story("newest-foes");
+    for n in 1..=25 {
+        sight(
+            &mut story,
+            10 + n,
+            &format!("Duskbat {n}"),
+            Reaction::Hostile,
+            "beast",
+        );
+    }
+
+    let (_, prompt) = call_of(ask(&mut story, 40));
+
+    let foes = prompt_list(&prompt, "Creatures that the player can hunt:");
+    assert_eq!(foes.len(), 20);
+    assert_eq!(foes[0], "Duskbat 25");
+    assert!(!foes.contains(&"Duskbat 5"), "{foes:?}");
+}
+
+#[test]
+fn the_prompt_lists_the_newest_people() {
+    let mut story = story("newest-people");
+    for n in 1..=25 {
+        story
+            .handle(meet(10 + n, &format!("Farmhand {n}")))
+            .unwrap();
+    }
+
+    let (_, prompt) = call_of(ask(&mut story, 40));
+
+    let people = prompt_list(&prompt, "People that the player can meet:");
+    assert_eq!(people.len(), 20);
+    assert_eq!(people[0], "Farmhand 25");
+    assert!(!people.contains(&"Farmer Bram"), "{people:?}");
+}
+
+#[test]
+fn the_prompt_lists_the_newest_places() {
+    let mut story = story("newest-places");
+    for n in 1..=25 {
+        story.handle(zone(10 + n, &format!("Field {n}"))).unwrap();
+    }
+
+    let (_, prompt) = call_of(ask(&mut story, 40));
+
+    let places = prompt_list(&prompt, "Places that the player can visit:");
+    assert_eq!(places.len(), 20);
+    assert!(places.contains(&"Field 25"), "{places:?}");
+    assert!(!places.contains(&"Mill Pond"), "{places:?}");
+}
+
+#[test]
+fn the_prompt_lists_the_people_and_places_of_the_zone_of_the_giver_first() {
+    let mut story = story("giver-zone-first");
+    let far = Input::ZoneEntered {
+        at: Tick(10),
+        zone: "Farvale".to_string(),
+        subzone: Some("Far Farm".to_string()),
+        spot: None,
+    };
+    story.handle(far).unwrap();
+    story.handle(meet(11, "Farmer Fen")).unwrap();
+    story.handle(zone(12, "Old Tower")).unwrap();
+
+    let (_, prompt) = call_of(ask(&mut story, 40));
+
+    let people = prompt_list(&prompt, "People that the player can meet:");
+    let places = prompt_list(&prompt, "Places that the player can visit:");
+    assert_eq!(people, ["Farmer Bram", "Farmer Fen"]);
+    assert_eq!(places[0], "Testvale");
+    assert_eq!(places.last(), Some(&"Far Farm"));
+}
