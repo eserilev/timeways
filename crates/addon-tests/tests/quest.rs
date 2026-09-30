@@ -121,7 +121,7 @@ fn quest_needs_an_npc_target() {
     assert!(game.sent().is_empty());
     assert_eq!(
         game.printed(),
-        ["|cffc8a064Timeways|r: Who are you asking? Target someone first."]
+        ["|cffc8a064Timeways|r: Target someone to ask first."]
     );
 }
 
@@ -314,7 +314,7 @@ fn a_quest_in_progress_marks_its_steps_done() {
 
     let shown = lines(&game);
     assert_eq!(shown[1], "note: In progress.");
-    assert_eq!(shown[4], "entry: (done) Visit Mill Pond.");
+    assert_eq!(shown[4], "entry: Visit Mill Pond. (Complete)");
     assert_eq!(shown[5], "entry: Speak with Farmer Bram.");
 }
 

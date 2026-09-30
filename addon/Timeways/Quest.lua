@@ -44,7 +44,7 @@ function Quest.Ask()
 		return
 	end
 	if not npc then
-		Say("Who are you asking? Target someone first.")
+		Say("Target someone to ask first.")
 		return
 	end
 	Send(ns.Inputs.QuestAsked(time(), npc))

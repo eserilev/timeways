@@ -125,7 +125,7 @@ end
 -- The first kill is the true kill. Each later kill is an echo after a reset (5.13).
 local function DeedTitle(deed)
 	if deed.kind == "level" and type(deed.to) == "number" then
-		local what = deed.from and "Reached level %d" or "Began this journal at level %d"
+		local what = deed.from and "Reached level %d" or "Started at level %d"
 		return string.format(what, deed.to)
 	elseif deed.kind == "defeated" and type(deed.times) == "number" then
 		if deed.times == 1 then
@@ -368,8 +368,8 @@ local function QuestLines(quest, saving)
 		lines[#lines + 1] = Line("prose", ns.Plain(quest.text))
 	end
 	for n, step in ipairs(Entries(quest.steps)) do
-		local mark = n <= StepsDone(quest) and "(done) " or ""
-		lines[#lines + 1] = Line("entry", mark .. StepText(step))
+		local mark = n <= StepsDone(quest) and " (Complete)" or ""
+		lines[#lines + 1] = Line("entry", StepText(step) .. mark)
 	end
 	lines[#lines + 1] = Line("section", "Rewards")
 	lines[#lines + 1] = Line("text", Name(quest.giver) .. " trusts you more.")
