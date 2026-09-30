@@ -138,6 +138,9 @@ fuzz_target!(|data: &[u8]| {
         assert_voice(&answer.say, talk::MAX_SAY_CHARS, talk::MAX_SAY_BYTES);
         assert!((-talk::MAX_TRUST_CHANGE..=talk::MAX_TRUST_CHANGE).contains(&answer.trust_change));
     }
+    if chronicle::checked_pick(&text) == chronicle::Pick::Second {
+        assert!(text.contains('2'), "a pick of draft 2 with no 2: {text:?}");
+    }
     assert_quest(&text);
     assert_draft(&text);
     if let Some(line) = narrator::checked_line(&text, "") {
