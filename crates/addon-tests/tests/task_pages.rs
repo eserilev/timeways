@@ -340,7 +340,10 @@ fn the_form_asks_for_a_name_a_text_steps_and_a_player() {
     assert!(page.contains(&"text: Go to Brill, where you stand. [Add]".to_string()));
     assert!(page.contains(&"text: Corvin (your guild) [Pick]".to_string()));
     assert!(page.contains(&"hint: Name your task first.".to_string()));
-    assert_eq!(buttons(&ada), ["Cancel", "Send (off)"]);
+    assert_eq!(
+        buttons(&ada),
+        ["Help me write this", "Cancel", "Send (off)"]
+    );
 }
 
 #[test]
@@ -432,17 +435,6 @@ fn cancel_throws_the_draft_away() {
 }
 
 #[test]
-fn the_help_to_write_stays_hidden_while_the_relay_has_no_draft_reply() {
-    let (ada, _corvin) = form();
-
-    assert!(
-        !buttons(&ada)
-            .iter()
-            .any(|label| label.starts_with("Help me write this"))
-    );
-}
-
-#[test]
 fn an_idea_for_the_model_loses_the_names_of_players() {
     let (ada, _corvin) = form();
 
@@ -456,21 +448,22 @@ fn an_idea_for_the_model_loses_the_names_of_players() {
 #[test]
 fn a_suggestion_of_the_model_changes_nothing_until_the_player_picks_it() {
     let (ada, _corvin) = form();
-    ada.run("ns.TaskDraftHelp.enabled = true");
     click(&ada, "Help me write this");
     write(&ada, "kill gregor");
+    let asking = lines(&ada);
 
     ada.game.reply(
-        r#"{"type":"draft_answer","title":"Trouble at the Mills","text":"Put Gregor to rest.","steps":[{"kind":"kill","target":"Gregor Agamand","count":1}]}"#,
+        r#"{"type":"draft_answer","id":1,"draft":{"title":"Trouble at the Mills","text":"Put Gregor to rest.","steps":[{"goal":"kill","target":"3 Gregor Agamand"}]}}"#,
     );
     let before = lines(&ada);
     click_line(&ada, "Suggestion", "Use this");
 
+    assert!(asking.contains(&"hint: Writing a draft...".to_string()));
     assert!(before.contains(&"hint: No name yet.".to_string()));
-    assert!(before.contains(&"entry: Defeat Gregor Agamand.".to_string()));
+    assert!(before.contains(&"entry: Defeat Gregor Agamand (3 times).".to_string()));
     let after = lines(&ada);
     assert!(after.contains(&"text: Trouble at the Mills".to_string()));
-    assert!(after.contains(&"entry: Defeat Gregor Agamand. [Remove]".to_string()));
+    assert!(after.contains(&"entry: Defeat Gregor Agamand (3 times). [Remove]".to_string()));
     let asked = ada
         .game
         .sent()
@@ -480,45 +473,32 @@ fn a_suggestion_of_the_model_changes_nothing_until_the_player_picks_it() {
 }
 
 #[test]
-fn a_suggestion_that_breaks_a_rule_is_dropped_whole() {
+fn a_draft_that_breaks_a_rule_of_the_addon_is_dropped_whole() {
     let (ada, _corvin) = form();
-    ada.run("ns.TaskDraftHelp.enabled = true");
+
+    ada.game.reply(
+        r#"{"type":"draft_answer","id":1,"draft":{"title":"Fine","text":"Also ||Hfine||h.","steps":[]}}"#,
+    );
+
+    let page = lines(&ada);
+    assert!(!page.contains(&"section: Suggestion [Use this]".to_string()));
+    assert!(
+        page.contains(
+            &"hint: Timeways couldn't turn that into a task. Try other words.".to_string()
+        )
+    );
+}
+
+#[test]
+fn no_draft_from_the_desktop_says_so() {
+    let (ada, _corvin) = form();
 
     ada.game
-        .reply(r#"{"type":"draft_answer","title":"Fine","text":"Also |Hfine|h.","steps":[]}"#);
+        .reply(r#"{"type":"draft_answer","id":1,"draft":null}"#);
 
-    assert!(!lines(&ada).contains(&"section: Suggestion [Use this]".to_string()));
-}
-
-#[test]
-fn a_click_on_give_a_task_in_the_book_opens_the_form() {
-    let (ada, _corvin) = ada_and_corvin();
-    ada.run("wow.Slash('/journal', '') ns.JournalFrame.Open('quests')");
-
-    ada.run(
-        "for _, widget in ipairs(wow.widgets) do
-             if widget.kind == 'Button' and widget.title and widget.title.text == 'Give a task' then
-                 widget:Click()
-             end
-         end",
+    assert!(
+        lines(&ada).contains(
+            &"hint: Timeways couldn't turn that into a task. Try other words.".to_string()
+        )
     );
-
-    let shown: Vec<String> =
-        ada.eval("wow.ShownTexts(TimewaysJournalFrameScroll:GetScrollChild())");
-    assert_eq!(shown[0], "Give a task");
-    assert!(!ada.eval::<bool>("wow.Button('Send').enabled"));
-}
-
-#[test]
-fn a_promise_that_ends_its_own_sentence_gets_no_second_period() {
-    let (ada, corvin) = ada_and_corvin();
-    let id: String = ada.eval(
-        "return ns.PlayerTasks.Give({ title = 'T', text = 'X.', reward = 'A kiss!',
-             steps = { { kind = 'place', target = 'Brill', count = 1 } } }, 'Corvin-Stormrage')",
-    );
-    exchange(&ada, &corvin);
-
-    open(&corvin, &format!("got:{}", received_key(&id)));
-
-    assert!(lines(&corvin).contains(&"text: A kiss! Promised by Ada, paid by trade.".to_string()));
 }

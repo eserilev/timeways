@@ -1,22 +1,26 @@
 -- "Help me write this" on the form of a player task (GAMEPLAY.md 4.7): a model turns an idea
 -- into a title, a text, and steps. The player stays the author and picks what to keep.
--- The answer needs the reply type `draft_answer`, which the relay does not have yet, so the
--- button stays hidden until `enabled` is true.
 
 local _, ns = ...
 
 local TaskDraftHelp = {}
 ns.TaskDraftHelp = TaskDraftHelp
 
-TaskDraftHelp.enabled = false
+-- The relay takes an idea of at most 255 bytes. A letter outside ASCII takes up to 4.
+local IDEA_LETTERS = 200
+local IDEA_BYTES = 255
 
-local IDEA_LIMIT = 300
+local function Say(text)
+	DEFAULT_CHAT_FRAME:AddMessage("|cffc8a064Timeways|r: " .. text)
+end
 
--- The last suggestion of the model, checked: { title, text, steps }.
+-- The state of the help: nil, "asking", "failed" (no answer came), or "empty" (the answer
+-- held no draft). A draft that came waits in `suggestion`.
+local state
 local suggestion
 
-function TaskDraftHelp.Available()
-	return TaskDraftHelp.enabled
+function TaskDraftHelp.State()
+	return state
 end
 
 function TaskDraftHelp.Suggestion()
@@ -40,64 +44,86 @@ function TaskDraftHelp.WithoutNames(idea)
 	return idea
 end
 
+local function Changed()
+	ns.JournalFrame.Refresh()
+end
+
+local function Failed()
+	state = "failed"
+	Changed()
+end
+
 local function Ask(idea)
 	idea = TaskDraftHelp.WithoutNames(ns.TaskForm.Clean(idea))
 	if idea == "" then
 		return
 	end
-	suggestion = nil
-	ns.Outbox.Add({ type = "draft_asked", at = time(), idea = idea })
+	if #idea > IDEA_BYTES then
+		Say("That idea is too long. Try a shorter one.")
+		return
+	end
+	state, suggestion = "asking", nil
+	ns.Outbox.Add(ns.Inputs.DraftAsked(time(), idea), Failed)
 	ns.Outbox.Flush()
+	Changed()
 end
 
 function TaskDraftHelp.Open()
 	ns.JournalFrame.Edit({
 		title = "What's your idea?",
-		hint = "Say it in plain words. Timeways turns it into a title, a task text, and steps.",
+		hint = "Say it in plain words. Timeways turns it into a title, a task text, and steps the game can check.",
 		text = "",
-		limit = IDEA_LIMIT,
+		limit = IDEA_LETTERS,
 		save = Ask,
 	})
+end
+
+local GOALS = { place = true, npc = true, kill = true, item = true }
+
+-- A step of the draft as a step of the form: "3 Rattlecage Soldier" is a count and a name.
+local function FormStep(step)
+	if type(step) ~= "table" or not GOALS[step.goal] or not ns.TaskWire.IsCleanText(step.target) then
+		return nil
+	end
+	local name, count = step.target, 1
+	if step.goal == "kill" or step.goal == "item" then
+		name, count = ns.TaskForm.ParseItem(step.target)
+	end
+	if name and #name <= ns.TaskWire.LIMITS.target then
+		return { kind = step.goal, target = name, count = count }
+	end
 end
 
 local function CleanText(value, limit)
 	return type(value) == "string" and value ~= "" and #value <= limit and ns.TaskWire.IsCleanText(value)
 end
 
-local function CleanStep(step)
-	local kinds = {}
-	for _, kind in ipairs(ns.TaskWire.STEP_KINDS) do
-		kinds[kind] = true
-	end
-	local count = type(step) == "table" and step.count
-	local whole = type(count) == "number" and count % 1 == 0 and count >= 1 and count <= ns.TaskWire.MAX_COUNT
-	return whole and kinds[step.kind] and CleanText(step.target, ns.TaskWire.LIMITS.target)
-end
-
--- A model's answer is hostile text: a field that breaks a rule drops the whole answer.
-function TaskDraftHelp.Check(answer)
+-- The story program checked the draft against the world, and the bridge doubled each `|`.
+-- So a field that breaks a rule of the addon drops the whole draft.
+function TaskDraftHelp.Check(draft)
 	local limits = ns.TaskWire.LIMITS
-	if not CleanText(answer.title, limits.title) or not CleanText(answer.text, limits.text) then
+	if type(draft) ~= "table" or not CleanText(draft.title, limits.title) or not CleanText(draft.text, limits.text) then
 		return nil
 	end
-	local steps = type(answer.steps) == "table" and answer.steps or {}
+	local steps = type(draft.steps) == "table" and draft.steps or {}
 	if #steps > ns.TaskWire.MAX_STEPS then
 		return nil
 	end
 	local checked = {}
 	for n, step in ipairs(steps) do
-		if not CleanStep(step) then
+		checked[n] = FormStep(step)
+		if not checked[n] then
 			return nil
 		end
-		checked[n] = { kind = step.kind, target = step.target, count = step.count }
 	end
-	return { title = answer.title, text = answer.text, steps = checked }
+	return { title = draft.title, text = draft.text, steps = checked }
 end
 
--- The reply `draft_answer`.
+-- The reply `draft_answer`. With no draft, no model answered, or the draft broke a rule.
 function TaskDraftHelp.Receive(answer)
-	suggestion = TaskDraftHelp.Check(answer)
-	ns.JournalFrame.Refresh()
+	suggestion = TaskDraftHelp.Check(answer.draft)
+	state = not suggestion and "empty" or nil
+	Changed()
 end
 
 -- Every field stays editable after the player picks.
@@ -109,10 +135,10 @@ function TaskDraftHelp.Use()
 	draft.title, draft.text = suggestion.title, suggestion.text
 	draft.steps = suggestion.steps
 	suggestion = nil
-	ns.JournalFrame.Refresh()
+	Changed()
 end
 
 function TaskDraftHelp.Keep()
-	suggestion = nil
-	ns.JournalFrame.Refresh()
+	suggestion, state = nil, nil
+	Changed()
 end

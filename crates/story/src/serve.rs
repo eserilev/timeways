@@ -81,6 +81,7 @@ fn empty_answer(line: &str) -> Option<Output> {
             npc: echoed_npc(&value),
             text: None,
         }),
+        "draft_asked" => Some(Output::DraftAnswer { id, draft: None }),
         // No pages: the addon keeps the journal that it shows.
         "journal_asked" => Some(Output::Journal {
             id,

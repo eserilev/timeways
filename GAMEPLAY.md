@@ -295,7 +295,12 @@ The same foe added again raises its count. The last step is always the turn-in, 
 
 **The chronicle.** A finished task shows on the doer's page with one line for the Chronicle: "Corvin finished Trouble at Agamand Mills for Ada. They met face to face in Brill to turn it in." The line names two real players, so it stays in the addon: it never goes to the story program, and no model sees it (5.11).
 
-**Help me write this.** A model turns the giver's idea into a title, a text, and steps, and the giver picks "Use this" or "Keep mine". The answer needs a new reply type of the relay, `draft_answer`, so the button stays hidden until the relay has it. The idea loses the names of the players who can get a task ("my friend"), and the giver's own name becomes `$N`. An answer that breaks a limit of the wire, or holds a `|`, is dropped whole.
+**Help me write this** (built). A model turns the giver's idea into a title, a text, and steps, and the giver picks "Use this" or "Keep mine". Nothing changes until the giver picks, and every field stays editable after.
+
+- The addon sends `draft_asked` with the idea, at most 255 bytes. The idea loses the names of the players who can get a task ("my friend"), and the giver's own name becomes `$N` (5.11).
+- The story program asks a model with no tools, with the places and NPCs of the world: the places that you visited, the NPCs that you met and that live, and the rares and bosses that you defeated. No player is in the prompt.
+- The code checks the draft (`draft.rs`) before it goes back as `draft_answer`: JSON with a title of at most 60 bytes, a text of at most 400 bytes, and 1 to 5 steps, with the limits of the addon messages. A title or a text holds no `|`, no control character, no emoji, no banned word, and no name from after the cutoff (5.9). A step is `place` (a zone or subzone that you visited), `npc` (an NPC that you met and that lives), `kill` (such an NPC, or a foe that you defeated), or `item`, and no step comes twice. A `kill` or an `item` can start with a count from 1 to 250: "3 Rattlecage Soldier", "10 Linen Cloth". A draft that breaks a rule, or a failed call, comes back as no draft, and the form says "Timeways couldn't turn that into a task."
+- The addon checks the draft again with the rules of the wire, because the bridge doubles each `|`.
 
 **The messages** go with `C_ChatInfo.SendAddonMessage` and the prefix `Timeways` (5.8), as whispers, and a `hello` to the group or the guild.
 

@@ -11,7 +11,7 @@ ns.Outbox = Outbox
 local MAX_WAITING = 500
 
 -- The lines that get a reply. The bridge takes at most one in a batch, as its last line.
-local REPLIES = { lore_asked = true, journal_asked = true, talk_asked = true }
+local REPLIES = { lore_asked = true, journal_asked = true, talk_asked = true, draft_asked = true }
 
 local waiting = {}
 -- The batch of game events on its way, until its reply comes. A bridge that is down never

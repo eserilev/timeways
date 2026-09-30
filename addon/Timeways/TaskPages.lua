@@ -427,7 +427,17 @@ local function RecipientLines(lines)
 	lines[#lines + 1] = Line("help", "Party, guild, and friends who use Timeways.")
 end
 
+local HELP_STATES = {
+	asking = "Writing a draft...",
+	failed = "The desktop app didn't answer. Try again later.",
+	empty = "Timeways couldn't turn that into a task. Try other words.",
+}
+
 local function SuggestionLines(lines)
+	local state = HELP_STATES[ns.TaskDraftHelp.State()]
+	if state then
+		lines[#lines + 1] = Line("hint", state)
+	end
 	local suggestion = ns.TaskDraftHelp.Suggestion()
 	if not suggestion then
 		return
@@ -461,10 +471,7 @@ local function FormLines()
 end
 
 local function FormButtons()
-	local buttons = {}
-	if ns.TaskDraftHelp.Available() then
-		buttons[#buttons + 1] = Button("Help me write this", ns.TaskDraftHelp.Open)
-	end
+	local buttons = { Button("Help me write this", ns.TaskDraftHelp.Open) }
 	buttons[#buttons + 1] = Button("Cancel", ns.TaskForm.Cancel)
 	buttons[#buttons + 1] = Button("Send", ns.TaskForm.Send, ns.TaskForm.Missing() ~= nil)
 	return buttons

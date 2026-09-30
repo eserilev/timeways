@@ -189,6 +189,15 @@ impl Character {
             .collect()
     }
 
+    /// The rares and bosses that you defeated (5.13).
+    #[must_use]
+    pub fn foes_defeated(&self) -> Vec<&str> {
+        self.linked_by_you(DEFEATED)
+            .into_iter()
+            .map(|foe| foe.name.as_str())
+            .collect()
+    }
+
     #[must_use]
     pub fn is_dead(&self, npc: &str) -> bool {
         self.find(EntityType::Person, npc)

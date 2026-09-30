@@ -3,6 +3,7 @@
 use crate::best_of_two::Round;
 use crate::character::{Character, Refusal};
 use crate::check;
+use crate::draft::Draft;
 use crate::flavor::{self, Flavor, HUMBLING_GAP, Kind, Teller, Told};
 use crate::hero::{self, Change, Entry};
 use crate::input::{CallId, GameQuestKind, Input, MessageId};
@@ -30,6 +31,7 @@ use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
 use thiserror::Error;
 
+mod drafts;
 mod quests;
 mod sagas;
 
@@ -106,6 +108,11 @@ pub enum Output {
     EventsSeen {
         id: MessageId,
         narrator: Option<String>,
+    },
+    /// A draft of a player task, or null when no model answered or the draft broke a rule.
+    DraftAnswer {
+        id: MessageId,
+        draft: Option<Draft>,
     },
     /// The bridge runs the model with no tools, and answers with `model_answered` or
     /// `model_failed` for the same call.
@@ -210,6 +217,11 @@ enum Pending {
         key: CharacterKey,
         giver: String,
         at: Tick,
+    },
+    /// A draft of a player task, for this character only.
+    Draft {
+        question: MessageId,
+        key: CharacterKey,
     },
     /// A talk to `npc`, whose change of trust lands at `at`, for this character only.
     Talk {
@@ -366,6 +378,7 @@ impl Story {
                 target,
             } => Ok(vec![self.ask(id, &question, target.as_deref())?]),
             Input::TalkAsked { id, at, npc, text } => Ok(vec![self.talk(id, at, &npc, &text)?]),
+            Input::DraftAsked { id, idea, .. } => Ok(vec![self.ask_draft(id, &idea)?]),
             Input::QuestAsked { at, npc } => self.ask_quest(at, npc),
             Input::QuestAccepted { at, number } => self.answer_quest(at, Status::Accepted, number),
             Input::QuestDeclined { at, number } => self.answer_quest(at, Status::Declined, number),
@@ -513,6 +526,7 @@ impl Story {
                 giver,
                 at,
             } => vec![self.quest_answered(batch, &key, &giver, at, text)],
+            Pending::Draft { question, key } => vec![self.draft_answered(question, &key, text)],
         })
     }
 
@@ -585,6 +599,7 @@ impl Story {
                 text: None,
             }],
             Pending::Quest { batch, giver, .. } => vec![quests::no_offer(batch, &giver)],
+            Pending::Draft { question, .. } => vec![drafts::draft_answer(question, None)],
         })
     }
 

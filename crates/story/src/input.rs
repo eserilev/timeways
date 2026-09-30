@@ -160,6 +160,12 @@ pub enum Input {
         question: String,
         target: Option<String>,
     },
+    /// "Help me write this" for a player task (GAMEPLAY.md 4.7): the idea of the player.
+    DraftAsked {
+        id: MessageId,
+        at: Tick,
+        idea: String,
+    },
     /// The journal window opened, and needs its pages. Page 0 takes a new snapshot.
     JournalAsked {
         id: MessageId,
@@ -203,6 +209,7 @@ impl Input {
             | Input::GameQuestDone { at, .. }
             | Input::QuestMarked { at, .. }
             | Input::TalkAsked { at, .. }
+            | Input::DraftAsked { at, .. }
             | Input::QuestAsked { at, .. }
             | Input::QuestAccepted { at, .. }
             | Input::QuestDeclined { at, .. }
