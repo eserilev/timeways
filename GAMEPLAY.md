@@ -683,12 +683,13 @@ The guild world keeps `defeated` from the guild to each boss. So the saga gets a
 
 1. **Hourglass stability.** Its spec says that no consumer calls it yet. Timeways pins one commit until the API is stable.
 2. **Decided: model calls go through the bridge, with no tools** (5.6, and Gnomish Relay SPEC 9.7). Was: a plain model backend for Gnomish Relay. A story call needs no coding tools. Add a `model` kind next to `acp` and `echo`, for Ollama and LM Studio? How does a coding agent run with no tools for a story call?
-3. **The wiki.** warcraft.wiki.gg text is CC BY-SA. The pack keeps the source of each passage and the license. Answers summarize and cite, and they do not copy long passages.
-   - **No dump is available yet** (checked on 2026-09-25). `Special:Statistics` shows none. A request goes through `Special:Contact` on the wiki, or through the wiki.gg service desk. wiki.gg allows one request every 7 days.
-   - Until the dump arrives, the tests of the lore code use invented passages only.
+3. **Decided: the wiki dump, built on the player's computer** (2026-09-30). Wowpedia publishes a database dump (`https://s3.amazonaws.com/wikia_xml_dumps/w/wo/wowpedia_pages_current.xml.7z`). Setup downloads it and runs `timeways-pack from-dump`, so the pack exists only on the player's computer. The project ships only the list of pages (`crates/story/data/pack_sources.toml`), never wiki text or Blizzard text. Many of the chosen pages copy the in-game History of Warcraft books word for word, and Blizzard owns that text, so it never goes into a download of ours.
+   - The dump changes over time, so nothing pins its checksum. The same dump always gives the same pack.
+   - The tests of the lore code use invented passages only.
+   - Later: short summaries in our own words, which the project can ship.
 4. **The game files** (5.10). The client holds zones and a little text, and no dialogue. Still open:
    - The tool. The Forever build is on product `wow_classic_beta` now, and its code at launch is unknown. The files come from the public CDN (TACTTool with DBC2CSV, and the WoWDBDefs layouts), or from wago.tools after its owners allow it.
-   - The license. The Blizzard EULA forbids data mining. Names and links in the pack carry less risk than long text. Decide before the first release that ships Blizzard text.
+   - The license. The Blizzard EULA forbids data mining. The project ships no text from the game files. Decide before a release that ships names or links from them.
    - Does the server send gossip as `BroadcastText` rows into the cache of the client? A test in the game settles it.
 5. **The API of the Forever client.** Check each event in 5.4 with the API gate.
 6. **The canon seed.** Which canon characters, places, and factions go into every world at the start, and with which facts? The Forever client data (for example its database tables for the Forever build) is the best source.

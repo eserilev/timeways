@@ -54,7 +54,11 @@ It reads JSON lines on stdin and writes JSON lines on stdout. The bridge of Gnom
 
 ## A lore pack
 
-The repo holds no lore text. You build the pack on your computer from the public database dump of Wowpedia: the `pages_current` XML file, as the `.7z` archive or unpacked.
+The repo holds no lore text. You build the pack on your computer from the public database dump of Wowpedia: the `pages_current` XML file, as the `.7z` archive or unpacked. The Gnomish Relay setup does this for players. By hand:
+
+```sh
+curl -fLO https://s3.amazonaws.com/wikia_xml_dumps/w/wo/wowpedia_pages_current.xml.7z
+```
 
 ```sh
 cargo run -q --release --bin timeways-pack -- from-dump wowpedia_pages_current.xml.7z pack.sqlite
