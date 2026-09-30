@@ -33,7 +33,7 @@ fn a_lore_prompt_ends_with_the_question() {
     );
 
     assert!(
-        prompt.ends_with("Question: why is this tower in ruins?"),
+        prompt.ends_with("Question:\n<<<\nwhy is this tower in ruins?\n>>>"),
         "{prompt}"
     );
 }

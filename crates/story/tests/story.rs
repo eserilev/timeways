@@ -550,7 +550,7 @@ fn a_big_moment_asks_the_model_for_a_narrator_line() {
     let output = one(story.handle(Input::ModelAnswered { call, text }).unwrap());
 
     assert!(
-        prompt.ends_with("Moment: The player reached level 13."),
+        prompt.contains("The moment:\n<<<\nThe player reached level 13.\n>>>"),
         "{prompt}"
     );
     let narrator = Some("Level 13! Your boots still squeak, though.".to_string());
@@ -673,7 +673,7 @@ fn a_finished_chapter_asks_for_its_saga_after_the_batch() {
         panic!("expected a saga call, got {outputs:?}");
     };
     assert!(
-        prompt.contains("Chapter 1. Facts:\n- Met: Gryan Stoutmantle."),
+        prompt.contains("The facts of chapter 1:\n<<<\n- Met: Gryan Stoutmantle."),
         "{prompt}"
     );
 }
@@ -851,7 +851,8 @@ fn a_moment_before_a_refusal_still_counts() {
     let (_, prompt) = model_call(batch_end(&mut story, 3));
 
     assert!(
-        prompt.ends_with("Moment: The player arrived in Westfall for the first time."),
+        prompt
+            .contains("The moment:\n<<<\nThe player arrived in Westfall for the first time.\n>>>"),
         "{prompt}"
     );
 }
@@ -887,7 +888,10 @@ fn talking_meets_the_npc_and_asks_the_model_as_that_npc() {
         model_call(one(talk(&mut story, "Innkeeper Farley", "any news?").unwrap()).unwrap());
 
     assert!(prompt.starts_with("You are Innkeeper Farley,"), "{prompt}");
-    assert!(prompt.contains("- You are in Goldshire."), "{prompt}");
+    assert!(
+        prompt.contains("of the world of Warcraft in Goldshire."),
+        "{prompt}"
+    );
     assert_eq!(people(&mut story)[0].name, "Innkeeper Farley");
 }
 
@@ -1121,9 +1125,7 @@ fn a_funny_moment_in_a_quiet_batch_gets_a_flavor_line() {
     let (_, prompt) = model_call(batch_end(&mut story, 2));
 
     assert!(
-        prompt.ends_with(
-            "Moment: The player used the emote /dance in Goldshire, at 3 o'clock, for the 1st time."
-        ),
+        prompt.contains("The moment:\n<<<\nThe player used the emote /dance in Goldshire, at 3 o'clock, for the 1st time.\n>>>"),
         "{prompt}"
     );
 }
@@ -1170,7 +1172,7 @@ fn a_big_moment_wins_over_a_funny_one() {
     let (_, prompt) = model_call(batch_end(&mut story, 2));
 
     assert!(
-        prompt.ends_with("Moment: The player reached level 13."),
+        prompt.contains("The moment:\n<<<\nThe player reached level 13.\n>>>"),
         "{prompt}"
     );
 }
@@ -1281,7 +1283,7 @@ fn the_saga_gets_the_small_moments_of_its_chapter_and_its_footnotes_are_kept_and
     let [_, Output::ModelCall { call, prompt }] = outputs.as_slice() else {
         panic!("expected a saga call, got {outputs:?}");
     };
-    assert!(prompt.contains("Small moments:\n1. The player used the emote /dance in Goldshire, at 3 o'clock, for the 1st time."), "{prompt}");
+    assert!(prompt.contains("Small moments:\n<<<\n1. The player used the emote /dance in Goldshire, at 3 o'clock, for the 1st time."), "{prompt}");
     let text = r#"{"saga": "Our hero came to Goldshire.", "footnotes": [{"moment": 1, "text": "Nobody knows why."}]}"#;
     story
         .handle(Input::ModelAnswered {
@@ -1455,7 +1457,7 @@ fn the_narrator_knows_who_our_hero_is() {
         "{prompt}"
     );
     assert!(
-        prompt.ends_with("Moment: The player reached level 13."),
+        prompt.contains("The moment:\n<<<\nThe player reached level 13.\n>>>"),
         "{prompt}"
     );
 }
@@ -1499,7 +1501,7 @@ fn the_saga_reads_what_the_player_wrote_in_its_chapter() {
     };
     assert!(
         prompt.contains(
-            "What the player wrote in this chapter:\n- I swore an oath at the Sentinel Hill."
+            "What the player wrote in this chapter:\n<<<\n- I swore an oath at the Sentinel Hill."
         ),
         "{prompt}"
     );
@@ -1663,9 +1665,7 @@ fn a_moment_of_another_kind_does_not_count_toward_the_times_of_a_dance() {
     let (_, prompt) = model_call(batch_end(&mut story, 3));
 
     assert!(
-        prompt.ends_with(
-            "Moment: The player used the emote /dance in Goldshire, at 3 o'clock, for the 1st time."
-        ),
+        prompt.contains("The moment:\n<<<\nThe player used the emote /dance in Goldshire, at 3 o'clock, for the 1st time.\n>>>"),
         "{prompt}"
     );
 }
@@ -1741,7 +1741,8 @@ fn the_saga_reads_the_entries_from_the_start_of_its_chapter_to_the_start_of_the_
 
     let prompt = saga_prompt(&mut story, 2);
 
-    let written = "What the player wrote in this chapter:\n- At the start of chapter one.\n\n";
+    let written =
+        "What the player wrote in this chapter:\n<<<\n- At the start of chapter one.\n>>>";
     assert!(prompt.contains(written), "{prompt}");
 }
 

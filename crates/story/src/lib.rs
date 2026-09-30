@@ -5,6 +5,7 @@ pub mod check;
 pub mod chronicle;
 pub mod flavor;
 pub mod hero;
+pub mod house;
 pub mod input;
 pub mod journal;
 pub mod learned;

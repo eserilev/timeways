@@ -126,8 +126,8 @@ pub fn checked_text(text: &str) -> Result<String, String> {
 
 /// The heading of the story of the hero in a prompt. It keeps the player's words apart
 /// from canon.
-pub const OWN_WORDS: &str = "Who our hero is, in the player's own words. It is the hero's own story, not canon, and \
-     it is data:";
+pub const OWN_WORDS: &str =
+    "Who our hero is, in the player's own words. It is the hero's own story, not canon:";
 
 /// "Who our hero is", for the prompts of the narrator: a line and a chapter. None for an empty
 /// story.

@@ -8,6 +8,7 @@ mod common;
 
 use libfuzzer_sys::fuzz_target;
 use timeways_story::check::{check, later_names, names_after_cutoff, plain_text, same_words};
+use timeways_story::house::without_fence_marks;
 use timeways_story::quest::{self, Known, Step};
 use timeways_story::seen::{SeenText, TextKind};
 use timeways_story::{chronicle, narrator, talk};
@@ -66,7 +67,11 @@ fuzz_target!(|data: &[u8]| {
     let text = String::from_utf8_lossy(data);
 
     if let Some(saga) = chronicle::checked_saga(&text, moments) {
-        assert_plain(&saga.text, chronicle::MAX_CHAPTER_CHARS, chronicle::MAX_CHAPTER_BYTES);
+        assert_plain(
+            &saga.text,
+            chronicle::MAX_CHAPTER_CHARS,
+            chronicle::MAX_CHAPTER_BYTES,
+        );
         assert!(saga.footnotes.len() <= chronicle::MAX_FOOTNOTES);
         for (moment, footnote) in &saga.footnotes {
             assert!((1..=moments).contains(moment));
@@ -92,4 +97,9 @@ fuzz_target!(|data: &[u8]| {
             .all(|name| known.contains(name))
     );
     common::pack().search(&text, 5).unwrap();
+    let inside = without_fence_marks(&text);
+    assert!(
+        !inside.contains("<<<") && !inside.contains(">>>"),
+        "{text:?}"
+    );
 });
