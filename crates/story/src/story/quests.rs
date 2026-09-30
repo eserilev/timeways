@@ -201,12 +201,14 @@ fn refusal(quests: &[Tracked], giver: &str) -> Option<String> {
         .collect();
     if let Some(quest) = open.iter().find(|quest| quest.giver == giver) {
         return Some(format!(
-            "{giver} waits for you to finish \"{}\".",
+            "{giver} is waiting for you to finish \"{}\".",
             quest.title
         ));
     }
     if open.len() >= MAX_OPEN_QUESTS {
-        return Some("Your quest log is full. Finish a quest first.".to_string());
+        return Some(format!(
+            "You already have {MAX_OPEN_QUESTS} tasks. Finish one first."
+        ));
     }
     None
 }

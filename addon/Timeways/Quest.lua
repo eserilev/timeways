@@ -56,12 +56,12 @@ end
 function Quest.Accept(number)
 	ns.Watch.ForgetMet()
 	Answer(number, "accepted", ns.Inputs.QuestAccepted(time(), number))
-	Say("You take the task. It's in your journal.")
+	Say("Task accepted.")
 end
 
 function Quest.Decline(number)
 	Answer(number, "declined", ns.Inputs.QuestDeclined(time(), number))
-	Say("You turn the task down.")
+	Say("Task declined.")
 end
 
 StaticPopupDialogs.TIMEWAYS_QUEST_ABANDON = {
@@ -95,7 +95,7 @@ local WORDS = {
 function Quest.Command(message)
 	local run = WORDS[message:match("^%s*(%S*)"):lower()]
 	if not run then
-		Say("Target someone and type /quest to ask for a task. Then /quest accept, or /quest decline.")
+		Say("Target someone and type /quest to ask for a task. Then /quest accept or /quest decline.")
 		return
 	end
 	run()

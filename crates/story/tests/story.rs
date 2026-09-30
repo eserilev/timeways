@@ -1625,7 +1625,7 @@ fn a_refused_edit_shows_its_reason_once_on_the_next_journal_page() {
     let (hero, first) = hero_page(&mut story);
     let (_, second) = hero_page(&mut story);
     assert!(hero.sheet.is_empty());
-    assert!(first.is_some_and(|reason| reason.starts_with("Not saved:")));
+    assert!(first.is_some_and(|reason| reason.starts_with("Couldn't save that.")));
     assert_eq!(second, None);
 }
 

@@ -316,7 +316,7 @@ fn a_giver_waits_for_you_to_finish_its_open_quest() {
         Output::EventsSeen {
             id: BATCH,
             narrator: Some(
-                "Keeper Tessa waits for you to finish \"The Lost Lantern\".".to_string()
+                "Keeper Tessa is waiting for you to finish \"The Lost Lantern\".".to_string()
             ),
         }
     );
@@ -370,7 +370,7 @@ fn two_offers_of_one_giver_never_make_two_open_quests() {
 
     assert_eq!(
         line.as_deref(),
-        Some("Keeper Tessa waits for you to finish \"The Lost Lantern\".")
+        Some("Keeper Tessa is waiting for you to finish \"The Lost Lantern\".")
     );
     assert_eq!(open_quests(&mut story), 1);
 }
@@ -393,7 +393,7 @@ fn an_accept_past_three_open_quests_is_refused_in_the_narrator_line() {
     assert_eq!(open_quests(&mut story), 3);
     assert_eq!(
         narrator(batch).as_deref(),
-        Some("Your quest log is full. Finish a quest first.")
+        Some("You already have 3 tasks. Finish one first.")
     );
 }
 

@@ -1,6 +1,6 @@
 ## Interface: 16001
 ## Title: Timeways
-## Notes: Azeroth remembers you. Lore, and the story of your character.
+## Notes: Azeroth remembers you. Lore, a narrator, and a journal of your adventure.
 ## Version: 0.1.0
 ## SavedVariables: TimewaysDB
 

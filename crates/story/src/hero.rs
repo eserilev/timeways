@@ -126,8 +126,8 @@ pub fn next_number(changes: &[Change]) -> u64 {
 pub fn checked_text(text: &str) -> Result<String, String> {
     plain_text(text, MAX_TEXT_CHARS, MAX_TEXT_BYTES).ok_or_else(|| {
         format!(
-            "Not saved: a text holds at most {MAX_TEXT_CHARS} characters, and no name from \
-             after the year 25 ADP."
+            "Couldn't save that. Keep it to {MAX_TEXT_CHARS} characters, and leave out names \
+             from later expansions."
         )
     })
 }

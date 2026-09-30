@@ -249,7 +249,7 @@ fn a_second_start_waits_for_the_first_test_to_end() {
         printed
             .last()
             .unwrap()
-            .ends_with("A self-test runs already."),
+            .ends_with("A self-test is already running."),
         "{printed:?}"
     );
 }

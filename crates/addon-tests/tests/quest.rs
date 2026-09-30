@@ -82,7 +82,7 @@ fn click(game: &Game, label: &str) {
 const REWARDS: [&str; 3] = [
     "section: Rewards",
     "text: Keeper Tessa trusts you more.",
-    "text: It goes into your chronicle.",
+    "text: An entry in your chronicle.",
 ];
 
 fn day(game: &Game) -> String {
@@ -160,7 +160,7 @@ fn an_unknown_word_shows_how_to_use_quest() {
     assert_eq!(
         game.printed(),
         [
-            "|cffc8a064Timeways|r: Target someone and type /quest to ask for a task. Then /quest accept, or /quest decline."
+            "|cffc8a064Timeways|r: Target someone and type /quest to ask for a task. Then /quest accept or /quest decline."
         ]
     );
 }
@@ -193,7 +193,7 @@ fn an_offer_shows_with_its_buttons() {
 
     let mut expected = vec![
         "heading: The Lost Lantern".to_string(),
-        "note: An offer. Do you take it?".to_string(),
+        "note: New offer.".to_string(),
         format!("text: From Keeper Tessa, on {}.", day(&game)),
         "prose: Find the lantern.".to_string(),
         "entry: Visit Mill Pond.".to_string(),
@@ -346,7 +346,7 @@ fn a_broken_quest_shows_gaps_and_no_error() {
             "entry: ?",
             "section: Rewards",
             "text: ? trusts you more.",
-            "text: It goes into your chronicle.",
+            "text: An entry in your chronicle.",
         ]
     );
 }
@@ -359,7 +359,7 @@ fn with_no_quest_the_page_says_how_to_ask() {
 
     assert_eq!(
         lines(&game),
-        ["help: No one has asked you for a favor yet. Target someone, and type /quest."]
+        ["help: No tasks yet. Target someone and type /quest to ask for one."]
     );
 }
 

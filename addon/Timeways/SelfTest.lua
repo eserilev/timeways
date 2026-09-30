@@ -105,13 +105,13 @@ local function Run(index)
 	end
 	local text = ns.Outbox.Alone(step.Input())
 	if not text then
-		Check(step.name, false, "no character yet: wait for the login to end")
+		Check(step.name, false, "no character yet: wait until you're logged in")
 		Run(index + 1)
 		return
 	end
 	local id = ns.Link.Send(text)
 	if not id then
-		Check(step.name, false, "the link did not take the message")
+		Check(step.name, false, "couldn't send the message")
 		Run(index + 1)
 		return
 	end
@@ -134,13 +134,13 @@ end
 
 function SelfTest.Start()
 	if report then
-		Say("A self-test runs already.")
+		Say("A self-test is already running.")
 		return
 	end
 	-- Saved at once, so a reply that never comes still leaves the steps before it.
 	report = { at = time(), checks = {}, ended = false }
 	ns.Saved().selfTest = report
-	Say("Started. Each step waits for the bridge, so it can take a minute.")
+	Say("Started. This can take a minute.")
 	local missing = ns.Health.Missing()
 	Check("client", missing == nil, missing and ("no " .. missing))
 	Run(1)

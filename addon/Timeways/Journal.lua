@@ -141,7 +141,7 @@ local function DeedTitle(deed)
 	elseif deed.kind == "class_quest_done" then
 		return "Finished the class quest " .. Name(deed.title)
 	elseif deed.kind == "died" then
-		return deed.killer and ("Fell to " .. Name(deed.killer)) or "Died"
+		return deed.killer and ("Killed by " .. Name(deed.killer)) or "Died"
 	end
 end
 
@@ -345,7 +345,7 @@ local function QuestStatus(quest, saving)
 		return Line("hint", SAVING)
 	end
 	if quest.status == "offered" then
-		return Line("note", "An offer. Do you take it?")
+		return Line("note", "New offer.")
 	end
 	if quest.status == "done" then
 		return Line("note", "Done on " .. Day(quest.done_at) .. ".")
@@ -371,7 +371,7 @@ local function QuestLines(quest, saving)
 	end
 	lines[#lines + 1] = Line("section", "Rewards")
 	lines[#lines + 1] = Line("text", Name(quest.giver) .. " trusts you more.")
-	lines[#lines + 1] = Line("text", "It goes into your chronicle.")
+	lines[#lines + 1] = Line("text", "An entry in your chronicle.")
 	return lines
 end
 
@@ -680,16 +680,16 @@ local EMPTY = {
 	chapters = "Your story hasn't started yet. Go make some trouble.",
 	deeds = "No deeds yet.",
 	learned = "You haven't learned a thing yet. Pick up a book, or listen at the inn.",
-	quests = "No one has asked you for a favor yet. Target someone, and type /quest.",
+	quests = "No tasks yet. Target someone and type /quest to ask for one.",
 }
 
 -- The line at the bottom of the book, on how to use the page.
 Journal.USAGE = {
-	hero = "Your character's backstory. It shapes the story that the game writes about you.",
+	hero = "Your character's backstory. It shapes your story.",
 	chapters = "Your story so far, chapter by chapter.",
 	deeds = "Your levels, big kills, deaths, and titles.",
 	learned = "Everything you've read or heard.",
-	quests = "Favors from the people you meet. Target someone, and type /quest.",
+	quests = "Tasks from the people you meet. Target someone and type /quest.",
 }
 
 -- A page is what the book shows for one section:

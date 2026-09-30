@@ -27,7 +27,7 @@ function Talk.Ask(words)
 	end
 	local input = ns.Inputs.Talk(time(), npc, words)
 	if not ns.Outbox.Fits(input) then
-		Say("That is too long to say.")
+		Say("That's too long. Try something shorter.")
 		return
 	end
 	ns.Outbox.Add(input)

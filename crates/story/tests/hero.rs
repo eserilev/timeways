@@ -84,7 +84,7 @@ fn a_text_that_breaks_a_rule_gets_a_reason_for_the_player() {
     assert!(
         checked_text(&"a".repeat(MAX_TEXT_CHARS + 1))
             .unwrap_err()
-            .starts_with("Not saved:")
+            .starts_with("Couldn't save that.")
     );
     assert!(checked_text("My father sailed to Pandaria.").is_err());
     assert_eq!(

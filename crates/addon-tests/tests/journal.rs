@@ -321,7 +321,7 @@ fn deaths_show_as_deeds_with_the_killer_when_known() {
 
     let place = format!("text: Westfall, {}.", day(&game));
     let expected = [
-        "entry: Fell to Defias Pillager".to_string(),
+        "entry: Killed by Defias Pillager".to_string(),
         place.clone(),
         "entry: Died".to_string(),
         place,

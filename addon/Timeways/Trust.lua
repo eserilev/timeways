@@ -18,7 +18,7 @@ local BANDS = {
 	{ min = 10, word = "Likes you", change = "now likes you." },
 	{ min = -9, word = "Neutral", change = "feels neutral about you now." },
 	{ min = -49, word = "Wary of you", change = "is now wary of you." },
-	{ min = -100, word = "Distrusts you", change = "no longer trusts you." },
+	{ min = -100, word = "Distrusts you", change = "now distrusts you." },
 }
 
 -- The people of the newest journal, by name. Nil until the first journal came, so the

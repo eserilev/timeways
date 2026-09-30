@@ -89,7 +89,7 @@ function Hero.Add(text, npc)
 end
 
 StaticPopupDialogs.TIMEWAYS_HERO_REMOVE = {
-	text = "Remove this from your story?\n\n%s",
+	text = "Remove this note?\n\n%s",
 	button1 = "Remove",
 	button2 = "Cancel",
 	timeout = 0,
@@ -155,7 +155,7 @@ function Hero.AskOnce(hero)
 	ns.JournalFrame.Open("hero")
 end
 
-local USAGE = "/hero, /hero add <text>, /hero note <text about your target>, or /hero set <field> <text>"
+local USAGE = "Usage: /hero, /hero add <note>, /hero note <note about your target>, or /hero set <field> <answer>"
 
 -- `/hero` opens the page. The words after it add to the story, or set a field.
 function Hero.Command(message)
@@ -174,7 +174,7 @@ function Hero.Command(message)
 	elseif verb == "set" then
 		local field, text = rest:match("^(%S+)%s*(.-)$")
 		if not IsField(field) then
-			Say("The fields are: " .. table.concat(Hero.FIELDS, ", ") .. ".")
+			Say("Pick one of these fields: " .. table.concat(Hero.FIELDS, ", ") .. ".")
 			return
 		end
 		Hero.Set(field, text)

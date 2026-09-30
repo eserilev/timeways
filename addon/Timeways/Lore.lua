@@ -19,7 +19,7 @@ function Lore.Ask(question)
 	end
 	local input = ns.Inputs.Question(time(), question, ns.Units.NpcName("target"))
 	if not ns.Outbox.Fits(input) then
-		Say("That question is too long.")
+		Say("That question is too long. Try a shorter one.")
 		return
 	end
 	ns.Outbox.Add(input)
