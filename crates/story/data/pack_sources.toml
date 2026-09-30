@@ -1,0 +1,151 @@
+# The pages of the wiki dump that `timeways-pack from-dump` reads (GAMEPLAY.md 5.10).
+# The builder runs on the computer of the player, so the repo holds no lore text, only this list.
+
+# The History of Warcraft books of the game. Each chapter section of the index page lists
+# its books as `* [[Page]]` lines. Every book passage is common knowledge in 25 ADP.
+# Chapter VI tells of later expansions, so it stays out.
+[books]
+index = "History of Warcraft"
+chapters = [
+    "Chapter I: Mythos",
+    "Chapter II: The New World",
+    "Chapter III: The Doom of Draenor",
+    "Chapter IV: Alliance And Horde",
+    "Chapter V: Return of the Burning Legion",
+]
+# The source of a passage names the book without this part of the page title.
+title_suffix = " (History of Warcraft)"
+
+# Wiki pages. Only the listed sections go in, and `lead = true` adds the text before the
+# first heading. A page with a place waits until the player visits the place.
+[[pages]]
+title = "Forsaken"
+lead = false
+sections = [
+    "Introduction",
+    "Third War and aftermath",
+    "Alliance with the Horde",
+    "World of Warcraft",
+    "Free will",
+    "True death",
+]
+common = true
+
+[[pages]]
+title = "Undercity"
+lead = false
+sections = ["Legacy of the Damned", "World of Warcraft"]
+common = true
+
+[[pages]]
+title = "Sylvanas Windrunner"
+lead = false
+sections = [
+    "Ranger-General of Silvermoon",
+    "The Second War",
+    "Invasion of the Undead Scourge",
+    "Sylvanas the Banshee",
+    "Return to Lordaeron",
+    "The Dark Ranger",
+    "Queen of the Forsaken",
+    "Joining the Horde",
+    "The Forsaken's dominion",
+]
+common = true
+
+[[pages]]
+title = "Tirisfal Glades"
+lead = false
+sections = [
+    "Rise of humanity",
+    "Guardians of Tirisfal",
+    "The fracturing of Arathor",
+    "Second War and aftermath",
+    "Third War and aftermath",
+    "World of Warcraft",
+]
+places = ["Tirisfal Glades"]
+
+[[pages]]
+title = "Deathknell"
+lead = true
+sections = ["Scourge", "Rotbrain undead", "Scarlet Crusade"]
+places = ["Deathknell"]
+
+[[pages]]
+title = "Brill"
+lead = false
+sections = ["The Third War", "Ashbringer", "World of Warcraft"]
+places = ["Brill"]
+
+# A paragraph of a wiki page that matches one of these goes out, because it tells of a
+# time after 25 ADP. Each entry is a regular expression, and the match ignores case.
+# The books need no such list: they end before the later expansions.
+[later]
+terms = [
+    "Burning Crusade",
+    "Wrath of the Lich King",
+    "Cataclysm",
+    "Mists of Pandaria",
+    "Warlords of Draenor",
+    "World of Warcraft: Legion",
+    "Battle for Azeroth",
+    "Shadowlands",
+    "Dragonflight",
+    "War Within",
+    "Warchief Sylvanas",
+    "Warchief Garrosh",
+    "Wrathgate",
+    "Battle for the Undercity",
+    "Bolvar",
+    "Garrosh",
+    "Vol'jin",
+    "Val'kyr",
+    "Gilneas",
+    "Worgen",
+    "Blood elf",
+    "blood elves",
+    "Outland",
+    "Shattrath",
+    "Icecrown Citadel",
+    "Before the Storm",
+    "Edge of Night",
+    "Dark Mirror",
+    'patch \d',
+    "expansion",
+    "Teldrassil",
+    "Anduin",
+    "Calia",
+    "Desolate Council",
+    "Lilian Voss",
+    "Hellscream",
+    "Broken Isles",
+    "Argus",
+    "Death knights? of the Ebon Blade",
+    "Ebon Blade",
+    "Lich King Bolvar",
+    "Varian",
+    "Stormwind Harbor",
+    "Forsaken High Command",
+    "Lordaeron Throne Room",
+    "File:",
+    "Deatholme",
+    "Farstrider Retreat",
+    "Loken",
+    "Ulduar",
+    "vrykul",
+    "Ymiron",
+    'Tyr\b',
+    "Velonara",
+    "Reigol",
+    "Lament of the Highborne",
+    # The dot takes any apostrophe.
+    "Kathra.natir",
+    "Eidre",
+    "Ghostlands",
+    "Lor.themar",
+    "Halduron",
+    "Windrunner Spire",
+    "Deathstalkers",
+    'Clea\b',
+]

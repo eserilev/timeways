@@ -15,9 +15,9 @@ Early build. The parts work and have tests, but nobody has run them together in 
 What works:
 
 - **The world of each character.** An append-only history file on your computer, replayed at start.
-- **`/lore <question>`.** Passages from a lore pack, under a spoiler limit: you see lore only about places you visited and people you met. A model answer is checked for citations and for names from after the Forever timeline. No real lore pack exists yet.
+- **`/lore <question>`.** Passages from a lore pack, under a spoiler limit: you see lore only about places you visited and people you met. A model answer is checked for citations and for names from after the Forever timeline. You build the pack on your own computer from a wiki dump (below).
 - **`/journal`.** A book in the look of the classic quest frame, with 5 tabs: Hero, Chronicle (one chapter for each play session), Deeds, Knowledge, and Tasks.
-- **The text you read.** The addon keeps the text of each quest, gossip window, and book that you read. `/lore` and `/talk` search it together with the lore pack, so they answer from real game text before any pack exists.
+- **The text you read.** The addon keeps the text of each quest, gossip window, and book that you read. `/lore` and `/talk` search it together with the lore pack, so they answer from real game text even with no pack.
 - **The narrator.** One short line in the voice of the chronicle at a big moment, such as a first kill of a rare, a level up, or a third death to the same murloc. At most 3 lines each hour.
 - **Kills, deaths, and slaps.** Addons cannot read the combat log in this client. So the addon reads kills and deaths from other events, and never sends the name of a real player.
 
@@ -52,9 +52,25 @@ cargo run -q --bin timeways-story -- <lore pack> [<data folder>]
 
 It reads JSON lines on stdin and writes JSON lines on stdout. The bridge of Gnomish Relay starts it and talks to it. With no data folder, it keeps nothing after it stops.
 
-## A lore pack by hand
+## A lore pack
 
-No real lore pack exists yet (GAMEPLAY.md 5.10). To try `/lore`, write passages as JSON lines, one passage for each line, and build a pack. The example is invented. Real passages come only from a source, never from memory:
+The repo holds no lore text. You build the pack on your computer from the public database dump of Wowpedia: the `pages_current` XML file, as the `.7z` archive or unpacked.
+
+```sh
+cargo run -q --release --bin timeways-pack -- from-dump wowpedia_pages_current.xml.7z pack.sqlite
+```
+
+The builder reads only the pages in `crates/story/data/pack_sources.toml`:
+
+- The History of Warcraft books of chapters I to V. Each book passage is common knowledge.
+- Some wiki pages, only the listed sections. A page links to its place, or is common knowledge.
+- A paragraph of a wiki page that names a later expansion, or a person or place of one, goes out.
+
+It prints the number of passages from each page, and names each page that the dump lacks. A missing page is skipped, not an error. The same dump always gives the same pack. The builder streams the dump, so it needs little memory, and it takes less than a minute.
+
+### A pack by hand
+
+To try `/lore` with your own passages, write them as JSON lines, one passage for each line. The example is invented. Real passages come only from a source, never from memory:
 
 ```sh
 cat > passages.jsonl <<'LINES'
@@ -63,7 +79,7 @@ LINES
 cargo run -q --bin timeways-pack -- passages.jsonl pack.sqlite
 ```
 
-A passage needs at least one place or NPC, because a passage with no link passes every spoiler check. The builder never writes over a pack that exists.
+A passage needs at least one place or NPC, or `"common": true`, because a passage with no link passes every spoiler check. The builder never writes over a pack that exists.
 
 ## Checks
 
@@ -80,7 +96,7 @@ selene addon/Timeways
 
 `cargo test` also runs the property tests of `crates/story/tests/properties.rs`: rules that hold for any play, such as a world that reads back the same after any restart.
 
-The fuzz targets in `fuzz/` feed random input to the parts that read text from outside: the input lines, the files on disk, the answers of a model, `Json.lua`, and the journal pages. They need the nightly toolchain and `cargo-fuzz`:
+The fuzz targets in `fuzz/` feed random input to the parts that read text from outside: the input lines, the files on disk, the answers of a model, `Json.lua`, the journal pages, and the wikitext of a wiki dump. They need the nightly toolchain and `cargo-fuzz`:
 
 ```sh
 scripts/fuzz.sh 60            # each target for 60 seconds

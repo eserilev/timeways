@@ -12,10 +12,15 @@ serde.workspace = true
 serde_json.workspace = true
 rusqlite.workspace = true
 thiserror.workspace = true
+quick-xml.workspace = true
+regex.workspace = true
+sevenz-rust2.workspace = true
+toml.workspace = true
 
 [dev-dependencies]
 fake-bridge = { path = "../fake-bridge" }
 proptest.workspace = true
+sevenz-rust2 = { workspace = true, features = ["compress", "util"] }
 
 [lints]
 workspace = true

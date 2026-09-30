@@ -494,16 +494,16 @@ The list of later names is data in the repo, with a test for each entry. When Fo
 
 ### 5.10 Lore data: the lore pack and the lore of each player
 
-A web request for each question is slow, depends on one website, and sends whole pages into the prompt. So the lore is a **pack**: one file that we build once and ship. Each question is a local search.
+A web request for each question is slow, depends on one website, and sends whole pages into the prompt. So the lore is a **pack**: one file that the player builds once on their own computer. Each question is a local search. The project never ships Blizzard text or wiki text, only the list of pages.
 
-**The sources of the pack**, built in CI:
+**The sources of the pack:**
 
 1. **The game files of the Forever build.** The client holds little text (checked on build 1.60.1.70009, 2026-09-26). The server sends the dialogue, the quest text, the books, and the NPC names, so only the text that the player saw (below) holds them.
    - `BroadcastText` has 12 rows, all from one cinematic. `Creature` holds only companion pets. `PageText` and `QuestObjective` are not in the client.
    - The useful tables: `AreaTable` (the zones, with their parent zones and continents), `AreaPOI`, `Map`, `TaxiNodes`, the descriptions of `Faction`, and the flavor text of `ItemSparse`.
    - No client table links a text to an NPC. A text links to a place only through an ID, or through the whole name of a zone in its words.
    - The client holds zones before they open, for example Mount Hyjal. So a list of zone phases, with a test for each entry, sets the cutoff.
-2. **Forever-era wiki pages**, from a database dump of warcraft.wiki.gg, cut into short passages, each with its source link. The text is CC BY-SA, so the pack names its sources and keeps that license.
+2. **Forever-era wiki pages**, from the public database dump of Wowpedia, cut into short passages, each with its source. The text is CC BY-SA, so the pack names its sources and keeps that license.
    - **A dump, never a fetch.** The terms of wiki.gg forbid crawling and scraping, and `robots.txt` blocks `/api.php`. The build reads a local dump file.
    - **The infoboxes give the links.** The raw wikitext of a dump holds each infobox call, for example `{{Npcbox}}` with its location. The Cargo tables of the wiki hold only a few of these fields.
 
@@ -511,10 +511,22 @@ A web request for each question is slow, depends on one website, and sends whole
 
 - One SQLite file with a full-text index (FTS5). The expected size is a few tens of MB.
 - A passage has: its text, its source, its phase tag, and links to the zones, NPCs, quests, and items that it is about.
-- It downloads with the release of the bridge, and it updates when Forever releases a new phase.
+- The player builds it from the dump (below), and builds it again when Forever releases a new phase.
 - **The cutoff is built in.** The pack holds only the passages up to the current phase of Forever. A Molten Core passage is not in the file before Molten Core opens, so no model can see it. Layers 3 and 4 of 5.9 still apply to the text of the model.
 
-**The builder** (built): `timeways-pack` reads passages as JSON lines, each with its text, source, places, and NPCs, and writes the pack. It refuses a passage with no link, and it never writes over a pack that exists. The dump pipeline feeds it later.
+**The builder** (built): `timeways-pack` writes the pack. It refuses a passage with no link, and it never writes over a pack that exists.
+
+- **From a dump:** `timeways-pack from-dump <dump> <pack>` reads the MediaWiki XML export of the wiki, as a `.7z` archive or unpacked. It streams the file and keeps only the listed pages.
+- **The list is data:** `crates/story/data/pack_sources.toml` holds the pages, and the repo holds no lore text.
+  - The index page "History of Warcraft" and its chapters I to V. Each `* [[Page]]` line of a chapter is a book. The builder takes the `{{Book}}` text of the page. A copy from a website, with "(site)" in its title, comes only when the page has no other copy. Each book passage is common.
+  - Wiki pages, each with its kept sections, and its places, its NPCs, or `common`.
+  - Later terms: regular expressions for the names of later expansions and of their people and places. A paragraph of a wiki page that matches one goes out.
+- **A redirect** is followed one step. Two titles that lead to one book give its passages once.
+- **Plain text:** references, comments, HTML tags, templates, tables, pictures, and bold and italic marks go. A link keeps its label. Broken markup leaves no marks.
+- **A passage** is one line of plain text with at least 80 characters. A list line, a table line, or an indented line is no passage. The source is `the book "<title>"` or `the wiki page "<title>"`.
+- **The report** gives the number of passages of each page, and names each missing chapter and each missing page. A missing page is skipped. A dump without the index page, or with broken XML, is an error, and no pack is written.
+- **The same dump gives the same pack**, in the order of the list.
+- **From lines:** `timeways-pack <passages.jsonl> <pack>` reads passages as JSON lines, each with its text, source, places, NPCs, and `common`. It is for tests and for passages by hand.
 
 **Common knowledge** (built): a passage marked `common` passes the spoiler limit with no visit. It holds what everyone knows in 25 ADP, such as the History of Warcraft books of the game. A common passage with a place or an NPC still waits for them.
 

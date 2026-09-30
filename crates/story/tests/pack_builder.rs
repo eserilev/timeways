@@ -125,3 +125,88 @@ fn an_existing_pack_is_never_written_over() {
             .contains("exists already")
     );
 }
+
+mod wiki_dump;
+
+fn build_from_dump(dump: &Path, pack: &Path) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_timeways-pack"))
+        .arg("from-dump")
+        .arg(dump)
+        .arg(pack)
+        .output()
+        .unwrap()
+}
+
+fn history_dump(name: &str) -> PathBuf {
+    let index = "Intro.\n===Chapter I: Mythos===\n* [[The Testvale Tower (History of Warcraft)]]\n";
+    let book = format!(
+        "{{{{Book|The Testvale Tower|content=\n{}\n}}}}",
+        wiki_dump::long("The tower of Testvale fell.")
+    );
+    wiki_dump::write_dump(
+        name,
+        &[
+            wiki_dump::article("History of Warcraft", index),
+            wiki_dump::article("The Testvale Tower (History of Warcraft)", &book),
+        ],
+    )
+}
+
+#[test]
+fn a_pack_built_from_a_dump_holds_the_books_and_reports_each_page() {
+    let dump = history_dump("builder-dump");
+    let pack = fresh("builder-dump.sqlite");
+
+    let output = build_from_dump(&dump, &pack);
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("      1  The Testvale Tower (History of Warcraft)\n"));
+    assert!(stdout.contains("missing chapter: Chapter II: The New World\n"));
+    assert!(stdout.contains("missing  Forsaken\n"));
+    assert!(stdout.ends_with(&format!("wrote 1 passages to {}\n", pack.display())));
+    let found = Pack::open(&pack).unwrap().search("tower", 5).unwrap();
+    assert_eq!(found[0].source, "the book \"The Testvale Tower\"");
+    assert_eq!(found[0].links, [Link::Common]);
+}
+
+#[test]
+fn a_pack_from_a_dump_is_never_written_over() {
+    let dump = history_dump("builder-dump-exists");
+    let pack = fresh("builder-dump-exists.sqlite");
+    assert!(build_from_dump(&dump, &pack).status.success());
+
+    let second = build_from_dump(&dump, &pack);
+
+    assert!(!second.status.success());
+    assert!(
+        String::from_utf8(second.stderr)
+            .unwrap()
+            .contains("exists already")
+    );
+}
+
+#[test]
+fn a_broken_dump_writes_no_pack() {
+    let dump = fresh("builder-broken.xml");
+    std::fs::write(
+        &dump,
+        "<mediawiki><page><title>History of Warcraft</title></ns>",
+    )
+    .unwrap();
+    let pack = fresh("builder-broken.sqlite");
+
+    let output = build_from_dump(&dump, &pack);
+
+    assert!(!output.status.success());
+    assert!(
+        String::from_utf8(output.stderr)
+            .unwrap()
+            .starts_with("dump: broken XML")
+    );
+    assert!(!pack.exists());
+}

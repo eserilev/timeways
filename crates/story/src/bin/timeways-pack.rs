@@ -1,9 +1,14 @@
-//! Builds a lore pack from passages, one JSON object per line (GAMEPLAY.md 5.10):
+//! Builds a lore pack (GAMEPLAY.md 5.10), in one of two ways.
+//!
+//! From passages, one JSON object per line:
 //!
 //! ```text
 //! {"text": "...", "source": "https://...", "places": ["Goldshire"], "npcs": ["Innkeeper Farley"]}
 //! {"text": "...", "source": "https://...", "common": true}
 //! ```
+//!
+//! Or from a MediaWiki dump (`.xml` or `.7z`), with the pages of `data/pack_sources.toml`:
+//! `timeways-pack from-dump <dump> <new pack file>`.
 
 use serde::Deserialize;
 use std::error::Error;
@@ -11,6 +16,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use timeways_story::pack::{Link, Origin, Pack, Passage};
+use timeways_story::pack_sources::{self, Built, Outcome, Sources};
+
+const USAGE: &str = "usage: timeways-pack <passages.jsonl> <new pack file>
+       timeways-pack from-dump <wiki dump .xml or .7z> <new pack file>";
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -41,15 +50,16 @@ impl PassageLine {
 
 fn main() -> ExitCode {
     let args: Vec<PathBuf> = std::env::args_os().skip(1).map(PathBuf::from).collect();
-    let [passages, pack] = args.as_slice() else {
-        eprintln!("usage: timeways-pack <passages.jsonl> <new pack file>");
-        return ExitCode::FAILURE;
-    };
-    match build(passages, pack) {
-        Ok(count) => {
-            println!("wrote {count} passages to {}", pack.display());
-            ExitCode::SUCCESS
+    let result = match args.as_slice() {
+        [mode, dump, pack] if mode.as_os_str() == "from-dump" => from_dump(dump, pack),
+        [passages, pack] => from_lines(passages, pack),
+        _ => {
+            eprintln!("{USAGE}");
+            return ExitCode::FAILURE;
         }
+    };
+    match result {
+        Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
             eprintln!("{error}");
             ExitCode::FAILURE
@@ -58,10 +68,15 @@ fn main() -> ExitCode {
 }
 
 /// A pack is never written over, because an old pack with new passages mixes two sources.
-fn build(passages: &Path, pack: &Path) -> Result<usize, Box<dyn Error>> {
+fn refuse_existing(pack: &Path) -> Result<(), Box<dyn Error>> {
     if pack.exists() {
         return Err(format!("{} exists already", pack.display()).into());
     }
+    Ok(())
+}
+
+fn from_lines(passages: &Path, pack: &Path) -> Result<(), Box<dyn Error>> {
+    refuse_existing(pack)?;
     let text = fs::read_to_string(passages)?;
     let mut read = Vec::new();
     for (number, line) in text
@@ -74,5 +89,39 @@ fn build(passages: &Path, pack: &Path) -> Result<usize, Box<dyn Error>> {
         read.push(line.into_passage());
     }
     Pack::write(pack, &read)?;
-    Ok(read.len())
+    println!("wrote {} passages to {}", read.len(), pack.display());
+    Ok(())
+}
+
+fn from_dump(dump: &Path, pack: &Path) -> Result<(), Box<dyn Error>> {
+    refuse_existing(pack)?;
+    let built = pack_sources::from_dump(dump, &Sources::bundled()?)?;
+    print_report(&built);
+    Pack::write(pack, &built.passages)?;
+    println!(
+        "wrote {} passages to {}",
+        built.passages.len(),
+        pack.display()
+    );
+    Ok(())
+}
+
+fn print_report(built: &Built) {
+    for chapter in &built.missing_chapters {
+        println!("missing chapter: {chapter}");
+    }
+    for line in &built.report {
+        match line.outcome {
+            Outcome::Read { passages } => println!("{passages:>7}  {}", line.title),
+            Outcome::Missing => println!("missing  {}", line.title),
+            Outcome::NoBook => println!("no book  {}", line.title),
+        }
+    }
+    let read = built
+        .report
+        .iter()
+        .filter(|line| matches!(line.outcome, Outcome::Read { .. }))
+        .count();
+    let skipped = built.report.len() - read;
+    println!("read {read} pages, skipped {skipped}");
 }

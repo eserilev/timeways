@@ -67,3 +67,10 @@ path = "fuzz_targets/seen.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "wikitext"
+path = "fuzz_targets/wikitext.rs"
+test = false
+doc = false
+bench = false
