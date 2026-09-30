@@ -372,8 +372,8 @@ fn every_registered_event_has_a_handler() {
          return count",
     );
 
-    // 17 of Timeways, and the 2 screenshot events of the shared Strip.lua.
-    assert_eq!(registered, 19);
+    // 19 of Timeways, and the 2 screenshot events of the shared Strip.lua.
+    assert_eq!(registered, 21);
 }
 
 #[test]
