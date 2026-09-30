@@ -40,46 +40,81 @@ pub struct Page {
     pub text: String,
 }
 
+/// One read of the whole dump: the wanted articles, and the target of every redirect
+/// article.
+#[derive(Debug, Default)]
+pub struct Scan {
+    pub texts: BTreeMap<String, String>,
+    pub redirects: BTreeMap<String, String>,
+}
+
+impl Scan {
+    /// The page of `title`, after one step of a redirect. `more` holds the texts of a
+    /// later read.
+    #[must_use]
+    pub fn page(&self, title: &str, more: &BTreeMap<String, String>) -> Option<Page> {
+        let title = self.redirects.get(title).map_or(title, String::as_str);
+        let text = self.texts.get(title).or_else(|| more.get(title))?;
+        Some(Page {
+            title: title.to_string(),
+            text: text.clone(),
+        })
+    }
+
+    /// The titles of `titles` and their redirect targets that this read lacks.
+    #[must_use]
+    pub fn lacking(&self, titles: &[String]) -> BTreeSet<String> {
+        let targets = titles
+            .iter()
+            .map(|title| self.redirects.get(title).unwrap_or(title));
+        targets
+            .filter(|title| !self.texts.contains_key(*title))
+            .cloned()
+            .collect()
+    }
+}
+
+/// The redirect of a page starts its text, so the reader keeps only this much of the
+/// text of a page that nobody wants.
+const REDIRECT_HEAD_BYTES: usize = 1024;
+
+/// When a read of the dump ends.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Stop {
+    /// A plain read stops when it holds every wanted article.
+    AllFound,
+    /// A scan reads to the end, for the redirects.
+    End,
+}
+
 /// The pages with the wanted titles, keyed by the wanted title. A redirect page gives its
 /// target, one step only, so a loop of redirects cannot run forever. A missing page has
-/// no entry.
+/// no entry. The dump is read at most twice.
 ///
 /// # Errors
 ///
 /// Returns an error when the dump cannot be read or is not a MediaWiki XML export.
 pub fn pages(dump: &Path, titles: &[String]) -> Result<BTreeMap<String, Page>, DumpError> {
     let wanted: BTreeSet<String> = titles.iter().cloned().collect();
-    let found = texts(dump, &wanted)?;
-    let redirects: BTreeMap<&String, String> = found
+    let first = scan(dump, &wanted)?;
+    let more = texts(dump, &first.lacking(titles))?;
+    let found = titles
         .iter()
-        .filter_map(|(title, text)| Some((title, redirect_target(text)?)))
-        .collect();
-    let targets: BTreeSet<String> = redirects.values().cloned().collect();
-    let target_texts = if targets.is_empty() {
-        BTreeMap::new()
-    } else {
-        texts(dump, &targets)?
-    };
-    let mut pages = BTreeMap::new();
-    for (title, text) in &found {
-        let page = match redirects.get(title) {
-            Some(target) => target_texts.get(target).map(|text| Page {
-                title: target.clone(),
-                text: text.clone(),
-            }),
-            None => Some(Page {
-                title: title.clone(),
-                text: text.clone(),
-            }),
-        };
-        if let Some(page) = page {
-            pages.insert(title.clone(), page);
-        }
-    }
-    Ok(pages)
+        .filter_map(|title| Some((title.clone(), first.page(title, &more)?)));
+    Ok(found.collect())
 }
 
-/// The raw wikitext of the wanted articles, with no redirect followed.
+/// The wanted articles and every redirect, in one read of the whole dump.
+///
+/// # Errors
+///
+/// Returns an error when the dump cannot be read or is not a MediaWiki XML export.
+pub fn scan(dump: &Path, wanted: &BTreeSet<String>) -> Result<Scan, DumpError> {
+    read_dump(dump, wanted, Stop::End)
+}
+
+/// The raw wikitext of the wanted articles, with no redirect followed. With nothing
+/// wanted, the dump is not read.
 ///
 /// # Errors
 ///
@@ -88,10 +123,17 @@ pub fn texts(
     dump: &Path,
     wanted: &BTreeSet<String>,
 ) -> Result<BTreeMap<String, String>, DumpError> {
-    if has_extension(dump, "7z") {
-        return archive_texts(dump, wanted);
+    if wanted.is_empty() {
+        return Ok(BTreeMap::new());
     }
-    xml_texts(BufReader::new(File::open(dump)?), wanted)
+    Ok(read_dump(dump, wanted, Stop::AllFound)?.texts)
+}
+
+fn read_dump(dump: &Path, wanted: &BTreeSet<String>, stop: Stop) -> Result<Scan, DumpError> {
+    if has_extension(dump, "7z") {
+        return read_archive(dump, wanted, stop);
+    }
+    read_xml(BufReader::new(File::open(dump)?), wanted, stop)
 }
 
 fn has_extension(path: &Path, wanted: &str) -> bool {
@@ -99,10 +141,7 @@ fn has_extension(path: &Path, wanted: &str) -> bool {
         .is_some_and(|extension| extension.eq_ignore_ascii_case(wanted))
 }
 
-fn archive_texts(
-    dump: &Path,
-    wanted: &BTreeSet<String>,
-) -> Result<BTreeMap<String, String>, DumpError> {
+fn read_archive(dump: &Path, wanted: &BTreeSet<String>, stop: Stop) -> Result<Scan, DumpError> {
     let mut archive = ArchiveReader::open(dump, Password::empty())?;
     let mut result = None;
     archive.for_each_entries(|entry, reader| {
@@ -112,7 +151,7 @@ fn archive_texts(
         if entry.is_directory() || !has_extension(Path::new(entry.name()), "xml") {
             return Ok(true);
         }
-        result = Some(xml_texts(BufReader::new(reader), wanted));
+        result = Some(read_xml(BufReader::new(reader), wanted, stop));
         Ok(false)
     })?;
     result.unwrap_or(Err(DumpError::NoXml))
@@ -144,13 +183,30 @@ pub fn xml_texts(
     source: impl BufRead,
     wanted: &BTreeSet<String>,
 ) -> Result<BTreeMap<String, String>, DumpError> {
+    Ok(read_xml(source, wanted, Stop::AllFound)?.texts)
+}
+
+/// The wanted articles and every redirect of an XML export.
+///
+/// # Errors
+///
+/// Returns an error when the XML is broken or cut short.
+pub fn xml_scan(source: impl BufRead, wanted: &BTreeSet<String>) -> Result<Scan, DumpError> {
+    read_xml(source, wanted, Stop::End)
+}
+
+fn read_xml(
+    source: impl BufRead,
+    wanted: &BTreeSet<String>,
+    stop: Stop,
+) -> Result<Scan, DumpError> {
     let mut reader = Reader::from_reader(source);
     let mut buffer = Vec::new();
-    let mut found = BTreeMap::new();
+    let mut scan = Scan::default();
     let mut page = PageParts::default();
     let mut field = Field::Other;
     let mut depth = 0usize;
-    while found.len() < wanted.len() {
+    while stop == Stop::End || scan.texts.len() < wanted.len() {
         match reader.read_event_into(&mut buffer)? {
             Event::Start(start) => {
                 depth += 1;
@@ -163,7 +219,7 @@ pub fn xml_texts(
                 depth = depth.saturating_sub(1);
                 field = Field::Other;
                 if end.local_name().as_ref() == "page" {
-                    keep_if_wanted(&mut found, std::mem::take(&mut page), wanted);
+                    keep(&mut scan, std::mem::take(&mut page), wanted);
                 }
             }
             Event::Text(text) => page.push(field, &text.xml10_content(), wanted),
@@ -175,7 +231,7 @@ pub fn xml_texts(
         }
         buffer.clear();
     }
-    Ok(found)
+    Ok(scan)
 }
 
 fn field_of(name: &str) -> Field {
@@ -189,25 +245,27 @@ fn field_of(name: &str) -> Field {
 
 impl PageParts {
     /// The title comes before the text in an export, so the text of a page that nobody
-    /// wants is never copied.
+    /// wants is never copied past its head.
     fn push(&mut self, field: Field, text: &str, wanted: &BTreeSet<String>) {
         match field {
             Field::Title => self.title.push_str(text),
             Field::Namespace => self.namespace.push_str(text),
             Field::Text if wanted.contains(&self.title) => self.text.push_str(text),
+            Field::Text if self.text.len() < REDIRECT_HEAD_BYTES => self.text.push_str(text),
             Field::Text | Field::Other => {}
         }
     }
 }
 
-fn keep_if_wanted(
-    found: &mut BTreeMap<String, String>,
-    page: PageParts,
-    wanted: &BTreeSet<String>,
-) {
-    let is_wanted = wanted.contains(&page.title) && page.namespace.trim() == ARTICLES;
-    if is_wanted && !found.contains_key(&page.title) {
-        found.insert(page.title, page.text);
+fn keep(scan: &mut Scan, page: PageParts, wanted: &BTreeSet<String>) {
+    if page.namespace.trim() != ARTICLES {
+        return;
+    }
+    if let Some(target) = redirect_target(&page.text) {
+        scan.redirects.entry(page.title.clone()).or_insert(target);
+    }
+    if wanted.contains(&page.title) && !scan.texts.contains_key(&page.title) {
+        scan.texts.insert(page.title, page.text);
     }
 }
 

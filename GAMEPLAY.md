@@ -599,7 +599,7 @@ A web request for each question is slow, depends on one website, and sends whole
 
 **The builder** (built): `timeways-pack` writes the pack. It refuses a passage with no link, and it never writes over a pack that exists.
 
-- **From a dump:** `timeways-pack from-dump <dump> <pack>` reads the MediaWiki XML export of the wiki, as a `.7z` archive or unpacked. It streams the file and keeps only the listed pages.
+- **From a dump:** `timeways-pack from-dump <dump> <pack>` reads the MediaWiki XML export of the wiki, as a `.7z` archive or unpacked. It streams the file and keeps only the listed pages. It reads the dump at most twice: once for the index page, the wiki pages, and every redirect, and once for the books and the targets of redirects.
 - **The list is data:** `crates/story/data/pack_sources.toml` holds the pages, and the repo holds no lore text.
   - The index page "History of Warcraft" and its chapters I to V. Each `* [[Page]]` line of a chapter is a book. The builder takes the `content=` argument of the `{{Book}}` call of the page, and no other argument. A template with a longer name, such as `{{Bookshelf}}`, is no book. A copy from a website, with "(site)" in its title, comes only when the page has no other copy. Each book passage is common.
   - Wiki pages, each with its kept sections, and its places, its NPCs, or `common`.

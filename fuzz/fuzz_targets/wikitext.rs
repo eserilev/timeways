@@ -6,7 +6,7 @@
 
 use libfuzzer_sys::fuzz_target;
 use std::collections::BTreeSet;
-use timeways_story::dump::xml_texts;
+use timeways_story::dump::{xml_scan, xml_texts};
 use timeways_story::pack_sources::paragraphs;
 use timeways_story::passage_limits::MAX_PASSAGE_BYTES;
 use timeways_story::wikitext::{book_content, listed_pages, plain, redirect_target, sections};
@@ -16,6 +16,7 @@ const MARKS: [&str; 5] = ["[[", "]]", "{{", "}}", "''"];
 fuzz_target!(|data: &[u8]| {
     let wanted: BTreeSet<String> = ["A".to_string(), "B".to_string()].into();
     let _ = xml_texts(data, &wanted);
+    let _ = xml_scan(data, &wanted);
 
     let Ok(text) = std::str::from_utf8(data) else {
         return;
