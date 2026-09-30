@@ -97,7 +97,7 @@ local function Friend(name)
 	return type(info) == "table" and info or nil
 end
 
--- "party", "guild", or "friend": the ways that a peer may send you a task. Nil for a
+-- "party", "guild", or "friend": the ways that a peer can send you a task. Nil for a
 -- stranger.
 function TaskPeople.Relation(name)
 	if TaskPeople.GroupUnit(name) then
