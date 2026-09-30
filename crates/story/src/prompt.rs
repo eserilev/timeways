@@ -2,7 +2,7 @@
 //! Hourglass.
 
 use crate::check::Fault;
-use crate::house::{HOUSE_RULES, fenced};
+use crate::house::{HOUSE_RULES, bulleted, fenced};
 use crate::pack::{Origin, Passage};
 use std::fmt::Write;
 
@@ -67,13 +67,14 @@ fn numbered(passages: &[Passage]) -> String {
     lines.trim_end().to_string()
 }
 
+/// The model wrote the answer, and a fault can quote a word of it, so both are data.
 #[must_use]
 pub fn retry(prompt: &str, answer: &str, faults: &[Fault]) -> String {
-    let mut retry =
-        format!("{prompt}\n\nYour last answer was:\n{answer}\n\nIt broke these rules:\n");
-    for fault in faults {
-        let _ = writeln!(retry, "- {fault}");
-    }
-    retry.push_str("Write the answer again.");
-    retry
+    let faults: Vec<String> = faults.iter().map(ToString::to_string).collect();
+    let faults: Vec<&str> = faults.iter().map(String::as_str).collect();
+    format!(
+        "{prompt}\n\nYour last answer was:\n{}\n\nIt broke these rules:\n{}\nWrite the answer again.",
+        fenced(answer),
+        fenced(&bulleted(&faults))
+    )
 }
