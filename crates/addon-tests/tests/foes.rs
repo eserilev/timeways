@@ -365,3 +365,76 @@ fn a_friendly_unit_of_a_hunted_name_never_counts() {
 
     assert!(kills_after_flush(&game).is_empty());
 }
+
+/// The same task one step earlier: a visit comes before the kill step.
+fn hunt_after_a_visit() -> String {
+    HUNT.replace(r#""steps_done":1"#, r#""steps_done":0"#)
+}
+
+fn journal_asks(game: &Game) -> usize {
+    game.sent_inputs()
+        .iter()
+        .filter(|input| matches!(input, Input::JournalAsked { .. }))
+        .count()
+}
+
+#[test]
+fn a_kill_step_after_a_visit_counts_without_opening_the_book() {
+    let game = Game::new();
+    game.reply(&hunt_after_a_visit());
+    hunted_bat(&game, BAT);
+
+    game.run(
+        "wow.zone, wow.subzone = 'Duskwood', 'Mill Pond'
+         wow.Fire('ZONE_CHANGED')
+         wow.RunTickers()",
+    );
+    let asked = journal_asks(&game);
+    game.reply(HUNT);
+    game.run(&format!("wow.Fire('PARTY_KILL', 'Player-1', '{BAT}')"));
+
+    assert_eq!(asked, 1);
+    assert_eq!(kills_after_flush(&game), [killed("Duskbat")]);
+}
+
+#[test]
+fn a_task_with_no_later_kill_step_asks_for_no_journal() {
+    let game = Game::new();
+    game.reply(HUNT);
+
+    game.run(
+        "wow.zone, wow.subzone = 'Duskwood', 'Mill Pond'
+         wow.Fire('ZONE_CHANGED')
+         wow.RunTickers()",
+    );
+
+    assert_eq!(journal_asks(&game), 0);
+}
+
+#[test]
+fn the_journal_is_asked_for_at_most_once_a_minute() {
+    let game = Game::new();
+    game.reply(&hunt_after_a_visit());
+
+    game.run(
+        "for n = 1, 5 do
+             wow.now = wow.now + 10
+             wow.zone, wow.subzone = 'Duskwood', 'Place ' .. n
+             wow.Fire('ZONE_CHANGED')
+             wow.RunTickers()
+         end",
+    );
+
+    assert_eq!(journal_asks(&game), 1);
+}
+
+#[test]
+fn a_hunted_unit_that_you_already_target_counts() {
+    let game = Game::new();
+    hunted_bat(&game, BAT);
+
+    game.reply(HUNT);
+    game.run(&format!("wow.Fire('PARTY_KILL', 'Player-1', '{BAT}')"));
+
+    assert_eq!(kills_after_flush(&game), [killed("Duskbat")]);
+}
