@@ -30,11 +30,7 @@ local function OnTheMap(n)
 end
 
 -- { map, x, y } in thousandths, or nil. The game gives 0, 0 where it knows no position.
-function Position.Here()
-	local map = C_Map.GetBestMapForUnit("player")
-	if not Readable(map) then
-		return nil
-	end
+local function SpotOn(map)
 	local x, y = Position.OnMap(map)
 	if not x then
 		return nil
@@ -44,4 +40,36 @@ function Position.Here()
 		return nil
 	end
 	return { map = map, x = x, y = y }
+end
+
+-- Enough for a cave in a district of a city, and a guard against a loop of parents.
+local MAX_PARENTS = 8
+
+-- The journal map shows zones, so a city district or a cave goes up to the zone that holds
+-- it. Nil when no zone holds the map.
+local function ZoneOf(map)
+	for _ = 1, MAX_PARENTS do
+		local info = C_Map.GetMapInfo(map)
+		if type(info) ~= "table" or not Readable(info.mapType) then
+			return nil
+		end
+		if info.mapType == Enum.UIMapType.Zone then
+			return map
+		end
+		if info.mapType < Enum.UIMapType.Zone or not Readable(info.parentMapID) then
+			return nil
+		end
+		map = info.parentMapID
+	end
+end
+
+-- On the zone map when the zone knows the position. A dungeon is apart from its zone, so
+-- there the position stays on the dungeon map.
+function Position.Here()
+	local map = C_Map.GetBestMapForUnit("player")
+	if not Readable(map) then
+		return nil
+	end
+	local zone = ZoneOf(map)
+	return zone and SpotOn(zone) or SpotOn(map)
 end

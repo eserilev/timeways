@@ -131,3 +131,35 @@ fn a_position_off_the_map_goes_as_no_position() {
 
     assert_eq!(sent_spot(&game), None);
 }
+
+const BRILL_CELLAR: u32 = 2000;
+
+/// A player in a cave of Tirisfal Glades: the best map is the cave, and the zone map holds
+/// it. `zone_spot` is the position on the zone map, or `nil` when the zone knows none.
+fn in_a_cave(zone_spot: &str) -> Game {
+    let game = Game::new();
+    game.run(&format!(
+        "wow.maps[{TIRISFAL}] = {{ name = 'Tirisfal Glades', type = Enum.UIMapType.Zone, player = {zone_spot} }}
+         wow.maps[{BRILL_CELLAR}] = {{ name = 'Brill Cellar', type = Enum.UIMapType.Micro, parent = {TIRISFAL}, player = {{ x = 0.1, y = 0.2 }} }}
+         wow.playerMap = {BRILL_CELLAR}"
+    ));
+    game
+}
+
+#[test]
+fn a_position_in_a_cave_goes_on_the_map_of_its_zone() {
+    let game = in_a_cave("{ x = 0.6, y = 0.7 }");
+
+    enter_brill(&game);
+
+    assert_eq!(sent_spot(&game), Some(spot(TIRISFAL, 600, 700)));
+}
+
+#[test]
+fn a_position_that_its_zone_does_not_know_stays_on_its_own_map() {
+    let game = in_a_cave("nil");
+
+    enter_brill(&game);
+
+    assert_eq!(sent_spot(&game), Some(spot(BRILL_CELLAR, 100, 200)));
+}

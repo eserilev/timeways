@@ -86,7 +86,10 @@ function UnitClassification(unit)
 	return u and u.classification or "normal"
 end
 
-Enum = { TooltipDataType = { Unit = 2 } }
+Enum = {
+	TooltipDataType = { Unit = 2 },
+	UIMapType = { Cosmic = 0, World = 1, Continent = 2, Zone = 3, Dungeon = 4, Micro = 5, Orphan = 6 },
+}
 
 -- The game's tooltip, and the hooks that run after it shows a unit.
 wow.tooltipHooks = {}
@@ -272,10 +275,11 @@ function UnitLevel(unit)
 	return u and u.level or 0
 end
 
--- The maps of the world by id: each one a { name, layers, textures, player, explored }
--- table, where `player` is the position of the player on it, `explored` is the list of the
--- parts that the character explored, and `wow.playerMap` is the map where the player
--- stands. With no maps, the pane of the journal has nothing to draw.
+-- The maps of the world by id: each one a { name, type, parent, layers, textures, player,
+-- explored } table. `type` is its `Enum.UIMapType`, `parent` is the map that holds it,
+-- `player` is the position of the player on it, and `explored` is the list of the parts that
+-- the character explored. `wow.playerMap` is the map where the player stands. With no maps,
+-- the pane of the journal has nothing to draw.
 wow.maps = {}
 wow.playerMap = nil
 
@@ -301,7 +305,8 @@ C_Map = {
 		return wow.playerMap
 	end,
 	GetMapInfo = function(id)
-		return Map(id) and { mapID = id, name = Map(id).name }
+		local map = Map(id)
+		return map and { mapID = id, name = map.name, mapType = map.type, parentMapID = map.parent or 0 }
 	end,
 	GetMapArtLayers = function(id)
 		return Map(id) and Map(id).layers
