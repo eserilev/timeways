@@ -2,7 +2,10 @@
 
 use hourglass::{EntityId, EntityType, Event, EventId, EventKind, Tick};
 use timeways_story::character::Character;
-use timeways_story::vocabulary::{DEAD, LEVEL, MET, QUEST_ACCEPTED, QUEST_OFFERED, VISITED};
+use timeways_story::input::GameQuestKind;
+use timeways_story::vocabulary::{
+    DEAD, GAME_QUEST_TAKEN, LEVEL, MET, QUEST_ACCEPTED, QUEST_OFFERED, VISITED,
+};
 
 fn id_of(character: &Character, entity_type: EntityType, name: &str) -> Option<EntityId> {
     character
@@ -552,4 +555,21 @@ fn a_change_of_trust_past_the_end_of_the_band_adds_no_event() {
 
     assert_eq!(result, Ok(()));
     assert_eq!(character.world().history().len(), before);
+}
+
+#[test]
+fn a_taken_quest_of_the_game_is_held_under_its_own_name() {
+    let mut character = Character::new();
+
+    character
+        .take_game_quest(Tick(1), "Rattling the Rattlecages", GameQuestKind::Normal)
+        .unwrap();
+
+    let quest = id_of(
+        &character,
+        EntityType::Thing,
+        "game quest: Rattling the Rattlecages",
+    )
+    .unwrap();
+    assert!(holds(&character, GAME_QUEST_TAKEN, quest));
 }

@@ -4,6 +4,7 @@ examine_globs = [
     "crates/story/src/quest.rs",
     "crates/story/src/story/quests.rs",
     "crates/story/src/journal.rs",
+    "crates/story/src/chapters.rs",
     "crates/story/src/store.rs",
     "crates/story/src/serve.rs",
     "crates/story/src/reply_size.rs",
@@ -39,8 +40,9 @@ exclude_re = [
     # The fallback runs only for a count of tellings past i64::MAX.
     "flavor.rs:.*replace / with % in told_before",
     # The slot budget of passages is below their line budget, and the slot counts at least
-    # as many bytes as the line, so a larger line budget changes nothing.
-    "story.rs:75:.*",
+    # as many bytes as the line, so a larger line budget changes nothing. The line budget is
+    # the only `*` of story.rs outside a function, so its mutant name ends with no "in".
+    "story.rs:[0-9]+:[0-9]+: replace \\* with / *$",
     # The two open flags of a pack are different bits, so `|` and `^` give the same value.
     "pack.rs:.*replace \\| with \\^ in Pack::open",
 ]

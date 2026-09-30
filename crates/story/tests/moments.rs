@@ -249,3 +249,15 @@ fn a_quest_mark_is_a_moment_below_a_finished_class_quest() {
     );
     assert!(matches!(best(both), Some(Moment::ClassQuestDone { .. })));
 }
+
+#[test]
+fn taking_a_class_quest_is_no_moment() {
+    let mut character = Character::new();
+
+    let taken = moments_of(&mut character, |c| {
+        c.take_game_quest(Tick(1), "Rediscovering the Light", GameQuestKind::Class)
+            .unwrap();
+    });
+
+    assert!(taken.is_empty(), "{taken:?}");
+}
