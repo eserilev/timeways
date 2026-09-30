@@ -26,6 +26,12 @@ local function Changed()
 	ns.JournalFrame.Refresh()
 end
 
+-- Where you stand: the subzone, such as Brill, or the zone outside a subzone.
+local function WhereYouStand()
+	local subzone = GetSubZoneText()
+	return subzone ~= "" and subzone or GetRealZoneText()
+end
+
 local function Close(task, status)
 	task.status = status
 	task.closedAt = time()
@@ -140,7 +146,7 @@ function PlayerTasks.Complete(id)
 		return false
 	end
 	Close(task, "done")
-	task.place = GetRealZoneText()
+	task.place = WhereYouStand()
 	ns.TaskChannel.Whisper(task.doer, { type = "result", id = id, verdict = "done" })
 	Say(Short(task.doer) .. " finished " .. task.title .. ".")
 	Changed()
@@ -342,7 +348,7 @@ local FROM_DOER = {
 local function Verdict(task, message)
 	if message.verdict == "done" then
 		Close(task, "done")
-		task.place = GetRealZoneText()
+		task.place = WhereYouStand()
 		Say("Task complete: " .. task.title .. ".")
 		return
 	end

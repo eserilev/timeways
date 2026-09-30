@@ -96,6 +96,7 @@ local REPLIES = {
 	lore_answer = ns.Lore.Show,
 	talk_answer = ns.Talk.Show,
 	journal = ns.Journal.Receive,
+	draft_answer = ns.TaskDraftHelp.Receive,
 }
 
 -- A reply holds one JSON line: an answer, a journal page, or `events_seen` for a batch of

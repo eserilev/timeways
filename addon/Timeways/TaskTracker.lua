@@ -261,6 +261,7 @@ local HANDLERS = {
 	QUEST_COMPLETE = TaskTracker.Talk,
 	PLAYER_TARGET_CHANGED = function()
 		TaskTracker.See("target")
+		ns.TaskForm.TargetChanged()
 	end,
 	UPDATE_MOUSEOVER_UNIT = function()
 		TaskTracker.See("mouseover")

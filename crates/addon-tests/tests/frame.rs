@@ -238,7 +238,7 @@ fn a_list_with_no_rows_hides_its_box() {
     game.run("wow.Slash('/journal', '')");
     game.reply(r#"{"type":"journal","page":0,"pages":1}"#);
 
-    game.run("ns.JournalFrame.Open('quests')");
+    game.run("ns.JournalFrame.Open('chapters')");
 
     assert!(!game.eval::<bool>("TimewaysJournalListScroll.parent:IsShown()"));
 }

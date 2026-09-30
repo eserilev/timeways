@@ -298,6 +298,10 @@ function Journal.Select(section, key)
 	selected[section] = key
 end
 
+function Journal.Selected(section)
+	return selected[section]
+end
+
 -- A row of the list on the left: a group title, a line of help, or an item that opens.
 local function Group(text)
 	return { style = "group", text = text }
@@ -495,12 +499,20 @@ local function Keys(items)
 	return keys
 end
 
+-- Tasks from players have their own rows and pages (4.7).
 local function Tasks(journal)
 	local tasks = Grouped(OpenTasks(Entries(journal.quests)))
 	local page = { list = TaskList(tasks), lines = {}, buttons = {}, side = "map" }
+	for _, row in ipairs(ns.TaskPages.Rows()) do
+		page.list[#page.list + 1] = row
+	end
+	if ns.TaskPages.Owns(selected.quests) then
+		return ns.TaskPages.Fill(page, selected.quests)
+	end
 	local task = tasks[OpenIndex("quests", Keys(tasks), 1)]
 	if not task then
-		return page
+		local first = ns.TaskPages.FirstKey()
+		return first and ns.TaskPages.Fill(page, first) or page
 	end
 	page.selected = task.key
 	page.lines = QuestLines(task.quest, task.saving)
@@ -718,12 +730,20 @@ function Journal.Render(journal, section)
 	return page
 end
 
+-- Tasks from players need no desktop, so their page shows while the journal loads.
 function Journal.Page(section)
-	if not pages then
-		local loading = Line("help", "Loading... If this stays empty, start Gnomish Relay on your computer.")
+	if pages then
+		return Journal.Render(pages, section)
+	end
+	local loading = Line("help", "Loading... If this stays empty, start Gnomish Relay on your computer.")
+	if section ~= "quests" then
 		return { lines = { loading }, buttons = {}, footer = Journal.USAGE[section], side = "map" }
 	end
-	return Journal.Render(pages, section)
+	local page = Journal.Render(Started({}), section)
+	if not ns.TaskPages.Owns(page.selected) then
+		page.lines = { loading }
+	end
+	return page
 end
 
 -- The subzones of this zone that the player visited, in the order of the first visit.
