@@ -50,6 +50,9 @@ fn lines(game: &Game, section: &str) -> Vec<String> {
     ))
 }
 
+const PEOPLE_EMPTY: &str =
+    "help: Nobody knows you yet. Talk to people and help them, and they show up here.";
+
 fn day(game: &Game) -> String {
     game.eval(&format!("date('%d %b %Y', {DAY})"))
 }
@@ -111,6 +114,7 @@ fn places_group_each_subzone_under_its_zone() {
         "heading: Elwynn Forest".to_string(),
         visited.clone(),
         "entry: Goldshire".to_string(),
+        "text: People here: Innkeeper Farley.".to_string(),
         "heading: Westfall".to_string(),
         visited,
         "entry: Sentinel Hill".to_string(),
@@ -119,15 +123,36 @@ fn places_group_each_subzone_under_its_zone() {
 }
 
 #[test]
-fn people_show_where_you_met_them() {
+fn someone_you_only_met_shows_under_their_place_and_not_on_people() {
     let game = Game::new();
 
     game.reply(&journal_reply(&traveler()));
 
-    let met = format!("text: Met in Goldshire, on {}.", day(&game));
+    assert_eq!(lines(&game, "people"), [PEOPLE_EMPTY]);
+    assert!(lines(&game, "places").contains(&"text: People here: Innkeeper Farley.".to_string()));
+}
+
+#[test]
+fn a_person_shows_the_tasks_rumors_and_notes_you_share() {
+    let game = Game::new();
+
+    game.reply(concat!(
+        r#"{"type":"journal","page":0,"pages":1,"#,
+        r#""people":[{"name":"Keeper Tessa","first_met":1790000000},{"name":"Farmer Bram","first_met":1790000000}],"#,
+        r#""quests":[{"number":1,"giver":"Keeper Tessa","title":"The Lost Lantern","status":"done"},"#,
+        r#"{"number":2,"giver":"Keeper Tessa","title":"Old Bones","status":"declined"}],"#,
+        r#""learned":[{"kind":"rumor","npc":"Keeper Tessa","at":1790000000,"excerpt":"The mill burns at night."}],"#,
+        r#""hero":{"sheet":[],"entries":[{"number":1,"text":"She owes me one.","npc":"Keeper Tessa","at":1790000000}]}}"#,
+    ));
+
     assert_eq!(
         lines(&game, "people"),
-        ["entry: Innkeeper Farley".to_string(), met]
+        [
+            "entry: Keeper Tessa",
+            "text: Task: The Lost Lantern (done).",
+            "prose: \"The mill burns at night.\"",
+            "text: Your note: She owes me one.",
+        ]
     );
 }
 
@@ -153,10 +178,7 @@ fn an_empty_section_shows_a_note() {
     game.reply(&journal_reply(&Character::new()));
 
     assert_eq!(lines(&game, "places"), ["help: No places yet. Go explore."]);
-    assert_eq!(
-        lines(&game, "people"),
-        ["help: No one knows your name yet. Try saying hello."]
-    );
+    assert_eq!(lines(&game, "people"), [PEOPLE_EMPTY]);
     assert_eq!(lines(&game, "deeds"), ["help: No deeds yet."]);
 }
 
@@ -171,7 +193,7 @@ fn the_open_page_shows_the_lines_of_its_section() {
     let shown: Vec<String> =
         game.eval("wow.ShownTexts(TimewaysJournalFrameScroll:GetScrollChild())");
     assert_eq!(shown.first().map(String::as_str), Some("Elwynn Forest"));
-    assert_eq!(shown.len(), 6);
+    assert_eq!(shown.len(), 7);
 }
 
 #[test]
@@ -258,7 +280,7 @@ fn a_shorter_page_hides_the_lines_of_a_longer_one() {
 
     let shown: Vec<String> =
         game.eval("wow.ShownTexts(TimewaysJournalFrameScroll:GetScrollChild())");
-    assert_eq!(shown.len(), 2);
+    assert_eq!(shown.len(), 1);
 }
 
 #[test]
@@ -266,6 +288,7 @@ fn a_name_that_the_bridge_escaped_shows_as_it_is() {
     let game = Game::new();
     let mut character = Character::new();
     character.meet_npc(Tick(DAY), "||cffff0000Fake||r").unwrap();
+    character.slap(Tick(DAY), "||cffff0000Fake||r").unwrap();
 
     game.reply(&journal_reply(&character));
 
@@ -277,7 +300,7 @@ fn a_broken_journal_shows_gaps_and_no_error() {
     let game = Game::new();
 
     game.reply(
-        r#"{"type":"journal","page":0,"pages":1,"places":"x","people":[{"name":5}],"deeds":[{"kind":"level"},{"kind":"odd"}]}"#,
+        r#"{"type":"journal","page":0,"pages":1,"places":"x","people":[{"name":5,"trust":10}],"deeds":[{"kind":"level"},{"kind":"odd"}]}"#,
     );
 
     assert_eq!(lines(&game, "places"), ["help: No places yet. Go explore."]);
@@ -398,7 +421,7 @@ fn deaths_show_as_deeds_with_the_killer_when_known() {
 fn an_entry_that_is_not_a_table_is_skipped() {
     let game = Game::new();
 
-    game.reply(r#"{"type":"journal","page":0,"pages":1,"places":[5],"people":[true,{"name":"Ada"}],"deeds":["x"]}"#);
+    game.reply(r#"{"type":"journal","page":0,"pages":1,"places":[5],"people":[true,{"name":"Ada","trust":10}],"deeds":["x"]}"#);
 
     game.run(
         "wow.Slash('/journal', ''); ns.JournalFrame.Open('people'); ns.JournalFrame.Open('deeds')",
@@ -472,7 +495,7 @@ fn a_slapped_npc_shows_the_slaps_and_the_trust_in_words() {
     game.reply(&journal_reply(&character));
 
     assert_eq!(
-        lines(&game, "people")[2],
+        lines(&game, "people")[1],
         "text: Slapped 2 times. Wary of you."
     );
 }

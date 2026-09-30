@@ -171,10 +171,10 @@ The desktop sends the pages each time the book opens, because the world lives th
 |---|---|---|
 | **Hero** | Your sheet and your own lore (3.7), each field with an Edit button, and your entries with Add and Remove. The first time that the book shows an empty hero in a session, it opens here. | Built |
 | **Chronicle** | One chapter for each play session (3.3), with the saga and the footnotes when a model wrote them. The book opens on it. | Built |
-| **Places** | Each zone, with the date of the first visit, and its subzones under it | Built |
-| **People** | Each NPC that you met, with the place, the date, your slaps, and its trust in you | Built |
+| **Places** | Each zone, with the date of the first visit, and its subzones under it. Each place lists the people that you met there. | Built |
+| **People** | Only the NPCs that you dealt with: a change of trust, a slap, a task, a rumor, or a note of yours about them. Each shows its trust in words, your slaps, its tasks, its rumors, and your notes. An NPC that you only met shows under its place. | Built |
 | **Deeds** | Level milestones, first kills of rares and bosses, repeat kills (echoes, 5.13), your deaths, and your joke titles (5.4.1) | Built |
-| **Learned** | What you read and heard (3.1.1): each book, each quest tale, and each story of an NPC, with the place and the date. A rumor from `/talk` shows as a rumor. | Built |
+| **Knowledge** | What you read and heard (3.1.1): each book, each quest tale, and each story of an NPC, with the place and the date. A rumor from `/talk` shows as a rumor. | Built |
 | **Nemesis** | Real players from world PvP only: the kill count on each side, the places, and the last time seen (4.1). Aliases only (5.11). | Later |
 | **Quests** | The personal side quests (3.4): each offer with Accept and Decline, then each quest with its steps and its state | Built |
 
