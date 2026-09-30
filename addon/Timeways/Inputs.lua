@@ -56,6 +56,10 @@ function Inputs.QuestDeclined(at, number)
 	return { type = "quest_declined", at = at, number = number }
 end
 
+function Inputs.QuestAbandoned(at, number)
+	return { type = "quest_abandoned", at = at, number = number }
+end
+
 function Inputs.Died(at, killer, cause, killerLevel, hour)
 	return { type = "died", at = at, killer = killer, cause = cause, killer_level = killerLevel, hour = hour }
 end

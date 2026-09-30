@@ -15,7 +15,12 @@ function Talk.Ask(words)
 		Say("Target someone, then type: /talk hello")
 		return
 	end
-	local npc = ns.Units.NpcName("target")
+	local npc = ns.Units.FriendlyNpcName("target")
+	local other = ns.Units.NpcName("target")
+	if not npc and other then
+		Say(ns.Plain(other) .. " won't talk to you.")
+		return
+	end
 	if not npc then
 		Say("Target someone to talk to first.")
 		return

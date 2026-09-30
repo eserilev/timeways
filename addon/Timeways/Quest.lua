@@ -16,7 +16,12 @@ local function Send(input)
 end
 
 function Quest.Ask()
-	local npc = ns.Units.NpcName("target")
+	local npc = ns.Units.FriendlyNpcName("target")
+	local other = ns.Units.NpcName("target")
+	if not npc and other then
+		Say(ns.Plain(other) .. " has no tasks to give.")
+		return
+	end
 	if not npc then
 		Say("Who are you asking? Target someone first.")
 		return
@@ -36,6 +41,26 @@ end
 function Quest.Decline(number)
 	Send(ns.Inputs.QuestDeclined(time(), number))
 	Say("You turn the task down.")
+end
+
+StaticPopupDialogs.TIMEWAYS_QUEST_ABANDON = {
+	text = "Abandon this task?\n\n%s",
+	button1 = "Abandon",
+	button2 = "Cancel",
+	timeout = 0,
+	whileDead = 1,
+	hideOnEscape = 1,
+	OnAccept = function(_, data)
+		ns.Outbox.Add(ns.Inputs.QuestAbandoned(time(), data.number))
+		-- The journal comes back in the same batch, so the task leaves the book.
+		ns.Journal.Request(0)
+		Say("Task abandoned.")
+	end,
+}
+
+-- Asks first, because an abandoned task never comes back.
+function Quest.Abandon(number, title)
+	StaticPopup_Show("TIMEWAYS_QUEST_ABANDON", ns.Plain(tostring(title)), nil, { number = number })
 end
 
 local WORDS = {

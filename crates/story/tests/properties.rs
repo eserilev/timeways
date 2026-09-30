@@ -104,6 +104,10 @@ fn quest_change() -> impl Strategy<Value = QuestChange> {
             number,
             at: Tick(2)
         }),
+        number.clone().prop_map(|number| QuestChange::Abandoned {
+            number,
+            at: Tick(2)
+        }),
         (number, 0usize..4).prop_map(|(number, step)| QuestChange::StepDone {
             number,
             step,

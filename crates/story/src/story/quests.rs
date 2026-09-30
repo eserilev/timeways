@@ -130,6 +130,23 @@ impl Story {
         self.advance_quests(at, None)
     }
 
+    /// A number with no open quest changes nothing.
+    pub(super) fn abandon_quest(
+        &mut self,
+        at: Tick,
+        number: u64,
+    ) -> Result<Vec<Output>, StoryError> {
+        let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
+        let quests = quest_log(active.quests.changes());
+        let open = |quest: &Tracked| {
+            quest.number == number && matches!(quest.status, Status::Offered | Status::Accepted)
+        };
+        if quests.iter().any(open) {
+            active.quests.add(QuestChange::Abandoned { number, at })?;
+        }
+        Ok(Vec::new())
+    }
+
     /// Each accepted quest whose next step holds now moves on, one step at a time, while
     /// the steps hold. The last step finishes the quest.
     pub(super) fn advance_quests(

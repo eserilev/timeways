@@ -327,7 +327,14 @@ local function QuestStatus(quest)
 	if quest.status == "done" then
 		return Line("note", "Done on " .. Day(quest.done_at) .. ".")
 	end
-	return Line("note", "In progress.")
+	local number = QuestNumber(quest)
+	if not number then
+		return Line("note", "In progress.")
+	end
+	local abandon = function()
+		ns.Quest.Abandon(number, quest.title)
+	end
+	return Line("note", "In progress.", { label = "Abandon", run = abandon })
 end
 
 local function Quests(quests)

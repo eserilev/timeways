@@ -223,7 +223,7 @@ fn a_quest_in_progress_marks_its_steps_done() {
     assert_eq!(shown[0], "heading: The Lost Lantern");
     assert_eq!(shown[3], "entry: (done) Visit Mill Pond.");
     assert_eq!(shown[4], "entry: Speak with Farmer Bram.");
-    assert_eq!(shown[5], "note: In progress.");
+    assert_eq!(shown[5], "note: In progress. [Abandon]");
 }
 
 #[test]
@@ -307,4 +307,44 @@ fn a_finished_quest_shows_as_a_deed() {
 
     let first: String = game.eval("ns.Journal.Lines('deeds')[1].text");
     assert_eq!(first, "Finished the task The Lost Lantern");
+}
+
+#[test]
+fn a_target_that_you_can_attack_has_no_tasks_to_give() {
+    let game = Game::new();
+
+    game.run(
+        "wow.units.target = { name = 'Duskbat', hostile = true }
+         wow.Slash('/quest', '')",
+    );
+
+    assert!(game.sent().is_empty());
+    assert_eq!(
+        game.printed(),
+        ["|cffc8a064Timeways|r: Duskbat has no tasks to give."]
+    );
+}
+
+#[test]
+fn an_open_task_asks_first_and_then_abandons() {
+    let game = Game::new();
+    game.reply(&quest_reply(lantern(Status::Accepted, 1)));
+
+    click(&game, "Abandon");
+    let asked_first = game.sent().is_empty();
+    game.run("wow.AcceptPopup()");
+    game.run("wow.RunTickers()");
+
+    assert!(asked_first);
+    let inputs = game.sent_inputs();
+    assert!(
+        matches!(
+            inputs.as_slice(),
+            [
+                Input::QuestAbandoned { number: 1, .. },
+                Input::JournalAsked { page: 0, .. }
+            ]
+        ),
+        "{inputs:?}"
+    );
 }

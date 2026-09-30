@@ -49,6 +49,7 @@ return {
 		"UIErrorsFrame",
 		"UIParent",
 		"UISpecialFrames",
+		"UnitCanAttack",
 		"UnitClassification",
 		"UnitExists",
 		"UnitGUID",

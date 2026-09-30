@@ -58,6 +58,8 @@ globals:
     args: []
   ItemTextGetText:
     args: []
+  UnitCanAttack:
+    args: [{type: string}, {type: string}]
   UnitGUID:
     args:
       - type: string

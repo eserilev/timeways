@@ -221,6 +221,10 @@ pub enum QuestChange {
         step: usize,
         at: Tick,
     },
+    Abandoned {
+        number: u64,
+        at: Tick,
+    },
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -230,6 +234,8 @@ pub enum Status {
     Accepted,
     Declined,
     Done,
+    /// Given up after it was accepted, or before.
+    Abandoned,
 }
 
 /// A quest as the log stands now.
@@ -297,6 +303,7 @@ fn apply(quests: &mut Vec<Tracked>, change: &QuestChange) {
         }
         QuestChange::Accepted { number, .. } => answer_offer(quests, *number, Status::Accepted),
         QuestChange::Declined { number, .. } => answer_offer(quests, *number, Status::Declined),
+        QuestChange::Abandoned { number, .. } => abandon(quests, *number),
         QuestChange::StepDone { number, step, at } => {
             let Some(quest) = quests.iter_mut().find(|q| q.number == *number) else {
                 return;
@@ -311,6 +318,16 @@ fn apply(quests: &mut Vec<Tracked>, change: &QuestChange) {
                 quest.done_at = Some(*at);
             }
         }
+    }
+}
+
+/// Only an open quest can be abandoned: one that waits, or one that you hold.
+fn abandon(quests: &mut [Tracked], number: u64) {
+    let open = |q: &&mut Tracked| {
+        q.number == number && matches!(q.status, Status::Offered | Status::Accepted)
+    };
+    if let Some(quest) = quests.iter_mut().find(open) {
+        quest.status = Status::Abandoned;
     }
 }
 

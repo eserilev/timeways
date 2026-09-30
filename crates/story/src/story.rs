@@ -355,6 +355,7 @@ impl Story {
             Input::QuestAsked { at, npc } => self.ask_quest(at, npc),
             Input::QuestAccepted { at, number } => self.answer_quest(at, Status::Accepted, number),
             Input::QuestDeclined { at, number } => self.answer_quest(at, Status::Declined, number),
+            Input::QuestAbandoned { at, number } => self.abandon_quest(at, number),
             Input::JournalAsked { id, page } => {
                 let page = self.journal_page(page)?;
                 Ok(vec![Output::Journal { id, page }])
@@ -903,7 +904,7 @@ impl Story {
             journal.learned = learned(active.learned.read(), active.learned.rumors());
             journal.quests = quest_log(active.quests.changes())
                 .into_iter()
-                .filter(|quest| quest.status != Status::Declined)
+                .filter(|quest| !matches!(quest.status, Status::Declined | Status::Abandoned))
                 .collect();
             self.journal = pages(journal);
         }

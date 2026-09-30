@@ -80,3 +80,19 @@ fn a_question_never_takes_a_pet_as_its_target() {
 
     assert!(!game.sent().concat().contains("Fluffy"));
 }
+
+#[test]
+fn a_target_that_you_can_attack_does_not_talk() {
+    let game = Game::new();
+
+    game.run(
+        "wow.units.target = { name = 'Duskbat', hostile = true }
+         wow.Slash('/talk', 'hello')",
+    );
+
+    assert!(game.sent().is_empty());
+    assert_eq!(
+        game.printed(),
+        ["|cffc8a064Timeways|r: Duskbat won't talk to you."]
+    );
+}

@@ -65,6 +65,11 @@ pub enum Input {
         #[serde(default)]
         number: Option<u64>,
     },
+    /// Gives up the quest with this number, open or waiting.
+    QuestAbandoned {
+        at: Tick,
+        number: u64,
+    },
     /// You died. `killer` is an NPC that the addon is sure of, and never a player (5.11).
     Died {
         at: Tick,
@@ -156,6 +161,7 @@ impl Input {
             | Input::QuestAsked { at, .. }
             | Input::QuestAccepted { at, .. }
             | Input::QuestDeclined { at, .. }
+            | Input::QuestAbandoned { at, .. }
             | Input::Died { at, .. }
             | Input::HeroSet { at, .. }
             | Input::HeroAdded { at, .. }

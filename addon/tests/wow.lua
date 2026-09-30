@@ -152,6 +152,12 @@ function UnitPlayerControlled(unit)
 	return u ~= nil and (u.player == true or u.controlled == true)
 end
 
+-- A unit that you can attack has `hostile` in its table: a bat, a boar, an enemy.
+function UnitCanAttack(_, unit)
+	local u = wow.units[unit]
+	return u ~= nil and u.hostile == true
+end
+
 function UnitLevel(unit)
 	local u = wow.units[unit]
 	return u and u.level or 0

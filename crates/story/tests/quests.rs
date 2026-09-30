@@ -466,3 +466,48 @@ fn an_offer_that_sends_you_to_the_npc_of_a_game_quest_that_you_read_shows_no_tas
         Some("Keeper Tessa has no task for you now.")
     );
 }
+
+fn abandon(story: &mut Story, at: u64, number: u64) {
+    let abandoned = Input::QuestAbandoned {
+        at: Tick(at),
+        number,
+    };
+    assert_eq!(story.handle(abandoned).unwrap(), []);
+}
+
+#[test]
+fn an_abandoned_quest_leaves_the_book_and_frees_its_giver() {
+    let mut story = story("abandon");
+    offer(&mut story, 5);
+    accept(&mut story, 6, None);
+
+    abandon(&mut story, 7, 1);
+
+    assert!(quests(&mut story).is_empty());
+    let (_, prompt) = call_of(ask(&mut story, 8));
+    assert!(prompt.contains("You are Keeper Tessa"), "{prompt}");
+}
+
+#[test]
+fn a_waiting_offer_can_be_abandoned_too() {
+    let mut story = story("abandon-offer");
+    offer(&mut story, 5);
+
+    abandon(&mut story, 6, 1);
+
+    assert!(quests(&mut story).is_empty());
+}
+
+#[test]
+fn abandoning_a_finished_quest_or_an_unknown_number_changes_nothing() {
+    let mut story = story("abandon-nothing");
+    offer(&mut story, 5);
+    accept(&mut story, 6, None);
+    story.handle(zone(7, "Mill Pond")).unwrap();
+    story.handle(meet(8, "Farmer Bram")).unwrap();
+
+    abandon(&mut story, 9, 1);
+    abandon(&mut story, 10, 42);
+
+    assert_eq!(quests(&mut story)[0].status, Status::Done);
+}

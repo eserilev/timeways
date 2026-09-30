@@ -114,6 +114,16 @@ return {
 			},
 		},
 		Screenshot = {},
+		UnitCanAttack = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "unit", Type = "UnitToken", Nilable = false },
+				{ Name = "target", Type = "UnitToken", Nilable = false },
+			},
+			Returns = {
+				{ Name = "result", Type = "bool", Nilable = false },
+			},
+		},
 		UnitClassification = {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {
