@@ -119,7 +119,7 @@ end
 function Hero.Write()
 	ns.JournalFrame.Edit({
 		title = "Write a new page",
-		hint = "Anything that happened to you. The bard weaves it into your story.",
+		hint = "Anything that happened to you. The chronicle will remember.",
 		text = "",
 		limit = Hero.MAX_LETTERS,
 		save = Hero.Add,
