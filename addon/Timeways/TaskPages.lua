@@ -91,10 +91,10 @@ end
 local GOT_MARKS = { offered = "New", done = "Done" }
 
 local function GotMark(task)
-	if task.turnInAt then
-		return "Turn in"
+	if GOT_MARKS[task.status] then
+		return GOT_MARKS[task.status]
 	end
-	return GOT_MARKS[task.status] or StepsMark(task)
+	return task.turnInAt and "Turn in" or StepsMark(task)
 end
 
 local GAVE_MARKS = { offered = "Waiting", declined = "Declined", cancelled = "Canceled", done = "Done" }
@@ -245,7 +245,8 @@ local function GotButtons(key, task)
 	if task.status ~= "accepted" then
 		return {}
 	end
-	local ready = CountClaims(task) == #task.steps and not task.turnInAt
+	-- Asking again is harmless, and the answer to the first ask can get lost.
+	local ready = CountClaims(task) == #task.steps
 	return {
 		Button("Give up", function()
 			actions.GiveUp(key)
@@ -310,8 +311,10 @@ local function GaveLines(task)
 		lines[#lines + 1] = Line("entry", TaskPages.StepText(step, "you"))
 		lines[#lines + 1] = ProofLine({ index = index, step = step }, task)
 	end
-	for _, line in ipairs(TurnInLines(task)) do
-		lines[#lines + 1] = line
+	if task.status == "accepted" then
+		for _, line in ipairs(TurnInLines(task)) do
+			lines[#lines + 1] = line
+		end
 	end
 	lines[#lines + 1] = Line("help", "Timeways checks what it can. It can't catch everything.")
 	lines[#lines + 1] = Line("section", "Reward")

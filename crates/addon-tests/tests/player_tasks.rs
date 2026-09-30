@@ -332,3 +332,34 @@ fn a_doer_holds_at_most_twenty_open_tasks() {
 
     assert_eq!(received_status(&corvin, &id), None);
 }
+
+#[test]
+fn a_result_that_got_lost_goes_again_when_the_doer_asks_again() {
+    let (ada, corvin, id) = accepted();
+    let key = received_key(&id);
+    corvin.run(&format!("ns.PlayerTasks.AskTurnIn('{key}')"));
+    exchange(&ada, &corvin);
+    ada.run("wow.units.target = { name = 'Corvin', player = true, near = true }");
+    ada.run(&format!("ns.PlayerTasks.Complete('{id}')"));
+    ada.take_sent();
+
+    corvin.run(&format!("ns.PlayerTasks.AskTurnIn('{key}')"));
+    exchange(&ada, &corvin);
+
+    assert_eq!(received_status(&corvin, &id).as_deref(), Some("done"));
+}
+
+#[test]
+fn a_cancel_that_got_lost_goes_again_when_the_doer_sends_a_step() {
+    let (ada, corvin, id) = accepted();
+    ada.run(&format!("ns.PlayerTasks.Cancel('{id}')"));
+    ada.take_sent();
+
+    corvin.run(&format!(
+        "ns.PlayerTasks.Claim(ns.TaskStore.Data().received['{}'], 1)",
+        received_key(&id)
+    ));
+    exchange(&ada, &corvin);
+
+    assert_eq!(received_status(&corvin, &id).as_deref(), Some("cancelled"));
+}

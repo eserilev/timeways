@@ -173,15 +173,58 @@ fn turn_in_waits_until_every_step_is_done() {
     let (ada, corvin, id) =
         accepted_task("{ { kind = 'place', target = 'Agamand Mills', count = 1 } }");
     open(&corvin, &format!("got:{}", received_key(&id)));
+    let before = buttons(&corvin);
 
     corvin.run("wow.subzone = 'Agamand Mills' wow.Fire('ZONE_CHANGED')");
     click(&corvin, "Turn in");
     exchange(&ada, &corvin);
 
-    assert_eq!(buttons(&corvin), ["Give up", "Turn in (off)"]);
+    assert_eq!(before, ["Give up", "Turn in (off)"]);
     assert_eq!(
         lines(&corvin)[1],
         "note: Waiting for Ada to check it. Stand next to them."
+    );
+}
+
+#[test]
+fn the_doer_can_ask_again_while_the_giver_has_not_answered() {
+    let (ada, corvin, id) = accepted_task("{ { kind = 'place', target = 'Brill', count = 1 } }");
+    open(&corvin, &format!("got:{}", received_key(&id)));
+
+    click(&corvin, "Turn in");
+    exchange(&ada, &corvin);
+
+    assert_eq!(buttons(&corvin), ["Give up", "Turn in"]);
+}
+
+#[test]
+fn a_finished_task_shows_as_done_in_the_list_of_the_doer() {
+    let (ada, corvin, id) = accepted_task("{ { kind = 'place', target = 'Brill', count = 1 } }");
+    corvin.run(&format!(
+        "ns.PlayerTasks.AskTurnIn('{}')",
+        received_key(&id)
+    ));
+    exchange(&ada, &corvin);
+
+    ada.run("wow.units.target = { name = 'Corvin', player = true, near = true }");
+    ada.run(&format!("ns.PlayerTasks.Complete('{id}')"));
+    exchange(&ada, &corvin);
+
+    assert!(
+        rows(&corvin).contains(&"item: Trouble at Agamand Mills (From Ada) [Done]".to_string())
+    );
+}
+
+#[test]
+fn the_turn_in_lines_show_only_on_an_accepted_task() {
+    let (ada, _corvin, id) = offered();
+
+    open(&ada, &format!("gave:{id}"));
+
+    assert!(
+        !lines(&ada)
+            .iter()
+            .any(|line| line.contains("Turn in to you"))
     );
 }
 
