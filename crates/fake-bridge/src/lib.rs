@@ -13,13 +13,12 @@
 
 pub mod edges;
 
-use bridge::addon_lines::{AddonLine, forwarded_line, read_batch};
-use bridge::app_protocol::{
-    CallId, FromStory, NarratorCheck, RequestId, batch_end_line, model_answered_line,
+use app_protocol::addon_lines::{AddonLine, forwarded_line, read_batch};
+use app_protocol::model_answer::clean_answer;
+use app_protocol::story_lines::{
+    CallId, FromStory, NO_SANDBOX, NarratorCheck, RequestId, batch_end_line, model_answered_line,
     model_failed_line, read_line, reply_text,
 };
-use bridge::model::clean_answer;
-use bridge::story::NO_SANDBOX;
 use std::collections::{BTreeMap, VecDeque};
 use timeways_story::serve;
 use timeways_story::story::Story;

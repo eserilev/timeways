@@ -70,14 +70,15 @@ function UnitClassification(unit)
 	return u and u.classification or "normal"
 end
 
+Enum = { TooltipDataType = { Unit = 2 } }
+
 -- The game's tooltip, and the hooks that run after it shows a unit.
 wow.tooltipHooks = {}
 wow.tooltip = { unit = nil, lines = {} }
 
 TooltipDataProcessor = {
 	AddTooltipPostCall = function(kind, hook)
-		-- Enum.TooltipDataType.Unit of the client.
-		if kind == 2 then
+		if kind == Enum.TooltipDataType.Unit then
 			table.insert(wow.tooltipHooks, hook)
 		end
 	end,

@@ -32,6 +32,8 @@ return {
 		"ChatFontNormal",
 		"CreateFrame",
 		"DEFAULT_CHAT_FRAME",
+		"Enum",
+		"Enum.TooltipDataType.Unit",
 		"GameTooltip",
 		"GetBuildInfo",
 		"GetGreetingText",

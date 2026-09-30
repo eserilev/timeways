@@ -49,7 +49,10 @@ function Health.Shot(ok)
 		status.out, status.outAt = "shot", time()
 	elseif status.out ~= "fail" then
 		status.out = "fail"
-		print(ns.App.title .. ": screenshots are blocked.")
+		print(
+			ns.App.title
+				.. ": can't take screenshots. Free up disk space and check the Screenshots folder, then type /reload."
+		)
 	end
 end
 
@@ -57,7 +60,10 @@ end
 -- the bridge: while the corner is blocked, no strip reaches it.
 function Health.Corner(free)
 	if not free and not status.cornerBlocked then
-		print(ns.App.title .. ": screenshots are blocked by another addon.")
+		print(
+			ns.App.title
+				.. ": another addon is in the way of the colored bar. Turn off addons that take screenshots, then type /reload."
+		)
 	end
 	status.cornerBlocked = not free
 end
@@ -67,7 +73,7 @@ function Health.Slot(ok)
 		status.inbound, status.inAt = "slots", time()
 	elseif status.inbound ~= "missing" then
 		status.inbound = "missing"
-		print(ns.App.title .. ": slots are missing. Run gnomish-relay install with the game closed.")
+		print(ns.App.title .. ": some addon files are missing. Close the game, then run gnomish-relay install.")
 	end
 end
 

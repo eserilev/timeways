@@ -9,18 +9,27 @@ ns.Messages = Messages
 
 local LOW_SLOTS = 20
 local REPORT_AHEAD = 20
+-- The bridge writes each body only into this many slots from the reported one (SPEC.md 7.3).
+local SLOT_WINDOW = 30
 local SHOWS = 3
 local RETRY = 40
 local LATE_POLL = 60
 local IDLE_POLL = 600
 local ONLINE_FOR = 720
+-- The bridge writes a body every 60 s. A body this old at its poll means it stopped.
+local STALE = 150
+-- A body this old at its poll means the bridge missed a heartbeat.
+local LATE = 90
 local SCHEDULE = { 5, 10, 16, 24, 34, 46, 60, 80, 100, 130, 160, 200, 240, 300 }
 local PROTO = 1
 -- Room for the flags of Report(): `next`, `read` with up to 30 ids, `restored`, and
 -- the health flags.
 local REPORT_ROOM = 440
-local TOO_LONG = "Too long to send."
-local NOT_SENT = "Not sent. Send it again."
+local TOO_LONG = "Too long to send. Try a shorter message."
+local NOT_SENT = "Not sent."
+local BRIDGE_OFF = "Not sent: the desktop app isn't running. On your desktop, run gnomish-relay restart."
+local BAD_KEY =
+	"Not sent: your game and the desktop app don't match. On your desktop, run gnomish-relay setup, then type /reload."
 -- The bridge accepts a frame up to 300 s old (S11). Keep a margin for the screenshot.
 local FRESH_FOR = 270
 -- A later body can still hold the final reply of an answered message. The default store
@@ -41,6 +50,11 @@ local state = {
 	-- from here, never from the saved variables, which any addon can change (SPEC.md 6.6.1).
 	private = {},
 	lastNow = nil,
+	-- The age of the last body when the addon loaded it.
+	bodyAge = nil,
+	-- Strips that the bridge refused for their tag since its last good strip.
+	badTags = 0,
+	polled = false,
 	missing = false,
 	mismatch = false,
 }
@@ -83,12 +97,47 @@ function Messages.SlotsLeft()
 	return ns.Slots.COUNT - state.nextSlot + 1
 end
 
+-- "checking" until the first poll, then "online", "slow", or "offline".
+function Messages.Bridge()
+	if state.lastNow == nil then
+		return state.polled and "offline" or "checking"
+	elseif state.bodyAge >= STALE or time() - state.lastNow >= ONLINE_FOR then
+		return "offline"
+	elseif state.bodyAge >= LATE then
+		return "slow"
+	end
+	return "online"
+end
+
 function Messages.Online()
-	return state.lastNow ~= nil and time() - state.lastNow < ONLINE_FOR
+	local bridge = Messages.Bridge()
+	return bridge == "online" or bridge == "slow"
+end
+
+function Messages.NextPollIn()
+	return math.max(0, state.nextPoll - GetTime())
+end
+
+-- Where an open message is: "sending" with its shows so far and the most, "delivered",
+-- or "reload". Nil for an answered message.
+function Messages.Delivery(message)
+	if message.answered then
+		return nil
+	elseif message.outbox then
+		return "reload"
+	elseif message.acked then
+		return "delivered"
+	end
+	local shown = state.shows[message.id]
+	return "sending", shown and shown.count or 0, SHOWS
+end
+
+function Messages.SlotsLow()
+	return Messages.SlotsLeft() < LOW_SLOTS
 end
 
 function Messages.NeedsReload()
-	return #Messages.Db().outbox > 0 or Messages.SlotsLeft() < LOW_SLOTS
+	return #Messages.Db().outbox > 0 or Messages.SlotsLow()
 end
 
 function Messages.Problem()
@@ -109,6 +158,8 @@ function Messages.Stats()
 		outbox = #Messages.Db().outbox,
 		open = #Messages.Store.Open(),
 		online = Messages.Online(),
+		-- The clock of the bridge in the last body.
+		bodyNow = state.lastNow,
 	}
 end
 
@@ -157,6 +208,15 @@ local function Sign(records, frameId)
 	return ns.Codec.Frame(time(), frameId, ns.Codec.Payload(records), ns.key)
 end
 
+local function NotSent()
+	if not Messages.Online() then
+		return BRIDGE_OFF
+	elseif state.badTags > 0 then
+		return BAD_KEY
+	end
+	return NOT_SENT
+end
+
 -- The message ends as an error at once, so it never retries forever.
 local function GiveUp(item, text)
 	if item.message.answered then
@@ -164,6 +224,7 @@ local function GiveUp(item, text)
 	end
 	item.message.answered = true
 	Messages.OnGiveUp(item.chat, item.message.id, text)
+	Messages.OnChange()
 end
 
 -- The outbox holds a signed frame, so the bridge checks it as it checks a strip
@@ -176,6 +237,7 @@ local function ToOutbox(item, frame, signedAt)
 		frame = ns.Codec.Hex(frame),
 		at = signedAt,
 	})
+	Messages.OnChange()
 end
 
 local function OutboxEntry(chatId, id)
@@ -200,7 +262,7 @@ local function ExpireOutbox(item)
 	if not entry or time() - entry.at >= FRESH_FOR then
 		RemoveFromOutbox(chatId, item.message.id)
 		item.message.outbox = nil
-		GiveUp(item, NOT_SENT)
+		GiveUp(item, NotSent())
 	end
 end
 
@@ -218,7 +280,7 @@ local function Due(now)
 		elseif message.acked then
 			item.record = nil
 		elseif not item.record and time() - (message.signedAt or 0) >= FRESH_FOR then
-			GiveUp(item, NOT_SENT)
+			GiveUp(item, NotSent())
 		elseif not shown or now - shown.at >= RETRY then
 			if shown and shown.count >= SHOWS then
 				if item.record then
@@ -309,6 +371,32 @@ local function ShowFrame(frame, ids, controls, reporting, riders)
 	end)
 end
 
+-- A strip that only reports or asks for a list can wait for the end of a fight: a
+-- strip is a flash of color and the hitch of a screenshot.
+local function Urgent(due, stored)
+	if #due > 0 or #stored > 0 then
+		return true
+	end
+	for _, control in ipairs(state.controls) do
+		if not control.later then
+			return true
+		end
+	end
+	return false
+end
+
+-- A player who never read about the strip takes its flash for a bug.
+local function ExplainStripOnce()
+	local db = Messages.Db()
+	if not db.stripExplained then
+		db.stripExplained = true
+		print(
+			ns.App.title
+				.. ": the colored bar that flashes at the top left is how your messages reach the desktop app. That's normal."
+		)
+	end
+end
+
 function Messages.ShowNextStrip()
 	if ns.Strip.Busy() or not ns.key then
 		return
@@ -317,11 +405,15 @@ function Messages.ShowNextStrip()
 	if #stored == 0 and #due == 0 and #state.controls == 0 and not state.helloDue then
 		return
 	end
+	if InCombatLockdown() and not Urgent(due, stored) then
+		return
+	end
 	-- While another app holds the corner, nothing is signed and no show counts. So the
 	-- retry timer and the shows wait too (SPEC.md 7.1).
 	if not ns.Strip.TakeTurn() then
 		return
 	end
+	ExplainStripOnce()
 	if #stored > 0 then
 		local message = stored[1].message
 		ShowFrame(ns.Codec.FromHex(message.frame), { message.id }, 0, nil)
@@ -331,9 +423,14 @@ function Messages.ShowNextStrip()
 	ShowFrame(Sign(records, ids[1] or 0), ids, #state.controls, state.nextSlot, riders)
 end
 
+-- The bytes of text that one strip has room for in a message of `chat`.
+function Messages.Room(chat)
+	local record = MessageRecord(chat, { id = Messages.Db().nextId, text = "" })
+	return ns.Codec.MAX_PAYLOAD - REPORT_ROOM - #ns.Codec.Payload({ record })
+end
+
 function Messages.Fits(chat, text)
-	local record = MessageRecord(chat, { id = Messages.Db().nextId, text = text })
-	return #ns.Codec.Payload({ record }) + REPORT_ROOM <= ns.Codec.MAX_PAYLOAD
+	return #text <= Messages.Room(chat)
 end
 
 -- The next polls follow the schedule after a send (SPEC.md 7.3).
@@ -354,6 +451,13 @@ function Messages.Queue(chat, message)
 	return message
 end
 
+-- Only text from our own code can be signed again; the saved variables can be changed
+-- by any addon (SPEC.md 6.6.1). So a message from before a /reload has none.
+function Messages.PrivateText(id)
+	local record = state.private[id]
+	return record and record.text
+end
+
 -- Returns nil for a message that does not fit in one strip.
 function Messages.Send(chat, text)
 	if not Messages.Fits(chat, text) then
@@ -365,6 +469,12 @@ end
 -- A control record goes out once, on the next strip. It is no message: it has no retry.
 function Messages.Control(chat, id, flags)
 	table.insert(state.controls, { chat = chat, id = id, flags = flags })
+	Messages.ShowNextStrip()
+end
+
+-- A control that can wait. In combat it only rides on a strip that goes anyway.
+function Messages.ControlLater(chat, id, flags)
+	table.insert(state.controls, { chat = chat, id = id, flags = flags, later = true })
 	Messages.ShowNextStrip()
 end
 
@@ -398,13 +508,24 @@ local function ApplyReply(r, done)
 	end
 end
 
+-- A slot of an earlier UI session can still hold a body that the bridge wrote before.
+local function IsOlder(data)
+	if type(data) ~= "table" then
+		return false
+	end
+	local now = tonumber(data.now)
+	return now ~= nil and state.lastNow ~= nil and now < state.lastNow
+end
+
 local function Apply(data)
 	if type(data) ~= "table" or data.proto ~= PROTO then
 		state.mismatch = true
 		return
 	end
 	state.mismatch = false
-	state.lastNow = data.now
+	state.lastNow = tonumber(data.now)
+	state.bodyAge = state.lastNow and time() - state.lastNow
+	state.badTags = tonumber(data.badTags) or 0
 	local done = {}
 	for _, r in ipairs(data.replies or {}) do
 		ApplyReply(r, done)
@@ -412,11 +533,17 @@ local function Apply(data)
 	state.bodyDone = done
 end
 
+-- A slot past the window holds an older body. The polls wait for the next strip.
+local function PastWindow()
+	return state.reported ~= nil and state.nextSlot >= state.reported + SLOT_WINDOW
+end
+
 function Messages.Poll()
-	if state.nextSlot > ns.Slots.COUNT then
+	if state.nextSlot > ns.Slots.COUNT or PastWindow() then
 		return
 	end
 	local loaded, data, restore, live = ns.Slots.Load(state.nextSlot)
+	state.polled = true
 	state.missing = not loaded
 	ns.Health.Slot(loaded)
 	if loaded then
@@ -424,8 +551,10 @@ function Messages.Poll()
 		if not state.reported or state.nextSlot - state.reported >= REPORT_AHEAD then
 			state.helloDue = true
 		end
-		Apply(data)
-		Messages.OnPoll(restore, live)
+		if not IsOlder(data) then
+			Apply(data)
+			Messages.OnPoll(restore, live)
+		end
 	end
 	Messages.OnChange()
 end

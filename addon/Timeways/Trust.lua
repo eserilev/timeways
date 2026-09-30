@@ -8,10 +8,6 @@ ns.Trust = Trust
 
 local PREFIX = "|cffc8a064Timeways|r: "
 
--- Enum.TooltipDataType.Unit of the client.
--- TODO: use the Enum name once the API gate of Gnomish Relay knows the Enum table.
-local UNIT_TOOLTIP = 2
-
 -- From the most trust to the least: the tooltip word, and the chat line of a change.
 local BANDS = {
 	{ min = 50, word = "Trusts you", change = "now trusts you." },
@@ -85,4 +81,4 @@ function Trust.OnTooltip(tooltip)
 	end
 end
 
-TooltipDataProcessor.AddTooltipPostCall(UNIT_TOOLTIP, Trust.OnTooltip)
+TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, Trust.OnTooltip)

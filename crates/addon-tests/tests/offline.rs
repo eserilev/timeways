@@ -92,6 +92,8 @@ fn a_question_that_the_bridge_never_took_tells_the_player() {
 
     assert_eq!(
         game.printed(),
-        ["|cffc8a064Timeways|r: Not sent. Send it again."]
+        [
+            "|cffc8a064Timeways|r: Not sent: the desktop app isn't running. On your desktop, run gnomish-relay restart."
+        ]
     );
 }
