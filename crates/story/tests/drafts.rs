@@ -298,3 +298,22 @@ fn a_request_that_fails_still_gets_an_empty_draft_answer() {
     );
     assert!(served.error.is_some());
 }
+
+#[test]
+fn a_goal_in_other_words_takes_the_kind_of_its_known_target() {
+    let steps = r#"[{"goal": "meet", "target": "Mill Pond"}, {"goal": "talk to", "target": "Farmer Bram"}]"#;
+
+    let draft = check(steps).unwrap();
+
+    assert_eq!(
+        draft.steps,
+        [step("place", "Mill Pond"), step("npc", "Farmer Bram")]
+    );
+}
+
+#[test]
+fn a_goal_in_other_words_with_an_unknown_target_is_refused() {
+    let fault = check(r#"[{"goal": "meet", "target": "Stormwind"}]"#).unwrap_err();
+
+    assert_eq!(fault, DraftFault::UnknownGoal("meet".to_string()));
+}

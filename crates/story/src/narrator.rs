@@ -2,7 +2,6 @@
 //! words of its prompt live here.
 
 use crate::check::voice_text;
-use crate::hero::OWN_WORDS;
 use crate::house::{HOUSE_RULES, fenced};
 use crate::moments::Moment;
 use crate::places::InstanceKind;
@@ -30,7 +29,7 @@ const NOTE: &str = "\
 Remember: serious, concrete, and short. Call the player \"our hero\", and tell nothing of \
 what comes next.
 Name the place, foe, or number of the moment plainly. Add nothing that the moment does \
-not hold. Use the hero's own story only when the moment touches it.
+not hold.
 Answer with the line only.";
 
 /// Counts the lines of the last hour of game time, so the narrator talks little.
@@ -53,20 +52,20 @@ impl Budget {
     }
 }
 
-/// `turn` picks the golden samples of the prompt.
+/// `turn` picks the golden samples of the prompt. The hero sheet stays out: a line is about
+/// one moment, and models pulled the sheet into every line (GAMEPLAY.md 3.2.1).
 #[must_use]
-pub fn prompt(moment: &Moment, portrait: Option<&str>, turn: usize) -> String {
+pub fn prompt(moment: &Moment, turn: usize) -> String {
     let mut prompt = format!("{PERSONA}\n{HOUSE_RULES}\n\n{TASK}");
-    if let Some(portrait) = portrait {
-        let _ = write!(prompt, "\n\n{OWN_WORDS}\n{}", fenced(portrait));
-    }
     let samples = samples::section(Voice::NarratorLine, turn);
     let what = fenced(&what_happened(moment));
     let _ = write!(prompt, "\n\n{samples}\n\nThe moment:\n{what}\n\n{NOTE}");
     prompt
 }
 
-fn what_happened(moment: &Moment) -> String {
+/// The moment in plain words, as the prompt gives it.
+#[must_use]
+pub fn what_happened(moment: &Moment) -> String {
     match moment {
         Moment::Flavor { what } => what.clone(),
         Moment::Titled { title } => {
@@ -101,6 +100,20 @@ fn what_happened(moment: &Moment) -> String {
             format!("The player finished \"{title}\", a quest of their class.")
         }
     }
+}
+
+/// True when each number of the line is a number of the moment. A small model invents
+/// dates and counts ("the 23rd day of the 5th moon"), and the narrator tells only facts.
+#[must_use]
+pub fn numbers_from(line: &str, moment: &str) -> bool {
+    let known = numbers(moment);
+    numbers(line).iter().all(|number| known.contains(number))
+}
+
+fn numbers(text: &str) -> Vec<&str> {
+    text.split(|c: char| !c.is_ascii_digit())
+        .filter(|number| !number.is_empty())
+        .collect()
 }
 
 /// The line as the player sees it, or None when it breaks a rule. A narrator line gets no

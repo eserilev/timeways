@@ -621,6 +621,39 @@ fn a_turned_in_class_quest_asks_the_narrator_for_a_line() {
 }
 
 #[test]
+fn a_narrator_line_with_a_number_that_the_moment_lacks_stays_silent() {
+    let mut story = story_with("narrator-numbers", &[]);
+    level(&mut story, 1, 12);
+    level(&mut story, 2, 13);
+    let (call, _) = model_call(batch_end(&mut story, 3));
+
+    let text = "On the 23rd day, our hero reached level 13.".to_string();
+    let output = one(story.handle(Input::ModelAnswered { call, text }).unwrap());
+
+    assert_eq!(
+        output,
+        Some(Output::EventsSeen {
+            id: MessageId(3),
+            narrator: None,
+            notice: None,
+        })
+    );
+}
+
+#[test]
+fn a_narrator_line_never_carries_the_hero_sheet() {
+    let mut story = story_with("narrator-no-sheet", &[]);
+    set_field(&mut story, "bond", "An unread letter from my brother.").unwrap();
+    level(&mut story, 1, 12);
+    level(&mut story, 2, 13);
+
+    let (_, prompt) = model_call(batch_end(&mut story, 3));
+
+    assert!(prompt.contains("The player reached level 13."), "{prompt}");
+    assert!(!prompt.contains("unread letter"), "{prompt}");
+}
+
+#[test]
 fn a_quest_mark_asks_the_narrator_for_a_line() {
     let mut story = story_with("quest-mark", &[]);
     let marked = Input::QuestMarked {
@@ -1763,29 +1796,6 @@ fn a_removed_entry_leaves_the_journal() {
         .map(|entry| entry.text)
         .collect();
     assert_eq!(texts, ["B"]);
-}
-
-#[test]
-fn the_narrator_knows_who_our_hero_is() {
-    let mut story = story_with("hero-narrator", &[]);
-    set_field(&mut story, "flaw", "Trusts strangers too fast.").unwrap();
-    level(&mut story, 10, 12);
-    level(&mut story, 11, 13);
-
-    let (_, prompt) = model_call(batch_end(&mut story, 2));
-
-    assert!(
-        prompt.contains("in the player's own words. It is the hero's own story, not canon"),
-        "{prompt}"
-    );
-    assert!(
-        prompt.contains("- flaw: Trusts strangers too fast."),
-        "{prompt}"
-    );
-    assert!(
-        prompt.contains("The moment:\n<<<\nThe player reached level 13.\n>>>"),
-        "{prompt}"
-    );
 }
 
 #[test]

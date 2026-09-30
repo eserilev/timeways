@@ -90,7 +90,7 @@ fn each_prompt_of_a_voice_carries_its_samples_in_turn() {
         ..Scene::default()
     };
 
-    let line = narrator::prompt(&moment, None, 1);
+    let line = narrator::prompt(&moment, 1);
     let talk = talk::prompt(&scene, &[], "hello", 2);
 
     for sample in rotated(Voice::NarratorLine, 1) {

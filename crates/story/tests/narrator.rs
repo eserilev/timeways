@@ -1,6 +1,8 @@
 use hourglass::Tick;
 use timeways_story::moments::Moment;
-use timeways_story::narrator::{Budget, MAX_LINE_CHARS, PERSONA, checked_line, prompt};
+use timeways_story::narrator::{
+    Budget, MAX_LINE_CHARS, PERSONA, checked_line, numbers_from, prompt,
+};
 
 #[test]
 fn the_budget_allows_three_lines_in_an_hour() {
@@ -32,7 +34,7 @@ fn a_prompt_names_the_moment() {
         times: 3,
     };
 
-    let prompt = prompt(&slain, None, 0);
+    let prompt = prompt(&slain, 0);
 
     assert!(prompt.contains(
         "The moment:\n<<<\nMurloc Forager killed the player again. That makes 3 times.\n>>>"
@@ -42,7 +44,7 @@ fn a_prompt_names_the_moment() {
 
 #[test]
 fn a_prompt_starts_with_the_persona_and_ends_with_the_note() {
-    let prompt = prompt(&Moment::LevelUp { level: 20 }, None, 0);
+    let prompt = prompt(&Moment::LevelUp { level: 20 }, 0);
 
     assert!(prompt.starts_with(PERSONA), "{prompt}");
     assert!(prompt.ends_with("Answer with the line only."), "{prompt}");
@@ -61,16 +63,6 @@ fn the_persona_is_a_keeper_of_time_that_tells_no_future_and_no_name() {
     for name in ["Nozdormu", "bronze", "Caverns", "timeline"] {
         assert!(!PERSONA.contains(name), "{name}");
     }
-}
-
-#[test]
-fn the_story_of_the_hero_is_fenced_as_data() {
-    let prompt = prompt(&Moment::LevelUp { level: 20 }, Some("- flaw: Proud."), 0);
-
-    assert!(
-        prompt.contains("not canon:\n<<<\n- flaw: Proud.\n>>>"),
-        "{prompt}"
-    );
 }
 
 #[test]
@@ -124,4 +116,14 @@ fn a_line_over_the_byte_limit_of_the_bridge_is_dropped() {
 
     assert!(wide.chars().count() <= MAX_LINE_CHARS);
     assert_eq!(checked_line(&wide, ""), None);
+}
+
+#[test]
+fn a_line_holds_only_the_numbers_of_its_moment() {
+    let moment = "The player reached level 20.";
+
+    assert!(numbers_from("Level 20 came at dusk.", moment));
+    assert!(numbers_from("Our hero walked on.", moment));
+    assert!(!numbers_from("On the 23rd day, level 20 came.", moment));
+    assert!(!numbers_from("Level 2 came.", moment));
 }

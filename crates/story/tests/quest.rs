@@ -638,3 +638,21 @@ fn only_the_next_kill_step_hunts() {
 
     assert!(!quest.hunts("Duskbat"));
 }
+
+#[test]
+fn a_kill_count_written_as_text_counts_and_other_text_is_refused() {
+    let known = known(&[]);
+    let as_text = r#"{"title": "Wolves", "text": "Thin them out.", "steps": [{"goal": "kill", "creature": "Duskbat", "count": "3"}]}"#;
+    let not_a_number = r#"{"title": "Wolves", "text": "Thin them out.", "steps": [{"goal": "kill", "creature": "Duskbat", "count": "many"}]}"#;
+
+    let offer = checked_quest(as_text, &known).unwrap();
+
+    assert_eq!(
+        offer.steps,
+        [Step::Kill {
+            creature: "Duskbat".to_string(),
+            count: 3
+        }]
+    );
+    assert!(checked_quest(not_a_number, &known).is_err());
+}

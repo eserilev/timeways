@@ -14,10 +14,12 @@ use timeways_story::journal::{Chapter, Deed};
 use timeways_story::moments::Moment;
 use timeways_story::narrator;
 use timeways_story::pack::{Link, Origin, Passage};
+use timeways_story::places::InstanceKind;
 use timeways_story::prompt::{self, Context};
 use timeways_story::quest::{self, Known};
 use timeways_story::talk::{self, Scene};
 use timeways_story::tokens::{Call, estimated_tokens};
+use timeways_story::{check, draft};
 
 /// One fixed moment, its prompt, and what the player sees of an answer.
 struct TestMoment {
@@ -60,7 +62,7 @@ fn portrait() -> Option<String> {
 }
 
 fn line(moment: &Moment) -> String {
-    narrator::prompt(moment, portrait().as_deref(), 0)
+    narrator::prompt(moment, 0)
 }
 
 fn level(to: i64, at: u64) -> Deed {
@@ -177,8 +179,8 @@ fn npc_talk() -> String {
     )
 }
 
-fn quest_offer() -> String {
-    let known = Known {
+fn quest_known() -> Known<'static> {
+    Known {
         giver: "Innkeeper Farley",
         zones: vec!["Elwynn Forest", "Westfall"],
         subzones: vec!["Goldshire", "Fargodeep Mine", "Sentinel Hill"],
@@ -186,8 +188,27 @@ fn quest_offer() -> String {
         foes: vec!["Defias Thug", "Riverpaw Gnoll"],
         last_targets: Vec::new(),
         seen: &[],
-    };
-    quest::prompt(&known, Some("Goldshire"))
+    }
+}
+
+fn quest_offer() -> String {
+    quest::prompt(&quest_known(), Some("Goldshire"))
+}
+
+fn draft_known() -> draft::Known<'static> {
+    draft::Known {
+        zones: vec!["Elwynn Forest", "Westfall"],
+        subzones: vec!["Goldshire", "Fargodeep Mine"],
+        npcs: vec!["Marshal Dughan", "Farmer Saldean"],
+        foes: vec!["Defias Thug", "Hogger"],
+    }
+}
+
+fn task_draft() -> String {
+    draft::prompt(
+        &draft_known(),
+        "get my friend to kill hogger and then meet me in goldshire",
+    )
 }
 
 fn lore_question() -> String {
@@ -244,7 +265,13 @@ fn voice_moments() -> Vec<TestMoment> {
         shown: saga_shown,
     };
     vec![
-        narrator_moment("a first dungeon", &zone("The Deadmines")),
+        narrator_moment(
+            "a first dungeon",
+            &Moment::FirstInstance {
+                zone: "The Deadmines".to_string(),
+                kind: InstanceKind::Dungeon,
+            },
+        ),
         narrator_moment(
             "a world boss",
             &Moment::FirstKill {
@@ -259,7 +286,26 @@ fn voice_moments() -> Vec<TestMoment> {
             },
         ),
         narrator_moment("a level milestone", &Moment::LevelUp { level: 20 }),
-        narrator_moment("a new capital", &zone("Ironforge")),
+        narrator_moment(
+            "a new capital",
+            &Moment::FirstCapital {
+                city: "Ironforge".to_string(),
+            },
+        ),
+        narrator_moment("a new zone", &zone("Westfall")),
+        narrator_moment(
+            "a finished class quest",
+            &Moment::ClassQuestDone {
+                title: "The Tome of Valor".to_string(),
+            },
+        ),
+        narrator_moment(
+            "a quest mark",
+            &Moment::QuestMarked {
+                mark: "Blessing of the Light".to_string(),
+                quest: "The Tome of Valor".to_string(),
+            },
+        ),
         chapter("a finished side quest", side_quest_chapter(Draft::First)),
         chapter("a quiet chapter", quiet_chapter()),
         TestMoment {
@@ -280,6 +326,7 @@ fn every_prompt() -> Vec<(&'static str, Call, String)> {
     prompts.push(("a quest offer", Call::Quest, quest_offer()));
     prompts.push(("a lore question", Call::Lore, lore_question()));
     prompts.push(("a judge of two drafts", Call::Judge, judge()));
+    prompts.push(("a task draft", Call::Quest, task_draft()));
     prompts
 }
 
@@ -395,6 +442,73 @@ fn the_voice_moments_go_to_a_real_model_for_review() {
     review_best_of_two(&command, &mut review);
 
     let path = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join("voice-review.md");
+    std::fs::write(&path, review).unwrap();
+    println!("The review is in {}", path.display());
+}
+
+/// The check of one fixed format: `Err` holds why the answer failed.
+type FormatCheck = fn(&str) -> Result<(), String>;
+
+/// How often a real model gives an answer that passes the check of a fixed format. A small
+/// local model fails these more often than it writes a bad line.
+#[test]
+#[ignore = "calls a real model"]
+fn the_answers_of_a_real_model_in_a_fixed_format_pass_their_checks() {
+    let command = std::env::var("TIMEWAYS_MODEL").unwrap_or_else(|_| CLAUDE.to_string());
+    let tries: usize = std::env::var("TIMEWAYS_TRIES")
+        .ok()
+        .and_then(|tries| tries.parse().ok())
+        .unwrap_or(5);
+    let mut review = format!("# Fixed formats\n\nModel: `{command}`, {tries} tries each\n");
+    let formats: [(&str, String, FormatCheck); 4] = [
+        ("a quest offer", quest_offer(), |answer| {
+            quest::checked_quest(answer, &quest_known())
+                .map(|_| ())
+                .map_err(|fault| fault.to_string())
+        }),
+        ("a lore answer", lore_question(), |answer| {
+            let faults = check::check(answer, 3);
+            if faults.is_empty() {
+                return Ok(());
+            }
+            Err(faults
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join("; "))
+        }),
+        ("a task draft", task_draft(), |answer| {
+            draft::checked_draft(answer, &draft_known())
+                .map(|_| ())
+                .map_err(|fault| format!("{fault:?}"))
+        }),
+        ("a judge", judge(), |answer| {
+            let picked =
+                answer.contains("\"pick\"") && (answer.contains('1') || answer.contains('2'));
+            if picked {
+                Ok(())
+            } else {
+                Err("no pick".to_string())
+            }
+        }),
+    ];
+    for (name, prompt, checked) in formats {
+        let mut passed = 0;
+        let mut faults = Vec::new();
+        for _ in 0..tries {
+            let answer = ask_model(&command, &prompt);
+            match checked(&answer) {
+                Ok(()) => passed += 1,
+                Err(fault) => faults.push(format!("{fault} -- {}", answer.replace('\n', " "))),
+            }
+        }
+        let _ = write!(review, "\n## {name}: {passed} of {tries}\n");
+        for fault in faults {
+            let _ = write!(review, "\n- {fault}\n");
+        }
+    }
+
+    let path = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join("format-review.md");
     std::fs::write(&path, review).unwrap();
     println!("The review is in {}", path.display());
 }

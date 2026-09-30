@@ -29,9 +29,32 @@ pub const MAX_KILLS: u8 = 10;
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "goal", rename_all = "snake_case")]
 pub enum Step {
-    Visit { place: String },
-    Meet { npc: String },
-    Kill { creature: String, count: u8 },
+    Visit {
+        place: String,
+    },
+    Meet {
+        npc: String,
+    },
+    Kill {
+        creature: String,
+        #[serde(deserialize_with = "whole_number")]
+        count: u8,
+    },
+}
+
+/// A small model often writes a count as text: "3" counts as 3. The step check still
+/// holds the count to its range.
+fn whole_number<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<u8, D::Error> {
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Written {
+        Number(u8),
+        Text(String),
+    }
+    match Written::deserialize(deserializer)? {
+        Written::Number(count) => Ok(count),
+        Written::Text(text) => text.trim().parse().map_err(serde::de::Error::custom),
+    }
 }
 
 impl Step {

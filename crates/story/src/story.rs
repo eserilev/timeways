@@ -240,6 +240,8 @@ enum Pending {
     Narrator {
         batch: MessageId,
         key: CharacterKey,
+        /// The moment in plain words: a line holds no number that it does not.
+        moment: String,
     },
     /// A draft of the saga of the chapter that began at `began`, or the pick of the judge,
     /// for this character only. The round of the chapter knows which.
@@ -621,9 +623,10 @@ impl Story {
                 .follow(question, lore.answered(text))
                 .into_iter()
                 .collect(),
-            Pending::Narrator { batch, key } => vec![Output::EventsSeen {
+            Pending::Narrator { batch, key, moment } => vec![Output::EventsSeen {
                 id: batch,
-                narrator: narrator::checked_line(text, &self.player_text(&key)),
+                narrator: narrator::checked_line(text, &self.player_text(&key))
+                    .filter(|line| narrator::numbers_from(line, &moment)),
                 notice: None,
             }],
             Pending::Chronicle { key, began } => self.saga_answered(&key, began, Some(text))?,
@@ -988,10 +991,10 @@ impl Story {
         let Some(active) = self.active.as_ref() else {
             return quiet;
         };
-        let portrait = hero::portrait(&hero::hero(active.hero.changes()));
         let key = active.key.clone();
-        let prompt = narrator::prompt(&moment, portrait.as_deref(), self.turn());
-        self.open_call(Pending::Narrator { batch, key }, prompt)
+        let prompt = narrator::prompt(&moment, self.turn());
+        let moment = narrator::what_happened(&moment);
+        self.open_call(Pending::Narrator { batch, key, moment }, prompt)
             .unwrap_or(quiet)
     }
 

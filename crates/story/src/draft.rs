@@ -123,8 +123,13 @@ pub fn checked_draft(answer: &str, known: &Known<'_>) -> Result<Draft, DraftFaul
     if !(1..=MAX_STEPS).contains(&reply.steps.len()) {
         return Err(DraftFault::StepCount(reply.steps.len()));
     }
+    let steps: Vec<DraftStep> = reply
+        .steps
+        .into_iter()
+        .map(|step| with_goal_of_target(step, known))
+        .collect();
     let mut seen = Vec::new();
-    for step in &reply.steps {
+    for step in &steps {
         check_step(step, known)?;
         let key = step_key(step)?;
         if seen.contains(&key) {
@@ -132,12 +137,31 @@ pub fn checked_draft(answer: &str, known: &Known<'_>) -> Result<Draft, DraftFaul
         }
         seen.push(key);
     }
-    Ok(Draft {
-        title,
-        text,
-        steps: reply.steps,
-    })
+    Ok(Draft { title, text, steps })
 }
+
+/// A model often writes its own word for a goal ("meet", "go to", "talk to"). An unknown
+/// goal takes the kind of its target when the target is a known place or person. The
+/// target must still be one that the player knows, so nothing new gets in.
+fn with_goal_of_target(step: DraftStep, known: &Known<'_>) -> DraftStep {
+    if GOALS.contains(&step.goal.as_str()) {
+        return step;
+    }
+    let target = step.target.as_str();
+    let goal = if known.zones.contains(&target) || known.subzones.contains(&target) {
+        "place"
+    } else if known.npcs.contains(&target) {
+        "npc"
+    } else {
+        return step;
+    };
+    DraftStep {
+        goal: goal.to_string(),
+        target: step.target,
+    }
+}
+
+const GOALS: [&str; 4] = ["place", "npc", "kill", "item"];
 
 /// A plain text in voice that the addon can send: a `|` starts a WoW escape, and the addon
 /// refuses one.
