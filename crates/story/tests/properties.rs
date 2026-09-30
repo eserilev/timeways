@@ -21,6 +21,7 @@ use timeways_story::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use timeways_story::seen::TextKind;
 use timeways_story::store::{Store, safe_id};
 use timeways_story::story::{Output, Story};
+use timeways_story::wikitext::plain;
 
 /// One step of play, as the addon sends it.
 #[derive(Clone, Debug)]
@@ -490,5 +491,22 @@ proptest! {
             prop_assert_eq!(quest.status == Status::Done, finished);
             prop_assert_eq!(quest.done_at.is_some(), finished);
         }
+    }
+
+    /// The input is mostly markup characters, so broken and nested markup comes often.
+    #[test]
+    fn plain_text_from_any_wikitext_holds_no_markup_marks(
+        text in "([\\[\\]{}'|<>/=!-]|ref|File:|http://| |a|\n){0,120}",
+    ) {
+        let cleaned = plain(&text);
+
+        for mark in ["[[", "]]", "{{", "}}", "''"] {
+            prop_assert!(!cleaned.contains(mark), "{} in {:?}", mark, cleaned);
+        }
+    }
+
+    #[test]
+    fn text_without_markup_stays_as_it_is(text in "[a-zA-Z0-9 .,;:?\n]{0,200}") {
+        prop_assert_eq!(plain(&text), text);
     }
 }

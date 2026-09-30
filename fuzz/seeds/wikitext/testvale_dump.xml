@@ -1,0 +1,13 @@
+<mediawiki><siteinfo><sitename>Testwiki</sitename></siteinfo>
+<page><title>A</title><ns>0</ns><revision><text>#REDIRECT [[B]]</text></revision></page>
+<page><title>B</title><ns>0</ns><revision><text>Lead of Testvale.
+== History ==
+{{Book|The Testvale Tower (site)|content=Site words.}}
+{{Book|The Testvale Tower|content='''The [[Testvale Keep|keep]]''' fell{{Sic|{{x}}}}.&lt;ref&gt;Test&lt;/ref&gt;
+[[File:Keep.jpg|thumb|A [[keep]]]] [https://example.test the test page]
+{| class=x
+| cell
+|}
+* [[Book One|one]]
+}}</text></revision></page>
+</mediawiki>
