@@ -1,7 +1,9 @@
 ## Interface: 16001
 ## Title: Timeways
 ## Notes: Azeroth remembers you. Lore, a narrator, and a journal of your adventure.
-## Version: 0.1.0
+## Version: @project-version@
+# CurseForge project id. 0 means no upload: put the real id here once the project exists.
+## X-Curse-Project-ID: 0
 ## SavedVariables: TimewaysDB
 
 Key.lua

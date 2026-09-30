@@ -3,3 +3,7 @@ target/
 addon/Timeways/Key.lua
 mutants.out/
 mutants.out.old/
+
+# The release job builds these.
+dist/
+.release/

@@ -1,0 +1,127 @@
+# Tests the tagged commit, builds the desktop programs for each OS, packs the addon for
+# CurseForge, and attaches all of it to a GitHub Release with SHA-256 sums and a manifest.
+# The setup of Gnomish Relay downloads the programs from the latest release.
+# Every action is pinned to a commit. The comment gives the tag.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  # The tag names the version of the programs. The packager writes it into the TOC.
+  version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - run: |
+          cargo=$(awk -F '"' '/^version = / { print $2; exit }' crates/story/Cargo.toml)
+          if [ "$GITHUB_REF_NAME" != "v$cargo" ]; then
+            echo "error: tag $GITHUB_REF_NAME and crates/story/Cargo.toml $cargo do not match" >&2
+            exit 1
+          fi
+
+  # A tag can point at a commit that CI never checked, so the release runs the checks itself.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # master
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+      - uses: taiki-e/install-action@7623a79cdfecb99d681017af368ca353d9f49bb5 # v2
+        with:
+          tool: stylua,selene
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets --locked -- -D warnings
+      - run: cargo test --locked
+      - run: stylua --check addon
+      - run: selene addon/Timeways
+
+  # The release starts as a draft, so nobody downloads half of it.
+  draft:
+    needs: [version, test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft \
+            --title "$GITHUB_REF_NAME" --notes "Install: see the README."
+
+  build:
+    needs: draft
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu }
+          - { os: macos-latest, target: aarch64-apple-darwin }
+          - { os: macos-latest, target: x86_64-apple-darwin }
+          - { os: windows-latest, target: x86_64-pc-windows-msvc }
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # master
+        with:
+          toolchain: stable
+          targets: ${{ matrix.target }}
+      - run: cargo build --release --locked --bin timeways-story --bin timeways-pack --target ${{ matrix.target }}
+      - shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          scripts/package.sh ${{ matrix.target }}
+          gh release upload "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY"
+
+  # The addon goes to CurseForge only after every program is built. With no CF_API_KEY
+  # secret, or with project id 0 in the TOC, the packager only makes the zip.
+  addon:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # The packager reads the tags and the history for the version and the changelog.
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+      - uses: BigWigsMods/packager@e50a250f8705041e40f2fa1ddcb280a686d65aa0 # v2.6.1
+        with:
+          args: -n "{package-name}-{project-version}"
+          pandoc: "false"
+        env:
+          CF_API_KEY: ${{ secrets.CF_API_KEY }}
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p dist
+          cp ".release/Timeways-$GITHUB_REF_NAME.zip" dist/timeways-addon.zip
+          scripts/check-addon-zip.py dist/timeways-addon.zip
+          (cd dist && sha256sum timeways-addon.zip > timeways-addon.zip.sha256)
+          gh release upload "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY"
+
+  publish:
+    needs: addon
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --dir dist \
+            --pattern "timeways-*.zip" --pattern "timeways-*.tar.gz"
+          scripts/release-manifest.py dist "$GITHUB_REF_NAME"
+          gh release upload "$GITHUB_REF_NAME" dist/SHA256SUMS dist/timeways-manifest.json \
+            --repo "$GITHUB_REPOSITORY"
+          gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false
