@@ -285,9 +285,21 @@ fn citation(inside: &str) -> Option<Vec<usize>> {
         .collect()
 }
 
-/// The citations serve the check. The player reads the answer without them.
+/// The citations serve the check. The player reads the answer without them. A removal can
+/// join two halves into a new citation, so it repeats until none is left.
 #[must_use]
 pub fn without_citations(text: &str) -> String {
+    let mut text = text.to_string();
+    loop {
+        let removed = without_citations_once(&text);
+        if removed == text {
+            return text;
+        }
+        text = removed;
+    }
+}
+
+fn without_citations_once(text: &str) -> String {
     let mut kept = String::new();
     let mut rest = text;
     while let Some(open) = rest.find('[') {

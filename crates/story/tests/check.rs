@@ -456,3 +456,8 @@ fn a_capital_word_of_one_letter_is_no_name() {
 
     assert!(names.is_empty(), "{names:?}");
 }
+
+#[test]
+fn a_citation_that_a_removal_joins_is_removed_too() {
+    assert_eq!(without_citations("[0[0]]"), "");
+}
