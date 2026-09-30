@@ -13,8 +13,12 @@ ns.Link = {
 	Fits = function(text)
 		return ns.Messages.Fits(CHAT, text)
 	end,
-	-- The id of the message, or nil when the link did not take it.
+	-- The id of the message, or nil when the link did not take it. With no key, nothing can
+	-- sign the message, so nothing goes. The setup window tells the player why.
 	Send = function(text)
+		if not ns.key then
+			return nil
+		end
 		local message = ns.Messages.Send(CHAT, text)
 		return message and message.id
 	end,

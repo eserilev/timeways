@@ -137,3 +137,14 @@ fn a_done_reply_with_no_text_raises_no_error() {
 
     assert!(game.printed().is_empty());
 }
+
+#[test]
+fn with_no_key_the_link_takes_nothing_and_the_login_raises_no_error() {
+    let game = logged_in();
+    game.run("ns.key = nil");
+
+    game.run("wow.Fire('PLAYER_ENTERING_WORLD')");
+
+    assert_eq!(game.eval::<Option<u32>>("ns.Link.Send('hello')"), None);
+    assert_eq!(game.eval::<u32>("#(TimewaysDB.sent or {})"), 0);
+}
