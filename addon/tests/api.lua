@@ -57,6 +57,7 @@ return {
 		"SlashCmdList",
 		"StaticPopupDialogs",
 		"StaticPopup_Show",
+		"TooltipDataProcessor",
 		"UIErrorsFrame",
 		"UIParent",
 		"UISpecialFrames",

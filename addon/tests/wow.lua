@@ -61,11 +61,10 @@ end
 wow.tooltipHooks = {}
 wow.tooltip = { unit = nil, lines = {} }
 
-Enum = { TooltipDataType = { Unit = 2 } }
-
 TooltipDataProcessor = {
 	AddTooltipPostCall = function(kind, hook)
-		if kind == Enum.TooltipDataType.Unit then
+		-- Enum.TooltipDataType.Unit of the client.
+		if kind == 2 then
 			table.insert(wow.tooltipHooks, hook)
 		end
 	end,

@@ -113,8 +113,6 @@ globals:
     any: true
   TooltipDataProcessor:
     any: true
-  Enum:
-    any: true
   ActionStatus:
     any: true
   ChatFontNormal:
