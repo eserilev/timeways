@@ -324,6 +324,19 @@ fn a_text_past_the_byte_limit_has_none_left() {
 }
 
 #[test]
+fn the_box_takes_the_width_that_the_layout_gives_its_scroll_frame() {
+    let game = open_book(FILLED);
+    click(&game, GOAL);
+
+    let width: f64 = game.eval(
+        "TimewaysEditorScroll:SetWidth(312)
+         return wow.EditBox().width",
+    );
+
+    assert!((width - 312.0).abs() < f64::EPSILON);
+}
+
+#[test]
 fn the_box_scrolls_to_keep_the_cursor_in_view() {
     let game = open_book(FILLED);
     click(&game, GOAL);

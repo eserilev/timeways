@@ -353,16 +353,22 @@ local function NewWidget(kind, name, parent, template)
 	return widget
 end
 
+-- A new size runs OnSizeChanged, as the game does after its layout. A test calls SetSize
+-- or SetWidth to stand in for a layout that gives an anchored frame its size.
 function Widget:SetSize(width, height)
+	local changed = width ~= self.width or height ~= self.height
 	self.width, self.height = width, height
+	if changed and self.scripts.OnSizeChanged then
+		self.scripts.OnSizeChanged(self, width, height)
+	end
 end
 
 function Widget:SetWidth(width)
-	self.width = width
+	self:SetSize(width, self.height)
 end
 
 function Widget:SetHeight(height)
-	self.height = height
+	self:SetSize(self.width, height)
 end
 
 function Widget:SetPoint(...)
@@ -476,8 +482,18 @@ function Widget:GetText()
 	return self.text
 end
 
+-- A line of the quest font is 14 high. A text wraps at the width of its font string, with
+-- letters as wide as GetStringWidth gives them, and each line break starts a line.
+local LINE_HEIGHT = 14
+
 function Widget:GetStringHeight()
-	return 14
+	local lines = 0
+	for paragraph in ((self.text or "") .. "\n"):gmatch("(.-)\n") do
+		local wide = 6 * #paragraph
+		local width = self.width or 0
+		lines = lines + ((width > 0 and wide > width) and math.ceil(wide / width) or 1)
+	end
+	return lines * LINE_HEIGHT
 end
 
 function Widget:SetEnabled(enabled)
@@ -538,8 +554,13 @@ function wow.DrawOrder(widget)
 	return LAYERS[widget.layer] * 100 + widget.sublevel
 end
 
+-- The scroll frame template of the game comes with its scroll bar.
 function CreateFrame(kind, name, parent, template)
-	return NewWidget(kind, name, parent, template)
+	local frame = NewWidget(kind, name, parent, template)
+	if template == "UIPanelScrollFrameTemplate" then
+		frame.ScrollBar = NewWidget("Slider", nil, frame)
+	end
+	return frame
 end
 
 UIParent = NewWidget("Frame", "UIParent")
