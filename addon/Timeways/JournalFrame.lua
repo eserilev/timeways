@@ -31,7 +31,7 @@ local STYLES = {
 -- buttons only: a second row falls below the art. Each tab is as wide as its label, and the
 -- tabs share the rest of the band.
 local TABS_LEFT, TABS_RIGHT, TABS_BOTTOM = 23, 345, 73
-local TAB_HEIGHT, TAB_GAP = 22, 2
+local TAB_HEIGHT, TAB_GAP = 22, 1
 
 -- The dark band between the title and the parchment holds the line on how to use the page.
 local USAGE_LEFT, USAGE_WIDTH, USAGE_Y = 80, 250, -60

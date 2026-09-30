@@ -104,7 +104,7 @@ fn quest_needs_an_npc_target() {
     assert!(game.sent().is_empty());
     assert_eq!(
         game.printed(),
-        ["|cffc8a064Timeways|r: Target someone to ask for a task first."]
+        ["|cffc8a064Timeways|r: Who are you asking? Target someone first."]
     );
 }
 
@@ -141,7 +141,7 @@ fn an_unknown_word_shows_how_to_use_quest() {
     assert_eq!(
         game.printed(),
         [
-            "|cffc8a064Timeways|r: Type /quest to ask your target for a task, then /quest accept or /quest decline."
+            "|cffc8a064Timeways|r: Target someone and type /quest to ask for a task. Then /quest accept, or /quest decline."
         ]
     );
 }
@@ -263,7 +263,7 @@ fn with_no_quest_the_page_says_how_to_ask() {
 
     assert_eq!(
         lines(&game),
-        ["help: No task yet. Target an NPC that you met, and type /quest."]
+        ["help: No one has asked you for a favor yet. Target someone, and type /quest."]
     );
 }
 

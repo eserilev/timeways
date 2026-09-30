@@ -13,7 +13,7 @@ use timeways_story::story::Output;
 const DAY: u64 = 1_790_000_000;
 
 /// The page before the desktop answers.
-const FILLING: &str = "help: The pages fill with ink... They come from the desktop program. Start it if they stay empty.";
+const FILLING: &str = "help: The ink is still drying... If the pages stay blank, start Gnomish Relay on your computer.";
 
 /// The reply line of the first page that the story program writes for this character.
 fn journal_reply(character: &Character) -> String {
@@ -154,15 +154,15 @@ fn an_empty_section_shows_a_note() {
 
     assert_eq!(
         lines(&game, "places"),
-        ["help: No place yet. Each zone that you enter shows here."]
+        ["help: You haven't set foot anywhere yet. The road is waiting."]
     );
     assert_eq!(
         lines(&game, "people"),
-        ["help: No one yet. Speak with an NPC, and it shows here."]
+        ["help: No one knows your name yet. Try saying hello."]
     );
     assert_eq!(
         lines(&game, "deeds"),
-        ["help: No deed yet. Gain a level, or defeat a rare foe or a boss."]
+        ["help: Nothing worth a song yet. Give it time."]
     );
 }
 
@@ -288,12 +288,12 @@ fn a_broken_journal_shows_gaps_and_no_error() {
 
     assert_eq!(
         lines(&game, "places"),
-        ["help: No place yet. Each zone that you enter shows here."]
+        ["help: You haven't set foot anywhere yet. The road is waiting."]
     );
     assert_eq!(lines(&game, "people")[0], "entry: ?");
     assert_eq!(
         lines(&game, "deeds"),
-        ["help: No deed yet. Gain a level, or defeat a rare foe or a boss."]
+        ["help: Nothing worth a song yet. Give it time."]
     );
 }
 
@@ -417,7 +417,7 @@ fn an_entry_that_is_not_a_table_is_skipped() {
     );
     assert_eq!(
         lines(&game, "places"),
-        ["help: No place yet. Each zone that you enter shows here."]
+        ["help: You haven't set foot anywhere yet. The road is waiting."]
     );
     assert_eq!(lines(&game, "people")[0], "entry: Ada");
 }
@@ -469,7 +469,7 @@ fn no_chapter_yet_shows_a_note() {
 
     assert_eq!(
         lines(&game, "chapters"),
-        ["help: No chapter yet. Play for a while, and the first chapter writes itself."]
+        ["help: Your story hasn't started yet. Go make some trouble."]
     );
 }
 
@@ -664,7 +664,7 @@ fn an_empty_learned_page_says_how_to_learn() {
 
     game.reply(&learned_reply(Vec::new()));
 
-    assert!(lines(&game, "learned")[0].contains("Read a book"));
+    assert!(lines(&game, "learned")[0].contains("Pick up a book"));
 }
 
 #[test]

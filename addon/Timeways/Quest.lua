@@ -18,7 +18,7 @@ end
 function Quest.Ask()
 	local npc = ns.Units.NpcName("target")
 	if not npc then
-		Say("Target someone to ask for a task first.")
+		Say("Who are you asking? Target someone first.")
 		return
 	end
 	Send(ns.Inputs.QuestAsked(time(), npc))
@@ -30,12 +30,12 @@ end
 function Quest.Accept(number)
 	ns.Watch.ForgetMet()
 	Send(ns.Inputs.QuestAccepted(time(), number))
-	Say("You accept the task. It is in your journal.")
+	Say("You take the task. It's in your journal.")
 end
 
 function Quest.Decline(number)
 	Send(ns.Inputs.QuestDeclined(time(), number))
-	Say("You decline the task.")
+	Say("You turn the task down.")
 end
 
 local WORDS = {
@@ -51,7 +51,7 @@ local WORDS = {
 function Quest.Command(message)
 	local run = WORDS[message:match("^%s*(%S*)"):lower()]
 	if not run then
-		Say("Type /quest to ask your target for a task, then /quest accept or /quest decline.")
+		Say("Target someone and type /quest to ask for a task. Then /quest accept, or /quest decline.")
 		return
 	end
 	run()

@@ -15,7 +15,7 @@ Journal.TITLES = {
 	places = "Places",
 	people = "People",
 	deeds = "Deeds",
-	learned = "Learned",
+	learned = "Knowledge",
 	quests = "Quests",
 }
 
@@ -373,7 +373,7 @@ local function SheetTexts(hero, unsaved)
 end
 
 local function Sheet(hero, unsaved)
-	local lines = { Line("heading", "Who you are") }
+	local lines = { Line("heading", "Who You Are") }
 	local texts = SheetTexts(hero, unsaved)
 	for _, field in ipairs(ns.Hero.FIELDS) do
 		local text = texts[field]
@@ -430,10 +430,13 @@ end
 
 local function Lore(hero, unsaved)
 	local add = { label = "Add", run = ns.Hero.Write }
-	local lines = { Line("heading", "Your own lore", add) }
+	local lines = { Line("heading", "Pages of Your Own", add) }
 	local entries = LoreEntries(hero, unsaved)
 	if #entries == 0 then
-		lines[#lines + 1] = Line("help", "Nothing yet. Click Add to write a memory, a rumor, or a vow.")
+		lines[#lines + 1] = Line(
+			"help",
+			"The game only sees what you kill and where you go. Write the rest: a grudge, a promise, a night you'd rather forget."
+		)
 	end
 	for _, line in ipairs(entries) do
 		lines[#lines + 1] = line
@@ -462,23 +465,23 @@ local BUILDERS = {
 }
 
 local EMPTY = {
-	chapters = "No chapter yet. Play for a while, and the first chapter writes itself.",
-	places = "No place yet. Each zone that you enter shows here.",
-	people = "No one yet. Speak with an NPC, and it shows here.",
-	deeds = "No deed yet. Gain a level, or defeat a rare foe or a boss.",
-	learned = "Nothing yet. Read a book, or listen to the people that you meet.",
-	quests = "No task yet. Target an NPC that you met, and type /quest.",
+	chapters = "Your story hasn't started yet. Go make some trouble.",
+	places = "You haven't set foot anywhere yet. The road is waiting.",
+	people = "No one knows your name yet. Try saying hello.",
+	deeds = "Nothing worth a song yet. Give it time.",
+	learned = "You haven't learned a thing yet. Pick up a book, or listen at the inn.",
+	quests = "No one has asked you for a favor yet. Target someone, and type /quest.",
 }
 
 -- The line under the title of the book, on how to use the page.
 Journal.USAGE = {
-	hero = "Your hero in your own words. The narrator and the bard read it, and it is never canon.",
-	chapters = "One chapter for each time that you play, in the order of your story.",
-	places = "Each zone that you visited, with its subzones.",
-	people = "Each NPC that you met, and what it thinks of you.",
-	deeds = "Your levels, your great kills, your deaths, and your titles.",
-	learned = "What you read and heard: books, quest tales, and the words of NPCs.",
-	quests = "Tasks from the NPCs that you meet. Ask one with /quest.",
+	hero = "Who you are, in your own hand.",
+	chapters = "Your story so far, chapter by chapter.",
+	places = "Everywhere your boots have been.",
+	people = "Everyone you've met, and what they make of you.",
+	deeds = "Levels gained, foes felled, and the odd embarrassing death.",
+	learned = "Everything you've read, and everything you've overheard.",
+	quests = "Favors from the people you meet. Target someone, and type /quest.",
 }
 
 -- Each line is { style = "heading" | "prose" | "entry" | "text" | "note" | "hint" |
@@ -495,7 +498,7 @@ end
 function Journal.Lines(section)
 	if not pages then
 		return {
-			Line("help", "The pages fill with ink... They come from the desktop program. Start it if they stay empty."),
+			Line("help", "The ink is still drying... If the pages stay blank, start Gnomish Relay on your computer."),
 		}
 	end
 	return Journal.Render(pages, section)

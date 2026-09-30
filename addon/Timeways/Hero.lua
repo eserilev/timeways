@@ -17,12 +17,12 @@ Hero.LABELS = {
 	traits = "Traits",
 }
 Hero.HINTS = {
-	origin = "Where your hero comes from.",
-	background = "What your hero did before the adventure.",
-	goal = "What your hero wants most.",
-	bond = "A person or a place that your hero cares about.",
-	flaw = "What gets your hero into trouble.",
-	traits = "Your hero's manner, in a line or two.",
+	origin = "Where were you born, and who raised you?",
+	background = "What did you do before the road called?",
+	goal = "What are you chasing?",
+	bond = "Who, or what, would you die for?",
+	flaw = "What always gets you into trouble?",
+	traits = "How would a stranger describe you?",
 }
 
 -- The desktop refuses a longer text, so the editor stops at the same length.
@@ -105,7 +105,7 @@ StaticPopupDialogs.TIMEWAYS_HERO_REMOVE = {
 function Hero.Edit(field, current)
 	ns.JournalFrame.Edit({
 		title = Hero.LABELS[field],
-		hint = Hero.HINTS[field] .. " Leave it empty to clear it.",
+		hint = Hero.HINTS[field] .. " Leave it blank to erase it.",
 		text = current,
 		limit = Hero.MAX_LETTERS,
 		save = function(text)
@@ -118,8 +118,8 @@ end
 
 function Hero.Write()
 	ns.JournalFrame.Edit({
-		title = "Add to your own lore",
-		hint = "A memory, a rumor, or a vow. It keeps the place where you stand.",
+		title = "Write a new page",
+		hint = "Anything that happened to you. The bard weaves it into your story.",
 		text = "",
 		limit = Hero.MAX_LETTERS,
 		save = Hero.Add,
