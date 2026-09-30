@@ -403,7 +403,8 @@ impl Character {
         self.propose(at, mark)
     }
 
-    /// The place where you stand keeps its first position. A later visit changes nothing.
+    /// The place where you stand keeps its first position, and so does each place around
+    /// it. You mostly stand in a subzone, so a zone takes the first position in any of them.
     ///
     /// # Errors
     ///
@@ -412,7 +413,12 @@ impl Character {
         let Some(here) = self.world.location_of(self.you) else {
             return Ok(());
         };
-        self.mark_spot(at, here, spot)
+        let mut places = vec![here];
+        places.extend(self.world.ancestry(here));
+        for place in places {
+            self.mark_spot(at, place, spot)?;
+        }
+        Ok(())
     }
 
     /// An NPC keeps the position of the first meeting that had one.

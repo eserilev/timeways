@@ -97,7 +97,7 @@ fn a_spot_off_the_map_counts_as_no_spot_and_the_visit_still_counts() {
 }
 
 #[test]
-fn a_visit_marks_the_subzone_where_you_stand() {
+fn a_first_visit_with_a_spot_marks_the_subzone_and_its_zone() {
     let mut character = Character::new();
     character
         .enter_zone(Tick(10), "Testvale", Some("Old Mill"))
@@ -109,7 +109,33 @@ fn a_visit_marks_the_subzone_where_you_stand() {
         place_spot(&character, "Old Mill"),
         Some(spot(1420, 250, 750))
     );
-    assert_eq!(place_spot(&character, "Testvale"), None);
+    assert_eq!(
+        place_spot(&character, "Testvale"),
+        Some(spot(1420, 250, 750))
+    );
+}
+
+#[test]
+fn a_zone_keeps_its_spot_when_you_visit_another_subzone() {
+    let mut character = Character::new();
+    character
+        .enter_zone(Tick(10), "Testvale", Some("Old Mill"))
+        .unwrap();
+    character.mark_here(Tick(10), spot(1420, 250, 750)).unwrap();
+
+    character
+        .enter_zone(Tick(20), "Testvale", Some("Old Tower"))
+        .unwrap();
+    character.mark_here(Tick(20), spot(1420, 600, 100)).unwrap();
+
+    assert_eq!(
+        place_spot(&character, "Old Tower"),
+        Some(spot(1420, 600, 100))
+    );
+    assert_eq!(
+        place_spot(&character, "Testvale"),
+        Some(spot(1420, 250, 750))
+    );
 }
 
 #[test]
