@@ -233,6 +233,7 @@ fn quest_change() -> impl Strategy<Value = QuestChange> {
 /// uniform draw almost never lands.
 fn play_step() -> impl Strategy<Value = u64> {
     prop_oneof![
+        Just(SESSION_GAP_SECONDS - 1),
         Just(SESSION_GAP_SECONDS),
         Just(SESSION_GAP_SECONDS + 1),
         Just(MIN_CHAPTER_PLAY_SECONDS),
