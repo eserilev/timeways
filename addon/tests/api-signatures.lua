@@ -889,6 +889,17 @@ return {
 			IsProtectedFunction = true,
 			Arguments = {},
 		},
+		["SimpleFrameAPI:UnregisterEvent"] = {
+			AddsForbiddenAspects = { { Argument = "self", Aspect = Enum.ForbiddenAspect.EventRegistrations } },
+			ChecksForbiddenAspects = { { Argument = "self", Aspect = Enum.ForbiddenAspect.EventRegistrations } },
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "eventName", Type = "cstring", Nilable = false },
+			},
+			Returns = {
+				{ Name = "registered", Type = "bool", Nilable = false },
+			},
+		},
 		["SimpleHTMLAPI:SetFontObject"] = {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {
@@ -1249,6 +1260,9 @@ return {
 			},
 		},
 		PLAYER_LOGIN = {
+			SynchronousEvent = true,
+		},
+		PLAYER_REGEN_ENABLED = {
 			SynchronousEvent = true,
 		},
 		PLAYER_TARGET_CHANGED = {

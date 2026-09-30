@@ -368,6 +368,10 @@ function Widget:RegisterEvent(event)
 	self.events[event] = true
 end
 
+function Widget:UnregisterEvent(event)
+	self.events[event] = nil
+end
+
 -- The fake fires a unit event for every unit; a test fires it only for the unit it wants.
 function Widget:RegisterUnitEvent(event)
 	self.events[event] = true

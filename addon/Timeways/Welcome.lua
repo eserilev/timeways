@@ -23,6 +23,13 @@ Welcome.COMMANDS = {
 	unix = "curl -fsSL https://raw.githubusercontent.com/eserilev/gnomish-relay/main/scripts/install.sh | sh -s -- --timeways",
 }
 
+-- The chat line of a later session, after the window showed once for the same reason.
+local REMINDERS = {
+	setup = "Timeways needs its desktop app. Type /timeways help to set it up.",
+	files = "Some Timeways files are missing. Type /timeways help to fix it.",
+	offline = "Can't reach the desktop app. Type /timeways help to see what to do.",
+}
+
 local HEADINGS = {
 	setup = "Install the desktop app",
 	files = "Some Timeways files are missing",
@@ -172,14 +179,40 @@ function Welcome.OpenIfNoApp()
 	return true
 end
 
-local function OpenIfNeeded()
-	local reason = Welcome.Reason()
-	if reason then
-		Welcome.Open(reason)
-	end
+-- The reasons that opened the window at a login, in any session.
+local function ShownBefore()
+	local saved = ns.Saved()
+	saved.welcomeShown = type(saved.welcomeShown) == "table" and saved.welcomeShown or {}
+	return saved.welcomeShown
 end
 
--- Runs at each loading screen. Only the first one checks, so the window shows once each session.
+local combatWatch = CreateFrame("Frame")
+
+local function OpenIfNeeded()
+	local reason = Welcome.Reason()
+	if not reason then
+		return
+	end
+	if ShownBefore()[reason] then
+		DEFAULT_CHAT_FRAME:AddMessage("|cffc8a064Timeways|r: " .. REMINDERS[reason])
+		return
+	end
+	-- A window in the middle of a fight gets in the way, so it waits for the fight to end.
+	if InCombatLockdown() then
+		combatWatch:RegisterEvent("PLAYER_REGEN_ENABLED")
+		return
+	end
+	ShownBefore()[reason] = true
+	Welcome.Open(reason)
+end
+
+combatWatch:SetScript("OnEvent", function(self)
+	self:UnregisterEvent("PLAYER_REGEN_ENABLED")
+	OpenIfNeeded()
+end)
+
+-- Runs at each loading screen. Only the first one checks, so the window shows at most once
+-- each session, and after its first time for a reason only a chat line comes.
 function Welcome.Login()
 	if checked then
 		return

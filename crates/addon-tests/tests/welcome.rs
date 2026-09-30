@@ -337,3 +337,55 @@ fn writing_help_with_no_desktop_app_opens_the_setup_window() {
     assert!(told_to_install(&game));
     assert!(game.eval::<bool>("ns.TaskDraftHelp.State() == nil"));
 }
+
+#[test]
+fn the_window_waits_for_the_end_of_combat() {
+    let game = game_with_no_key();
+    game.run("wow.combat = true");
+    login(&game);
+    wait(&game, 1);
+    let in_combat = shown(&game);
+
+    game.run("wow.combat = false; wow.Fire('PLAYER_REGEN_ENABLED')");
+
+    assert!(!in_combat);
+    assert!(shown(&game));
+}
+
+#[test]
+fn a_later_session_gets_a_chat_line_in_place_of_the_window() {
+    let game = game_with_no_key();
+    game.run("TimewaysDB = { welcomeShown = { setup = true } }");
+
+    login(&game);
+    wait(&game, 1);
+
+    assert!(!shown(&game));
+    let printed = game.printed();
+    assert!(
+        printed.iter().any(|line| line.contains("/timeways help")),
+        "{printed:?}"
+    );
+}
+
+#[test]
+fn the_window_at_login_is_remembered_for_later_sessions() {
+    let game = game_with_no_key();
+
+    login(&game);
+    wait(&game, 1);
+
+    assert!(game.eval::<bool>("TimewaysDB.welcomeShown.setup == true"));
+}
+
+#[test]
+fn a_new_problem_opens_the_window_once_more() {
+    let game = Game::with_transport();
+    game.run("TimewaysDB = { welcomeShown = { setup = true } }");
+
+    login(&game);
+    wait(&game, 60);
+
+    assert!(shown(&game));
+    assert_eq!(heading(&game), "Some Timeways files are missing");
+}
