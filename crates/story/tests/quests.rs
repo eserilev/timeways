@@ -82,11 +82,16 @@ fn call_of(output: Output) -> (CallId, String) {
     }
 }
 
-fn narrator(outputs: Vec<Output>) -> Option<String> {
+/// The line of Timeways that answers a batch. The narrator says nothing about tasks.
+fn notice(outputs: Vec<Output>) -> Option<String> {
     match outputs.into_iter().next() {
-        Some(Output::EventsSeen { id, narrator }) => {
+        Some(Output::EventsSeen {
+            id,
+            narrator: None,
+            notice,
+        }) => {
             assert_eq!(id, BATCH);
-            narrator
+            notice
         }
         other => panic!("expected events_seen, got {other:?}"),
     }
@@ -98,7 +103,7 @@ fn offer(story: &mut Story, at: u64) -> Option<String> {
         call,
         text: OFFER.to_string(),
     };
-    narrator(story.handle(answer).unwrap())
+    notice(story.handle(answer).unwrap())
 }
 
 fn page(story: &mut Story) -> Page {
@@ -139,7 +144,7 @@ fn a_quest_request_takes_the_place_of_the_narrator_call() {
 }
 
 #[test]
-fn a_checked_offer_comes_back_as_the_narrator_line() {
+fn a_checked_offer_comes_back_as_a_notice_of_timeways() {
     let mut story = story("offer");
 
     let line = offer(&mut story, 5);
@@ -160,7 +165,7 @@ fn with_no_model_the_giver_has_no_task() {
     let mut story = story("no-model");
     let (call, _) = call_of(ask(&mut story, 5));
 
-    let line = narrator(story.handle(Input::ModelFailed { call }).unwrap());
+    let line = notice(story.handle(Input::ModelFailed { call }).unwrap());
 
     assert_eq!(
         line.as_deref(),
@@ -175,7 +180,7 @@ fn an_offer_that_breaks_a_rule_shows_no_task_and_stays_out_of_the_log() {
     let (call, _) = call_of(ask(&mut story, 5));
     let text = OFFER.replace("Farmer Bram", "Captain Vorn");
 
-    let line = narrator(story.handle(Input::ModelAnswered { call, text }).unwrap());
+    let line = notice(story.handle(Input::ModelAnswered { call, text }).unwrap());
 
     assert_eq!(
         line.as_deref(),
@@ -317,7 +322,8 @@ fn a_giver_waits_for_you_to_finish_its_open_quest() {
         output,
         Output::EventsSeen {
             id: BATCH,
-            narrator: Some(
+            narrator: None,
+            notice: Some(
                 "Keeper Tessa is waiting for you to finish \"The Lost Lantern\".".to_string()
             ),
         }
@@ -346,7 +352,7 @@ const VISIT_TOWER: &str = r#"{"goal": "visit", "place": "Old Tower"}"#;
 /// step.
 fn answer_with(story: &mut Story, call: CallId, title: &str, step: &str) -> Option<String> {
     let text = format!(r#"{{"title": "{title}", "text": "Go and look.", "steps": [{step}]}}"#);
-    narrator(story.handle(Input::ModelAnswered { call, text }).unwrap())
+    notice(story.handle(Input::ModelAnswered { call, text }).unwrap())
 }
 
 fn accept(story: &mut Story, at: u64, number: Option<u64>) -> Vec<Output> {
@@ -384,7 +390,7 @@ fn two_offers_of_one_giver_never_make_two_open_quests() {
 }
 
 #[test]
-fn an_accept_past_three_open_quests_is_refused_in_the_narrator_line() {
+fn an_accept_past_three_open_quests_is_refused_in_a_notice() {
     let mut story = story("full-log");
     let givers = ["Keeper Tessa", "Innkeeper Pell", "Guard Rolf", "Smith Hana"];
     for (n, giver) in (0u64..).zip(givers) {
@@ -401,7 +407,7 @@ fn an_accept_past_three_open_quests_is_refused_in_the_narrator_line() {
 
     assert_eq!(open_quests(&mut story), 3);
     assert_eq!(
-        narrator(batch).as_deref(),
+        notice(batch).as_deref(),
         Some("You already have 3 tasks. Finish one first.")
     );
 }

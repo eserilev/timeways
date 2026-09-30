@@ -104,8 +104,16 @@ local REPLIES = {
 	journal = ns.Journal.Receive,
 }
 
+-- A notice is a line of Timeways itself, such as why a task was refused. It never takes
+-- the voice of the narrator.
+local function ShowNotice(text)
+	if type(text) == "string" and text ~= "" then
+		DEFAULT_CHAT_FRAME:AddMessage("|cffc8a064Timeways|r: " .. ns.Plain(text))
+	end
+end
+
 -- A reply holds one JSON line: an answer, a journal page, or `events_seen` for a batch of
--- game events. Each one can carry a line of the narrator.
+-- game events. Each one can carry a line of the narrator and a notice.
 function ns.OnReply(text)
 	if type(text) ~= "string" then
 		return
@@ -118,6 +126,7 @@ function ns.OnReply(text)
 		end
 		if type(value) == "table" then
 			ns.Narrator.Say(value.narrator)
+			ShowNotice(value.notice)
 		end
 	end
 end

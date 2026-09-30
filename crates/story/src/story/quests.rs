@@ -13,7 +13,7 @@ use crate::story::Output;
 use hourglass::Tick;
 
 /// A `/quest` of this batch. It waits for `batch_end`, because the offer comes back as
-/// the narrator line.
+/// a notice of the batch answer.
 pub(super) struct QuestRequest {
     giver: String,
     at: Tick,
@@ -28,11 +28,12 @@ impl Story {
         Ok(Vec::new())
     }
 
-    /// The offer takes the place of the narrator line. A request that breaks a rule gets
+    /// The offer takes the place of the narrator call, and comes back as a notice. A request
+    /// that breaks a rule gets
     /// a line of the code, and no model call.
     pub(super) fn quest_call(&mut self, batch: MessageId, request: QuestRequest) -> Output {
         let Some(active) = self.active.as_ref() else {
-            return narrator_line(batch, None);
+            return quiet(batch);
         };
         let quests = quest_log(active.quests.changes());
         let giver = request.giver.as_str();
@@ -40,7 +41,7 @@ impl Story {
             return no_offer(batch, giver);
         }
         if let Some(refusal) = refusal(&quests, giver) {
-            return narrator_line(batch, Some(refusal));
+            return notice_line(batch, refusal);
         }
         let seen = seen_texts(active);
         let known = known(&active.character, giver, &seen, &quests);
@@ -70,7 +71,7 @@ impl Story {
         };
         let quests = quest_log(active.quests.changes());
         if let Some(refusal) = refusal(&quests, giver) {
-            return narrator_line(batch, Some(refusal));
+            return notice_line(batch, refusal);
         }
         let seen = seen_texts(active);
         let known = known(&active.character, giver, &seen, &quests);
@@ -95,7 +96,7 @@ impl Story {
         let _ = self.change(|character| {
             character.offer_quest(at, giver, &thing_name(number, &offer.title))
         });
-        narrator_line(batch, Some(line))
+        notice_line(batch, line)
     }
 
     /// The answer names its offer by number. With no number, it takes the newest offer.
@@ -190,16 +191,27 @@ impl Story {
     }
 }
 
-pub(super) fn narrator_line(batch: MessageId, line: Option<String>) -> Output {
+/// A batch with nothing to say.
+pub(super) fn quiet(batch: MessageId) -> Output {
     Output::EventsSeen {
         id: batch,
-        narrator: line,
+        narrator: None,
+        notice: None,
+    }
+}
+
+/// A line of Timeways, not of the narrator: an offer, or why there is none.
+pub(super) fn notice_line(batch: MessageId, line: String) -> Output {
+    Output::EventsSeen {
+        id: batch,
+        narrator: None,
+        notice: Some(line),
     }
 }
 
 /// With no model, or with an offer that breaks a rule, the giver has nothing to say.
 pub(super) fn no_offer(batch: MessageId, giver: &str) -> Output {
-    narrator_line(batch, Some(no_task(giver)))
+    notice_line(batch, no_task(giver))
 }
 
 fn no_task(giver: &str) -> String {

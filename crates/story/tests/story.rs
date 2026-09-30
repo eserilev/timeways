@@ -568,7 +568,8 @@ fn a_batch_with_no_big_moment_is_seen_at_once_with_no_line() {
         output,
         Output::EventsSeen {
             id: MessageId(3),
-            narrator: None
+            narrator: None,
+            notice: None,
         }
     );
 }
@@ -592,7 +593,8 @@ fn a_big_moment_asks_the_model_for_a_narrator_line() {
         output,
         Some(Output::EventsSeen {
             id: MessageId(3),
-            narrator
+            narrator,
+            notice: None,
         })
     );
 }
@@ -709,14 +711,16 @@ fn a_failed_or_bad_narrator_line_is_silence() {
         after_failure,
         Some(Output::EventsSeen {
             id: MessageId(3),
-            narrator: None
+            narrator: None,
+            notice: None,
         })
     );
     assert_eq!(
         after_bad_line,
         Some(Output::EventsSeen {
             id: MessageId(4),
-            narrator: None
+            narrator: None,
+            notice: None,
         })
     );
 }
@@ -737,7 +741,8 @@ fn a_spent_budget_asks_no_model() {
         output,
         Output::EventsSeen {
             id: MessageId(4),
-            narrator: None
+            narrator: None,
+            notice: None,
         }
     );
 }
@@ -755,7 +760,8 @@ fn each_batch_starts_with_no_moments() {
         output,
         Output::EventsSeen {
             id: MessageId(4),
-            narrator: None
+            narrator: None,
+            notice: None,
         }
     );
 }
@@ -810,7 +816,8 @@ fn a_finished_chapter_asks_for_its_saga_after_the_batch() {
         outputs[0],
         Output::EventsSeen {
             id: MessageId(3),
-            narrator: None
+            narrator: None,
+            notice: None,
         }
     );
     let [_, Output::ModelCall { prompt, .. }] = outputs.as_slice() else {
@@ -994,7 +1001,8 @@ fn the_last_chapter_waits_for_the_next_session() {
         outputs,
         [Output::EventsSeen {
             id: MessageId(3),
-            narrator: None
+            narrator: None,
+            notice: None,
         }]
     );
 }
@@ -1088,7 +1096,8 @@ fn moments_of_one_character_never_reach_another() {
         output,
         Output::EventsSeen {
             id: MessageId(3),
-            narrator: None
+            narrator: None,
+            notice: None,
         }
     );
 }
@@ -1417,7 +1426,8 @@ fn a_plain_moment_gets_no_line() {
         batch_end(&mut story, 2),
         Output::EventsSeen {
             id: MessageId(2),
-            narrator: None
+            narrator: None,
+            notice: None,
         }
     );
 }
@@ -1463,7 +1473,8 @@ fn a_second_flavor_line_waits_twenty_minutes() {
         soon,
         Output::EventsSeen {
             id: MessageId(3),
-            narrator: None
+            narrator: None,
+            notice: None,
         }
     );
     assert!(matches!(later, Output::ModelCall { .. }), "{later:?}");
@@ -1496,7 +1507,8 @@ fn the_gap_between_flavor_lines_counts_from_the_time_of_the_line() {
         six_minutes_later,
         Output::EventsSeen {
             id: MessageId(4),
-            narrator: None
+            narrator: None,
+            notice: None,
         }
     );
 }
@@ -1520,7 +1532,8 @@ fn the_same_kind_of_joke_waits_for_the_next_evening() {
         same_evening,
         Output::EventsSeen {
             id: MessageId(3),
-            narrator: None
+            narrator: None,
+            notice: None,
         }
     );
     let Output::ModelCall { prompt, .. } = next_day else {
@@ -1563,7 +1576,8 @@ fn the_saga_gets_the_small_moments_of_its_chapter_and_its_footnotes_are_kept_and
         close_narrator(&mut story, 4),
         Output::EventsSeen {
             id: MessageId(4),
-            narrator: None
+            narrator: None,
+            notice: None,
         }
     );
 }
@@ -1762,7 +1776,8 @@ fn the_narrator_may_name_a_later_place_that_the_player_wrote() {
         output,
         Some(Output::EventsSeen {
             id: MessageId(2),
-            narrator: Some("Still no road to Shattrath.".to_string())
+            narrator: Some("Still no road to Shattrath.".to_string()),
+            notice: None,
         })
     );
 }

@@ -391,6 +391,31 @@ fn a_narrator_line_shows_from_the_answer_to_a_batch() {
 }
 
 #[test]
+fn a_notice_shows_as_a_line_of_timeways_and_not_of_the_narrator() {
+    let game = Game::new();
+
+    game.reply(
+        r#"{"type":"events_seen","id":3,"narrator":null,"notice":"You already have 3 tasks. Finish one first."}"#,
+    );
+
+    let printed = game.printed();
+    assert_eq!(printed.len(), 1);
+    assert_eq!(
+        printed[0],
+        "|cffc8a064Timeways|r: You already have 3 tasks. Finish one first."
+    );
+}
+
+#[test]
+fn a_notice_that_the_bridge_escaped_shows_as_it_is() {
+    let game = Game::new();
+
+    game.reply(r#"{"type":"events_seen","id":3,"notice":"||cffff0000red||r"}"#);
+
+    assert!(game.printed()[0].ends_with("Timeways|r: ||cffff0000red||r"));
+}
+
+#[test]
 fn a_batch_with_no_narrator_line_shows_nothing() {
     let game = Game::new();
 

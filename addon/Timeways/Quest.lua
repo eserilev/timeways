@@ -1,5 +1,5 @@
 -- `/quest` asks the NPC that you target for a task. `/quest accept` and `/quest decline`
--- answer the offer that waits (GAMEPLAY.md 3.4). The offer comes back as a narrator line.
+-- answer the offer that waits (GAMEPLAY.md 3.4). The offer comes back as a notice, a line of Timeways.
 
 local _, ns = ...
 

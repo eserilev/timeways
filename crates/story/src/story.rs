@@ -106,6 +106,9 @@ pub enum Output {
     EventsSeen {
         id: MessageId,
         narrator: Option<String>,
+        /// A line of Timeways itself, not of the narrator: "You already have 3 tasks.".
+        #[serde(skip_serializing_if = "Option::is_none")]
+        notice: Option<String>,
     },
     /// The bridge runs the model with no tools, and answers with `model_answered` or
     /// `model_failed` for the same call.
@@ -532,6 +535,7 @@ impl Story {
             Pending::Narrator { batch } => vec![Output::EventsSeen {
                 id: batch,
                 narrator: narrator::checked_line(text, &self.player_text(None)),
+                notice: None,
             }],
             Pending::Chronicle { key, began } => self.saga_answered(&key, began, Some(text))?,
             Pending::Talk {
@@ -610,6 +614,7 @@ impl Story {
             Pending::Narrator { batch } => vec![Output::EventsSeen {
                 id: batch,
                 narrator: None,
+                notice: None,
             }],
             Pending::Chronicle { key, began } => self.saga_answered(&key, began, None)?,
             Pending::Talk { question, npc, .. } => vec![Output::TalkAnswer {
@@ -841,7 +846,7 @@ impl Story {
     fn end_batch(&mut self, batch: MessageId) -> Vec<Output> {
         let seen = match (self.quest_request.take(), self.quest_note.take()) {
             (Some(request), _) => self.quest_call(batch, request),
-            (None, Some(note)) => quests::narrator_line(batch, Some(note)),
+            (None, Some(note)) => quests::notice_line(batch, note),
             (None, None) => self.narrator_call(batch),
         };
         let mut outputs = vec![seen];
@@ -855,6 +860,7 @@ impl Story {
         let quiet = Output::EventsSeen {
             id: batch,
             narrator: None,
+            notice: None,
         };
         let chronicle_writes = self
             .calls
