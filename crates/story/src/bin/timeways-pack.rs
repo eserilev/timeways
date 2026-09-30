@@ -17,6 +17,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use timeways_story::pack::{Link, Origin, Pack, Passage};
 use timeways_story::pack_sources::{self, Built, Outcome, Sources};
+use timeways_story::passage_limits;
 
 const USAGE: &str = "usage: timeways-pack <passages.jsonl> <new pack file>
        timeways-pack from-dump <wiki dump .xml or .7z> <new pack file>";
@@ -86,7 +87,11 @@ fn from_lines(passages: &Path, pack: &Path) -> Result<(), Box<dyn Error>> {
     {
         let line: PassageLine =
             serde_json::from_str(line).map_err(|error| format!("line {}: {error}", number + 1))?;
-        read.push(line.into_passage());
+        let passage = line.into_passage();
+        if let Some(fault) = passage_limits::fault(&passage) {
+            return Err(format!("line {}: {fault}", number + 1).into());
+        }
+        read.push(passage);
     }
     Pack::write(pack, &read)?;
     println!("wrote {} passages to {}", read.len(), pack.display());
@@ -97,6 +102,11 @@ fn from_dump(dump: &Path, pack: &Path) -> Result<(), Box<dyn Error>> {
     refuse_existing(pack)?;
     let built = pack_sources::from_dump(dump, &Sources::bundled()?)?;
     print_report(&built);
+    for passage in &built.passages {
+        if let Some(fault) = passage_limits::fault(passage) {
+            return Err(format!("the passage from {}: {fault}", passage.source).into());
+        }
+    }
     Pack::write(pack, &built.passages)?;
     println!(
         "wrote {} passages to {}",

@@ -138,7 +138,7 @@ fn a_quest_request_takes_the_place_of_the_narrator_call() {
 
     let (_, prompt) = call_of(ask(&mut story, 5));
 
-    assert!(prompt.contains("You are Keeper Tessa"), "{prompt}");
+    assert!(prompt.contains("Name: Keeper Tessa"), "{prompt}");
     assert!(prompt.contains("- Farmer Bram"), "{prompt}");
     assert!(prompt.contains("- Mill Pond"), "{prompt}");
 }
@@ -500,7 +500,7 @@ fn an_abandoned_quest_leaves_the_book_and_frees_its_giver() {
 
     assert!(quests(&mut story).is_empty());
     let (_, prompt) = call_of(ask(&mut story, 8));
-    assert!(prompt.contains("You are Keeper Tessa"), "{prompt}");
+    assert!(prompt.contains("Name: Keeper Tessa"), "{prompt}");
 }
 
 #[test]

@@ -14,6 +14,7 @@ use crate::moments::{Moment, best, moments};
 use crate::narrator::{self, Budget};
 use crate::pace::Pace;
 use crate::pack::{Link, Pack, PackError, Passage};
+use crate::passage_limits;
 use crate::places::InstanceKind;
 use crate::prompt::Context;
 use crate::quest::{Status, quest_log};
@@ -996,12 +997,7 @@ impl Story {
         if npc.len() > talk::MAX_NPC_BYTES {
             return Err(StoryError::BadName);
         }
-        if words.trim().is_empty()
-            || words.len() > MAX_WORDS_BYTES
-            || words.chars().any(char::is_control)
-        {
-            return Err(StoryError::BadWords);
-        }
+        checked_words(words)?;
         self.change(|character| character.meet_npc(at, npc))?;
         self.advance_quests(at, Some(npc))?;
         let active = self.active.as_ref().ok_or(StoryError::NoCharacter)?;
@@ -1041,6 +1037,8 @@ impl Story {
         question: &str,
         target: Option<&str>,
     ) -> Result<Output, StoryError> {
+        checked_words(question)?;
+        target.map(checked_name).transpose()?;
         let active = self.active.as_ref().ok_or(StoryError::NoCharacter)?;
         let character = &active.character;
         let passages = passages_for(&self.pack, &active.seen_index, character, question, target)?;
@@ -1110,7 +1108,8 @@ impl Story {
 /// The question and where you stand pick the passages. The spoiler limit then drops each
 /// passage of the pack about something that your world does not hold. The text that you
 /// read passes it, and comes first: the pack only fills the gaps (GAMEPLAY.md 3.1.1). The
-/// rest stop at the size that leaves room for a model answer in one reply.
+/// rest stop at the size that leaves room for a model answer in one reply. Each passage
+/// keeps the limits of the bridge, also from an old pack.
 fn passages_for(
     pack: &Pack,
     seen: &SeenIndex,
@@ -1130,7 +1129,7 @@ fn passages_for(
     );
     let mut passages = Vec::new();
     let mut used = Size::default();
-    for passage in found {
+    for passage in found.into_iter().filter_map(passage_limits::fitted) {
         used = used
             .plus(Size::of(&passage))
             .plus(Size { line: 1, slot: 1 });
@@ -1200,6 +1199,17 @@ fn checked_name(name: &str) -> Result<&str, StoryError> {
         return Err(StoryError::BadName);
     }
     Ok(name)
+}
+
+/// Words that the player typed: one chat line.
+fn checked_words(words: &str) -> Result<&str, StoryError> {
+    if words.trim().is_empty()
+        || words.len() > MAX_WORDS_BYTES
+        || words.chars().any(char::is_control)
+    {
+        return Err(StoryError::BadWords);
+    }
+    Ok(words)
 }
 
 fn reasons(refusal: &Refusal) -> String {

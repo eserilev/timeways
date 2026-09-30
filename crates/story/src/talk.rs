@@ -33,27 +33,30 @@ pub struct Scene<'a> {
 }
 
 /// The short persona of an NPC, from the facts alone. An NPC never gets the persona of the
-/// narrator (GAMEPLAY.md 3.2.1).
+/// narrator (GAMEPLAY.md 3.2.1). The name and the place come from the addon, so they are
+/// data.
 #[must_use]
 pub fn persona(npc: &str, place: Option<&str>) -> String {
-    let place = place
-        .map(|place| format!(" in {place}"))
-        .unwrap_or_default();
+    let mut who = format!("Name: {npc}");
+    if let Some(place) = place {
+        let _ = write!(who, "\nPlace: {place}");
+    }
     format!(
-        "You are {npc}, a person of the world of Warcraft{place}. Speak as {npc} would: \
-         plainly, in your own voice, and only of what a person of your place knows."
+        "You are a person of the world of Warcraft, with this name and place:\n{}\nSpeak \
+         as this person would: plainly, in your own voice, and only of what a person of your \
+         place knows.",
+        fenced(&who)
     )
 }
 
 /// `turn` picks the golden samples of the prompt.
 #[must_use]
 pub fn prompt(scene: &Scene<'_>, passages: &[Passage], words: &str, turn: usize) -> String {
-    let npc = scene.npc;
     format!(
         "{}\n{HOUSE_RULES}\n\nAnswer the player, and say how this talk changes your trust. \
-         Stay true to the lore below. When you do not know, say so as {npc} would.{}\n\n\
+         Stay true to the lore below. When you do not know, say so as this person would.{}\n\n\
          {}\n\nThe player says:\n{}\n\n\
-         Remember: you are {npc}. Speak plainly, in your own voice, in at most 60 words.\n\
+         Remember: you are the person of the name above. Speak plainly, in your own voice, in at most 60 words.\n\
          Reply with JSON only: {{\"say\": \"<your answer>\", \"trust\": <a whole number from \
          -{MAX_TRUST_CHANGE} to {MAX_TRUST_CHANGE}: how this talk changes your trust in the \
          player>}}",

@@ -20,6 +20,7 @@ pub mod narrator;
 pub mod pace;
 pub mod pack;
 pub mod pack_sources;
+pub mod passage_limits;
 pub mod places;
 pub mod prompt;
 #[cfg(kani)]

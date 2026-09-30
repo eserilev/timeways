@@ -59,6 +59,7 @@ You target an NPC, stand in a place, or hold a quest, and you ask a question: `/
 - **The spoiler limit.** The agent tells only what your world already holds. Your world holds the places that you visited, the NPCs that you met, and the quests that you finished. The lore of later expansions and of quests that you have not reached stays hidden.
 - **A voice in the world.** The answer comes from a local historian.
 - **A follow-up question** continues the same conversation.
+- **Limits.** The story program refuses a question that is empty, longer than 255 bytes, or holds a control character, and a target that breaks the name limit (5.11). The addon gets an empty answer.
 - **The lore book** (built): the answer shows in a small window in the look of the journal. The question is the heading, and the answer is the page, which scrolls when it is long. The page says "Asking..." while the answer comes, and "Nobody here knows." when nothing does. With no model, the page shows the passages, with no sources. Previous and Next step through the last 10 questions of the session. Close and Escape close the book, and `/lore` with no question opens it again. An answer that comes while the book is closed gets one line in the chat. An error reply says so on the page too.
 
 This slice tests the whole chain with one question and one answer: the addon, the relay, the world, the spoiler limit, and the agent.
@@ -102,7 +103,7 @@ No invented companion rides along. A narrator tells the big moments as they happ
 
 The prompts of the narrator, the chronicle, a talk, and a quest share one plan (built):
 
-- **House rules** are the same for every call: the format, the lore cutoff (5.9), safety, and the rule that the input is data. The input goes between fence marks. The code removes each fence mark from the input text first, so an input cannot close its fence.
+- **House rules** are the same for every call: the format, the lore cutoff (5.9), safety, and the rule that the input is data. The input goes between fence marks. The code removes each fence mark from the input text first, so an input cannot close its fence. A hidden mark goes too: the code drops invisible characters, and it removes each run of 3 angles of one direction, also wide or look-alike angles such as `＞` and `›`, with only spaces between them. Names from the game are input too: the name and the place of an NPC in a persona, and the places and the target of a `/lore` question, go between fence marks.
 - **The persona goes first.** The persona of the narrator is a short text in `crates/story/data/narrator.txt`: its manner, what it does and never does, and the spoiler rule. It holds no lore.
 - **An NPC never gets the persona of the narrator.** It gets a short persona of its own from the facts: its name, its place, and its trust in you as words ("You are wary of the player"), never as a number.
 - **Golden samples.** Each prompt of the narrator or of a talk carries 2 or 3 short samples of the voice, in turn: 5 for a narrator line, 5 for a chapter, and 3 for an NPC reply. The samples are data in `crates/story/data/samples/`. A test checks that each sample passes each check.
@@ -572,7 +573,7 @@ Models know all of WoW's lore up to today, and they leak it. A line in the promp
 1. **The game text is canon.** The addon collects the text of the Forever client itself: quest text, NPC gossip, books, and item text. This text is always exactly Forever's lore, also when Forever adds content of its own. It grows as you play, and it also feeds the spoiler limit.
 2. **Sources with a cutoff.** The sources are, in order: the game text, the Forever pages of warcraft.wiki.gg and Wowhead, and Blizzard's Forever news. A Classic page counts only for events before Molten Core. A page about a later raid, a later patch, or a later expansion is refused.
 3. **Canon is read-only.** The canon characters, places, and factions go into the world with their facts as of Forever, for example `leader_of` Thrall and the Horde. Only game events change them. The director can change only your own story: the NPCs of your rumors, and your quests. The story module refuses a proposal that touches a canon entity before `World::propose` sees it. So "Varian Wrynn returns" can never become true.
-4. **A check on every answer.** Before an answer shows, the story module checks it against a list of names and events past the cutoff: for example the defeat of Ragnaros, the opening of the Scarab Wall, Naxxramas over the Plaguelands, Shattrath, the fall of the Lich King, the Cataclysm, and Pandaria. The check reads words in any case, and the last word of a name also counts at the start of a longer word: "Pandarian" counts as Pandaria. For `/lore`, a hit means one retry with the reason, and a second hit drops the answer. Only `/lore` retries: a narrator line, a chapter, a talk, or a quest offer that fails the checks gets no retry, and shows nothing. A narrator line, a chapter, and a talk can name what the player's own text of the hero names (3.7): the player wrote it first. The player's own text gets no check of the cutoff. Names that already exist in the lore of 25 ADP, such as Ragnaros, Arthas, Illidan, and Deathwing, stay allowed with their story up to that year only.
+4. **A check on every answer.** Before an answer shows, the story module checks it against a list of names and events past the cutoff: for example the defeat of Ragnaros, the opening of the Scarab Wall, Naxxramas over the Plaguelands, Shattrath, the fall of the Lich King, the Cataclysm, and Pandaria. The check reads words in any case, and the last word of a name also counts at the start of a longer word: "Pandarian" counts as Pandaria. For `/lore`, a hit means one retry with the reason, and a second hit drops the answer. The retry holds the first answer and its reasons as fenced data, because the model wrote them. Only `/lore` retries: a narrator line, a chapter, a talk, or a quest offer that fails the checks gets no retry, and shows nothing. A narrator line, a chapter, and a talk can name what the player's own text of the hero names (3.7): the player wrote it first. The player's own text gets no check of the cutoff. Names that already exist in the lore of 25 ADP, such as Ragnaros, Arthas, Illidan, and Deathwing, stay allowed with their story up to that year only.
 
 The list of later names is data in the repo, with a test for each entry. When Forever moves forward in the story, the cutoff moves with one change to that list and to the canon seed.
 
@@ -600,14 +601,16 @@ A web request for each question is slow, depends on one website, and sends whole
 
 **The builder** (built): `timeways-pack` writes the pack. It refuses a passage with no link, and it never writes over a pack that exists.
 
-- **From a dump:** `timeways-pack from-dump <dump> <pack>` reads the MediaWiki XML export of the wiki, as a `.7z` archive or unpacked. It streams the file and keeps only the listed pages.
+- **From a dump:** `timeways-pack from-dump <dump> <pack>` reads the MediaWiki XML export of the wiki, as a `.7z` archive or unpacked. It streams the file and keeps only the listed pages. It reads the dump at most twice: once for the index page, the wiki pages, and every redirect, and once for the books and the targets of redirects.
 - **The list is data:** `crates/story/data/pack_sources.toml` holds the pages, and the repo holds no lore text.
-  - The index page "History of Warcraft" and its chapters I to V. Each `* [[Page]]` line of a chapter is a book. The builder takes the `{{Book}}` text of the page. A copy from a website, with "(site)" in its title, comes only when the page has no other copy. Each book passage is common.
-  - Wiki pages, each with its kept sections, and its places, its NPCs, or `common`.
+  - The index page "History of Warcraft" and its chapters I to V. Each `* [[Page]]` line of a chapter is a book. The builder takes the `content=` argument of the `{{Book}}` call of the page, and no other argument. A template with a longer name, such as `{{Bookshelf}}`, is no book. A copy from a website, with "(site)" in its title, comes only when the page has no other copy. Each book passage is common.
+  - Wiki pages, each with its kept sections, and its places, its NPCs, or `common`. A page with none of them is refused when the list is read, before the dump.
   - Later terms: regular expressions for the names of later expansions and of their people and places. A paragraph of a wiki page that matches one goes out.
+- **A title** gets an upper case first letter, as in MediaWiki: `[[night elf]]` is the page "Night elf".
 - **A redirect** is followed one step. Two titles that lead to one book give its passages once.
 - **Plain text:** references, comments, HTML tags, templates, tables, pictures, and bold and italic marks go. A link keeps its label. Broken markup leaves no marks.
 - **A passage** is one line of plain text with at least 80 characters. A list line, a table line, or an indented line is no passage. The source is `the book "<title>"` or `the wiki page "<title>"`.
+- **The limits of the bridge:** a passage has at most 4096 bytes of text, and a source of at most 512 bytes with no control character. A longer paragraph becomes several passages, each cut after a sentence. A line of passages past a limit is refused with its number, and no pack is written.
 - **The report** gives the number of passages of each page, and names each missing chapter and each missing page. A missing page is skipped. A dump without the index page, or with broken XML, is an error, and no pack is written.
 - **The same dump gives the same pack**, in the order of the list.
 - **From lines:** `timeways-pack <passages.jsonl> <pack>` reads passages as JSON lines, each with its text, source, places, NPCs, and `common`. It is for tests and for passages by hand.
@@ -618,7 +621,7 @@ A web request for each question is slow, depends on one website, and sends whole
 
 1. The story module searches the pack for the question and the context (zone, target, quest).
 2. It keeps only passages whose links are in the world of the player: a zone that they visited, an NPC that they met, a quest that they did. This is the spoiler limit.
-3. The best 5 to 10 passages go into the prompt with their sources.
+3. The best 5 to 10 passages go into the prompt with their sources. A passage past a limit of the bridge, from an old pack or from a seen text that grew, is cut to its first piece or left out, so every answer reaches the game.
 4. The model answers only from them, and names the sources.
 
 **The lore of each player**, in the data folder of the bridge:

@@ -5,8 +5,9 @@
 #[allow(dead_code, reason = "each test file uses a part of the helpers")]
 mod wiki_dump;
 
+use std::collections::BTreeMap;
 use std::collections::BTreeSet;
-use timeways_story::dump::{DumpError, Page, pages, xml_texts};
+use timeways_story::dump::{DumpError, Page, pages, xml_scan, xml_texts};
 use wiki_dump::{DumpPage, article, fresh, write_dump, xml};
 
 fn wanted(titles: &[&str]) -> BTreeSet<String> {
@@ -138,4 +139,54 @@ fn a_7z_without_xml_is_an_error() {
     let result = pages(&archive, &titles(&["Testvale"]));
 
     assert!(matches!(result, Err(DumpError::NoXml)), "{result:?}");
+}
+
+/// So the builder knows where each book leads before its second read of the dump.
+#[test]
+fn a_scan_reads_to_the_end_and_keeps_every_redirect() {
+    let dump = xml(&[
+        article("Testvale", "Hills."),
+        article("Old Tower", "#REDIRECT [[testvale Tower]]"),
+        DumpPage {
+            title: "Talk Tower",
+            namespace: 1,
+            text: "#REDIRECT [[Testvale]]",
+        },
+    ]);
+
+    let scan = xml_scan(dump.as_bytes(), &wanted(&["Testvale"])).unwrap();
+
+    assert_eq!(scan.texts["Testvale"], "Hills.");
+    assert_eq!(
+        scan.redirects,
+        BTreeMap::from([("Old Tower".to_string(), "Testvale Tower".to_string())])
+    );
+}
+
+#[test]
+fn a_scan_lacks_the_targets_of_redirects_and_the_titles_it_did_not_want() {
+    let dump = xml(&[
+        article("Testvale", "Hills."),
+        article("Old Tower", "#REDIRECT [[Testvale Tower]]"),
+    ]);
+    let scan = xml_scan(dump.as_bytes(), &wanted(&["Testvale"])).unwrap();
+
+    let lacking = scan.lacking(&titles(&["Testvale", "Old Tower", "Mockshire"]));
+
+    assert_eq!(lacking, wanted(&["Testvale Tower", "Mockshire"]));
+}
+
+#[test]
+fn a_page_of_a_scan_follows_its_redirect_into_a_later_read() {
+    let dump = xml(&[article("Old Tower", "#REDIRECT [[Testvale Tower]]")]);
+    let scan = xml_scan(dump.as_bytes(), &wanted(&[])).unwrap();
+    let later = BTreeMap::from([("Testvale Tower".to_string(), "Stones.".to_string())]);
+
+    let page = scan.page("Old Tower", &later);
+
+    let expected = Page {
+        title: "Testvale Tower".to_string(),
+        text: "Stones.".to_string(),
+    };
+    assert_eq!(page, Some(expected));
 }

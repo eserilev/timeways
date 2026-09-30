@@ -3,6 +3,7 @@
 
 use crate::dump::{self, DumpError, Page};
 use crate::pack::{Link, Origin, Passage};
+use crate::passage_limits::pieces;
 use crate::wikitext::{book_content, listed_pages, plain, sections};
 use regex::Regex;
 use serde::Deserialize;
@@ -70,6 +71,8 @@ pub enum SourcesError {
     Dump(#[from] DumpError),
     #[error("pack sources: the dump has no page \"{0}\"")]
     NoIndex(String),
+    #[error("pack sources: the page \"{0}\" has no place, no NPC, and is not common")]
+    Unlinked(String),
 }
 
 impl Sources {
@@ -82,9 +85,14 @@ impl Sources {
 
     /// # Errors
     ///
-    /// Returns an error when the text is not a valid list of sources.
+    /// Returns an error when the text is not a valid list of sources, or when a page has
+    /// no link.
     pub fn parse(text: &str) -> Result<Sources, SourcesError> {
-        Ok(toml::from_str(text)?)
+        let sources: Sources = toml::from_str(text)?;
+        if let Some(page) = sources.pages.iter().find(|page| links(page).is_empty()) {
+            return Err(SourcesError::Unlinked(page.title.clone()));
+        }
+        Ok(sources)
     }
 }
 
@@ -112,7 +120,9 @@ pub struct Built {
 }
 
 /// The passages of the dump, in the order of the list: the books by chapter, then the
-/// pages. The same dump gives the same passages.
+/// pages. The same dump gives the same passages. The dump is read at most twice: once for
+/// the index, the pages, and every redirect, and once for the books and the targets of
+/// redirects.
 ///
 /// # Errors
 ///
@@ -120,21 +130,31 @@ pub struct Built {
 /// later term is broken. A missing book or page is only reported.
 pub fn from_dump(path: &Path, sources: &Sources) -> Result<Built, SourcesError> {
     let later = later_terms(&sources.later.terms)?;
-    let mut first_titles = vec![sources.books.index.clone()];
-    first_titles.extend(sources.pages.iter().map(|page| page.title.clone()));
-    let first = dump::pages(path, &first_titles)?;
+    let page_titles: Vec<String> = sources
+        .pages
+        .iter()
+        .map(|page| page.title.clone())
+        .collect();
+    let mut first_titles: BTreeSet<String> = page_titles.iter().cloned().collect();
+    first_titles.insert(sources.books.index.clone());
+    let first = dump::scan(path, &first_titles)?;
     let index = first
-        .get(&sources.books.index)
+        .page(&sources.books.index, &BTreeMap::new())
         .ok_or_else(|| SourcesError::NoIndex(sources.books.index.clone()))?;
     let (book_titles, missing_chapters) = book_titles(&index.text, &sources.books.chapters);
-    let books = dump::pages(path, &book_titles)?;
+    let all_titles = [book_titles.as_slice(), page_titles.as_slice()].concat();
+    let more = dump::texts(path, &first.lacking(&all_titles))?;
+    let found: BTreeMap<String, Page> = all_titles
+        .iter()
+        .filter_map(|title| Some((title.clone(), first.page(title, &more)?)))
+        .collect();
     let mut built = Built {
         missing_chapters,
         ..Built::default()
     };
-    add_books(&mut built, &book_titles, &books, &sources.books);
+    add_books(&mut built, &book_titles, &found, &sources.books);
     for page in &sources.pages {
-        add_page(&mut built, page, first.get(&page.title), later.as_ref());
+        add_page(&mut built, page, found.get(&page.title), later.as_ref());
     }
     Ok(built)
 }
@@ -249,14 +269,16 @@ fn missing(title: &str) -> PageReport {
     }
 }
 
-/// Each line of plain text is a paragraph. Runs of spaces become one space.
+/// Each line of plain text is a paragraph. Runs of spaces become one space. A paragraph
+/// past the limit of the bridge becomes several.
 #[must_use]
 pub fn paragraphs(plain: &str) -> Vec<String> {
-    plain
-        .lines()
-        .map(|line| line.split_whitespace().collect::<Vec<_>>().join(" "))
-        .filter(|line| is_prose(line))
-        .collect()
+    let prose = plain.lines().map(one_line).filter(|line| is_prose(line));
+    prose.flat_map(|line| pieces(&line)).collect()
+}
+
+fn one_line(line: &str) -> String {
+    line.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 fn is_prose(line: &str) -> bool {

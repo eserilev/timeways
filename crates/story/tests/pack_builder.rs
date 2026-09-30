@@ -102,6 +102,37 @@ fn a_passage_with_no_links_writes_no_pack() {
     assert!(!pack.exists());
 }
 
+/// The bridge refuses a lore answer with such a passage (GAMEPLAY.md 5.10).
+#[test]
+fn a_line_past_a_limit_of_the_bridge_names_its_number_and_writes_no_pack() {
+    let long_text = format!(
+        r#"{{"text":"{}","source":"b","common":true}}"#,
+        "a".repeat(4097)
+    );
+    let long_source = format!(
+        r#"{{"text":"a","source":"{}","common":true}}"#,
+        "s".repeat(513)
+    );
+    let control = r#"{"text":"a","source":"b\u0007c","common":true}"#;
+    let cases = [
+        (long_text, "line 2: the text has 4097 bytes"),
+        (long_source, "line 2: the source has 513 bytes"),
+        (
+            control.to_string(),
+            "line 2: the source holds a control character",
+        ),
+    ];
+    for (number, (line, error)) in cases.into_iter().enumerate() {
+        let lines = format!("{{\"text\":\"a\",\"source\":\"b\",\"common\":true}}\n{line}\n");
+
+        let (output, pack) = build(&lines, &format!("builder-limit-{number}"));
+
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert!(stderr.starts_with(error), "{stderr}");
+        assert!(!pack.exists());
+    }
+}
+
 #[test]
 fn an_existing_pack_is_never_written_over() {
     let (first, pack) = build(
@@ -172,6 +203,28 @@ fn a_pack_built_from_a_dump_holds_the_books_and_reports_each_page() {
     let found = Pack::open(&pack).unwrap().search("tower", 5).unwrap();
     assert_eq!(found[0].source, "the book \"The Testvale Tower\"");
     assert_eq!(found[0].links, [Link::Common]);
+}
+
+#[test]
+fn a_long_paragraph_of_a_book_becomes_passages_that_fit_the_bridge() {
+    let paragraph = "The tower of Testvale fell. ".repeat(300);
+    let book = format!("{{{{Book|The Testvale Tower|content=\n{paragraph}\n}}}}");
+    let index = "Intro.\n===Chapter I: Mythos===\n* [[The Testvale Tower]]\n";
+    let dump = wiki_dump::write_dump(
+        "builder-long-paragraph",
+        &[
+            wiki_dump::article("History of Warcraft", index),
+            wiki_dump::article("The Testvale Tower", &book),
+        ],
+    );
+    let pack = fresh("builder-long-paragraph.sqlite");
+
+    let output = build_from_dump(&dump, &pack);
+
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("      3  The Testvale Tower\n"), "{stdout}");
+    let found = Pack::open(&pack).unwrap().search("tower", 5).unwrap();
+    assert!(found.iter().all(|passage| passage.text.len() <= 4096));
 }
 
 #[test]

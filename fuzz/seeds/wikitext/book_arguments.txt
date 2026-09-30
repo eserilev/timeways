@@ -1,0 +1,6 @@
+{{Bookshelf|content=Shelf.}}{{Book
+|The Tower
+|content=Words of {{Sic|x}} and [[night elf|elves]].
+|author=Stubbs
+}}
+#REDIRECT [[night elf]]

@@ -2,7 +2,7 @@
 //! Hourglass.
 
 use crate::check::Fault;
-use crate::house::{HOUSE_RULES, fenced};
+use crate::house::{HOUSE_RULES, bulleted, fenced};
 use crate::pack::{Origin, Passage};
 use std::fmt::Write;
 
@@ -29,15 +29,8 @@ pub struct Context<'a> {
 #[must_use]
 pub fn lore(question: &str, context: &Context<'_>, passages: &[Passage]) -> String {
     let mut prompt = format!("{RULES}\n{HOUSE_RULES}\n\n");
-    if !context.places.is_empty() {
-        let _ = writeln!(
-            prompt,
-            "The player stands in: {}",
-            context.places.join(", ")
-        );
-    }
-    if let Some(target) = context.target {
-        let _ = writeln!(prompt, "The player looks at: {target}");
+    if let Some(around) = around(context) {
+        let _ = writeln!(prompt, "Where the player is:\n{}", fenced(&around));
     }
     if let Some(level) = context.level {
         let _ = writeln!(prompt, "The player is level {level}.");
@@ -49,6 +42,21 @@ pub fn lore(question: &str, context: &Context<'_>, passages: &[Passage]) -> Stri
         fenced(question)
     );
     prompt
+}
+
+/// The names of the places and of the target come from the addon, so they are data.
+fn around(context: &Context<'_>) -> Option<String> {
+    let mut lines = Vec::new();
+    if !context.places.is_empty() {
+        lines.push(format!(
+            "The player stands in: {}",
+            context.places.join(", ")
+        ));
+    }
+    if let Some(target) = context.target {
+        lines.push(format!("The player looks at: {target}"));
+    }
+    (!lines.is_empty()).then(|| lines.join("\n"))
 }
 
 fn numbered(passages: &[Passage]) -> String {
@@ -67,13 +75,14 @@ fn numbered(passages: &[Passage]) -> String {
     lines.trim_end().to_string()
 }
 
+/// The model wrote the answer, and a fault can quote a word of it, so both are data.
 #[must_use]
 pub fn retry(prompt: &str, answer: &str, faults: &[Fault]) -> String {
-    let mut retry =
-        format!("{prompt}\n\nYour last answer was:\n{answer}\n\nIt broke these rules:\n");
-    for fault in faults {
-        let _ = writeln!(retry, "- {fault}");
-    }
-    retry.push_str("Write the answer again.");
-    retry
+    let faults: Vec<String> = faults.iter().map(ToString::to_string).collect();
+    let faults: Vec<&str> = faults.iter().map(String::as_str).collect();
+    format!(
+        "{prompt}\n\nYour last answer was:\n{}\n\nIt broke these rules:\n{}\nWrite the answer again.",
+        fenced(answer),
+        fenced(&bulleted(&faults))
+    )
 }

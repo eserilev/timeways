@@ -1158,9 +1158,8 @@ fn talking_meets_the_npc_and_asks_the_model_as_that_npc() {
     let (_, prompt) =
         model_call(one(talk(&mut story, "Innkeeper Farley", "any news?").unwrap()).unwrap());
 
-    assert!(prompt.starts_with("You are Innkeeper Farley,"), "{prompt}");
     assert!(
-        prompt.contains("of the world of Warcraft in Goldshire."),
+        prompt.contains("<<<\nName: Innkeeper Farley\nPlace: Goldshire\n>>>"),
         "{prompt}"
     );
     assert_eq!(people(&mut story)[0].name, "Innkeeper Farley");
@@ -1199,6 +1198,30 @@ fn a_talk_with_no_model_gets_no_words() {
     };
     assert_eq!(output, Some(silent));
     assert_eq!(people(&mut story)[0].trust, None);
+}
+
+#[test]
+fn an_empty_long_or_odd_lore_question_or_target_is_refused() {
+    let mut story = story_with("lore-bad-words", &[tower()]);
+    let mut asked = |question: &str, target: Option<&str>| {
+        story.handle(Input::LoreAsked {
+            id: MessageId(7),
+            question: question.to_string(),
+            target: target.map(str::to_string),
+        })
+    };
+
+    let empty = asked("  ", None);
+    let long = asked(&"w".repeat(256), None);
+    let control = asked("why?\u{7}", None);
+    let long_target = asked("why?", Some(&"n".repeat(97)));
+    let odd_target = asked("why?", Some("Keeper\nStubbs"));
+
+    assert!(matches!(empty, Err(StoryError::BadWords)));
+    assert!(matches!(long, Err(StoryError::BadWords)));
+    assert!(matches!(control, Err(StoryError::BadWords)));
+    assert!(matches!(long_target, Err(StoryError::BadName)));
+    assert!(matches!(odd_target, Err(StoryError::BadName)));
 }
 
 #[test]
