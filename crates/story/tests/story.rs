@@ -1589,7 +1589,13 @@ fn a_footnote_of_the_chronicle_does_not_hold_back_the_next_flavor_line() {
         call: *call,
         text: text.to_string(),
     };
-    story.handle(saga).unwrap();
+    // The window is calm, so a second draft comes. It breaks a rule, and the first wins.
+    let second = story.handle(saga).unwrap();
+    let (second, _) = model_call(one(second).unwrap());
+    let text = "no saga".to_string();
+    story
+        .handle(Input::ModelAnswered { call: second, text })
+        .unwrap();
 
     let fall = Input::Died {
         at: Tick(5 * HOUR + 60),

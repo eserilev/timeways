@@ -6,21 +6,24 @@ use hourglass::Tick;
 use proptest::prelude::*;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
+use timeways_story::best_of_two::{Next, Round};
 use timeways_story::chapters::{
     MIN_CHAPTER_PLAY_SECONDS, SESSION_GAP_SECONDS, chapter_starts, sessions,
 };
 use timeways_story::character::Character;
 use timeways_story::check::{Fault, check, without_citations};
+use timeways_story::chronicle::{Pick, Saga};
 use timeways_story::house::fenced;
 use timeways_story::input::{GameQuestKind, Input, MessageId};
 use timeways_story::journal::{Journal, journal, pages};
+use timeways_story::pace::{Pace, WINDOW_SECONDS};
 use timeways_story::pack::Pack;
 use timeways_story::places::InstanceKind;
 use timeways_story::quest::{QuestChange, Status, Step, quest_log};
 use timeways_story::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use timeways_story::seen::TextKind;
 use timeways_story::spot::{MAP_IDS, Spot, THOUSANDTHS, spot_of};
-use timeways_story::store::{Store, safe_id};
+use timeways_story::store::{CharacterKey, Store, safe_id};
 use timeways_story::story::{Output, Story};
 use timeways_story::wikitext::plain;
 
@@ -337,8 +340,92 @@ fn journal_lines(story: &mut Story) -> Vec<String> {
     }
 }
 
+/// One round of the best of two. `drafts` are the texts of the drafts that pass the checks,
+/// and `tight` is the state of the window after each draft. Gives the calls and the saga.
+fn play_round(drafts: &[Option<String>; 2], tight: [bool; 2], pick: Pick) -> (usize, Option<Saga>) {
+    let key = CharacterKey::new("Stormrage", "Ada").unwrap();
+    let mut round = Round::new(key, Tick(1), Vec::new(), 1, String::new(), String::new());
+    let saga = |text: &Option<String>| {
+        text.as_ref().map(|text| Saga {
+            text: text.clone(),
+            footnotes: Vec::new(),
+        })
+    };
+    let mut calls = 1;
+    round.add_draft(saga(&drafts[0]));
+    for tight in tight {
+        match round.next(tight) {
+            Next::Final(saga) => return (calls, saga),
+            Next::Call(_) if round.is_judged() => return (calls + 1, round.picked(pick)),
+            Next::Call(_) => {
+                calls += 1;
+                round.add_draft(saga(&drafts[1]));
+            }
+        }
+    }
+    unreachable!("a round ends after its second draft")
+}
+
+fn pick() -> impl Strategy<Value = Pick> {
+    prop_oneof![Just(Pick::First), Just(Pick::Second)]
+}
+
+/// A step of time for the pace: often at the edge of the window.
+fn pace_step() -> impl Strategy<Value = u64> {
+    prop_oneof![
+        0..3u64,
+        WINDOW_SECONDS - 2..WINDOW_SECONDS + 2,
+        0..3 * WINDOW_SECONDS,
+    ]
+}
+
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(64))]
+
+    #[test]
+    fn a_chapter_saga_costs_at_most_three_calls_and_keeps_a_passing_draft(
+        drafts in prop::array::uniform2(prop::option::of("[a-z]{1,8}")),
+        tight in prop::array::uniform2(any::<bool>()),
+        pick in pick(),
+    ) {
+        let (calls, saga) = play_round(&drafts, tight, pick);
+
+        prop_assert!(calls <= 3);
+        if tight[0] {
+            prop_assert_eq!(calls, 1);
+        }
+        let asked = &drafts[..calls.min(2)];
+        let passed: Vec<&String> = asked.iter().flatten().collect();
+        prop_assert_eq!(saga.is_some(), !passed.is_empty());
+        if let Some(saga) = saga {
+            prop_assert!(passed.contains(&&saga.text), "{:?} not in {:?}", saga, passed);
+        }
+    }
+
+    /// The pace against a plain count of every call and failure.
+    #[test]
+    fn the_window_is_tight_after_a_recent_failure_or_five_recent_calls(
+        steps in prop::collection::vec((any::<bool>(), pace_step()), 0..30),
+        last in pace_step(),
+    ) {
+        let mut pace = Pace::default();
+        let (mut opened, mut failed) = (Vec::new(), Vec::new());
+        let mut now = 0;
+        for (is_failure, step) in steps {
+            now += step;
+            if is_failure {
+                pace.failed(Tick(now));
+                failed.push(now);
+            } else {
+                pace.opened(Tick(now));
+                opened.push(now);
+            }
+        }
+        now += last;
+
+        let recent = |times: &[u64]| times.iter().filter(|&&at| now - at < WINDOW_SECONDS).count();
+        prop_assert_eq!(pace.is_tight(Tick(now)), recent(&failed) > 0 || recent(&opened) >= 5);
+    }
 
     #[test]
     fn a_world_on_disk_reads_back_as_the_same_journal(plays in prop::collection::vec(play(), 0..60)) {

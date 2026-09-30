@@ -1,5 +1,6 @@
 //! The story program of Timeways (GAMEPLAY.md 5).
 
+pub mod best_of_two;
 pub mod chapters;
 pub mod character;
 pub mod check;
@@ -15,6 +16,7 @@ pub mod lore;
 pub mod memory;
 pub mod moments;
 pub mod narrator;
+pub mod pace;
 pub mod pack;
 pub mod pack_sources;
 pub mod places;

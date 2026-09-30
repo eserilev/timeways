@@ -27,7 +27,8 @@ impl Voice {
     }
 
     /// A chapter sample is long, so a chapter prompt carries fewer of them.
-    fn per_prompt(self) -> usize {
+    #[must_use]
+    pub fn per_prompt(self) -> usize {
         match self {
             Voice::NarratorLine => 3,
             Voice::Chapter | Voice::NpcReply => 2,
