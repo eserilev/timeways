@@ -32,7 +32,7 @@ fn a_prompt_names_the_moment() {
         times: 3,
     };
 
-    let prompt = prompt(&slain, None);
+    let prompt = prompt(&slain, None, 0);
 
     assert!(prompt.contains(
         "The moment:\n<<<\nMurloc Forager killed the player again. That makes 3 times.\n>>>"
@@ -42,7 +42,7 @@ fn a_prompt_names_the_moment() {
 
 #[test]
 fn a_prompt_starts_with_the_persona_and_ends_with_the_note() {
-    let prompt = prompt(&Moment::LevelUp { level: 20 }, None);
+    let prompt = prompt(&Moment::LevelUp { level: 20 }, None, 0);
 
     assert!(prompt.starts_with(PERSONA), "{prompt}");
     assert!(prompt.ends_with("Answer with the line only."), "{prompt}");
@@ -65,7 +65,7 @@ fn the_persona_is_a_keeper_of_time_that_tells_no_future_and_no_name() {
 
 #[test]
 fn the_story_of_the_hero_is_fenced_as_data() {
-    let prompt = prompt(&Moment::LevelUp { level: 20 }, Some("- flaw: Proud."));
+    let prompt = prompt(&Moment::LevelUp { level: 20 }, Some("- flaw: Proud."), 0);
 
     assert!(
         prompt.contains("not canon:\n<<<\n- flaw: Proud.\n>>>"),

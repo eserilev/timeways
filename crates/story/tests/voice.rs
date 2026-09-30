@@ -59,7 +59,7 @@ fn portrait() -> Option<String> {
 }
 
 fn line(moment: &Moment) -> String {
-    narrator::prompt(moment, portrait().as_deref())
+    narrator::prompt(moment, portrait().as_deref(), 0)
 }
 
 fn level(to: i64, at: u64) -> Deed {
@@ -131,7 +131,12 @@ fn npc_talk() -> String {
     let lore = [passage(
         "The Lion's Pride Inn stands at the crossroads of Goldshire.",
     )];
-    talk::prompt(&scene, &lore, "Have you seen a stranger in a grey cloak?")
+    talk::prompt(
+        &scene,
+        &lore,
+        "Have you seen a stranger in a grey cloak?",
+        0,
+    )
 }
 
 fn quest_offer() -> String {

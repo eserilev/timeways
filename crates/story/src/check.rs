@@ -1,5 +1,6 @@
 //! The checks on a model answer before it shows (GAMEPLAY.md 3.1, 3.2.1, and 5.9, layer 4).
 
+use crate::samples;
 use std::fmt;
 
 const LATER_NAMES: &str = include_str!("../data/later_names.txt");
@@ -88,10 +89,30 @@ pub(crate) fn data_lines(file: &'static str) -> impl Iterator<Item = &'static st
         .filter(|line| !line.is_empty() && !line.starts_with('#'))
 }
 
-/// A plain text (see `plain_text`) that is also in voice.
+/// This many words in a row of a golden sample make a copy of it.
+pub const COPIED_WORDS: usize = 8;
+
+/// A plain text (see `plain_text`) that is in voice, and copies no golden sample.
 #[must_use]
 pub fn voice_text(text: &str, max_chars: usize, max_bytes: usize) -> Option<String> {
-    plain_text(text, max_chars, max_bytes).filter(|line| in_voice(line))
+    let line = plain_text(text, max_chars, max_bytes)?;
+    let own_words = !copies_a_sample(&line, &samples::every_sample());
+    (in_voice(&line) && own_words).then_some(line)
+}
+
+/// True when the text holds `COPIED_WORDS` words in a row of one sample, in any case.
+#[must_use]
+pub fn copies_a_sample(text: &str, samples: &[&str]) -> bool {
+    let words = words_of(text);
+    samples
+        .iter()
+        .any(|sample| shares_a_phrase(&words, &words_of(sample)))
+}
+
+fn shares_a_phrase(words: &[String], sample: &[String]) -> bool {
+    sample
+        .windows(COPIED_WORDS)
+        .any(|phrase| words.windows(COPIED_WORDS).any(|window| window == phrase))
 }
 
 /// True when a text of the narrator or of an NPC has no emoji and no banned word

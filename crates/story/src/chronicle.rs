@@ -6,6 +6,7 @@ use crate::hero::OWN_WORDS;
 use crate::house::{HOUSE_RULES, bulleted, fenced};
 use crate::journal::{Chapter, Deed};
 use crate::narrator::PERSONA;
+use crate::samples::{self, Voice};
 use serde::Deserialize;
 use std::fmt::Write;
 
@@ -87,7 +88,8 @@ pub fn prompt(
             fenced(&bulleted(told))
         );
     }
-    let _ = write!(prompt, "\n\n{NOTE}");
+    let samples = samples::section(Voice::Chapter, chapter.number);
+    let _ = write!(prompt, "\n\n{samples}\n\n{NOTE}");
     prompt
 }
 

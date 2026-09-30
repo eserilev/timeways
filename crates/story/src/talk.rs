@@ -4,6 +4,7 @@
 use crate::check::{json_object, voice_text};
 use crate::house::{HOUSE_RULES, bulleted, fenced};
 use crate::pack::Passage;
+use crate::samples::{self, Voice};
 use serde::Deserialize;
 use std::fmt::Write;
 
@@ -44,19 +45,21 @@ pub fn persona(npc: &str, place: Option<&str>) -> String {
     )
 }
 
+/// `turn` picks the golden samples of the prompt.
 #[must_use]
-pub fn prompt(scene: &Scene<'_>, passages: &[Passage], words: &str) -> String {
+pub fn prompt(scene: &Scene<'_>, passages: &[Passage], words: &str, turn: usize) -> String {
     let npc = scene.npc;
     format!(
         "{}\n{HOUSE_RULES}\n\nAnswer the player, and say how this talk changes your trust. \
          Stay true to the lore below. When you do not know, say so as {npc} would.{}\n\n\
-         The player says:\n{}\n\n\
+         {}\n\nThe player says:\n{}\n\n\
          Remember: you are {npc}. Speak plainly, in your own voice, in at most 60 words.\n\
          Reply with JSON only: {{\"say\": \"<your answer>\", \"trust\": <a whole number from \
          -{MAX_TRUST_CHANGE} to {MAX_TRUST_CHANGE}: how this talk changes your trust in the \
          player>}}",
         who_you_are(scene),
         what_you_know(scene, passages),
+        samples::section(Voice::NpcReply, turn),
         fenced(words)
     )
 }

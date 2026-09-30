@@ -18,6 +18,7 @@ pub mod prompt;
 mod proofs;
 pub mod quest;
 pub mod reply_size;
+pub mod samples;
 pub mod seen;
 pub mod serve;
 pub mod store;

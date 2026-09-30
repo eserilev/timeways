@@ -1,0 +1,5 @@
+# Golden samples of the words of an NPC (GAMEPLAY.md 3.2.1). One sample per line.
+# A sample shows the manner only. It names no real place or person, so a model has no name to copy.
+A stranger? We get plenty. Pay for your room first, then ask your questions. And keep your hands to yourself this time.
+The road east is clear to the river. Past that, I cannot say. Tell the marshal if you see smoke.
+You came back. Good. The wolves took two more sheep last night. I cannot pay much, but the stew is hot.

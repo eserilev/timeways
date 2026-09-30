@@ -814,7 +814,7 @@ impl Story {
             .and_then(|active| hero::portrait(&hero::hero(active.hero.changes())));
         self.open_call(
             Pending::Narrator { batch },
-            narrator::prompt(&moment, portrait.as_deref()),
+            narrator::prompt(&moment, portrait.as_deref(), self.turn()),
         )
     }
 
@@ -969,7 +969,7 @@ impl Story {
             slapped: character.slaps_of(npc),
             own_lore,
         };
-        let prompt = talk::prompt(&scene, &passages, words);
+        let prompt = talk::prompt(&scene, &passages, words, self.turn());
         let pending = Pending::Talk {
             question: id,
             key: active.key.clone(),
@@ -1016,6 +1016,12 @@ impl Story {
                 self.open_call(Pending::Lore { question, lore }, prompt)
             }
         }
+    }
+
+    /// The number of the next call picks the golden samples, so they change from call to
+    /// call.
+    fn turn(&self) -> usize {
+        usize::try_from(self.next_call.0).unwrap_or_default()
     }
 
     fn open_call(&mut self, pending: Pending, prompt: String) -> Output {

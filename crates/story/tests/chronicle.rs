@@ -4,6 +4,7 @@ use timeways_story::chronicle::{
 };
 use timeways_story::journal::{Chapter, Deed};
 use timeways_story::narrator::PERSONA;
+use timeways_story::samples::{Voice, rotated};
 
 fn chapter() -> Chapter {
     Chapter {
@@ -70,6 +71,15 @@ fn a_chapter_starts_with_the_persona_of_the_narrator_and_ends_with_its_note() {
     assert!(prompt.starts_with(PERSONA), "{prompt}");
     let note = prompt.rsplit(">>>").next().unwrap();
     assert!(note.contains("tell nothing of what comes next"), "{note}");
+}
+
+#[test]
+fn the_number_of_a_chapter_picks_its_samples() {
+    let prompt = prompt(&chapter(), &[], None, &[]);
+
+    for sample in rotated(Voice::Chapter, 3) {
+        assert!(prompt.contains(sample), "{sample}");
+    }
 }
 
 #[test]

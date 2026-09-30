@@ -310,7 +310,7 @@ fn fact_texts() -> Vec<String> {
     ];
     let mut texts: Vec<String> = moments
         .iter()
-        .map(|moment| narrator::prompt(moment, None))
+        .map(|moment| narrator::prompt(moment, None, 0))
         .map(|prompt| fenced_part(&prompt, "The moment:\n"))
         .collect();
     texts.push(fenced_part(

@@ -5,6 +5,7 @@ use crate::check::voice_text;
 use crate::hero::OWN_WORDS;
 use crate::house::{HOUSE_RULES, fenced};
 use crate::moments::Moment;
+use crate::samples::{self, Voice};
 use hourglass::Tick;
 use std::fmt::Write;
 
@@ -49,14 +50,16 @@ impl Budget {
     }
 }
 
+/// `turn` picks the golden samples of the prompt.
 #[must_use]
-pub fn prompt(moment: &Moment, portrait: Option<&str>) -> String {
+pub fn prompt(moment: &Moment, portrait: Option<&str>, turn: usize) -> String {
     let mut prompt = format!("{PERSONA}\n{HOUSE_RULES}\n\n{TASK}");
     if let Some(portrait) = portrait {
         let _ = write!(prompt, "\n\n{OWN_WORDS}\n{}", fenced(portrait));
     }
+    let samples = samples::section(Voice::NarratorLine, turn);
     let what = fenced(&what_happened(moment));
-    let _ = write!(prompt, "\n\nThe moment:\n{what}\n\n{NOTE}");
+    let _ = write!(prompt, "\n\n{samples}\n\nThe moment:\n{what}\n\n{NOTE}");
     prompt
 }
 
