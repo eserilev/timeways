@@ -23,4 +23,5 @@ pub mod store;
 pub mod story;
 pub mod talk;
 pub mod titles;
+pub mod tokens;
 pub mod vocabulary;
