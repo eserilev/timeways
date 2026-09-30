@@ -17,6 +17,7 @@ Slots.lua
 Messages.lua
 Text.lua
 Units.lua
+Position.lua
 Json.lua
 Inputs.lua
 Link.lua

@@ -14,7 +14,8 @@ local function EncodeString(s)
 	end) .. '"'
 end
 
--- An object with string keys, in sorted order, so one input always gives one line.
+-- An object with string keys, in sorted order, so one input always gives one line. A value
+-- that is a table is an object too.
 function Json.Encode(object)
 	local keys = {}
 	for key in pairs(object) do
@@ -29,8 +30,10 @@ function Json.Encode(object)
 			encoded = EncodeString(value)
 		elseif type(value) == "number" and value % 1 == 0 then
 			encoded = string.format("%d", value)
+		elseif type(value) == "table" then
+			encoded = Json.Encode(value)
 		else
-			error("Json.Encode: " .. key .. " is not a string or a whole number")
+			error("Json.Encode: " .. key .. " is not a string, a whole number, or an object")
 		end
 		fields[#fields + 1] = EncodeString(key) .. ":" .. encoded
 	end

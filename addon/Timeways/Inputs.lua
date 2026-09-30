@@ -23,8 +23,9 @@ function Inputs.Character(realm, name)
 	return { type = "character_entered", realm = realm, name = name }
 end
 
-function Inputs.Zone(at, zone, subzone)
-	return { type = "zone_entered", at = at, zone = zone, subzone = Present(subzone) }
+-- `spot` is where the player stands, from `Position.Here`, or nil.
+function Inputs.Zone(at, zone, subzone, spot)
+	return { type = "zone_entered", at = at, zone = zone, subzone = Present(subzone), spot = spot }
 end
 
 -- `kind` is "party" for a dungeon, or "raid".
@@ -32,8 +33,8 @@ function Inputs.Instance(at, zone, kind)
 	return { type = "instance_entered", at = at, zone = zone, kind = kind }
 end
 
-function Inputs.Npc(at, name)
-	return { type = "npc_met", at = at, name = name }
+function Inputs.Npc(at, name, spot)
+	return { type = "npc_met", at = at, name = name, spot = spot }
 end
 
 function Inputs.Defeated(at, name)

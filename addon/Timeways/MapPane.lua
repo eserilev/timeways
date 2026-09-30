@@ -108,20 +108,14 @@ local function DrawTiles(map, layer, art)
 	end
 end
 
-local function Readable(value)
-	return type(value) == "number" and not issecretvalue(value)
-end
-
--- The player's position is nil on a map where the player is not.
 local function PlacePin(map, art)
-	local spot = C_Map.GetPlayerMapPosition(map, "player")
-	local known = type(spot) == "table" and Readable(spot.x) and Readable(spot.y)
-	pin:SetShown(known)
-	if not known then
+	local x, y = ns.Position.OnMap(map)
+	pin:SetShown(x ~= nil)
+	if not x then
 		return
 	end
 	pin:ClearAllPoints()
-	pin:SetPoint("BOTTOM", pane, "TOPLEFT", art.left + spot.x * art.width, -(art.top + spot.y * art.height))
+	pin:SetPoint("BOTTOM", pane, "TOPLEFT", art.left + x * art.width, -(art.top + y * art.height))
 end
 
 local function ShowNothing()

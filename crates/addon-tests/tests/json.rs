@@ -27,6 +27,16 @@ fn encode_sorts_the_keys() {
 }
 
 #[test]
+fn encode_writes_a_table_as_an_object() {
+    let game = Game::new();
+
+    assert_eq!(
+        encode(&game, "{ spot = { y = 2, map = 1420, x = 1 } }"),
+        r#"{"spot":{"map":1420,"x":1,"y":2}}"#
+    );
+}
+
+#[test]
 fn encode_escapes_quotes_backslashes_and_control_characters() {
     let game = Game::new();
 

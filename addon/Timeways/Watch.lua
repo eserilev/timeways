@@ -20,7 +20,7 @@ function Watch.Zone()
 		return
 	end
 	lastZone, lastSubzone = zone, subzone
-	ns.Outbox.Add(ns.Inputs.Zone(time(), zone, subzone))
+	ns.Outbox.Add(ns.Inputs.Zone(time(), zone, subzone, ns.Position.Here()))
 	local kind = Watch.InstanceKind()
 	if kind then
 		ns.Outbox.Add(ns.Inputs.Instance(time(), zone, kind))
@@ -47,7 +47,7 @@ function Watch.Npc()
 		return
 	end
 	met[name] = time()
-	ns.Outbox.Add(ns.Inputs.Npc(time(), name))
+	ns.Outbox.Add(ns.Inputs.Npc(time(), name, ns.Position.Here()))
 end
 
 function Watch.ForgetMet()
