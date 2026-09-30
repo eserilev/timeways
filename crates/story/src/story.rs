@@ -5,7 +5,7 @@ use crate::check;
 use crate::chronicle;
 use crate::flavor::{self, Flavor, HUMBLING_GAP, Kind, Teller, Told};
 use crate::hero::{self, Change, Entry};
-use crate::input::{CallId, Input, MessageId};
+use crate::input::{CallId, GameQuestKind, Input, MessageId};
 use crate::journal::{Page, journal, pages};
 use crate::learned::{Read, Rumor, learned};
 use crate::lore::{Answer, LoreCall, Next};
@@ -300,14 +300,8 @@ impl Story {
                 checked_name(&name)?;
                 self.change(|character| character.defeat_npc(at, &name))
             }
-            Input::GameQuestAccepted { at, title, kind } => {
-                checked_name(&title)?;
-                self.change(|character| character.take_game_quest(at, &title, kind))
-            }
-            Input::GameQuestDone { at, title, kind } => {
-                checked_name(&title)?;
-                self.change(|character| character.finish_game_quest(at, &title, kind))
-            }
+            Input::GameQuestAccepted { at, title, kind } => self.take_game_quest(at, &title, kind),
+            Input::GameQuestDone { at, title, kind } => self.finish_game_quest(at, &title, kind),
             Input::NpcSlapped { at, name } => {
                 checked_name(&name)?;
                 self.change(|character| character.slap(at, &name))?;
@@ -379,6 +373,26 @@ impl Story {
             Input::ModelAnswered { call, text } => self.answered(call, &text),
             Input::ModelFailed { call } => self.failed(call),
         }
+    }
+
+    fn take_game_quest(
+        &mut self,
+        at: Tick,
+        title: &str,
+        kind: GameQuestKind,
+    ) -> Result<Vec<Output>, StoryError> {
+        checked_name(title)?;
+        self.change(|character| character.take_game_quest(at, title, kind))
+    }
+
+    fn finish_game_quest(
+        &mut self,
+        at: Tick,
+        title: &str,
+        kind: GameQuestKind,
+    ) -> Result<Vec<Output>, StoryError> {
+        checked_name(title)?;
+        self.change(|character| character.finish_game_quest(at, title, kind))
     }
 
     /// The addon and this program share the clock of one computer. A time far ahead comes
