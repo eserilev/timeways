@@ -40,3 +40,30 @@ fn a_bulleted_list_has_one_entry_on_each_line() {
         "- Goldshire\n- Westfall"
     );
 }
+
+#[test]
+fn an_invisible_character_inside_a_fence_mark_does_not_hide_it() {
+    for mark in [">>\u{200B}>", "<\u{2060}<<", ">\u{FEFF}>\u{00AD}>"] {
+        assert_eq!(without_fence_marks(&format!("a{mark}b")), "ab", "{mark:?}");
+    }
+}
+
+#[test]
+fn a_fence_mark_of_wide_or_look_alike_angles_is_removed() {
+    for mark in ["＞＞＞", "＜＜＜", "﹥﹥﹥", "›››", "〉〉〉", ">＞>"] {
+        assert_eq!(without_fence_marks(&format!("a{mark}b")), "ab", "{mark:?}");
+    }
+}
+
+#[test]
+fn a_fence_mark_with_spaces_between_its_angles_is_removed() {
+    assert_eq!(without_fence_marks("a > > > b"), "a  b");
+    assert_eq!(without_fence_marks("a <\t< < b"), "a  b");
+}
+
+#[test]
+fn a_single_angle_of_game_text_stays() {
+    let text = "<The innkeeper nods.> a > b";
+
+    assert_eq!(without_fence_marks(text), text);
+}

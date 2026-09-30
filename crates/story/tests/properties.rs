@@ -556,6 +556,20 @@ fn passage_text() -> impl Strategy<Value = String> {
     })
 }
 
+/// With no spaces or invisible characters, and each look-alike angle as its ASCII angle.
+fn as_a_model_reads_it(text: &str) -> String {
+    let invisible = ['\u{200B}', '\u{2060}', '\u{FEFF}', '\u{00AD}', '\u{FE0F}'];
+    let seen = text
+        .chars()
+        .filter(|c| !c.is_whitespace() && !invisible.contains(c));
+    seen.map(|c| match c {
+        '＜' => '<',
+        '＞' | '﹥' | '›' | '»' | '〉' | '⟩' => '>',
+        other => other,
+    })
+    .collect()
+}
+
 fn pace_step() -> impl Strategy<Value = u64> {
     prop_oneof![
         0..3u64,
@@ -759,12 +773,15 @@ proptest! {
         );
     }
 
-    /// Mostly angle marks, so that broken and joined fence marks come often.
+    /// Mostly angle marks, look-alikes, spaces, and invisible characters, so that broken,
+    /// joined, and hidden fence marks come often.
     #[test]
-    fn no_input_can_close_its_fence(text in "[<> a]{0,24}") {
+    fn no_input_can_close_its_fence(
+        text in "[<>＜＞﹥›»〉⟩ \t\u{200B}\u{2060}\u{FEFF}\u{00AD}\u{FE0F}a]{0,24}",
+    ) {
         let fenced = fenced(&text);
 
-        let inside = &fenced[4..fenced.len() - 4];
+        let inside = as_a_model_reads_it(&fenced[4..fenced.len() - 4]);
         prop_assert!(!inside.contains("<<<") && !inside.contains(">>>"), "{:?}", fenced);
         prop_assert_eq!(fenced.matches(">>>").count(), 1);
     }
