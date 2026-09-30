@@ -7,7 +7,9 @@ use fake_bridge::edges::{CLOCK_STEPS, NAMES, PAGES, WORDS};
 use fake_bridge::{FakeBridge, Reply};
 use proptest::prelude::*;
 use serde_json::{Value, json};
+use std::cell::RefCell;
 use std::path::Path;
+use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use timeways_story::pack::Pack;
 use timeways_story::store::Store;
@@ -347,36 +349,173 @@ proptest! {
     }
 }
 
-/// A saga, the narrator, and a question at once. The relay runs 2 model calls of the
-/// story program, so the story program keeps one slot for the player.
-#[test]
-fn a_question_gets_a_model_call_while_a_saga_is_written() {
-    let pack = story_with_lore();
-    let model = Box::new(|_: &str| Some("Our hero walks on.".to_string()));
-    let mut bridge = FakeBridge::new(pack).with_model(model);
-    let event = |at: u64, zone: &str| json!({"type": "zone_entered", "at": at, "zone": zone, "subzone": null});
-
-    // Two sessions, and each narrator call ends.
-    bridge.batch(&format!("{CHARACTER}\n{}", event(START, "Testvale")));
-    bridge.batch(&format!(
-        "{CHARACTER}\n{}",
-        event(START + 7200, "Goldshire")
-    ));
-    // A quiet batch starts the saga of the first session, and its call is slow.
-    bridge.send(&format!("{CHARACTER}\n{}", event(START + 7250, "Testvale")));
-    // A new zone wants the narrator, and then the player asks.
-    bridge.send(&format!(
-        "{CHARACTER}\n{}",
-        event(START + 7300, "Elwynn Forest")
-    ));
-    let question = json!({"type": "lore_asked", "at": START + 7301, "question": "the tower"});
-    bridge.send(&format!("{CHARACTER}\n{question}"));
-
-    assert_eq!(bridge.refused_calls(), 0);
+/// A bridge whose model answers every call with plain words, and the prompts that it got.
+fn saga_bridge(name: &str) -> (FakeBridge, Rc<RefCell<Vec<String>>>) {
+    let prompts = Rc::new(RefCell::new(Vec::new()));
+    let seen = Rc::clone(&prompts);
+    let model = Box::new(move |prompt: &str| {
+        seen.borrow_mut().push(prompt.to_string());
+        Some("Our hero walks on.".to_string())
+    });
+    (
+        FakeBridge::new(story_with_lore(name)).with_model(model),
+        prompts,
+    )
 }
 
-fn story_with_lore() -> Story {
-    let path = Path::new(env!("CARGO_TARGET_TMPDIR")).join("through-lore.sqlite");
+/// Two sessions finish the first chapter. The saga of that chapter starts after a quiet
+/// batch, and its call stays open.
+fn start_saga(bridge: &mut FakeBridge) {
+    let zone = |at: u64, zone: &str, subzone: Option<&str>| json!({"type": "zone_entered", "at": at, "zone": zone, "subzone": subzone});
+    let met = |at: u64, name: &str| json!({"type": "npc_met", "at": at, "name": name});
+    let first_session = [
+        zone(START, "Testvale", None),
+        met(START + 60, "Keeper Tessa"),
+        zone(START + 25 * 60, "Testvale", Some("Camp One")),
+        zone(START + 50 * 60, "Testvale", Some("Camp Two")),
+        zone(START + 5 * 3600, "Duskwood", None),
+    ];
+    for line in &first_session {
+        batch(bridge, line);
+    }
+    bridge.send(&format!(
+        "{CHARACTER}\n{}",
+        met(START + 5 * 3600 + 60, "Salma")
+    ));
+}
+
+fn is_saga(prompt: &str) -> bool {
+    prompt.contains(r#"{"saga":"#)
+}
+
+/// The narrator stays quiet while a saga is written, so the question gets the other slot.
+#[test]
+fn a_question_gets_a_model_call_while_a_saga_is_written() {
+    let (mut bridge, prompts) = saga_bridge("saga-question");
+    start_saga(&mut bridge);
+
+    let zone =
+        json!({"type": "zone_entered", "at": START + 5 * 3600 + 120, "zone": "Elwynn Forest"});
+    bridge.send(&format!("{CHARACTER}\n{zone}"));
+    let question =
+        json!({"type": "lore_asked", "at": START + 5 * 3600 + 121, "question": "the tower"});
+    let lore = bridge.send(&format!("{CHARACTER}\n{question}"));
+    bridge.settle();
+
+    assert_eq!(bridge.refused_calls(), 0);
+    assert!(matches!(bridge.reply(lore), Reply::Done(_)));
+    assert!(prompts.borrow().iter().any(|prompt| is_saga(prompt)));
+}
+
+/// A saga takes one slot. A task request and then a question take the other one in turn,
+/// so the bridge fails neither of them.
+#[test]
+fn a_task_request_and_a_question_both_get_a_call_while_a_saga_is_written() {
+    let (mut bridge, prompts) = saga_bridge("saga-task");
+    start_saga(&mut bridge);
+
+    let asked = json!({"type": "quest_asked", "at": START + 5 * 3600 + 120, "npc": "Keeper Tessa"});
+    let task = bridge.send(&format!("{CHARACTER}\n{asked}"));
+    let question =
+        json!({"type": "lore_asked", "at": START + 5 * 3600 + 121, "question": "the tower"});
+    let lore = bridge.send(&format!("{CHARACTER}\n{question}"));
+    bridge.settle();
+
+    assert_eq!(bridge.refused_calls(), 0);
+    assert!(matches!(bridge.reply(task), Reply::Done(_)));
+    assert!(matches!(bridge.reply(lore), Reply::Done(_)));
+    assert!(prompts.borrow().iter().any(|prompt| is_saga(prompt)));
+}
+
+/// The relay sends no `batch_end` for a batch that ends with a question, so the refusal
+/// goes on the journal.
+#[test]
+fn a_refused_accept_in_a_batch_with_a_journal_request_shows_on_the_journal() {
+    let mut next = 0;
+    let model = Box::new(move |_: &str| {
+        next += 1;
+        let step = if next % 2 == 1 {
+            r#"{"goal": "visit", "place": "Mill Pond"}"#
+        } else {
+            r#"{"goal": "meet", "npc": "Farmer Bram"}"#
+        };
+        Some(format!(
+            r#"{{"title": "Task {next}", "text": "Go.", "steps": [{step}]}}"#
+        ))
+    });
+    let mut bridge = FakeBridge::new(story()).with_model(model);
+    let pond =
+        json!({"type": "zone_entered", "at": START, "zone": "Testvale", "subzone": "Mill Pond"});
+    let bram = json!({"type": "npc_met", "at": START + 1, "name": "Farmer Bram"});
+    let tower = json!({"type": "zone_entered", "at": START + 2, "zone": "Testvale", "subzone": "Old Tower"});
+    for line in [pond, bram, tower] {
+        batch(&mut bridge, &line);
+    }
+    for (n, giver) in (0u64..).zip(["Keeper Tessa", "Innkeeper Pell", "Guard Rolf", "Smith Hana"]) {
+        batch(
+            &mut bridge,
+            &json!({"type": "npc_met", "at": START + 10 + n, "name": giver}),
+        );
+        batch(
+            &mut bridge,
+            &json!({"type": "quest_asked", "at": START + 20 + n, "npc": giver}),
+        );
+    }
+    for n in 1..=3 {
+        batch(
+            &mut bridge,
+            &json!({"type": "quest_accepted", "at": START + 30 + n, "number": n}),
+        );
+    }
+
+    let accepted = json!({"type": "quest_accepted", "at": START + 40, "number": 4});
+    let asked = json!({"type": "journal_asked", "page": 0});
+    let reply = bridge.batch(&format!("{CHARACTER}\n{accepted}\n{asked}"));
+
+    let Reply::Done(text) = reply else {
+        panic!("expected a journal, got {reply:?}");
+    };
+    let page: Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(
+        page["notice"],
+        "You already have 3 tasks. Finish one first."
+    );
+}
+
+/// The relay sends no `batch_end` for a batch that ends with a question, so the offer comes
+/// with the next answer, here a second journal that already lists it.
+#[test]
+fn a_task_asked_in_a_batch_with_a_journal_request_comes_with_the_next_answer() {
+    let model = Box::new(|_: &str| {
+        Some(r#"{"title": "The Lost Lantern", "text": "Find it.", "steps": [{"goal": "visit", "place": "Mill Pond"}]}"#.to_string())
+    });
+    let mut bridge = FakeBridge::new(story()).with_model(model);
+    let pond =
+        json!({"type": "zone_entered", "at": START, "zone": "Testvale", "subzone": "Mill Pond"});
+    let tessa = json!({"type": "npc_met", "at": START + 1, "name": "Keeper Tessa"});
+    let tower = json!({"type": "zone_entered", "at": START + 2, "zone": "Testvale", "subzone": "Old Tower"});
+    for line in [pond, tessa, tower] {
+        batch(&mut bridge, &line);
+    }
+
+    let asked = json!({"type": "quest_asked", "at": START + 10, "npc": "Keeper Tessa"});
+    let journal = json!({"type": "journal_asked", "page": 0});
+    bridge.batch(&format!("{CHARACTER}\n{asked}\n{journal}"));
+    let next = batch(&mut bridge, &journal);
+
+    let Reply::Done(text) = &next else {
+        panic!("expected a journal, got {next:?}");
+    };
+    let page: Value = serde_json::from_str(text).unwrap();
+    assert_eq!(
+        page["notice"],
+        "Keeper Tessa has a task for you: The Lost Lantern. Find it. Type /quest accept."
+    );
+    assert_eq!(givers(&list(&next, "quests"), "offered"), ["Keeper Tessa"]);
+}
+
+fn story_with_lore(name: &str) -> Story {
+    let path = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("through-lore-{name}.sqlite"));
     let _ = std::fs::remove_file(&path);
     let tower = timeways_story::pack::Passage {
         text: "The tower of Testvale fell.".to_string(),

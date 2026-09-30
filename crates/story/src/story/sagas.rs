@@ -89,7 +89,7 @@ impl Story {
         );
         self.chronicle_asked.insert(chapter.began);
         self.saga_round = Some(round);
-        Some(self.open_call(pending, first))
+        self.open_call(pending, first)
     }
 
     /// `text` is None for a failed call. A failed judge picks the first draft.
@@ -149,7 +149,7 @@ impl Story {
                     key: round.key.clone(),
                     began: round.began,
                 };
-                Ok(Some(self.open_call(pending, prompt)))
+                Ok(self.open_call(pending, prompt))
             }
         }
     }

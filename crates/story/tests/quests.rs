@@ -5,6 +5,7 @@
 
 use hourglass::Tick;
 use std::path::Path;
+use std::time::Duration;
 use timeways_story::character::QUEST_TRUST;
 use timeways_story::input::{CallId, Input, MessageId, Reaction};
 use timeways_story::journal::{Deed, Page};
@@ -779,4 +780,30 @@ fn an_npc_that_you_talk_to_in_the_game_is_no_longer_a_foe() {
     let foes = prompt_list(&prompt, "Creatures that the player can hunt:");
     assert!(people.contains(&"Guard Rolf"), "{people:?}");
     assert!(!foes.contains(&"Guard Rolf"), "{foes:?}");
+}
+
+/// The bridge drops an `events_seen` after its deadline, so a slow offer waits for the next
+/// answer. The Tasks page shows it at once.
+#[test]
+fn an_offer_after_the_deadline_of_its_batch_comes_with_the_next_answer() {
+    let mut story = story("late-offer");
+    story.set_events_deadline(Duration::ZERO);
+    let (call, _) = call_of(ask(&mut story, 5));
+
+    let late = story
+        .handle(Input::ModelAnswered {
+            call,
+            text: OFFER.to_string(),
+        })
+        .unwrap();
+    let next = story.handle(Input::BatchEnd { id: BATCH }).unwrap();
+
+    assert_eq!(late, []);
+    assert_eq!(
+        notice(next).as_deref(),
+        Some(
+            "Keeper Tessa has a task for you: The Lost Lantern. Find the lantern. Type /quest accept."
+        )
+    );
+    assert_eq!(quests(&mut story)[0].status, Status::Offered);
 }

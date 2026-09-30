@@ -113,6 +113,7 @@ fn assert_draft(text: &str) {
     let line = serde_json::to_string(&Output::DraftAnswer {
         id: MessageId(1),
         draft: Some(checked),
+        notice: None,
     })
     .unwrap();
     assert!(fake_bridge::game_reply(&line).is_some(), "{line}");

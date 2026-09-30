@@ -189,6 +189,7 @@ fn every_page_line_fits_in_one_reply() {
         let output = Output::Journal {
             id: MessageId(u64::MAX),
             page,
+            notice: None,
         };
         let line = serde_json::to_string(&output).unwrap();
         assert!(line.len() <= MAX_LINE, "{} bytes", line.len());
@@ -457,6 +458,7 @@ fn the_largest_chapter_still_fits_on_one_page() {
             serde_json::to_string(&Output::Journal {
                 id: MessageId(u64::MAX),
                 page,
+                notice: None,
             })
             .unwrap()
             .len()
@@ -510,6 +512,7 @@ fn a_long_list_of_what_you_learned_fits_on_pages_and_keeps_its_order() {
         let output = Output::Journal {
             id: MessageId(u64::MAX),
             page,
+            notice: None,
         };
         let line = serde_json::to_string(&output).unwrap();
         assert!(line.len() <= MAX_LINE, "{} bytes", line.len());

@@ -1,7 +1,7 @@
 //! Side quests in the story program (GAMEPLAY.md 3.4): the offer at the end of a batch,
 //! the answer of the player, and the progress from game events.
 
-use super::{Active, Pending, Story, StoryError, checked_name};
+use super::{Active, EventsBatch, Pending, Story, StoryError, checked_name};
 use crate::character::Character;
 use crate::input::MessageId;
 use crate::quest::{
@@ -12,8 +12,8 @@ use crate::store::CharacterKey;
 use crate::story::Output;
 use hourglass::Tick;
 
-/// A `/quest` of this batch. It waits for `batch_end`, because the offer comes back as
-/// a notice of the batch answer.
+/// A `/quest` of this batch. It waits for the end of the batch, because the offer comes
+/// back as a notice of the batch answer.
 pub(super) struct QuestRequest {
     giver: String,
     at: Tick,
@@ -31,19 +31,25 @@ impl Story {
         Ok(Vec::new())
     }
 
-    /// The offer takes the place of the narrator call, and comes back as a notice. A request
-    /// that breaks a rule gets a line of the code, and no model call.
-    pub(super) fn quest_call(&mut self, batch: MessageId, request: QuestRequest) -> Output {
+    /// The offer takes the place of the narrator call, and comes back as a notice of
+    /// `batch`. With no batch, the batch ended with a question, and the notice waits for the
+    /// next answer. A request that breaks a rule gets a line of the code, and no model call.
+    pub(super) fn quest_call(
+        &mut self,
+        batch: Option<EventsBatch>,
+        request: QuestRequest,
+    ) -> Vec<Output> {
         let Some(active) = self.active.as_ref() else {
-            return quiet(batch);
+            return batch.map(|batch| quiet(batch.id)).into_iter().collect();
         };
         let quests = quest_log(active.quests.changes());
         let giver = request.giver.as_str();
         if active.character.is_dead(giver) || active.character.is_hostile_or_animal(giver) {
-            return no_offer(batch, giver);
+            let line = no_task(giver);
+            return self.deliver(batch, line);
         }
         if let Some(refusal) = refusal(&quests, giver) {
-            return notice_line(batch, refusal);
+            return self.deliver(batch, refusal);
         }
         let seen = seen_texts(active);
         let known = known(&active.character, giver, &seen, &quests);
@@ -54,26 +60,32 @@ impl Story {
             giver: request.giver,
             at: request.at,
         };
-        self.open_call(pending, prompt)
+        self.open_call(pending, prompt).into_iter().collect()
     }
 
     /// An offer for another character, or one that breaks a rule, shows no task. The limits
     /// hold again here, because the world can move on while the model thinks.
     pub(super) fn quest_answered(
         &mut self,
-        batch: MessageId,
+        batch: Option<EventsBatch>,
         key: &CharacterKey,
         giver: &str,
         asked_at: Tick,
         text: &str,
-    ) -> Output {
-        let none = no_offer(batch, giver);
+    ) -> Vec<Output> {
+        let line = self.offer(key, giver, asked_at, text);
+        self.deliver(batch, line)
+    }
+
+    /// The offer line, or why there is none.
+    fn offer(&mut self, key: &CharacterKey, giver: &str, asked_at: Tick, text: &str) -> String {
+        let none = no_task(giver);
         let Some(active) = self.active.as_mut().filter(|active| &active.key == key) else {
             return none;
         };
         let quests = quest_log(active.quests.changes());
         if let Some(refusal) = refusal(&quests, giver) {
-            return notice_line(batch, refusal);
+            return refusal;
         }
         let seen = seen_texts(active);
         let known = known(&active.character, giver, &seen, &quests);
@@ -98,7 +110,7 @@ impl Story {
         let _ = self.change(|character| {
             character.offer_quest(at, giver, &thing_name(number, &offer.title))
         });
-        notice_line(batch, line)
+        line
     }
 
     /// The answer names its offer by number. With no number, it takes the newest offer.
@@ -124,7 +136,7 @@ impl Story {
             return Ok(Vec::new());
         }
         if let Some(refusal) = refusal(&quests, &offer.giver) {
-            self.quest_note = Some(refusal);
+            self.notice = Some(refusal);
             return Ok(Vec::new());
         }
         active.quests.add(QuestChange::Accepted { number, at })?;
@@ -212,11 +224,7 @@ pub(super) fn notice_line(batch: MessageId, line: String) -> Output {
 }
 
 /// With no model, or with an offer that breaks a rule, the giver has nothing to say.
-pub(super) fn no_offer(batch: MessageId, giver: &str) -> Output {
-    notice_line(batch, no_task(giver))
-}
-
-fn no_task(giver: &str) -> String {
+pub(super) fn no_task(giver: &str) -> String {
     format!("{giver} has no task for you now.")
 }
 

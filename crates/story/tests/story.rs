@@ -172,7 +172,8 @@ fn a_question_with_no_passages_asks_no_model() {
         output,
         Output::LoreAnswer {
             id: MessageId(7),
-            answer
+            answer,
+            notice: None,
         }
     );
 }
@@ -429,7 +430,7 @@ fn a_journal_request_gets_the_first_page_with_its_id() {
         })
         .unwrap());
 
-    let Some(Output::Journal { id, page }) = output else {
+    let Some(Output::Journal { id, page, .. }) = output else {
         panic!("expected a journal, got {output:?}");
     };
     assert_eq!(id, MessageId(4));
@@ -731,7 +732,8 @@ fn a_spent_budget_asks_no_model() {
     level(&mut story, 1, 10);
     for (batch, level_now) in [(1, 11), (2, 12), (3, 13)] {
         level(&mut story, u64::from(level_now), level_now);
-        let _ = model_call(batch_end(&mut story, batch));
+        let (call, _) = model_call(batch_end(&mut story, batch));
+        story.handle(Input::ModelFailed { call }).unwrap();
     }
     level(&mut story, 20, 14);
 
@@ -1179,6 +1181,7 @@ fn the_answer_of_the_npc_shows_and_its_change_of_trust_lands() {
         id: MessageId(8),
         npc: "Innkeeper Farley".to_string(),
         text: Some("Nothing but rain.".to_string()),
+        notice: None,
     };
     assert_eq!(output, Some(answer));
     assert_eq!(people(&mut story)[0].trust, Some(3));
@@ -1196,6 +1199,7 @@ fn a_talk_with_no_model_gets_no_words() {
         id: MessageId(8),
         npc: "Innkeeper Farley".to_string(),
         text: None,
+        notice: None,
     };
     assert_eq!(output, Some(silent));
     assert_eq!(people(&mut story)[0].trust, None);

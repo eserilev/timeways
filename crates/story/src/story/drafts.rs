@@ -11,7 +11,11 @@ use crate::story::Output;
 impl Story {
     /// The idea is the player's own words (5.11). The addon has taken out the names of the
     /// players who can get the task.
-    pub(super) fn ask_draft(&mut self, id: MessageId, idea: &str) -> Result<Output, StoryError> {
+    pub(super) fn ask_draft(
+        &mut self,
+        id: MessageId,
+        idea: &str,
+    ) -> Result<Vec<Output>, StoryError> {
         let idea = draft::checked_idea(idea).ok_or(StoryError::BadWords)?;
         let active = self.active.as_ref().ok_or(StoryError::NoCharacter)?;
         let prompt = draft::prompt(&known(active), idea);
@@ -19,7 +23,7 @@ impl Story {
             question: id,
             key: active.key.clone(),
         };
-        Ok(self.open_call(pending, prompt))
+        Ok(self.open_call(pending, prompt).into_iter().collect())
     }
 
     /// A draft for another character, or one that breaks a rule, comes back as no draft.
@@ -39,7 +43,11 @@ impl Story {
 }
 
 pub(super) fn draft_answer(id: MessageId, draft: Option<Draft>) -> Output {
-    Output::DraftAnswer { id, draft }
+    Output::DraftAnswer {
+        id,
+        draft,
+        notice: None,
+    }
 }
 
 fn known(active: &Active) -> Known<'_> {

@@ -75,17 +75,24 @@ fn empty_answer(line: &str) -> Option<Output> {
         "lore_asked" => Some(Output::LoreAnswer {
             id,
             answer: Answer::default(),
+            notice: None,
         }),
         "talk_asked" => Some(Output::TalkAnswer {
             id,
             npc: echoed_npc(&value),
             text: None,
+            notice: None,
         }),
-        "draft_asked" => Some(Output::DraftAnswer { id, draft: None }),
+        "draft_asked" => Some(Output::DraftAnswer {
+            id,
+            draft: None,
+            notice: None,
+        }),
         // No pages: the addon keeps the journal that it shows.
         "journal_asked" => Some(Output::Journal {
             id,
             page: Page::default(),
+            notice: None,
         }),
         _ => None,
     }
