@@ -1,4 +1,4 @@
-//! The bard writes each finished chapter of the chronicle as a short saga (GAMEPLAY.md 3.3).
+//! The narrator writes each finished chapter of the chronicle as a short saga (GAMEPLAY.md 3.3).
 //! The words of its prompt live here, and the facts come from the chapter alone.
 
 use crate::check::{json_object, plain_text};

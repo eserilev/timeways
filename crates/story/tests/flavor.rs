@@ -233,7 +233,7 @@ fn a_telling_counts_for_seventy_two_hours_and_not_one_second_more() {
     let told = Told {
         key: "emote:dance".to_string(),
         at: Tick(1000),
-        teller: Teller::Bard,
+        teller: Teller::Chronicle,
     };
     let dance_at = |at| {
         score(
@@ -304,4 +304,15 @@ fn a_top_moment_loses_three_for_a_telling_before_it_or_at_the_same_time() {
     );
 
     assert_eq!(top[0].score, 5 - 3 - 3);
+}
+
+#[test]
+fn a_telling_saved_by_the_old_bard_reads_as_one_of_the_chronicle() {
+    let line = r#"{"key": "emote:dance", "at": 5, "teller": "bard"}"#;
+
+    let told: Told = serde_json::from_str(line).unwrap();
+
+    assert_eq!(told.teller, Teller::Chronicle);
+    let saved = serde_json::to_string(&told).unwrap();
+    assert!(saved.contains(r#""teller":"bard""#), "{saved}");
 }

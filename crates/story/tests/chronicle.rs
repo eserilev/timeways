@@ -1,5 +1,7 @@
 use hourglass::Tick;
-use timeways_story::bard::{MAX_CHAPTER_CHARS, MAX_FOOTNOTE_CHARS, Saga, checked_saga, prompt};
+use timeways_story::chronicle::{
+    MAX_CHAPTER_CHARS, MAX_FOOTNOTE_CHARS, Saga, checked_saga, prompt,
+};
 use timeways_story::journal::{Chapter, Deed};
 
 fn chapter() -> Chapter {

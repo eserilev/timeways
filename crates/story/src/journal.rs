@@ -59,9 +59,9 @@ pub struct Chapter {
     /// The entries past the first 20 of each list. The other pages of the journal hold
     /// them all.
     pub left_out: usize,
-    /// The saga of the bard, once a model wrote it (3.3).
+    /// The saga of the chapter, once a model wrote it (3.3).
     pub prose: Option<String>,
-    /// The footnotes of the bard: small moments of the chapter (5.4.1).
+    /// The footnotes of the saga: small moments of the chapter (5.4.1).
     pub footnotes: Vec<String>,
 }
 

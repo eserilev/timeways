@@ -225,7 +225,7 @@ local function Together(names)
 	return table.concat(shown, ", ", 1, #shown - 1) .. " and " .. shown[#shown]
 end
 
--- A chapter is the list of what was new in one session (GAMEPLAY.md 3.3). Once the bard
+-- A chapter is the list of what was new in one session (GAMEPLAY.md 3.3). Once the narrator
 -- wrote it, its saga comes first.
 local function Chapters(chapters)
 	local lines = {}

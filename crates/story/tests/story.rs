@@ -656,8 +656,8 @@ fn chapters(story: &mut Story) -> Vec<timeways_story::journal::Chapter> {
 }
 
 #[test]
-fn a_finished_chapter_asks_the_bard_after_the_batch() {
-    let mut story = story_with("bard-asks", &[]);
+fn a_finished_chapter_asks_for_its_saga_after_the_batch() {
+    let mut story = story_with("saga-asks", &[]);
     two_sessions(&mut story);
 
     let outputs = story.handle(Input::BatchEnd { id: MessageId(3) }).unwrap();
@@ -670,7 +670,7 @@ fn a_finished_chapter_asks_the_bard_after_the_batch() {
         }
     );
     let [_, Output::ModelCall { prompt, .. }] = outputs.as_slice() else {
-        panic!("expected a bard call, got {outputs:?}");
+        panic!("expected a saga call, got {outputs:?}");
     };
     assert!(
         prompt.contains("Chapter 1. Facts:\n- Met: Gryan Stoutmantle."),
@@ -679,12 +679,12 @@ fn a_finished_chapter_asks_the_bard_after_the_batch() {
 }
 
 #[test]
-fn the_saga_of_the_bard_goes_into_its_chapter() {
-    let mut story = story_with("bard-writes", &[]);
+fn the_saga_goes_into_its_chapter() {
+    let mut story = story_with("saga-writes", &[]);
     two_sessions(&mut story);
     let outputs = story.handle(Input::BatchEnd { id: MessageId(3) }).unwrap();
     let Output::ModelCall { call, .. } = outputs[1].clone() else {
-        panic!("expected a bard call, got {outputs:?}");
+        panic!("expected a saga call, got {outputs:?}");
     };
 
     let text = r#"{"saga": "Our hero rode into the golden fields of Westfall."}"#.to_string();
@@ -704,12 +704,12 @@ fn the_saga_of_the_bard_goes_into_its_chapter() {
 }
 
 #[test]
-fn the_bard_is_asked_once_for_each_chapter() {
-    let mut story = story_with("bard-once", &[]);
+fn a_saga_is_asked_once_for_each_chapter() {
+    let mut story = story_with("saga-once", &[]);
     two_sessions(&mut story);
     let outputs = story.handle(Input::BatchEnd { id: MessageId(3) }).unwrap();
     let Output::ModelCall { call, .. } = outputs[1].clone() else {
-        panic!("expected a bard call, got {outputs:?}");
+        panic!("expected a saga call, got {outputs:?}");
     };
     let while_open = story.handle(Input::BatchEnd { id: MessageId(4) }).unwrap();
 
@@ -728,7 +728,7 @@ fn the_bard_is_asked_once_for_each_chapter() {
 
 #[test]
 fn the_last_chapter_waits_for_the_next_session() {
-    let mut story = story_with("bard-waits", &[]);
+    let mut story = story_with("saga-waits", &[]);
     meet(&mut story, HOUR, "Gryan Stoutmantle");
 
     let outputs = story.handle(Input::BatchEnd { id: MessageId(3) }).unwrap();
@@ -744,11 +744,11 @@ fn the_last_chapter_waits_for_the_next_session() {
 
 #[test]
 fn a_saga_for_another_character_is_dropped() {
-    let mut story = story_with("bard-switch", &[]);
+    let mut story = story_with("saga-switch", &[]);
     two_sessions(&mut story);
     let outputs = story.handle(Input::BatchEnd { id: MessageId(3) }).unwrap();
     let Output::ModelCall { call, .. } = outputs[1].clone() else {
-        panic!("expected a bard call, got {outputs:?}");
+        panic!("expected a saga call, got {outputs:?}");
     };
     let bren = Input::CharacterEntered {
         realm: "Testrealm".to_string(),
@@ -765,8 +765,8 @@ fn a_saga_for_another_character_is_dropped() {
 }
 
 #[test]
-fn the_bard_waits_while_another_model_call_is_open() {
-    let mut story = story_with("bard-waits-for-calls", &[tower()]);
+fn the_saga_waits_while_another_model_call_is_open() {
+    let mut story = story_with("saga-waits-for-calls", &[tower()]);
     enter(&mut story, 1, "Testvale", None);
     let (narrator, _) =
         model_call(one(story.handle(Input::BatchEnd { id: MessageId(2) }).unwrap()).unwrap());
@@ -1269,7 +1269,7 @@ fn the_same_kind_of_joke_waits_for_the_next_evening() {
 }
 
 #[test]
-fn the_bard_gets_the_small_moments_of_its_chapter_and_its_footnotes_are_kept_and_told() {
+fn the_saga_gets_the_small_moments_of_its_chapter_and_its_footnotes_are_kept_and_told() {
     let mut story = story_with("footnotes", &[]);
     enter(&mut story, HOUR, "Elwynn Forest", Some("Goldshire"));
     let _ = close_narrator(&mut story, 1);
@@ -1279,7 +1279,7 @@ fn the_bard_gets_the_small_moments_of_its_chapter_and_its_footnotes_are_kept_and
 
     let outputs = story.handle(Input::BatchEnd { id: MessageId(3) }).unwrap();
     let [_, Output::ModelCall { call, prompt }] = outputs.as_slice() else {
-        panic!("expected a bard call, got {outputs:?}");
+        panic!("expected a saga call, got {outputs:?}");
     };
     assert!(prompt.contains("Small moments:\n1. The player used the emote /dance in Goldshire, at 3 o'clock, for the 1st time."), "{prompt}");
     let text = r#"{"saga": "Our hero came to Goldshire.", "footnotes": [{"moment": 1, "text": "Nobody knows why."}]}"#;
@@ -1304,7 +1304,7 @@ fn the_bard_gets_the_small_moments_of_its_chapter_and_its_footnotes_are_kept_and
 
 /// Only a flavor line of the narrator starts the gap of 20 minutes (GAMEPLAY.md 5.4.1).
 #[test]
-fn a_footnote_of_the_bard_does_not_hold_back_the_next_flavor_line() {
+fn a_footnote_of_the_chronicle_does_not_hold_back_the_next_flavor_line() {
     let mut story = story_with("footnote-gap", &[]);
     enter(&mut story, HOUR, "Elwynn Forest", Some("Goldshire"));
     let _ = close_narrator(&mut story, 1);
@@ -1313,7 +1313,7 @@ fn a_footnote_of_the_bard_does_not_hold_back_the_next_flavor_line() {
     meet(&mut story, 5 * HOUR, "Salma Saldean");
     let outputs = story.handle(Input::BatchEnd { id: MessageId(3) }).unwrap();
     let [_, Output::ModelCall { call, .. }] = outputs.as_slice() else {
-        panic!("expected a bard call, got {outputs:?}");
+        panic!("expected a saga call, got {outputs:?}");
     };
     let text = r#"{"saga": "Our hero came.", "footnotes": [{"moment": 1, "text": "A dance."}]}"#;
     let saga = Input::ModelAnswered {
@@ -1481,8 +1481,8 @@ fn an_npc_hears_only_the_entries_about_it_or_its_place() {
 }
 
 #[test]
-fn the_bard_reads_what_the_player_wrote_in_its_chapter() {
-    let mut story = story_with("hero-bard", &[]);
+fn the_saga_reads_what_the_player_wrote_in_its_chapter() {
+    let mut story = story_with("hero-saga", &[]);
     meet(&mut story, HOUR, "Gryan Stoutmantle");
     add_entry(
         &mut story,
@@ -1495,7 +1495,7 @@ fn the_bard_reads_what_the_player_wrote_in_its_chapter() {
     let outputs = story.handle(Input::BatchEnd { id: MessageId(3) }).unwrap();
 
     let [_, Output::ModelCall { prompt, .. }] = outputs.as_slice() else {
-        panic!("expected a bard call, got {outputs:?}");
+        panic!("expected a saga call, got {outputs:?}");
     };
     assert!(
         prompt.contains(
@@ -1706,7 +1706,7 @@ fn the_same_kind_of_joke_is_told_again_exactly_twelve_hours_later() {
     );
 }
 
-fn bard_prompt(story: &mut Story, batch: u64) -> String {
+fn saga_prompt(story: &mut Story, batch: u64) -> String {
     let outputs = story
         .handle(Input::BatchEnd {
             id: MessageId(batch),
@@ -1714,32 +1714,32 @@ fn bard_prompt(story: &mut Story, batch: u64) -> String {
         .unwrap();
     match outputs.as_slice() {
         [_, Output::ModelCall { prompt, .. }] => prompt.clone(),
-        _ => panic!("expected a bard call, got {outputs:?}"),
+        _ => panic!("expected a saga call, got {outputs:?}"),
     }
 }
 
 #[test]
 fn a_small_moment_at_the_start_of_the_next_chapter_stays_out_of_the_saga_before_it() {
-    let mut story = story_with("bard-moment-edge", &[]);
+    let mut story = story_with("saga-moment-edge", &[]);
     meet(&mut story, HOUR, "Gryan Stoutmantle");
     let _ = close_narrator(&mut story, 1);
     meet(&mut story, 5 * HOUR, "Salma Saldean");
 
     dance_at(&mut story, 5 * HOUR, 12);
-    let prompt = bard_prompt(&mut story, 2);
+    let prompt = saga_prompt(&mut story, 2);
 
     assert!(!prompt.contains("/dance"), "{prompt}");
 }
 
 #[test]
-fn the_bard_reads_the_entries_from_the_start_of_its_chapter_to_the_start_of_the_next() {
-    let mut story = story_with("bard-entry-edge", &[]);
+fn the_saga_reads_the_entries_from_the_start_of_its_chapter_to_the_start_of_the_next() {
+    let mut story = story_with("saga-entry-edge", &[]);
     meet(&mut story, HOUR, "Gryan Stoutmantle");
     add_entry(&mut story, HOUR, "At the start of chapter one.", None);
     meet(&mut story, 5 * HOUR, "Salma Saldean");
     add_entry(&mut story, 5 * HOUR, "At the start of chapter two.", None);
 
-    let prompt = bard_prompt(&mut story, 2);
+    let prompt = saga_prompt(&mut story, 2);
 
     let written = "What the player wrote in this chapter:\n- At the start of chapter one.\n\n";
     assert!(prompt.contains(written), "{prompt}");

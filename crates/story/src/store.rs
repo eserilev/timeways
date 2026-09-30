@@ -121,7 +121,7 @@ impl HistoryFile {
     }
 }
 
-/// The words of the bard for one chapter, as one line of the chronicle file. A line from
+/// The saga of one chapter, as one line of the chronicle file. A line from
 /// before footnotes has none.
 #[derive(Serialize, Deserialize)]
 struct ChapterProse {
@@ -138,7 +138,7 @@ pub struct Written {
     pub footnotes: Vec<String>,
 }
 
-/// The words of the bard for each chapter, by the tick that began the chapter. The world
+/// The saga of each chapter, by the tick that began the chapter. The world
 /// holds facts only, so the words live in a file of their own.
 #[derive(Debug, Default)]
 pub struct Prose {
@@ -152,7 +152,7 @@ impl Prose {
         self.chapters.get(&began)
     }
 
-    /// The chapters that have words of the bard.
+    /// The chapters that have a saga.
     #[must_use]
     pub fn len(&self) -> usize {
         self.chapters.len()

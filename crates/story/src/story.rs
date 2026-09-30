@@ -1,8 +1,8 @@
 //! One input in, and the outputs for it out (GAMEPLAY.md 3.1, 5.2, and 5.6).
 
-use crate::bard;
 use crate::character::{Character, Refusal};
 use crate::check;
+use crate::chronicle;
 use crate::flavor::{self, Flavor, HUMBLING_GAP, Kind, Teller, Told};
 use crate::hero::{self, Change, Entry};
 use crate::input::{CallId, Input, MessageId};
@@ -195,7 +195,7 @@ enum Pending {
     },
     /// The saga of the chapter that began at `began`, for this character only. `kinds`
     /// are the kinds of the small moments of its prompt, in their order.
-    Bard {
+    Chronicle {
         key: CharacterKey,
         began: Tick,
         kinds: Vec<String>,
@@ -231,9 +231,9 @@ pub struct Story {
     /// The flavor moments of the batch so far, each with its score and its count.
     candidates: Vec<Candidate>,
     budget: Budget,
-    /// The chapters of the active character that the bard was asked for in this run. A
+    /// The chapters of the active character that the narrator was asked a saga for in this run. A
     /// failed chapter keeps its plain list, and gets no second call.
-    bard_asked: BTreeSet<Tick>,
+    chronicle_asked: BTreeSet<Tick>,
     quest_request: Option<QuestRequest>,
     /// The newest time of an input from the addon. An emote or a book changes no world, so
     /// the tick of the world can be much older.
@@ -255,7 +255,7 @@ impl Story {
             moments: Vec::new(),
             candidates: Vec::new(),
             budget: Budget::default(),
-            bard_asked: BTreeSet::new(),
+            chronicle_asked: BTreeSet::new(),
             quest_request: None,
             newest: Tick(0),
             quest_note: None,
@@ -407,7 +407,7 @@ impl Story {
                 id: batch,
                 narrator: narrator::checked_line(text),
             }],
-            Pending::Bard { key, began, kinds } => {
+            Pending::Chronicle { key, began, kinds } => {
                 self.saga_answered(&key, began, &kinds, text)?;
                 Vec::new()
             }
@@ -437,7 +437,7 @@ impl Story {
         let Some(active) = self.active.as_mut().filter(|active| &active.key == key) else {
             return Ok(());
         };
-        let Some(saga) = bard::checked_saga(text, kinds.len()) else {
+        let Some(saga) = chronicle::checked_saga(text, kinds.len()) else {
             return Ok(());
         };
         let now = self.newest;
@@ -445,7 +445,7 @@ impl Story {
             let told = Told {
                 key: kinds[moment - 1].clone(),
                 at: now,
-                teller: Teller::Bard,
+                teller: Teller::Chronicle,
             };
             active.flavor.add_told(told)?;
         }
@@ -522,7 +522,7 @@ impl Story {
                 id: batch,
                 narrator: None,
             }],
-            Pending::Bard { .. } => Vec::new(),
+            Pending::Chronicle { .. } => Vec::new(),
             Pending::Talk { question, npc, .. } => vec![Output::TalkAnswer {
                 id: question,
                 npc,
@@ -580,7 +580,7 @@ impl Story {
         self.journal.clear();
         self.moments.clear();
         self.candidates.clear();
-        self.bard_asked.clear();
+        self.chronicle_asked.clear();
         self.quest_request = None;
         self.quest_note = None;
         let key = key?;
@@ -755,22 +755,22 @@ impl Story {
             (None, None) => self.narrator_call(batch),
         };
         let mut outputs = vec![seen];
-        outputs.extend(self.bard_call());
+        outputs.extend(self.chronicle_call());
         outputs
     }
 
-    /// The relay runs at most 2 model calls of the story program at once. While the bard
-    /// writes, the narrator stays quiet, so a question of the player always gets a call.
+    /// The relay runs at most 2 model calls of the story program at once. While a saga is
+    /// written, the narrator stays quiet, so a question of the player always gets a call.
     fn narrator_call(&mut self, batch: MessageId) -> Output {
         let quiet = Output::EventsSeen {
             id: batch,
             narrator: None,
         };
-        let bard_writes = self
+        let chronicle_writes = self
             .calls
             .values()
-            .any(|pending| matches!(pending, Pending::Bard { .. }));
-        if bard_writes {
+            .any(|pending| matches!(pending, Pending::Chronicle { .. }));
+        if chronicle_writes {
             return quiet;
         }
         let now = self.newest;
@@ -843,12 +843,12 @@ impl Story {
     }
 
     /// The oldest finished chapter with no saga yet. The bridge runs at most 2 model calls
-    /// at once, so the bard waits until no other call is open: a question of the player
+    /// at once, so the saga waits until no other call is open: a question of the player
     /// never fails for a saga. The last chapter can still grow, so it waits for the next
     /// session.
     /// The small moments of a chapter run until the next chapter begins: an emote changes
     /// nothing in the world, so it can come after the last event of the chapter.
-    fn bard_call(&mut self) -> Option<Output> {
+    fn chronicle_call(&mut self) -> Option<Output> {
         if !self.calls.is_empty() {
             return None;
         }
@@ -860,7 +860,7 @@ impl Story {
                 .map(|pair| (&pair[0], &pair[1]))
                 .find(|(chapter, _)| {
                     active.prose.get(chapter.began).is_none()
-                        && !self.bard_asked.contains(&chapter.began)
+                        && !self.chronicle_asked.contains(&chapter.began)
                 })?;
         let top = flavor::top_moments(
             active.flavor.moments(),
@@ -874,7 +874,7 @@ impl Story {
             .map(|moment| flavor::describe(&moment.flavor, moment.count))
             .collect();
         let kinds = top.iter().map(|moment| moment.flavor.kind.key()).collect();
-        let pending = Pending::Bard {
+        let pending = Pending::Chronicle {
             key: active.key.clone(),
             began: chapter.began,
             kinds,
@@ -882,8 +882,8 @@ impl Story {
         let hero = hero::hero(active.hero.changes());
         let in_chapter = |entry: &Entry| entry.at >= chapter.began && entry.at < next.began;
         let written = hero::newest_texts(&hero.entries, in_chapter);
-        let prompt = bard::prompt(chapter, &words, hero::portrait(&hero).as_deref(), &written);
-        self.bard_asked.insert(chapter.began);
+        let prompt = chronicle::prompt(chapter, &words, hero::portrait(&hero).as_deref(), &written);
+        self.chronicle_asked.insert(chapter.began);
         Some(self.open_call(pending, prompt))
     }
 

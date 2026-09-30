@@ -317,10 +317,10 @@ fn a_failed_write_is_written_again_once_the_file_takes_it() {
 }
 
 #[test]
-fn the_saga_of_the_bard_survives_a_restart() {
+fn the_saga_survives_a_restart() {
     let folder = fresh_folder("saga-restart");
     let mut first = story(&folder, "Ada");
-    // Meeting an NPC is no big moment, so no narrator call keeps the bard waiting.
+    // Meeting an NPC is no big moment, so no narrator call keeps the saga waiting.
     for (at, npc) in [(3600, "Gryan Stoutmantle"), (5 * 3600, "Salma Saldean")] {
         first
             .handle(Input::NpcMet {
@@ -331,7 +331,7 @@ fn the_saga_of_the_bard_survives_a_restart() {
     }
     let outputs = first.handle(Input::BatchEnd { id: MessageId(3) }).unwrap();
     let Output::ModelCall { call, .. } = outputs[1].clone() else {
-        panic!("expected a bard call, got {outputs:?}");
+        panic!("expected a saga call, got {outputs:?}");
     };
     let text = r#"{"saga": "Our hero rode west."}"#.to_string();
     first.handle(Input::ModelAnswered { call, text }).unwrap();
@@ -494,7 +494,7 @@ fn a_new_character_opens_with_empty_files() {
 }
 
 #[test]
-fn the_words_of_the_bard_come_back_after_a_restart() {
+fn the_words_of_a_saga_come_back_after_a_restart() {
     let folder = fresh_folder("prose-back");
     let key = CharacterKey::new("Stormrage", "Ada").unwrap();
     let mut first = Store::Folder(folder.clone()).open(&key).unwrap();
