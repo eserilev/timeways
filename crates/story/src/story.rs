@@ -1,17 +1,17 @@
 //! One input in, and the outputs for it out (GAMEPLAY.md 3.1, 5.2, and 5.6).
 
+use crate::best_of_two::Round;
 use crate::character::{Character, Refusal};
 use crate::check;
-use crate::chronicle;
 use crate::flavor::{self, Flavor, HUMBLING_GAP, Kind, Teller, Told};
 use crate::hero::{self, Change, Entry};
 use crate::input::{CallId, GameQuestKind, Input, MessageId};
 use crate::journal::{Page, journal, pages};
 use crate::learned::{Read, Rumor, learned};
 use crate::lore::{Answer, LoreCall, Next};
-use crate::memory;
 use crate::moments::{Moment, best, moments};
 use crate::narrator::{self, Budget};
+use crate::pace::Pace;
 use crate::pack::{Link, Pack, PackError, Passage};
 use crate::places::InstanceKind;
 use crate::prompt::Context;
@@ -20,7 +20,7 @@ use crate::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use crate::seen::{MAX_SEEN_BYTES, SeenIndex, SeenText, TextKind};
 use crate::store::{
     CharacterKey, FlavorLog, HeroLog, HistoryFile, LearnedLog, Opened, Prose, QuestLog, Store,
-    StoreError, Written,
+    StoreError,
 };
 use crate::talk::{self, Scene};
 use crate::titles;
@@ -30,6 +30,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use thiserror::Error;
 
 mod quests;
+mod sagas;
 
 use quests::QuestRequest;
 
@@ -195,12 +196,11 @@ enum Pending {
     Narrator {
         batch: MessageId,
     },
-    /// The saga of the chapter that began at `began`, for this character only. `kinds`
-    /// are the kinds of the small moments of its prompt, in their order.
+    /// A draft of the saga of the chapter that began at `began`, or the pick of the judge,
+    /// for this character only. The round of the chapter knows which.
     Chronicle {
         key: CharacterKey,
         began: Tick,
-        kinds: Vec<String>,
     },
     /// A side quest from `giver`, asked at `at`, for this character only. Its offer is the
     /// narrator line of `batch`.
@@ -238,8 +238,11 @@ pub struct Story {
     candidates: Vec<Candidate>,
     budget: Budget,
     /// The chapters of the active character that the narrator was asked a saga for in
-    /// this run. A failed chapter keeps its plain list, and gets no second call.
+    /// this run. A failed chapter keeps its plain list, and gets no second round.
     chronicle_asked: BTreeSet<Tick>,
+    /// The drafts of the saga that is written now. Only a final saga goes to the disk.
+    saga_round: Option<Round>,
+    pace: Pace,
     quest_request: Option<QuestRequest>,
     /// The newest time of an input from the addon. An emote or a book changes no world, so
     /// the tick of the world can be much older.
@@ -264,6 +267,8 @@ impl Story {
             candidates: Vec::new(),
             budget: Budget::default(),
             chronicle_asked: BTreeSet::new(),
+            saga_round: None,
+            pace: Pace::default(),
             quest_request: None,
             newest: Tick(0),
             quest_note: None,
@@ -468,10 +473,7 @@ impl Story {
                 id: batch,
                 narrator: narrator::checked_line(text),
             }],
-            Pending::Chronicle { key, began, kinds } => {
-                self.saga_answered(&key, began, &kinds, text)?;
-                Vec::new()
-            }
+            Pending::Chronicle { key, began } => self.saga_answered(&key, began, Some(text))?,
             Pending::Talk {
                 question,
                 key,
@@ -485,52 +487,6 @@ impl Story {
                 at,
             } => vec![self.quest_answered(batch, &key, &giver, at, text)],
         })
-    }
-
-    /// A footnote tells its kind of moment, so the same joke waits (5.4.1).
-    fn saga_answered(
-        &mut self,
-        key: &CharacterKey,
-        began: Tick,
-        kinds: &[String],
-        text: &str,
-    ) -> Result<(), StoryError> {
-        let Some(active) = self.active.as_mut().filter(|active| &active.key == key) else {
-            return Ok(());
-        };
-        let Some(saga) = chronicle::checked_saga(text, kinds.len()) else {
-            return Ok(());
-        };
-        let earlier: Vec<&str> = active
-            .prose
-            .before(began)
-            .map(|written| written.text.as_str())
-            .collect();
-        if check::copies_a_sample(&saga.text, &earlier) {
-            return Ok(());
-        }
-        let now = self.newest;
-        for (moment, _) in &saga.footnotes {
-            let told = Told {
-                key: kinds[moment - 1].clone(),
-                at: now,
-                teller: Teller::Chronicle,
-            };
-            active.flavor.add_told(told)?;
-        }
-        let footnotes = saga
-            .footnotes
-            .into_iter()
-            .map(|(_, footnote)| footnote)
-            .collect();
-        active.prose.add(
-            began,
-            Written {
-                text: saga.text,
-                footnotes,
-            },
-        )?;
-        Ok(())
     }
 
     /// The words always show. The change of trust lands only for the character that
@@ -581,8 +537,11 @@ impl Story {
         }
     }
 
+    /// The bridge answers a call over its budget with a failure, so each failure slows the
+    /// saga (`Pace`).
     fn failed(&mut self, call: CallId) -> Result<Vec<Output>, StoryError> {
         let (pending, _) = self.take_call(call)?;
+        self.pace.failed(self.newest);
         Ok(match pending {
             Pending::Lore { question, lore } => vec![Output::LoreAnswer {
                 id: question,
@@ -592,7 +551,7 @@ impl Story {
                 id: batch,
                 narrator: None,
             }],
-            Pending::Chronicle { .. } => Vec::new(),
+            Pending::Chronicle { key, began } => self.saga_answered(&key, began, None)?,
             Pending::Talk { question, npc, .. } => vec![Output::TalkAnswer {
                 id: question,
                 npc,
@@ -651,6 +610,7 @@ impl Story {
         self.moments.clear();
         self.candidates.clear();
         self.chronicle_asked.clear();
+        self.saga_round = None;
         self.quest_request = None;
         self.quest_note = None;
         let key = key?;
@@ -825,7 +785,7 @@ impl Story {
             (None, None) => self.narrator_call(batch),
         };
         let mut outputs = vec![seen];
-        outputs.extend(self.chronicle_call());
+        outputs.extend(self.saga_call());
         outputs
     }
 
@@ -910,62 +870,6 @@ impl Story {
             teller: Teller::Narrator,
         };
         Some((Moment::Flavor { what }, told))
-    }
-
-    /// The oldest finished chapter with no saga yet. The bridge runs at most 2 model calls
-    /// at once, so the saga waits until no other call is open: a question of the player
-    /// never fails for a saga. The last chapter can still grow, so it waits for the next
-    /// session.
-    /// The small moments of a chapter run until the next chapter begins: an emote changes
-    /// nothing in the world, so it can come after the last event of the chapter.
-    fn chronicle_call(&mut self) -> Option<Output> {
-        if !self.calls.is_empty() {
-            return None;
-        }
-        let active = self.active.as_ref()?;
-        let journal = journal(&active.character);
-        let chapters = journal.chapters;
-        let index = (1..chapters.len()).map(|next| next - 1).find(|&index| {
-            let began = chapters[index].began;
-            active.prose.get(began).is_none() && !self.chronicle_asked.contains(&began)
-        })?;
-        let (chapter, next) = (&chapters[index], &chapters[index + 1]);
-        let earlier = &chapters[index.saturating_sub(memory::MEMORY_CHAPTERS)..index];
-        let top = flavor::top_moments(
-            active.flavor.moments(),
-            active.flavor.told(),
-            &active.character,
-            (chapter.began, Tick(next.began.0 - 1)),
-            CHAPTER_MOMENTS,
-        );
-        let words: Vec<String> = top
-            .iter()
-            .map(|moment| flavor::describe(&moment.flavor, moment.count))
-            .collect();
-        let kinds = top.iter().map(|moment| moment.flavor.kind.key()).collect();
-        let pending = Pending::Chronicle {
-            key: active.key.clone(),
-            began: chapter.began,
-            kinds,
-        };
-        let hero = hero::hero(active.hero.changes());
-        let in_chapter = |entry: &Entry| entry.at >= chapter.began && entry.at < next.began;
-        let written = hero::newest_texts(&hero.entries, in_chapter);
-        // The sheet is news only once, or when the player changed it, so chapters do not
-        // all open with the same portrait.
-        let sheet_is_news =
-            index == 0 || hero::sheet_changed(active.hero.changes(), chapter.began, next.began);
-        let portrait = sheet_is_news.then(|| hero::portrait(&hero)).flatten();
-        let prompt = chronicle::prompt(
-            &journal.places,
-            chapter,
-            earlier,
-            &words,
-            portrait.as_deref(),
-            &written,
-        );
-        self.chronicle_asked.insert(chapter.began);
-        Some(self.open_call(pending, prompt))
     }
 
     /// A page past the end gets the last page, because the bridge refuses a page number
@@ -1096,6 +1000,7 @@ impl Story {
         self.next_call = CallId(call.0 + 1);
         self.calls.insert(call, pending);
         self.prompts.insert(call, prompt.clone());
+        self.pace.opened(self.newest);
         Output::ModelCall { call, prompt }
     }
 

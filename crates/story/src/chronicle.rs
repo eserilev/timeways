@@ -39,8 +39,41 @@ and tell nothing of what comes next.
 Reply with JSON only: {\"saga\": \"<the chapter>\", \"footnotes\": [{\"moment\": <its number>, \
 \"text\": \"<the footnote>\"}]}";
 
+/// Which of the two drafts of a saga (GAMEPLAY.md 3.3).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Draft {
+    First,
+    Second,
+}
+
+impl Draft {
+    /// The second draft carries the next samples in turn, so the two drafts differ.
+    fn sample_turn(self, number: usize) -> usize {
+        match self {
+            Draft::First => number,
+            Draft::Second => number + Voice::Chapter.per_prompt(),
+        }
+    }
+}
+
+/// The draft that the judge picked.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Pick {
+    First,
+    Second,
+}
+
+const JUDGE_TASK: &str = "Below are two drafts of one chapter of the chronicle. Pick the \
+better one.";
+
+/// The author's note of the judge, with the format last.
+const JUDGE_NOTE: &str = "\
+The better draft tells only the facts, names them plainly, and keeps your manner: serious, \
+concrete, and sparing. A draft that adds a deed, a place, or a person is worse.
+Reply with JSON only: {\"pick\": 1} or {\"pick\": 2}";
+
 /// The saga of a chapter, and its footnotes with the number of the moment of each one.
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Saga {
     pub text: String,
     pub footnotes: Vec<(usize, String)>,
@@ -51,6 +84,11 @@ struct Reply {
     saga: String,
     #[serde(default)]
     footnotes: Vec<Footnote>,
+}
+
+#[derive(Deserialize)]
+struct JudgeReply {
+    pick: u8,
 }
 
 #[derive(Deserialize)]
@@ -71,6 +109,28 @@ pub fn prompt(
     portrait: Option<&str>,
     told: &[&str],
 ) -> String {
+    draft_prompt(
+        places,
+        chapter,
+        earlier,
+        moments,
+        portrait,
+        told,
+        Draft::First,
+    )
+}
+
+/// The prompt of one draft. Only the samples differ between the two drafts.
+#[must_use]
+pub fn draft_prompt(
+    places: &[Place],
+    chapter: &Chapter,
+    earlier: &[Chapter],
+    moments: &[String],
+    portrait: Option<&str>,
+    told: &[&str],
+    draft: Draft,
+) -> String {
     let number = chapter.number;
     let mut prompt = format!(
         "{PERSONA}\n{HOUSE_RULES}\n\nWrite chapter {number} of the chronicle, in at most 80 \
@@ -84,7 +144,7 @@ pub fn prompt(
     );
     prompt.push_str(&small_moments(moments));
     prompt.push_str(&own_words(portrait, told));
-    let samples = samples::section(Voice::Chapter, number);
+    let samples = samples::section(Voice::Chapter, draft.sample_turn(number));
     let _ = write!(prompt, "\n\n{samples}\n\n{NOTE}");
     prompt
 }
@@ -127,7 +187,31 @@ fn own_words(portrait: Option<&str>, told: &[&str]) -> String {
     words
 }
 
-fn facts(places: &[Place], chapter: &Chapter) -> String {
+/// The prompt of the judge: the facts of chapter `number`, and the saga text of each draft.
+#[must_use]
+pub fn judge_prompt(number: usize, facts: &str, first: &str, second: &str) -> String {
+    format!(
+        "{PERSONA}\n{HOUSE_RULES}\n\n{JUDGE_TASK}\n\nThe facts of chapter {number}:\n{}\n\n\
+         Draft 1:\n{}\n\nDraft 2:\n{}\n\n{JUDGE_NOTE}",
+        fenced(facts),
+        fenced(first),
+        fenced(second)
+    )
+}
+
+/// A bad answer picks the first draft: both drafts passed every check.
+#[must_use]
+pub fn checked_pick(text: &str) -> Pick {
+    let reply = json_object(text).and_then(|json| serde_json::from_str::<JudgeReply>(json).ok());
+    match reply {
+        Some(JudgeReply { pick: 2 }) => Pick::Second,
+        _ => Pick::First,
+    }
+}
+
+/// The facts of a chapter, one on each line, as its prompts show them.
+#[must_use]
+pub fn facts(places: &[Place], chapter: &Chapter) -> String {
     let mut facts = Vec::new();
     if !chapter.zones.is_empty() {
         let zones: Vec<String> = chapter

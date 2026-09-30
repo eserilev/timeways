@@ -113,6 +113,13 @@ fn side_quest_chapter() -> String {
     )
 }
 
+/// Two drafts of the longest size that the checks let through.
+fn judge() -> String {
+    let chapter = chapter(4, &["Westfall"], vec![level(16, 1200)]);
+    let draft = "w".repeat(chronicle::MAX_CHAPTER_CHARS);
+    chronicle::judge_prompt(4, &chronicle::facts(&[], &chapter), &draft, &draft)
+}
+
 fn quiet_chapter() -> String {
     let chapter = chapter(5, &["Redridge Mountains"], Vec::new());
     let earlier = earlier_chapters();
@@ -263,6 +270,7 @@ fn every_prompt() -> Vec<(&'static str, Call, String)> {
         .collect();
     prompts.push(("a quest offer", Call::Quest, quest_offer()));
     prompts.push(("a lore question", Call::Lore, lore_question()));
+    prompts.push(("a judge of two drafts", Call::Judge, judge()));
     prompts
 }
 
@@ -292,6 +300,7 @@ fn each_budget_leaves_room_for_the_longest_reply() {
     for call in [
         Call::NarratorLine,
         Call::Chapter,
+        Call::Judge,
         Call::Talk,
         Call::Quest,
         Call::Lore,

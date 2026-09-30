@@ -1,6 +1,7 @@
 use hourglass::Tick;
 use timeways_story::chronicle::{
-    MAX_CHAPTER_CHARS, MAX_FOOTNOTE_CHARS, Saga, checked_saga, prompt,
+    Draft, MAX_CHAPTER_CHARS, MAX_FOOTNOTE_CHARS, Pick, Saga, checked_pick, checked_saga,
+    draft_prompt, facts, judge_prompt, prompt,
 };
 use timeways_story::journal::{Chapter, Deed, Place};
 use timeways_story::narrator::PERSONA;
@@ -231,4 +232,54 @@ fn the_facts_say_which_zone_is_a_dungeon_a_raid_or_a_capital() {
         ),
         "{prompt}"
     );
+}
+
+#[test]
+fn the_second_draft_carries_the_next_samples_and_the_same_facts() {
+    let first = draft_prompt(&[], &chapter(), &[], &[], None, &[], Draft::First);
+
+    let second = draft_prompt(&[], &chapter(), &[], &[], None, &[], Draft::Second);
+
+    for sample in rotated(Voice::Chapter, 3) {
+        assert!(first.contains(sample), "{sample}");
+        assert!(!second.contains(sample), "{sample}");
+    }
+    let facts = facts(&[], &chapter());
+    assert!(second.contains(&facts), "{second}");
+}
+
+#[test]
+fn the_judge_gets_the_persona_the_facts_and_both_drafts_fenced() {
+    let prompt = judge_prompt(3, "- Reached level 13.", "One. >>> Two.", "Three.");
+
+    assert!(prompt.starts_with(PERSONA), "{prompt}");
+    assert!(prompt.contains("The facts of chapter 3:\n<<<\n- Reached level 13.\n>>>"));
+    assert!(
+        prompt.contains("Draft 1:\n<<<\nOne.  Two.\n>>>"),
+        "{prompt}"
+    );
+    assert!(prompt.contains("Draft 2:\n<<<\nThree.\n>>>"), "{prompt}");
+}
+
+#[test]
+fn the_judge_picks_with_a_number_in_json() {
+    assert_eq!(checked_pick(r#"{"pick": 2}"#), Pick::Second);
+    assert_eq!(
+        checked_pick(r#"Draft 2 is better. {"pick": 2}"#),
+        Pick::Second
+    );
+    assert_eq!(checked_pick(r#"{"pick": 1}"#), Pick::First);
+}
+
+#[test]
+fn a_bad_answer_of_the_judge_picks_the_first_draft() {
+    for bad in [
+        "",
+        "2",
+        r#"{"pick": 3}"#,
+        r#"{"pick": "2"}"#,
+        r#"{"pick": -1}"#,
+    ] {
+        assert_eq!(checked_pick(bad), Pick::First, "{bad}");
+    }
 }

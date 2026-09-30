@@ -108,7 +108,7 @@ The prompts of the narrator, the chronicle, a talk, and a quest share one plan (
 - **Names in no fact.** The code logs each proper name of an answer that its prompt does not hold. It refuses nothing yet.
 - **The size.** Each prompt fits a local model with a context of 2048 tokens, with room for the longest reply. A test measures the prompts of fixed test moments, at about 4 characters for each token.
 - **The voice regression set.** Fixed test moments: a first dungeon, a world boss, a death, a level milestone, a new capital, a finished side quest, a quiet chapter, and an NPC talk. A live test, ignored by default, sends them to a real model through the same prompt code. It writes the answers to a file for review.
-- **No best of two, and no judge.** Each answer costs one call.
+- **Best of two only for a chapter** (3.3). A narrator line, a talk, and a quest cost one call each.
 - `/lore` keeps the voice of a historian (3.1), with the same house rules.
 
 ### 3.3 The chronicle
@@ -126,7 +126,14 @@ A chapter follows the progress of the character, not the clock. The narrator (3.
   - A finished class quest is a milestone too (5.4).
   - A dungeon, a raid, and a capital city are zones of their own, so the first entry into one is already the first visit of a zone.
 - **The kind of a place** (built): after the zone of an instance, the addon sends `instance_entered` with "party" for a dungeon or "raid" (from `IsInInstance`). A battleground and an arena send nothing. The story program marks the zone, and the six capitals are known by name. The facts of a saga name the kind ("The Deadmines (a dungeon)"). A first dungeon or raid is a big moment for the narrator, as high as a first kill, and a first capital ranks above a new zone.
-- **The saga** (built): after a batch, the story program asks a model for the saga, and the footnotes (5.4.1), of the oldest finished chapter that has none yet, one chapter at a time. The last chapter can still grow, so it waits for the next milestone. The facts of the prompt come from the chapter alone. The saga must be plain text in one paragraph, at most 600 characters, with no name from after the cutoff (5.9). A saga that fails keeps the plain list, and gets no retry and no second call in the same run. A saga is stored by the tick where its chapter begins. A change of these rules moves the beginnings, so an old saga can lose its chapter.
+- **The saga** (built): after a batch, the story program asks a model for the saga, and the footnotes (5.4.1), of the oldest finished chapter that has none yet, one chapter at a time. The last chapter can still grow, so it waits for the next milestone. The facts of the prompt come from the chapter alone. The saga must be plain text in one paragraph, at most 600 characters, with no name from after the cutoff (5.9). A saga that fails keeps the plain list, and gets no retry in the same run. A saga is stored by the tick where its chapter begins. A change of these rules moves the beginnings, so an old saga can lose its chapter.
+- **Best of two** (built): a chapter gets two drafts, one after the other. The second draft has the same facts and the next samples in turn, so the two drafts differ.
+  - Each draft goes through the checks of a saga: the voice, the banned words, the cutoff, and no repeats.
+  - When both drafts pass, a short judge call picks one. Its prompt holds the persona, the facts, and the two drafts. It answers `{"pick": 1}` or `{"pick": 2}`. A bad answer or a failed call picks draft 1.
+  - When one draft passes, it wins with no judge. When none passes, the chapter keeps the plain list.
+  - The second draft and the judge go out only when no other call is open. A question of the player never waits for a saga.
+  - So a chapter costs at most 3 calls. When the budget window is tight, it costs 1, as before: the first draft that passes wins. The window is tight after a failed call in the last 20 minutes, because the bridge refuses a call over its budget with a plain `model_failed`. It is also tight after 5 calls in the last 20 minutes: the bridge admits 10.
+  - The drafts live in memory only. Only the final saga goes to the disk. A restart drops the drafts, and the chapter starts again with a first draft.
 - **Chapter memory** (built): the prompt of a chapter also carries a short summary of each of the 3 chapters before it. The code writes each summary from the facts of its chapter. The model never writes one.
 - **The hero sheet in a saga** (built): the sheet (3.7) goes only into the prompt of the first chapter, and of a chapter in which the player changed it. So the chapters do not all open with the same portrait. The entries that the player wrote in a chapter always go into its prompt.
 - **No repeats** (built): a saga that holds 8 words in a row of an earlier saga is refused, and its chapter keeps the plain list.

@@ -22,6 +22,8 @@ const STEP_CHARS: usize = 100;
 pub enum Call {
     NarratorLine,
     Chapter,
+    /// The pick between two drafts of a chapter.
+    Judge,
     Talk,
     Quest,
     Lore,
@@ -44,6 +46,7 @@ impl Call {
                     + chronicle::MAX_FOOTNOTES * chronicle::MAX_FOOTNOTE_CHARS
                     + JSON_CHARS
             }
+            Call::Judge => JSON_CHARS,
             Call::Talk => talk::MAX_SAY_CHARS + JSON_CHARS,
             Call::Quest => {
                 quest::MAX_TITLE_CHARS
