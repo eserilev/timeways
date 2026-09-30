@@ -169,7 +169,7 @@ fn a_reply_of_the_self_test_never_reaches_the_book() {
     answer_all(&game, &mut story);
 
     let first: String = game.eval("ns.Journal.Lines('places')[1].text");
-    assert!(first.starts_with("The ink is still drying..."));
+    assert!(first.starts_with("Loading..."));
 }
 
 #[test]

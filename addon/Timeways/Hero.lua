@@ -17,12 +17,12 @@ Hero.LABELS = {
 	traits = "Traits",
 }
 Hero.HINTS = {
-	origin = "Where were you born, and who raised you?",
-	background = "What did you do before the road called?",
-	goal = "What are you chasing?",
-	bond = "Who, or what, would you die for?",
-	flaw = "What always gets you into trouble?",
-	traits = "How would a stranger describe you?",
+	origin = "Where is your character from?",
+	background = "What did your character do before adventuring?",
+	goal = "What does your character want?",
+	bond = "Who or what does your character care about most?",
+	flaw = "What is your character's biggest flaw?",
+	traits = "How would you describe your character's personality?",
 }
 
 -- The desktop refuses a longer text, so the editor stops at the same length.
@@ -118,8 +118,8 @@ end
 
 function Hero.Write()
 	ns.JournalFrame.Edit({
-		title = "Write a new page",
-		hint = "Anything that happened to you. The chronicle will remember.",
+		title = "New note",
+		hint = "Anything about your character. It becomes part of your story.",
 		text = "",
 		limit = Hero.MAX_LETTERS,
 		save = Hero.Add,

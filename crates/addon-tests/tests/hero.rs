@@ -73,10 +73,10 @@ fn the_hero_page_shows_each_field_with_its_button_and_each_entry() {
     assert_eq!(lines[0], "heading: Who You Are");
     assert!(lines.contains(&"entry: Goal [Edit]".to_string()));
     assert!(lines.contains(&"text: Find my brother.".to_string()));
-    assert!(lines.contains(&"hint: Where were you born, and who raised you?".to_string()));
+    assert!(lines.contains(&"hint: Where is your character from?".to_string()));
     let own = lines
         .iter()
-        .position(|line| line == "heading: Pages of Your Own [Add]")
+        .position(|line| line == "heading: Your Notes [Add]")
         .unwrap();
     assert_eq!(lines[own + 1], "entry: An oath. [Remove]");
     assert!(
@@ -172,9 +172,9 @@ fn an_unchanged_field_sends_nothing() {
 fn add_writes_an_entry_and_an_empty_text_writes_nothing() {
     let game = open_book(FILLED);
 
-    click(&game, "Pages of Your Own");
+    click(&game, "Your Notes");
     write(&game, "   ");
-    click(&game, "Pages of Your Own");
+    click(&game, "Your Notes");
     write(&game, "A stranger knew my name.");
 
     let added = Input::HeroAdded {
@@ -229,7 +229,7 @@ fn a_cleared_field_shows_its_hint_at_once() {
     write(&game, "");
 
     let lines = lines(&game);
-    assert!(lines.contains(&"hint: What are you chasing?".to_string()));
+    assert!(lines.contains(&"hint: What does your character want?".to_string()));
     assert!(!lines.contains(&"text: Find my brother.".to_string()));
 }
 
@@ -248,7 +248,7 @@ fn the_editor_shows_the_saved_text_before_the_journal_comes() {
 fn a_new_entry_shows_at_once_with_a_saving_mark() {
     let game = open_book(FILLED);
 
-    click(&game, "Pages of Your Own");
+    click(&game, "Your Notes");
     write(&game, "A stranger knew my name.");
 
     let lines = lines(&game);
@@ -271,7 +271,7 @@ fn a_removed_entry_leaves_the_page_at_once() {
         lines
             .last()
             .unwrap()
-            .starts_with("help: The game only sees")
+            .starts_with("help: Write anything the game")
     );
 }
 
@@ -292,7 +292,7 @@ fn the_next_journal_replaces_the_unsaved_edits_and_clears_the_mark() {
 #[test]
 fn a_refused_edit_goes_away_and_the_reason_shows() {
     let game = open_book(FILLED);
-    click(&game, "Pages of Your Own");
+    click(&game, "Your Notes");
     write(&game, "A stranger knew my name.");
     click(&game, "Goal");
     write(&game, "Avenge my brother.");

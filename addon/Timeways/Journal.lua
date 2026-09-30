@@ -430,13 +430,10 @@ end
 
 local function Lore(hero, unsaved)
 	local add = { label = "Add", run = ns.Hero.Write }
-	local lines = { Line("heading", "Pages of Your Own", add) }
+	local lines = { Line("heading", "Your Notes", add) }
 	local entries = LoreEntries(hero, unsaved)
 	if #entries == 0 then
-		lines[#lines + 1] = Line(
-			"help",
-			"The game only sees what you kill and where you go. Write the rest: a grudge, a promise, a night you'd rather forget."
-		)
+		lines[#lines + 1] = Line("help", "Write anything the game can't see: a grudge, a promise, a secret.")
 	end
 	for _, line in ipairs(entries) do
 		lines[#lines + 1] = line
@@ -466,9 +463,9 @@ local BUILDERS = {
 
 local EMPTY = {
 	chapters = "Your story hasn't started yet. Go make some trouble.",
-	places = "You haven't set foot anywhere yet. The road is waiting.",
+	places = "No places yet. Go explore.",
 	people = "No one knows your name yet. Try saying hello.",
-	deeds = "Nothing worth a song yet. Give it time.",
+	deeds = "No deeds yet.",
 	learned = "You haven't learned a thing yet. Pick up a book, or listen at the inn.",
 	quests = "No one has asked you for a favor yet. Target someone, and type /quest.",
 }
@@ -477,10 +474,10 @@ local EMPTY = {
 Journal.USAGE = {
 	hero = "Your character's backstory. It shapes the story that the game writes about you.",
 	chapters = "Your story so far, chapter by chapter.",
-	places = "Everywhere your boots have been.",
-	people = "Everyone you've met, and what they make of you.",
-	deeds = "Levels gained, foes felled, and the odd embarrassing death.",
-	learned = "Everything you've read, and everything you've overheard.",
+	places = "Every place you've been.",
+	people = "Everyone you've met, and what they think of you.",
+	deeds = "Your levels, big kills, deaths, and titles.",
+	learned = "Everything you've read or heard.",
 	quests = "Favors from the people you meet. Target someone, and type /quest.",
 }
 
@@ -498,7 +495,7 @@ end
 function Journal.Lines(section)
 	if not pages then
 		return {
-			Line("help", "The ink is still drying... If the pages stay blank, start Gnomish Relay on your computer."),
+			Line("help", "Loading... If this stays empty, start Gnomish Relay on your computer."),
 		}
 	end
 	return Journal.Render(pages, section)

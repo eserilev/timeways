@@ -13,7 +13,7 @@ use timeways_story::story::Output;
 const DAY: u64 = 1_790_000_000;
 
 /// The page before the desktop answers.
-const FILLING: &str = "help: The ink is still drying... If the pages stay blank, start Gnomish Relay on your computer.";
+const FILLING: &str = "help: Loading... If this stays empty, start Gnomish Relay on your computer.";
 
 /// The reply line of the first page that the story program writes for this character.
 fn journal_reply(character: &Character) -> String {
@@ -152,18 +152,12 @@ fn an_empty_section_shows_a_note() {
 
     game.reply(&journal_reply(&Character::new()));
 
-    assert_eq!(
-        lines(&game, "places"),
-        ["help: You haven't set foot anywhere yet. The road is waiting."]
-    );
+    assert_eq!(lines(&game, "places"), ["help: No places yet. Go explore."]);
     assert_eq!(
         lines(&game, "people"),
         ["help: No one knows your name yet. Try saying hello."]
     );
-    assert_eq!(
-        lines(&game, "deeds"),
-        ["help: Nothing worth a song yet. Give it time."]
-    );
+    assert_eq!(lines(&game, "deeds"), ["help: No deeds yet."]);
 }
 
 #[test]
@@ -286,15 +280,9 @@ fn a_broken_journal_shows_gaps_and_no_error() {
         r#"{"type":"journal","page":0,"pages":1,"places":"x","people":[{"name":5}],"deeds":[{"kind":"level"},{"kind":"odd"}]}"#,
     );
 
-    assert_eq!(
-        lines(&game, "places"),
-        ["help: You haven't set foot anywhere yet. The road is waiting."]
-    );
+    assert_eq!(lines(&game, "places"), ["help: No places yet. Go explore."]);
     assert_eq!(lines(&game, "people")[0], "entry: ?");
-    assert_eq!(
-        lines(&game, "deeds"),
-        ["help: Nothing worth a song yet. Give it time."]
-    );
+    assert_eq!(lines(&game, "deeds"), ["help: No deeds yet."]);
 }
 
 fn explorer() -> Character {
@@ -415,10 +403,7 @@ fn an_entry_that_is_not_a_table_is_skipped() {
     game.run(
         "wow.Slash('/journal', ''); ns.JournalFrame.Open('people'); ns.JournalFrame.Open('deeds')",
     );
-    assert_eq!(
-        lines(&game, "places"),
-        ["help: You haven't set foot anywhere yet. The road is waiting."]
-    );
+    assert_eq!(lines(&game, "places"), ["help: No places yet. Go explore."]);
     assert_eq!(lines(&game, "people")[0], "entry: Ada");
 }
 
