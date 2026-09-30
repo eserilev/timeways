@@ -18,7 +18,7 @@ pub const MAX_CHAPTER_CHARS: usize = 600;
 /// The limit of the bridge for one string of the journal (Gnomish Relay SPEC.md 9.8).
 pub const MAX_CHAPTER_BYTES: usize = 1600;
 
-/// A footnote is one dry line: "Nobody knows why."
+/// A footnote is one dry line of fact.
 pub const MAX_FOOTNOTE_CHARS: usize = 200;
 
 /// "It picks at most 3 footnotes for the chapter" (GAMEPLAY.md 5.4.1).
@@ -30,12 +30,15 @@ const MAX_FOOTNOTE_BYTES: usize = 600;
 
 const FOOTNOTES: &str = "\
 Pick at most 3 of the small moments for footnotes, or none. A footnote is one short, dry \
-line, for example: \"On the fourth day, our hero danced in Goldshire. Nobody knows why.\"";
+line of fact, for example: \"On the fourth day, our hero danced in Goldshire, alone, at \
+three in the morning.\"";
 
 /// The author's note, with the format last.
 const NOTE: &str = "\
-Remember: serious, concrete, and sparing, in one paragraph. Call the player \"our hero\", \
-and tell nothing of what comes next.
+Remember: serious, concrete, and sparing, in one paragraph. Say \"our hero\" at most \
+twice, and tell nothing of what comes next.
+Tell the facts as a story, not as a list. Few facts make a short chapter of two or three \
+sentences.
 Reply with JSON only: {\"saga\": \"<the chapter>\", \"footnotes\": [{\"moment\": <its number>, \
 \"text\": \"<the footnote>\"}]}";
 

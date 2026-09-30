@@ -29,6 +29,8 @@ const TASK: &str = "Tell the moment below in one line of at most 25 words.";
 const NOTE: &str = "\
 Remember: serious, concrete, and short. Call the player \"our hero\", and tell nothing of \
 what comes next.
+Name the place, foe, or number of the moment plainly. Add nothing that the moment does \
+not hold. Use the hero's own story only when the moment touches it.
 Answer with the line only.";
 
 /// Counts the lines of the last hour of game time, so the narrator talks little.

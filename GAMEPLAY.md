@@ -107,7 +107,15 @@ The prompts of the narrator, the chronicle, a talk, and a quest share one plan (
 - **The checks** refuse an emoji, modern slang, a stock phrase such as "the sands of time" or an hourglass, and a copy of a long phrase of a sample. The banned words are data in `crates/story/data/banned_words.txt`. No banned word is a word that the facts use, such as "level".
 - **Names in no fact.** The code logs each proper name of an answer that its prompt does not hold. It refuses nothing yet.
 - **The size.** Each prompt fits a local model with a context of 2048 tokens, with room for the longest reply. A test measures the prompts of fixed test moments, at about 4 characters for each token.
-- **The voice regression set.** Fixed test moments: a first dungeon, a world boss, a death, a level milestone, a new capital, a finished side quest, a quiet chapter, and an NPC talk. A live test, ignored by default, sends them to a real model through the same prompt code. It writes the answers to a file for review.
+- **The voice regression set.** Fixed test moments: a first dungeon, a world boss, a death, a level milestone, a new capital, a finished side quest, a quiet chapter, and an NPC talk. A live test, ignored by default, sends them to a real model through the same prompt code. It writes the answers to a file for review. It also runs the best of two (3.3) for the side quest chapter: two drafts and the judge. It runs the model as the bridge does: `claude -p` with no tools, no MCP servers, and no settings.
+- **What the live runs found** (Claude, September 2026, four runs):
+  - A chapter said "our hero" in almost every sentence. The note of a chapter now asks for "our hero" at most twice, and each chapter sample holds it at most twice.
+  - A chapter listed the facts in order ("There was a task, and our hero finished it."). A quiet chapter padded itself out ("Nothing more of this chapter is known."). The note now asks for a story, not a list, and for two or three sentences when the facts are few.
+  - A model copied the aphorism of a sample ("Some days are only a road" became "Some chapters are only a road"). That sample lost its aphorism, and the first sample lost "Nothing else of note happened".
+  - Each footnote ended like the example of the prompt ("Nobody knows why" became "Nobody asked why"). The example is now a plain fact with a dry detail.
+  - A narrator line brought in the hero sheet at every moment. The note now says to use it only when the moment touches it.
+  - A push for "one concrete detail" made the narrator invent places and dropped the level number. The note now asks to name the place, foe, or number plainly, and to add nothing.
+  - Still open: a line often repeats "for the first time" from the moment, and a line can name a place from the knowledge of the model ("Azshara" for Azuregos). The NPC talk was the best part in every run.
 - **Best of two only for a chapter** (3.3). A narrator line, a talk, and a quest cost one call each.
 - `/lore` keeps the voice of a historian (3.1), with the same house rules.
 
