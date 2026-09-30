@@ -7,33 +7,39 @@ local JournalFrame = {}
 ns.JournalFrame = JournalFrame
 
 local NAME = "TimewaysJournalFrame"
-local INK = { 0.18, 0.12, 0.06 }
 local BULLET = 16
 
 -- The scroll frame covers the parchment. The margins keep the text off its torn edge, and
--- the right one also keeps it off the scroll bar.
+-- the right one also keeps the buttons off it.
 local SCROLL_WIDTH, SCROLL_HEIGHT = 300, 310
-local MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP = 12, 16, 12
+local MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP = 12, 24, 12
 local PAGE_WIDTH = SCROLL_WIDTH - MARGIN_LEFT - MARGIN_RIGHT
 
+-- A hint and a help line fade, so they never read like a text of the player.
 local STYLES = {
-	heading = { font = "QuestTitleFont", indent = 0, gap = 12 },
+	heading = { font = "QuestTitleFont", indent = 0, gap = 14 },
 	prose = { font = "QuestFont", indent = 0, gap = 6 },
-	entry = { font = "QuestFont", indent = BULLET + 2, gap = 8, bullet = true },
+	entry = { font = "QuestFont", indent = BULLET + 2, gap = 10, bullet = true },
 	text = { font = "QuestFont", indent = BULLET + 2, gap = 2 },
 	note = { font = "QuestFontNormalSmall", indent = 0, gap = 0 },
+	hint = { font = "QuestFontNormalSmall", indent = BULLET + 2, gap = 2, faded = true },
+	help = { font = "QuestFont", indent = 0, gap = 6, faded = true },
 }
 
--- The tabs stand in two rows where the quest frame puts its Accept and Decline buttons. One
--- row of seven cuts labels such as "Chronicle".
-local TABS_PER_ROW = 4
-local TABS_LEFT, TABS_BOTTOM = 20, 50
-local TAB_WIDTH, TAB_HEIGHT, TAB_GAP = 76, 22, 3
+-- The tabs stand in one row on the dark band under the parchment, where QuestFrame.xml
+-- puts Accept (x 23, y 72) and Decline (right edge at x 345). The band holds one row of
+-- buttons only: a second row falls below the art. Each tab is as wide as its label, and the
+-- tabs share the rest of the band.
+local TABS_LEFT, TABS_RIGHT, TABS_BOTTOM = 23, 345, 73
+local TAB_HEIGHT, TAB_GAP = 22, 2
+
+-- The dark band between the title and the parchment holds the line on how to use the page.
+local USAGE_LEFT, USAGE_WIDTH, USAGE_Y = 80, 250, -60
 
 -- A button on a line uses the small font, so its label fits.
 local ACTION_HEIGHT, ACTION_PADDING = 22, 20
 
-local frame, scroll, page
+local frame, scroll, page, usage
 local strings, bullets, actions, tabs = {}, {}, {}, {}
 local section = "chapters"
 
@@ -48,6 +54,8 @@ end
 local function BuildFrame()
 	frame = CreateFrame("Frame", NAME, UIParent)
 	frame:SetSize(384, 512)
+	-- The art ends above and left of the frame edge. The rest lets clicks through to the world.
+	frame:SetHitRectInsets(0, 30, 0, 70)
 	frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 0, -104)
 	frame:SetToplevel(true)
 	frame:EnableMouse(true)
@@ -78,6 +86,10 @@ local function BuildFrame()
 
 	local close = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
 	close:SetPoint("CENTER", frame, "TOPRIGHT", -42, -31)
+
+	usage = frame:CreateFontString(nil, "ARTWORK", "GameFontNormalSmall")
+	usage:SetPoint("LEFT", frame, "TOPLEFT", USAGE_LEFT, USAGE_Y)
+	usage:SetWidth(USAGE_WIDTH)
 end
 
 local function BuildPage()
@@ -89,22 +101,37 @@ local function BuildPage()
 	scroll:SetScrollChild(page)
 end
 
+local function LabelWidth(button)
+	return button:GetFontString():GetStringWidth()
+end
+
+local function Tab(name)
+	local tab = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+	tab:SetHeight(TAB_HEIGHT)
+	tab:SetNormalFontObject("GameFontNormalSmall")
+	tab:SetHighlightFontObject("GameFontHighlightSmall")
+	tab:SetDisabledFontObject("GameFontDisableSmall")
+	tab:SetText(ns.Journal.TITLES[name])
+	tab:SetScript("OnClick", function()
+		JournalFrame.Open(name)
+	end)
+	return tab
+end
+
 local function BuildTabs()
-	for n, name in ipairs(ns.Journal.SECTIONS) do
-		local tab = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-		local column, row = (n - 1) % TABS_PER_ROW, math.floor((n - 1) / TABS_PER_ROW)
-		tab:SetSize(TAB_WIDTH, TAB_HEIGHT)
-		local x = TABS_LEFT + column * (TAB_WIDTH + TAB_GAP)
-		local y = TABS_BOTTOM + (1 - row) * (TAB_HEIGHT + TAB_GAP)
-		tab:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", x, y)
-		tab:SetNormalFontObject("GameFontNormalSmall")
-		tab:SetHighlightFontObject("GameFontHighlightSmall")
-		tab:SetDisabledFontObject("GameFontDisableSmall")
-		tab:SetText(ns.Journal.TITLES[name])
-		tab:SetScript("OnClick", function()
-			JournalFrame.Open(name)
-		end)
-		tabs[name] = tab
+	local labels = 0
+	for _, name in ipairs(ns.Journal.SECTIONS) do
+		tabs[name] = Tab(name)
+		labels = labels + LabelWidth(tabs[name])
+	end
+	local count = #ns.Journal.SECTIONS
+	local padding = (TABS_RIGHT - TABS_LEFT - (count - 1) * TAB_GAP - labels) / count
+	local x = TABS_LEFT
+	for _, name in ipairs(ns.Journal.SECTIONS) do
+		local width = LabelWidth(tabs[name]) + padding
+		tabs[name]:SetWidth(width)
+		tabs[name]:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", x, TABS_BOTTOM)
+		x = x + width + TAB_GAP
 	end
 end
 
@@ -135,9 +162,7 @@ end
 -- The button grows to its label, so a longer label never spills out.
 local function FitAction(action, label)
 	action:SetText(label)
-	local text = action:GetFontString()
-	local width = text and text:GetStringWidth() or 0
-	local fitted = math.max(width + ACTION_PADDING, 48)
+	local fitted = math.max(LabelWidth(action) + ACTION_PADDING, 48)
 	action:SetWidth(fitted)
 	return fitted
 end
@@ -160,8 +185,9 @@ local function DrawLine(n, line, y)
 		action:SetScript("OnClick", line.action.run)
 	end
 	local text = FontString(n)
+	local ink = style.faded and ns.Ink.faded or ns.Ink.text
 	text:SetFontObject(style.font)
-	text:SetTextColor(INK[1], INK[2], INK[3])
+	text:SetTextColor(ink[1], ink[2], ink[3])
 	text:SetJustifyH("LEFT")
 	text:SetWidth(PAGE_WIDTH - style.indent - room)
 	text:ClearAllPoints()
@@ -201,9 +227,26 @@ function JournalFrame.Refresh()
 	HideFrom(actions, #lines + 1)
 	page:SetHeight(y + MARGIN_TOP)
 	ShowScrollBar(y + MARGIN_TOP)
+	usage:SetText(ns.Journal.USAGE[section])
 	for name, tab in pairs(tabs) do
 		tab:SetEnabled(name ~= section)
 	end
+end
+
+local function ShowBook(shown)
+	scroll:SetShown(shown)
+	for _, tab in pairs(tabs) do
+		tab:SetShown(shown)
+	end
+end
+
+-- The editor takes the place of the page and the tabs until the player saves or cancels.
+function JournalFrame.Edit(edit)
+	JournalFrame.Open()
+	ShowBook(false)
+	ns.Editor.Open(frame, edit, function()
+		ShowBook(true)
+	end)
 end
 
 function JournalFrame.Open(name)

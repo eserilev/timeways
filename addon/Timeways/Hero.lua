@@ -1,5 +1,6 @@
 -- The hero: the sheet and the player's own lore (GAMEPLAY.md 3.7). The desktop keeps them.
--- Each edit goes out with a journal request, so the page shows the result at once.
+-- Each edit goes out with a journal request. The book shows the edit at once, and the
+-- journal that comes back replaces it.
 
 local _, ns = ...
 
@@ -24,10 +25,19 @@ Hero.HINTS = {
 	traits = "Your hero's manner, in a line or two.",
 }
 
--- The desktop refuses a longer text, so the box stops at the same length.
-local MAX_LETTERS = 300
+-- The desktop refuses a longer text, so the editor stops at the same length.
+Hero.MAX_LETTERS = 300
 
 local asked = false
+
+-- The edits that the desktop did not confirm yet, so the book shows them at once. The next
+-- whole journal replaces them: it holds each saved edit and leaves out a refused one.
+local unsaved
+
+local function ForgetUnsaved()
+	unsaved = { fields = {}, added = {}, removed = {} }
+end
+ForgetUnsaved()
 
 local function Say(text)
 	DEFAULT_CHAT_FRAME:AddMessage("|cffc8a064Timeways|r: " .. text)
@@ -36,6 +46,7 @@ end
 local function Send(input)
 	ns.Outbox.Add(input)
 	ns.Journal.Request(0)
+	ns.JournalFrame.Refresh()
 end
 
 local function IsField(field)
@@ -47,48 +58,35 @@ local function IsField(field)
 	return false
 end
 
-local function Trim(text)
-	return (tostring(text or ""):match("^%s*(.-)%s*$"))
+-- The desktop refuses a control character, so a line break becomes a space.
+local function Clean(text)
+	local flat = tostring(text or ""):gsub("%s*[\r\n]+%s*", " ")
+	return (flat:match("^%s*(.-)%s*$"))
+end
+
+function Hero.Unsaved()
+	return unsaved
+end
+
+function Hero.JournalCame()
+	ForgetUnsaved()
 end
 
 -- An empty text clears the field.
 function Hero.Set(field, text)
-	Send(ns.Inputs.HeroSet(time(), field, Trim(text)))
+	text = Clean(text)
+	unsaved.fields[field] = text
+	Send(ns.Inputs.HeroSet(time(), field, text))
 end
 
 function Hero.Add(text, npc)
-	text = Trim(text)
-	if text ~= "" then
-		Send(ns.Inputs.HeroAdded(time(), text, npc))
+	text = Clean(text)
+	if text == "" then
+		return
 	end
+	table.insert(unsaved.added, { text = text, npc = npc })
+	Send(ns.Inputs.HeroAdded(time(), text, npc))
 end
-
--- A dialog of the game with a text box. `data.save` gets the text on Save or Enter.
-StaticPopupDialogs.TIMEWAYS_HERO_TEXT = {
-	text = "%s",
-	button1 = "Save",
-	button2 = "Cancel",
-	hasEditBox = 1,
-	maxLetters = MAX_LETTERS,
-	editBoxWidth = 350,
-	timeout = 0,
-	whileDead = 1,
-	hideOnEscape = 1,
-	OnShow = function(dialog, data)
-		dialog:GetEditBox():SetText(data.text or "")
-		dialog:GetEditBox():SetFocus()
-	end,
-	OnAccept = function(dialog, data)
-		data.save(dialog:GetEditBox():GetText())
-	end,
-	EditBoxOnEnterPressed = function(editBox, data)
-		data.save(editBox:GetText())
-		editBox:GetParent():Hide()
-	end,
-	EditBoxOnEscapePressed = function(editBox)
-		editBox:GetParent():Hide()
-	end,
-}
 
 StaticPopupDialogs.TIMEWAYS_HERO_REMOVE = {
 	text = "Remove this from your story?\n\n%s",
@@ -98,26 +96,33 @@ StaticPopupDialogs.TIMEWAYS_HERO_REMOVE = {
 	whileDead = 1,
 	hideOnEscape = 1,
 	OnAccept = function(_, data)
+		unsaved.removed[data.number] = true
 		Send(ns.Inputs.HeroRemoved(time(), data.number))
 	end,
 }
 
+-- `current` is the text that the book shows now, so an unchanged text sends nothing.
 function Hero.Edit(field, current)
-	local prompt = Hero.LABELS[field] .. ": " .. Hero.HINTS[field]
-	StaticPopup_Show("TIMEWAYS_HERO_TEXT", prompt, nil, {
+	ns.JournalFrame.Edit({
+		title = Hero.LABELS[field],
+		hint = Hero.HINTS[field] .. " Leave it empty to clear it.",
 		text = current,
+		limit = Hero.MAX_LETTERS,
 		save = function(text)
-			Hero.Set(field, text)
+			if Clean(text) ~= (current or "") then
+				Hero.Set(field, text)
+			end
 		end,
 	})
 end
 
 function Hero.Write()
-	StaticPopup_Show("TIMEWAYS_HERO_TEXT", "Add to your story: a memory, a rumor, or a vow.", nil, {
+	ns.JournalFrame.Edit({
+		title = "Add to your own lore",
+		hint = "A memory, a rumor, or a vow. It keeps the place where you stand.",
 		text = "",
-		save = function(text)
-			Hero.Add(text)
-		end,
+		limit = Hero.MAX_LETTERS,
+		save = Hero.Add,
 	})
 end
 
@@ -154,7 +159,7 @@ local USAGE = "/hero, /hero add <text>, /hero note <text about your target>, or 
 
 -- `/hero` opens the page. The words after it add to the story, or set a field.
 function Hero.Command(message)
-	local verb, rest = Trim(message):match("^(%S*)%s*(.-)$")
+	local verb, rest = Clean(message):match("^(%S*)%s*(.-)$")
 	if verb == "" then
 		ns.JournalFrame.Open("hero")
 	elseif verb == "add" and rest ~= "" then

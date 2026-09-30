@@ -263,7 +263,7 @@ fn with_no_quest_the_page_says_how_to_ask() {
 
     assert_eq!(
         lines(&game),
-        ["note: No task yet. Target someone, and type /quest."]
+        ["help: No task yet. Target an NPC that you met, and type /quest."]
     );
 }
 

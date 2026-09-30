@@ -193,6 +193,12 @@ return {
 		},
 	},
 	methods = {
+		["DurationTextBindingObjectAPI:GetFontString"] = {
+			Arguments = {},
+			Returns = {
+				{ Name = "fontString", Type = "SimpleFontString", Nilable = true },
+			},
+		},
 		["DurationTextBindingObjectAPI:SetEnabled"] = {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {
@@ -221,6 +227,9 @@ return {
 			},
 		},
 		["FrameAPIModelSceneFrameActorBase:Show"] = {
+			Arguments = {},
+		},
+		["FrameAPISimpleCheckout:ClearFocus"] = {
 			Arguments = {},
 		},
 		["FrameAPISimpleCheckout:SetFocus"] = {
@@ -289,8 +298,17 @@ return {
 				{ Name = "scaleY", Type = "number", Nilable = false },
 			},
 		},
+		["SimpleBrowserAPI:ClearFocus"] = {
+			Arguments = {},
+		},
 		["SimpleBrowserAPI:SetFocus"] = {
 			Arguments = {},
+		},
+		["SimpleButtonAPI:GetFontString"] = {
+			Arguments = {},
+			Returns = {
+				{ Name = "fontString", Type = "SimpleFontString", Nilable = false },
+			},
 		},
 		["SimpleButtonAPI:GetText"] = {
 			SecretReturnsForAspect = { Enum.SecretAspect.Text },
@@ -332,11 +350,28 @@ return {
 				{ Name = "text", Type = "cstring", Nilable = false, Default = "" },
 			},
 		},
+		["SimpleEditBoxAPI:ClearFocus"] = {
+			ChecksForbiddenAspects = { { Argument = "self", Aspect = Enum.ForbiddenAspect.ScriptedInput } },
+			Arguments = {},
+		},
+		["SimpleEditBoxAPI:GetNumLetters"] = {
+			MayReturnNothing = true,
+			Arguments = {},
+			Returns = {
+				{ Name = "numLetters", Type = "number", Nilable = false },
+			},
+		},
 		["SimpleEditBoxAPI:GetText"] = {
 			SecretReturnsForAspect = { Enum.SecretAspect.Text },
 			Arguments = {},
 			Returns = {
 				{ Name = "text", Type = "cstring", Nilable = false },
+			},
+		},
+		["SimpleEditBoxAPI:SetAutoFocus"] = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "autoFocus", Type = "bool", Nilable = false, Default = false },
 			},
 		},
 		["SimpleEditBoxAPI:SetEnabled"] = {
@@ -359,6 +394,18 @@ return {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {
 				{ Name = "justifyH", Type = "JustifyHorizontal", Nilable = false },
+			},
+		},
+		["SimpleEditBoxAPI:SetMaxLetters"] = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "maxLetters", Type = "number", Nilable = false },
+			},
+		},
+		["SimpleEditBoxAPI:SetMultiLine"] = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "multiline", Type = "bool", Nilable = false, Default = false },
 			},
 		},
 		["SimpleEditBoxAPI:SetText"] = {
@@ -403,6 +450,13 @@ return {
 			Arguments = {},
 			Returns = {
 				{ Name = "height", Type = "uiUnit", Nilable = false },
+			},
+		},
+		["SimpleFontStringAPI:GetStringWidth"] = {
+			SecretWhenAnchoringSecret = true,
+			Arguments = {},
+			Returns = {
+				{ Name = "width", Type = "uiUnit", Nilable = false },
 			},
 		},
 		["SimpleFontStringAPI:GetText"] = {
@@ -505,6 +559,16 @@ return {
 			SecretArguments = "NotAllowed",
 			Arguments = {
 				{ Name = "strata", Type = "FrameStrata", Nilable = false },
+			},
+		},
+		["SimpleFrameAPI:SetHitRectInsets"] = {
+			IsProtectedFunction = true,
+			SecretArguments = "NotAllowed",
+			Arguments = {
+				{ Name = "left", Type = "uiUnit", Nilable = false },
+				{ Name = "right", Type = "uiUnit", Nilable = false },
+				{ Name = "top", Type = "uiUnit", Nilable = false },
+				{ Name = "bottom", Type = "uiUnit", Nilable = false },
 			},
 		},
 		["SimpleFrameAPI:SetIgnoreParentScale"] = {
@@ -616,13 +680,6 @@ return {
 				{ Name = "a", Type = "SingleColorValue", Nilable = true },
 			},
 		},
-		["SimpleObjectAPI:GetParent"] = {
-			SecretReturnsForAspect = { Enum.SecretAspect.Hierarchy },
-			Arguments = {},
-			Returns = {
-				{ Name = "parent", Type = "CScriptObject", Nilable = false },
-			},
-		},
 		["SimpleRegionAPI:SetIgnoreParentScale"] = {
 			IsProtectedFunction = true,
 			SecretArguments = "NotAllowed",
@@ -690,6 +747,15 @@ return {
 		["SimpleScriptRegionResizingAPI:ClearAllPoints"] = {
 			IsProtectedFunction = true,
 			Arguments = {},
+		},
+		["SimpleScriptRegionResizingAPI:SetAllPoints"] = {
+			CheckAllowInheritForbiddenLayoutAspects = true,
+			IsProtectedFunction = true,
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "relativeTo", Type = "ScriptRegion", Nilable = false },
+				{ Name = "doResize", Type = "bool", Nilable = false, Default = true },
+			},
 		},
 		["SimpleScriptRegionResizingAPI:SetHeight"] = {
 			IsProtectedFunction = true,

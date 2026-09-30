@@ -99,6 +99,7 @@ function Journal.Receive(value)
 		return
 	end
 	pages, collecting = collecting, nil
+	ns.Hero.JournalCame()
 	ns.JournalFrame.Refresh()
 	ns.Hero.AskOnce(pages.hero)
 end
@@ -355,15 +356,25 @@ local function Quests(quests)
 	return lines
 end
 
--- Who the hero is (3.7): each field of the sheet with its button, then the player's own lore.
-local function Hero(hero)
-	local lines = { Line("heading", "Who you are") }
+local SAVING = "Saving..."
+
+-- The texts of the sheet by field, with the edits that the desktop did not confirm yet.
+local function SheetTexts(hero, unsaved)
 	local texts = {}
 	for _, field in ipairs(Entries(hero and hero.sheet)) do
 		if type(field.field) == "string" then
 			texts[field.field] = field.text
 		end
 	end
+	for field, text in pairs(unsaved.fields) do
+		texts[field] = text ~= "" and text or nil
+	end
+	return texts
+end
+
+local function Sheet(hero, unsaved)
+	local lines = { Line("heading", "Who you are") }
+	local texts = SheetTexts(hero, unsaved)
 	for _, field in ipairs(ns.Hero.FIELDS) do
 		local text = texts[field]
 		local edit = {
@@ -376,26 +387,66 @@ local function Hero(hero)
 		if type(text) == "string" then
 			lines[#lines + 1] = Line("text", ns.Plain(text))
 		else
-			lines[#lines + 1] = Line("note", ns.Hero.HINTS[field])
+			lines[#lines + 1] = Line("hint", ns.Hero.HINTS[field])
+		end
+		if unsaved.fields[field] then
+			lines[#lines + 1] = Line("hint", SAVING)
 		end
 	end
-	local add = { label = "Add", run = ns.Hero.Write }
-	lines[#lines + 1] = Line("heading", "Your own lore", add)
-	local entries = Entries(hero and hero.entries)
-	if #entries == 0 then
-		lines[#lines + 1] = Line("note", "Nothing yet. Add a memory, a rumor, or a vow.")
+	return lines
+end
+
+local function SavedEntry(entry)
+	local remove = {
+		label = "Remove",
+		run = function()
+			ns.Hero.Remove(entry)
+		end,
+	}
+	local about = type(entry.npc) == "string" and ("About " .. Name(entry.npc) .. ". ") or ""
+	local place = type(entry.place) == "string" and (Name(entry.place) .. ", ") or ""
+	return {
+		Line("entry", ns.Plain(tostring(entry.text)), remove),
+		Line("text", about .. place .. Day(entry.at) .. "."),
+	}
+end
+
+-- The player's own entries, less the ones that wait for removal, then the new ones.
+local function LoreEntries(hero, unsaved)
+	local lines = {}
+	for _, entry in ipairs(Entries(hero and hero.entries)) do
+		if not unsaved.removed[entry.number] then
+			for _, line in ipairs(SavedEntry(entry)) do
+				lines[#lines + 1] = line
+			end
+		end
 	end
-	for _, entry in ipairs(entries) do
-		local remove = {
-			label = "Remove",
-			run = function()
-				ns.Hero.Remove(entry)
-			end,
-		}
-		lines[#lines + 1] = Line("entry", ns.Plain(tostring(entry.text)), remove)
-		local about = type(entry.npc) == "string" and ("About " .. Name(entry.npc) .. ". ") or ""
-		local place = type(entry.place) == "string" and (Name(entry.place) .. ", ") or ""
-		lines[#lines + 1] = Line("text", about .. place .. Day(entry.at) .. ".")
+	for _, entry in ipairs(unsaved.added) do
+		lines[#lines + 1] = Line("entry", ns.Plain(entry.text))
+		lines[#lines + 1] = Line("hint", SAVING)
+	end
+	return lines
+end
+
+local function Lore(hero, unsaved)
+	local add = { label = "Add", run = ns.Hero.Write }
+	local lines = { Line("heading", "Your own lore", add) }
+	local entries = LoreEntries(hero, unsaved)
+	if #entries == 0 then
+		lines[#lines + 1] = Line("help", "Nothing yet. Click Add to write a memory, a rumor, or a vow.")
+	end
+	for _, line in ipairs(entries) do
+		lines[#lines + 1] = line
+	end
+	return lines
+end
+
+-- Who the hero is (3.7): each field of the sheet with its button, then the player's own lore.
+local function Hero(hero)
+	local unsaved = ns.Hero.Unsaved()
+	local lines = Sheet(hero, unsaved)
+	for _, line in ipairs(Lore(hero, unsaved)) do
+		lines[#lines + 1] = line
 	end
 	return lines
 end
@@ -411,27 +462,41 @@ local BUILDERS = {
 }
 
 local EMPTY = {
-	chapters = "No chapter is written yet.",
-	places = "You have not traveled yet.",
-	people = "You have met no one yet.",
-	deeds = "Your deeds are not written yet.",
-	learned = "You have learned nothing yet. Read a book, or listen to the people you meet.",
-	quests = "No task yet. Target someone, and type /quest.",
+	chapters = "No chapter yet. Play for a while, and the first chapter writes itself.",
+	places = "No place yet. Each zone that you enter shows here.",
+	people = "No one yet. Speak with an NPC, and it shows here.",
+	deeds = "No deed yet. Gain a level, or defeat a rare foe or a boss.",
+	learned = "Nothing yet. Read a book, or listen to the people that you meet.",
+	quests = "No task yet. Target an NPC that you met, and type /quest.",
 }
 
--- Each line is { style = "heading" | "prose" | "entry" | "text" | "note", text = ... }.
+-- The line under the title of the book, on how to use the page.
+Journal.USAGE = {
+	hero = "Your hero in your own words. The narrator and the bard read it, and it is never canon.",
+	chapters = "One chapter for each time that you play, in the order of your story.",
+	places = "Each zone that you visited, with its subzones.",
+	people = "Each NPC that you met, and what it thinks of you.",
+	deeds = "Your levels, your great kills, your deaths, and your titles.",
+	learned = "What you read and heard: books, quest tales, and the words of NPCs.",
+	quests = "Tasks from the NPCs that you meet. Ask one with /quest.",
+}
+
+-- Each line is { style = "heading" | "prose" | "entry" | "text" | "note" | "hint" |
+-- "help", text = ... }.
 function Journal.Render(journal, section)
 	local builder = BUILDERS[section]
 	local lines = section == "hero" and builder(journal.hero) or builder(List(journal[section]))
 	if #lines == 0 then
-		return { Line("note", EMPTY[section]) }
+		return { Line("help", EMPTY[section]) }
 	end
 	return lines
 end
 
 function Journal.Lines(section)
 	if not pages then
-		return { Line("note", "The pages fill with ink...") }
+		return {
+			Line("help", "The pages fill with ink... They come from the desktop program. Start it if they stay empty."),
+		}
 	end
 	return Journal.Render(pages, section)
 end

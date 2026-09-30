@@ -171,7 +171,8 @@ Who your hero is, in your own words, as a player of a tabletop game writes befor
   - The bard also gets the entries written during its chapter.
   - An NPC in `/talk` (3.5) gets only the entries about it or about its place, at most 5.
 - **The journal** carries the sheet on its first page, and the entries as a list like the others.
-- **In the game:** the Hero page of the book, with the dialog of the game for each text, or `/hero`, `/hero add <text>`, `/hero note <text about your target>`, and `/hero set <field> <text>`. Each edit goes out with a journal request, so the page shows the result, or the reason for a refusal, at once.
+- **In the game:** the Hero page of the book, or `/hero`, `/hero add <text>`, `/hero note <text about your target>`, and `/hero set <field> <text>`. Edit and Add open a writing page in the book: a box of several lines that stops at 300 characters, with Save and Cancel. Remove asks first in a dialog of the game.
+- **An edit shows at once.** The book shows the new text, marked "Saving...", until the next journal comes. Each edit goes out with a journal request, so that journal comes soon. It shows what the desktop saved, or leaves out a refused edit and shows the reason.
 
 ## 4. The social level
 

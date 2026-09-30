@@ -12,6 +12,9 @@ use timeways_story::story::Output;
 
 const DAY: u64 = 1_790_000_000;
 
+/// The page before the desktop answers.
+const FILLING: &str = "help: The pages fill with ink... They come from the desktop program. Start it if they stay empty.";
+
 /// The reply line of the first page that the story program writes for this character.
 fn journal_reply(character: &Character) -> String {
     let page = pages(journal(character)).remove(0);
@@ -94,7 +97,7 @@ fn escape_closes_the_journal() {
 fn the_pages_fill_while_the_desktop_answers() {
     let game = Game::new();
 
-    assert_eq!(lines(&game, "places"), ["note: The pages fill with ink..."]);
+    assert_eq!(lines(&game, "places"), [FILLING]);
 }
 
 #[test]
@@ -149,11 +152,17 @@ fn an_empty_section_shows_a_note() {
 
     game.reply(&journal_reply(&Character::new()));
 
-    assert_eq!(lines(&game, "places"), ["note: You have not traveled yet."]);
-    assert_eq!(lines(&game, "people"), ["note: You have met no one yet."]);
+    assert_eq!(
+        lines(&game, "places"),
+        ["help: No place yet. Each zone that you enter shows here."]
+    );
+    assert_eq!(
+        lines(&game, "people"),
+        ["help: No one yet. Speak with an NPC, and it shows here."]
+    );
     assert_eq!(
         lines(&game, "deeds"),
-        ["note: Your deeds are not written yet."]
+        ["help: No deed yet. Gain a level, or defeat a rare foe or a boss."]
     );
 }
 
@@ -192,6 +201,59 @@ fn a_tab_opens_its_section_and_marks_itself() {
     assert!(!people_enabled);
 }
 
+/// The dark band under the parchment of the quest art, in offsets from the bottom left of
+/// the 384 by 512 frame, where QuestFrame.xml puts Accept and Decline. Below it, the art
+/// ends and a button floats over the world.
+const BAND_LEFT: f64 = 22.0;
+const BAND_RIGHT: f64 = 345.0;
+const BAND_BOTTOM: f64 = 72.0;
+const BAND_TOP: f64 = 96.0;
+
+#[test]
+fn the_tabs_stand_in_one_row_inside_the_dark_band_and_fit_their_labels() {
+    let game = Game::new();
+
+    game.run("wow.Slash('/journal', '')");
+
+    let tabs: Vec<Vec<f64>> = game.eval(
+        "local out = {}
+         for _, widget in ipairs(wow.widgets) do
+             if widget.kind == 'Button' and widget.parent == TimewaysJournalFrame
+                 and widget.template == 'UIPanelButtonTemplate' then
+                 local point = widget.point
+                 table.insert(out, { point[4], point[5], widget.width, widget.height,
+                     widget:GetStringWidth() })
+             end
+         end
+         return out",
+    );
+    assert_eq!(tabs.len(), 7);
+    for tab in tabs {
+        let [x, y, width, height, label] = tab[..] else {
+            panic!("{tab:?}")
+        };
+        // The last tab ends at the band edge, give or take a rounding of the sum.
+        assert!(x >= BAND_LEFT && x + width <= BAND_RIGHT + 0.001, "{tab:?}");
+        assert!(y >= BAND_BOTTOM && y + height <= BAND_TOP, "{tab:?}");
+        assert!(width >= label + 6.0, "{tab:?}");
+    }
+}
+
+#[test]
+fn the_book_says_how_to_use_the_open_page() {
+    let game = Game::new();
+    game.run("wow.Slash('/journal', '')");
+    game.reply(&journal_reply(&traveler()));
+
+    game.run("ns.JournalFrame.Open('quests')");
+
+    let shown: Vec<String> = game.eval("wow.ShownTexts(TimewaysJournalFrame)");
+    assert!(
+        shown.iter().any(|text| text.contains("/quest")),
+        "{shown:?}"
+    );
+}
+
 #[test]
 fn a_shorter_page_hides_the_lines_of_a_longer_one() {
     let game = Game::new();
@@ -224,11 +286,14 @@ fn a_broken_journal_shows_gaps_and_no_error() {
         r#"{"type":"journal","page":0,"pages":1,"places":"x","people":[{"name":5}],"deeds":[{"kind":"level"},{"kind":"odd"}]}"#,
     );
 
-    assert_eq!(lines(&game, "places"), ["note: You have not traveled yet."]);
+    assert_eq!(
+        lines(&game, "places"),
+        ["help: No place yet. Each zone that you enter shows here."]
+    );
     assert_eq!(lines(&game, "people")[0], "entry: ?");
     assert_eq!(
         lines(&game, "deeds"),
-        ["note: Your deeds are not written yet."]
+        ["help: No deed yet. Gain a level, or defeat a rare foe or a boss."]
     );
 }
 
@@ -285,7 +350,7 @@ fn a_page_out_of_order_is_dropped() {
 
     game.reply(&page_reply(all.remove(1)));
 
-    assert_eq!(lines(&game, "places"), ["note: The pages fill with ink..."]);
+    assert_eq!(lines(&game, "places"), [FILLING]);
     assert!(asked_pages(&game).is_empty());
 }
 
@@ -350,7 +415,10 @@ fn an_entry_that_is_not_a_table_is_skipped() {
     game.run(
         "wow.Slash('/journal', ''); ns.JournalFrame.Open('people'); ns.JournalFrame.Open('deeds')",
     );
-    assert_eq!(lines(&game, "places"), ["note: You have not traveled yet."]);
+    assert_eq!(
+        lines(&game, "places"),
+        ["help: No place yet. Each zone that you enter shows here."]
+    );
     assert_eq!(lines(&game, "people")[0], "entry: Ada");
 }
 
@@ -401,7 +469,7 @@ fn no_chapter_yet_shows_a_note() {
 
     assert_eq!(
         lines(&game, "chapters"),
-        ["note: No chapter is written yet."]
+        ["help: No chapter yet. Play for a while, and the first chapter writes itself."]
     );
 }
 

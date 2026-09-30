@@ -129,20 +129,10 @@ function StaticPopup_Show(which, text, _, data)
 	wow.popups[#wow.popups + 1] = { which = which, text = text, data = data }
 end
 
--- Saves a text in the last dialog, as a click on Save does.
-function wow.SavePopup(text)
+-- Clicks Accept in the last dialog.
+function wow.AcceptPopup()
 	local popup = wow.popups[#wow.popups]
-	local dialog = StaticPopupDialogs[popup.which]
-	local editBox = {
-		GetText = function()
-			return text
-		end,
-	}
-	dialog.OnAccept({
-		GetEditBox = function()
-			return editBox
-		end,
-	}, popup.data)
+	StaticPopupDialogs[popup.which].OnAccept(nil, popup.data)
 end
 
 -- The recap of the last death: a list of events, the killing blow first.
@@ -199,6 +189,14 @@ function Widget:SetSize(width, height)
 	self.width, self.height = width, height
 end
 
+function Widget:SetWidth(width)
+	self.width = width
+end
+
+function Widget:SetHeight(height)
+	self.height = height
+end
+
 function Widget:SetPoint(...)
 	self.point = { ... }
 end
@@ -235,8 +233,31 @@ function Widget:SetShown(shown)
 	end
 end
 
+-- An edit box cuts a longer text at its limit, as the game does.
 function Widget:SetText(text)
+	if self.maxLetters and self.maxLetters > 0 then
+		text = text:sub(1, self.maxLetters)
+	end
 	self.text = text
+end
+
+function Widget:SetMaxLetters(letters)
+	self.maxLetters = letters
+end
+
+function Widget:GetNumLetters()
+	return #(self.text or "")
+end
+
+-- A button stands in for its own label.
+function Widget:GetFontString()
+	return self
+end
+
+-- About the width of the small quest font, and a little wider, so a test of the bounds
+-- errs on the safe side.
+function Widget:GetStringWidth()
+	return 6 * #(self.text or "")
 end
 
 function Widget:GetText()
@@ -388,6 +409,26 @@ function wow.Slash(command, message)
 		end
 	end
 	error("no slash command " .. command)
+end
+
+-- The button with this label, for a click.
+function wow.Button(label)
+	for _, widget in ipairs(wow.widgets) do
+		if widget.kind == "Button" and widget.text == label then
+			return widget
+		end
+	end
+	error("no button " .. label)
+end
+
+-- The one edit box of the book, where the player writes.
+function wow.EditBox()
+	for _, widget in ipairs(wow.widgets) do
+		if widget.kind == "EditBox" then
+			return widget
+		end
+	end
+	error("no edit box")
 end
 
 -- The font strings of a frame that show, in the order of creation.
