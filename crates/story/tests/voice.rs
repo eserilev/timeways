@@ -8,15 +8,16 @@ use hourglass::Tick;
 use std::fmt::Write as _;
 use std::io::Write as _;
 use std::process::{Command, Stdio};
+use timeways_story::chronicle::{self, Draft, Pick};
 use timeways_story::hero::{self, Entry, Field, Hero};
 use timeways_story::journal::{Chapter, Deed};
 use timeways_story::moments::Moment;
+use timeways_story::narrator;
 use timeways_story::pack::{Link, Origin, Passage};
 use timeways_story::prompt::{self, Context};
 use timeways_story::quest::{self, Known};
 use timeways_story::talk::{self, Scene};
 use timeways_story::tokens::{Call, estimated_tokens};
-use timeways_story::{chronicle, narrator};
 
 /// One fixed moment, its prompt, and what the player sees of an answer.
 struct TestMoment {
@@ -85,7 +86,8 @@ fn chapter(number: usize, zones: &[&str], deeds: Vec<Deed>) -> Chapter {
     }
 }
 
-fn side_quest_chapter() -> String {
+/// The chapter with a finished side quest, with a small moment and words of the player.
+fn side_quest() -> Chapter {
     let mut chapter = chapter(
         4,
         &["Westfall"],
@@ -99,17 +101,22 @@ fn side_quest_chapter() -> String {
         ],
     );
     chapter.people = vec!["Farmer Saldean".to_string()];
+    chapter
+}
+
+fn side_quest_chapter(draft: Draft) -> String {
     let moments =
         ["The player used the emote /dance in Sentinel Hill, for the 1st time.".to_string()];
     let told = ["The lantern belonged to my brother."];
     let earlier = earlier_chapters();
-    chronicle::prompt(
+    chronicle::draft_prompt(
         &[],
-        &chapter,
+        &side_quest(),
         &earlier,
         &moments,
         portrait().as_deref(),
         &told,
+        draft,
     )
 }
 
@@ -251,7 +258,7 @@ fn voice_moments() -> Vec<TestMoment> {
         ),
         narrator_moment("a level milestone", &Moment::LevelUp { level: 20 }),
         narrator_moment("a new capital", &zone("Ironforge")),
-        chapter("a finished side quest", side_quest_chapter()),
+        chapter("a finished side quest", side_quest_chapter(Draft::First)),
         chapter("a quiet chapter", quiet_chapter()),
         TestMoment {
             name: "an NPC talk",
@@ -341,11 +348,37 @@ fn ask_model(command: &str, prompt: &str) -> String {
     String::from_utf8_lossy(&output.stdout).trim().to_string()
 }
 
+/// The default is Claude Code with no tools, no MCP servers, and no settings, as the
+/// bridge runs it.
+const CLAUDE: &str = "claude -p --tools '' --strict-mcp-config --setting-sources ''";
+
+/// Two drafts of the side quest chapter, and the pick of the judge: 3 calls.
+fn review_best_of_two(command: &str, review: &mut String) {
+    let drafts = [Draft::First, Draft::Second].map(|draft| {
+        let answer = ask_model(command, &side_quest_chapter(draft));
+        chronicle::checked_saga(&answer, 1).map(|saga| saga.text)
+    });
+    let _ = write!(review, "\n## Best of two: a finished side quest\n");
+    for (number, draft) in drafts.iter().enumerate() {
+        let shown = draft.as_deref().unwrap_or("(refused)");
+        let _ = write!(review, "\nDraft {}: {shown}\n", number + 1);
+    }
+    let [Some(first), Some(second)] = &drafts else {
+        return;
+    };
+    let facts = chronicle::facts(&[], &side_quest());
+    let answer = ask_model(command, &chronicle::judge_prompt(4, &facts, first, second));
+    let pick = match chronicle::checked_pick(&answer) {
+        Pick::First => 1,
+        Pick::Second => 2,
+    };
+    let _ = write!(review, "\nJudge: {answer}\n\nPicked: draft {pick}\n");
+}
+
 #[test]
 #[ignore = "calls a real model"]
 fn the_voice_moments_go_to_a_real_model_for_review() {
-    let command =
-        std::env::var("TIMEWAYS_MODEL").unwrap_or_else(|_| "claude -p --tools ''".to_string());
+    let command = std::env::var("TIMEWAYS_MODEL").unwrap_or_else(|_| CLAUDE.to_string());
     let mut review = format!("# Voice review\n\nModel: `{command}`\n");
 
     for moment in voice_moments() {
@@ -357,6 +390,7 @@ fn the_voice_moments_go_to_a_real_model_for_review() {
             moment.name
         );
     }
+    review_best_of_two(&command, &mut review);
 
     let path = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join("voice-review.md");
     std::fs::write(&path, review).unwrap();
