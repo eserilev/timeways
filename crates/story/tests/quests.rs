@@ -630,3 +630,15 @@ fn the_next_task_never_names_a_target_of_the_last_one() {
         Some("Innkeeper Pell has no task for you now.")
     );
 }
+
+#[test]
+fn a_task_finished_after_the_clock_went_back_still_earns_its_trust() {
+    let mut story = bat_hunt("clock-back");
+    kill(&mut story, 20, "Duskbat");
+
+    kill(&mut story, 15, "Duskbat");
+
+    let done = quests(&mut story).remove(0);
+    assert_eq!(done.status, Status::Done);
+    assert_eq!(trust_of_giver(&mut story), Some(QUEST_TRUST));
+}
