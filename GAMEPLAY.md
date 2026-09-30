@@ -461,7 +461,7 @@ Timeways uses the transport of Gnomish Relay, with its own key and its own slots
 **Other rules:**
 
 - Lore answers need no web access: the passages come from the lore pack (5.10).
-- **A budget** limits the use: a number of calls per hour, and a length per answer. The narrator and the chronicle use the fewest calls. The budget matters most for a subscription agent, because its calls count against the player's plan.
+- **A budget** limits the use: a number of calls per hour, and a length per answer. The narrator and the chronicle use the fewest calls. A chapter of the chronicle costs at most 3 calls, and 1 when the window of the bridge is tight (3.3). The budget matters most for a subscription agent, because its calls count against the player's plan.
 - A story call needs no coding tools. **The story program never starts a model itself.** It asks the bridge for a model call over the app protocol, and the bridge runs the model with no tools and returns only text (Gnomish Relay SPEC 9.7, decision 10):
   - Claude runs with `--tools ""`, no MCP servers, no user or project settings, in an empty temp folder, and behind the `PreToolUse` gate that denies every tool.
   - A local server is called through `curl` on `127.0.0.1` or `[::1]` only, with no redirects and no proxy. Its answer is hostile text, like an agent reply.
