@@ -262,18 +262,17 @@ fn the_outbox_keeps_the_newest_five_hundred_events() {
 }
 
 #[test]
-fn an_answer_shows_its_text_and_numbered_sources() {
+fn an_answer_shows_its_text_alone_with_no_citations_or_sources() {
     let game = Game::new();
 
     game.reply(&reply_line(
-        Some("Goblins burned it [1]."),
+        Some("Goblins burned it [1], and the [2] rest fled [3]."),
         &[("The tower fell.", "https://example.test/tower")],
     ));
 
     let printed = game.printed();
-    assert_eq!(printed.len(), 2);
-    assert!(printed[0].ends_with("Goblins burned it [1]."));
-    assert!(printed[1].ends_with("[1] example.test/tower"));
+    assert_eq!(printed.len(), 1);
+    assert!(printed[0].ends_with(": Goblins burned it, and the rest fled."));
 }
 
 #[test]
@@ -286,7 +285,7 @@ fn an_answer_with_no_text_shows_the_passages_as_they_are() {
     ));
 
     assert_eq!(game.printed().len(), 1);
-    assert!(game.printed()[0].ends_with("[1] The tower fell. (example.test/tower)"));
+    assert!(game.printed()[0].ends_with(": The tower fell."));
 }
 
 #[test]
@@ -307,7 +306,7 @@ fn an_answer_that_the_bridge_escaped_shows_as_it_is() {
         &[("x", "y")],
     ));
 
-    assert!(game.printed()[0].ends_with("||cffff0000red||r ||Hitem:1||h[Fake]||h [1]"));
+    assert!(game.printed()[0].ends_with("||cffff0000red||r ||Hitem:1||h[Fake]||h"));
 }
 
 #[test]
@@ -448,12 +447,13 @@ fn an_entry_that_can_never_fit_is_dropped_and_blocks_nothing() {
 }
 
 #[test]
-fn a_broken_passage_keeps_the_numbers_of_the_others() {
+fn a_broken_passage_is_skipped_and_the_others_show() {
     let game = Game::new();
 
-    game.reply(r#"{"type":"lore_answer","id":1,"text":"It fell [2].","passages":[1,{"text":"a","source":"https://b"}]}"#);
+    game.reply(r#"{"type":"lore_answer","id":1,"passages":[1,{"text":"a","source":"https://b"}]}"#);
 
-    assert!(game.printed()[1].ends_with("[2] b"), "{:?}", game.printed());
+    assert_eq!(game.printed().len(), 1);
+    assert!(game.printed()[0].ends_with(": a"), "{:?}", game.printed());
 }
 
 #[test]
