@@ -31,7 +31,7 @@ local PERMANENT = {
 }
 
 local tokens, filled = BURST, nil
--- A counter that starts at 1 after each reload would join old parts of a peer to new ones.
+-- A random start: after a reload, a counter from 1 joins old parts of a peer to new ones.
 local number = math.random(0, 9998)
 local collector = ns.TaskChunks.NewCollector()
 local allowance = {}
