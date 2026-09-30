@@ -105,7 +105,7 @@ StaticPopupDialogs.TIMEWAYS_HERO_REMOVE = {
 function Hero.Edit(field, current)
 	ns.JournalFrame.Edit({
 		title = Hero.LABELS[field],
-		hint = Hero.HINTS[field] .. " Leave it blank to erase it.",
+		hint = Hero.HINTS[field],
 		text = current,
 		limit = Hero.MAX_LETTERS,
 		save = function(text)

@@ -84,7 +84,7 @@ function Editor.Open(parent, edit, onClose)
 	end
 	request, closed = edit, onClose
 	title:SetText(edit.title)
-	hint:SetText(edit.hint .. " Enter saves.")
+	hint:SetText(edit.hint)
 	box:SetMaxLetters(edit.limit)
 	box:SetText(edit.text or "")
 	ShowCount()
