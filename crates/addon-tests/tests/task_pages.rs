@@ -442,6 +442,96 @@ fn an_item_count_past_the_limit_adds_no_step() {
     assert!(!lines(&ada).iter().any(|line| line.contains("Linen Cloth")));
 }
 
+/// Whether the editor is open, with the text in its box.
+fn editor(player: &Player) -> (bool, String) {
+    (
+        player.eval("ns.Editor.IsShown()"),
+        player.eval("wow.EditBox():GetText()"),
+    )
+}
+
+#[test]
+fn an_item_that_the_form_cannot_read_keeps_what_the_player_typed() {
+    let (ada, _corvin) = form();
+
+    click_line(&ada, "Bring an item", "Add");
+    write(&ada, "999 Linen Cloth");
+
+    assert_eq!(editor(&ada), (true, "999 Linen Cloth".to_string()));
+}
+
+#[test]
+fn a_title_too_long_in_bytes_keeps_what_the_player_typed() {
+    let (ada, _corvin) = form();
+    let title = format!("a{}", "\u{e9}".repeat(30));
+
+    click_line(&ada, "Name your task", "Edit");
+    write(&ada, &title);
+
+    assert_eq!(editor(&ada), (true, title));
+    assert!(lines(&ada).contains(&"hint: No name yet.".to_string()));
+}
+
+#[test]
+fn an_idea_too_long_in_bytes_keeps_what_the_player_typed() {
+    let (ada, _corvin) = form();
+    let idea = "\u{e9}".repeat(150);
+
+    click(&ada, "Help me write this");
+    write(&ada, &idea);
+
+    assert_eq!(editor(&ada), (true, idea));
+    assert!(
+        ada.game
+            .sent()
+            .iter()
+            .all(|batch| !batch.contains("draft_asked"))
+    );
+}
+
+#[test]
+fn the_name_of_the_giver_from_the_model_shows_as_the_name() {
+    let (ada, _corvin) = form();
+
+    ada.game.reply(
+        r#"{"type":"draft_answer","id":1,"draft":{"title":"$N needs help","text":"Help $N at the mill.","steps":[{"goal":"place","target":"Brill"}]}}"#,
+    );
+
+    let page = lines(&ada);
+    assert!(
+        page.contains(&"text: Ada needs help".to_string()),
+        "{page:?}"
+    );
+    assert!(page.contains(&"prose: Help Ada at the mill.".to_string()));
+}
+
+#[test]
+fn a_draft_with_another_code_of_the_model_is_dropped() {
+    let (ada, _corvin) = form();
+
+    ada.game.reply(
+        r#"{"type":"draft_answer","id":1,"draft":{"title":"Help $G","text":"Go.","steps":[{"goal":"place","target":"Brill"}]}}"#,
+    );
+
+    assert!(!lines(&ada).contains(&"section: Suggestion [Use this]".to_string()));
+}
+
+#[test]
+fn the_same_foe_twice_in_a_draft_becomes_one_step() {
+    let (ada, _corvin) = form();
+
+    ada.game.reply(
+        r#"{"type":"draft_answer","id":1,"draft":{"title":"Rats","text":"Go.","steps":[{"goal":"kill","target":"3 Rat"},{"goal":"kill","target":"2 Rat"}]}}"#,
+    );
+
+    let page = lines(&ada);
+    let steps: Vec<&String> = page
+        .iter()
+        .filter(|line| line.starts_with("entry: Defeat"))
+        .collect();
+    assert_eq!(steps, ["entry: Defeat Rat (5 times)."]);
+}
+
 #[test]
 fn a_task_holds_at_most_five_steps_and_the_turn_in() {
     let (ada, _corvin) = form();
@@ -493,11 +583,13 @@ fn cancel_throws_the_draft_away() {
 fn an_idea_for_the_model_loses_the_names_of_players() {
     let (ada, _corvin) = form();
 
-    let idea: String = ada.eval(
-        "ns.TaskDraftHelp.WithoutNames('get corvin to kill Gregor for Ada, tell Corvin now')",
-    );
+    let idea: String =
+        ada.eval("ns.TaskNames.WithoutNames('get corvin to kill Gregor for Ada, tell Corvin now')");
 
-    assert_eq!(idea, "get corvin to kill Gregor for $N, tell my friend now");
+    assert_eq!(
+        idea,
+        "get my friend to kill Gregor for $N, tell my friend now"
+    );
 }
 
 #[test]

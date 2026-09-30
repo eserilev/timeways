@@ -85,6 +85,18 @@ function TaskPeople.GroupUnit(name)
 	end
 end
 
+-- Every player of your group, as full names.
+function TaskPeople.GroupNames()
+	local names = {}
+	for _, unit in ipairs(GROUP_UNITS) do
+		local name = UnitExists(unit) and UnitIsPlayer(unit) and UnitFull(unit)
+		if name then
+			names[#names + 1] = name
+		end
+	end
+	return names
+end
+
 -- The guild roster as { [name] = online }. The game fires GUILD_ROSTER_UPDATE when it
 -- changes, so a whisper that waits never scans the whole guild each second.
 local roster
@@ -196,6 +208,18 @@ end
 
 function TaskPeople.IsOnline(name)
 	return TaskPeople.Presence(name) == "online"
+end
+
+-- Every friend, online or not, as the friends list names them.
+function TaskPeople.FriendNames()
+	local names = {}
+	for n = 1, C_FriendList.GetNumFriends() do
+		local info = C_FriendList.GetFriendInfoByIndex(n)
+		if type(info) == "table" and type(info.name) == "string" and not issecretvalue(info.name) then
+			names[#names + 1] = info.name
+		end
+	end
+	return names
 end
 
 function TaskPeople.OnlineFriends()

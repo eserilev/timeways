@@ -123,11 +123,14 @@ pub fn checked_draft(answer: &str, known: &Known<'_>) -> Result<Draft, DraftFaul
     if !(1..=MAX_STEPS).contains(&reply.steps.len()) {
         return Err(DraftFault::StepCount(reply.steps.len()));
     }
-    for (n, step) in reply.steps.iter().enumerate() {
+    let mut seen = Vec::new();
+    for step in &reply.steps {
         check_step(step, known)?;
-        if reply.steps[..n].contains(step) {
+        let key = step_key(step)?;
+        if seen.contains(&key) {
             return Err(DraftFault::RepeatedStep);
         }
+        seen.push(key);
     }
     Ok(Draft {
         title,
@@ -163,6 +166,15 @@ fn check_step(step: &DraftStep, known: &Known<'_>) -> Result<(), DraftFault> {
             .ok_or_else(|| DraftFault::BadTarget(target.to_string())),
         goal => Err(DraftFault::UnknownGoal(goal.to_string())),
     }
+}
+
+/// A step is its goal and its name: "3 Old Gnasher" and "2 Old Gnasher" are the same foe.
+fn step_key(step: &DraftStep) -> Result<(&str, &str), DraftFault> {
+    let name = match step.goal.as_str() {
+        "kill" | "item" => counted_name(&step.target)?,
+        _ => step.target.as_str(),
+    };
+    Ok((step.goal.as_str(), name))
 }
 
 /// The name of "3 Rattlecage Soldier", with its count checked. A target with no count is

@@ -63,6 +63,15 @@ local FIELDS = {
 	},
 }
 
+-- The limits of the wire are in bytes, and the box counts letters: "é" takes two bytes.
+local function TooLong(limit)
+	return function(text)
+		if #TaskForm.Clean(text) > limit then
+			return "Too long to save. Try a shorter version."
+		end
+	end
+end
+
 function TaskForm.Edit(field)
 	local spec = FIELDS[field]
 	ns.JournalFrame.Edit({
@@ -70,8 +79,10 @@ function TaskForm.Edit(field)
 		hint = spec.hint,
 		text = TaskForm.Draft()[field],
 		limit = spec.limit,
+		bytes = spec.limit,
+		problem = TooLong(spec.limit),
 		save = function(text)
-			TaskForm.Draft()[field] = TaskForm.Clean(text):sub(1, spec.limit)
+			TaskForm.Draft()[field] = TaskForm.Clean(text)
 		end,
 	})
 end
@@ -157,19 +168,22 @@ function TaskForm.ParseItem(text)
 	return name, count
 end
 
+local function ItemProblem(text)
+	if not TaskForm.ParseItem(text) then
+		return "Write the number, then the item, like: 10 Linen Cloth."
+	end
+end
+
 function TaskForm.AddItem()
 	ns.JournalFrame.Edit({
 		title = "Bring an item",
 		hint = "Which item, and how many? For example: 10 Linen Cloth. Spell it as the game does.",
 		text = "",
 		limit = LIMITS.target + 4,
+		bytes = LIMITS.target + 4,
+		problem = ItemProblem,
 		save = function(text)
-			local name, count = TaskForm.ParseItem(text)
-			if not name then
-				Say("Write the number, then the item, like: 10 Linen Cloth.")
-				return
-			end
-			AddStep("item", name, count)
+			AddStep("item", TaskForm.ParseItem(text))
 		end,
 	})
 end

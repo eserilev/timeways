@@ -49,6 +49,7 @@ PlayerTasks.lua
 TaskTrade.lua
 TaskTracker.lua
 TaskForm.lua
+TaskNames.lua
 TaskDraftHelp.lua
 TaskPages.lua
 Journal.lua

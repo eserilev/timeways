@@ -8,6 +8,7 @@ version = "0.1.0"
 dependencies = [
  "fake-bridge",
  "mlua",
+ "proptest",
  "protocol",
  "rusty-hourglass",
  "serde_json",

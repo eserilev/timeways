@@ -10,10 +10,6 @@ ns.TaskDraftHelp = TaskDraftHelp
 local IDEA_LETTERS = 200
 local IDEA_BYTES = 255
 
-local function Say(text)
-	DEFAULT_CHAT_FRAME:AddMessage("|cffc8a064Timeways|r: " .. text)
-end
-
 -- The state of the help: nil, "asking", "failed" (no answer came), or "empty" (the answer
 -- held no draft). A draft that came waits in `suggestion`.
 local state
@@ -27,23 +23,6 @@ function TaskDraftHelp.Suggestion()
 	return suggestion
 end
 
-local function Word(name)
-	return "%f[%w]" .. name:gsub("%W", "%%%0") .. "%f[%W]"
-end
-
--- The name of a real player never goes to a model (5.11): the players who can get a task
--- become "my friend", and your own name becomes `$N`.
-function TaskDraftHelp.WithoutNames(idea)
-	for _, recipient in ipairs(ns.PlayerTasks.Recipients()) do
-		idea = idea:gsub(Word(ns.TaskPeople.Short(recipient.name)), "my friend")
-	end
-	local me = UnitName("player")
-	if type(me) == "string" and not issecretvalue(me) then
-		idea = idea:gsub(Word(me), "$N")
-	end
-	return idea
-end
-
 local function Changed()
 	ns.JournalFrame.Refresh()
 end
@@ -53,13 +32,21 @@ local function Failed()
 	Changed()
 end
 
-local function Ask(idea)
-	idea = TaskDraftHelp.WithoutNames(ns.TaskForm.Clean(idea))
-	if idea == "" then
-		return
+-- The name of a real player never goes to a model (5.11).
+local function Scrubbed(idea)
+	return ns.TaskNames.WithoutNames(ns.TaskForm.Clean(idea))
+end
+
+-- A name that becomes "my friend" makes the idea longer, so the check runs after it.
+local function IdeaProblem(idea)
+	if #Scrubbed(idea) > IDEA_BYTES then
+		return "That idea is too long. Try a shorter one."
 	end
-	if #idea > IDEA_BYTES then
-		Say("That idea is too long. Try a shorter one.")
+end
+
+local function Ask(idea)
+	idea = Scrubbed(idea)
+	if idea == "" then
 		return
 	end
 	state, suggestion = "asking", nil
@@ -77,6 +64,8 @@ function TaskDraftHelp.Open()
 		hint = "Say it in plain words. Timeways turns it into a title, a task text, and steps the game can check.",
 		text = "",
 		limit = IDEA_LETTERS,
+		bytes = IDEA_BYTES,
+		problem = IdeaProblem,
 		save = Ask,
 	})
 end
@@ -101,11 +90,42 @@ local function CleanText(value, limit)
 	return type(value) == "string" and value ~= "" and #value <= limit and ns.TaskWire.IsCleanText(value)
 end
 
+-- The model writes `$N` for the giver, as the idea did. Any other `$` is a code of the game
+-- that shows as it is, so the draft drops.
+local function WithGiver(text)
+	local me = UnitName("player")
+	if type(text) ~= "string" or type(me) ~= "string" or issecretvalue(me) then
+		return nil
+	end
+	text = text:gsub("%$[Nn]", function()
+		return me
+	end)
+	if text:find("$", 1, true) then
+		return nil
+	end
+	return text
+end
+
+-- The same step twice becomes one, with both counts.
+local function AddStep(steps, step)
+	for _, known in ipairs(steps) do
+		if known.kind == step.kind and known.target == step.target then
+			known.count = math.min(known.count + step.count, ns.TaskWire.MAX_COUNT)
+			return
+		end
+	end
+	steps[#steps + 1] = step
+end
+
 -- The story program checked the draft against the world, and the bridge doubled each `|`.
 -- So a field that breaks a rule of the addon drops the whole draft.
 function TaskDraftHelp.Check(draft)
+	if type(draft) ~= "table" then
+		return nil
+	end
 	local limits = ns.TaskWire.LIMITS
-	if type(draft) ~= "table" or not CleanText(draft.title, limits.title) or not CleanText(draft.text, limits.text) then
+	local title, text = WithGiver(draft.title), WithGiver(draft.text)
+	if not CleanText(title, limits.title) or not CleanText(text, limits.text) then
 		return nil
 	end
 	local steps = type(draft.steps) == "table" and draft.steps or {}
@@ -113,13 +133,14 @@ function TaskDraftHelp.Check(draft)
 		return nil
 	end
 	local checked = {}
-	for n, step in ipairs(steps) do
-		checked[n] = FormStep(step)
-		if not checked[n] then
+	for _, step in ipairs(steps) do
+		local formStep = FormStep(step)
+		if not formStep then
 			return nil
 		end
+		AddStep(checked, formStep)
 	end
-	return { title = draft.title, text = draft.text, steps = checked }
+	return { title = title, text = text, steps = checked }
 end
 
 -- The reply `draft_answer`. With no draft, no model answered, or the draft broke a rule.

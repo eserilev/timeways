@@ -130,6 +130,15 @@ fn a_step_twice_is_refused() {
 }
 
 #[test]
+fn the_same_foe_or_item_with_another_count_is_a_step_twice() {
+    let kills = r#"[{"goal": "kill", "target": "3 Old Gnasher"}, {"goal": "kill", "target": "2 Old Gnasher"}]"#;
+    let items = r#"[{"goal": "item", "target": "Linen Cloth"}, {"goal": "item", "target": "4 Linen Cloth"}]"#;
+
+    assert_eq!(check(kills), Err(DraftFault::RepeatedStep));
+    assert_eq!(check(items), Err(DraftFault::RepeatedStep));
+}
+
+#[test]
 fn a_title_that_the_addon_cannot_send_is_refused() {
     let steps = r#"[{"goal": "npc", "target": "Farmer Bram"}]"#;
     let piped =
