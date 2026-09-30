@@ -57,6 +57,27 @@ function UnitClassification(unit)
 	return u and u.classification or "normal"
 end
 
+-- The name of the class, and its file name, as the client gives both.
+wow.class = "Paladin"
+
+function UnitClass(unit)
+	if unit == "player" then
+		return wow.class, wow.class:upper()
+	end
+end
+
+-- The quest log: each entry is a table of `C_QuestLog.GetInfo`, headers included.
+wow.questLog = {}
+
+C_QuestLog = {
+	GetNumQuestLogEntries = function()
+		return #wow.questLog, #wow.questLog
+	end,
+	GetInfo = function(index)
+		return wow.questLog[index]
+	end,
+}
+
 -- The text of the open quest, gossip, or book window.
 wow.text = {}
 

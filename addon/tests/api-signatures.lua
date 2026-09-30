@@ -55,6 +55,21 @@ return {
 				{ Name = "gossipText", Type = "cstring", Nilable = false },
 			},
 		},
+		["C_QuestLog.GetInfo"] = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "questLogIndex", Type = "luaIndex", Nilable = false },
+			},
+			Returns = {
+				{ Name = "info", Type = "QuestInfo", Nilable = true },
+			},
+		},
+		["C_QuestLog.GetNumQuestLogEntries"] = {
+			Returns = {
+				{ Name = "numShownEntries", Type = "number", Nilable = false },
+				{ Name = "numQuests", Type = "number", Nilable = false },
+			},
+		},
 		["C_Timer.After"] = {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {
@@ -122,6 +137,19 @@ return {
 			},
 			Returns = {
 				{ Name = "result", Type = "bool", Nilable = false },
+			},
+		},
+		UnitClass = {
+			MayReturnNothing = true,
+			SecretArguments = "AllowedWhenUntainted",
+			SecretWhenUnitIdentityRestricted = true,
+			Arguments = {
+				{ Name = "unit", Type = "UnitToken", Nilable = false },
+			},
+			Returns = {
+				{ Name = "className", Type = "cstring", Nilable = false, ConditionalSecret = true },
+				{ Name = "classFilename", Type = "cstring", Nilable = false },
+				{ Name = "classID", Type = "number", Nilable = false },
 			},
 		},
 		UnitClassification = {
@@ -908,6 +936,12 @@ return {
 		PLAYER_TARGET_CHANGED = {
 			SynchronousEvent = true,
 		},
+		QUEST_ACCEPTED = {
+			SynchronousEvent = true,
+			Payload = {
+				{ Name = "questId", Type = "number", Nilable = false },
+			},
+		},
 		QUEST_COMPLETE = {
 			SynchronousEvent = true,
 		},
@@ -922,6 +956,14 @@ return {
 		},
 		QUEST_PROGRESS = {
 			SynchronousEvent = true,
+		},
+		QUEST_TURNED_IN = {
+			SynchronousEvent = true,
+			Payload = {
+				{ Name = "questID", Type = "number", Nilable = false },
+				{ Name = "xpReward", Type = "number", Nilable = false },
+				{ Name = "moneyReward", Type = "number", Nilable = false },
+			},
 		},
 		SCREENSHOT_FAILED = {
 			SynchronousEvent = true,

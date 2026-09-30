@@ -684,3 +684,24 @@ fn a_journal_with_no_pages_keeps_the_book_as_it_is() {
 
     assert_eq!(lines(&game, "places")[0], "heading: Elwynn Forest");
 }
+
+#[test]
+fn a_quest_of_the_game_and_a_class_quest_show_as_deeds() {
+    let game = Game::new();
+
+    game.reply(concat!(
+        r#"{"type":"journal","page":0,"pages":1,"deeds":["#,
+        r#"{"kind":"game_quest_done","title":"Rattling the Rattlecages","at":1790000000,"place":null},"#,
+        r#"{"kind":"class_quest_done","title":"Rediscovering the Light","at":1790000000,"place":null}]}"#,
+    ));
+
+    let lines = lines(&game, "deeds");
+    assert_eq!(
+        lines[0],
+        "entry: Finished the quest Rattling the Rattlecages"
+    );
+    assert_eq!(
+        lines[2],
+        "entry: Finished the class quest Rediscovering the Light"
+    );
+}

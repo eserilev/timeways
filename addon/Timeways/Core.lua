@@ -5,7 +5,12 @@ local _, ns = ...
 local FLUSH_SECONDS = 60
 
 local HANDLERS = {
-	PLAYER_ENTERING_WORLD = ns.Watch.Login,
+	PLAYER_ENTERING_WORLD = function()
+		ns.Watch.Login()
+		ns.GameQuests.Scan()
+	end,
+	QUEST_ACCEPTED = ns.GameQuests.Accepted,
+	QUEST_TURNED_IN = ns.GameQuests.TurnedIn,
 	ZONE_CHANGED_NEW_AREA = ns.Watch.Zone,
 	ZONE_CHANGED = ns.Watch.Zone,
 	ZONE_CHANGED_INDOORS = ns.Watch.Zone,
@@ -58,6 +63,8 @@ frame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
 frame:RegisterEvent("PARTY_KILL")
 frame:RegisterEvent("ENCOUNTER_END")
 frame:RegisterEvent("PLAYER_DEAD")
+frame:RegisterEvent("QUEST_ACCEPTED")
+frame:RegisterEvent("QUEST_TURNED_IN")
 frame:SetScript("OnEvent", function(_, event, ...)
 	HANDLERS[event](...)
 end)

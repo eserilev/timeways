@@ -56,6 +56,15 @@ function Inputs.QuestDeclined(at, number)
 	return { type = "quest_declined", at = at, number = number }
 end
 
+-- `kind` is "class" for a quest of your class, and "normal" for any other.
+function Inputs.GameQuestAccepted(at, title, kind)
+	return { type = "game_quest_accepted", at = at, title = title, kind = kind }
+end
+
+function Inputs.GameQuestDone(at, title, kind)
+	return { type = "game_quest_done", at = at, title = title, kind = kind }
+end
+
 function Inputs.QuestAbandoned(at, number)
 	return { type = "quest_abandoned", at = at, number = number }
 end

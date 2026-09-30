@@ -162,6 +162,10 @@ local function DeedTitle(deed)
 		return "Earned the title " .. Name(deed.title)
 	elseif deed.kind == "quest_done" then
 		return "Finished the task " .. Name(deed.title)
+	elseif deed.kind == "game_quest_done" then
+		return "Finished the quest " .. Name(deed.title)
+	elseif deed.kind == "class_quest_done" then
+		return "Finished the class quest " .. Name(deed.title)
 	elseif deed.kind == "died" then
 		return deed.killer and ("Fell to " .. Name(deed.killer)) or "Died"
 	end

@@ -66,6 +66,11 @@ globals:
   UnitClassification:
     args:
       - type: string
+  UnitClass:
+    args:
+      - type: string
+  C_QuestLog:
+    any: true
   issecretvalue:
     args:
       - type: any
