@@ -261,6 +261,68 @@ fn a_text_too_long_to_save_stays_in_the_editor_with_the_reason() {
     assert_eq!(game.sent().len(), 1);
 }
 
+/// The label under the box: the count, or the reason that the text can't be saved.
+fn count_label(game: &Game) -> (String, Vec<f64>) {
+    game.run(
+        "for _, widget in ipairs(wow.widgets) do
+             if widget.kind == 'FontString' and widget.point and widget.point[1] == 'TOPRIGHT'
+                 and widget.parent == wow.EditBox().parent.parent then
+                 countLabel = widget
+             end
+         end",
+    );
+    (
+        game.eval("countLabel.text"),
+        game.eval("countLabel.textColor"),
+    )
+}
+
+#[test]
+fn the_reason_that_a_text_cannot_be_saved_shows_in_the_ink_of_the_text() {
+    let game = open_book(FILLED);
+    click(&game, GOAL);
+
+    write(&game, &"\u{e9}".repeat(700));
+
+    let (text, color) = count_label(&game);
+    let ink: Vec<f64> = game.eval("ns.Ink.text");
+    assert_eq!(text, "Too long to save. Try a shorter version.");
+    assert_eq!(color, ink);
+}
+
+#[test]
+fn a_text_with_accented_letters_counts_toward_the_byte_limit() {
+    let game = open_book(FILLED);
+    click(&game, GOAL);
+
+    game.run(&format!(
+        "local box = wow.EditBox()
+         box:SetText('{}')
+         box.scripts.OnTextChanged(box, true)",
+        "\u{e9}".repeat(550)
+    ));
+
+    let (text, color) = count_label(&game);
+    let faded: Vec<f64> = game.eval("ns.Ink.faded");
+    assert_eq!(text, "About 100 left");
+    assert_eq!(color, faded);
+}
+
+#[test]
+fn a_text_past_the_byte_limit_has_none_left() {
+    let game = open_book(FILLED);
+    click(&game, GOAL);
+
+    game.run(&format!(
+        "local box = wow.EditBox()
+         box:SetText('{}')
+         box.scripts.OnTextChanged(box, true)",
+        "\u{e9}".repeat(700)
+    ));
+
+    assert_eq!(count_label(&game).0, "None left");
+}
+
 #[test]
 fn the_box_scrolls_to_keep_the_cursor_in_view() {
     let game = open_book(FILLED);

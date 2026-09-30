@@ -431,6 +431,10 @@ function Widget:SetText(text)
 	self.text = text
 end
 
+function Widget:SetTextColor(r, g, b)
+	self.textColor = { r, g, b }
+end
+
 function Widget:SetTexture(file)
 	self.file = file
 end

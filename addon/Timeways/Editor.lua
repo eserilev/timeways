@@ -42,8 +42,24 @@ local function Button(label, point, x, run)
 	return button
 end
 
+local function SetCountInk(ink)
+	count:SetTextColor(ink[1], ink[2], ink[3])
+end
+
+-- A letter outside ASCII takes more than one byte, so with a byte limit the room left is a
+-- guess in letters.
+local function Left(text)
+	local letters = box:GetNumLetters()
+	if not request.bytes or #text == letters then
+		return string.format("%d / %d", letters, request.limit)
+	end
+	local left = math.min(request.limit - letters, request.bytes - #text)
+	return left > 0 and string.format("About %d left", left) or "None left"
+end
+
 local function ShowCount()
-	count:SetText(string.format("%d / %d", box:GetNumLetters(), request.limit))
+	SetCountInk(ns.Ink.faded)
+	count:SetText(Left(box:GetText() or ""))
 end
 
 -- The scroll frame moves with the cursor, so the line that the player writes stays in view.
@@ -90,7 +106,6 @@ local function BuildBox()
 	box:SetScript("OnTextChanged", ShowCount)
 	count = view:CreateFontString(nil, "ARTWORK", "QuestFontNormalSmall")
 	count:SetPoint("TOPRIGHT", view, "TOPRIGHT", -(INSET - 6), BOX_TOP - BOX_HEIGHT - 6)
-	count:SetTextColor(ns.Ink.faded[1], ns.Ink.faded[2], ns.Ink.faded[3])
 end
 
 local function Build(parent)
@@ -110,7 +125,8 @@ local function Close()
 end
 
 -- `edit` is { title, hint, text, limit, save = function(text) }, and optionally
--- `problem = function(text)`, which gives the reason that the text can't be saved, or nil.
+-- `problem = function(text)`, which gives the reason that the text can't be saved, or nil,
+-- and `bytes`, the limit of the text in bytes.
 -- `onClose` runs when the player saves or cancels.
 function Editor.Open(parent, edit, onClose)
 	if not view then
@@ -127,11 +143,13 @@ function Editor.Open(parent, edit, onClose)
 	box:SetFocus()
 end
 
--- A text that can't be saved stays in the box, with the reason under it.
+-- A text that can't be saved stays in the box, with the reason under it. The reason takes
+-- the ink of the text, so it does not read like the faded count.
 function Editor.Save()
 	local text = box:GetText()
 	local problem = request.problem and request.problem(text)
 	if problem then
+		SetCountInk(ns.Ink.text)
 		count:SetText(problem)
 		return
 	end
