@@ -40,7 +40,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           repository: eserilev/gnomish-relay
-          ref: 78a97923a91db32a05ff701da80f402a268fba28
+          ref: a65c37c70b94728bf2bbafe6970ee540efb06a50
           path: target/gnomish-relay
       - uses: taiki-e/install-action@7623a79cdfecb99d681017af368ca353d9f49bb5 # v2
         with:
@@ -56,9 +56,9 @@ jobs:
       # The shared transport is a copy of the pinned relay commit (relay SPEC.md 9.7,
       # decision 14). A change goes to the relay first, then the pin moves.
       # The fake bridge of the tests builds on the same relay commit.
-      - run: grep -q 'rev = "78a97923a91db32a05ff701da80f402a268fba28"' crates/fake-bridge/Cargo.toml
+      - run: grep -q 'rev = "a65c37c70b94728bf2bbafe6970ee540efb06a50"' crates/fake-bridge/Cargo.toml
       - run: |
-          for file in Sha256 Codec Saved Health Strip Slots Messages; do
+          for file in Sha256 Codec Saved Health Strip Slots Messages KeyHandoff; do
             diff -u target/gnomish-relay/addon/transport/$file.lua addon/Timeways/$file.lua
           done
           diff -u target/gnomish-relay/addon/tests/bit.lua addon/tests/bit.lua

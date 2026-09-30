@@ -28,19 +28,17 @@ Timeways has two parts: the addon in the game, and a desktop app on your compute
 1. Install the **Timeways** addon with the CurseForge app. The project page comes with the first release.
 2. Close WoW. The game only finds new addon files when it starts.
 3. Run the installer of the desktop app:
-   - Windows (PowerShell): `irm https://raw.githubusercontent.com/eserilev/gnomish-relay/main/scripts/install.ps1 | iex`
-   - macOS and Linux (Terminal): `curl -fsSL https://raw.githubusercontent.com/eserilev/gnomish-relay/main/scripts/install.sh | sh`
-4. Answer the questions of setup. Then start WoW.
+   - Windows (PowerShell): `& ([scriptblock]::Create((irm https://raw.githubusercontent.com/eserilev/gnomish-relay/main/scripts/install.ps1))) --timeways`
+   - macOS and Linux (Terminal): `curl -fsSL https://raw.githubusercontent.com/eserilev/gnomish-relay/main/scripts/install.sh | sh -s -- --timeways`
+4. Answer the questions of setup. It installs Gnomish Relay and the Timeways programs, finds an AI model, and builds the lore pack on your computer (it downloads the Wowpedia dump, about 133 MB, and deletes it after). Then start WoW.
 
 When the game can't reach the desktop app, Timeways opens a setup window with these steps. Type `/timeways help` to open it again.
-
-> **Not ready yet: the installer does not get the Timeways programs.** Today the installer sets up Gnomish Relay, and its setup finds the Timeways addon. In a later Gnomish Relay release, setup also downloads `timeways-story` and `timeways-pack` from the Timeways release, and builds the lore pack on your computer. Until then, build the programs from source (see "The story program").
 
 ## Layout
 
 | Path | What |
 |---|---|
-| `addon/Timeways` | The WoW addon, Lua 5.1. `Sha256`, `Codec`, `Saved`, `Health`, `Strip`, `Slots`, and `Messages` are copies of the shared transport of Gnomish Relay, pinned in CI. Change them in the relay first. `Key.lua` comes from the setup of the bridge, and git ignores it. |
+| `addon/Timeways` | The WoW addon, Lua 5.1. `Sha256`, `Codec`, `Saved`, `Health`, `Strip`, `Slots`, and `Messages` are copies of the shared transport of Gnomish Relay, pinned in CI. Change them in the relay first. `KeyHandoff.lua` takes the key from `Timeways_Key`, an addon that the desktop app writes outside this folder, so a CurseForge update keeps it. |
 | `crates/story` | `timeways-story`, the story program on the desktop |
 | `crates/addon-tests` | Runs the addon in Lua 5.1 with a fake WoW API (`addon/tests/wow.lua`) |
 

@@ -1,10 +1,20 @@
 -- Events, replies, the slash commands, and the flush timer.
 
-local _, ns = ...
+local ADDON_NAME, ns = ...
 
 local FLUSH_SECONDS = 60
 
 local HANDLERS = {
+	-- The key addon can fail to load while the files of this addon load, so the handoff
+	-- tries again here. Only our own ADDON_LOADED counts.
+	ADDON_LOADED = function(name)
+		if name == ADDON_NAME then
+			ns.KeyHandoff.Try("ADDON_LOADED")
+		end
+	end,
+	PLAYER_LOGIN = function()
+		ns.KeyHandoff.Try("PLAYER_LOGIN")
+	end,
 	PLAYER_ENTERING_WORLD = function()
 		-- First, so an error in the rest never hides the setup window.
 		ns.Welcome.Login()
@@ -50,6 +60,8 @@ local HANDLERS = {
 
 local frame = CreateFrame("Frame")
 -- Literal names, so the API gate of Gnomish Relay checks each one against the client.
+frame:RegisterEvent("ADDON_LOADED")
+frame:RegisterEvent("PLAYER_LOGIN")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 frame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 frame:RegisterEvent("ZONE_CHANGED")

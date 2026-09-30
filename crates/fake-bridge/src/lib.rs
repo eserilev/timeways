@@ -16,8 +16,8 @@ pub mod edges;
 use app_protocol::addon_lines::{AddonLine, forwarded_line, read_batch};
 use app_protocol::model_answer::clean_answer;
 use app_protocol::story_lines::{
-    CallId, FromStory, NO_SANDBOX, NarratorCheck, RequestId, batch_end_line, model_answered_line,
-    model_failed_line, read_line, reply_text,
+    Asked, CallId, FromStory, LineCheck, NO_SANDBOX, RequestId, batch_end_line,
+    model_answered_line, model_failed_line, read_line, reply_text,
 };
 use std::collections::{BTreeMap, VecDeque};
 use timeways_story::serve;
@@ -44,7 +44,8 @@ pub struct FakeBridge {
     next_id: u64,
     /// Each batch that the story program has and did not answer yet, with whether it
     /// holds a request line.
-    waiting: BTreeMap<u64, bool>,
+    /// What each open batch asks for, or None for a batch of events only.
+    waiting: BTreeMap<u64, Option<Asked>>,
     replies: BTreeMap<u64, Reply>,
     open_calls: VecDeque<(CallId, String)>,
     refused_calls: usize,
@@ -98,13 +99,13 @@ impl FakeBridge {
             }
         };
         self.dropped_lines += batch.dropped.len();
-        let wants_reply = batch.lines.iter().any(AddonLine::wants_reply);
-        self.waiting.insert(id, wants_reply);
+        let asked = batch.lines.iter().find_map(AddonLine::asked);
+        self.waiting.insert(id, asked);
         for line in &batch.lines {
             self.write_line(&forwarded_line(RequestId(id), line));
         }
         // A request line ends its batch itself, so each batch gets one answer line.
-        if !wants_reply {
+        if asked.is_none() {
             self.write_line(&batch_end_line(RequestId(id)));
         }
         id
@@ -170,19 +171,13 @@ impl FakeBridge {
         match checked_line(line) {
             Checked::Hello => {}
             Checked::ModelCall(call, prompt) => self.start_call(call, prompt),
-            Checked::Answer {
-                id,
-                events_seen,
-                reply,
-            } => {
-                let wants_reply = self
+            Checked::Answer { id, asked, reply } => {
+                let waits_for = self
                     .waiting
                     .remove(&id)
                     .unwrap_or_else(|| panic!("an answer that no batch waits for: {line}"));
-                assert_ne!(
-                    events_seen, wants_reply,
-                    "an answer of the wrong type: {line}"
-                );
+                // The bridge takes only an answer of the kind that its batch asked for.
+                assert_eq!(asked, waits_for, "an answer of the wrong type: {line}");
                 self.replies.insert(id, Reply::Done(reply));
             }
         }
@@ -208,7 +203,8 @@ pub enum Checked {
     /// `reply` is the line that the bridge writes for the game.
     Answer {
         id: u64,
-        events_seen: bool,
+        /// None for `events_seen`.
+        asked: Option<Asked>,
         reply: String,
     },
 }
@@ -226,15 +222,17 @@ pub fn checked_line(line: &str) -> Checked {
             id,
             answer,
             narrator,
-        } => (id, answer, narrator),
+            notice,
+        } => (id, answer, (narrator, notice)),
     };
-    assert_eq!(narrator, NarratorCheck::Kept, "a dropped narrator: {line}");
+    assert_eq!(narrator.0, LineCheck::Kept, "a dropped narrator: {line}");
+    assert_eq!(narrator.1, LineCheck::Kept, "a dropped notice: {line}");
     let answer = answer.unwrap_or_else(|| panic!("an answer over 24576 bytes"));
     let reply = reply_text(&answer, Some(NO_SANDBOX))
         .unwrap_or_else(|| panic!("a reply that does not fit a slot: {line}"));
     Checked::Answer {
         id: id.0,
-        events_seen: answer.is_events_seen(),
+        asked: answer.body.asked(),
         reply,
     }
 }

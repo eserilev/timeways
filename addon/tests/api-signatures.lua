@@ -1049,6 +1049,13 @@ return {
 		},
 	},
 	events = {
+		ADDON_LOADED = {
+			SynchronousEvent = true,
+			Payload = {
+				{ Name = "addOnName", Type = "cstring", Nilable = false },
+				{ Name = "containsBindings", Type = "bool", Nilable = false },
+			},
+		},
 		ENCOUNTER_END = {
 			SynchronousEvent = true,
 			Payload = {
@@ -1106,6 +1113,9 @@ return {
 				{ Name = "staminaDelta", Type = "number", Nilable = false },
 				{ Name = "intellectDelta", Type = "number", Nilable = false },
 			},
+		},
+		PLAYER_LOGIN = {
+			SynchronousEvent = true,
 		},
 		PLAYER_TARGET_CHANGED = {
 			SynchronousEvent = true,

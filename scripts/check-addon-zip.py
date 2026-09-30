@@ -3,8 +3,9 @@
 
 Usage: check-addon-zip.py ZIP
 
-The zip holds one folder, Timeways, with each file of the TOC. Key.lua stays out: the bridge
-writes it on each computer, and a packaged key would be the same for every player.
+The zip holds one folder, Timeways, with each file of the TOC. A Key.lua never goes in: the
+key of each computer lives in the Timeways_Key addon that the desktop app writes, and a
+packaged key would be the same for every player.
 """
 
 import sys

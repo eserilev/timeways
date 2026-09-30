@@ -39,12 +39,12 @@ fn toc_files() -> Vec<String> {
 fn addon_sources() -> &'static [(String, String)] {
     static SOURCES: std::sync::OnceLock<Vec<(String, String)>> = std::sync::OnceLock::new();
     SOURCES.get_or_init(|| {
-        let files = toc_files().into_iter().filter(|file| file != "Key.lua");
+        let files = toc_files();
         let read = |file: String| {
             let source = std::fs::read_to_string(addon_path(&format!("Timeways/{file}")));
             (file, source.unwrap())
         };
-        files.map(read).collect()
+        files.into_iter().map(read).collect()
     })
 }
 

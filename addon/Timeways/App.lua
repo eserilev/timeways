@@ -12,6 +12,10 @@ ns.App = {
 	saved = "TimewaysDB",
 	title = "Timeways",
 	helloChat = "story",
+	-- The desktop app writes the key into this addon of its own, outside the folder that
+	-- CurseForge replaces on an update (relay SPEC.md 7.3.2).
+	keyAddon = "Timeways_Key",
+	keyGlobal = "TimewaysKey",
 	-- The bridge answers a version out of its range with "Update Timeways." or
 	-- "Update the desktop program: gnomish-relay update.".
 	version = 1,

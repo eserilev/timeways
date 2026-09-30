@@ -16,12 +16,11 @@ local BOX_HEIGHT = 24
 -- The desktop app replies within seconds of login. A minute leaves room for a slow computer.
 local WAIT_SECONDS = 60
 
--- TODO: These lines install Gnomish Relay, and its setup finds Timeways. When relay setup
--- also downloads timeways-story and timeways-pack from the Timeways release, check that
--- these lines still install both, and change them if the relay adds a Timeways command.
+-- `--timeways` makes the relay setup also install the Timeways programs and build the lore
+-- pack on this computer.
 Welcome.COMMANDS = {
-	windows = "irm https://raw.githubusercontent.com/eserilev/gnomish-relay/main/scripts/install.ps1 | iex",
-	unix = "curl -fsSL https://raw.githubusercontent.com/eserilev/gnomish-relay/main/scripts/install.sh | sh",
+	windows = "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/eserilev/gnomish-relay/main/scripts/install.ps1))) --timeways",
+	unix = "curl -fsSL https://raw.githubusercontent.com/eserilev/gnomish-relay/main/scripts/install.sh | sh -s -- --timeways",
 }
 
 local HEADINGS = {

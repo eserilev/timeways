@@ -6,8 +6,8 @@
 ## X-Curse-Project-ID: 0
 ## SavedVariables: TimewaysDB
 
-Key.lua
 App.lua
+KeyHandoff.lua
 Sha256.lua
 Codec.lua
 Saved.lua
