@@ -245,6 +245,18 @@ return {
 				{ Name = "buildInfo", Type = "string", Nilable = false },
 			},
 		},
+		GetGameMessageInfo = {
+			MayReturnNothing = true,
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "gameErrorIndex", Type = "luaIndex", Nilable = false },
+			},
+			Returns = {
+				{ Name = "errorName", Type = "cstring", Nilable = false },
+				{ Name = "soundKitID", Type = "number", Nilable = true },
+				{ Name = "voiceID", Type = "number", Nilable = true },
+			},
+		},
 		GetNormalizedRealmName = {
 			Returns = {
 				{ Name = "result", Type = "cstring", Nilable = false },
@@ -1286,6 +1298,9 @@ return {
 		PLAYER_LOGIN = {
 			SynchronousEvent = true,
 		},
+		PLAYER_LOGOUT = {
+			SynchronousEvent = true,
+		},
 		PLAYER_REGEN_ENABLED = {
 			SynchronousEvent = true,
 		},
@@ -1343,8 +1358,30 @@ return {
 		TRADE_CLOSED = {
 			SynchronousEvent = true,
 		},
+		TRADE_MONEY_CHANGED = {
+			SynchronousEvent = true,
+		},
+		TRADE_PLAYER_ITEM_CHANGED = {
+			SynchronousEvent = true,
+			Payload = {
+				{ Name = "tradeSlotIndex", Type = "number", Nilable = false },
+			},
+		},
 		TRADE_SHOW = {
 			SynchronousEvent = true,
+		},
+		TRADE_TARGET_ITEM_CHANGED = {
+			SynchronousEvent = true,
+			Payload = {
+				{ Name = "tradeSlotIndex", Type = "number", Nilable = false },
+			},
+		},
+		UI_INFO_MESSAGE = {
+			UniqueEvent = true,
+			Payload = {
+				{ Name = "errorType", Type = "luaIndex", Nilable = false },
+				{ Name = "message", Type = "string", Nilable = false },
+			},
 		},
 		UNIT_AURA = {
 			SecretWhenAurasRestricted = true,

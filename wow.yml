@@ -156,6 +156,8 @@ globals:
     args: [{type: number, required: false}]
   UnitFullName:
     args: [{type: string}]
+  GetGameMessageInfo:
+    args: [{type: number}]
   C_GuildInfo:
     any: true
   IsInRaid:

@@ -49,6 +49,7 @@ return {
 		"Enum.UIMapType.Zone",
 		"GameTooltip",
 		"GetBuildInfo",
+		"GetGameMessageInfo",
 		"GetGreetingText",
 		"GetGuildRosterInfo",
 		"GetNormalizedRealmName",

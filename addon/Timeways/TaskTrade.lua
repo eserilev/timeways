@@ -10,9 +10,11 @@ ns.TaskTrade = TaskTrade
 -- The seventh slot holds an item that is not traded, such as one to enchant.
 local TRADE_SLOTS = 6
 
--- The player on the other side of the open window, and the window as both players
--- accepted it.
-local partner, window
+-- The player on the other side of the open window, the window as it was at its last
+-- change, and whether both players accepted it.
+local partner, window, bothAccepted
+-- A closed window that the game has not said is a trade yet.
+local closed
 
 local function Readable(value)
 	return value ~= nil and not issecretvalue(value)
@@ -45,24 +47,55 @@ local function Snapshot()
 	}
 end
 
+-- A completed trade: { at, with, gave, got, money, moneyGot }.
+local function Finish(trade)
+	closed = nil
+	trade.at = time()
+	ns.TaskTracker.Traded(trade)
+end
+
 function TaskTrade.Shown()
 	partner = ns.TaskPeople.OfUnit("npc")
-	window = nil
+	window, bothAccepted, closed = nil, false, nil
+	if partner then
+		window = Snapshot()
+	end
 end
 
--- Once both players accept, the game makes the trade and closes the window. A change of an
--- item ends both accepts, and the window stays open.
+-- The window empties as it closes, so each change of an item or of money takes a new
+-- snapshot. A change ends both accepts.
+function TaskTrade.Changed()
+	if partner then
+		window, bothAccepted = Snapshot(), false
+	end
+end
+
+-- The game can make the trade on the second accept before it tells of that accept.
 function TaskTrade.AcceptChanged(playerAccepted, targetAccepted)
-	local both = playerAccepted == 1 and targetAccepted == 1
-	window = both and partner and Snapshot() or nil
+	if partner then
+		window = Snapshot()
+		bothAccepted = playerAccepted == 1 and targetAccepted == 1
+	end
 end
 
--- A completed trade: { at, with, gave, got, money, moneyGot }.
+-- A window that closes after both accepts is a trade. So is one that the game calls a
+-- trade with "Trade complete." (ERR_TRADE_COMPLETE), before or after it closes.
 function TaskTrade.Closed()
-	local trade = window
-	partner, window = nil, nil
-	if trade then
-		trade.at = time()
-		ns.TaskTracker.Traded(trade)
+	local trade, done = window, bothAccepted
+	partner, window, bothAccepted = nil, nil, false
+	closed = trade
+	if trade and done then
+		Finish(trade)
+	end
+end
+
+function TaskTrade.InfoMessage(messageType)
+	if not Readable(messageType) or GetGameMessageInfo(messageType) ~= "ERR_TRADE_COMPLETE" then
+		return
+	end
+	if window then
+		bothAccepted = true
+	elseif closed then
+		Finish(closed)
 	end
 end

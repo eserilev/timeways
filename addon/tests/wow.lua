@@ -884,15 +884,29 @@ function GetTargetTradeMoney()
 	return tostring(wow.trade.moneyGot)
 end
 
+-- The names of the messages of UI_INFO_MESSAGE by index, as GetGameMessageInfo gives them.
+wow.TRADE_CANCELLED, wow.TRADE_COMPLETE = 1, 2
+local GAME_MESSAGES = { "ERR_TRADE_CANCELLED", "ERR_TRADE_COMPLETE" }
+
+function GetGameMessageInfo(index)
+	return GAME_MESSAGES[index]
+end
+
 -- A whole trade with the player of the "npc" unit: the window opens, both accept, and the
--- game makes the trade and closes the window.
+-- game makes the trade, empties and closes the window, and says so.
 function wow.Trade(partner, trade)
 	wow.units.npc = { name = partner, player = true }
-	wow.trade = trade
+	wow.trade = { gave = {}, got = {}, money = 0, moneyGot = 0 }
 	wow.Fire("TRADE_SHOW")
+	wow.trade = trade
+	wow.Fire("TRADE_PLAYER_ITEM_CHANGED", 1)
+	wow.Fire("TRADE_TARGET_ITEM_CHANGED", 1)
+	wow.Fire("TRADE_MONEY_CHANGED")
 	wow.Fire("TRADE_ACCEPT_UPDATE", 1, 0)
 	wow.Fire("TRADE_ACCEPT_UPDATE", 1, 1)
+	wow.trade = { gave = {}, got = {}, money = 0, moneyGot = 0 }
 	wow.Fire("TRADE_CLOSED")
+	wow.Fire("UI_INFO_MESSAGE", wow.TRADE_COMPLETE, "Trade complete.")
 	wow.units.npc = nil
 end
 

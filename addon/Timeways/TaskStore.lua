@@ -13,9 +13,12 @@ ns.TaskStore = TaskStore
 
 local GLOBAL = "TimewaysTasks"
 
--- The newest records of each kind stay. A task lasts days, not months.
+-- The newest records of each kind stay. A task lasts days, not months. The zones change
+-- most often.
 local MAX_RECORDS = 100
+local MAX_ZONES = 300
 local MAX_DONE = 50
+TaskStore.MAX_STRETCHES = MAX_RECORDS
 
 local RECORD_KINDS = { "zones", "kills", "npcs", "near", "trades" }
 
@@ -50,7 +53,8 @@ end
 function TaskStore.Record(kind, record)
 	local list = TaskStore.Data()[kind]
 	list[#list + 1] = record
-	while #list > MAX_RECORDS do
+	local limit = kind == "zones" and MAX_ZONES or MAX_RECORDS
+	while #list > limit do
 		table.remove(list, 1)
 	end
 end
@@ -76,6 +80,16 @@ local FINISHED = { done = true, declined = true, cancelled = true }
 
 function TaskStore.IsOpen(task)
 	return not FINISHED[task.status]
+end
+
+function TaskStore.CountOpen(tasks)
+	local count = 0
+	for _, task in pairs(tasks) do
+		if TaskStore.IsOpen(task) then
+			count = count + 1
+		end
+	end
+	return count
 end
 
 local function Finished(tasks)

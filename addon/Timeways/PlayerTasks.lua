@@ -7,7 +7,8 @@ local _, ns = ...
 local PlayerTasks = {}
 ns.PlayerTasks = PlayerTasks
 
--- A peer can have this many offers waiting for you, and you hold this many open tasks.
+-- A peer can have this many offers waiting for you. You hold this many open tasks that
+-- you got, and as many that you gave.
 local OFFERS_PER_GIVER = 3
 local MAX_OPEN = 20
 
@@ -23,6 +24,7 @@ local function Short(name)
 end
 
 local function Changed()
+	ns.TaskTracker.TasksChanged()
 	ns.JournalFrame.Refresh()
 end
 
@@ -35,12 +37,13 @@ end
 local function Close(task, status)
 	task.status = status
 	task.closedAt = time()
+	task.turnInAt = nil
 end
 
-local function CountOpen(tasks, giver)
+local function CountOffersFrom(tasks, giver)
 	local count = 0
 	for _, task in pairs(tasks) do
-		if ns.TaskStore.IsOpen(task) and (not giver or (task.giver == giver and task.status == "offered")) then
+		if task.giver == giver and task.status == "offered" then
 			count = count + 1
 		end
 	end
@@ -101,6 +104,10 @@ function PlayerTasks.Give(draft, doer)
 		Say(Short(doer) .. " doesn't take tasks from you.")
 		return nil
 	end
+	if ns.TaskStore.CountOpen(data.given) >= MAX_OPEN then
+		Say(string.format("You have %d open tasks. Cancel one to give another.", MAX_OPEN))
+		return nil
+	end
 	local id = ns.TaskStore.NewId(time())
 	local task = {
 		id = id,
@@ -116,6 +123,8 @@ function PlayerTasks.Give(draft, doer)
 	}
 	data.given[id] = task
 	ns.TaskStore.Trim(data.given)
+	Changed()
+	ns.TaskTracker.Watch()
 	ns.TaskChannel.Whisper(doer, {
 		type = "offer",
 		id = id,
@@ -259,7 +268,8 @@ end
 local function Offered(sender, message)
 	local data = ns.TaskStore.Data()
 	local key = ns.TaskStore.ReceivedKey(sender, message.id)
-	local full = CountOpen(data.received) >= MAX_OPEN or CountOpen(data.received, sender) >= OFFERS_PER_GIVER
+	local full = ns.TaskStore.CountOpen(data.received) >= MAX_OPEN
+		or CountOffersFrom(data.received, sender) >= OFFERS_PER_GIVER
 	if data.blocked[sender] or data.received[key] or full then
 		return
 	end
@@ -286,30 +296,54 @@ local function Took(task)
 		task.status = "accepted"
 		task.answeredAt = time()
 		-- A party that began before the accept counts from now.
-		ns.TaskTracker.RosterChanged()
+		ns.TaskTracker.Watch()
 	end
 end
 
+-- The giver's addon judges a claim as it comes, while its own records still reach back.
+local function Settle(task, index)
+	local claim = task.claims[index]
+	claim.level = ns.TaskProof.Level(task.steps[index], claim, task, ns.TaskStore.Data())
+end
+
+-- The time and the zone of a step message are the doer's word. A step that comes now
+-- happened now, so the giver's addon takes its own clock, and its own range check.
 local function Stepped(task, message)
-	if not task.steps[message.index] then
+	local index = message.index
+	if not task.steps[index] or task.claims[index] then
 		return
 	end
-	task.claims[message.index] = { at = message.at, zone = message.zone }
 	-- Only the giver's addon can see that the doer stands next to the giver.
 	if ns.TaskPeople.IsNear(task.doer) then
 		ns.TaskStore.Record("near", { at = time(), name = task.doer })
 	end
+	local close = ns.TaskPeople.IsClose(task.doer)
+	local zone = close and GetRealZoneText() or message.zone
+	task.claims[index] = { at = time(), zone = zone, near = close }
+	Settle(task, index)
 end
 
+-- A claim that came live stays: the turn-in only fills the claims that got lost.
 local function TurnInAsked(task, message)
-	task.claims = {}
 	for _, claim in ipairs(message.claims) do
-		if task.steps[claim.index] then
+		if task.steps[claim.index] and not task.claims[claim.index] then
 			task.claims[claim.index] = { at = claim.at, zone = claim.zone }
+			Settle(task, claim.index)
 		end
 	end
+	if not task.turnInAt then
+		Say(Short(task.doer) .. " wants to turn in " .. task.title .. ". Meet face to face, then open your journal.")
+	end
 	task.turnInAt = time()
-	Say(Short(task.doer) .. " wants to turn in " .. task.title .. ". Meet face to face, then open your journal.")
+end
+
+-- A doer who still sends steps of a finished task missed the end of it, so it goes again.
+local function AnswerAgain(task)
+	if task.status == "done" then
+		ns.TaskChannel.Whisper(task.doer, { type = "result", id = task.id, verdict = "done" })
+	elseif task.status == "cancelled" then
+		ns.TaskChannel.Whisper(task.doer, { type = "cancel", id = task.id })
+	end
 end
 
 -- Each type from a doer of a task that you gave.
@@ -334,16 +368,18 @@ local FROM_DOER = {
 		end
 	end,
 	step = function(task, message)
-		if ns.TaskStore.IsOpen(task) then
-			Took(task)
-			Stepped(task, message)
+		if not ns.TaskStore.IsOpen(task) then
+			return AnswerAgain(task)
 		end
+		Took(task)
+		Stepped(task, message)
 	end,
 	turnin = function(task, message)
-		if ns.TaskStore.IsOpen(task) then
-			Took(task)
-			TurnInAsked(task, message)
+		if not ns.TaskStore.IsOpen(task) then
+			return AnswerAgain(task)
 		end
+		Took(task)
+		TurnInAsked(task, message)
 	end,
 }
 

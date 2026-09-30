@@ -368,6 +368,18 @@ fn a_step_comes_from_the_target() {
 }
 
 #[test]
+fn a_hostile_pet_never_becomes_a_defeat_step() {
+    let (ada, _corvin) = form();
+
+    ada.run(
+        "wow.units.target = { name = 'Fluffy', hostile = true, controlled = true }
+         wow.Fire('PLAYER_TARGET_CHANGED')",
+    );
+
+    assert!(!lines(&ada).iter().any(|line| line.contains("Fluffy")));
+}
+
+#[test]
 fn an_item_step_takes_a_count_and_a_name() {
     let (ada, _corvin) = form();
 

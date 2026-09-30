@@ -104,6 +104,20 @@ function TaskForm.RemoveStep(index)
 	Changed()
 end
 
+-- A creature or a player that you can attack. A pet never counts: a player named it (5.11).
+local function FoeName(unit)
+	if not UnitCanAttack("player", unit) then
+		return nil
+	end
+	if not UnitIsPlayer(unit) then
+		return ns.Units.NpcName(unit)
+	end
+	local name = UnitName(unit)
+	if type(name) == "string" and not issecretvalue(name) then
+		return name
+	end
+end
+
 -- The steps that the game offers now: { kind, target, label }.
 function TaskForm.Choices()
 	local choices = {}
@@ -116,8 +130,8 @@ function TaskForm.Choices()
 	if friendly and #friendly <= LIMITS.target then
 		choices[#choices + 1] = { kind = "npc", target = friendly, label = "Talk to " .. friendly .. ", your target." }
 	end
-	local foe = UnitCanAttack("player", "target") and UnitName("target")
-	if foe and not issecretvalue(foe) and #foe <= LIMITS.target then
+	local foe = FoeName("target")
+	if foe and #foe <= LIMITS.target then
 		choices[#choices + 1] = { kind = "kill", target = foe, label = "Defeat " .. foe .. ", your target." }
 	end
 	local player = ns.TaskPeople.OfUnit("target")

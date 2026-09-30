@@ -49,9 +49,19 @@ local function IsSteps(steps)
 	return true
 end
 
+local LEVELS = { witnessed = true, unconfirmed = true, seen = true }
+
 local function IsClaim(claim)
 	local zone = type(claim) == "table" and claim.zone
-	return zone and IsNumber(claim.at) and IsText(zone, ns.TaskWire.LIMITS.zone, true)
+	return zone
+		and IsNumber(claim.at)
+		and IsText(zone, ns.TaskWire.LIMITS.zone, true)
+		and IsOptional(claim.near, function(near)
+			return type(near) == "boolean"
+		end)
+		and IsOptional(claim.level, function(level)
+			return LEVELS[level] == true
+		end)
 end
 
 -- Keeps only the claims and counts of real steps, so a page never reads a broken one.

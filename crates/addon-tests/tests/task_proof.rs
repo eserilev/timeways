@@ -72,47 +72,70 @@ fn a_kill_of_another_player_does_not_count_for_the_doer() {
 }
 
 #[test]
-fn a_step_in_a_party_in_the_same_zone_that_the_giver_did_not_see_is_not_confirmed() {
-    let setup = format!("{IN_PARTY}\n{IN_TIRISFAL}");
+fn a_step_next_to_the_giver_that_the_giver_did_not_see_is_not_confirmed() {
+    let near = "{ at = 2000, zone = 'Tirisfal Glades', near = true }";
 
-    assert_eq!(level(&setup, KILL, CLAIM), "unconfirmed");
+    assert_eq!(level(IN_PARTY, KILL, near), "unconfirmed");
 }
 
 #[test]
-fn a_step_in_a_party_in_another_zone_is_seen() {
-    let setup = format!(
-        "{IN_PARTY}
-         table.insert(records.zones, {{ at = 1200, zone = 'Silverpine Forest', subzone = '' }})"
-    );
+fn a_step_in_a_party_in_the_same_zone_far_from_the_giver_is_seen() {
+    let setup = format!("{IN_PARTY}\n{IN_TIRISFAL}");
 
     assert_eq!(level(&setup, KILL, CLAIM), "seen");
 }
 
 #[test]
-fn a_step_in_the_same_zone_with_no_party_is_seen() {
-    assert_eq!(level(IN_TIRISFAL, KILL, CLAIM), "seen");
+fn a_level_kept_from_the_claim_stays_when_the_records_are_gone() {
+    let game = Game::new();
+
+    let kept: String = game.eval(&format!(
+        "local task = {{ giver = 'Ada-Stormrage', doer = 'Corvin-Stormrage', sentAt = 1000 }}
+         local records = {{ party = {{}}, zones = {{}}, kills = {{}}, npcs = {{}}, near = {{}}, trades = {{}} }}
+         local claim = {{ at = 2000, zone = 'Tirisfal Glades', level = 'witnessed' }}
+         return ns.TaskProof.Settled({PLACE}, claim, task, records)"
+    ));
+
+    assert_eq!(kept, "witnessed");
+}
+
+#[test]
+fn a_witness_that_comes_after_the_claim_raises_its_level() {
+    let setup = format!(
+        "{IN_PARTY}
+         table.insert(records.npcs, {{ at = 2100, name = 'Innkeeper Renee' }})"
+    );
+    let game = Game::new();
+
+    let raised: String = game.eval(&format!(
+        "local task = {{ giver = 'Ada-Stormrage', doer = 'Corvin-Stormrage', sentAt = 1000 }}
+         local records = {{ party = {{}}, zones = {{}}, kills = {{}}, npcs = {{}}, near = {{}}, trades = {{}} }}
+         {setup}
+         local claim = {{ at = 2000, zone = 'Tirisfal Glades', level = 'seen' }}
+         return ns.TaskProof.Settled({TALK}, claim, task, records)"
+    ));
+
+    assert_eq!(raised, "witnessed");
 }
 
 #[test]
 fn a_party_that_ended_before_the_step_does_not_count() {
-    let setup = format!(
-        "records.party['Corvin-Stormrage'] = {{ {{ from = 1500, to = 1900 }} }}
-         {IN_TIRISFAL}"
-    );
+    let setup = "records.party['Corvin-Stormrage'] = { { from = 1500, to = 1900 } }
+         table.insert(records.zones, { at = 1200, zone = 'Tirisfal Glades', subzone = 'Agamand Mills' })";
 
-    assert_eq!(level(&setup, KILL, CLAIM), "seen");
+    assert_eq!(level(setup, PLACE, CLAIM), "seen");
 }
 
 #[test]
 fn the_zone_of_the_giver_is_the_last_one_before_the_step() {
     let setup = format!(
         "{IN_PARTY}
-         {IN_TIRISFAL}
+         table.insert(records.zones, {{ at = 1200, zone = 'Tirisfal Glades', subzone = 'Agamand Mills' }})
          table.insert(records.zones, {{ at = 1800, zone = 'Silverpine Forest', subzone = '' }})
-         table.insert(records.zones, {{ at = 2500, zone = 'Tirisfal Glades', subzone = '' }})"
+         table.insert(records.zones, {{ at = 2500, zone = 'Tirisfal Glades', subzone = 'Agamand Mills' }})"
     );
 
-    assert_eq!(level(&setup, KILL, CLAIM), "seen");
+    assert_eq!(level(&setup, PLACE, CLAIM), "seen");
 }
 
 #[test]
@@ -150,7 +173,7 @@ fn an_npc_that_the_giver_saw_long_before_is_no_witness() {
          table.insert(records.npcs, {{ at = 1700, name = 'Innkeeper Renee' }})"
     );
 
-    assert_eq!(level(&setup, TALK, CLAIM), "unconfirmed");
+    assert_eq!(level(&setup, TALK, CLAIM), "seen");
 }
 
 #[test]

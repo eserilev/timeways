@@ -7,8 +7,8 @@ local _, ns = ...
 local TaskPeople = {}
 ns.TaskPeople = TaskPeople
 
--- The trade distance of CheckInteractDistance: about 11 yards.
-local TRADE_DISTANCE = 2
+-- The distances of CheckInteractDistance: trade, about 11 yards, and follow, about 28.
+local TRADE_DISTANCE, FOLLOW_DISTANCE = 2, 4
 local MAX_NAME = 64
 
 local function Readable(value)
@@ -214,6 +214,12 @@ end
 function TaskPeople.IsNear(name)
 	local unit = TaskPeople.UnitOf(name)
 	return unit ~= nil and CheckInteractDistance(unit, TRADE_DISTANCE) == true
+end
+
+-- Close enough that your addon sees what happens around the player: a kill, a talk, a place.
+function TaskPeople.IsClose(name)
+	local unit = TaskPeople.UnitOf(name)
+	return unit ~= nil and CheckInteractDistance(unit, FOLLOW_DISTANCE) == true
 end
 
 local frame = CreateFrame("Frame")

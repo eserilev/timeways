@@ -96,15 +96,11 @@ function TaskProof.Witnessed(step, claim, task, records)
 	return WITNESSES[step.kind](step, claim, task, records) == true
 end
 
--- A trade happens face to face, so the giver's addon always sees an item that it got. In a
--- party in the same zone, the giver's addon is in a place to see the rest too.
-local function InSight(step, claim, task, records)
-	if step.kind == "item" then
-		return true
-	end
-	local place = TaskProof.PlaceAt(records.zones, claim.at)
-	local sameZone = place ~= nil and claim.zone ~= "" and place.zone == claim.zone
-	return sameZone and TaskProof.InParty(records.party[task.doer], claim.at)
+-- A trade happens face to face, so the giver's addon always sees an item that it got. For
+-- the rest, the giver's addon was in a place to see it when the doer stood close to the
+-- giver as the step came (`claim.near`, from the giver's own range check).
+local function InSight(step, claim)
+	return step.kind == "item" or claim.near == true
 end
 
 function TaskProof.Level(step, claim, task, records)
@@ -114,10 +110,20 @@ function TaskProof.Level(step, claim, task, records)
 	if TaskProof.Witnessed(step, claim, task, records) then
 		return "witnessed"
 	end
-	if InSight(step, claim, task, records) then
+	if InSight(step, claim) then
 		return "unconfirmed"
 	end
 	return "seen"
+end
+
+-- The level that the giver's addon kept when the claim came, so records that the store cut
+-- since never change it. A witness that came later still raises it.
+function TaskProof.Settled(step, claim, task, records)
+	local now = TaskProof.Level(step, claim, task, records)
+	if now == "witnessed" or not claim or not claim.level then
+		return now
+	end
+	return claim.level
 end
 
 -- The reward went over when the giver gave the doer anything in a trade after the task.

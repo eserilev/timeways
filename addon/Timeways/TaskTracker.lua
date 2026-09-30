@@ -12,6 +12,9 @@ ns.TaskTracker = TaskTracker
 local MAX_GUIDS = 200
 local guids, guidCount = {}, 0
 
+-- Your part in a task: you do it, or you gave it and witness it.
+local ROLE = { DOER = "doer", GIVER = "giver" }
+
 local function Readable(...)
 	for n = 1, select("#", ...) do
 		local value = select(n, ...)
@@ -22,32 +25,65 @@ local function Readable(...)
 	return true
 end
 
--- Each open step of every task that your addon watches: { task, index, step, doing }.
--- `doing` is true for a task that you got, and false for one that you gave.
-local function OpenSteps()
-	local steps = {}
+-- The open steps, built again only after a task changes: nameplates and the mouse fire
+-- many events.
+local cache
+
+-- Each open step of every task that your addon watches: { task, index, step, role }, and
+-- each target by kind: { kill = { [name] = true }, ... }.
+local function Build()
+	local steps, targets = {}, {}
+	local function Add(task, index, role)
+		local step = task.steps[index]
+		steps[#steps + 1] = { task = task, index = index, step = step, role = role }
+		targets[step.kind] = targets[step.kind] or {}
+		targets[step.kind][step.target] = true
+	end
 	for _, task in ipairs(ns.PlayerTasks.Doing()) do
-		for index, step in ipairs(task.steps) do
+		for index in ipairs(task.steps) do
 			if not task.claims[index] then
-				steps[#steps + 1] = { task = task, index = index, step = step, doing = true }
+				Add(task, index, ROLE.DOER)
 			end
 		end
 	end
 	for _, task in ipairs(ns.PlayerTasks.Watching()) do
-		for index, step in ipairs(task.steps) do
-			steps[#steps + 1] = { task = task, index = index, step = step, doing = false }
+		for index in ipairs(task.steps) do
+			Add(task, index, ROLE.GIVER)
 		end
 	end
-	return steps
+	return { data = ns.TaskStore.Data(), steps = steps, targets = targets }
+end
+
+local function Open()
+	if not cache or cache.data ~= ns.TaskStore.Data() then
+		cache = Build()
+	end
+	return cache
+end
+
+-- A task began, changed, or ended.
+function TaskTracker.TasksChanged()
+	cache = nil
+end
+
+local function OpenSteps()
+	return Open().steps
 end
 
 local function IsTarget(kind, name)
+	local targets = Open().targets[kind]
+	return targets ~= nil and targets[name] == true
+end
+
+-- The open steps of tasks that you do, of one kind and target.
+local function DoerSteps(kind, target)
+	local found = {}
 	for _, open in ipairs(OpenSteps()) do
-		if open.step.kind == kind and open.step.target == name then
-			return true
+		if open.role == ROLE.DOER and open.step.kind == kind and open.step.target == target then
+			found[#found + 1] = open
 		end
 	end
-	return false
+	return found
 end
 
 -- A step with a count moves on by `amount`, and is done at its count.
@@ -61,13 +97,9 @@ end
 
 -- Doing: each step of a task that you got, from what your addon sees ---------------------
 
-local function IsHere(target)
-	return target == GetRealZoneText() or target == GetSubZoneText()
-end
-
 local function CheckPlaces()
-	for _, open in ipairs(OpenSteps()) do
-		if open.doing and open.step.kind == "place" and IsHere(open.step.target) then
+	for _, place in ipairs({ GetRealZoneText(), GetSubZoneText() }) do
+		for _, open in ipairs(DoerSteps("place", place)) do
 			ns.PlayerTasks.Claim(open.task, open.index)
 		end
 	end
@@ -80,35 +112,32 @@ function TaskTracker.Accepted()
 end
 
 local function Talked(name)
-	for _, open in ipairs(OpenSteps()) do
-		if open.doing and open.step.kind == "npc" and open.step.target == name then
-			ns.PlayerTasks.Claim(open.task, open.index)
-		end
+	for _, open in ipairs(DoerSteps("npc", name)) do
+		ns.PlayerTasks.Claim(open.task, open.index)
 	end
 end
 
+-- PARTY_KILL comes for a kill by you or by a member of your group, and each one counts, as
+-- quest credit does in the game.
 local function Killed(name)
-	for _, open in ipairs(OpenSteps()) do
-		if open.doing and open.step.kind == "kill" and open.step.target == name then
-			Progress(open.task, open.index, 1)
-		end
+	for _, open in ipairs(DoerSteps("kill", name)) do
+		Progress(open.task, open.index, 1)
 	end
 end
 
 -- You met a player of a "find a player" step when you stand next to them.
 local function MetPlayer(name)
-	for _, open in ipairs(OpenSteps()) do
-		if open.doing and open.step.kind == "meet" and open.step.target == name then
-			ns.PlayerTasks.Claim(open.task, open.index)
-		end
+	for _, open in ipairs(DoerSteps("meet", name)) do
+		ns.PlayerTasks.Claim(open.task, open.index)
 	end
 end
 
 local function Brought(trade)
-	for _, open in ipairs(OpenSteps()) do
-		local item = open.step.kind == "item" and open.task.giver == trade.with
-		if open.doing and item and trade.gave[open.step.target] then
-			Progress(open.task, open.index, trade.gave[open.step.target])
+	for name, count in pairs(trade.gave) do
+		for _, open in ipairs(DoerSteps("item", name)) do
+			if open.task.giver == trade.with then
+				Progress(open.task, open.index, count)
+			end
 		end
 	end
 end
@@ -128,8 +157,21 @@ local function IsDoer(name)
 	return false
 end
 
+-- A finished task with a promised reward still waits for its trade.
+local function OwesReward(name)
+	local data = ns.TaskStore.Data()
+	for _, entry in ipairs(ns.PlayerTasks.Given()) do
+		local task = entry.task
+		local owed = task.status == "done" and task.reward ~= "" and not ns.TaskProof.Paid(task, data)
+		if task.doer == name and owed then
+			return true
+		end
+	end
+	return false
+end
+
 local function IsPeer(name)
-	if IsDoer(name) then
+	if IsDoer(name) or OwesReward(name) then
 		return true
 	end
 	for _, task in ipairs(ns.PlayerTasks.Doing()) do
@@ -140,9 +182,49 @@ local function IsPeer(name)
 	return false
 end
 
+-- Only a real change of place makes a record, so the history reaches back far.
+local function RecordPlace(zone, subzone)
+	local zones = ns.TaskStore.Data().zones
+	local last = zones[#zones]
+	if last and last.zone == zone and last.subzone == subzone then
+		return
+	end
+	ns.TaskStore.Record("zones", { at = time(), zone = zone, subzone = subzone })
+end
+
 local function RecordZone()
 	if Watching() then
-		ns.TaskStore.Record("zones", { at = time(), zone = GetRealZoneText(), subzone = GetSubZoneText() })
+		RecordPlace(GetRealZoneText(), GetSubZoneText())
+	end
+end
+
+local function CloseStretch(stretches)
+	local last = stretches[#stretches]
+	if last and not last.to then
+		last.to = time()
+	end
+end
+
+local function OpenStretch(stretches)
+	local last = stretches[#stretches]
+	if not last or last.to then
+		stretches[#stretches + 1] = { from = time() }
+	end
+	while #stretches > ns.TaskStore.MAX_STRETCHES do
+		table.remove(stretches, 1)
+	end
+end
+
+-- Stretches of party time stay only for the doers of the tasks that you keep.
+local function DropStrangers(party)
+	local doers = {}
+	for _, entry in ipairs(ns.PlayerTasks.Given()) do
+		doers[entry.task.doer] = true
+	end
+	for name in pairs(party) do
+		if not doers[name] then
+			party[name] = nil
+		end
 	end
 end
 
@@ -151,23 +233,42 @@ end
 function TaskTracker.RosterChanged()
 	local party = ns.TaskStore.Data().party
 	for _, task in ipairs(ns.PlayerTasks.Watching()) do
-		local stretches = party[task.doer] or {}
-		party[task.doer] = stretches
-		local last = stretches[#stretches]
-		local open = last and not last.to
-		local inGroup = ns.TaskPeople.GroupUnit(task.doer) ~= nil
-		if inGroup and not open then
-			stretches[#stretches + 1] = { from = time() }
-		elseif open and not inGroup then
-			last.to = time()
+		party[task.doer] = party[task.doer] or {}
+		if ns.TaskPeople.GroupUnit(task.doer) then
+			OpenStretch(party[task.doer])
+		else
+			CloseStretch(party[task.doer])
 		end
+	end
+	DropStrangers(party)
+end
+
+-- A task that you gave or that its doer took: from now on, where you are and who is in
+-- your party count.
+function TaskTracker.Watch()
+	TaskTracker.RosterChanged()
+	RecordZone()
+end
+
+-- While you are offline, your addon sees nothing: no party time, and no place.
+function TaskTracker.LoggedOut()
+	for _, stretches in pairs(ns.TaskStore.Data().party) do
+		CloseStretch(stretches)
+	end
+	if Watching() then
+		RecordPlace("", "")
 	end
 end
 
-local function WitnessKill(attackerGUID, name)
+-- A kill in your group while the doer is in it: the doer's addon counts the same kill.
+local function WitnessKill(name)
+	if not IsTarget("kill", name) then
+		return
+	end
+	local recorded = {}
 	for _, task in ipairs(ns.PlayerTasks.Watching()) do
-		local unit = ns.TaskPeople.GroupUnit(task.doer)
-		if unit and UnitGUID(unit) == attackerGUID and IsTarget("kill", name) then
+		if not recorded[task.doer] and ns.TaskPeople.GroupUnit(task.doer) then
+			recorded[task.doer] = true
 			ns.TaskStore.Record("kills", { at = time(), doer = task.doer, target = name })
 		end
 	end
@@ -183,8 +284,8 @@ end
 -- The NPC of a talk window. A player who shares a quest is the "npc" unit too, and never
 -- counts.
 function TaskTracker.Talk()
-	local name = UnitName("npc")
-	if Readable(name) and not UnitIsPlayer("npc") then
+	local name = ns.Units.NpcName("npc")
+	if name then
 		Talked(name)
 	end
 end
@@ -199,10 +300,20 @@ local function Remember(guid, name)
 	guids[guid], guidCount = name, guidCount + 1
 end
 
+local function SeePlayer(unit)
+	local player = ns.TaskPeople.OfUnit(unit)
+	if player and ns.TaskPeople.IsNear(player) then
+		MetPlayer(player)
+		if IsDoer(player) then
+			ns.TaskStore.Record("near", { at = time(), name = player })
+		end
+	end
+end
+
 -- A unit that you see: the target of a "defeat" step, an NPC that a doer talks to, or a
 -- player next to you.
 function TaskTracker.See(unit)
-	if not UnitExists(unit) or #OpenSteps() == 0 then
+	if #OpenSteps() == 0 or not UnitExists(unit) then
 		return
 	end
 	local guid, name = UnitGUID(unit), UnitName(unit)
@@ -212,16 +323,11 @@ function TaskTracker.See(unit)
 	if Readable(guid) and IsTarget("kill", name) then
 		Remember(guid, name)
 	end
-	if Watching() and IsTarget("npc", name) and not UnitIsPlayer(unit) then
-		ns.TaskStore.Record("npcs", { at = time(), name = name })
+	local npc = ns.Units.NpcName(unit)
+	if npc and Watching() and IsTarget("npc", npc) then
+		ns.TaskStore.Record("npcs", { at = time(), name = npc })
 	end
-	local player = ns.TaskPeople.OfUnit(unit)
-	if player and ns.TaskPeople.IsNear(player) then
-		MetPlayer(player)
-		if IsDoer(player) then
-			ns.TaskStore.Record("near", { at = time(), name = player })
-		end
-	end
+	SeePlayer(unit)
 end
 
 function TaskTracker.PartyKill(attackerGUID, targetGUID)
@@ -233,10 +339,11 @@ function TaskTracker.PartyKill(attackerGUID, targetGUID)
 		return
 	end
 	Killed(name)
-	WitnessKill(attackerGUID, name)
+	WitnessKill(name)
 end
 
--- A trade with the other player of an open task, from TaskTrade.
+-- A trade with the other player of an open task, or with a doer who still waits for a
+-- reward, from TaskTrade.
 function TaskTracker.Traded(trade)
 	if not trade.with or not IsPeer(trade.with) then
 		return
@@ -247,10 +354,8 @@ function TaskTracker.Traded(trade)
 end
 
 local HANDLERS = {
-	PLAYER_ENTERING_WORLD = function()
-		TaskTracker.RosterChanged()
-		RecordZone()
-	end,
+	PLAYER_ENTERING_WORLD = TaskTracker.Watch,
+	PLAYER_LOGOUT = TaskTracker.LoggedOut,
 	ZONE_CHANGED_NEW_AREA = TaskTracker.Zone,
 	ZONE_CHANGED = TaskTracker.Zone,
 	ZONE_CHANGED_INDOORS = TaskTracker.Zone,
@@ -270,13 +375,18 @@ local HANDLERS = {
 	PARTY_KILL = TaskTracker.PartyKill,
 	GROUP_ROSTER_UPDATE = TaskTracker.RosterChanged,
 	TRADE_SHOW = ns.TaskTrade.Shown,
+	TRADE_PLAYER_ITEM_CHANGED = ns.TaskTrade.Changed,
+	TRADE_TARGET_ITEM_CHANGED = ns.TaskTrade.Changed,
+	TRADE_MONEY_CHANGED = ns.TaskTrade.Changed,
 	TRADE_ACCEPT_UPDATE = ns.TaskTrade.AcceptChanged,
 	TRADE_CLOSED = ns.TaskTrade.Closed,
+	UI_INFO_MESSAGE = ns.TaskTrade.InfoMessage,
 }
 
 local frame = CreateFrame("Frame")
 -- Literal names, so the API gate of Gnomish Relay checks each one against the client.
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
+frame:RegisterEvent("PLAYER_LOGOUT")
 frame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 frame:RegisterEvent("ZONE_CHANGED")
 frame:RegisterEvent("ZONE_CHANGED_INDOORS")
@@ -291,8 +401,12 @@ frame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
 frame:RegisterEvent("PARTY_KILL")
 frame:RegisterEvent("GROUP_ROSTER_UPDATE")
 frame:RegisterEvent("TRADE_SHOW")
+frame:RegisterEvent("TRADE_PLAYER_ITEM_CHANGED")
+frame:RegisterEvent("TRADE_TARGET_ITEM_CHANGED")
+frame:RegisterEvent("TRADE_MONEY_CHANGED")
 frame:RegisterEvent("TRADE_ACCEPT_UPDATE")
 frame:RegisterEvent("TRADE_CLOSED")
+frame:RegisterEvent("UI_INFO_MESSAGE")
 frame:SetScript("OnEvent", function(_, event, ...)
 	HANDLERS[event](...)
 end)

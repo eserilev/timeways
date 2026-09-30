@@ -36,6 +36,15 @@ fn reported(ada: &Player, id: &str) -> Vec<bool> {
     ))
 }
 
+/// The level that the turn-in card shows: the one kept since the claim came.
+fn settled(ada: &Player, id: &str, index: usize) -> String {
+    ada.eval(&format!(
+        "local task = ns.TaskStore.Data().given['{id}']
+         local step = task.steps[{index}]
+         return ns.TaskProof.Settled(step, task.claims[{index}], task, ns.TaskStore.Data())"
+    ))
+}
+
 fn level(ada: &Player, id: &str, index: usize) -> String {
     ada.eval(&format!(
         "local task = ns.TaskStore.Data().given['{id}']
@@ -238,11 +247,11 @@ fn the_giver_witnesses_a_kill_of_the_doer_in_the_party() {
 }
 
 #[test]
-fn a_kill_in_the_party_that_the_giver_never_saw_is_not_confirmed() {
+fn a_kill_next_to_the_giver_that_the_giver_never_saw_is_not_confirmed() {
     let (ada, corvin, id) = accepted_task(THREE_ZOMBIES);
     ada.in_party_with(&corvin);
     corvin.in_party_with(&ada);
-    ada.run("wow.Fire('GROUP_ROSTER_UPDATE') wow.Fire('ZONE_CHANGED')");
+    ada.run("wow.units.party1.yards = 20 wow.Fire('GROUP_ROSTER_UPDATE')");
 
     for n in 1..=3 {
         kill_zombie(&corvin, "Player-1-Corvin", n);
@@ -312,4 +321,197 @@ fn a_party_that_began_before_the_accept_counts_from_the_accept() {
          return stretch.from ~= nil and stretch.to == nil",
     );
     assert!(open);
+}
+
+/// Ada and Corvin in one party, with Corvin 20 yards from Ada.
+fn in_party_close(ada: &Player, corvin: &Player) {
+    ada.in_party_with(corvin);
+    corvin.in_party_with(ada);
+    ada.run("wow.units.party1.yards = 20 wow.Fire('GROUP_ROSTER_UPDATE')");
+}
+
+/// Ada hears a step message of Corvin with the time and the zone that Corvin gives.
+fn hear_step(ada: &Player, corvin: &Player, id: &str, index: u32, at: u64, zone: &str) {
+    ada.hear(
+        "Timeways",
+        &format!("1:1:1:1;step;{id};{index};{at};{zone}"),
+        "WHISPER",
+        &corvin.full_name(),
+    );
+}
+
+#[test]
+fn a_kill_in_the_party_far_from_the_giver_is_seen() {
+    let (ada, corvin, id) = accepted_task(THREE_ZOMBIES);
+    ada.in_party_with(&corvin);
+    corvin.in_party_with(&ada);
+    ada.run("wow.Fire('GROUP_ROSTER_UPDATE') wow.Fire('ZONE_CHANGED')");
+
+    for n in 1..=3 {
+        kill_zombie(&corvin, "Player-1-Corvin", n);
+    }
+    exchange(&ada, &corvin);
+
+    assert_eq!(level(&ada, &id, 1), "seen");
+}
+
+#[test]
+fn a_doer_who_reports_another_time_and_zone_is_judged_by_the_clock_of_the_giver() {
+    let (ada, corvin, id) = accepted_task(THREE_ZOMBIES);
+    in_party_close(&ada, &corvin);
+
+    hear_step(&ada, &corvin, &id, 1, 1, "Elsewhere");
+
+    assert_eq!(level(&ada, &id, 1), "unconfirmed");
+    let zone: String = ada.eval(&format!("ns.TaskStore.Data().given['{id}'].claims[1].zone"));
+    assert_eq!(zone, "Tirisfal Glades");
+}
+
+#[test]
+fn a_kill_by_another_member_of_the_group_counts_for_the_doer_and_the_giver() {
+    let (ada, corvin, id) =
+        accepted_task("{ { kind = 'kill', target = 'Rattlecage Soldier', count = 1 } }");
+    in_party_close(&ada, &corvin);
+    corvin.in_party_with(&ada);
+
+    kill_zombie(&ada, "Player-1-Bram", 1);
+    kill_zombie(&corvin, "Player-1-Bram", 1);
+    exchange(&ada, &corvin);
+
+    assert_eq!(claimed(&corvin, &id), [true]);
+    assert_eq!(level(&ada, &id, 1), "witnessed");
+}
+
+#[test]
+fn a_place_that_the_doer_reached_while_the_giver_was_offline_is_never_witnessed() {
+    let (ada, corvin, id) = accepted_task(PLACE);
+    ada.in_party_with(&corvin);
+    ada.run(
+        "wow.subzone = 'Agamand Mills' wow.Fire('ZONE_CHANGED') wow.Fire('GROUP_ROSTER_UPDATE')
+         wow.Fire('PLAYER_LOGOUT')
+         wow.now = wow.now + 600
+         wow.Fire('PLAYER_ENTERING_WORLD')",
+    );
+
+    let at: u64 = ada.eval("wow.now - 300");
+    ada.hear(
+        "Timeways",
+        &format!("1:1:1:1;turnin;{id};1;1;{at};Tirisfal Glades"),
+        "WHISPER",
+        &corvin.full_name(),
+    );
+
+    assert_eq!(level(&ada, &id, 1), "seen");
+}
+
+#[test]
+fn the_giver_knows_where_it_stood_when_it_gave_the_task() {
+    let (ada, corvin) = players::ada_and_corvin();
+    ada.in_party_with(&corvin);
+    corvin.in_party_with(&ada);
+    ada.run("wow.subzone = 'Agamand Mills'");
+    corvin.run("wow.subzone = 'Agamand Mills'");
+    let id: String = ada.eval(&format!(
+        "return ns.PlayerTasks.Give({{ title = 'T', text = 'X.', reward = '', steps = {PLACE} }}, 'Corvin-Stormrage')"
+    ));
+    exchange(&ada, &corvin);
+
+    corvin.run(&format!("ns.PlayerTasks.Accept('{}')", received_key(&id)));
+    exchange(&ada, &corvin);
+
+    assert_eq!(level(&ada, &id, 1), "witnessed");
+}
+
+#[test]
+fn the_zone_history_keeps_only_real_changes() {
+    let (ada, _corvin, _id) = accepted_task(PLACE);
+
+    ada.run("for n = 1, 5 do wow.Fire('ZONE_CHANGED') end");
+    ada.run("wow.subzone = 'Agamand Mills' wow.Fire('ZONE_CHANGED')");
+
+    let zones: usize = ada.eval("#ns.TaskStore.Data().zones");
+    assert_eq!(zones, 2);
+}
+
+#[test]
+fn the_proof_of_a_step_stays_when_the_records_of_the_giver_are_gone() {
+    let (ada, corvin, id) = accepted_task(THREE_ZOMBIES);
+    in_party_close(&ada, &corvin);
+    for n in 1..=3 {
+        kill_zombie(&corvin, "Player-1-Corvin", n);
+        kill_zombie(&ada, "Player-1-Corvin", n);
+    }
+    exchange(&ada, &corvin);
+
+    ada.run(
+        "local data = ns.TaskStore.Data() for n = #data.kills, 1, -1 do data.kills[n] = nil end",
+    );
+
+    assert_eq!(settled(&ada, &id, 1), "witnessed");
+}
+
+#[test]
+fn a_reward_paid_after_the_turn_in_counts() {
+    let (ada, corvin, id) = accepted_task(PLACE);
+    ada.run("wow.units.target = { name = 'Corvin', player = true, near = true }");
+    ada.run(&format!("ns.PlayerTasks.Complete('{id}')"));
+    exchange(&ada, &corvin);
+
+    ada.run("wow.Trade('Corvin', { gave = {}, got = {}, money = 50000, moneyGot = 0 })");
+
+    let paid: bool = ada.eval(&format!(
+        "ns.TaskProof.Paid(ns.TaskStore.Data().given['{id}'], ns.TaskStore.Data())"
+    ));
+    assert!(paid);
+}
+
+#[test]
+fn a_trade_that_the_game_completes_before_both_accepts_show_still_counts() {
+    let (_ada, corvin, id) = accepted_task(LINEN);
+
+    corvin.run(
+        "wow.units.npc = { name = 'Ada', player = true }
+         wow.trade = { gave = {}, got = {}, money = 0, moneyGot = 0 }
+         wow.Fire('TRADE_SHOW')
+         wow.trade.gave[1] = { name = 'Linen Cloth', count = 10 }
+         wow.Fire('TRADE_PLAYER_ITEM_CHANGED', 1)
+         wow.Fire('TRADE_ACCEPT_UPDATE', 1, 0)
+         wow.trade = { gave = {}, got = {}, money = 0, moneyGot = 0 }
+         wow.Fire('TRADE_CLOSED')
+         wow.Fire('UI_INFO_MESSAGE', wow.TRADE_COMPLETE, 'Trade complete.')",
+    );
+
+    assert_eq!(claimed(&corvin, &id), [true]);
+}
+
+#[test]
+fn a_trade_that_one_player_canceled_after_the_other_accepted_counts_nothing() {
+    let (_ada, corvin, id) = accepted_task(LINEN);
+
+    corvin.run(
+        "wow.units.npc = { name = 'Ada', player = true }
+         wow.trade = { gave = { { name = 'Linen Cloth', count = 10 } }, got = {}, money = 0, moneyGot = 0 }
+         wow.Fire('TRADE_SHOW')
+         wow.Fire('TRADE_ACCEPT_UPDATE', 1, 0)
+         wow.Fire('TRADE_CLOSED')
+         wow.Fire('UI_INFO_MESSAGE', 1, 'Trade cancelled.')",
+    );
+
+    assert_eq!(claimed(&corvin, &id), [false]);
+}
+
+#[test]
+fn a_giver_holds_at_most_twenty_open_tasks() {
+    let (ada, _corvin) = players::ada_and_corvin();
+
+    let given: Vec<bool> = ada.eval(&format!(
+        "local given = {{}}
+         for n = 1, 21 do
+             given[n] = ns.PlayerTasks.Give({{ title = 'T', text = 'X.', reward = '', steps = {PLACE} }}, 'Corvin-Stormrage') ~= nil
+         end
+         return given"
+    ));
+
+    assert!(given[..20].iter().all(|given| *given));
+    assert!(!given[20]);
 }
