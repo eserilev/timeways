@@ -1,5 +1,5 @@
--- The pages of the journal: the hero, the chronicle, places, people, deeds, what you
--- learned, and your side quests (GAMEPLAY.md 3.1.1, 3.4, 3.6, and 3.7).
+-- The pages of the journal: the hero, the chronicle, deeds, what you learned, and your
+-- side quests (GAMEPLAY.md 3.1.1, 3.4, 3.6, and 3.7).
 -- The desktop sends them, because the world lives there and never in the saved variables
 -- (5.10).
 
@@ -8,18 +8,17 @@ local _, ns = ...
 local Journal = {}
 ns.Journal = Journal
 
-Journal.SECTIONS = { "hero", "chapters", "places", "people", "deeds", "learned", "quests" }
+Journal.SECTIONS = { "hero", "chapters", "deeds", "learned", "quests" }
 Journal.TITLES = {
 	hero = "Hero",
 	chapters = "Chronicle",
-	places = "Places",
-	people = "People",
 	deeds = "Deeds",
 	learned = "Knowledge",
 	quests = "Tasks",
 }
 
 -- The lists that come in pages. The sheet of the hero comes on the first page only.
+-- Places and people have no page: the map and the tooltips read them.
 local LISTS = { "chapters", "places", "people", "deeds", "learned", "quests" }
 
 -- A reply holds at most 24 KB, so a long journal comes in pages. More than this many
@@ -101,6 +100,7 @@ function Journal.Receive(value)
 	pages, collecting = collecting, nil
 	ns.Hero.JournalCame()
 	ns.Quest.JournalCame()
+	ns.Trust.Update(pages.people)
 	ns.JournalFrame.Refresh()
 	ns.Hero.AskOnce(pages.hero)
 end
@@ -116,32 +116,6 @@ end
 -- `action` is an optional button of the line: { label = ..., run = function }.
 local function Line(style, text, action)
 	return { style = style, text = text, action = action }
-end
-
-local function TrustWords(trust)
-	if trust >= 50 then
-		return "Trusts you."
-	elseif trust >= 10 then
-		return "Likes you."
-	elseif trust > -10 then
-		return "Thinks little of you."
-	elseif trust > -50 then
-		return "Wary of you."
-	end
-	return "Distrusts you."
-end
-
--- "Slapped 2 times. Wary of you." It stays empty until something changed the trust.
-local function Standing(person)
-	local parts = {}
-	if type(person.slapped) == "number" then
-		local times = person.slapped == 1 and "time" or "times"
-		parts[#parts + 1] = string.format("Slapped %d %s.", person.slapped, times)
-	end
-	if type(person.trust) == "number" then
-		parts[#parts + 1] = TrustWords(person.trust)
-	end
-	return table.concat(parts, " ")
 end
 
 local function Where(deed)
@@ -680,96 +654,6 @@ local function Hero(journal)
 	}
 end
 
--- The names of the people that you met in one place.
-local function PeopleIn(people, place)
-	local names = {}
-	for _, person in ipairs(people) do
-		if person.place == place and type(person.name) == "string" then
-			names[#names + 1] = person.name
-		end
-	end
-	return names
-end
-
-local function PlaceLines(lines, place, people, style)
-	lines[#lines + 1] = Line(style, Name(place.name))
-	local here = PeopleIn(people, place.name)
-	if #here > 0 then
-		lines[#lines + 1] = Line("text", "People here: " .. Together(here) .. ".")
-	end
-end
-
-local function Places(journal)
-	local places, people = List(journal.places), Entries(journal.people)
-	local subzones = {}
-	for _, place in ipairs(places) do
-		if place.within ~= nil then
-			subzones[place.within] = subzones[place.within] or {}
-			table.insert(subzones[place.within], place)
-		end
-	end
-	local lines = {}
-	for _, zone in ipairs(places) do
-		if zone.within == nil then
-			PlaceLines(lines, zone, people, "heading")
-			lines[#lines + 1] = Line("text", "First visited on " .. Day(zone.first_visit) .. ".")
-			for _, subzone in ipairs(subzones[zone.name] or {}) do
-				PlaceLines(lines, subzone, people, "entry")
-			end
-		end
-	end
-	return lines
-end
-
-local QUEST_STATES = {
-	offered = "offered",
-	accepted = "in progress",
-	done = "done",
-}
-
--- What you and this person have been through: tasks, rumors, and your own notes.
-local function History(journal, name)
-	local lines = {}
-	for _, quest in ipairs(Entries(journal.quests)) do
-		local state = QUEST_STATES[quest.status]
-		if quest.giver == name and state then
-			lines[#lines + 1] = Line("text", "Task: " .. Name(quest.title) .. " (" .. state .. ").")
-		end
-	end
-	for _, entry in ipairs(Entries(journal.learned)) do
-		if entry.kind == "rumor" and entry.npc == name and type(entry.excerpt) == "string" then
-			lines[#lines + 1] = Line("prose", '"' .. WithName(entry.excerpt) .. '"')
-		end
-	end
-	local hero = type(journal.hero) == "table" and journal.hero or {}
-	for _, entry in ipairs(Entries(hero.entries)) do
-		if entry.npc == name and type(entry.text) == "string" then
-			lines[#lines + 1] = Line("text", "Your note: " .. ns.Plain(entry.text))
-		end
-	end
-	return lines
-end
-
--- Only people you have dealt with show. Someone you only walked past is listed under
--- their place.
-local function People(journal)
-	local lines = {}
-	for _, person in ipairs(Entries(journal.people)) do
-		local standing = Standing(person)
-		local history = History(journal, person.name)
-		if standing ~= "" or #history > 0 then
-			lines[#lines + 1] = Line("entry", Name(person.name))
-			if standing ~= "" then
-				lines[#lines + 1] = Line("text", standing)
-			end
-			for _, line in ipairs(history) do
-				lines[#lines + 1] = line
-			end
-		end
-	end
-	return lines
-end
-
 -- A page with no list: the lines alone, beside the map.
 local function SinglePage(builder)
 	return function(journal)
@@ -787,8 +671,6 @@ end
 local BUILDERS = {
 	hero = Hero,
 	chapters = Chronicle,
-	places = SinglePage(Places),
-	people = SinglePage(People),
 	deeds = OwnList(Deeds, "deeds"),
 	learned = OwnList(Learned, "learned"),
 	quests = Tasks,
@@ -796,8 +678,6 @@ local BUILDERS = {
 
 local EMPTY = {
 	chapters = "Your story hasn't started yet. Go make some trouble.",
-	places = "No places yet. Go explore.",
-	people = "Nobody knows you yet. Talk to people and help them, and they show up here.",
 	deeds = "No deeds yet.",
 	learned = "You haven't learned a thing yet. Pick up a book, or listen at the inn.",
 	quests = "No one has asked you for a favor yet. Target someone, and type /quest.",
@@ -807,8 +687,6 @@ local EMPTY = {
 Journal.USAGE = {
 	hero = "Your character's backstory. It shapes the story that the game writes about you.",
 	chapters = "Your story so far, chapter by chapter.",
-	places = "Every place you've been.",
-	people = "The people you've dealt with, and what they think of you.",
 	deeds = "Your levels, big kills, deaths, and titles.",
 	learned = "Everything you've read or heard.",
 	quests = "Favors from the people you meet. Target someone, and type /quest.",

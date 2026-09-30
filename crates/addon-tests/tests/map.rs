@@ -90,17 +90,17 @@ fn pin(game: &Game) -> (bool, f64, f64) {
 fn the_map_shows_the_zone_of_the_player_by_default() {
     let game = in_elwynn();
 
-    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('places')");
+    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('deeds')");
 
     assert_eq!(shown_map(&game), Some(ELWYNN));
-    assert_eq!(path(&game), "Journal  >  Places  >  Elwynn Forest");
+    assert_eq!(path(&game), "Journal  >  Deeds  >  Elwynn Forest");
 }
 
 #[test]
 fn the_map_draws_every_tile_of_the_art_in_rows() {
     let game = in_elwynn();
 
-    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('places')");
+    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('deeds')");
 
     let expected: Vec<u32> = (1..=12).map(|n| ELWYNN * 100 + n).collect();
     assert_eq!(tiles(&game), expected);
@@ -110,7 +110,7 @@ fn the_map_draws_every_tile_of_the_art_in_rows() {
 fn the_art_covers_the_pane_and_keeps_its_shape() {
     let game = in_elwynn();
 
-    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('places')");
+    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('deeds')");
 
     // Each tile as { x, y, width, height }, and the pane as { width, height }.
     let tiles: Vec<Vec<f64>> = game.eval(
@@ -173,7 +173,7 @@ fn a_zone_with_no_map_shows_the_map_of_the_player() {
 fn with_no_map_at_all_the_pane_says_so() {
     let game = Game::new();
 
-    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('places')");
+    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('deeds')");
 
     assert_eq!(shown_map(&game), None);
     assert!(tiles(&game).is_empty());
@@ -190,7 +190,7 @@ fn with_no_map_at_all_the_pane_says_so() {
         shown.contains(&"No map for this place.".to_string()),
         "{shown:?}"
     );
-    assert_eq!(path(&game), "Journal  >  Places");
+    assert_eq!(path(&game), "Journal  >  Deeds");
 }
 
 #[test]
@@ -198,7 +198,7 @@ fn a_map_whose_art_has_no_size_counts_as_no_map() {
     let game = in_elwynn();
     game.run(&format!("wow.maps[{ELWYNN}].layers[1].tileWidth = 0"));
 
-    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('places')");
+    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('deeds')");
 
     assert_eq!(shown_map(&game), None);
 }
@@ -206,7 +206,7 @@ fn a_map_whose_art_has_no_size_counts_as_no_map() {
 #[test]
 fn a_map_that_leaves_for_a_map_of_no_art_hides_its_tiles() {
     let game = in_elwynn();
-    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('places')");
+    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('deeds')");
 
     game.run(&format!("wow.maps[{ELWYNN}].layers = nil"));
     game.run("ns.JournalFrame.Open('deeds')");
@@ -221,7 +221,7 @@ fn the_pin_marks_where_the_player_stands() {
         "wow.maps[{ELWYNN}].player = {{ x = 0.5, y = 0.25 }}"
     ));
 
-    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('places')");
+    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('deeds')");
 
     let (shown, x, y) = pin(&game);
     let first_tile: Vec<f64> = game.eval(
@@ -258,7 +258,7 @@ fn a_hidden_position_hides_the_pin() {
         "wow.maps[{ELWYNN}].player = {{ x = 0.5, y = 0.25 }}; wow.secrets[0.5] = true"
     ));
 
-    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('places')");
+    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('deeds')");
 
     assert!(!pin(&game).0);
 }

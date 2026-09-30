@@ -169,6 +169,8 @@ Built:
   - A valid change goes through Hourglass, inside the band of -100 to 100.
 - **No retry.** With no model, or with an answer that breaks a rule, the NPC "looks at you and says nothing".
 - The target counts only when it is an NPC: never a player, and never a pet (5.11).
+- **Trust shows on the NPC, not in the book** (built). The tooltip of an NPC that you dealt with gets one line: "Timeways: Likes you. Slapped 2 times." An NPC that you only met gets none. When the feeling of an NPC changes band, the chat says so once: "Keeper Tessa now likes you." The bands: 50 and up trusts you, 10 and up likes you, -9 to 9 is neutral, -10 to -49 is wary of you, and below that distrusts you. The addon asks for the journal at login and after each talk, so the tooltips know the people before the book opens.
+- **No People or Places page.** The chronicle names the people and places of each chapter, the map shows where you went, and the tooltip shows trust. The journal still carries the people and the places, for the map and the tooltips.
 
 ### 3.6 The journal
 
@@ -185,8 +187,6 @@ The desktop sends the pages each time the book opens, because the world lives th
 |---|---|---|
 | **Hero** | Your sheet and your own lore (3.7). The list holds each question of the sheet with its answer. The open question has an Edit button, and under it come your notes with Add a note and Remove. Previous and Next step through the questions, and the bar counts the answered ones. The first time that the book shows an empty hero in a session, it opens here. | Built |
 | **Chronicle** | One chapter for each play session (3.3), with the saga and the footnotes when a model wrote them. The list names each chapter by its first zone. A chapter shows its places, its people, and its deeds, with Previous chapter and Next chapter. The book opens on it, at the newest chapter. | Built |
-| **Places** | Each zone, with the date of the first visit, and its subzones under it. Each place lists the people that you met there. | Built |
-| **People** | Only the NPCs that you dealt with: a change of trust, a slap, a task, a rumor, or a note of yours about them. Each shows its trust in words, your slaps, its tasks, its rumors, and your notes. An NPC that you only met shows under its place. | Built |
 | **Deeds** | Level milestones, first kills of rares and bosses, repeat kills (echoes, 5.13), your deaths, and your joke titles (5.4.1) | Built |
 | **Knowledge** | What you read and heard (3.1.1): each book, each quest tale, and each story of an NPC, with the place and the date. A rumor from `/talk` shows as a rumor. | Built |
 | **Nemesis** | Real players from world PvP only: the kill count on each side, the places, and the last time seen (4.1). Aliases only (5.11). | Later |

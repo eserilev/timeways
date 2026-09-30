@@ -48,4 +48,6 @@ function Watch.Login()
 	ns.Outbox.SetCharacter(ns.Inputs.Character(GetRealmName(), UnitName("player")))
 	Watch.Level(UnitLevel("player"))
 	Watch.Zone()
+	-- The tooltips need the people before the book ever opens.
+	ns.Journal.Request(0)
 end

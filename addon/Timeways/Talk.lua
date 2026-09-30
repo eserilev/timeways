@@ -42,4 +42,6 @@ function Talk.Show(answer)
 	else
 		DEFAULT_CHAT_FRAME:AddMessage(string.format("|cffffd100%s looks at you and says nothing.|r", npc))
 	end
+	-- A talk can change the trust of the NPC, and the journal carries it.
+	ns.Journal.Request(0)
 end

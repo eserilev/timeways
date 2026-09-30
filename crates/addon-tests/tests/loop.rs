@@ -116,14 +116,13 @@ fn a_session_of_play_goes_through_the_bridge_and_back_into_the_book() {
     }
 
     assert_eq!(bridge.dropped_lines(), 0);
-    let places = lines(&game, "places");
-    assert!(places.contains("Goldshire"), "{places}");
+    let chapters = lines(&game, "chapters");
+    assert!(chapters.contains("Elwynn Forest"), "{chapters}");
+    assert!(chapters.contains("Innkeeper Farley"), "{chapters}");
     let learned = lines(&game, "learned");
     assert!(learned.contains("The inn is warm."), "{learned}");
     assert!(learned.contains("Kill Hogger."), "{learned}");
     assert!(learned.contains("ruled here."), "{learned}");
-    let people = lines(&game, "people");
-    assert!(people.contains("Innkeeper Farley"), "{people}");
     game.run("ns.Journal.Select('hero', 'goal')");
     let hero = lines(&game, "hero");
     assert!(hero.contains("Find my brother."), "{hero}");

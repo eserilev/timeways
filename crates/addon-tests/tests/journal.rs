@@ -50,9 +50,6 @@ fn lines(game: &Game, section: &str) -> Vec<String> {
     ))
 }
 
-const PEOPLE_EMPTY: &str =
-    "help: Nobody knows you yet. Talk to people and help them, and they show up here.";
-
 fn day(game: &Game) -> String {
     game.eval(&format!("date('%d %b %Y', {DAY})"))
 }
@@ -100,60 +97,7 @@ fn escape_closes_the_journal() {
 fn the_pages_fill_while_the_desktop_answers() {
     let game = Game::new();
 
-    assert_eq!(lines(&game, "places"), [FILLING]);
-}
-
-#[test]
-fn places_group_each_subzone_under_its_zone() {
-    let game = Game::new();
-
-    game.reply(&journal_reply(&traveler()));
-
-    let visited = format!("text: First visited on {}.", day(&game));
-    let expected = [
-        "heading: Elwynn Forest".to_string(),
-        visited.clone(),
-        "entry: Goldshire".to_string(),
-        "text: People here: Innkeeper Farley.".to_string(),
-        "heading: Westfall".to_string(),
-        visited,
-        "entry: Sentinel Hill".to_string(),
-    ];
-    assert_eq!(lines(&game, "places"), expected);
-}
-
-#[test]
-fn someone_you_only_met_shows_under_their_place_and_not_on_people() {
-    let game = Game::new();
-
-    game.reply(&journal_reply(&traveler()));
-
-    assert_eq!(lines(&game, "people"), [PEOPLE_EMPTY]);
-    assert!(lines(&game, "places").contains(&"text: People here: Innkeeper Farley.".to_string()));
-}
-
-#[test]
-fn a_person_shows_the_tasks_rumors_and_notes_you_share() {
-    let game = Game::new();
-
-    game.reply(concat!(
-        r#"{"type":"journal","page":0,"pages":1,"#,
-        r#""people":[{"name":"Keeper Tessa","first_met":1790000000},{"name":"Farmer Bram","first_met":1790000000}],"#,
-        r#""quests":[{"number":1,"giver":"Keeper Tessa","title":"The Lost Lantern","status":"done"},"#,
-        r#"{"number":2,"giver":"Keeper Tessa","title":"Old Bones","status":"declined"}],"#,
-        r#""learned":[{"kind":"rumor","npc":"Keeper Tessa","at":1790000000,"excerpt":"The mill burns at night."}],"#,
-        r#""hero":{"sheet":[],"entries":[{"number":1,"text":"She owes me one.","npc":"Keeper Tessa","at":1790000000}]}}"#,
-    ));
-
-    assert_eq!(
-        lines(&game, "people"),
-        [
-            "entry: Keeper Tessa",
-            "text: Task: The Lost Lantern (done).",
-            "prose: \"The mill burns at night.\"",
-            "text: Your note: She owes me one.",
-        ]
-    );
+    assert_eq!(lines(&game, "deeds"), [FILLING]);
 }
 
 #[test]
@@ -177,8 +121,6 @@ fn an_empty_section_shows_a_note() {
 
     game.reply(&journal_reply(&Character::new()));
 
-    assert_eq!(lines(&game, "places"), ["help: No places yet. Go explore."]);
-    assert_eq!(lines(&game, "people"), [PEOPLE_EMPTY]);
     assert_eq!(lines(&game, "deeds"), ["help: No deeds yet."]);
 }
 
@@ -188,12 +130,15 @@ fn the_open_page_shows_the_lines_of_its_section() {
     game.run("wow.Slash('/journal', '')");
 
     game.reply(&journal_reply(&traveler()));
-    game.run("ns.JournalFrame.Open('places')");
+    game.run("ns.JournalFrame.Open('deeds')");
 
     let shown: Vec<String> =
         game.eval("wow.ShownTexts(TimewaysJournalFrameScroll:GetScrollChild())");
-    assert_eq!(shown.first().map(String::as_str), Some("Elwynn Forest"));
-    assert_eq!(shown.len(), 7);
+    assert_eq!(
+        shown.first().map(String::as_str),
+        Some("Began this journal at level 12")
+    );
+    assert_eq!(shown.len(), 4);
 }
 
 #[test]
@@ -204,17 +149,17 @@ fn a_tab_opens_its_section_and_marks_itself() {
 
     game.run(
         "for _, widget in ipairs(wow.widgets) do
-             if widget.text == 'People' then widget:Click() end
+             if widget.text == 'Deeds' then widget:Click() end
          end",
     );
 
-    assert_eq!(game.eval::<String>("ns.JournalFrame.Section()"), "people");
-    let people_enabled: bool = game.eval(
+    assert_eq!(game.eval::<String>("ns.JournalFrame.Section()"), "deeds");
+    let deeds_enabled: bool = game.eval(
         "for _, widget in ipairs(wow.widgets) do
-             if widget.text == 'People' then return widget:IsEnabled() end
+             if widget.text == 'Deeds' then return widget:IsEnabled() end
          end",
     );
-    assert!(!people_enabled);
+    assert!(!deeds_enabled);
 }
 
 #[test]
@@ -238,7 +183,7 @@ fn a_shorter_page_hides_the_lines_of_a_longer_one() {
     game.run("wow.Slash('/journal', '')");
     game.reply(&journal_reply(&traveler()));
 
-    game.run("ns.JournalFrame.Open('people')");
+    game.run("ns.JournalFrame.Open('deeds'); ns.JournalFrame.Open('learned')");
 
     let shown: Vec<String> =
         game.eval("wow.ShownTexts(TimewaysJournalFrameScroll:GetScrollChild())");
@@ -249,12 +194,16 @@ fn a_shorter_page_hides_the_lines_of_a_longer_one() {
 fn a_name_that_the_bridge_escaped_shows_as_it_is() {
     let game = Game::new();
     let mut character = Character::new();
-    character.meet_npc(Tick(DAY), "||cffff0000Fake||r").unwrap();
-    character.slap(Tick(DAY), "||cffff0000Fake||r").unwrap();
+    character
+        .defeat_npc(Tick(DAY), "||cffff0000Fake||r")
+        .unwrap();
 
     game.reply(&journal_reply(&character));
 
-    assert_eq!(lines(&game, "people")[0], "entry: ||cffff0000Fake||r");
+    assert_eq!(
+        lines(&game, "deeds")[0],
+        "entry: Defeated ||cffff0000Fake||r"
+    );
 }
 
 #[test]
@@ -265,16 +214,14 @@ fn a_broken_journal_shows_gaps_and_no_error() {
         r#"{"type":"journal","page":0,"pages":1,"places":"x","people":[{"name":5,"trust":10}],"deeds":[{"kind":"level"},{"kind":"odd"}]}"#,
     );
 
-    assert_eq!(lines(&game, "places"), ["help: No places yet. Go explore."]);
-    assert_eq!(lines(&game, "people")[0], "entry: ?");
     assert_eq!(lines(&game, "deeds"), ["help: No deeds yet."]);
 }
 
 fn explorer() -> Character {
     let mut character = Character::new();
     for n in 0..400 {
-        let zone = format!("A zone with a long name, so that pages fill fast, number {n}");
-        character.enter_zone(Tick(DAY + n), &zone, None).unwrap();
+        let foe = format!("A foe with a long name, so that pages fill fast, number {n}");
+        character.defeat_npc(Tick(DAY + n), &foe).unwrap();
     }
     character
 }
@@ -308,11 +255,11 @@ fn the_addon_asks_for_each_next_page_and_joins_them() {
         game.reply(&page_reply(page));
     }
 
-    let places = lines(&game, "places")
+    let kills = lines(&game, "deeds")
         .iter()
-        .filter(|line| line.starts_with("heading"))
+        .filter(|line| line.starts_with("entry: Defeated"))
         .count();
-    assert_eq!(places, 400);
+    assert_eq!(kills, 400);
     assert_eq!(asked_pages(&game), (1..count).collect::<Vec<_>>());
 }
 
@@ -323,7 +270,7 @@ fn a_page_out_of_order_is_dropped() {
 
     game.reply(&page_reply(all.remove(1)));
 
-    assert_eq!(lines(&game, "places"), [FILLING]);
+    assert_eq!(lines(&game, "deeds"), [FILLING]);
     assert!(asked_pages(&game).is_empty());
 }
 
@@ -334,7 +281,10 @@ fn the_old_journal_stays_until_every_page_of_the_new_one_came() {
 
     game.reply(&page_reply(pages(journal(&explorer())).remove(0)));
 
-    assert_eq!(lines(&game, "places")[0], "heading: Elwynn Forest");
+    assert_eq!(
+        lines(&game, "deeds")[0],
+        "entry: Began this journal at level 12"
+    );
 }
 
 #[test]
@@ -385,11 +335,8 @@ fn an_entry_that_is_not_a_table_is_skipped() {
 
     game.reply(r#"{"type":"journal","page":0,"pages":1,"places":[5],"people":[true,{"name":"Ada","trust":10}],"deeds":["x"]}"#);
 
-    game.run(
-        "wow.Slash('/journal', ''); ns.JournalFrame.Open('people'); ns.JournalFrame.Open('deeds')",
-    );
-    assert_eq!(lines(&game, "places"), ["help: No places yet. Go explore."]);
-    assert_eq!(lines(&game, "people")[0], "entry: Ada");
+    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('deeds')");
+    assert_eq!(lines(&game, "deeds"), ["help: No deeds yet."]);
 }
 
 #[test]
@@ -521,25 +468,6 @@ fn no_chapter_yet_shows_a_note() {
 }
 
 #[test]
-fn a_slapped_npc_shows_the_slaps_and_the_trust_in_words() {
-    let game = Game::new();
-    let mut character = Character::new();
-    character
-        .enter_zone(Tick(DAY), "Elwynn Forest", Some("Goldshire"))
-        .unwrap();
-    character.meet_npc(Tick(DAY), "Innkeeper Farley").unwrap();
-    character.slap(Tick(DAY), "Innkeeper Farley").unwrap();
-    character.slap(Tick(DAY), "Innkeeper Farley").unwrap();
-
-    game.reply(&journal_reply(&character));
-
-    assert_eq!(
-        lines(&game, "people")[1],
-        "text: Slapped 2 times. Wary of you."
-    );
-}
-
-#[test]
 fn the_saga_comes_before_the_list_of_its_chapter() {
     let game = Game::new();
 
@@ -550,38 +478,6 @@ fn the_saga_comes_before_the_list_of_its_chapter() {
     let lines = lines(&game, "chapters");
     assert_eq!(lines[3], "prose: Our hero rode west. ||Hfake||h");
     assert_eq!(lines[4], "section: Places you visited");
-}
-
-#[test]
-fn trust_shows_in_words_for_each_band() {
-    let game = Game::new();
-    let people: Vec<String> = [60, 50, 49, 10, 9, -9, -10, -49, -50, -100]
-        .iter()
-        .map(|trust| format!(r#"{{"name":"N","first_met":1790000000,"trust":{trust}}}"#))
-        .collect();
-
-    game.reply(&format!(
-        r#"{{"type":"journal","page":0,"pages":1,"people":[{}]}}"#,
-        people.join(",")
-    ));
-
-    let words: Vec<String> = lines(&game, "people")
-        .into_iter()
-        .filter(|line| !line.starts_with("entry") && !line.contains("Met "))
-        .collect();
-    let expected = [
-        "Trusts you.",
-        "Trusts you.",
-        "Likes you.",
-        "Likes you.",
-        "Thinks little of you.",
-        "Thinks little of you.",
-        "Wary of you.",
-        "Wary of you.",
-        "Distrusts you.",
-        "Distrusts you.",
-    ];
-    assert_eq!(words, expected.map(|word| format!("text: {word}")));
 }
 
 #[test]
@@ -721,7 +617,10 @@ fn a_journal_with_no_pages_keeps_the_book_as_it_is() {
 
     game.reply(r#"{"type":"journal","page":0,"pages":0,"narrator":null}"#);
 
-    assert_eq!(lines(&game, "places")[0], "heading: Elwynn Forest");
+    assert_eq!(
+        lines(&game, "deeds")[0],
+        "entry: Began this journal at level 12"
+    );
 }
 
 #[test]

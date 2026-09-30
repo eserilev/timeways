@@ -29,6 +29,7 @@ Talk.lua
 Quest.lua
 Narrator.lua
 Hero.lua
+Trust.lua
 Journal.lua
 Ink.lua
 MapPane.lua

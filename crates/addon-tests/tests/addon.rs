@@ -41,7 +41,7 @@ fn reply_line(text: Option<&str>, passages: &[(&str, &str)]) -> String {
 }
 
 #[test]
-fn login_sends_the_level_and_the_zone() {
+fn login_sends_the_level_and_the_zone_and_asks_for_the_journal() {
     let game = Game::new();
     game.run(
         "wow.units.player = { name = 'Ada', level = 12 }
@@ -53,6 +53,10 @@ fn login_sends_the_level_and_the_zone() {
     let expected = [
         Input::LevelReached { at: NOW, level: 12 },
         zone("Elwynn Forest", Some("Goldshire")),
+        Input::JournalAsked {
+            id: MessageId(1),
+            page: 0,
+        },
     ];
     assert_eq!(game.sent().len(), 1);
     assert_eq!(game.sent_inputs(), expected);

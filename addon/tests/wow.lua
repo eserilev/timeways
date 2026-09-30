@@ -57,6 +57,39 @@ function UnitClassification(unit)
 	return u and u.classification or "normal"
 end
 
+-- The game's tooltip, and the hooks that run after it shows a unit.
+wow.tooltipHooks = {}
+wow.tooltip = { unit = nil, lines = {} }
+
+Enum = { TooltipDataType = { Unit = 2 } }
+
+TooltipDataProcessor = {
+	AddTooltipPostCall = function(kind, hook)
+		if kind == Enum.TooltipDataType.Unit then
+			table.insert(wow.tooltipHooks, hook)
+		end
+	end,
+}
+
+GameTooltip = {
+	GetUnit = function()
+		local unit = wow.tooltip.unit
+		return unit and UnitName(unit), unit
+	end,
+	AddLine = function(_, text)
+		table.insert(wow.tooltip.lines, text)
+	end,
+}
+
+-- Shows the tooltip of `unit`, as a mouseover does.
+function wow.ShowTooltip(unit)
+	wow.tooltip = { unit = unit, lines = {} }
+	for _, hook in ipairs(wow.tooltipHooks) do
+		hook(GameTooltip)
+	end
+	return wow.tooltip.lines
+end
+
 -- The name of the class, and its file name, as the client gives both.
 wow.class = "Paladin"
 

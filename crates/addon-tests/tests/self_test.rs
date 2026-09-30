@@ -168,7 +168,7 @@ fn a_reply_of_the_self_test_never_reaches_the_book() {
     game.run("wow.Slash('/timeways', 'test')");
     answer_all(&game, &mut story);
 
-    let first: String = game.eval("ns.Journal.Lines('places')[1].text");
+    let first: String = game.eval("ns.Journal.Lines('deeds')[1].text");
     assert!(first.starts_with("Loading..."));
 }
 
