@@ -165,6 +165,14 @@ globals:
     args: [{type: string}]
   CheckInteractDistance:
     args: [{type: string}, {type: number}]
+  GetTradePlayerItemInfo:
+    args: [{type: number}]
+  GetTradeTargetItemInfo:
+    args: [{type: number}]
+  GetPlayerTradeMoney:
+    args: []
+  GetTargetTradeMoney:
+    args: []
 structs:
   BitLib:
     band: {args: [{type: number}, {type: "..."}]}

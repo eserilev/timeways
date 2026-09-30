@@ -44,6 +44,8 @@ TaskStore.lua
 TaskProof.lua
 TaskChannel.lua
 PlayerTasks.lua
+TaskTrade.lua
+TaskTracker.lua
 Journal.lua
 Ink.lua
 MapPane.lua

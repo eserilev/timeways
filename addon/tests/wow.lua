@@ -686,4 +686,42 @@ C_FriendList = {
 	end,
 }
 
+-- The open trade window: `wow.trade.gave` and `wow.trade.got` list { name, count } by slot,
+-- and `money` and `moneyGot` hold copper.
+wow.trade = { gave = {}, got = {}, money = 0, moneyGot = 0 }
+
+function GetTradePlayerItemInfo(slot)
+	local item = wow.trade.gave[slot]
+	if item then
+		return item.name, 134400, item.count, 1, nil, false, false, 2589
+	end
+end
+
+function GetTradeTargetItemInfo(slot)
+	local item = wow.trade.got[slot]
+	if item then
+		return item.name, 134400, item.count, 1, true, nil, 2589
+	end
+end
+
+function GetPlayerTradeMoney()
+	return tostring(wow.trade.money)
+end
+
+function GetTargetTradeMoney()
+	return tostring(wow.trade.moneyGot)
+end
+
+-- A whole trade with the player of the "npc" unit: the window opens, both accept, and the
+-- game makes the trade and closes the window.
+function wow.Trade(partner, trade)
+	wow.units.npc = { name = partner, player = true }
+	wow.trade = trade
+	wow.Fire("TRADE_SHOW")
+	wow.Fire("TRADE_ACCEPT_UPDATE", 1, 0)
+	wow.Fire("TRADE_ACCEPT_UPDATE", 1, 1)
+	wow.Fire("TRADE_CLOSED")
+	wow.units.npc = nil
+end
+
 return wow

@@ -1175,6 +1175,9 @@ return {
 				{ Name = "uiTextureKit", Type = "textureKit", Nilable = true },
 			},
 		},
+		GROUP_ROSTER_UPDATE = {
+			UniqueEvent = true,
+		},
 		ITEM_TEXT_READY = {
 			SynchronousEvent = true,
 		},
@@ -1263,6 +1266,19 @@ return {
 		SCREENSHOT_SUCCEEDED = {
 			SynchronousEvent = true,
 		},
+		TRADE_ACCEPT_UPDATE = {
+			SynchronousEvent = true,
+			Payload = {
+				{ Name = "playerAccepted", Type = "number", Nilable = false },
+				{ Name = "targetAccepted", Type = "number", Nilable = false },
+			},
+		},
+		TRADE_CLOSED = {
+			SynchronousEvent = true,
+		},
+		TRADE_SHOW = {
+			SynchronousEvent = true,
+		},
 		UNIT_AURA = {
 			SecretWhenAurasRestricted = true,
 			SynchronousEvent = true,
@@ -1290,10 +1306,14 @@ return {
 		"GetGuildRosterInfo",
 		"GetNumGuildMembers",
 		"GetObjectiveText",
+		"GetPlayerTradeMoney",
 		"GetProgressText",
 		"GetQuestText",
 		"GetRewardText",
+		"GetTargetTradeMoney",
 		"GetTitleText",
+		"GetTradePlayerItemInfo",
+		"GetTradeTargetItemInfo",
 		"InCombatLockdown",
 		"IsInGroup",
 		"IsInRaid",

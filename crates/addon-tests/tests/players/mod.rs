@@ -146,3 +146,22 @@ pub fn ada_and_corvin() -> (Player, Player) {
     corvin.in_guild_with(&[&ada]);
     (ada, corvin)
 }
+
+/// The key of a task of Ada in the journal of the doer.
+pub fn received_key(id: &str) -> String {
+    format!("Ada-Stormrage/{id}")
+}
+
+/// Ada gives Corvin a task with these steps, as a Lua list, and Corvin accepts it.
+/// Returns the two players and the id of the task.
+pub fn accepted_task(steps: &str) -> (Player, Player, String) {
+    let (ada, corvin) = ada_and_corvin();
+    let id: String = ada.eval(&format!(
+        "return ns.PlayerTasks.Give({{ title = 'Trouble at Agamand Mills', text = 'Put Gregor to rest.',
+             reward = '5 gold', steps = {steps} }}, 'Corvin-Stormrage')"
+    ));
+    exchange(&ada, &corvin);
+    corvin.run(&format!("ns.PlayerTasks.Accept('{}')", received_key(&id)));
+    exchange(&ada, &corvin);
+    (ada, corvin, id)
+}

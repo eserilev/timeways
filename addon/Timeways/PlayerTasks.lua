@@ -176,6 +176,7 @@ function PlayerTasks.Accept(key)
 	if task then
 		task.progress = {}
 		Say("Task accepted: " .. task.title .. ".")
+		ns.TaskTracker.Accepted()
 	end
 end
 
