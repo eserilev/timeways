@@ -5,6 +5,7 @@
 
 use hourglass::Tick;
 use std::path::Path;
+use std::time::Duration;
 use timeways_story::character::QUEST_TRUST;
 use timeways_story::input::{CallId, Input, MessageId, Reaction};
 use timeways_story::journal::{Deed, Page};
@@ -629,4 +630,180 @@ fn the_next_task_never_names_a_target_of_the_last_one() {
         line.as_deref(),
         Some("Innkeeper Pell has no task for you now.")
     );
+}
+
+#[test]
+fn a_task_finished_after_the_clock_went_back_still_earns_its_trust() {
+    let mut story = bat_hunt("clock-back");
+    kill(&mut story, 20, "Duskbat");
+
+    kill(&mut story, 15, "Duskbat");
+
+    let done = quests(&mut story).remove(0);
+    assert_eq!(done.status, Status::Done);
+    assert_eq!(trust_of_giver(&mut story), Some(QUEST_TRUST));
+}
+
+/// The lines of one list of the prompt, from its heading to the end of its fence.
+fn prompt_list<'a>(prompt: &'a str, heading: &str) -> Vec<&'a str> {
+    let list = prompt.split(heading).nth(1).unwrap();
+    let list = list.split(">>>").next().unwrap();
+    list.lines()
+        .filter_map(|line| line.strip_prefix("- "))
+        .collect()
+}
+
+#[test]
+fn the_prompt_lists_the_newest_foes() {
+    let mut story = story("newest-foes");
+    for n in 1..=25 {
+        sight(
+            &mut story,
+            10 + n,
+            &format!("Duskbat {n}"),
+            Reaction::Hostile,
+            "beast",
+        );
+    }
+
+    let (_, prompt) = call_of(ask(&mut story, 40));
+
+    let foes = prompt_list(&prompt, "Creatures that the player can hunt:");
+    assert_eq!(foes.len(), 20);
+    assert_eq!(foes[0], "Duskbat 25");
+    assert!(!foes.contains(&"Duskbat 5"), "{foes:?}");
+}
+
+#[test]
+fn the_prompt_lists_the_newest_people() {
+    let mut story = story("newest-people");
+    for n in 1..=25 {
+        story
+            .handle(meet(10 + n, &format!("Farmhand {n}")))
+            .unwrap();
+    }
+
+    let (_, prompt) = call_of(ask(&mut story, 40));
+
+    let people = prompt_list(&prompt, "People that the player can meet:");
+    assert_eq!(people.len(), 20);
+    assert_eq!(people[0], "Farmhand 25");
+    assert!(!people.contains(&"Farmer Bram"), "{people:?}");
+}
+
+#[test]
+fn the_prompt_lists_the_newest_places() {
+    let mut story = story("newest-places");
+    for n in 1..=25 {
+        story.handle(zone(10 + n, &format!("Field {n}"))).unwrap();
+    }
+
+    let (_, prompt) = call_of(ask(&mut story, 40));
+
+    let places = prompt_list(&prompt, "Places that the player can visit:");
+    assert_eq!(places.len(), 20);
+    assert!(places.contains(&"Field 25"), "{places:?}");
+    assert!(!places.contains(&"Mill Pond"), "{places:?}");
+}
+
+#[test]
+fn the_prompt_lists_the_people_and_places_of_the_zone_of_the_giver_first() {
+    let mut story = story("giver-zone-first");
+    let far = Input::ZoneEntered {
+        at: Tick(10),
+        zone: "Farvale".to_string(),
+        subzone: Some("Far Farm".to_string()),
+        spot: None,
+    };
+    story.handle(far).unwrap();
+    story.handle(meet(11, "Farmer Fen")).unwrap();
+    story.handle(zone(12, "Old Tower")).unwrap();
+
+    let (_, prompt) = call_of(ask(&mut story, 40));
+
+    let people = prompt_list(&prompt, "People that the player can meet:");
+    let places = prompt_list(&prompt, "Places that the player can visit:");
+    assert_eq!(people, ["Farmer Bram", "Farmer Fen"]);
+    assert_eq!(places[0], "Testvale");
+    assert_eq!(places.last(), Some(&"Far Farm"));
+}
+
+/// `/quest` to this giver and the end of its batch, when no model call goes out.
+fn refused_ask(story: &mut Story, giver: &str, at: u64) -> Option<String> {
+    let asked = Input::QuestAsked {
+        at: Tick(at),
+        npc: giver.to_string(),
+    };
+    assert_eq!(story.handle(asked).unwrap(), []);
+    notice(story.handle(Input::BatchEnd { id: BATCH }).unwrap())
+}
+
+fn has_met(story: &mut Story, name: &str) -> bool {
+    let people = page(story).journal.people;
+    people.iter().any(|person| person.name == name)
+}
+
+#[test]
+fn a_hostile_npc_gives_no_task_and_asking_does_not_meet_it() {
+    let mut story = story("hostile-giver");
+    sight(&mut story, 5, "Murloc Scout", Reaction::Hostile, "humanoid");
+
+    let line = refused_ask(&mut story, "Murloc Scout", 6);
+
+    assert_eq!(
+        line.as_deref(),
+        Some("Murloc Scout has no task for you now.")
+    );
+    assert!(!has_met(&mut story, "Murloc Scout"));
+}
+
+#[test]
+fn a_beast_gives_no_task() {
+    let mut story = story("beast-giver");
+    sight(&mut story, 5, "Old Hound", Reaction::Friendly, "beast");
+
+    let line = refused_ask(&mut story, "Old Hound", 6);
+
+    assert_eq!(line.as_deref(), Some("Old Hound has no task for you now."));
+    assert!(!has_met(&mut story, "Old Hound"));
+}
+
+#[test]
+fn an_npc_that_you_talk_to_in_the_game_is_no_longer_a_foe() {
+    let mut story = story("met-foe");
+    sight(&mut story, 5, "Guard Rolf", Reaction::Hostile, "humanoid");
+
+    story.handle(meet(6, "Guard Rolf")).unwrap();
+
+    let (_, prompt) = call_of(ask(&mut story, 7));
+    let people = prompt_list(&prompt, "People that the player can meet:");
+    let foes = prompt_list(&prompt, "Creatures that the player can hunt:");
+    assert!(people.contains(&"Guard Rolf"), "{people:?}");
+    assert!(!foes.contains(&"Guard Rolf"), "{foes:?}");
+}
+
+/// The bridge drops an `events_seen` after its deadline, so a slow offer waits for the next
+/// answer. The Tasks page shows it at once.
+#[test]
+fn an_offer_after_the_deadline_of_its_batch_comes_with_the_next_answer() {
+    let mut story = story("late-offer");
+    story.set_events_deadline(Duration::ZERO);
+    let (call, _) = call_of(ask(&mut story, 5));
+
+    let late = story
+        .handle(Input::ModelAnswered {
+            call,
+            text: OFFER.to_string(),
+        })
+        .unwrap();
+    let next = story.handle(Input::BatchEnd { id: BATCH }).unwrap();
+
+    assert_eq!(late, []);
+    assert_eq!(
+        notice(next).as_deref(),
+        Some(
+            "Keeper Tessa has a task for you: The Lost Lantern. Find the lantern. Type /quest accept."
+        )
+    );
+    assert_eq!(quests(&mut story)[0].status, Status::Offered);
 }

@@ -9,8 +9,8 @@ use crate::vocabulary::{
     QUEST_OFFERED, RAID, SEEN, SLAPPED, TALLY, TITLE, TRUST, TRUSTS, VISITED,
 };
 use hourglass::{
-    Entity, EntityId, EntityType, Event, EventHistory, EventKind, LOCATED_IN, Rejection, Tick,
-    World,
+    Entity, EntityId, EntityType, Event, EventHistory, EventKind, Fact, LOCATED_IN, Rejection,
+    Tick, World,
 };
 
 /// Every reason at once, as Hourglass gives them.
@@ -172,7 +172,7 @@ impl Character {
     }
 
     fn visited(&self, keep: impl Fn(&Entity) -> bool) -> Vec<&str> {
-        self.linked_by_you(VISITED)
+        self.linked_by_you(&[VISITED])
             .into_iter()
             .filter(|place| keep(place))
             .map(|place| place.name.as_str())
@@ -180,11 +180,10 @@ impl Character {
     }
 
     /// The NPCs that a task can send you to meet: met or seen, alive, never hostile, and
-    /// never a beast (GAMEPLAY.md 3.4).
+    /// never a beast (GAMEPLAY.md 3.4). The newest first, as for each list of targets.
     #[must_use]
     pub fn npcs_to_meet(&self) -> Vec<&str> {
-        let mut known = self.linked_by_you(MET);
-        known.extend(self.linked_by_you(SEEN));
+        let known = self.linked_by_you(&[MET, SEEN]);
         let mut names: Vec<&str> = Vec::new();
         for npc in known {
             let blocked = [DEAD, HOSTILE, ANIMAL]
@@ -200,7 +199,7 @@ impl Character {
     /// The creatures that a task can send you to kill: seen hostile, and alive.
     #[must_use]
     pub fn foes_seen(&self) -> Vec<&str> {
-        self.linked_by_you(SEEN)
+        self.linked_by_you(&[SEEN])
             .into_iter()
             .filter(|npc| holds_flag(npc, HOSTILE) && !holds_flag(npc, DEAD))
             .map(|npc| npc.name.as_str())
@@ -210,7 +209,7 @@ impl Character {
     /// The rares and bosses that you defeated (5.13).
     #[must_use]
     pub fn foes_defeated(&self) -> Vec<&str> {
-        self.linked_by_you(DEFEATED)
+        self.linked_by_you(&[DEFEATED])
             .into_iter()
             .map(|foe| foe.name.as_str())
             .collect()
@@ -221,6 +220,14 @@ impl Character {
         self.holds_about(SEEN, npc)
     }
 
+    /// A hostile NPC or a beast has no task to give, and nothing to say (GAMEPLAY.md 3.4).
+    #[must_use]
+    pub fn is_hostile_or_animal(&self, npc: &str) -> bool {
+        self.find(EntityType::Person, npc)
+            .and_then(|id| self.world.entity(id))
+            .is_some_and(|entity| holds_flag(entity, HOSTILE) || holds_flag(entity, ANIMAL))
+    }
+
     #[must_use]
     pub fn is_dead(&self, npc: &str) -> bool {
         self.find(EntityType::Person, npc)
@@ -228,14 +235,39 @@ impl Character {
             .is_some_and(|entity| entity.fact(DEAD, None).is_some())
     }
 
-    fn linked_by_you(&self, fact: &str) -> Vec<&Entity> {
+    /// The targets of your facts of these names, the newest fact first.
+    fn linked_by_you(&self, names: &[&str]) -> Vec<&Entity> {
         let Some(you) = self.world.entity(self.you) else {
             return Vec::new();
         };
-        you.facts_named(fact)
-            .filter_map(|fact| fact.linked_to)
-            .filter_map(|target| self.world.entity(target))
+        let mut facts: Vec<&Fact> = names
+            .iter()
+            .flat_map(|name| you.facts_named(name))
+            .collect();
+        facts.sort_by_key(|fact| std::cmp::Reverse(fact.opened));
+        facts
+            .into_iter()
+            .filter_map(|fact| self.world.entity(fact.linked_to?))
             .collect()
+    }
+
+    /// The zone where an NPC lives: the outermost place around it.
+    #[must_use]
+    pub fn zone_of_npc(&self, npc: &str) -> Option<&str> {
+        let id = self.find(EntityType::Person, npc)?;
+        self.zone_around(self.world.location_of(id)?)
+    }
+
+    /// The zone of a place: the place itself for a zone. A subzone name that repeats across
+    /// zones gives one of them.
+    #[must_use]
+    pub fn zone_of_place(&self, place: &str) -> Option<&str> {
+        self.zone_around(self.find(EntityType::Place, place)?)
+    }
+
+    fn zone_around(&self, place: EntityId) -> Option<&str> {
+        let zone = self.world.ancestry(place).last().copied().unwrap_or(place);
+        Some(self.world.entity(zone)?.name.as_str())
     }
 
     /// A quest is a thing that its giver offers you (GAMEPLAY.md 3.4).
@@ -403,7 +435,8 @@ impl Character {
         self.propose(at, mark)
     }
 
-    /// The place where you stand keeps its first position. A later visit changes nothing.
+    /// The place where you stand keeps its first position, and so does each place around
+    /// it. You mostly stand in a subzone, so a zone takes the first position in any of them.
     ///
     /// # Errors
     ///
@@ -412,7 +445,12 @@ impl Character {
         let Some(here) = self.world.location_of(self.you) else {
             return Ok(());
         };
-        self.mark_spot(at, here, spot)
+        let mut places = vec![here];
+        places.extend(self.world.ancestry(here));
+        for place in places {
+            self.mark_spot(at, place, spot)?;
+        }
+        Ok(())
     }
 
     /// An NPC keeps the position of the first meeting that had one.
@@ -482,6 +520,18 @@ impl Character {
             self.flag_once(at, npc, ANIMAL)?;
         }
         Ok(())
+    }
+
+    /// A talk in the game shows that the NPC is a friend now, so it is no longer hostile.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first refusal of Hourglass.
+    pub fn befriend(&mut self, at: Tick, npc: &str) -> Result<(), Refusal> {
+        let Some(npc) = self.find(EntityType::Person, npc) else {
+            return Ok(());
+        };
+        self.set_hostile(at, npc, Reaction::Friendly)
     }
 
     fn set_hostile(&mut self, at: Tick, npc: EntityId, reaction: Reaction) -> Result<(), Refusal> {

@@ -20,7 +20,7 @@ pub fn sessions(ticks: impl Iterator<Item = Tick>) -> Vec<(Tick, Tick)> {
     let mut sessions: Vec<(Tick, Tick)> = Vec::new();
     for tick in ticks.filter(|tick| tick.0 > 0) {
         match sessions.last_mut() {
-            Some((_, last)) if tick.0.saturating_sub(last.0) <= SESSION_GAP_SECONDS => *last = tick,
+            Some((_, last)) if tick.0.saturating_sub(last.0) < SESSION_GAP_SECONDS => *last = tick,
             _ => sessions.push((tick, tick)),
         }
     }

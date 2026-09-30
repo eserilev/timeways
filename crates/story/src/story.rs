@@ -29,7 +29,8 @@ use crate::talk::{self, Scene};
 use crate::titles;
 use hourglass::Tick;
 use serde::Serialize;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::time::{Duration, Instant};
 use thiserror::Error;
 
 mod drafts;
@@ -67,6 +68,14 @@ pub const MAX_WORDS_BYTES: usize = 255;
 /// The passages about an NPC that its prompt carries.
 const TALK_PASSAGES: usize = 3;
 
+/// The bridge runs at most this many model calls of the story program at once, and fails
+/// one more at once (relay SPEC.md 9.8).
+const MAX_OPEN_CALLS: usize = 2;
+
+/// The bridge drops an `events_seen` after 60 seconds. The margin covers the time that a
+/// line takes between the two programs.
+const EVENTS_DEADLINE: Duration = Duration::from_secs(55);
+
 /// The version of the lines between the bridge and the story program.
 pub const PROTOCOL: u32 = 1;
 
@@ -93,17 +102,23 @@ pub enum Output {
         id: MessageId,
         #[serde(flatten)]
         answer: Answer,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        notice: Option<String>,
     },
     Journal {
         id: MessageId,
         #[serde(flatten)]
         page: Page,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        notice: Option<String>,
     },
     /// What the NPC says, or null when no model answered.
     TalkAnswer {
         id: MessageId,
         npc: String,
         text: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        notice: Option<String>,
     },
     /// The answer to `batch_end`. The bridge shows `narrator` in the game.
     EventsSeen {
@@ -117,6 +132,8 @@ pub enum Output {
     DraftAnswer {
         id: MessageId,
         draft: Option<Draft>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        notice: Option<String>,
     },
     /// The bridge runs the model with no tools, and answers with `model_answered` or
     /// `model_failed` for the same call.
@@ -124,6 +141,20 @@ pub enum Output {
         call: CallId,
         prompt: String,
     },
+}
+
+impl Output {
+    /// The notice of an answer, or None for a line that answers no batch.
+    fn notice_mut(&mut self) -> Option<&mut Option<String>> {
+        match self {
+            Output::LoreAnswer { notice, .. }
+            | Output::Journal { notice, .. }
+            | Output::TalkAnswer { notice, .. }
+            | Output::EventsSeen { notice, .. }
+            | Output::DraftAnswer { notice, .. } => Some(notice),
+            Output::Hello { .. } | Output::ModelCall { .. } => None,
+        }
+    }
 }
 
 #[derive(Debug, Error)]
@@ -205,8 +236,10 @@ enum Pending {
         question: MessageId,
         lore: LoreCall,
     },
+    /// A narrator line for the batch, checked against the hero of this character only.
     Narrator {
         batch: MessageId,
+        key: CharacterKey,
     },
     /// A draft of the saga of the chapter that began at `began`, or the pick of the judge,
     /// for this character only. The round of the chapter knows which.
@@ -215,9 +248,9 @@ enum Pending {
         began: Tick,
     },
     /// A side quest from `giver`, asked at `at`, for this character only. Its offer is the
-    /// narrator line of `batch`.
+    /// notice of `batch`, or of the next answer when no batch waits for it.
     Quest {
-        batch: MessageId,
+        batch: Option<EventsBatch>,
         key: CharacterKey,
         giver: String,
         at: Tick,
@@ -236,13 +269,25 @@ enum Pending {
     },
 }
 
+/// A batch of game events that waits for its `events_seen`, since its `batch_end`.
+#[derive(Clone, Copy)]
+struct EventsBatch {
+    id: MessageId,
+    ended: Instant,
+}
+
 pub struct Story {
     pack: Pack,
     store: Store,
     active: Option<Active>,
+    /// Each call that the bridge runs or that waits for a slot.
     calls: BTreeMap<CallId, Pending>,
-    /// The prompt of each open call, for the name check of its answer.
+    /// The prompt of each call, for the name check of its answer.
     prompts: BTreeMap<CallId, String>,
+    /// The calls that the bridge runs now.
+    open: BTreeSet<CallId>,
+    /// The calls of the player that wait for a slot, oldest first.
+    queued: VecDeque<CallId>,
     /// Lines for the log of the program, and never for the player.
     notes: Vec<String>,
     next_call: CallId,
@@ -264,8 +309,11 @@ pub struct Story {
     /// The newest time of an input from the addon. An emote or a book changes no world, so
     /// the tick of the world can be much older.
     newest: Tick,
-    /// Why the last answer to an offer did not stand, for the narrator line of its batch.
-    quest_note: Option<String>,
+    /// A line of Timeways for the next answer of any kind: an offer that came too late for
+    /// its batch, or why a task was refused.
+    notice: Option<String>,
+    /// After this time, the bridge drops the `events_seen` of a batch.
+    events_deadline: Duration,
 }
 
 impl Story {
@@ -277,6 +325,8 @@ impl Story {
             active: None,
             calls: BTreeMap::new(),
             prompts: BTreeMap::new(),
+            open: BTreeSet::new(),
+            queued: VecDeque::new(),
             notes: Vec::new(),
             next_call: CallId(1),
             journal: Vec::new(),
@@ -288,8 +338,14 @@ impl Story {
             pace: Pace::default(),
             quest_request: None,
             newest: Tick(0),
-            quest_note: None,
+            notice: None,
+            events_deadline: EVENTS_DEADLINE,
         }
+    }
+
+    /// Tests set a short deadline to play a slow model.
+    pub fn set_events_deadline(&mut self, deadline: Duration) {
+        self.events_deadline = deadline;
     }
 
     /// # Errors
@@ -302,6 +358,24 @@ impl Story {
             *at = self.checked_time(*at)?;
             self.newest = self.newest.max(*at);
         }
+        let question = input.is_question();
+        let ends_a_call = matches!(
+            input,
+            Input::ModelAnswered { .. } | Input::ModelFailed { .. }
+        );
+        let mut outputs = self.dispatch(input)?;
+        // A question ends its batch, so a `/quest` of the batch gets no `batch_end`.
+        if question && let Some(request) = self.quest_request.take() {
+            outputs.extend(self.quest_call(None, request));
+        }
+        if ends_a_call {
+            outputs.extend(self.send_queued());
+        }
+        self.attach_notice(&mut outputs);
+        Ok(outputs)
+    }
+
+    fn dispatch(&mut self, input: Input) -> Result<Vec<Output>, StoryError> {
         match input {
             Input::Hello => Ok(vec![Output::Hello { protocol: PROTOCOL }]),
             Input::CharacterEntered { realm, name } => {
@@ -379,17 +453,14 @@ impl Story {
                 id,
                 question,
                 target,
-            } => Ok(vec![self.ask(id, &question, target.as_deref())?]),
-            Input::TalkAsked { id, at, npc, text } => Ok(vec![self.talk(id, at, &npc, &text)?]),
-            Input::DraftAsked { id, idea, .. } => Ok(vec![self.ask_draft(id, &idea)?]),
+            } => self.ask(id, &question, target.as_deref()),
+            Input::TalkAsked { id, at, npc, text } => self.talk(id, at, &npc, &text),
+            Input::DraftAsked { id, idea, .. } => self.ask_draft(id, &idea),
             Input::QuestAsked { at, npc } => self.ask_quest(at, npc),
             Input::QuestAccepted { at, number } => self.answer_quest(at, Status::Accepted, number),
             Input::QuestDeclined { at, number } => self.answer_quest(at, Status::Declined, number),
             Input::QuestAbandoned { at, number } => self.abandon_quest(at, number),
-            Input::JournalAsked { id, page } => {
-                let page = self.journal_page(page)?;
-                Ok(vec![Output::Journal { id, page }])
-            }
+            Input::JournalAsked { id, page } => self.journal_answer(id, page),
             Input::BatchEnd { id } => Ok(self.end_batch(id)),
             Input::ModelAnswered { call, text } => self.answered(call, &text),
             Input::ModelFailed { call } => self.failed(call),
@@ -421,6 +492,7 @@ impl Story {
         checked_name(name)?;
         self.change(|character| {
             character.meet_npc(at, name)?;
+            character.befriend(at, name)?;
             spot.map_or(Ok(()), |spot| character.mark_npc(at, name, spot))
         })?;
         self.advance_quests(at, Some(name))
@@ -529,11 +601,8 @@ impl Story {
 
     /// The hero of the active character in the player's own words, or nothing when `key`
     /// names another character.
-    fn player_text(&self, key: Option<&CharacterKey>) -> String {
-        let active = self
-            .active
-            .as_ref()
-            .filter(|active| key.is_none_or(|key| &active.key == key));
+    fn player_text(&self, key: &CharacterKey) -> String {
+        let active = self.active.as_ref().filter(|active| &active.key == key);
         active.map_or_else(String::new, |active| {
             hero::player_text(&hero::hero(active.hero.changes()))
         })
@@ -548,10 +617,13 @@ impl Story {
         let (pending, prompt) = self.take_call(call)?;
         self.note_names_in_no_fact(call, text, &prompt);
         Ok(match pending {
-            Pending::Lore { question, lore } => vec![self.follow(question, lore.answered(text))],
-            Pending::Narrator { batch } => vec![Output::EventsSeen {
+            Pending::Lore { question, lore } => self
+                .follow(question, lore.answered(text))
+                .into_iter()
+                .collect(),
+            Pending::Narrator { batch, key } => vec![Output::EventsSeen {
                 id: batch,
-                narrator: narrator::checked_line(text, &self.player_text(None)),
+                narrator: narrator::checked_line(text, &self.player_text(&key)),
                 notice: None,
             }],
             Pending::Chronicle { key, began } => self.saga_answered(&key, began, Some(text))?,
@@ -566,7 +638,7 @@ impl Story {
                 key,
                 giver,
                 at,
-            } => vec![self.quest_answered(batch, &key, &giver, at, text)],
+            } => self.quest_answered(batch, &key, &giver, at, text),
             Pending::Draft { question, key } => vec![self.draft_answered(question, &key, text)],
         })
     }
@@ -582,11 +654,12 @@ impl Story {
         asked_at: Tick,
         text: &str,
     ) -> Output {
-        let Some(answer) = talk::checked_answer(text, &self.player_text(Some(key))) else {
+        let Some(answer) = talk::checked_answer(text, &self.player_text(key)) else {
             return Output::TalkAnswer {
                 id: question,
                 npc,
                 text: None,
+                notice: None,
             };
         };
         let same = self
@@ -616,6 +689,7 @@ impl Story {
             id: question,
             npc,
             text: Some(answer.say),
+            notice: None,
         }
     }
 
@@ -628,8 +702,9 @@ impl Story {
             Pending::Lore { question, lore } => vec![Output::LoreAnswer {
                 id: question,
                 answer: lore.failed(),
+                notice: None,
             }],
-            Pending::Narrator { batch } => vec![Output::EventsSeen {
+            Pending::Narrator { batch, .. } => vec![Output::EventsSeen {
                 id: batch,
                 narrator: None,
                 notice: None,
@@ -639,8 +714,9 @@ impl Story {
                 id: question,
                 npc,
                 text: None,
+                notice: None,
             }],
-            Pending::Quest { batch, giver, .. } => vec![quests::no_offer(batch, &giver)],
+            Pending::Quest { batch, giver, .. } => self.deliver(batch, quests::no_task(&giver)),
             Pending::Draft { question, .. } => vec![drafts::draft_answer(question, None)],
         })
     }
@@ -696,7 +772,7 @@ impl Story {
         self.chronicle_asked.clear();
         self.saga_round = None;
         self.quest_request = None;
-        self.quest_note = None;
+        self.notice = None;
         let key = key?;
         let Opened {
             character,
@@ -862,30 +938,30 @@ impl Story {
 
     /// At most one narrator line for a batch: about its best moment, within the budget.
     /// A batch can also start the saga of a finished chapter.
+    /// A notice that waits takes the place of the narrator line.
     fn end_batch(&mut self, batch: MessageId) -> Vec<Output> {
-        let seen = match (self.quest_request.take(), self.quest_note.take()) {
-            (Some(request), _) => self.quest_call(batch, request),
-            (None, Some(note)) => quests::notice_line(batch, note),
-            (None, None) => self.narrator_call(batch),
+        let ended = EventsBatch {
+            id: batch,
+            ended: Instant::now(),
         };
-        let mut outputs = vec![seen];
+        let mut outputs = match self.quest_request.take() {
+            Some(request) => self.quest_call(Some(ended), request),
+            None if self.notice.is_some() => vec![quests::quiet(batch)],
+            None => vec![self.narrator_call(batch)],
+        };
         outputs.extend(self.saga_call());
         outputs
     }
 
-    /// The relay runs at most 2 model calls of the story program at once. While a saga is
-    /// written, the narrator stays quiet, so a question of the player always gets a call.
+    /// The narrator never waits for a slot, and it stays quiet while a saga is written, so
+    /// the player keeps a slot.
     fn narrator_call(&mut self, batch: MessageId) -> Output {
-        let quiet = Output::EventsSeen {
-            id: batch,
-            narrator: None,
-            notice: None,
-        };
+        let quiet = quests::quiet(batch);
         let chronicle_writes = self
             .calls
             .values()
             .any(|pending| matches!(pending, Pending::Chronicle { .. }));
-        if chronicle_writes {
+        if chronicle_writes || !self.has_free_slot() {
             return quiet;
         }
         let now = self.newest;
@@ -909,14 +985,14 @@ impl Story {
                 return quiet;
             }
         }
-        let portrait = self
-            .active
-            .as_ref()
-            .and_then(|active| hero::portrait(&hero::hero(active.hero.changes())));
-        self.open_call(
-            Pending::Narrator { batch },
-            narrator::prompt(&moment, portrait.as_deref(), self.turn()),
-        )
+        let Some(active) = self.active.as_ref() else {
+            return quiet;
+        };
+        let portrait = hero::portrait(&hero::hero(active.hero.changes()));
+        let key = active.key.clone();
+        let prompt = narrator::prompt(&moment, portrait.as_deref(), self.turn());
+        self.open_call(Pending::Narrator { batch, key }, prompt)
+            .unwrap_or(quiet)
     }
 
     /// The best flavor moment of the batch, when it scores enough, no flavor line came in
@@ -957,6 +1033,15 @@ impl Story {
         Some((Moment::Flavor { what }, told))
     }
 
+    fn journal_answer(&mut self, id: MessageId, page: usize) -> Result<Vec<Output>, StoryError> {
+        let page = self.journal_page(page)?;
+        Ok(vec![Output::Journal {
+            id,
+            page,
+            notice: None,
+        }])
+    }
+
     /// A page past the end gets the last page, because the bridge refuses a page number
     /// that is not below the count. The addon drops a page that it did not ask for.
     fn journal_page(&mut self, page: usize) -> Result<Page, StoryError> {
@@ -992,7 +1077,7 @@ impl Story {
         at: Tick,
         npc: &str,
         words: &str,
-    ) -> Result<Output, StoryError> {
+    ) -> Result<Vec<Output>, StoryError> {
         checked_name(npc)?;
         if npc.len() > talk::MAX_NPC_BYTES {
             return Err(StoryError::BadName);
@@ -1027,7 +1112,7 @@ impl Story {
             npc: npc.to_string(),
             at,
         };
-        Ok(self.open_call(pending, prompt))
+        Ok(self.open_call(pending, prompt).into_iter().collect())
     }
 
     /// With no passage, a model has nothing to cite, so no call goes out.
@@ -1036,7 +1121,7 @@ impl Story {
         id: MessageId,
         question: &str,
         target: Option<&str>,
-    ) -> Result<Output, StoryError> {
+    ) -> Result<Vec<Output>, StoryError> {
         checked_words(question)?;
         target.map(checked_name).transpose()?;
         let active = self.active.as_ref().ok_or(StoryError::NoCharacter)?;
@@ -1047,7 +1132,11 @@ impl Story {
                 text: None,
                 passages,
             };
-            return Ok(Output::LoreAnswer { id, answer });
+            return Ok(vec![Output::LoreAnswer {
+                id,
+                answer,
+                notice: None,
+            }]);
         }
         let context = Context {
             places: character.place_names(),
@@ -1055,15 +1144,16 @@ impl Story {
             level: character.level(),
         };
         let call = LoreCall::new(question, &context, passages);
-        Ok(self.follow(id, Next::Ask(call)))
+        Ok(self.follow(id, Next::Ask(call)).into_iter().collect())
     }
 
-    fn follow(&mut self, question: MessageId, next: Next) -> Output {
+    fn follow(&mut self, question: MessageId, next: Next) -> Option<Output> {
         match next {
-            Next::Done(answer) => Output::LoreAnswer {
+            Next::Done(answer) => Some(Output::LoreAnswer {
                 id: question,
                 answer,
-            },
+                notice: None,
+            }),
             Next::Ask(lore) => {
                 let prompt = lore.prompt().to_string();
                 self.open_call(Pending::Lore { question, lore }, prompt)
@@ -1077,17 +1167,75 @@ impl Story {
         usize::try_from(self.next_call.0).unwrap_or_default()
     }
 
-    fn open_call(&mut self, pending: Pending, prompt: String) -> Output {
+    /// A call with no free slot waits for one, so the bridge never fails it for a saga
+    /// (GAMEPLAY.md 3.3).
+    fn open_call(&mut self, pending: Pending, prompt: String) -> Option<Output> {
         let call = self.next_call;
         self.next_call = CallId(call.0 + 1);
         self.calls.insert(call, pending);
-        self.prompts.insert(call, prompt.clone());
-        self.pace.opened(self.newest);
-        Output::ModelCall { call, prompt }
+        self.prompts.insert(call, prompt);
+        if !self.has_free_slot() {
+            self.queued.push_back(call);
+            return None;
+        }
+        self.send_call(call)
     }
 
-    /// The open call and its prompt.
+    /// A call that waits comes first, so a free slot goes to it.
+    fn has_free_slot(&self) -> bool {
+        self.open.len() < MAX_OPEN_CALLS && self.queued.is_empty()
+    }
+
+    fn send_call(&mut self, call: CallId) -> Option<Output> {
+        let prompt = self.prompts.get(&call)?.clone();
+        self.open.insert(call);
+        self.pace.opened(self.newest);
+        Some(Output::ModelCall { call, prompt })
+    }
+
+    /// The calls that waited, while slots are free.
+    fn send_queued(&mut self) -> Vec<Output> {
+        let mut outputs = Vec::new();
+        while self.open.len() < MAX_OPEN_CALLS {
+            let Some(call) = self.queued.pop_front() else {
+                break;
+            };
+            outputs.extend(self.send_call(call));
+        }
+        outputs
+    }
+
+    /// The notice that waits goes on the first answer with room for it.
+    fn attach_notice(&mut self, outputs: &mut [Output]) {
+        let Some(slot) = outputs
+            .iter_mut()
+            .filter_map(Output::notice_mut)
+            .find(|notice| notice.is_none())
+        else {
+            return;
+        };
+        *slot = self.notice.take();
+    }
+
+    /// The line goes on the answer of its batch, or on the next answer when the bridge
+    /// no longer waits for that batch.
+    fn deliver(&mut self, batch: Option<EventsBatch>, line: String) -> Vec<Output> {
+        match batch {
+            Some(batch) if batch.ended.elapsed() < self.events_deadline => {
+                vec![quests::notice_line(batch.id, line)]
+            }
+            _ => {
+                self.notice = Some(line);
+                Vec::new()
+            }
+        }
+    }
+
+    /// The open call and its prompt. The bridge never saw a call that waits for a slot.
     fn take_call(&mut self, call: CallId) -> Result<(Pending, String), StoryError> {
+        if !self.open.remove(&call) {
+            return Err(StoryError::UnknownCall(call));
+        }
         let pending = self
             .calls
             .remove(&call)

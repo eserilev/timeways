@@ -45,6 +45,7 @@ fn quest_reply(quest: Tracked) -> String {
     serde_json::to_string(&Output::Journal {
         id: MessageId(1),
         page,
+        notice: None,
     })
     .unwrap()
 }
@@ -379,6 +380,7 @@ fn a_finished_quest_shows_as_a_deed() {
     let reply = serde_json::to_string(&Output::Journal {
         id: MessageId(1),
         page,
+        notice: None,
     })
     .unwrap();
 

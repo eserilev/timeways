@@ -7,8 +7,8 @@ use hourglass::Tick;
 /// The window of the budget of the bridge.
 pub const WINDOW_SECONDS: u64 = 20 * 60;
 
-/// This many calls in one window leave the rest of the budget to the player. The best of
-/// two costs 3 calls, so 5 + 3 still leaves 2 of the 10.
+/// An extra call of the best of two goes out only below this many calls in the window, the
+/// calls of its own round counted. So the extra calls never take the window past 5 of the 10.
 pub const BUSY_CALLS: usize = 5;
 
 /// The newest opened calls and the newest failure, in the time of the addon.

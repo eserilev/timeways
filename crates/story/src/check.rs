@@ -208,10 +208,11 @@ pub fn names_after_cutoff(answer: &str) -> Vec<&'static str> {
         .collect()
 }
 
-/// The names of the cutoff list that the answer holds and `player_text` does not.
+/// The names of the cutoff list that the answer holds and `player_text` does not. Each line
+/// of `player_text` counts alone, so a name split across two texts is not allowed.
 #[must_use]
 pub fn names_after_cutoff_except(answer: &str, player_text: &str) -> Vec<&'static str> {
-    let allowed = names_after_cutoff(player_text);
+    let allowed: Vec<&str> = player_text.lines().flat_map(names_after_cutoff).collect();
     names_after_cutoff(answer)
         .into_iter()
         .filter(|name| !allowed.contains(name))

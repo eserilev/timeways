@@ -21,6 +21,7 @@ fn journal_reply(character: &Character) -> String {
     serde_json::to_string(&Output::Journal {
         id: MessageId(1),
         page,
+        notice: None,
     })
     .unwrap()
 }
@@ -230,6 +231,7 @@ fn page_reply(page: timeways_story::journal::Page) -> String {
     serde_json::to_string(&Output::Journal {
         id: MessageId(1),
         page,
+        notice: None,
     })
     .unwrap()
 }
@@ -520,6 +522,7 @@ fn learned_reply(entries: Vec<Learned>) -> String {
     serde_json::to_string(&Output::Journal {
         id: MessageId(1),
         page,
+        notice: None,
     })
     .unwrap()
 }

@@ -22,7 +22,7 @@ use timeways_story::pace::{Pace, WINDOW_SECONDS};
 use timeways_story::pack::Pack;
 use timeways_story::passage_limits::{MAX_PASSAGE_BYTES, pieces};
 use timeways_story::places::InstanceKind;
-use timeways_story::quest::{MAX_KILLS, QuestChange, Status, Step, quest_log};
+use timeways_story::quest::{MAX_KILLS, QuestChange, Status, Step, Tracked, quest_log};
 use timeways_story::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use timeways_story::seen::TextKind;
 use timeways_story::spot::{MAP_IDS, Spot, THOUSANDTHS, spot_of};
@@ -195,34 +195,52 @@ fn spot() -> impl Strategy<Value = Spot> {
     })
 }
 
-/// Few numbers and short quests, so that most changes find their quest.
+/// A meet step, or a kill step whose count sits often at the edges of its band.
+fn quest_step() -> impl Strategy<Value = Step> {
+    let count = prop_oneof![Just(1u8), Just(MAX_KILLS), 1..=MAX_KILLS];
+    prop_oneof![
+        Just(Step::Meet {
+            npc: "Farmer Bram".to_string(),
+        }),
+        count.prop_map(|count| Step::Kill {
+            creature: "Duskbat".to_string(),
+            count,
+        }),
+    ]
+}
+
+/// Few numbers and short quests, so that most changes find their quest. Kills come often,
+/// so a kill step can fill up.
 fn quest_change() -> impl Strategy<Value = QuestChange> {
     let number = 1u64..4;
-    let step = Step::Meet {
-        npc: "Farmer Bram".to_string(),
-    };
+    let steps = prop::collection::vec(quest_step(), 0..4);
     prop_oneof![
-        (number.clone(), 0usize..4).prop_map(move |(number, steps)| QuestChange::Offered {
+        1 => (number.clone(), steps).prop_map(move |(number, steps)| QuestChange::Offered {
             number,
             at: Tick(1),
             giver: "Keeper Tessa".to_string(),
             title: "A Task".to_string(),
             text: "Go.".to_string(),
-            steps: vec![step.clone(); steps],
+            steps,
         }),
-        number.clone().prop_map(|number| QuestChange::Accepted {
+        1 => number.clone().prop_map(|number| QuestChange::Accepted {
             number,
             at: Tick(2)
         }),
-        number.clone().prop_map(|number| QuestChange::Declined {
+        1 => number.clone().prop_map(|number| QuestChange::Declined {
             number,
             at: Tick(2)
         }),
-        number.clone().prop_map(|number| QuestChange::Abandoned {
+        1 => number.clone().prop_map(|number| QuestChange::Abandoned {
             number,
             at: Tick(2)
         }),
-        (number, 0usize..4).prop_map(|(number, step)| QuestChange::StepDone {
+        1 => (number.clone(), 0usize..4).prop_map(|(number, step)| QuestChange::StepDone {
+            number,
+            step,
+            at: Tick(3),
+        }),
+        3 => (number, 0usize..2).prop_map(|(number, step)| QuestChange::Killed {
             number,
             step,
             at: Tick(3),
@@ -234,6 +252,7 @@ fn quest_change() -> impl Strategy<Value = QuestChange> {
 /// uniform draw almost never lands.
 fn play_step() -> impl Strategy<Value = u64> {
     prop_oneof![
+        Just(SESSION_GAP_SECONDS - 1),
         Just(SESSION_GAP_SECONDS),
         Just(SESSION_GAP_SECONDS + 1),
         Just(MIN_CHAPTER_PLAY_SECONDS),
@@ -858,6 +877,30 @@ proptest! {
             let finished = !quest.steps.is_empty() && quest.steps_done == quest.steps.len();
             prop_assert_eq!(quest.status == Status::Done, finished);
             prop_assert_eq!(quest.done_at.is_some(), finished);
+        }
+    }
+
+    #[test]
+    fn kills_count_only_for_the_next_kill_step_of_an_accepted_quest_and_never_past_its_count(
+        changes in prop::collection::vec(quest_change(), 0..60),
+    ) {
+        let mut before = Vec::new();
+        for end in 0..=changes.len() {
+            let quests = quest_log(&changes[..end]);
+
+            for (index, quest) in quests.iter().enumerate() {
+                let never_accepted = matches!(quest.status, Status::Offered | Status::Declined);
+                let limit = match quest.steps.get(quest.steps_done) {
+                    Some(Step::Kill { count, .. }) if !never_accepted => *count,
+                    _ => 0,
+                };
+                prop_assert!(quest.kills <= limit, "{:?}", quest);
+                let stepped = before
+                    .get(index)
+                    .is_some_and(|old: &Tracked| old.steps_done < quest.steps_done);
+                prop_assert!(!stepped || quest.kills == 0, "{:?}", quest);
+            }
+            before = quests;
         }
     }
 

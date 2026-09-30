@@ -113,6 +113,7 @@ fn assert_draft(text: &str) {
     let line = serde_json::to_string(&Output::DraftAnswer {
         id: MessageId(1),
         draft: Some(checked),
+        notice: None,
     })
     .unwrap();
     assert!(fake_bridge::game_reply(&line).is_some(), "{line}");
@@ -137,6 +138,9 @@ fuzz_target!(|data: &[u8]| {
     if let Some(answer) = talk::checked_answer(&text, "") {
         assert_voice(&answer.say, talk::MAX_SAY_CHARS, talk::MAX_SAY_BYTES);
         assert!((-talk::MAX_TRUST_CHANGE..=talk::MAX_TRUST_CHANGE).contains(&answer.trust_change));
+    }
+    if chronicle::checked_pick(&text) == chronicle::Pick::Second {
+        assert!(text.contains('2'), "a pick of draft 2 with no 2: {text:?}");
     }
     assert_quest(&text);
     assert_draft(&text);

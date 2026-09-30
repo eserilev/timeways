@@ -28,6 +28,7 @@ fn reply_line(text: Option<&str>, passages: &[&str]) -> String {
     serde_json::to_string(&Output::LoreAnswer {
         id: MessageId(1),
         answer,
+        notice: None,
     })
     .unwrap()
 }

@@ -218,6 +218,19 @@ pub enum GameQuestKind {
 }
 
 impl Input {
+    /// True for a question: a line with a reply of its own. It ends its batch, so the
+    /// batch gets no `batch_end`.
+    #[must_use]
+    pub fn is_question(&self) -> bool {
+        matches!(
+            self,
+            Input::LoreAsked { .. }
+                | Input::TalkAsked { .. }
+                | Input::JournalAsked { .. }
+                | Input::DraftAsked { .. }
+        )
+    }
+
     /// The time of a game event or a request of the player, from the clock of the addon.
     pub fn at_mut(&mut self) -> Option<&mut Tick> {
         match self {

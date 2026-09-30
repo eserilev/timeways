@@ -230,6 +230,7 @@ fn a_checked_draft_comes_back_for_its_request() {
     let Output::DraftAnswer {
         id,
         draft: Some(draft),
+        ..
     } = &outputs[0]
     else {
         panic!("{outputs:?}");
@@ -250,7 +251,8 @@ fn a_draft_that_breaks_a_rule_comes_back_as_no_draft() {
         outputs,
         [Output::DraftAnswer {
             id: MessageId(9),
-            draft: None
+            draft: None,
+            notice: None,
         }]
     );
 }
@@ -266,7 +268,8 @@ fn with_no_model_the_request_gets_no_draft() {
         outputs,
         [Output::DraftAnswer {
             id: MessageId(9),
-            draft: None
+            draft: None,
+            notice: None,
         }]
     );
 }

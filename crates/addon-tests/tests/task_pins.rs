@@ -95,6 +95,7 @@ fn reply(journal: Journal) -> String {
     serde_json::to_string(&Output::Journal {
         id: MessageId(1),
         page,
+        notice: None,
     })
     .unwrap()
 }

@@ -42,8 +42,9 @@ pub fn cut(text: &str) -> &str {
         .map_or(text, |(end, _)| &text[..end])
 }
 
-/// Every text of the hero, sheet and entries, in one string. A check of a model answer
-/// allows the later names in it, because the player wrote them first.
+/// Every text of the hero, sheet and entries, one on each line. A check of a model answer
+/// allows the later names in it, because the player wrote them first. A text holds no line
+/// break, so each line is one text.
 #[must_use]
 pub fn player_text(hero: &Hero) -> String {
     let fields = hero.sheet.iter().map(|field| field.text.as_str());

@@ -172,7 +172,8 @@ fn a_question_with_no_passages_asks_no_model() {
         output,
         Output::LoreAnswer {
             id: MessageId(7),
-            answer
+            answer,
+            notice: None,
         }
     );
 }
@@ -429,7 +430,7 @@ fn a_journal_request_gets_the_first_page_with_its_id() {
         })
         .unwrap());
 
-    let Some(Output::Journal { id, page }) = output else {
+    let Some(Output::Journal { id, page, .. }) = output else {
         panic!("expected a journal, got {output:?}");
     };
     assert_eq!(id, MessageId(4));
@@ -731,7 +732,8 @@ fn a_spent_budget_asks_no_model() {
     level(&mut story, 1, 10);
     for (batch, level_now) in [(1, 11), (2, 12), (3, 13)] {
         level(&mut story, u64::from(level_now), level_now);
-        let _ = model_call(batch_end(&mut story, batch));
+        let (call, _) = model_call(batch_end(&mut story, batch));
+        story.handle(Input::ModelFailed { call }).unwrap();
     }
     level(&mut story, 20, 14);
 
@@ -1178,6 +1180,7 @@ fn the_answer_of_the_npc_shows_and_its_change_of_trust_lands() {
         id: MessageId(8),
         npc: "Innkeeper Farley".to_string(),
         text: Some("Nothing but rain.".to_string()),
+        notice: None,
     };
     assert_eq!(output, Some(answer));
     assert_eq!(people(&mut story)[0].trust, Some(3));
@@ -1195,6 +1198,7 @@ fn a_talk_with_no_model_gets_no_words() {
         id: MessageId(8),
         npc: "Innkeeper Farley".to_string(),
         text: None,
+        notice: None,
     };
     assert_eq!(output, Some(silent));
     assert_eq!(people(&mut story)[0].trust, None);
@@ -1800,6 +1804,32 @@ fn the_narrator_may_name_a_later_place_that_the_player_wrote() {
         Some(Output::EventsSeen {
             id: MessageId(2),
             narrator: Some("Still no road to Shattrath.".to_string()),
+            notice: None,
+        })
+    );
+}
+
+#[test]
+fn a_narrator_line_may_not_name_what_another_character_wrote() {
+    let mut story = story_with("hero-switch-narrator", &[]);
+    level(&mut story, 10, 12);
+    level(&mut story, 11, 13);
+    let (call, _) = model_call(batch_end(&mut story, 2));
+    let bren = Input::CharacterEntered {
+        realm: "Testrealm".to_string(),
+        name: "Bren".to_string(),
+    };
+    story.handle(bren).unwrap();
+    set_field(&mut story, "goal", "Find the road to Shattrath.").unwrap();
+
+    let text = "Still no road to Shattrath.".to_string();
+    let output = one(story.handle(Input::ModelAnswered { call, text }).unwrap());
+
+    assert_eq!(
+        output,
+        Some(Output::EventsSeen {
+            id: MessageId(2),
+            narrator: None,
             notice: None,
         })
     );
