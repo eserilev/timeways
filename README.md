@@ -10,14 +10,18 @@ An AI model writes the words. A rules engine, [Hourglass](https://github.com/ese
 
 ## Status
 
-Early build. The parts work and have tests, but nobody has run them together in the game yet. The Gnomish Relay bridge now starts the story program and carries its messages (relay SPEC 9.8). Real model calls (relay step 6) come next.
+Early build. The parts work together through Gnomish Relay, and the bridge runs the model calls. Tests in the game have started (`TESTING.md`).
 
 What works:
 
 - **The world of each character.** An append-only history file on your computer, replayed at start.
-- **`/lore <question>`.** The answer opens in a small lore book. Passages from a lore pack, under a spoiler limit: you see lore only about places you visited and people you met. A model answer is checked for citations and for names from after the Forever timeline. You build the pack on your own computer from a wiki dump (below).
-- **`/journal`.** A book in the look of the classic quest frame, with 5 tabs: Hero, Chronicle (one chapter for each play session), Deeds, Knowledge, and Tasks.
+- **Setup in the game.** When the game can't reach the desktop app, a setup window shows the install steps. The key of each computer comes from the `Timeways_Key` addon that the desktop app writes.
+- **`/lore <question>`.** The answer opens in a small lore book, with the last questions to browse. Passages from a lore pack, under a spoiler limit: you see lore only about places you visited and people you met. A model answer is checked for citations and for names from after the Forever timeline. You build the pack on your own computer from a wiki dump (below).
 - **The text you read.** The addon keeps the text of each quest, gossip window, and book that you read. `/lore` and `/talk` search it together with the lore pack, so they answer from real game text even with no pack.
+- **`/talk`.** Talk to the NPC that you target. It answers from what it knows, and its trust in you changes. The tooltip of the NPC shows the trust.
+- **`/quest`.** An NPC offers a side quest made for you: visit a place, meet an NPC, or kill a creature that you saw. The giver and the steps show as pins on the map of the journal.
+- **Player tasks.** Give a task to a player in your party, guild, or friends list who has Timeways. The game checks the steps, and the giver decides at the end. "Help me write this" asks a model for a draft.
+- **`/journal`.** A book in the look of the classic quest frame, with 5 tabs: Hero (your hero in your own words), Chronicle (one chapter for each milestone, with a saga from the narrator), Deeds, Knowledge, and Tasks. The map shows where you have been.
 - **The narrator.** One short line in the voice of the chronicle at a big moment, such as a first kill of a rare, a level up, or a third death to the same murloc. At most 3 lines each hour.
 - **Kills, deaths, and slaps.** Addons cannot read the combat log in this client. So the addon reads kills and deaths from other events, and never sends the name of a real player.
 
@@ -38,7 +42,7 @@ When the game can't reach the desktop app, Timeways opens a setup window with th
 
 | Path | What |
 |---|---|
-| `addon/Timeways` | The WoW addon, Lua 5.1. `Sha256`, `Codec`, `Saved`, `Health`, `Strip`, `Slots`, and `Messages` are copies of the shared transport of Gnomish Relay, pinned in CI. Change them in the relay first. `KeyHandoff.lua` takes the key from `Timeways_Key`, an addon that the desktop app writes outside this folder, so a CurseForge update keeps it. |
+| `addon/Timeways` | The WoW addon, Lua 5.1. `Sha256`, `Codec`, `Saved`, `Health`, `Strip`, `Slots`, `Messages`, and `KeyHandoff` are copies of the shared transport of Gnomish Relay, pinned in CI. Change them in the relay first. `KeyHandoff.lua` takes the key from `Timeways_Key`, an addon that the desktop app writes outside this folder, so a CurseForge update keeps it. |
 | `crates/story` | `timeways-story`, the story program on the desktop |
 | `crates/addon-tests` | Runs the addon in Lua 5.1 with a fake WoW API (`addon/tests/wow.lua`) |
 
@@ -98,7 +102,7 @@ selene addon/Timeways
 
 `cargo test` also runs the property tests of `crates/story/tests/properties.rs`: rules that hold for any play, such as a world that reads back the same after any restart.
 
-The fuzz targets in `fuzz/` feed random input to the parts that read text from outside: the input lines, the files on disk, the answers of a model, `Json.lua`, the journal pages, and the wikitext of a wiki dump. They need the nightly toolchain and `cargo-fuzz`:
+The fuzz targets in `fuzz/` feed random input to the parts that read text from outside: the input lines (`input`), the files on disk (`store`), the answers of a model (`answers`), `Json.lua` (`json_lua`), the journal pages (`pages`), the replies from the desktop in the addon (`replies`), the game text that `Seen.lua` keeps (`seen`), the wikitext of a wiki dump (`wikitext`), the addon messages of player tasks (`task_wire`), and random play with player tasks (`task_play`). They need the nightly toolchain and `cargo-fuzz`:
 
 ```sh
 scripts/fuzz.sh 60            # each target for 60 seconds

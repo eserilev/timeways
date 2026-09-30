@@ -6,16 +6,17 @@ The steps to test Timeways in WoW: Forever, and what to send back.
 
 The game runs a stable copy of the code, so work in the repo does not change the game in the middle of a test.
 
-- **The addon:** the `Timeways` link in the AddOns folder points to `../timeways-test/addon/Timeways`. That folder is a git worktree of commit `c546e70`.
+- **The addon:** the `Timeways` link in the AddOns folder points to `../timeways-test/addon/Timeways`. That folder is a git worktree of one commit. To see which one, run `git -C ../timeways-test log -1 --oneline`. To move it, run `git -C ../timeways-test checkout --detach <commit>`, and build the story program again.
 - **The story program:** `~/.local/bin/timeways-story`, built from the same commit. The old program is `~/.local/bin/timeways-story.old`.
 - **The world files:** `~/.local/share/gnomish-relay/timeways/story/worlds/r_<realm>/c_<name>.*.jsonl`.
 
 ## Before the first test
 
-1. Run `gnomish-relay restart`, so the bridge starts the new story program.
-2. Update your Gnomish Relay checkout, or turn off the GnomishRelay addon.
-3. Start WoW again. A `/reload` is not enough after a change to the list of addon files.
-4. In the game, type `/console scriptErrors 1`, so each Lua error shows.
+1. Run `gnomish-relay setup --timeways`. Setup writes the key into the `Timeways_Key` addon, next to the `Timeways` folder, and deletes an old `Key.lua` in the `Timeways` folder.
+2. Run `gnomish-relay restart`, so the bridge starts the new story program.
+3. Update your Gnomish Relay checkout, or turn off the GnomishRelay addon.
+4. Start WoW again. A `/reload` is not enough after a change to the list of addon files.
+5. In the game, type `/console scriptErrors 1`, so each Lua error shows.
 
 ## The tests
 
@@ -30,7 +31,16 @@ The self-test sends two requests that only read your world: the first page of th
 
 The last report stays in the saved variables, as `TimewaysDB.selfTest`. WoW writes it to the disk at `/reload` and at logout.
 
-### 2. The text that you read
+### 2. Setup and the key
+
+1. Check the AddOns folder. `Timeways_Key` holds `Timeways_Key.toc` and `Key.lua`. The `Timeways` folder holds no `Key.lua`.
+2. Log in. The setup window does not open, and test 1 passes: the addon took the key.
+3. Type `/dump TimewaysKey`. It shows nothing: the addon cleared the global after it took the key.
+4. Type `/timeways help`. The setup window opens with the install steps. Close it with Close or Escape.
+5. Stop the desktop app: end the `gnomish-relay` process. Type `/reload`, and wait a minute. The setup window says that the game can't reach the desktop app.
+6. Run `gnomish-relay restart`, and type `/reload`.
+
+### 3. The text that you read
 
 1. Talk to an NPC with gossip: an innkeeper or a guard.
 2. Open a quest. Accept it, or close it.
@@ -39,38 +49,62 @@ The last report stays in the saved variables, as `TimewaysDB.selfTest`. WoW writ
 5. Wait a minute.
 6. Ask `/lore` about a word from one of those texts.
 
-The answer uses that text, and says where you learned it.
+The answer uses that text, and says where you learned it. Open `/journal` on the Knowledge tab: the texts show there, with the place and the date.
 
-### 3. A side quest
+### 4. The lore book
+
+1. Ask two `/lore` questions.
+2. The lore book shows the question as the heading. It says "Asking..." until the answer comes.
+3. Click Previous and Next. They step between the two questions.
+4. Press Escape. Then type `/lore` with no question. The book opens again on the last question.
+5. Close the book, and ask a question. When the answer comes, one line shows in the chat.
+
+### 5. A side quest
 
 This test needs a model. Without one, the NPC "has no task for you now", and the rest of the test does not apply.
 
 1. Visit two subzones, and talk to two NPCs there.
 2. Hover your mouse over two hostile creatures, for example two kinds of wolves.
 3. Target one of those NPCs, and type `/quest`.
-4. Wait a minute. The narrator line shows the offer. A task never sends you to talk to a creature that you can attack.
-5. Type `/quest accept`. Open `/journal` on the Tasks page.
-6. Do the steps of the quest. For a kill step, hover or target each creature before you kill it. Check the page after each step: a kill step shows "<creature> slain: 1/<count>".
-7. Type `/quest` to another NPC. The new task names no place, NPC, or creature of the last one.
+4. Wait a minute. A chat line with the "Timeways:" prefix shows the offer. A task never sends you to talk to a creature that you can attack.
+5. Type `/quest accept`. Open `/journal` on the Tasks tab.
+6. Check the map of the Tasks tab. The giver has a yellow "?". A step to visit a place or to meet an NPC has a pin with its number, when the journal knows where it is.
+7. Do the steps of the quest. For a kill step, hover or target each creature before you kill it. Check the page after each step: a kill step shows "<creature> slain: 1/<count>". The pin of a done step fades.
+8. Type `/quest` to another NPC. The new task names no place, NPC, or creature of the last one.
 
-The quest shows "Done on" with the day, and the giver trusts you more on the People page.
+The quest shows "Done on" with the day. Hover the giver: the tooltip has a "Timeways:" line with its trust in you.
 
-### 4. Your name stays private
+### 6. Player tasks
 
-Open `c_<name>.seen.jsonl` in the world folder. Your character name is not in the file. `$N` stands in its place.
+This test needs two characters with Timeways in one party, for example on two computers.
 
-### 5. Open questions of the design
+1. On the first character (the giver), open `/journal` on the Tasks tab, and click Give a task.
+2. Pick the second character (the doer). Add two steps: go to a place where you stand, and talk to an NPC that you target.
+3. Type a short idea, and click "Help me write this". Check the draft, then click "Use this" or "Keep mine".
+4. Send the task. On the doer, the offer shows on the Tasks tab. Click Accept.
+5. Do the steps on the doer. Each step shows as done.
+6. Stand next to the giver, and click Turn in on the doer.
+7. On the giver, the turn-in card shows each step with its proof: Witnessed, Seen, or Not confirmed. Click Complete task.
+8. Give the doer an item in a trade. The line of the reward changes to "Reward: paid in trade".
+
+### 7. Your name stays private
+
+Open `c_<name>.learned.jsonl` in the world folder. Your character name is not in the file. `$N` stands in its place.
+
+### 8. Open questions of the design
 
 1. While a book from a table or a shelf is open, type `/dump UnitName("npc")`. Write down what it shows.
-2. Kill a rare, and die to a mob. Open `/journal` and check the Deeds page.
+2. Kill a rare, and die to a mob. Open `/journal` and check the Deeds tab.
+3. Check the Hero and Chronicle tabs. The Chronicle tab shows the newest chapter.
 
 ## What to send back
 
 - Each Lua error, as text.
 - The chat lines of `/timeways test`.
 - What the lore book showed for each `/lore` question.
-- The offer line of `/quest`, and the Quests page at the end.
-- The first 3 lines of the `.seen.jsonl` file.
+- The offer line of `/quest`, and the Tasks tab at the end, with its map.
+- What each character saw in the test of player tasks.
+- The first 3 lines of the `.learned.jsonl` file.
 - The result of each open question.
 
 ## After the test

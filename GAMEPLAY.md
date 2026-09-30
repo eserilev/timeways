@@ -6,7 +6,7 @@ Timeways is a World of Warcraft: Forever addon. It adds a story layer to the gam
 
 An AI model writes the words. A rules engine decides what is true. The game itself supplies the facts.
 
-Status: early build. The story program keeps the world of each character in a file, and serves `/lore`, `/talk`, `/quest`, the journal, and the narrator. The addon talks to it through the shared transport of Gnomish Relay. Nobody has run the parts together in the game yet, and no real lore pack exists yet.
+Status: early build. The story program keeps the world of each character in a file, and serves `/lore`, `/talk`, `/quest`, the journal, the narrator, the chronicle, and player tasks. The addon talks to it through the shared transport of Gnomish Relay, and the bridge runs its model calls. Tests in the game have started (`TESTING.md`). The seed of common lore (3.1.1) waits.
 
 ## 1. The four parts
 
@@ -69,7 +69,7 @@ Most lore comes from play. You learn what your character read or heard: quests, 
 
 - **What you read comes first.** A question uses your own text first. The lore pack only fills the gaps. (Built)
 - **The answer says where you learned it:** "You read in *The Kingdom of Stormwind* that…". (Built)
-- **A Learned page** in the journal lists what you read and heard (3.6).
+- **The Knowledge page** of the journal lists what you read and heard (3.6).
 - **The narrator notices** a first book about a place, or a first story from an NPC, as a small moment.
 - **Only game text is canon.** The words of an NPC in `/talk` come from a model. They go into your journal as a rumor, never as a fact, and `/lore` never cites them.
 
@@ -77,19 +77,21 @@ Most lore comes from play. You learn what your character read or heard: quests, 
 
 ### 3.2 The narrator
 
-No invented companion rides along. A narrator tells the big moments as they happen, in one short line about "our hero". The same narrator writes the chronicle after a session (3.3). There is no other storyteller, and no bard.
+No invented companion rides along. A narrator tells the big moments as they happen, in one short line about "our hero". The same narrator writes each finished chapter of the chronicle (3.3). There is no other storyteller, and no bard.
 
 **Who it is.** The narrator is a keeper of time, and nobody knows more than that. It never names itself or what it serves. It has seen how things end, and it never tells the future: that is the spoiler rule. Its voice is serious, concrete, and sparing, with a dry edge at most. It makes no jokes and no silly lines.
 
 
-- It reacts to big moments. The story program finds them in the events that each batch adds to the world:
+- It reacts to big moments. The story program finds them in the events that each batch adds to the world. From the highest rank down (`moments.rs`):
+  - a finished class quest (5.4),
   - a joke title (5.4.1),
-  - the first kill of a rare or a boss (the echo of a later kill is not a big moment),
+  - the first kill of a rare or a boss (the echo of a later kill is not a big moment), or the first entry into a dungeon or a raid (3.3),
   - a second or later death to the same NPC: "The third death to the same murloc.",
-  - a slap of an NPC, which it remembers (5.4.1),
-  - a level up,
+  - a slap of an NPC, which it remembers (5.4.1), or a lasting buff or debuff of a quest (5.4),
+  - a level up, or the first visit of a capital city (3.3),
   - the first visit of a zone.
-- It speaks at most once for each batch, about the best moment, in the order above. Of two moments of one kind, the later one wins, because it holds the newer count.
+- It speaks at most once for each batch, about the best moment. The moments on one line of the list have the same rank. Of two moments of one rank, the later one wins, because it holds the newer count. A flavor moment (5.4.1) speaks only when no big moment does.
+- **The narrator stays quiet while a saga is written** (3.3). The bridge runs at most 2 model calls of the story program at once, so a question of the player always gets a call. The moments of the batch wait for the next batch.
 - A batch that ends with a question gets no `batch_end` (5.5), so its moments wait for the next batch.
 - It has a budget: at most 3 lines in one hour of game time. The budget lives in memory, so a restart of the story program starts it again. That costs at most 3 more lines once.
 - A model writes each line through the bridge, with no tools. The line must be plain text, at most 300 characters, and hold no name from after the cutoff (5.9), except a name that the player wrote first (3.7). A line that breaks a rule gets no retry, and the player sees nothing.
@@ -212,7 +214,7 @@ The desktop sends the pages each time the book opens, because the world lives th
 | Section | What it holds | State |
 |---|---|---|
 | **Hero** | Your sheet and your own lore (3.7). The list holds each question of the sheet with its answer. The open question has an Edit button, and under it come your notes with Add a note and Remove. Previous and Next step through the questions, and the bar counts the answered ones. The first time that the book shows an empty hero in a session, it opens here. | Built |
-| **Chronicle** | One chapter for each play session (3.3), with the saga and the footnotes when a model wrote them. The list names each chapter by its first zone. A chapter shows its places, its people, and its deeds, with Previous chapter and Next chapter. The book opens on it, at the newest chapter. | Built |
+| **Chronicle** | One chapter for each milestone (3.3), with the saga and the footnotes when a model wrote them. The list names each chapter by its first zone. A chapter shows its places, its people, and its deeds, with Previous chapter and Next chapter. The book opens on it, at the newest chapter. | Built |
 | **Deeds** | Level milestones, first kills of rares and bosses, repeat kills (echoes, 5.13), your deaths, and your joke titles (5.4.1) | Built |
 | **Knowledge** | What you read and heard (3.1.1): each book, each quest tale, and each story of an NPC, with the place and the date. A rumor from `/talk` shows as a rumor. | Built |
 | **Nemesis** | Real players from world PvP only: the kill count on each side, the places, and the last time seen (4.1). Aliases only (5.11). | Later |
@@ -273,7 +275,7 @@ In a dungeon group, the narrator of each player with the addon tells the same bi
 
 ### 4.7 Player tasks
 
-One player writes a task for another player who also has Timeways. The giver is the author, the game checks what it can, and the giver decides at the end. Built, in the addon only: no task goes to the desktop in this version.
+One player writes a task for another player who also has Timeways. The giver is the author, the game checks what it can, and the giver decides at the end. Built, in the addon: a task never goes to the desktop. Only "Help me write this" (below) asks the desktop, for a draft.
 
 **Who can send.** A task goes only to a player in your party, your guild, or your friends list, who has Timeways and is online. The form asks with a `hello` to the group, the guild, and each friend online. Each addon that hears it from one of these players answers `here`. The receiver checks the same rule for every offer, and a player can block a giver. The giver's addon learns of the block and sends no more tasks.
 
@@ -435,7 +437,7 @@ Small, silly moments are often the best part of a story. The addon collects them
 - **Counted locally.** A tally is tiny, for example `dance Goldshire 3`, and it goes out with the next batch. No moment costs a strip of its own.
 - **Marked when it is funny:** a first time, a streak ("12 squirrels in a row"), an odd place or time (a dance in Goldshire at 3 AM), or a contrast (a level 60 that dies to a cow).
 - **Used rarely.** The narrator picks one now and then, with a cooldown: "The fourth rabbit today." The chronicle gets footnotes: "On the fourth day, our hero danced in Goldshire. Nobody knows why." The journal gets joke titles: "Scourge of Squirrels", "Lord of the Goldshire Dance Floor".
-- **With consequences.** A slap is an event in the world: the `trusts` value of the NPC drops, and a `slapped` fact starts. The innkeeper then remembers it. His rumors get shorter, and the narrator brings it up. Hourglass keeps the joke consistent for weeks. Built: each slap costs 10 trust, down to -100. The People page of the journal shows the slaps and the trust in words, and a slap is a big moment for the narrator (3.2).
+- **With consequences.** A slap is an event in the world: the `trusts` value of the NPC drops, and a `slapped` fact starts. The innkeeper then remembers it. His rumors get shorter, and the narrator brings it up. Hourglass keeps the joke consistent for weeks. Built: each slap costs 10 trust, down to -100. The tooltip of the NPC shows the slaps and the trust in words (3.5), and a slap is a big moment for the narrator (3.2).
 
 **Picking the moments.** Code scores each moment, and the model picks only among the best ones. The model never sees the whole pile, so the choice is predictable, testable, and free.
 
@@ -505,7 +507,7 @@ Hourglass plans a generic salience ranking for its briefing. If that ranking tak
 Timeways uses the transport of Gnomish Relay, with its own key and its own slots (5.12):
 
 - **Out:** game events and questions go in strips signed with the Timeways key. The frame format and the records do not change: Timeways uses its own values in the chat, flags, and text fields. The size limit of a strip (3200 bytes) is enough for a batch of events.
-- **Batches:** after the lines of each batch, the bridge sends `batch_end` with the message id. The story program answers `events_seen`, with a narrator line or `null` (3.2). It answers at once when the batch has no big moment. The bridge waits at most 60 s, so a slow story program never blocks the player.
+- **Batches:** after the lines of each batch, the bridge sends `batch_end` with the message id. The story program answers `events_seen`, with a narrator line or `null` (3.2), and an optional `notice`: a line of Timeways itself, shown with the "Timeways:" prefix, such as a quest offer (3.4). It answers at once when the batch has no big moment. The bridge waits at most 60 s, so a slow story program never blocks the player.
 - **No game event is lost when the desktop program is closed.** The transport takes every message that fits, and gives up on it after 270 s with no bridge. So the outbox keeps the events of a batch until its done reply. When the transport gives up, the events go back to the front of the outbox, and the player sees no error: they did not send them by hand. One batch of events is on its way at a time, so a closed desktop program costs few strips. A done reply sends the next batch at once. A question goes at once, and its error shows.
 - **Every request gets one answer.** The bridge stops a story program that leaves a `lore_asked`, `talk_asked`, or `journal_asked` with no answer. So a request that fails gets an empty answer of its type: a lore answer with no passages, a talk with no words, or a journal with no pages. The error goes to stderr. The addon keeps the book that it shows when a journal has no pages.
 - **Sizes.** A reply must fit two limits of the bridge: 24576 bytes of JSON, and 32 KB in the slot of the game after the Lua escape. In the slot, a `|` takes 2 bytes, and a quote, a backslash, and each byte outside ASCII take 4. The journal pages and the passages of an answer count both (`reply_size.rs`). A page past the end gets the last page.
@@ -662,7 +664,7 @@ Timeways and Gnomish Relay are two separate addons, each with its own listing on
 
 **The relay side of this section is Gnomish Relay SPEC 9.7.** It is the approved plan, and it wins where the two differ.
 
-- The relay key stays `strip.key`. Setup makes `timeways.key` next to it, in the config folder of the bridge, with mode 0600, and writes a `Key.lua` into the Timeways addon folder. The classifier of the relay denies both keys to every agent. The bridge refuses to start if the two keys are the same.
+- The relay key stays `strip.key`. Setup makes `timeways.key` next to it, in the config folder of the bridge, with mode 0600, and writes the key into `Timeways_Key`, a key addon of its own outside the Timeways folder (relay SPEC 7.3.2). `KeyHandoff.lua` takes the key from it, so a CurseForge update keeps the key. The classifier of the relay denies both keys to every agent. The bridge refuses to start if the two keys are the same.
 - The bridge checks the tag of each strip under both keys. One key verifies: that app. None: refused. Both: refused as ambiguous. A new statement, S29, proves this choice. A frame in the saved variables of one app counts only under that app's key.
 - **Proved statements change.** Each app sets its own Lua globals in its slot files (`Timeways_SlotData` and more), so one app never overwrites what the other is about to read. S9, S18, and S20 of the relay are restated over the app (approved).
 - The Timeways lane parses only the transport flags. A coding flag such as `perm=` or `level=` in a Timeways record does nothing, and a non-empty `cwd` is refused.
@@ -670,7 +672,7 @@ Timeways and Gnomish Relay are two separate addons, each with its own listing on
 - **A strip signed with the Timeways key reaches only the story program**, never a coding agent. The bridge enforces this: the story route has no access to the agents. So a Timeways bug, a hacked Timeways update, or a hostile addon that drives Timeways gets only story powers: the model budget, false game facts in the world, and fake story text. It gets no path to commands.
 - A player with only Timeways has no coding config: setup asks no folder question and sets up no coding agent. The config has only a `[story]` section for the model.
 
-**The copies in Timeways** (built): `addon/Timeways` holds `Sha256.lua`, `Codec.lua`, `Saved.lua`, `Health.lua`, `Strip.lua`, `Slots.lua`, and `Messages.lua` from the relay, and CI compares each one with the pinned relay commit. `Link.lua` is the seam: it sends each batch in the one chat `story`, gives each done reply to the JSON handlers, and shows each error reply as plain text.
+**The copies in Timeways** (built): `addon/Timeways` holds `Sha256.lua`, `Codec.lua`, `Saved.lua`, `Health.lua`, `Strip.lua`, `Slots.lua`, `Messages.lua`, and `KeyHandoff.lua` from the relay, and CI compares each one with the pinned relay commit. `Link.lua` is the seam: it sends each batch in the one chat `story`, gives each done reply to the JSON handlers, and shows each error reply as plain text.
 
 **No public send function.** Each addon carries its own private copy of the Lua transport: `Codec.lua`, `Sha256.lua`, `Strip.lua`, and the slot poll. A shared library addon is refused: its key would pass through a global function, and a hostile addon could hook it. One source folder of the transport, with its tests, lives in the Gnomish Relay repo. The packaging of each addon copies it, with a version pin.
 
@@ -686,7 +688,7 @@ Timeways and Gnomish Relay are two separate addons, each with its own listing on
 - The story program sends back the story text. The bridge writes every file that the game reads, with the proved writers.
 - The story program reads hostile text, so it runs in the sandbox of the relay (SPEC 6.6.4): it writes only `<data>/timeways/`, has no network, and cannot read the protected paths. On Windows there is no sandbox yet: Timeways runs, with a one-time warning.
 - The bridge starts it from a path in the config, with no shell and a short list of environment variables. `restart` and `update` restart it too, and a crash restarts it after a delay.
-- The bridge writes only `Key.lua` into the Timeways addon folder, never other Timeways files.
+- The bridge writes no file into the Timeways addon folder. It writes the key addon `Timeways_Key` and the slots next to it, and deletes an old `Key.lua` in the Timeways folder.
 
 This keeps the releases apart: Timeways ships `timeways-story` on its own schedule, and Gnomish Relay does not depend on Hourglass. Timeways tests the story program alone, with a fake bridge.
 
