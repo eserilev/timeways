@@ -46,13 +46,25 @@ function IsInInstance()
 	return wow.instance ~= "none", wow.instance
 end
 
+-- The table of a unit. The client refuses a hidden unit token as an argument, as it does in
+-- restricted content.
+local function Unit(unit)
+	if issecretvalue(unit) then
+		error("a secret value as the unit argument", 2)
+	end
+	return wow.units[unit]
+end
+
+-- A game object such as a Wanted poster has `object` in its table. It has a name, but the
+-- tests take the worst case: the client calls it absent.
 function UnitExists(unit)
-	return wow.units[unit] ~= nil
+	local u = Unit(unit)
+	return u ~= nil and not u.object
 end
 
 -- A player of another realm has `realm` in its table.
 function UnitName(unit)
-	local u = wow.units[unit]
+	local u = Unit(unit)
 	if not u then
 		return nil
 	end
@@ -60,21 +72,24 @@ function UnitName(unit)
 end
 
 function UnitIsPlayer(unit)
-	local u = wow.units[unit]
+	local u = Unit(unit)
 	return u ~= nil and u.player == true
 end
 
 function UnitGUID(unit)
-	local u = wow.units[unit]
+	local u = Unit(unit)
 	return u and u.guid
 end
 
 function UnitClassification(unit)
-	local u = wow.units[unit]
+	local u = Unit(unit)
 	return u and u.classification or "normal"
 end
 
-Enum = { TooltipDataType = { Unit = 2 } }
+Enum = {
+	TooltipDataType = { Unit = 2 },
+	UIMapType = { Cosmic = 0, World = 1, Continent = 2, Zone = 3, Dungeon = 4, Micro = 5, Orphan = 6 },
+}
 
 -- The game's tooltip, and the hooks that run after it shows a unit.
 wow.tooltipHooks = {}
@@ -91,7 +106,7 @@ TooltipDataProcessor = {
 GameTooltip = {
 	GetUnit = function()
 		local unit = wow.tooltip.unit
-		return unit and UnitName(unit), unit
+		return unit and wow.units[unit].name, unit
 	end,
 	AddLine = function(_, text)
 		table.insert(wow.tooltip.lines, text)
@@ -237,33 +252,34 @@ C_DeathRecap = {
 
 -- A pet or another unit of a player: `player` or `controlled` in its table.
 function UnitPlayerControlled(unit)
-	local u = wow.units[unit]
+	local u = Unit(unit)
 	return u ~= nil and (u.player == true or u.controlled == true)
 end
 
 -- A unit that you can attack has `hostile` in its table: a bat, a boar, an enemy.
 function UnitCanAttack(_, unit)
-	local u = wow.units[unit]
+	local u = Unit(unit)
 	return u ~= nil and u.hostile == true
 end
 
 -- `creature` in the table of a unit is its creature type: { name, id }.
 function UnitCreatureType(unit)
-	local u = wow.units[unit]
+	local u = Unit(unit)
 	if u and u.creature then
 		return u.creature[1], u.creature[2]
 	end
 end
 
 function UnitLevel(unit)
-	local u = wow.units[unit]
+	local u = Unit(unit)
 	return u and u.level or 0
 end
 
--- The maps of the world by id: each one a { name, layers, textures, player, explored }
--- table, where `player` is the position of the player on it, `explored` is the list of the
--- parts that the character explored, and `wow.playerMap` is the map where the player
--- stands. With no maps, the pane of the journal has nothing to draw.
+-- The maps of the world by id: each one a { name, type, parent, layers, textures, player,
+-- explored } table. `type` is its `Enum.UIMapType`, `parent` is the map that holds it,
+-- `player` is the position of the player on it, and `explored` is the list of the parts that
+-- the character explored. `wow.playerMap` is the map where the player stands. With no maps,
+-- the pane of the journal has nothing to draw.
 wow.maps = {}
 wow.playerMap = nil
 
@@ -289,7 +305,8 @@ C_Map = {
 		return wow.playerMap
 	end,
 	GetMapInfo = function(id)
-		return Map(id) and { mapID = id, name = Map(id).name }
+		local map = Map(id)
+		return map and { mapID = id, name = map.name, mapType = map.type, parentMapID = map.parent or 0 }
 	end,
 	GetMapArtLayers = function(id)
 		return Map(id) and Map(id).layers
@@ -336,16 +353,22 @@ local function NewWidget(kind, name, parent, template)
 	return widget
 end
 
+-- A new size runs OnSizeChanged, as the game does after its layout. A test calls SetSize
+-- or SetWidth to stand in for a layout that gives an anchored frame its size.
 function Widget:SetSize(width, height)
+	local changed = width ~= self.width or height ~= self.height
 	self.width, self.height = width, height
+	if changed and self.scripts.OnSizeChanged then
+		self.scripts.OnSizeChanged(self, width, height)
+	end
 end
 
 function Widget:SetWidth(width)
-	self.width = width
+	self:SetSize(width, self.height)
 end
 
 function Widget:SetHeight(height)
-	self.height = height
+	self:SetSize(self.width, height)
 end
 
 function Widget:SetPoint(...)
@@ -354,6 +377,10 @@ end
 
 function Widget:RegisterEvent(event)
 	self.events[event] = true
+end
+
+function Widget:UnregisterEvent(event)
+	self.events[event] = nil
 end
 
 -- The fake fires a unit event for every unit; a test fires it only for the unit it wants.
@@ -410,6 +437,10 @@ function Widget:SetText(text)
 	self.text = text
 end
 
+function Widget:SetTextColor(r, g, b)
+	self.textColor = { r, g, b }
+end
+
 function Widget:SetTexture(file)
 	self.file = file
 end
@@ -451,8 +482,18 @@ function Widget:GetText()
 	return self.text
 end
 
+-- A line of the quest font is 14 high. A text wraps at the width of its font string, with
+-- letters as wide as GetStringWidth gives them, and each line break starts a line.
+local LINE_HEIGHT = 14
+
 function Widget:GetStringHeight()
-	return 14
+	local lines = 0
+	for paragraph in ((self.text or "") .. "\n"):gmatch("(.-)\n") do
+		local wide = 6 * #paragraph
+		local width = self.width or 0
+		lines = lines + ((width > 0 and wide > width) and math.ceil(wide / width) or 1)
+	end
+	return lines * LINE_HEIGHT
 end
 
 function Widget:SetEnabled(enabled)
@@ -487,16 +528,39 @@ function Widget:Click()
 	self.scripts.OnClick(self)
 end
 
-function Widget:CreateFontString()
-	return NewWidget("FontString", nil, self)
+-- The draw layer and its sublevel decide which region draws on top. Equal ones draw in no
+-- fixed order.
+local function Layered(widget, layer, sublevel)
+	widget.layer, widget.sublevel = layer or "ARTWORK", sublevel or 0
+	return widget
 end
 
-function Widget:CreateTexture()
-	return NewWidget("Texture", nil, self)
+function Widget:CreateFontString(_, layer)
+	return Layered(NewWidget("FontString", nil, self), layer)
 end
 
+function Widget:CreateTexture(_, layer, _, sublevel)
+	return Layered(NewWidget("Texture", nil, self), layer, sublevel)
+end
+
+function Widget:SetColorTexture(r, g, b, a)
+	self.color = { r, g, b, a }
+end
+
+local LAYERS = { BACKGROUND = 1, BORDER = 2, ARTWORK = 3, OVERLAY = 4, HIGHLIGHT = 5 }
+
+-- A number that grows with the order of drawing, for regions of one frame.
+function wow.DrawOrder(widget)
+	return LAYERS[widget.layer] * 100 + widget.sublevel
+end
+
+-- The scroll frame template of the game comes with its scroll bar.
 function CreateFrame(kind, name, parent, template)
-	return NewWidget(kind, name, parent, template)
+	local frame = NewWidget(kind, name, parent, template)
+	if template == "UIPanelScrollFrameTemplate" then
+		frame.ScrollBar = NewWidget("Slider", nil, frame)
+	end
+	return frame
 end
 
 UIParent = NewWidget("Frame", "UIParent")
@@ -671,13 +735,13 @@ end
 
 -- A unit with `offline` in its table is a member of the group who logged out.
 function UnitIsConnected(unit)
-	local u = wow.units[unit]
+	local u = Unit(unit)
 	return u ~= nil and not u.offline
 end
 
 -- A unit with `near` in its table stands close enough to trade.
 function CheckInteractDistance(unit, _)
-	local u = wow.units[unit]
+	local u = Unit(unit)
 	return u ~= nil and u.near == true
 end
 

@@ -74,7 +74,11 @@ function Trust.OnTooltip(tooltip)
 		return
 	end
 	local _, unit = tooltip:GetUnit()
-	local name = unit and ns.Units.NpcName(unit)
+	-- In restricted content the token can be hidden, and a unit call refuses it.
+	if not unit or issecretvalue(unit) then
+		return
+	end
+	local name = ns.Units.NpcName(unit)
 	local line = name and people[name] and Trust.Line(people[name]) or ""
 	if line ~= "" then
 		tooltip:AddLine("Timeways: " .. line, 0.78, 0.63, 0.39)

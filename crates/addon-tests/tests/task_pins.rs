@@ -263,3 +263,28 @@ fn a_broken_position_from_the_desktop_gets_no_pin() {
 
     assert!(pins(&game).is_empty());
 }
+
+#[test]
+fn every_pin_draws_over_the_band_of_visited_places() {
+    let game = tasks_page(journal(
+        lantern(Status::Accepted, 0),
+        Some(spot(TIRISFAL, 700, 200)),
+    ));
+
+    let under: Vec<String> = game.eval(
+        "local band
+         for _, widget in ipairs(wow.widgets) do
+             if widget.color and widget.point and widget.point[1] == 'BOTTOMLEFT' then band = widget end
+         end
+         local out = {}
+         for _, widget in ipairs(wow.widgets) do
+             local pin = widget.atlas == 'Waypoint-MapPin-Untracked' or (type(widget.file) == 'string' and widget.file:find('QuestIcon$'))
+             if pin and wow.DrawOrder(widget) <= wow.DrawOrder(band) then
+                 table.insert(out, widget.atlas or widget.file)
+             end
+         end
+         return out",
+    );
+
+    assert!(under.is_empty(), "{under:?}");
+}

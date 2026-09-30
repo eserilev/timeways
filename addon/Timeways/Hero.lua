@@ -117,6 +117,7 @@ function Hero.Edit(field, current)
 		hint = Hero.HINTS[field],
 		text = current,
 		limit = Hero.MAX_LETTERS,
+		bytes = Hero.MAX_BYTES,
 		problem = Hero.Problem,
 		save = function(text)
 			if Clean(text) ~= (current or "") then
@@ -132,6 +133,7 @@ function Hero.Write()
 		hint = "Anything about your character. It becomes part of your story.",
 		text = "",
 		limit = Hero.MAX_LETTERS,
+		bytes = Hero.MAX_BYTES,
 		problem = Hero.Problem,
 		save = Hero.Add,
 	})

@@ -269,3 +269,33 @@ fn close_closes_the_book() {
 
     assert!(book(&game).is_empty());
 }
+
+fn scroll_bar_shown(game: &Game) -> bool {
+    game.eval("TimewaysLoreFrameScroll.ScrollBar:IsShown()")
+}
+
+fn page_height(game: &Game) -> f64 {
+    game.eval("TimewaysLoreFrameScroll:GetScrollChild():GetHeight()")
+}
+
+#[test]
+fn a_long_answer_grows_the_page_and_shows_the_scroll_bar() {
+    let game = Game::new();
+    ask(&game, "who built this tower?");
+
+    game.reply(&reply_line(Some(&"The tower is old. ".repeat(200)), &[]));
+
+    assert!(page_height(&game) > game.eval::<f64>("TimewaysLoreFrameScroll:GetHeight()"));
+    assert!(scroll_bar_shown(&game));
+}
+
+#[test]
+fn a_short_answer_fits_with_no_scroll_bar() {
+    let game = Game::new();
+    ask(&game, "who built this tower?");
+
+    game.reply(&reply_line(Some("Nobody knows."), &[]));
+
+    assert!(page_height(&game) < game.eval::<f64>("TimewaysLoreFrameScroll:GetHeight()"));
+    assert!(!scroll_bar_shown(&game));
+}

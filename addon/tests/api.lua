@@ -44,6 +44,7 @@ return {
 		"DEFAULT_CHAT_FRAME",
 		"Enum",
 		"Enum.TooltipDataType.Unit",
+		"Enum.UIMapType.Zone",
 		"GameTooltip",
 		"GetBuildInfo",
 		"GetGreetingText",

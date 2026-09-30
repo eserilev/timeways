@@ -69,6 +69,9 @@ local function Ask(idea)
 end
 
 function TaskDraftHelp.Open()
+	if ns.Welcome.OpenIfNoApp() then
+		return
+	end
 	ns.JournalFrame.Edit({
 		title = "What's your idea?",
 		hint = "Say it in plain words. Timeways turns it into a title, a task text, and steps the game can check.",
