@@ -9,6 +9,7 @@ use crate::input::{CallId, Input, MessageId};
 use crate::journal::{Page, journal, pages};
 use crate::learned::{Read, Rumor, learned};
 use crate::lore::{Answer, LoreCall, Next};
+use crate::memory;
 use crate::moments::{Moment, best, moments};
 use crate::narrator::{self, Budget};
 use crate::pack::{Link, Pack, PackError, Passage};
@@ -868,14 +869,12 @@ impl Story {
         }
         let active = self.active.as_ref()?;
         let chapters = journal(&active.character).chapters;
-        let (chapter, next) =
-            chapters
-                .windows(2)
-                .map(|pair| (&pair[0], &pair[1]))
-                .find(|(chapter, _)| {
-                    active.prose.get(chapter.began).is_none()
-                        && !self.chronicle_asked.contains(&chapter.began)
-                })?;
+        let index = (1..chapters.len()).map(|next| next - 1).find(|&index| {
+            let began = chapters[index].began;
+            active.prose.get(began).is_none() && !self.chronicle_asked.contains(&began)
+        })?;
+        let (chapter, next) = (&chapters[index], &chapters[index + 1]);
+        let earlier = &chapters[index.saturating_sub(memory::MEMORY_CHAPTERS)..index];
         let top = flavor::top_moments(
             active.flavor.moments(),
             active.flavor.told(),
@@ -896,7 +895,8 @@ impl Story {
         let hero = hero::hero(active.hero.changes());
         let in_chapter = |entry: &Entry| entry.at >= chapter.began && entry.at < next.began;
         let written = hero::newest_texts(&hero.entries, in_chapter);
-        let prompt = chronicle::prompt(chapter, &words, hero::portrait(&hero).as_deref(), &written);
+        let portrait = hero::portrait(&hero);
+        let prompt = chronicle::prompt(chapter, earlier, &words, portrait.as_deref(), &written);
         self.chronicle_asked.insert(chapter.began);
         Some(self.open_call(pending, prompt))
     }

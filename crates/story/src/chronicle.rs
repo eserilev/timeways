@@ -5,6 +5,7 @@ use crate::check::{json_object, voice_text};
 use crate::hero::OWN_WORDS;
 use crate::house::{HOUSE_RULES, bulleted, fenced};
 use crate::journal::{Chapter, Deed};
+use crate::memory;
 use crate::narrator::PERSONA;
 use crate::samples::{self, Voice};
 use serde::Deserialize;
@@ -57,10 +58,13 @@ struct Footnote {
     text: String,
 }
 
-/// `moments` are the small moments of the chapter in plain words, best first.
+/// `earlier` are the chapters just before this one, oldest first. `moments` are the small
+/// moments of the chapter in plain words, best first. `told` is what the player wrote in
+/// the chapter.
 #[must_use]
 pub fn prompt(
     chapter: &Chapter,
+    earlier: &[Chapter],
     moments: &[String],
     portrait: Option<&str>,
     told: &[&str],
@@ -68,29 +72,57 @@ pub fn prompt(
     let number = chapter.number;
     let mut prompt = format!(
         "{PERSONA}\n{HOUSE_RULES}\n\nWrite chapter {number} of the chronicle, in at most 80 \
-         words, from the facts below and from nothing else.\n\nThe facts of chapter {number}:\n{}",
+         words, from the facts below and from nothing else."
+    );
+    prompt.push_str(&what_came_before(earlier));
+    let _ = write!(
+        prompt,
+        "\n\nThe facts of chapter {number}:\n{}",
         fenced(&facts(chapter))
     );
-    if !moments.is_empty() {
-        let _ = write!(
-            prompt,
-            "\n\nSmall moments:\n{}\n{FOOTNOTES}",
-            fenced(&numbered(moments))
-        );
+    prompt.push_str(&small_moments(moments));
+    prompt.push_str(&own_words(portrait, told));
+    let samples = samples::section(Voice::Chapter, number);
+    let _ = write!(prompt, "\n\n{samples}\n\n{NOTE}");
+    prompt
+}
+
+/// Chapter memory, so the saga knows the road so far. Empty for the first chapter.
+fn what_came_before(earlier: &[Chapter]) -> String {
+    if earlier.is_empty() {
+        return String::new();
     }
+    let summaries: Vec<String> = earlier.iter().map(memory::summary).collect();
+    let summaries: Vec<&str> = summaries.iter().map(String::as_str).collect();
+    format!(
+        "\n\nWhat came before, as the chronicle holds it. Do not tell it again:\n{}",
+        fenced(&bulleted(&summaries))
+    )
+}
+
+fn small_moments(moments: &[String]) -> String {
+    if moments.is_empty() {
+        return String::new();
+    }
+    format!(
+        "\n\nSmall moments:\n{}\n{FOOTNOTES}",
+        fenced(&numbered(moments))
+    )
+}
+
+fn own_words(portrait: Option<&str>, told: &[&str]) -> String {
+    let mut words = String::new();
     if let Some(portrait) = portrait {
-        let _ = write!(prompt, "\n\n{OWN_WORDS}\n{}", fenced(portrait));
+        let _ = write!(words, "\n\n{OWN_WORDS}\n{}", fenced(portrait));
     }
     if !told.is_empty() {
         let _ = write!(
-            prompt,
+            words,
             "\n\nWhat the player wrote in this chapter:\n{}",
             fenced(&bulleted(told))
         );
     }
-    let samples = samples::section(Voice::Chapter, chapter.number);
-    let _ = write!(prompt, "\n\n{samples}\n\n{NOTE}");
-    prompt
+    words
 }
 
 fn facts(chapter: &Chapter) -> String {

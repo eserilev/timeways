@@ -749,6 +749,26 @@ fn a_saga_is_asked_once_for_each_chapter() {
 }
 
 #[test]
+fn a_saga_recalls_the_last_chapters_before_it() {
+    let mut story = story_with("saga-memory", &[]);
+    two_sessions(&mut story);
+    meet(&mut story, 9 * HOUR, "Marshal Dughan");
+    let outputs = story.handle(Input::BatchEnd { id: MessageId(3) }).unwrap();
+    let Output::ModelCall { call, prompt } = outputs[1].clone() else {
+        panic!("expected a saga call, got {outputs:?}");
+    };
+    story.handle(Input::ModelFailed { call }).unwrap();
+
+    let second = saga_prompt(&mut story, 4);
+
+    assert!(!prompt.contains("What came before"), "{prompt}");
+    assert!(
+        second.contains("<<<\n- Chapter 1: met Gryan Stoutmantle.\n>>>"),
+        "{second}"
+    );
+}
+
+#[test]
 fn the_last_chapter_waits_for_the_next_session() {
     let mut story = story_with("saga-waits", &[]);
     meet(&mut story, HOUR, "Gryan Stoutmantle");

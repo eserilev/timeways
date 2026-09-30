@@ -102,12 +102,29 @@ fn side_quest_chapter() -> String {
     let moments =
         ["The player used the emote /dance in Sentinel Hill, for the 1st time.".to_string()];
     let told = ["The lantern belonged to my brother."];
-    chronicle::prompt(&chapter, &moments, portrait().as_deref(), &told)
+    let earlier = earlier_chapters();
+    chronicle::prompt(&chapter, &earlier, &moments, portrait().as_deref(), &told)
 }
 
 fn quiet_chapter() -> String {
     let chapter = chapter(5, &["Redridge Mountains"], Vec::new());
-    chronicle::prompt(&chapter, &[], portrait().as_deref(), &[])
+    let earlier = earlier_chapters();
+    chronicle::prompt(&chapter, &earlier, &[], portrait().as_deref(), &[])
+}
+
+/// The three chapters that a chapter prompt recalls.
+fn earlier_chapters() -> Vec<Chapter> {
+    let first_kill = Deed::Defeated {
+        foe: "Hogger".to_string(),
+        times: 1,
+        at: Tick(300),
+        place: None,
+    };
+    vec![
+        chapter(1, &["Elwynn Forest"], vec![level(10, 100), first_kill]),
+        chapter(2, &["Westfall", "Moonbrook"], vec![level(12, 400)]),
+        chapter(3, &["Duskwood"], Vec::new()),
+    ]
 }
 
 fn passage(text: &str) -> Passage {
