@@ -43,6 +43,20 @@ fn a_written_passage_comes_back_with_its_source_and_links() {
 }
 
 #[test]
+fn a_common_passage_comes_back_common() {
+    let history = passage(
+        "The testers came from the sea.",
+        "https://example.test/1",
+        vec![Link::Common],
+    );
+    let pack = pack_of("common", std::slice::from_ref(&history));
+
+    let found = pack.search("testers", 10).unwrap();
+
+    assert_eq!(found, [history]);
+}
+
+#[test]
 fn the_better_match_comes_first() {
     let passages = [
         passage(

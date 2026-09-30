@@ -2,6 +2,7 @@
 //!
 //! ```text
 //! {"text": "...", "source": "https://...", "places": ["Goldshire"], "npcs": ["Innkeeper Farley"]}
+//! {"text": "...", "source": "https://...", "common": true}
 //! ```
 
 use serde::Deserialize;
@@ -20,16 +21,19 @@ struct PassageLine {
     places: Vec<String>,
     #[serde(default)]
     npcs: Vec<String>,
+    #[serde(default)]
+    common: bool,
 }
 
 impl PassageLine {
     fn into_passage(self) -> Passage {
         let places = self.places.into_iter().map(Link::Place);
         let npcs = self.npcs.into_iter().map(Link::Npc);
+        let common = self.common.then_some(Link::Common);
         Passage {
             text: self.text,
             source: self.source,
-            links: places.chain(npcs).collect(),
+            links: places.chain(npcs).chain(common).collect(),
             origin: Origin::Pack,
         }
     }

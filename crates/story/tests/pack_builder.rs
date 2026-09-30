@@ -57,6 +57,21 @@ fn a_pack_built_from_lines_finds_its_passages_with_their_links() {
 }
 
 #[test]
+fn a_common_line_needs_no_place_or_npc() {
+    let line = r#"{"text":"The testers came from the sea.","source":"https://example.test/1","common":true}"#;
+
+    let (output, pack) = build(line, "builder-common");
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let found = Pack::open(&pack).unwrap().search("testers", 5).unwrap();
+    assert_eq!(found[0].links, [Link::Common]);
+}
+
+#[test]
 fn a_bad_line_names_its_number_and_writes_no_pack() {
     let lines = concat!(
         r#"{"text":"a","source":"b","places":["P"]}"#,

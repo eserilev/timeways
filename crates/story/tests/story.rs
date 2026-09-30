@@ -285,6 +285,36 @@ fn a_passage_about_an_npc_you_never_met_is_hidden() {
 }
 
 #[test]
+fn common_knowledge_is_shown_before_you_go_anywhere() {
+    let history = passage(
+        "The testers of Testvale came from the sea.",
+        "https://example.test/1",
+        vec![Link::Common],
+    );
+    let mut story = story_with("common", &[history]);
+    enter(&mut story, 1, "Mockshire", None);
+
+    let found = sources(&mut story, "where did the testers come from?", None);
+
+    assert_eq!(found, ["https://example.test/1"]);
+}
+
+#[test]
+fn common_knowledge_about_a_place_still_waits_for_the_place() {
+    let history = passage(
+        "The testers of Farvale came from the sea.",
+        "https://example.test/1",
+        vec![Link::Common, place("Farvale")],
+    );
+    let mut story = story_with("common-place", &[history]);
+    enter(&mut story, 1, "Mockshire", None);
+
+    let found = sources(&mut story, "where did the testers come from?", None);
+
+    assert!(found.is_empty());
+}
+
+#[test]
 fn a_passage_needs_every_one_of_its_links() {
     let hideout = passage(
         "A tunnel under Testvale leads to the hideout in Farvale.",

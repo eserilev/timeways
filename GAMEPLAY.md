@@ -495,6 +495,8 @@ A web request for each question is slow, depends on one website, and sends whole
 
 **The builder** (built): `timeways-pack` reads passages as JSON lines, each with its text, source, places, and NPCs, and writes the pack. It refuses a passage with no link, and it never writes over a pack that exists. The dump pipeline feeds it later.
 
+**Common knowledge** (built): a passage marked `common` passes the spoiler limit with no visit. It holds what everyone knows in 25 ADP, such as the History of Warcraft books of the game. A common passage with a place or an NPC still waits for them.
+
 **A question:**
 
 1. The story module searches the pack for the question and the context (zone, target, quest).

@@ -21,6 +21,7 @@ const SCHEMA: &str = "
 
 const PLACE: &str = "place";
 const NPC: &str = "npc";
+const COMMON: &str = "common";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Passage {
@@ -44,6 +45,8 @@ pub enum Origin {
 pub enum Link {
     Place(String),
     Npc(String),
+    /// Known to everyone in 25 ADP, such as a history book of the game (GAMEPLAY.md 3.1.1).
+    Common,
 }
 
 #[derive(Debug, Error)]
@@ -156,8 +159,9 @@ fn insert(connection: &Connection, passage: &Passage) -> Result<(), PackError> {
     )?;
     for link in &passage.links {
         let (kind, name) = match link {
-            Link::Place(name) => (PLACE, name),
-            Link::Npc(name) => (NPC, name),
+            Link::Place(name) => (PLACE, name.as_str()),
+            Link::Npc(name) => (NPC, name.as_str()),
+            Link::Common => (COMMON, ""),
         };
         connection.execute(
             "INSERT INTO link (passage, kind, name) VALUES (?1, ?2, ?3)",
@@ -171,6 +175,7 @@ fn link(kind: String, name: String) -> Result<Link, PackError> {
     match kind.as_str() {
         PLACE => Ok(Link::Place(name)),
         NPC => Ok(Link::Npc(name)),
+        COMMON => Ok(Link::Common),
         _ => Err(PackError::UnknownLink { kind }),
     }
 }

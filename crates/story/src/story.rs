@@ -1105,6 +1105,7 @@ fn knows_all(character: &Character, links: &[Link]) -> bool {
     links.iter().all(|link| match link {
         Link::Place(name) => character.has_visited(name),
         Link::Npc(name) => character.has_met(name),
+        Link::Common => true,
     })
 }
 
