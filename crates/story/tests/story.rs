@@ -1783,6 +1783,32 @@ fn the_narrator_may_name_a_later_place_that_the_player_wrote() {
 }
 
 #[test]
+fn a_narrator_line_may_not_name_what_another_character_wrote() {
+    let mut story = story_with("hero-switch-narrator", &[]);
+    level(&mut story, 10, 12);
+    level(&mut story, 11, 13);
+    let (call, _) = model_call(batch_end(&mut story, 2));
+    let bren = Input::CharacterEntered {
+        realm: "Testrealm".to_string(),
+        name: "Bren".to_string(),
+    };
+    story.handle(bren).unwrap();
+    set_field(&mut story, "goal", "Find the road to Shattrath.").unwrap();
+
+    let text = "Still no road to Shattrath.".to_string();
+    let output = one(story.handle(Input::ModelAnswered { call, text }).unwrap());
+
+    assert_eq!(
+        output,
+        Some(Output::EventsSeen {
+            id: MessageId(2),
+            narrator: None,
+            notice: None,
+        })
+    );
+}
+
+#[test]
 fn a_talk_carries_the_start_of_a_long_note() {
     let mut story = story_with("hero-long-note", &[]);
     enter(&mut story, 1, "Elwynn Forest", Some("Goldshire"));

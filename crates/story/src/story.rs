@@ -204,8 +204,10 @@ enum Pending {
         question: MessageId,
         lore: LoreCall,
     },
+    /// A narrator line for the batch, checked against the hero of this character only.
     Narrator {
         batch: MessageId,
+        key: CharacterKey,
     },
     /// A draft of the saga of the chapter that began at `began`, or the pick of the judge,
     /// for this character only. The round of the chapter knows which.
@@ -528,11 +530,8 @@ impl Story {
 
     /// The hero of the active character in the player's own words, or nothing when `key`
     /// names another character.
-    fn player_text(&self, key: Option<&CharacterKey>) -> String {
-        let active = self
-            .active
-            .as_ref()
-            .filter(|active| key.is_none_or(|key| &active.key == key));
+    fn player_text(&self, key: &CharacterKey) -> String {
+        let active = self.active.as_ref().filter(|active| &active.key == key);
         active.map_or_else(String::new, |active| {
             hero::player_text(&hero::hero(active.hero.changes()))
         })
@@ -548,9 +547,9 @@ impl Story {
         self.note_names_in_no_fact(call, text, &prompt);
         Ok(match pending {
             Pending::Lore { question, lore } => vec![self.follow(question, lore.answered(text))],
-            Pending::Narrator { batch } => vec![Output::EventsSeen {
+            Pending::Narrator { batch, key } => vec![Output::EventsSeen {
                 id: batch,
-                narrator: narrator::checked_line(text, &self.player_text(None)),
+                narrator: narrator::checked_line(text, &self.player_text(&key)),
                 notice: None,
             }],
             Pending::Chronicle { key, began } => self.saga_answered(&key, began, Some(text))?,
@@ -581,7 +580,7 @@ impl Story {
         asked_at: Tick,
         text: &str,
     ) -> Output {
-        let Some(answer) = talk::checked_answer(text, &self.player_text(Some(key))) else {
+        let Some(answer) = talk::checked_answer(text, &self.player_text(key)) else {
             return Output::TalkAnswer {
                 id: question,
                 npc,
@@ -628,7 +627,7 @@ impl Story {
                 id: question,
                 answer: lore.failed(),
             }],
-            Pending::Narrator { batch } => vec![Output::EventsSeen {
+            Pending::Narrator { batch, .. } => vec![Output::EventsSeen {
                 id: batch,
                 narrator: None,
                 notice: None,
@@ -908,12 +907,13 @@ impl Story {
                 return quiet;
             }
         }
-        let portrait = self
-            .active
-            .as_ref()
-            .and_then(|active| hero::portrait(&hero::hero(active.hero.changes())));
+        let Some(active) = self.active.as_ref() else {
+            return quiet;
+        };
+        let portrait = hero::portrait(&hero::hero(active.hero.changes()));
+        let key = active.key.clone();
         self.open_call(
-            Pending::Narrator { batch },
+            Pending::Narrator { batch, key },
             narrator::prompt(&moment, portrait.as_deref(), self.turn()),
         )
     }
