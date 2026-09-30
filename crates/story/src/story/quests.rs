@@ -29,8 +29,7 @@ impl Story {
     }
 
     /// The offer takes the place of the narrator call, and comes back as a notice. A request
-    /// that breaks a rule gets
-    /// a line of the code, and no model call.
+    /// that breaks a rule gets a line of the code, and no model call.
     pub(super) fn quest_call(&mut self, batch: MessageId, request: QuestRequest) -> Output {
         let Some(active) = self.active.as_ref() else {
             return quiet(batch);
