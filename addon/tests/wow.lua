@@ -184,6 +184,47 @@ function UnitLevel(unit)
 	return u and u.level or 0
 end
 
+-- The maps of the world by id: each one a { name, layers, textures, player } table, where
+-- `player` is the position of the player on it, and `wow.playerMap` is the map where the
+-- player stands. With no maps, the pane of the journal has nothing to draw.
+wow.maps = {}
+wow.playerMap = nil
+
+local function Map(id)
+	return wow.maps[id]
+end
+
+C_Map = {
+	GetFallbackWorldMapID = function()
+		return 947
+	end,
+	GetMapChildrenInfo = function()
+		local children = {}
+		for id, map in pairs(wow.maps) do
+			children[#children + 1] = { mapID = id, name = map.name }
+		end
+		table.sort(children, function(a, b)
+			return a.mapID < b.mapID
+		end)
+		return children
+	end,
+	GetBestMapForUnit = function()
+		return wow.playerMap
+	end,
+	GetMapInfo = function(id)
+		return Map(id) and { mapID = id, name = Map(id).name }
+	end,
+	GetMapArtLayers = function(id)
+		return Map(id) and Map(id).layers
+	end,
+	GetMapArtLayerTextures = function(id)
+		return Map(id) and Map(id).textures
+	end,
+	GetPlayerMapPosition = function(id)
+		return Map(id) and Map(id).player
+	end,
+}
+
 -- A widget keeps what the tests read: its text, scripts, events, size, anchor, and whether
 -- it shows.
 -- Any other capitalized method is a no-op, like the layout calls.
@@ -266,6 +307,14 @@ function Widget:SetText(text)
 		text = text:sub(1, self.maxLetters)
 	end
 	self.text = text
+end
+
+function Widget:SetTexture(file)
+	self.file = file
+end
+
+function Widget:SetAtlas(atlas)
+	self.atlas = atlas
 end
 
 function Widget:SetMaxLetters(letters)

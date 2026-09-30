@@ -217,44 +217,6 @@ fn a_tab_opens_its_section_and_marks_itself() {
     assert!(!people_enabled);
 }
 
-/// The dark band under the parchment of the quest art, in offsets from the bottom left of
-/// the 384 by 512 frame, where QuestFrame.xml puts Accept and Decline. Below it, the art
-/// ends and a button floats over the world.
-const BAND_LEFT: f64 = 22.0;
-const BAND_RIGHT: f64 = 345.0;
-const BAND_BOTTOM: f64 = 72.0;
-const BAND_TOP: f64 = 96.0;
-
-#[test]
-fn the_tabs_stand_in_one_row_inside_the_dark_band_and_fit_their_labels() {
-    let game = Game::new();
-
-    game.run("wow.Slash('/journal', '')");
-
-    let tabs: Vec<Vec<f64>> = game.eval(
-        "local out = {}
-         for _, widget in ipairs(wow.widgets) do
-             if widget.kind == 'Button' and widget.parent == TimewaysJournalFrame
-                 and widget.template == 'UIPanelButtonTemplate' then
-                 local point = widget.point
-                 table.insert(out, { point[4], point[5], widget.width, widget.height,
-                     widget:GetStringWidth() })
-             end
-         end
-         return out",
-    );
-    assert_eq!(tabs.len(), 7);
-    for tab in tabs {
-        let [x, y, width, height, label] = tab[..] else {
-            panic!("{tab:?}")
-        };
-        // The last tab ends at the band edge, give or take a rounding of the sum.
-        assert!(x >= BAND_LEFT && x + width <= BAND_RIGHT + 0.001, "{tab:?}");
-        assert!(y >= BAND_BOTTOM && y + height <= BAND_TOP, "{tab:?}");
-        assert!(width >= label + 6.0, "{tab:?}");
-    }
-}
-
 #[test]
 fn the_book_says_how_to_use_the_open_page() {
     let game = Game::new();
@@ -446,10 +408,14 @@ fn a_chapter_tells_what_was_new_in_one_session() {
     game.reply(&journal_reply(&traveler()));
 
     let expected = [
-        "heading: Chapter 1".to_string(),
+        "note: Chapter 1".to_string(),
+        "heading: Elwynn Forest".to_string(),
         format!("text: {}.", day(&game)),
-        "entry: Traveled to Elwynn Forest and Westfall.".to_string(),
-        "entry: Met Innkeeper Farley.".to_string(),
+        "section: Places you visited".to_string(),
+        "text: Elwynn Forest and Westfall.".to_string(),
+        "section: People you met".to_string(),
+        "text: Innkeeper Farley.".to_string(),
+        "section: What you did".to_string(),
         "entry: Began this journal at level 12.".to_string(),
         "entry: Reached level 13.".to_string(),
     ];
@@ -465,8 +431,81 @@ fn a_chapter_counts_what_it_left_out() {
     );
 
     let lines = lines(&game, "chapters");
-    assert_eq!(lines[2], "entry: Traveled to A, B and C.");
-    assert_eq!(lines[3], "text: And 12 more.");
+    assert_eq!(lines[4], "text: A, B and C.");
+    assert_eq!(lines[5], "text: And 12 more.");
+}
+
+#[test]
+fn a_chapter_with_no_zone_is_named_by_its_number() {
+    let game = Game::new();
+
+    game.reply(
+        r#"{"type":"journal","page":0,"pages":1,"chapters":[{"number":4,"began":1790000000,"zones":[],"people":[],"deeds":[],"left_out":0}]}"#,
+    );
+
+    assert_eq!(lines(&game, "chapters")[0], "heading: Chapter 4");
+}
+
+#[test]
+fn a_chapter_that_spans_two_days_shows_both() {
+    let game = Game::new();
+
+    game.reply(
+        r#"{"type":"journal","page":0,"pages":1,"chapters":[{"number":1,"began":1790000000,"ended":1790100000,"zones":["A"],"people":[],"deeds":[],"left_out":0}]}"#,
+    );
+
+    let dates: String = game.eval(
+        "return date('%d %b %Y', 1790000000) .. ' to ' .. date('%d %b %Y', 1790100000) .. '.'",
+    );
+    assert_eq!(lines(&game, "chapters")[2], format!("text: {dates}"));
+}
+
+/// A journal with three chapters, in the zones A, B, and C.
+const THREE_CHAPTERS: &str = concat!(
+    r#"{"type":"journal","page":0,"pages":1,"chapters":["#,
+    r#"{"number":1,"began":1790000000,"zones":["A"],"people":[],"deeds":[],"left_out":0},"#,
+    r#"{"number":2,"began":1790000000,"zones":["B"],"people":[],"deeds":[],"left_out":0},"#,
+    r#"{"number":3,"began":1790000000,"zones":[],"people":[],"deeds":[],"left_out":0}]}"#,
+);
+
+#[test]
+fn the_chronicle_lists_each_chapter_by_its_first_zone() {
+    let game = Game::new();
+
+    game.reply(THREE_CHAPTERS);
+
+    let titles: Vec<String> = game.eval(
+        "local out = {}
+         for _, row in ipairs(ns.Journal.Page('chapters').list) do table.insert(out, row.text) end
+         return out",
+    );
+    assert_eq!(titles, ["Chapter 1: A", "Chapter 2: B", "Chapter 3"]);
+}
+
+#[test]
+fn the_chronicle_opens_on_the_newest_chapter() {
+    let game = Game::new();
+
+    game.reply(THREE_CHAPTERS);
+
+    let selected: i64 = game.eval("ns.Journal.Page('chapters').selected");
+    let footer: String = game.eval("ns.Journal.Page('chapters').footer");
+    assert_eq!(selected, 3);
+    assert_eq!(footer, "Chapter 3 of 3");
+}
+
+#[test]
+fn previous_chapter_opens_the_one_before_and_the_newest_has_no_next() {
+    let game = Game::new();
+    game.run("wow.Slash('/journal', '')");
+    game.reply(THREE_CHAPTERS);
+    game.run("ns.JournalFrame.Open('chapters')");
+
+    let next_enabled: bool = game.eval("return wow.Button('Next chapter'):IsEnabled()");
+    game.run("wow.Button('Previous chapter'):Click()");
+
+    assert!(!next_enabled);
+    assert_eq!(lines(&game, "chapters")[1], "heading: B");
 }
 
 #[test]
@@ -509,8 +548,8 @@ fn the_saga_comes_before_the_list_of_its_chapter() {
     );
 
     let lines = lines(&game, "chapters");
-    assert_eq!(lines[2], "prose: Our hero rode west. ||Hfake||h");
-    assert_eq!(lines[3], "entry: Traveled to Westfall.");
+    assert_eq!(lines[3], "prose: Our hero rode west. ||Hfake||h");
+    assert_eq!(lines[4], "section: Places you visited");
 }
 
 #[test]

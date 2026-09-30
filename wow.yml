@@ -76,6 +76,8 @@ globals:
       - type: any
   C_ChatInfo:
     any: true
+  C_Map:
+    any: true
   hooksecurefunc:
     args: [{type: any}, {type: any, required: false}, {type: any, required: false}]
   C_DeathRecap:

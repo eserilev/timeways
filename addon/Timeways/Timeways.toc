@@ -31,6 +31,8 @@ Narrator.lua
 Hero.lua
 Journal.lua
 Ink.lua
+MapPane.lua
+JournalList.lua
 Editor.lua
 JournalFrame.lua
 SelfTest.lua

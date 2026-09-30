@@ -152,7 +152,7 @@ An innkeeper tells you a rumor, and the rumor becomes a small quest line made fo
   - No step comes twice, so one event never does two steps.
   - **No overlap:** a subzone or NPC of a step is not in the title or the text of a game quest that you read. The title does not have the words of the title of such a quest, in any case. A zone is exempt, because most quest texts name their zone. The rule covers only the quests that you read.
 - **Limits** (built): each giver has at most one offer that waits, and a new offer of the giver ends the old one. A giver with an open quest waits for you to finish it. You hold at most 3 open quests. The limits hold when you ask, when the offer comes, and when you accept, because the world moves on while the model thinks. A refused accept comes back as the narrator line of its batch.
-- **Accept and progress** (built): the buttons of the Quests page name their quest by its number, so you accept the offer that you read. `/quest accept` or `/quest decline` answers the newest offer. The story program checks each step against later `zone_entered`, `npc_met`, `talk_asked`, and `npc_slapped` events, in order. A step that holds when it becomes the next step is done at once, because the addon sends a zone only when it changes. The addon sends an NPC again only after 5 minutes, and it forgets the NPCs that you met when you accept a quest. At the end, you get `quest_done`, and the giver trusts you 10 more. The model never picks this number. The finished quest is a deed, so it shows on the Deeds page and in the chronicle, and the saga gets it as a fact of the chapter.
+- **Accept and progress** (built): the buttons of the Tasks page name their quest by its number, so you accept the offer that you read. `/quest accept` or `/quest decline` answers the newest offer. The story program checks each step against later `zone_entered`, `npc_met`, `talk_asked`, and `npc_slapped` events, in order. A step that holds when it becomes the next step is done at once, because the addon sends a zone only when it changes. The addon sends an NPC again only after 5 minutes, and it forgets the NPCs that you met when you accept a quest. At the end, you get `quest_done`, and the giver trusts you 10 more. The model never picks this number. The finished quest is a deed, so it shows on the Deeds page and in the chronicle, and the saga gets it as a fact of the chapter.
 - **Storage** (built): the quest file `c_<name>.quests.jsonl` holds the offers, the answers, and the steps done. The world holds the facts: the giver holds `quest_offered`, and you hold `quest_accepted` and `quest_done`. The quest thing is named "quest <number>: <title>", so it never merges with a title.
 
 ### 3.5 Talk to an NPC
@@ -172,20 +172,25 @@ Built:
 
 ### 3.6 The journal
 
-A book in the game, in the look of the classic quest frame: the quest dialog art, the parchment, the book icon of the quest log, and dark brown ink. `/journal` or `/timeways` opens it.
+A window in the game, in the look of the Map and Quest Log of the game. `/journal` or `/timeways` opens it, and Escape closes it.
+
+- **The frame:** a path and one row of tabs on top, the map on the left, the parchment on the right, and a bar of buttons at the bottom. The tab of the open section is marked. The buttons are the dark red buttons of the game.
+- **The map** is the game's own map art of one zone (`C_Map`). A chapter or a task shows its zone when the game has a map of that name. Every other page shows the zone of the player. A pin marks where the player stands, on the map of the zone where the player is. With no map, the pane says so.
+- **A list and its page.** Tasks, Chronicle, and Hero have a list on the left. A click on a row opens it on the parchment. Over the map, the list floats in a dark box. The Hero list fills the left half on parchment, and covers the map.
+- The other pages show their lines on the parchment, beside the map of the player.
 
 The desktop sends the pages each time the book opens, because the world lives there (5.10). No model takes part in a page, and the sagas are stored words. Each page comes from the facts of the world, its history, and the files next to it (5.7).
 
 | Section | What it holds | State |
 |---|---|---|
-| **Hero** | Your sheet and your own lore (3.7), each field with an Edit button, and your entries with Add and Remove. The first time that the book shows an empty hero in a session, it opens here. | Built |
-| **Chronicle** | One chapter for each play session (3.3), with the saga and the footnotes when a model wrote them. The book opens on it. | Built |
+| **Hero** | Your sheet and your own lore (3.7). The list holds each question of the sheet with its answer. The open question has an Edit button, and under it come your notes with Add a note and Remove. Previous and Next step through the questions, and the bar counts the answered ones. The first time that the book shows an empty hero in a session, it opens here. | Built |
+| **Chronicle** | One chapter for each play session (3.3), with the saga and the footnotes when a model wrote them. The list names each chapter by its first zone. A chapter shows its places, its people, and its deeds, with Previous chapter and Next chapter. The book opens on it, at the newest chapter. | Built |
 | **Places** | Each zone, with the date of the first visit, and its subzones under it. Each place lists the people that you met there. | Built |
 | **People** | Only the NPCs that you dealt with: a change of trust, a slap, a task, a rumor, or a note of yours about them. Each shows its trust in words, your slaps, its tasks, its rumors, and your notes. An NPC that you only met shows under its place. | Built |
 | **Deeds** | Level milestones, first kills of rares and bosses, repeat kills (echoes, 5.13), your deaths, and your joke titles (5.4.1) | Built |
 | **Knowledge** | What you read and heard (3.1.1): each book, each quest tale, and each story of an NPC, with the place and the date. A rumor from `/talk` shows as a rumor. | Built |
 | **Nemesis** | Real players from world PvP only: the kill count on each side, the places, and the last time seen (4.1). Aliases only (5.11). | Later |
-| **Quests** | The personal side quests (3.4): each offer with Accept and Decline, then each quest with its steps and its state | Built |
+| **Tasks** | The personal side quests (3.4). The list groups the offers, the tasks in progress, and the done ones. The open task shows its steps, its state, and its rewards, with Accept and Decline for an offer, and Abandon for a task in progress. | Built |
 
 ### 3.7 The hero
 

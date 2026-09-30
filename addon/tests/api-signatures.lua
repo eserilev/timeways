@@ -55,6 +55,73 @@ return {
 				{ Name = "gossipText", Type = "cstring", Nilable = false },
 			},
 		},
+		["C_Map.GetBestMapForUnit"] = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "unitToken", Type = "UnitToken", Nilable = false },
+			},
+			Returns = {
+				{ Name = "uiMapID", Type = "number", Nilable = true },
+			},
+		},
+		["C_Map.GetFallbackWorldMapID"] = {
+			Returns = {
+				{ Name = "uiMapID", Type = "number", Nilable = false },
+			},
+		},
+		["C_Map.GetMapArtLayerTextures"] = {
+			MayReturnNothing = true,
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "uiMapID", Type = "number", Nilable = false },
+				{ Name = "layerIndex", Type = "luaIndex", Nilable = false },
+			},
+			Returns = {
+				{ Name = "textures", Type = "table", InnerType = "fileID", Nilable = false },
+			},
+		},
+		["C_Map.GetMapArtLayers"] = {
+			MayReturnNothing = true,
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "uiMapID", Type = "number", Nilable = false },
+			},
+			Returns = {
+				{ Name = "layerInfo", Type = "table", InnerType = "UiMapLayerInfo", Nilable = false },
+			},
+		},
+		["C_Map.GetMapChildrenInfo"] = {
+			MayReturnNothing = true,
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "uiMapID", Type = "number", Nilable = false },
+				{ Name = "mapType", Type = "UIMapType", Nilable = true },
+				{ Name = "allDescendants", Type = "bool", Nilable = true },
+			},
+			Returns = {
+				{ Name = "info", Type = "table", InnerType = "UiMapDetails", Nilable = false },
+			},
+		},
+		["C_Map.GetMapInfo"] = {
+			MayReturnNothing = true,
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "uiMapID", Type = "number", Nilable = false },
+			},
+			Returns = {
+				{ Name = "info", Type = "UiMapDetails", Nilable = false },
+			},
+		},
+		["C_Map.GetPlayerMapPosition"] = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "uiMapID", Type = "number", Nilable = false },
+				{ Name = "unitToken", Type = "UnitToken", Nilable = false },
+			},
+			Returns = {
+				{ Name = "position", Type = "vector2", Mixin = "Vector2DMixin", Nilable = true },
+			},
+		},
 		["C_QuestLog.GetInfo"] = {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {
@@ -375,6 +442,14 @@ return {
 				{ Name = "font", Type = "SimpleFont", Nilable = false },
 			},
 		},
+		["SimpleButtonAPI:SetHighlightTexture"] = {
+			CheckAllowChangeParent = true,
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "asset", Type = "TextureAsset", Nilable = false },
+				{ Name = "blendMode", Type = "BlendMode", Nilable = true },
+			},
+		},
 		["SimpleButtonAPI:SetNormalFontObject"] = {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {
@@ -533,6 +608,12 @@ return {
 				{ Name = "a", Type = "SingleColorValue", Nilable = true },
 			},
 		},
+		["SimpleFontStringAPI:SetWordWrap"] = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "wrap", Type = "bool", Nilable = false },
+			},
+		},
 		["SimpleFrameAPI:CreateFontString"] = {
 			SecretArguments = "NotAllowed",
 			Arguments = {
@@ -584,6 +665,12 @@ return {
 				{ Name = "buttons", Type = "MouseButton", Nilable = false, StrideIndex = 1 },
 			},
 		},
+		["SimpleFrameAPI:SetClipsChildren"] = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "clipsChildren", Type = "bool", Nilable = false },
+			},
+		},
 		["SimpleFrameAPI:SetFrameLevel"] = {
 			IsProtectedFunction = true,
 			SecretArguments = "AllowedWhenUntainted",
@@ -597,16 +684,6 @@ return {
 			SecretArguments = "NotAllowed",
 			Arguments = {
 				{ Name = "strata", Type = "FrameStrata", Nilable = false },
-			},
-		},
-		["SimpleFrameAPI:SetHitRectInsets"] = {
-			IsProtectedFunction = true,
-			SecretArguments = "NotAllowed",
-			Arguments = {
-				{ Name = "left", Type = "uiUnit", Nilable = false },
-				{ Name = "right", Type = "uiUnit", Nilable = false },
-				{ Name = "top", Type = "uiUnit", Nilable = false },
-				{ Name = "bottom", Type = "uiUnit", Nilable = false },
 			},
 		},
 		["SimpleFrameAPI:SetIgnoreParentScale"] = {
@@ -849,6 +926,17 @@ return {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {
 				{ Name = "enabled", Type = "bool", Nilable = false },
+			},
+		},
+		["SimpleTextureBaseAPI:SetAtlas"] = {
+			SecretArguments = "AllowedWhenTainted",
+			Arguments = {
+				{ Name = "atlas", Type = "textureAtlas", Nilable = false },
+				{ Name = "useAtlasSize", Type = "bool", Nilable = false, NeverSecret = true, Default = false },
+				{ Name = "filterMode", Type = "FilterMode", Nilable = true, NeverSecret = true },
+				{ Name = "resetTexCoords", Type = "bool", Nilable = true, NeverSecret = true },
+				{ Name = "wrapModeHorizontal", Type = "cstring", Nilable = true, NeverSecret = true },
+				{ Name = "wrapModeVertical", Type = "cstring", Nilable = true, NeverSecret = true },
 			},
 		},
 		["SimpleTextureBaseAPI:SetColorTexture"] = {
