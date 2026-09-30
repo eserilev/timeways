@@ -9,7 +9,7 @@ publish = false
 
 [dependencies]
 # One pin with the transport copy in CI (.github/workflows/ci.yml), which checks that both match.
-app-protocol = { git = "https://github.com/eserilev/gnomish-relay", rev = "a65c37c70b94728bf2bbafe6970ee540efb06a50" }
+app-protocol = { git = "https://github.com/eserilev/gnomish-relay", rev = "111884e06be7a1387262df72ee44da38acdbd3e1" }
 serde_json.workspace = true
 timeways-story = { path = "../story" }
 
