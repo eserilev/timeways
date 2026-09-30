@@ -15,15 +15,22 @@ local function Readable(value)
 	return type(value) == "string" and value ~= "" and not issecretvalue(value)
 end
 
--- "Ada" becomes "Ada-Stormrage". A name that is too long or holds a space is no name.
+-- "Ada" becomes "Ada-Stormrage". The realm loses its spaces, as in the name of the sender
+-- of an addon message: "Bram-Argent Dawn" becomes "Bram-ArgentDawn". A character name
+-- with a space is no name.
 function TaskPeople.Full(name)
-	if not Readable(name) or #name > MAX_NAME or name:find("[%s%c|;]") then
+	if not Readable(name) or #name > MAX_NAME or name:find("[%c|;]") then
 		return nil
 	end
-	if name:find("-", 1, true) then
-		return name
+	local short, realm = name:match("^([^-]+)%-(.+)$")
+	if not short then
+		short, realm = name, GetNormalizedRealmName()
 	end
-	return name .. "-" .. GetNormalizedRealmName()
+	realm = realm:gsub("%s", "")
+	if short:find("%s") or realm == "" then
+		return nil
+	end
+	return short .. "-" .. realm
 end
 
 -- The name as the game shows it: without the realm for a player of your own realm.
@@ -32,7 +39,7 @@ function TaskPeople.Short(name)
 end
 
 local function UnitFull(unit)
-	local name, realm = UnitName(unit)
+	local name, realm = UnitFullName(unit)
 	if not Readable(name) then
 		return nil
 	end
@@ -78,18 +85,45 @@ function TaskPeople.GroupUnit(name)
 	end
 end
 
--- Returns whether the name is in the guild roster, and whether it is online there.
-local function GuildMember(name)
-	if not IsInGuild() then
-		return false, false
+-- The guild roster as { [name] = online }. The game fires GUILD_ROSTER_UPDATE when it
+-- changes, so a whisper that waits never scans the whole guild each second.
+local roster
+
+local function Roster()
+	if roster then
+		return roster
 	end
-	for n = 1, GetNumGuildMembers() do
+	roster = {}
+	for n = 1, IsInGuild() and GetNumGuildMembers() or 0 do
 		local member, _, _, _, _, _, _, _, online = GetGuildRosterInfo(n)
-		if TaskPeople.Full(member) == name then
-			return true, online == true
+		local name = TaskPeople.Full(member)
+		if name then
+			roster[name] = online == true
 		end
 	end
-	return false, false
+	return roster
+end
+
+-- The client learns who is online in the guild only when it asks. The server answers one
+-- ask in 10 seconds at most.
+local ROSTER_SECONDS = 15
+local rosterAskedAt
+
+function TaskPeople.AskGuildRoster()
+	local now = GetTime()
+	if not IsInGuild() or (rosterAskedAt and now - rosterAskedAt < ROSTER_SECONDS) then
+		return
+	end
+	rosterAskedAt = now
+	C_GuildInfo.GuildRoster()
+end
+
+function TaskPeople.GuildNames()
+	local names = {}
+	for name in pairs(Roster()) do
+		names[#names + 1] = name
+	end
+	return names
 end
 
 local function Friend(name)
@@ -103,7 +137,7 @@ function TaskPeople.Relation(name)
 	if TaskPeople.GroupUnit(name) then
 		return "party"
 	end
-	if GuildMember(name) then
+	if Roster()[name] ~= nil then
 		return "guild"
 	end
 	if Friend(name) then
@@ -111,16 +145,57 @@ function TaskPeople.Relation(name)
 	end
 end
 
--- A whisper to a player who is offline puts an error in the chat, so a message waits
--- until this is true.
-function TaskPeople.IsOnline(name)
-	local unit = TaskPeople.GroupUnit(name)
-	if unit then
-		return UnitIsConnected(unit) == true
+-- A peer who sent you a message in the last minute is online.
+local HEARD_SECONDS = 60
+local MAX_HEARD = 64
+local heard, heardCount = {}, 0
+
+function TaskPeople.Heard(name)
+	if not heard[name] then
+		if heardCount >= MAX_HEARD then
+			heard, heardCount = {}, 0
+		end
+		heardCount = heardCount + 1
 	end
-	local _, online = GuildMember(name)
+	heard[name] = GetTime()
+end
+
+local function HeardLately(name)
+	return heard[name] ~= nil and GetTime() - heard[name] <= HEARD_SECONDS
+end
+
+-- A unit of the player, for a check of distance: your target, the unit under the mouse,
+-- or a member of your group.
+function TaskPeople.UnitOf(name)
+	for _, unit in ipairs({ "target", "mouseover" }) do
+		if TaskPeople.OfUnit(unit) == name then
+			return unit
+		end
+	end
+	return TaskPeople.GroupUnit(name)
+end
+
+-- "online", "offline", or "unknown": a player who left your group and is in neither your
+-- guild nor your friends list is unknown. A whisper to a player who is offline puts an
+-- error in the chat, so a message to an offline player waits.
+function TaskPeople.Presence(name)
+	local unit = TaskPeople.UnitOf(name)
+	if unit then
+		return UnitIsConnected(unit) == true and "online" or "offline"
+	end
 	local friend = Friend(name)
-	return online or (friend ~= nil and friend.connected == true)
+	if (friend and friend.connected == true) or HeardLately(name) then
+		return "online"
+	end
+	local inGuild = Roster()[name]
+	if inGuild ~= nil then
+		return inGuild and "online" or "offline"
+	end
+	return friend and "offline" or "unknown"
+end
+
+function TaskPeople.IsOnline(name)
+	return TaskPeople.Presence(name) == "online"
 end
 
 function TaskPeople.OnlineFriends()
@@ -135,19 +210,15 @@ function TaskPeople.OnlineFriends()
 	return names
 end
 
--- A unit of the player, for a check of distance: your target, the unit under the mouse,
--- or a member of your group.
-function TaskPeople.UnitOf(name)
-	for _, unit in ipairs({ "target", "mouseover" }) do
-		if TaskPeople.OfUnit(unit) == name then
-			return unit
-		end
-	end
-	return TaskPeople.GroupUnit(name)
-end
-
 -- Face to face: close enough to trade.
 function TaskPeople.IsNear(name)
 	local unit = TaskPeople.UnitOf(name)
 	return unit ~= nil and CheckInteractDistance(unit, TRADE_DISTANCE) == true
 end
+
+local frame = CreateFrame("Frame")
+frame:RegisterEvent("GUILD_ROSTER_UPDATE")
+frame:RegisterEvent("PLAYER_GUILD_UPDATE")
+frame:SetScript("OnEvent", function()
+	roster = nil
+end)

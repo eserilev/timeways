@@ -14,17 +14,31 @@ local BURST, PER_SECOND = 8, 1
 local PEER_BURST, PEER_SECONDS = 24, 2
 local MAX_PEERS = 64
 local MAX_WAITING = 100
+-- A whisper that found its player offline waits this long before it tries again, unless
+-- the player shows as online first. Each try puts an error in the chat.
+local OFFLINE_SECONDS = 300
 
-local SUCCESS = 0
+local RESULT = Enum.SendAddonMessageResult
+-- The game never takes a message with these results, so the message is dropped.
+local PERMANENT = {
+	[RESULT.InvalidPrefix] = true,
+	[RESULT.InvalidMessage] = true,
+	[RESULT.InvalidChatType] = true,
+	[RESULT.NotInGroup] = true,
+	[RESULT.TargetRequired] = true,
+	[RESULT.InvalidChannel] = true,
+	[RESULT.NotInGuild] = true,
+}
 
 local tokens, filled = BURST, nil
-local number = 0
+-- A counter that starts at 1 after each reload would join old parts of a peer to new ones.
+local number = math.random(0, 9998)
 local collector = ns.TaskChunks.NewCollector()
 local allowance = {}
 local allowanceCount = 0
 
--- The messages that wait, oldest first: { to, channel, text }. A whisper waits until its
--- player is online.
+-- The messages that wait, oldest first: { to, channel, parts, retryAt }. `parts` holds the
+-- parts that the game has not taken yet.
 local waiting = {}
 
 C_ChatInfo.RegisterAddonMessagePrefix(TaskChannel.PREFIX)
@@ -35,31 +49,48 @@ local function Refill(now)
 	filled = now
 end
 
-local function Ready(entry)
-	return entry.channel ~= "WHISPER" or ns.TaskPeople.IsOnline(entry.to)
-end
-
--- Returns false when the game refused the first part, so the message waits.
-local function SendNow(entry)
-	number = ns.TaskChunks.NextNumber(number)
-	local parts = ns.TaskChunks.Split(entry.text, number) or {}
-	for n, part in ipairs(parts) do
-		local target = entry.channel == "WHISPER" and entry.to or nil
-		local result = C_ChatInfo.SendAddonMessage(TaskChannel.PREFIX, part, entry.channel, target)
-		if result ~= SUCCESS and n == 1 then
-			return false
-		end
+local function Ready(entry, now)
+	if entry.channel ~= "WHISPER" then
+		return true
 	end
-	tokens = tokens - #parts
+	if entry.retryAt and now < entry.retryAt and not ns.TaskPeople.IsOnline(entry.to) then
+		return false
+	end
+	if ns.TaskPeople.Presence(entry.to) == "offline" then
+		ns.TaskPeople.AskGuildRoster()
+		return false
+	end
 	return true
 end
 
+-- Sends the parts while the rate limit allows. Returns "sent", "wait", or "drop".
+local function SendParts(entry, now)
+	local target = entry.channel == "WHISPER" and entry.to or nil
+	while #entry.parts > 0 and tokens >= 1 do
+		local result = C_ChatInfo.SendAddonMessage(TaskChannel.PREFIX, entry.parts[1], entry.channel, target)
+		if PERMANENT[result] then
+			return "drop"
+		end
+		if result == RESULT.TargetOffline then
+			entry.retryAt = now + OFFLINE_SECONDS
+			return "wait"
+		end
+		if result ~= RESULT.Success then
+			return "wait"
+		end
+		table.remove(entry.parts, 1)
+		tokens = tokens - 1
+	end
+	return #entry.parts == 0 and "sent" or "wait"
+end
+
 function TaskChannel.Flush()
-	Refill(GetTime())
+	local now = GetTime()
+	Refill(now)
 	local kept = {}
 	for _, entry in ipairs(waiting) do
-		local sent = tokens >= 1 and Ready(entry) and SendNow(entry)
-		if not sent then
+		local outcome = Ready(entry, now) and SendParts(entry, now) or "wait"
+		if outcome == "wait" then
 			kept[#kept + 1] = entry
 		end
 	end
@@ -67,7 +98,12 @@ function TaskChannel.Flush()
 end
 
 local function Queue(to, channel, message)
-	waiting[#waiting + 1] = { to = to, channel = channel, text = ns.TaskWire.Encode(message) }
+	number = ns.TaskChunks.NextNumber(number)
+	local parts = ns.TaskChunks.Split(ns.TaskWire.Encode(message), number)
+	if not parts then
+		return
+	end
+	waiting[#waiting + 1] = { to = to, channel = channel, parts = parts }
 	while #waiting > MAX_WAITING do
 		table.remove(waiting, 1)
 	end
@@ -78,10 +114,21 @@ function TaskChannel.Whisper(to, message)
 	Queue(to, "WHISPER", message)
 end
 
+-- LE_PARTY_CATEGORY_INSTANCE of the client, which the API gate does not list.
+local INSTANCE_GROUP = 2
+
+-- A group of the group finder has only INSTANCE_CHAT.
+local function GroupChannel()
+	if IsInGroup(INSTANCE_GROUP) then
+		return "INSTANCE_CHAT"
+	end
+	return IsInRaid() and "RAID" or "PARTY"
+end
+
 -- To your group and your guild at once.
 function TaskChannel.Broadcast(message)
 	if IsInGroup() then
-		Queue(nil, IsInRaid() and "RAID" or "PARTY", message)
+		Queue(nil, GroupChannel(), message)
 	end
 	if IsInGuild() then
 		Queue(nil, "GUILD", message)
@@ -112,7 +159,7 @@ local function Allowed(sender, now)
 end
 
 -- The payload of CHAT_MSG_ADDON. The game names the sender, so the sender is known.
-function TaskChannel.Received(prefix, text, _, sender)
+function TaskChannel.Received(prefix, text, channel, sender)
 	if prefix ~= TaskChannel.PREFIX or type(text) ~= "string" or issecretvalue(text) then
 		return
 	end
@@ -121,10 +168,11 @@ function TaskChannel.Received(prefix, text, _, sender)
 	if not sender or sender == ns.TaskPeople.Me() or not Allowed(sender, now) then
 		return
 	end
+	ns.TaskPeople.Heard(sender)
 	local whole = ns.TaskChunks.Add(collector, sender, text, now)
 	local message = whole and ns.TaskWire.Decode(whole)
 	if message then
-		ns.PlayerTasks.Receive(sender, message)
+		ns.PlayerTasks.Receive(sender, message, channel)
 	end
 end
 

@@ -52,13 +52,17 @@ function TaskChunks.NewCollector()
 	return { senders = {} }
 end
 
+local function ForgetOld(open, now)
+	for number, message in pairs(open) do
+		if now - message.started > EXPIRE_SECONDS then
+			open[number] = nil
+		end
+	end
+end
+
 local function Forget(collector, now)
 	for sender, open in pairs(collector.senders) do
-		for number, message in pairs(open) do
-			if now - message.started > EXPIRE_SECONDS then
-				open[number] = nil
-			end
-		end
+		ForgetOld(open, now)
 		if next(open) == nil then
 			collector.senders[sender] = nil
 		end
@@ -123,6 +127,8 @@ function TaskChunks.Add(collector, sender, chunk, now)
 	if not open then
 		return nil
 	end
+	-- A part of the same number from before a reload of the peer never joins a new one.
+	ForgetOld(open, now)
 	local message = Started(open, number, count, now)
 	if not message.parts[part] then
 		message.parts[part] = text

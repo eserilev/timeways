@@ -153,7 +153,11 @@ globals:
   Ambiguate:
     args: [{type: string}, {type: string}]
   IsInGroup:
-    args: []
+    args: [{type: number, required: false}]
+  UnitFullName:
+    args: [{type: string}]
+  C_GuildInfo:
+    any: true
   IsInRaid:
     args: []
   IsInGuild:

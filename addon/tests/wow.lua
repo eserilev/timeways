@@ -62,13 +62,22 @@ function UnitExists(unit)
 	return u ~= nil and not u.object
 end
 
--- A player of another realm has `realm` in its table.
+-- A player of another realm has `realm` in its table, as the game shows it: "Argent Dawn".
 function UnitName(unit)
 	local u = Unit(unit)
 	if not u then
 		return nil
 	end
 	return u.name, u.realm
+end
+
+-- The realm without its spaces, as in the name of the sender of an addon message.
+function UnitFullName(unit)
+	local u = Unit(unit)
+	if not u then
+		return nil
+	end
+	return u.name, u.realm and u.realm:gsub("%s", "") or nil
 end
 
 function UnitIsPlayer(unit)
@@ -89,6 +98,21 @@ end
 Enum = {
 	TooltipDataType = { Unit = 2 },
 	UIMapType = { Cosmic = 0, World = 1, Continent = 2, Zone = 3, Dungeon = 4, Micro = 5, Orphan = 6 },
+	SendAddonMessageResult = {
+		Success = 0,
+		InvalidPrefix = 1,
+		InvalidMessage = 2,
+		AddonMessageThrottle = 3,
+		InvalidChatType = 4,
+		NotInGroup = 5,
+		TargetRequired = 6,
+		InvalidChannel = 7,
+		ChannelThrottle = 8,
+		GeneralError = 9,
+		NotInGuild = 10,
+		AddOnMessageLockdown = 11,
+		TargetOffline = 12,
+	},
 }
 
 -- The game's tooltip, and the hooks that run after it shows a unit.
@@ -210,6 +234,20 @@ wow.addonSent = {}
 wow.prefixes = {}
 -- The game refuses a message with this result, for a test of the throttle.
 wow.sendResult = 0
+-- The results of the next sends, first in first out. Past its end, `sendResult` holds.
+wow.sendResults = {}
+-- The players who are offline, by full name: a whisper to one of them fails.
+wow.offline = {}
+
+local function SendResult(channel, target)
+	if channel == "WHISPER" and wow.offline[target] then
+		return Enum.SendAddonMessageResult.TargetOffline
+	end
+	if #wow.sendResults > 0 then
+		return table.remove(wow.sendResults, 1)
+	end
+	return wow.sendResult
+end
 
 C_ChatInfo = {
 	PerformEmote = function() end,
@@ -219,10 +257,11 @@ C_ChatInfo = {
 	end,
 	SendAddonMessage = function(prefix, text, channel, target)
 		assert(#text <= 255, "an addon message holds at most 255 bytes")
-		if wow.sendResult == 0 then
+		local result = SendResult(channel, target)
+		if result == 0 then
 			wow.addonSent[#wow.addonSent + 1] = { prefix = prefix, text = text, channel = channel, target = target }
 		end
-		return wow.sendResult
+		return result
 	end,
 }
 
@@ -714,8 +753,16 @@ function Ambiguate(name, _)
 	return name
 end
 
+-- True in a group of the group finder: then the group channel is INSTANCE_CHAT.
+wow.instanceGroup = false
+-- LE_PARTY_CATEGORY_INSTANCE of the client.
+local INSTANCE_GROUP = 2
+
 -- The group is the units "party1" to "party4" and "raid1" to "raid40" in `wow.units`.
-function IsInGroup()
+function IsInGroup(category)
+	if category == INSTANCE_GROUP then
+		return wow.instanceGroup
+	end
 	for unit in pairs(wow.units) do
 		if unit:match("^party%d") or unit:match("^raid%d") then
 			return true
@@ -739,14 +786,27 @@ function UnitIsConnected(unit)
 	return u ~= nil and not u.offline
 end
 
--- A unit with `near` in its table stands close enough to trade.
-function CheckInteractDistance(unit, _)
+-- The yards of each distance of CheckInteractDistance: inspect, trade, duel, follow.
+local INTERACT_YARDS = { 28, 11.11, 9.9, 28 }
+
+-- A unit with `near` in its table stands close enough to trade. A unit with `yards` stands
+-- that far away.
+function CheckInteractDistance(unit, distance)
 	local u = Unit(unit)
-	return u ~= nil and u.near == true
+	if u == nil then
+		return false
+	end
+	if u.near then
+		return true
+	end
+	return u.yards ~= nil and u.yards <= INTERACT_YARDS[distance]
 end
 
--- The guild: nil for none, or a list of { name = "Name-Realm", online }.
+-- The guild: nil for none, or a list of { name = "Name-Realm", online }. The roster of the
+-- client shows `listed` in place of `online` when a member has it: the client learns who is
+-- online only when it asks the server with C_GuildInfo.GuildRoster.
 wow.guild = nil
+wow.rosterRequests = 0
 
 function IsInGuild()
 	return wow.guild ~= nil
@@ -758,8 +818,22 @@ end
 
 function GetGuildRosterInfo(index)
 	local member = wow.guild[index]
-	return member.name, "Member", 1, 60, "Warlock", "Brill", "", "", member.online
+	local online = member.online
+	if member.listed ~= nil then
+		online = member.listed
+	end
+	return member.name, "Member", 1, 60, "Warlock", "Brill", "", "", online
 end
+
+C_GuildInfo = {
+	GuildRoster = function()
+		wow.rosterRequests = wow.rosterRequests + 1
+		for _, member in ipairs(wow.guild or {}) do
+			member.listed = member.online
+		end
+		wow.Fire("GUILD_ROSTER_UPDATE", false)
+	end,
+}
 
 -- The friends list: each one { name, connected }, with the name as the game shows it.
 wow.friends = {}

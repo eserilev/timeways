@@ -114,6 +114,7 @@ return {
 				{ Name = "gossipText", Type = "cstring", Nilable = false },
 			},
 		},
+		["C_GuildInfo.GuildRoster"] = {},
 		["C_Map.GetBestMapForUnit"] = {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {
@@ -341,6 +342,17 @@ return {
 			},
 			Returns = {
 				{ Name = "result", Type = "bool", Nilable = false },
+			},
+		},
+		UnitFullName = {
+			SecretArguments = "AllowedWhenUntainted",
+			SecretWhenUnitIdentityRestricted = true,
+			Arguments = {
+				{ Name = "unit", Type = "UnitToken", Nilable = false },
+			},
+			Returns = {
+				{ Name = "unitName", Type = "cstring", Nilable = false },
+				{ Name = "unitServer", Type = "cstring", Nilable = false },
 			},
 		},
 		UnitGUID = {
@@ -1218,6 +1230,12 @@ return {
 		GROUP_ROSTER_UPDATE = {
 			UniqueEvent = true,
 		},
+		GUILD_ROSTER_UPDATE = {
+			SynchronousEvent = true,
+			Payload = {
+				{ Name = "canRequestRosterUpdate", Type = "bool", Nilable = false },
+			},
+		},
 		ITEM_TEXT_READY = {
 			SynchronousEvent = true,
 		},
@@ -1243,6 +1261,12 @@ return {
 			Payload = {
 				{ Name = "isInitialLogin", Type = "bool", Nilable = false },
 				{ Name = "isReloadingUi", Type = "bool", Nilable = false },
+			},
+		},
+		PLAYER_GUILD_UPDATE = {
+			SynchronousEvent = true,
+			Payload = {
+				{ Name = "unitTarget", Type = "UnitTokenVariant", Nilable = false },
 			},
 		},
 		PLAYER_LEVEL_UP = {

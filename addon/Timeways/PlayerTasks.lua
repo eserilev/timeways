@@ -387,11 +387,15 @@ local function Here(sender)
 end
 
 -- `sender` is the full name that the game gave. Each message is checked against what this
--- addon knows: an offer comes only from party, guild, or friends, and every other type
--- only from the other player of its task.
-function PlayerTasks.Receive(sender, message)
+-- addon knows: a hello comes to the group or the guild, every other type only as a whisper,
+-- an offer only from party, guild, or friends, and the rest only from the other player of
+-- its task.
+function PlayerTasks.Receive(sender, message, channel)
 	if message.type == "hello" then
 		return Hello(sender)
+	end
+	if channel ~= "WHISPER" then
+		return
 	end
 	if message.type == "here" then
 		return Here(sender)

@@ -52,7 +52,10 @@ impl Player {
                 other.full_name()
             ));
         }
-        self.run(&format!("wow.guild = {{ {} }}", members.join(", ")));
+        self.run(&format!(
+            "wow.guild = {{ {} }} wow.Fire('GUILD_ROSTER_UPDATE', false)",
+            members.join(", ")
+        ));
     }
 
     /// Puts the other player in the party of this one, as `party1`.

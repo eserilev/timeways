@@ -292,7 +292,9 @@ fn a_whisper_to_a_player_who_is_offline_waits_until_they_come_online() {
     ada.run("ns.TaskChannel.Whisper('Corvin-Stormrage', { type = 'here' })");
     let while_offline = ada.take_sent().len();
     ada.run("wow.guild[2].online = true");
-    ada.tick();
+    for _ in 0..20 {
+        ada.tick();
+    }
 
     assert_eq!(while_offline, 0);
     assert_eq!(ada.take_sent().len(), 1);
@@ -345,4 +347,126 @@ fn a_peer_that_floods_loses_its_parts_and_nobody_elses() {
     assert_eq!(answers_to_ada, 24);
     let answers: Vec<Option<String>> = corvin.take_sent().into_iter().map(|sent| sent.3).collect();
     assert_eq!(answers, [Some(bram.full_name())]);
+}
+
+#[test]
+fn a_part_from_before_a_reload_never_joins_a_new_message() {
+    let game = Game::new();
+
+    let whole: Option<String> = game.eval(
+        "local collector = ns.TaskChunks.NewCollector()
+         ns.TaskChunks.Add(collector, 'Ada-Stormrage', '1:1:2:ab', 0)
+         return ns.TaskChunks.Add(collector, 'Ada-Stormrage', '1:2:2:cd', 61)",
+    );
+
+    assert_eq!(whole, None);
+}
+
+#[test]
+fn the_parts_that_the_game_refuses_wait_and_go_later() {
+    let (ada, corvin) = ada_and_corvin();
+    ada.run(&format!(
+        "local offer = {OFFER}
+         offer.text = string.rep('Gregor walks. ', 28)
+         wow.sendResults = {{ 0, 3 }}
+         ns.TaskChannel.Whisper('Corvin-Stormrage', offer)"
+    ));
+    let first = deliver(&ada, &corvin);
+
+    ada.tick();
+    deliver(&ada, &corvin);
+
+    assert_eq!(first, 1);
+    let got: bool = corvin.eval("next(ns.TaskStore.Data().received) ~= nil");
+    assert!(got);
+}
+
+#[test]
+fn a_task_message_outside_a_whisper_is_ignored() {
+    let (ada, corvin) = ada_and_corvin();
+
+    corvin.hear(
+        "Timeways",
+        "1:1:1:1;offer;k1;Hi;Go.;;1;npc;Renee;1",
+        "GUILD",
+        &ada.full_name(),
+    );
+
+    let got: bool = corvin.eval("next(ns.TaskStore.Data().received) ~= nil");
+    assert!(!got);
+}
+
+#[test]
+fn a_call_in_a_group_finder_group_goes_to_the_instance_channel() {
+    let (ada, corvin) = ada_and_corvin();
+    ada.in_party_with(&corvin);
+    ada.run("wow.instanceGroup = true");
+
+    ada.run("ns.PlayerTasks.Call()");
+
+    let channels: Vec<String> = ada.take_sent().into_iter().map(|sent| sent.2).collect();
+    assert_eq!(channels, ["INSTANCE_CHAT", "GUILD"]);
+}
+
+#[test]
+fn a_call_that_the_game_refuses_for_good_is_dropped() {
+    let (ada, _corvin) = ada_and_corvin();
+    ada.run("wow.sendResult = 10");
+
+    ada.run("ns.PlayerTasks.Call()");
+
+    let waiting: usize = ada.eval("ns.TaskChannel.Waiting()");
+    assert_eq!(waiting, 0);
+}
+
+#[test]
+fn a_whisper_to_a_player_from_a_party_that_ended_still_goes() {
+    let ada = Player::new("Ada");
+    let bram = Player::new("Bram");
+    ada.in_party_with(&bram);
+    ada.leave_party();
+
+    ada.run("ns.TaskChannel.Whisper('Bram-Stormrage', { type = 'here' })");
+
+    assert_eq!(deliver(&ada, &bram), 1);
+}
+
+#[test]
+fn a_whisper_that_finds_its_player_offline_tries_again_later() {
+    let ada = Player::new("Ada");
+    ada.run("wow.offline['Bram-Stormrage'] = true");
+
+    ada.run("ns.TaskChannel.Whisper('Bram-Stormrage', { type = 'here' })");
+    ada.run("wow.offline = {}");
+    ada.tick();
+    let soon = ada.take_sent().len();
+    ada.run("wow.now = wow.now + 300");
+    ada.tick();
+
+    assert_eq!(soon, 0);
+    assert_eq!(ada.take_sent().len(), 1);
+}
+
+#[test]
+fn a_guild_roster_that_shows_a_member_offline_is_asked_again() {
+    let (ada, _corvin) = ada_and_corvin();
+    ada.run("wow.guild[2].listed = false");
+
+    ada.run("ns.TaskChannel.Whisper('Corvin-Stormrage', { type = 'here' })");
+    let at_once = ada.take_sent().len();
+    ada.tick();
+    ada.tick();
+
+    assert_eq!(at_once, 0);
+    assert_eq!(ada.take_sent().len(), 1);
+}
+
+#[test]
+fn a_player_of_a_realm_with_a_space_in_its_name_is_found_in_the_group() {
+    let ada = Player::new("Ada");
+    ada.run("wow.units.party1 = { name = 'Bram', realm = 'Argent Dawn', player = true }");
+
+    let unit: Option<String> = ada.eval("ns.TaskPeople.GroupUnit('Bram-ArgentDawn')");
+
+    assert_eq!(unit.as_deref(), Some("party1"));
 }
