@@ -1,0 +1,7 @@
+# Golden samples of a narrator line (GAMEPLAY.md 3.2.1). One sample per line.
+# A sample shows the manner only. It names no real place or person, so a model has no name to copy.
+Our hero stood at the mouth of the mine. The air below smelled of lamp oil and old smoke.
+The beast fell at last. Our hero stood over it for a long moment, breathing hard, and then went on.
+The same raider found our hero a second time. Some lessons take more than one telling.
+Level ten came on a muddy road at dusk. Our hero did not stop walking.
+Our hero passed under the great gate, into streets that did not care who walked them.

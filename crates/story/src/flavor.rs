@@ -80,7 +80,7 @@ impl Kind {
     }
 }
 
-/// One telling of a kind of joke, by the narrator or the bard.
+/// One telling of a kind of joke, as a flavor line or as a footnote of the chronicle.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Told {
     pub key: String,
@@ -96,7 +96,9 @@ pub struct Told {
 pub enum Teller {
     #[default]
     Narrator,
-    Bard,
+    /// The saved name stays "bard", so old flavor files still read.
+    #[serde(rename = "bard")]
+    Chronicle,
 }
 
 /// The score of `flavor`, given the moments before it and the tellings so far.

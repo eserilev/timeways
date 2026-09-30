@@ -478,7 +478,7 @@ fn a_slapped_npc_shows_the_slaps_and_the_trust_in_words() {
 }
 
 #[test]
-fn the_saga_of_the_bard_comes_before_the_list_of_its_chapter() {
+fn the_saga_comes_before_the_list_of_its_chapter() {
     let game = Game::new();
 
     game.reply(
@@ -542,7 +542,7 @@ fn a_title_shows_as_a_deed() {
 }
 
 #[test]
-fn the_footnotes_of_the_bard_follow_its_saga() {
+fn the_footnotes_follow_their_saga() {
     let game = Game::new();
 
     game.reply(

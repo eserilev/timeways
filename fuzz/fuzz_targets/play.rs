@@ -216,9 +216,9 @@ fn answer(prompt: &str, words: &Words) -> Option<String> {
     }
     let footnote = |(moment, text): &(u8, Prose)| json!({"moment": moment % 6, "text": text.0});
     let footnotes: Vec<Value> = words.footnotes.iter().map(footnote).collect();
-    Some(if prompt.contains("You are a bard of Azeroth") {
+    Some(if prompt.contains("Write chapter") {
         json!({"saga": words.saga.0, "footnotes": footnotes}).to_string()
-    } else if prompt.contains("You are the narrator") {
+    } else if prompt.contains("Tell the moment") {
         words.line.0.clone()
     } else if prompt.contains("small task of your own") {
         quest(prompt, words).to_string()

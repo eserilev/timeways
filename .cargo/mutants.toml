@@ -13,7 +13,7 @@ examine_globs = [
     "crates/story/src/flavor.rs",
     "crates/story/src/titles.rs",
     "crates/story/src/hero.rs",
-    "crates/story/src/bard.rs",
+    "crates/story/src/chronicle.rs",
     "crates/story/src/narrator.rs",
     "crates/story/src/lore.rs",
     "crates/story/src/pack.rs",

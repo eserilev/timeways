@@ -6,7 +6,7 @@ Timeways is a World of Warcraft: Forever addon. It adds a story layer to the gam
 
 An AI model writes the words. A rules engine decides what is true. The game itself supplies the facts.
 
-Status: early build. The story program keeps the world of each character in a file, and serves `/lore`, `/talk`, `/quest`, the journal, the narrator, and the bard. The addon talks to it through the shared transport of Gnomish Relay. Nobody has run the parts together in the game yet, and no real lore pack exists yet.
+Status: early build. The story program keeps the world of each character in a file, and serves `/lore`, `/talk`, `/quest`, the journal, and the narrator. The addon talks to it through the shared transport of Gnomish Relay. Nobody has run the parts together in the game yet, and no real lore pack exists yet.
 
 ## 1. The four parts
 
@@ -57,7 +57,7 @@ You target an NPC, stand in a place, or hold a quest, and you ask a question: `/
 - **Answers come from sources.** A local search of the lore pack (5.10) finds the best passages, and the answer names their sources. No question needs a web request.
 - **No invented facts.** When no page supports a claim, the answer says "legend says" or "nobody knows".
 - **The spoiler limit.** The agent tells only what your world already holds. Your world holds the places that you visited, the NPCs that you met, and the quests that you finished. The lore of later expansions and of quests that you have not reached stays hidden.
-- **A voice in the world.** The answer comes from a local historian or a bard.
+- **A voice in the world.** The answer comes from a local historian.
 - **A follow-up question** continues the same conversation.
 
 This slice tests the whole chain with one question and one answer: the addon, the relay, the world, the spoiler limit, and the agent.
@@ -76,30 +76,50 @@ Most lore comes from play. You learn what your character read or heard: quests, 
 
 ### 3.2 The narrator
 
-No invented companion rides along. A narrator tells the big moments as they happen, in one short line in the voice of the chronicle, about "our hero". The chronicle speaks after a session. The narrator is the only voice while you play.
+No invented companion rides along. A narrator tells the big moments as they happen, in one short line about "our hero". The same narrator writes the chronicle after a session (3.3). There is no other storyteller, and no bard.
+
+**Who it is.** The narrator is a keeper of time, and nobody knows more than that. It never names itself or what it serves. It has seen how things end, and it never tells the future: that is the spoiler rule. Its voice is serious, concrete, and sparing, with a dry edge at most. It makes no jokes and no silly lines.
+
 
 - It reacts to big moments. The story program finds them in the events that each batch adds to the world:
   - a joke title (5.4.1),
   - the first kill of a rare or a boss (the echo of a later kill is not a big moment),
-  - a second or later death to the same NPC: "Third time this murloc got our hero,"
+  - a second or later death to the same NPC: "The third death to the same murloc.",
   - a slap of an NPC, which it remembers (5.4.1),
   - a level up,
   - the first visit of a zone.
 - It speaks at most once for each batch, about the best moment, in the order above. Of two moments of one kind, the later one wins, because it holds the newer count.
 - A batch that ends with a question gets no `batch_end` (5.5), so its moments wait for the next batch.
 - It has a budget: at most 3 lines in one hour of game time. The budget lives in memory, so a restart of the story program starts it again. That costs at most 3 more lines once.
-- A model writes each line through the bridge, with no tools. The line must be plain text, at most 300 characters, and hold no name from after the cutoff (5.9). A line that breaks a rule gets no retry: the narrator stays silent.
+- A model writes each line through the bridge, with no tools. The line must be plain text, at most 300 characters, and hold no name from after the cutoff (5.9). A line that breaks a rule gets no retry, and the player sees nothing.
 - It remembers your history across sessions, because the world does.
 - It speaks in the chat window now. A window of its own, and a voice (Gnomish Relay SPEC 13.3), come later.
 
+#### 3.2.1 The voice
+
+The prompts of the narrator, the chronicle, a talk, and a quest share one plan (built):
+
+- **House rules** are the same for every call: the format, the lore cutoff (5.9), safety, and the rule that the input is data. The input goes between fence marks. The code removes each fence mark from the input text first, so an input cannot close its fence.
+- **The persona goes first.** The persona of the narrator is a short text in `crates/story/data/narrator.txt`: its manner, what it does and never does, and the spoiler rule. It holds no lore.
+- **An NPC never gets the persona of the narrator.** It gets a short persona of its own from the facts: its name, its place, and its trust in you as words ("You are wary of the player"), never as a number.
+- **Golden samples.** Each prompt of the narrator or of a talk carries 2 or 3 short samples of the voice, in turn: 5 for a narrator line, 5 for a chapter, and 3 for an NPC reply. The samples are data in `crates/story/data/samples/`. A test checks that each sample passes each check.
+- **The author's note goes last:** 2 or 3 lines on the tone and the format, because a model follows the end of a prompt best.
+- **The checks** refuse an emoji, modern slang, a stock phrase such as "the sands of time" or an hourglass, and a copy of a long phrase of a sample. The banned words are data in `crates/story/data/banned_words.txt`. No banned word is a word that the facts use, such as "level".
+- **Names in no fact.** The code logs each proper name of an answer that its prompt does not hold. It refuses nothing yet.
+- **The size.** Each prompt fits a local model with a context of 2048 tokens, with room for the longest reply. A test measures the prompts of fixed test moments, at about 4 characters for each token.
+- **The voice regression set.** Fixed test moments: a first dungeon, a world boss, a death, a level milestone, a new capital, a finished side quest, a quiet chapter, and an NPC talk. A live test, ignored by default, sends them to a real model through the same prompt code. It writes the answers to a file for review.
+- **No best of two, and no judge.** Each answer costs one call.
+- `/lore` keeps the voice of a historian (3.1), with the same house rules.
+
 ### 3.3 The chronicle
 
-After each play session, the agent writes the session as a short saga in the voice of a bard.
+After each play session, the narrator (3.2) writes the session as a short saga.
 
 - It uses the real events of the session: the zones, the bosses, the deaths, the loot, and the quests.
 - You read it in the game as a book, one chapter per session.
 - The history of the world is the source, so the chronicle never contradicts itself.
-- **The bard** (built): after a batch, the story program asks a model for the saga, and the footnotes (5.4.1), of the oldest finished chapter that has none yet, one chapter at a time. The last chapter can still grow, so it waits for the next session. The facts of the prompt come from the chapter alone. The saga must be plain text in one paragraph, at most 600 characters, with no name from after the cutoff (5.9). A saga that fails keeps the plain list, and gets no second call in the same run.
+- **The saga** (built): after a batch, the story program asks a model for the saga, and the footnotes (5.4.1), of the oldest finished chapter that has none yet, one chapter at a time. The last chapter can still grow, so it waits for the next session. The facts of the prompt come from the chapter alone. The saga must be plain text in one paragraph, at most 600 characters, with no name from after the cutoff (5.9). A saga that fails keeps the plain list, and gets no retry and no second call in the same run.
+- **Chapter memory** (built): the prompt of a chapter also carries a short summary of each of the 3 chapters before it. The code writes each summary from the facts of its chapter. The model never writes one.
 - **Without a model** (built): a chapter lists what was new in the session: the zones, the people, and the deeds. A session ends after 30 minutes with no event. A session with nothing new gets no chapter. Each list of a chapter keeps at most 20 entries, so a chapter always fits on one page of the journal (5.5).
 
 ### 3.4 Personal side quests
@@ -123,7 +143,7 @@ An innkeeper tells you a rumor, and the rumor becomes a small quest line made fo
   - No step comes twice, so one event never does two steps.
   - **No overlap:** a subzone or NPC of a step is not in the title or the text of a game quest that you read. The title does not have the words of the title of such a quest, in any case. A zone is exempt, because most quest texts name their zone. The rule covers only the quests that you read.
 - **Limits** (built): each giver has at most one offer that waits, and a new offer of the giver ends the old one. A giver with an open quest waits for you to finish it. You hold at most 3 open quests. The limits hold when you ask, when the offer comes, and when you accept, because the world moves on while the model thinks. A refused accept comes back as the narrator line of its batch.
-- **Accept and progress** (built): the buttons of the Quests page name their quest by its number, so you accept the offer that you read. `/quest accept` or `/quest decline` answers the newest offer. The story program checks each step against later `zone_entered`, `npc_met`, `talk_asked`, and `npc_slapped` events, in order. A step that holds when it becomes the next step is done at once, because the addon sends a zone only when it changes. The addon sends an NPC again only after 5 minutes, and it forgets the NPCs that you met when you accept a quest. At the end, you get `quest_done`, and the giver trusts you 10 more. The model never picks this number. The finished quest is a deed, so it shows on the Deeds page and in the chronicle, and the bard gets it as a fact of the chapter.
+- **Accept and progress** (built): the buttons of the Quests page name their quest by its number, so you accept the offer that you read. `/quest accept` or `/quest decline` answers the newest offer. The story program checks each step against later `zone_entered`, `npc_met`, `talk_asked`, and `npc_slapped` events, in order. A step that holds when it becomes the next step is done at once, because the addon sends a zone only when it changes. The addon sends an NPC again only after 5 minutes, and it forgets the NPCs that you met when you accept a quest. At the end, you get `quest_done`, and the giver trusts you 10 more. The model never picks this number. The finished quest is a deed, so it shows on the Deeds page and in the chronicle, and the saga gets it as a fact of the chapter.
 - **Storage** (built): the quest file `c_<name>.quests.jsonl` holds the offers, the answers, and the steps done. The world holds the facts: the giver holds `quest_offered`, and you hold `quest_accepted` and `quest_done`. The quest thing is named "quest <number>: <title>", so it never merges with a title.
 
 ### 3.5 Talk to an NPC
@@ -145,12 +165,12 @@ Built:
 
 A book in the game, in the look of the classic quest frame: the quest dialog art, the parchment, the book icon of the quest log, and dark brown ink. `/journal` or `/timeways` opens it.
 
-The desktop sends the pages each time the book opens, because the world lives there (5.10). No model takes part in a page, and the sagas of the bard are stored words. Each page comes from the facts of the world, its history, and the files next to it (5.7).
+The desktop sends the pages each time the book opens, because the world lives there (5.10). No model takes part in a page, and the sagas are stored words. Each page comes from the facts of the world, its history, and the files next to it (5.7).
 
 | Section | What it holds | State |
 |---|---|---|
 | **Hero** | Your sheet and your own lore (3.7), each field with an Edit button, and your entries with Add and Remove. The first time that the book shows an empty hero in a session, it opens here. | Built |
-| **Chronicle** | One chapter for each play session (3.3), with the saga and the footnotes of the bard when a model wrote them. The book opens on it. | Built |
+| **Chronicle** | One chapter for each play session (3.3), with the saga and the footnotes when a model wrote them. The book opens on it. | Built |
 | **Places** | Each zone, with the date of the first visit, and its subzones under it | Built |
 | **People** | Each NPC that you met, with the place, the date, your slaps, and its trust in you | Built |
 | **Deeds** | Level milestones, first kills of rares and bosses, repeat kills (echoes, 5.13), your deaths, and your joke titles (5.4.1) | Built |
@@ -167,8 +187,8 @@ Who your hero is, in your own words, as a player of a tabletop game writes befor
 - **Nothing is lost.** Each change is a new line in `c_<character id>.hero.jsonl` next to the history (5.7). A removal and an old text of a field stay in the file.
 - **The same rules as other text:** no control character, and no name from after the lore cutoff (5.9). An edit has no reply of its own, so a refused text leaves its reason for the next journal page, and the addon shows it once.
 - **Who reads it:**
-  - The narrator (3.2) and the bard (3.3) get the sheet and the 5 newest entries, under the heading "the hero's own story, not canon".
-  - The bard also gets the entries written during its chapter.
+  - The narrator (3.2) gets the sheet and the 5 newest entries, under the heading "the hero's own story, not canon", for a line and for a chapter (3.3).
+  - The prompt of a chapter also gets the entries written during the chapter.
   - An NPC in `/talk` (3.5) gets only the entries about it or about its place, at most 5.
 - **The journal** carries the sheet on its first page, and the entries as a list like the others.
 - **In the game:** the Hero page of the book, or `/hero`, `/hero add <text>`, `/hero note <text about your target>`, and `/hero set <field> <text>`. Edit and Add open a writing page in the book: a box of several lines that stops at 300 characters, with Save and Cancel. Remove asks first in a dialog of the game.
@@ -190,7 +210,7 @@ The social level needs the same world and the same director as the solo level, p
 
 - Each boss kill, each first kill, the number of wipes, and the first player to die go into the history of the guild.
 - The sources are `ENCOUNTER_END` and `BOSS_KILL`. Wipes and the first player to die need another source, because the combat log is closed (open question 9).
-- A bard writes each raid night as a saga, and every member with the addon reads the same book.
+- The narrator writes each raid night as a saga, and every member with the addon reads the same book.
 
 ### 4.3 The raid herald
 
@@ -311,7 +331,7 @@ Small, silly moments are often the best part of a story. The addon collects them
 
 - **Counted locally.** A tally is tiny, for example `dance Goldshire 3`, and it goes out with the next batch. No moment costs a strip of its own.
 - **Marked when it is funny:** a first time, a streak ("12 squirrels in a row"), an odd place or time (a dance in Goldshire at 3 AM), or a contrast (a level 60 that dies to a cow).
-- **Used rarely.** The narrator picks one now and then, with a cooldown: "The fourth rabbit today. The rabbits of Elwynn begin to talk." The chronicle gets footnotes: "On the fourth day, our hero danced in Goldshire. Nobody knows why." The journal gets joke titles: "Scourge of Squirrels", "Lord of the Goldshire Dance Floor".
+- **Used rarely.** The narrator picks one now and then, with a cooldown: "The fourth rabbit today." The chronicle gets footnotes: "On the fourth day, our hero danced in Goldshire. Nobody knows why." The journal gets joke titles: "Scourge of Squirrels", "Lord of the Goldshire Dance Floor".
 - **With consequences.** A slap is an event in the world: the `trusts` value of the NPC drops, and a `slapped` fact starts. The innkeeper then remembers it. His rumors get shorter, and the narrator brings it up. Hourglass keeps the joke consistent for weeks. Built: each slap costs 10 trust, down to -100. The People page of the journal shows the slaps and the trust in words, and a slap is a big moment for the narrator (3.2).
 
 **Picking the moments.** Code scores each moment, and the model picks only among the best ones. The model never sees the whole pile, so the choice is predictable, testable, and free.
@@ -343,8 +363,8 @@ The score uses whole numbers only, like Hourglass, so a test can state each rule
 - **A callback:** the NPC holds `trusts` or `defeated` about you, or you hold `slapped` or `defeated` about it. A plain meeting is no history.
 - **An odd hour:** 2 to 5 in the local time of the player, which the addon sends.
 - **Told before:** each telling of the kind in the last 72 hours of game time.
-- **Flavor lines of the narrator** (built): a batch with no big moment gives its best flavor moment to the narrator, when it scores 8 or more, no flavor line came in the last 20 minutes of game time, and its kind was not told in the last 12 hours. A footnote of the bard tells its kind, but it is no flavor line. Game time is the newest time from the addon, because an emote or a book adds no event to the world. The line counts as told when the call goes out, whatever the model answers. The budget of 3 lines an hour covers flavor lines too.
-- **Footnotes of the chronicle** (built): the bard gets the 5 best flavor moments of a finished chapter, numbered and in plain words. The moments of a chapter run until the next chapter begins, because an emote adds no event to the world. The bard answers in JSON with its saga and at most 3 footnotes, each with the number of its moment. A footnote with no listed moment, a second one for the same moment, or one that breaks the text rules (at most 200 characters) is dropped alone. Each footnote counts as a telling of its kind.
+- **Flavor lines of the narrator** (built): a batch with no big moment gives its best flavor moment to the narrator, when it scores 8 or more, no flavor line came in the last 20 minutes of game time, and its kind was not told in the last 12 hours. A footnote of the chronicle tells its kind, but it is no flavor line. Game time is the newest time from the addon, because an emote or a book adds no event to the world. The line counts as told when the call goes out, whatever the model answers. The budget of 3 lines an hour covers flavor lines too.
+- **Footnotes of the chronicle** (built): the prompt of a chapter gets the 5 best flavor moments of a finished chapter, numbered and in plain words. The moments of a chapter run until the next chapter begins, because an emote adds no event to the world. The narrator answers in JSON with its saga and at most 3 footnotes, each with the number of its moment. A footnote with no listed moment, a second one for the same moment, or one that breaks the text rules (at most 200 characters) is dropped alone. Each footnote counts as a telling of its kind.
 - **Streaks:** not yet. A streak needs the kills of common mobs (open question 9).
 - **No votes.** Timeways asks the player for no rating of a joke. The scoring and the cooldowns decide alone.
 - The moments and their tellings live in `c_<character id>.flavor.jsonl` next to the history (5.7).
@@ -373,7 +393,7 @@ The work divides in three:
 2. **The scoring code decides** which moments are worth a line.
 3. **The model writes** the words, only for the moments that the code gave it.
 
-An example. A cow kills you in Goldshire at 3 AM. You are level 60, and no critter killed you before. The score: first time +5, contrast +4, famous place +3, odd hour +2, so 14. The 30th rabbit of the same evening scores 1. At the end of the session, the code sorts the moments and gives the top 5 to the model. The chapter then says: "On the ninth night, a cow in Goldshire ended the career of our hero. The bards do not sing of it."
+An example. A cow kills you in Goldshire at 3 AM. You are level 60, and no critter killed you before. The score: first time +5, contrast +4, famous place +3, odd hour +2, so 14. The 30th rabbit of the same evening scores 1. At the end of the session, the code sorts the moments and gives the top 5 to the model. The chapter then says: "On the ninth night, a cow in Goldshire ended the career of our hero. It was not recorded as a battle."
 
 Hourglass plans a generic salience ranking for its briefing. If that ranking takes weights from the caller, Timeways can move its weights into it later.
 
@@ -422,7 +442,7 @@ Timeways uses the transport of Gnomish Relay, with its own key and its own slots
 - The state is not stored. `World::replay` builds it from the history when a character enters.
 - **A crash in the middle of a write** leaves a broken last line. The replay stops at the first line that does not read or that has the wrong position, and cuts the file there. New events then follow the good part.
 - **Whose world:** every batch from the addon starts with a `character_entered` line with the realm and the name. So the story program knows the world of each batch, also after it restarts. The addon holds its events until the login names the character.
-- The sagas of the bard (3.3) are words, not facts, so they live in a file of their own next to the history: `c_<character id>.chronicle.jsonl`, one line for each chapter, keyed by the tick that began the chapter. The same rules hold for a broken last line and a failed write.
+- The sagas of the chronicle (3.3) are words, not facts, so they live in a file of their own next to the history: `c_<character id>.chronicle.jsonl`, one line for each chapter, keyed by the tick that began the chapter. The same rules hold for a broken last line and a failed write.
 - Undo is cheap: cut the history and replay (`World::rewind`).
 
 ### 5.8 Sync between players
@@ -447,7 +467,7 @@ Models know all of WoW's lore up to today, and they leak it. A line in the promp
 1. **The game text is canon.** The addon collects the text of the Forever client itself: quest text, NPC gossip, books, and item text. This text is always exactly Forever's lore, also when Forever adds content of its own. It grows as you play, and it also feeds the spoiler limit.
 2. **Sources with a cutoff.** The sources are, in order: the game text, the Forever pages of warcraft.wiki.gg and Wowhead, and Blizzard's Forever news. A Classic page counts only for events before Molten Core. A page about a later raid, a later patch, or a later expansion is refused.
 3. **Canon is read-only.** The canon characters, places, and factions go into the world with their facts as of Forever, for example `leader_of` Thrall and the Horde. Only game events change them. The director can change only your own story: the NPCs of your rumors, and your quests. The story module refuses a proposal that touches a canon entity before `World::propose` sees it. So "Varian Wrynn returns" can never become true.
-4. **A check on every answer.** Before an answer shows, the story module checks it against a list of names and events past the cutoff: for example the defeat of Ragnaros, the opening of the Scarab Wall, Naxxramas over the Plaguelands, Shattrath, the fall of the Lich King, the Cataclysm, and Pandaria. The check reads words in any case, and the last word of a name also counts at the start of a longer word: "Pandarian" counts as Pandaria. A hit means one retry with the reason. A second hit drops the answer. Names that already exist in the lore of 25 ADP, such as Ragnaros, Arthas, Illidan, and Deathwing, stay allowed with their story up to that year only.
+4. **A check on every answer.** Before an answer shows, the story module checks it against a list of names and events past the cutoff: for example the defeat of Ragnaros, the opening of the Scarab Wall, Naxxramas over the Plaguelands, Shattrath, the fall of the Lich King, the Cataclysm, and Pandaria. The check reads words in any case, and the last word of a name also counts at the start of a longer word: "Pandarian" counts as Pandaria. For `/lore`, a hit means one retry with the reason, and a second hit drops the answer. Only `/lore` retries: a narrator line, a chapter, a talk, or a quest offer that fails the checks gets no retry, and shows nothing. Names that already exist in the lore of 25 ADP, such as Ragnaros, Arthas, Illidan, and Deathwing, stay allowed with their story up to that year only.
 
 The list of later names is data in the repo, with a test for each entry. When Forever moves forward in the story, the cutoff moves with one change to that list and to the canon seed.
 

@@ -1,8 +1,10 @@
-//! The checks on a model answer before it shows (GAMEPLAY.md 3.1 and 5.9, layer 4).
+//! The checks on a model answer before it shows (GAMEPLAY.md 3.1, 3.2.1, and 5.9, layer 4).
 
+use crate::samples;
 use std::fmt;
 
 const LATER_NAMES: &str = include_str!("../data/later_names.txt");
+const BANNED_WORDS: &str = include_str!("../data/banned_words.txt");
 
 /// About 150 words. The prompt asks for 80, so this catches only a runaway answer.
 pub const MAX_CHARS: usize = 1000;
@@ -72,15 +74,94 @@ pub fn check(answer: &str, passage_count: usize) -> Vec<Fault> {
 
 /// The names of the cutoff list, as the data file holds them.
 pub fn later_names() -> impl Iterator<Item = &'static str> {
-    LATER_NAMES
-        .lines()
+    data_lines(LATER_NAMES)
+}
+
+/// The words and phrases that break the voice of the story, as the data file holds them.
+pub fn banned_words() -> impl Iterator<Item = &'static str> {
+    data_lines(BANNED_WORDS)
+}
+
+/// The lines of a data file, without its comments and blank lines.
+pub(crate) fn data_lines(file: &'static str) -> impl Iterator<Item = &'static str> {
+    file.lines()
         .map(str::trim)
         .filter(|line| !line.is_empty() && !line.starts_with('#'))
 }
 
+/// This many words in a row of a golden sample make a copy of it.
+pub const COPIED_WORDS: usize = 8;
+
+/// A plain text (see `plain_text`) that is in voice, and copies no golden sample.
+#[must_use]
+pub fn voice_text(text: &str, max_chars: usize, max_bytes: usize) -> Option<String> {
+    let line = plain_text(text, max_chars, max_bytes)?;
+    let own_words = !copies_a_sample(&line, &samples::every_sample());
+    (in_voice(&line) && own_words).then_some(line)
+}
+
+/// True when the text holds `COPIED_WORDS` words in a row of one sample, in any case.
+#[must_use]
+pub fn copies_a_sample(text: &str, samples: &[&str]) -> bool {
+    let words = words_of(text);
+    samples
+        .iter()
+        .any(|sample| shares_a_phrase(&words, &words_of(sample)))
+}
+
+fn shares_a_phrase(words: &[String], sample: &[String]) -> bool {
+    sample
+        .windows(COPIED_WORDS)
+        .any(|phrase| words.windows(COPIED_WORDS).any(|window| window == phrase))
+}
+
+/// True when a text of the narrator or of an NPC has no emoji and no banned word
+/// (GAMEPLAY.md 3.2.1). Player text never gets this check: it is the player's own voice.
+#[must_use]
+pub fn in_voice(text: &str) -> bool {
+    !text.chars().any(is_emoji) && banned_words_in(text).is_empty()
+}
+
+/// The banned words that the text holds as whole words, in any case.
+#[must_use]
+pub fn banned_words_in(text: &str) -> Vec<&'static str> {
+    let words = words_of(text);
+    banned_words()
+        .filter(|banned| contains_phrase(&words, banned))
+        .collect()
+}
+
+/// The blocks of pictographs and dingbats, and the joiners that build an emoji from them.
+fn is_emoji(c: char) -> bool {
+    matches!(
+        c,
+        '\u{2600}'..='\u{27BF}' | '\u{1F000}'..='\u{1FAFF}' | '\u{FE0F}' | '\u{200D}'
+    )
+}
+
+/// The proper names of an answer that its prompt never names: a capital word that does
+/// not start a sentence. The caller only logs them, because the test is rough.
+#[must_use]
+pub fn names_in_no_fact(answer: &str, prompt: &str) -> Vec<String> {
+    let mut names: Vec<String> = Vec::new();
+    for sentence in answer.split(['.', '!', '?', ':', ';', '"']) {
+        for word in words(sentence).skip(1) {
+            let new = !names.iter().any(|name| name == word);
+            if is_name(word) && new && !mentions(prompt, word) {
+                names.push(word.to_string());
+            }
+        }
+    }
+    names
+}
+
+fn is_name(word: &str) -> bool {
+    word.chars().next().is_some_and(char::is_uppercase) && word.chars().count() > 1
+}
+
 /// The text on one line, or None when it is empty, longer than `max_chars` or `max_bytes`,
 /// holds a control character, or names something from after the cutoff. For the short
-/// texts of the narrator, the bard, and a talk. The bridge limits bytes, and a character
+/// texts of the narrator, the chronicle, and a talk. The bridge limits bytes, and a character
 /// outside ASCII takes up to 4.
 #[must_use]
 pub fn plain_text(text: &str, max_chars: usize, max_bytes: usize) -> Option<String> {

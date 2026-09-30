@@ -1,0 +1,57 @@
+# Words and phrases that break the voice of the narrator and of an NPC (GAMEPLAY.md 3.2.1).
+# A narrator line, a chapter, a footnote, or the words of an NPC with one of them is dropped.
+# One word or phrase per line. The match ignores case and matches whole words only, so
+# "sand" does not catch "Sandfury". Write each plural form on its own line.
+# Never add a word that the facts use, such as "level", "player", "defeated", or "emote".
+
+# Modern slang
+okay
+ok
+cool
+awesome
+guys
+dude
+lol
+lmao
+omg
+epic
+vibe
+vibes
+literally
+gonna
+wanna
+kinda
+yeah
+yay
+noob
+
+# Game jargon that nobody in Azeroth says
+aggro
+respawn
+respawned
+xp
+dps
+nerf
+nerfed
+npc
+npcs
+
+# Stock phrases and cliches, with the hourglass and its sand
+hourglass
+hourglasses
+sand
+sands
+little did
+tapestry
+testament to
+unbeknownst
+fate had other plans
+destiny awaits
+only time will tell
+the rest is history
+in the blink of an eye
+a force to be reckoned with
+delve
+delved
+embark
+embarked

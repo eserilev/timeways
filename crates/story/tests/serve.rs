@@ -60,6 +60,27 @@ fn a_talk_that_fails_gets_an_answer_with_no_words() {
 }
 
 #[test]
+fn a_name_in_no_fact_goes_to_the_log_and_the_answer_still_goes_out() {
+    let mut story = story("names");
+    send(
+        &mut story,
+        &json!({"type": "character_entered", "realm": "R", "name": "Ada"}),
+    );
+    let talk = json!({"type": "talk_asked", "id": 5, "at": 1, "npc": "Hogger", "text": "hi"});
+    let call = answer(&send(&mut story, &talk))["call"].clone();
+
+    let say = r#"{"say": "Go ask Varian.", "trust": 0}"#;
+    let served = send(
+        &mut story,
+        &json!({"type": "model_answered", "call": call, "text": say}),
+    );
+
+    assert_eq!(answer(&served)["text"], json!("Go ask Varian."));
+    assert_eq!(served.notes.len(), 1, "{served:?}");
+    assert!(served.notes[0].contains("Varian"), "{served:?}");
+}
+
+#[test]
 fn a_journal_that_fails_has_no_pages() {
     let mut story = story("journal");
 

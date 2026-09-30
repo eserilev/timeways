@@ -3,10 +3,11 @@
 //! here.
 
 use crate::check::{json_object, mentions, plain_text, same_words};
+use crate::house::{HOUSE_RULES, bulleted, fenced};
 use crate::seen::{SeenText, TextKind};
+use crate::talk::persona;
 use hourglass::Tick;
 use serde::{Deserialize, Serialize};
-use std::fmt::Write;
 use thiserror::Error;
 
 pub const MAX_TITLE_CHARS: usize = 60;
@@ -158,38 +159,27 @@ pub fn offer_line(giver: &str, quest: &Quest) -> String {
 
 #[must_use]
 pub fn prompt(known: &Known<'_>, place: Option<&str>) -> String {
-    let giver = known.giver;
-    let mut prompt = format!(
-        "You are {giver}, a person in the world of Warcraft. The year is 25 ADP, before \
-         Molten Core. You give the player a small task of your own: a rumor, a favor, or an \
-         errand.\n"
-    );
-    if let Some(place) = place {
-        let _ = writeln!(prompt, "You are in {place}.");
-    }
     let places: Vec<&str> = known.zones.iter().chain(&known.subzones).copied().collect();
-    list(&mut prompt, "Places that the player can visit", &places);
-    list(&mut prompt, "People that the player can meet", &known.npcs);
-    let _ = write!(
-        prompt,
-        "\nRules:\n\
+    format!(
+        "{}\n{HOUSE_RULES}\n\nGive the player a small task of your own: a rumor, a favor, or \
+         an errand.\n\nPlaces that the player can visit:\n{}\n\n\
+         People that the player can meet:\n{}\n\n\
+         Rules:\n\
          - 1 to {MAX_STEPS} steps. A step is {{\"goal\": \"visit\", \"place\": \"<a place \
          above>\"}} or {{\"goal\": \"meet\", \"npc\": \"<a person above>\"}}.\n\
          - Copy each name exactly as the list writes it. Use no other place or person.\n\
          - The task is not a quest of the game, and it does not continue one.\n\
          - The title has at most {MAX_TITLE_CHARS} characters. The text has at most 60 \
-         words, in your own voice, in plain text.\n\
-         - Name no place, person, or event from after the year 25 ADP.\n\
-         - Reply with JSON only: {{\"title\": \"...\", \"text\": \"...\", \"steps\": [...]}}"
-    );
-    prompt
+         words, in your own voice.\n\n\
+         Reply with JSON only: {{\"title\": \"...\", \"text\": \"...\", \"steps\": [...]}}",
+        persona(known.giver, place),
+        list(&places),
+        list(&known.npcs)
+    )
 }
 
-fn list(prompt: &mut String, heading: &str, names: &[&str]) {
-    let _ = write!(prompt, "\n{heading}:\n");
-    for name in names.iter().take(PROMPT_NAMES) {
-        let _ = writeln!(prompt, "- {name}");
-    }
+fn list(names: &[&str]) -> String {
+    fenced(&bulleted(&names[..names.len().min(PROMPT_NAMES)]))
 }
 
 /// Past this, a new quest waits until you finish one.

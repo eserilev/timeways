@@ -8,11 +8,13 @@ use crate::story::{Output, Story};
 use crate::talk::MAX_NPC_BYTES;
 use serde_json::Value;
 
-/// The JSON lines for stdout, and the line for stderr when the input failed.
+/// The JSON lines for stdout, the line for stderr when the input failed, and the notes
+/// of the story for stderr.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct Served {
     pub lines: Vec<String>,
     pub error: Option<String>,
+    pub notes: Vec<String>,
 }
 
 /// Nothing that the bridge sends ends the loop: text that is not UTF-8, or that does not
@@ -30,19 +32,22 @@ pub fn line(story: &mut Story, bytes: Vec<u8>) -> Served {
                 .handle(input)
                 .map_err(|error| format!("{error}: {line}"))
         });
-    match outputs {
+    let mut served = match outputs {
         Ok(outputs) => Served {
             lines: outputs.iter().map(to_line).collect(),
-            error: None,
+            ..Served::default()
         },
         Err(error) => failed(empty_answer(&line).iter().map(to_line).collect(), error),
-    }
+    };
+    served.notes = story.take_notes();
+    served
 }
 
 fn failed(lines: Vec<String>, error: String) -> Served {
     Served {
         lines,
         error: Some(error),
+        notes: Vec::new(),
     }
 }
 

@@ -2,5 +2,11 @@
 # A model answer that holds one of these names gets one retry, then it is dropped.
 # One name per line. The match ignores case and matches whole words only.
 # Only a name that did not exist in 25 ADP goes here. Ragnaros, Arthas, and Illidan stay allowed.
+# The lore of the keepers of time also goes here, because the narrator never names it (3.2).
 Shattrath
 Pandaria
+Murozond
+Infinite dragonflight
+Chromie
+Caverns of Time
+timeline

@@ -7,6 +7,7 @@ use proptest::prelude::*;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use timeways_story::character::Character;
+use timeways_story::house::fenced;
 use timeways_story::input::{Input, MessageId};
 use timeways_story::journal::{Journal, journal, pages};
 use timeways_story::pack::Pack;
@@ -364,6 +365,16 @@ proptest! {
         prop_assume!(a != b);
         prop_assert_ne!(safe_id(&a), safe_id(&b));
         prop_assert!(safe_id(&a).bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'_'));
+    }
+
+    /// Mostly angle marks, so that broken and joined fence marks come often.
+    #[test]
+    fn no_input_can_close_its_fence(text in "[<> a]{0,24}") {
+        let fenced = fenced(&text);
+
+        let inside = &fenced[4..fenced.len() - 4];
+        prop_assert!(!inside.contains("<<<") && !inside.contains(">>>"), "{:?}", fenced);
+        prop_assert_eq!(fenced.matches(">>>").count(), 1);
     }
 
     #[test]

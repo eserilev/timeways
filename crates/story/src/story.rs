@@ -1,14 +1,15 @@
 //! One input in, and the outputs for it out (GAMEPLAY.md 3.1, 5.2, and 5.6).
 
-use crate::bard;
 use crate::character::{Character, Refusal};
 use crate::check;
+use crate::chronicle;
 use crate::flavor::{self, Flavor, HUMBLING_GAP, Kind, Teller, Told};
 use crate::hero::{self, Change, Entry};
 use crate::input::{CallId, Input, MessageId};
 use crate::journal::{Page, journal, pages};
 use crate::learned::{Read, Rumor, learned};
 use crate::lore::{Answer, LoreCall, Next};
+use crate::memory;
 use crate::moments::{Moment, best, moments};
 use crate::narrator::{self, Budget};
 use crate::pack::{Link, Pack, PackError, Passage};
@@ -195,7 +196,7 @@ enum Pending {
     },
     /// The saga of the chapter that began at `began`, for this character only. `kinds`
     /// are the kinds of the small moments of its prompt, in their order.
-    Bard {
+    Chronicle {
         key: CharacterKey,
         began: Tick,
         kinds: Vec<String>,
@@ -222,6 +223,10 @@ pub struct Story {
     store: Store,
     active: Option<Active>,
     calls: BTreeMap<CallId, Pending>,
+    /// The prompt of each open call, for the name check of its answer.
+    prompts: BTreeMap<CallId, String>,
+    /// Lines for the log of the program, and never for the player.
+    notes: Vec<String>,
     next_call: CallId,
     /// The pages of the last journal request. Later pages come from here, so events that
     /// arrive between two requests never shift an entry to another page.
@@ -231,9 +236,9 @@ pub struct Story {
     /// The flavor moments of the batch so far, each with its score and its count.
     candidates: Vec<Candidate>,
     budget: Budget,
-    /// The chapters of the active character that the bard was asked for in this run. A
-    /// failed chapter keeps its plain list, and gets no second call.
-    bard_asked: BTreeSet<Tick>,
+    /// The chapters of the active character that the narrator was asked a saga for in
+    /// this run. A failed chapter keeps its plain list, and gets no second call.
+    chronicle_asked: BTreeSet<Tick>,
     quest_request: Option<QuestRequest>,
     /// The newest time of an input from the addon. An emote or a book changes no world, so
     /// the tick of the world can be much older.
@@ -250,12 +255,14 @@ impl Story {
             store,
             active: None,
             calls: BTreeMap::new(),
+            prompts: BTreeMap::new(),
+            notes: Vec::new(),
             next_call: CallId(1),
             journal: Vec::new(),
             moments: Vec::new(),
             candidates: Vec::new(),
             budget: Budget::default(),
-            bard_asked: BTreeSet::new(),
+            chronicle_asked: BTreeSet::new(),
             quest_request: None,
             newest: Tick(0),
             quest_note: None,
@@ -401,14 +408,21 @@ impl Story {
         }
     }
 
+    /// The lines for the log since the last call, oldest first.
+    pub fn take_notes(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.notes)
+    }
+
     fn answered(&mut self, call: CallId, text: &str) -> Result<Vec<Output>, StoryError> {
-        Ok(match self.take_call(call)? {
+        let (pending, prompt) = self.take_call(call)?;
+        self.note_names_in_no_fact(call, text, &prompt);
+        Ok(match pending {
             Pending::Lore { question, lore } => vec![self.follow(question, lore.answered(text))],
             Pending::Narrator { batch } => vec![Output::EventsSeen {
                 id: batch,
                 narrator: narrator::checked_line(text),
             }],
-            Pending::Bard { key, began, kinds } => {
+            Pending::Chronicle { key, began, kinds } => {
                 self.saga_answered(&key, began, &kinds, text)?;
                 Vec::new()
             }
@@ -438,7 +452,7 @@ impl Story {
         let Some(active) = self.active.as_mut().filter(|active| &active.key == key) else {
             return Ok(());
         };
-        let Some(saga) = bard::checked_saga(text, kinds.len()) else {
+        let Some(saga) = chronicle::checked_saga(text, kinds.len()) else {
             return Ok(());
         };
         let now = self.newest;
@@ -446,7 +460,7 @@ impl Story {
             let told = Told {
                 key: kinds[moment - 1].clone(),
                 at: now,
-                teller: Teller::Bard,
+                teller: Teller::Chronicle,
             };
             active.flavor.add_told(told)?;
         }
@@ -514,7 +528,8 @@ impl Story {
     }
 
     fn failed(&mut self, call: CallId) -> Result<Vec<Output>, StoryError> {
-        Ok(match self.take_call(call)? {
+        let (pending, _) = self.take_call(call)?;
+        Ok(match pending {
             Pending::Lore { question, lore } => vec![Output::LoreAnswer {
                 id: question,
                 answer: lore.failed(),
@@ -523,7 +538,7 @@ impl Story {
                 id: batch,
                 narrator: None,
             }],
-            Pending::Bard { .. } => Vec::new(),
+            Pending::Chronicle { .. } => Vec::new(),
             Pending::Talk { question, npc, .. } => vec![Output::TalkAnswer {
                 id: question,
                 npc,
@@ -581,7 +596,7 @@ impl Story {
         self.journal.clear();
         self.moments.clear();
         self.candidates.clear();
-        self.bard_asked.clear();
+        self.chronicle_asked.clear();
         self.quest_request = None;
         self.quest_note = None;
         let key = key?;
@@ -756,22 +771,22 @@ impl Story {
             (None, None) => self.narrator_call(batch),
         };
         let mut outputs = vec![seen];
-        outputs.extend(self.bard_call());
+        outputs.extend(self.chronicle_call());
         outputs
     }
 
-    /// The relay runs at most 2 model calls of the story program at once. While the bard
-    /// writes, the narrator stays quiet, so a question of the player always gets a call.
+    /// The relay runs at most 2 model calls of the story program at once. While a saga is
+    /// written, the narrator stays quiet, so a question of the player always gets a call.
     fn narrator_call(&mut self, batch: MessageId) -> Output {
         let quiet = Output::EventsSeen {
             id: batch,
             narrator: None,
         };
-        let bard_writes = self
+        let chronicle_writes = self
             .calls
             .values()
-            .any(|pending| matches!(pending, Pending::Bard { .. }));
-        if bard_writes {
+            .any(|pending| matches!(pending, Pending::Chronicle { .. }));
+        if chronicle_writes {
             return quiet;
         }
         let now = self.newest;
@@ -801,7 +816,7 @@ impl Story {
             .and_then(|active| hero::portrait(&hero::hero(active.hero.changes())));
         self.open_call(
             Pending::Narrator { batch },
-            narrator::prompt(&moment, portrait.as_deref()),
+            narrator::prompt(&moment, portrait.as_deref(), self.turn()),
         )
     }
 
@@ -844,25 +859,23 @@ impl Story {
     }
 
     /// The oldest finished chapter with no saga yet. The bridge runs at most 2 model calls
-    /// at once, so the bard waits until no other call is open: a question of the player
+    /// at once, so the saga waits until no other call is open: a question of the player
     /// never fails for a saga. The last chapter can still grow, so it waits for the next
     /// session.
     /// The small moments of a chapter run until the next chapter begins: an emote changes
     /// nothing in the world, so it can come after the last event of the chapter.
-    fn bard_call(&mut self) -> Option<Output> {
+    fn chronicle_call(&mut self) -> Option<Output> {
         if !self.calls.is_empty() {
             return None;
         }
         let active = self.active.as_ref()?;
         let chapters = journal(&active.character).chapters;
-        let (chapter, next) =
-            chapters
-                .windows(2)
-                .map(|pair| (&pair[0], &pair[1]))
-                .find(|(chapter, _)| {
-                    active.prose.get(chapter.began).is_none()
-                        && !self.bard_asked.contains(&chapter.began)
-                })?;
+        let index = (1..chapters.len()).map(|next| next - 1).find(|&index| {
+            let began = chapters[index].began;
+            active.prose.get(began).is_none() && !self.chronicle_asked.contains(&began)
+        })?;
+        let (chapter, next) = (&chapters[index], &chapters[index + 1]);
+        let earlier = &chapters[index.saturating_sub(memory::MEMORY_CHAPTERS)..index];
         let top = flavor::top_moments(
             active.flavor.moments(),
             active.flavor.told(),
@@ -875,7 +888,7 @@ impl Story {
             .map(|moment| flavor::describe(&moment.flavor, moment.count))
             .collect();
         let kinds = top.iter().map(|moment| moment.flavor.kind.key()).collect();
-        let pending = Pending::Bard {
+        let pending = Pending::Chronicle {
             key: active.key.clone(),
             began: chapter.began,
             kinds,
@@ -883,8 +896,9 @@ impl Story {
         let hero = hero::hero(active.hero.changes());
         let in_chapter = |entry: &Entry| entry.at >= chapter.began && entry.at < next.began;
         let written = hero::newest_texts(&hero.entries, in_chapter);
-        let prompt = bard::prompt(chapter, &words, hero::portrait(&hero).as_deref(), &written);
-        self.bard_asked.insert(chapter.began);
+        let portrait = hero::portrait(&hero);
+        let prompt = chronicle::prompt(chapter, earlier, &words, portrait.as_deref(), &written);
+        self.chronicle_asked.insert(chapter.began);
         Some(self.open_call(pending, prompt))
     }
 
@@ -956,7 +970,7 @@ impl Story {
             slapped: character.slaps_of(npc),
             own_lore,
         };
-        let prompt = talk::prompt(&scene, &passages, words);
+        let prompt = talk::prompt(&scene, &passages, words, self.turn());
         let pending = Pending::Talk {
             question: id,
             key: active.key.clone(),
@@ -1005,17 +1019,36 @@ impl Story {
         }
     }
 
+    /// The number of the next call picks the golden samples, so they change from call to
+    /// call.
+    fn turn(&self) -> usize {
+        usize::try_from(self.next_call.0).unwrap_or_default()
+    }
+
     fn open_call(&mut self, pending: Pending, prompt: String) -> Output {
         let call = self.next_call;
         self.next_call = CallId(call.0 + 1);
         self.calls.insert(call, pending);
+        self.prompts.insert(call, prompt.clone());
         Output::ModelCall { call, prompt }
     }
 
-    fn take_call(&mut self, call: CallId) -> Result<Pending, StoryError> {
-        self.calls
+    /// The open call and its prompt.
+    fn take_call(&mut self, call: CallId) -> Result<(Pending, String), StoryError> {
+        let pending = self
+            .calls
             .remove(&call)
-            .ok_or(StoryError::UnknownCall(call))
+            .ok_or(StoryError::UnknownCall(call))?;
+        let prompt = self.prompts.remove(&call).unwrap_or_default();
+        Ok((pending, prompt))
+    }
+
+    /// Log only: the check refuses nothing yet (GAMEPLAY.md 3.2.1).
+    fn note_names_in_no_fact(&mut self, call: CallId, answer: &str, prompt: &str) {
+        for name in check::names_in_no_fact(answer, prompt) {
+            let note = format!("call {}: the answer names {name}, and no fact does", call.0);
+            self.notes.push(note);
+        }
     }
 }
 

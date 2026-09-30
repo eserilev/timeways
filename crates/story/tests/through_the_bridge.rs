@@ -319,10 +319,10 @@ proptest! {
     }
 }
 
-/// The bard, the narrator, and a question at once. The relay runs 2 model calls of the
+/// A saga, the narrator, and a question at once. The relay runs 2 model calls of the
 /// story program, so the story program keeps one slot for the player.
 #[test]
-fn a_question_gets_a_model_call_while_the_bard_writes() {
+fn a_question_gets_a_model_call_while_a_saga_is_written() {
     let pack = story_with_lore();
     let model = Box::new(|_: &str| Some("Our hero walks on.".to_string()));
     let mut bridge = FakeBridge::new(pack).with_model(model);
@@ -334,7 +334,7 @@ fn a_question_gets_a_model_call_while_the_bard_writes() {
         "{CHARACTER}\n{}",
         event(START + 7200, "Goldshire")
     ));
-    // A quiet batch starts the saga of the first session, and the bard is slow.
+    // A quiet batch starts the saga of the first session, and its call is slow.
     bridge.send(&format!("{CHARACTER}\n{}", event(START + 7250, "Testvale")));
     // A new zone wants the narrator, and then the player asks.
     bridge.send(&format!(
