@@ -274,3 +274,123 @@ fn a_map_that_comes_after_an_empty_tree_is_found() {
 
     assert_eq!(shown_map(&game), Some(TIRISFAL));
 }
+
+/// Each explored part that shows, as { file, x, y, width, height }, in the units of the
+/// pane. The files of the parts run from 9000 to 9999.
+fn explored(game: &Game) -> Vec<Vec<f64>> {
+    game.eval(
+        "local out = {}
+         for _, widget in ipairs(wow.widgets) do
+             if widget.kind == 'Texture' and type(widget.file) == 'number' and widget.file >= 9000 and widget.file < 10000 and widget.shown then
+                 table.insert(out, { widget.file, widget.point[4], widget.point[5], widget.width, widget.height })
+             end
+         end
+         return out",
+    )
+}
+
+/// The corner and the scale of the art, from its first tile.
+fn art(game: &Game) -> (f64, f64, f64) {
+    let tile: Vec<f64> = game.eval(&format!(
+        "for _, widget in ipairs(wow.widgets) do
+             if widget.file == {ELWYNN} * 100 + 1 then
+                 return {{ widget.point[4], widget.point[5], widget.width }}
+             end
+         end"
+    ));
+    (tile[0], tile[1], tile[2] / 256.0)
+}
+
+#[test]
+fn the_explored_parts_of_a_zone_draw_over_its_art() {
+    let game = in_elwynn();
+    game.run(&format!(
+        "wow.maps[{ELWYNN}].explored = {{
+             {{ textureWidth = 300, textureHeight = 200, offsetX = 100, offsetY = 50,
+                fileDataIDs = {{ 9001, 9002 }}, isShownByMouseOver = false }},
+         }}"
+    ));
+
+    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('deeds')");
+
+    let (left, top, scale) = art(&game);
+    let parts = explored(&game);
+    assert_eq!(parts.len(), 2, "{parts:?}");
+    let [file, x, y, width, height] = parts[0][..] else {
+        panic!("{parts:?}")
+    };
+    assert!(close(file, 9001.0));
+    assert!(close(x, left + 100.0 * scale), "{parts:?}");
+    assert!(close(y, top - 50.0 * scale), "{parts:?}");
+    assert!(close(width, 256.0 * scale) && close(height, 200.0 * scale));
+    assert!(close(parts[1][1], left + 356.0 * scale), "{parts:?}");
+    assert!(close(parts[1][3], 44.0 * scale), "{parts:?}");
+}
+
+#[test]
+fn a_part_that_shows_only_under_the_mouse_stays_hidden() {
+    let game = in_elwynn();
+    game.run(&format!(
+        "wow.maps[{ELWYNN}].explored = {{
+             {{ textureWidth = 100, textureHeight = 100, offsetX = 0, offsetY = 0,
+                fileDataIDs = {{ 9001 }}, isShownByMouseOver = true }},
+         }}"
+    ));
+
+    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('deeds')");
+
+    assert!(explored(&game).is_empty());
+}
+
+#[test]
+fn a_broken_part_draws_nothing() {
+    let game = in_elwynn();
+    game.run(&format!(
+        "wow.maps[{ELWYNN}].explored = {{ 7, {{ textureWidth = 0, textureHeight = 100, offsetX = 0, offsetY = 0, fileDataIDs = {{ 9001 }} }} }}"
+    ));
+
+    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('deeds')");
+
+    assert!(explored(&game).is_empty());
+}
+
+fn visited_line(game: &Game) -> Option<String> {
+    game.eval(
+        "for _, widget in ipairs(wow.widgets) do
+             if widget.kind == 'FontString' and widget.shown and (widget.text or ''):find('^Visited') then
+                 return widget.text
+             end
+         end",
+    )
+}
+
+#[test]
+fn the_map_names_the_subzones_of_its_zone_that_the_player_visited() {
+    let game = in_elwynn();
+    game.run("wow.Slash('/journal', '')");
+
+    game.reply(concat!(
+        r#"{"type":"journal","page":0,"pages":1,"places":["#,
+        r#"{"name":"Elwynn Forest","first_visit":1790000000},"#,
+        r#"{"name":"Goldshire","within":"Elwynn Forest","first_visit":1790000000},"#,
+        r#"{"name":"Brill","within":"Tirisfal Glades","first_visit":1790000000},"#,
+        r#"{"name":"Northshire Valley","within":"Elwynn Forest","first_visit":1790000001}]}"#,
+    ));
+    game.run("ns.JournalFrame.Open('deeds')");
+
+    assert_eq!(
+        visited_line(&game).as_deref(),
+        Some("Visited: Goldshire, Northshire Valley")
+    );
+}
+
+#[test]
+fn a_zone_with_no_visited_subzone_shows_no_list() {
+    let game = in_elwynn();
+    game.run("wow.Slash('/journal', '')");
+
+    game.reply(r#"{"type":"journal","page":0,"pages":1,"places":[{"name":"Elwynn Forest","first_visit":1790000000}]}"#);
+    game.run("ns.JournalFrame.Open('deeds')");
+
+    assert_eq!(visited_line(&game), None);
+}

@@ -269,7 +269,9 @@ local function DrawSide(journalPage, writing)
 	if skin == "sheet" then
 		return nil
 	end
-	return ns.MapPane.Show(journalPage.zone)
+	local place = ns.MapPane.Show(journalPage.zone, journalPage.map, journalPage.pins)
+	ns.MapPane.ShowVisited(place and ns.Journal.VisitedIn(place) or {})
+	return place
 end
 
 local function Path(last)

@@ -122,6 +122,16 @@ return {
 				{ Name = "position", Type = "vector2", Mixin = "Vector2DMixin", Nilable = true },
 			},
 		},
+		["C_MapExplorationInfo.GetExploredMapTextures"] = {
+			MayReturnNothing = true,
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "uiMapID", Type = "number", Nilable = false },
+			},
+			Returns = {
+				{ Name = "overlayInfo", Type = "table", InnerType = "UiMapExplorationInfo", Nilable = false },
+			},
+		},
 		["C_QuestLog.GetInfo"] = {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {
@@ -323,6 +333,13 @@ return {
 			Arguments = {},
 			Returns = {
 				{ Name = "isShown", Type = "bool", Nilable = false },
+			},
+		},
+		["FrameAPIModelSceneFrameActorBase:SetAlpha"] = {
+			SecretArguments = "AllowedWhenUntainted",
+			SecretArgumentsAddAspect = { Enum.SecretAspect.Alpha },
+			Arguments = {
+				{ Name = "alpha", Type = "number", Nilable = false },
 			},
 		},
 		["FrameAPIModelSceneFrameActorBase:SetScale"] = {
@@ -558,6 +575,12 @@ return {
 				{ Name = "a", Type = "SingleColorValue", Nilable = true },
 			},
 		},
+		["SimpleFontAPI:SetAlpha"] = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "alpha", Type = "SingleColorValue", Nilable = false },
+			},
+		},
 		["SimpleFontAPI:SetFontObject"] = {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {
@@ -698,6 +721,13 @@ return {
 				{ Name = "registered", Type = "bool", Nilable = false },
 			},
 		},
+		["SimpleFrameAPI:SetAlpha"] = {
+			SecretArguments = "AllowedWhenTainted",
+			SecretArgumentsAddAspect = { Enum.SecretAspect.Alpha },
+			Arguments = {
+				{ Name = "alpha", Type = "SingleColorValue", Nilable = false },
+			},
+		},
 		["SimpleFrameAPI:SetClipsChildren"] = {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {
@@ -826,6 +856,13 @@ return {
 				{ Name = "colorG", Type = "number", Nilable = false },
 				{ Name = "colorB", Type = "number", Nilable = false },
 				{ Name = "a", Type = "SingleColorValue", Nilable = true },
+			},
+		},
+		["SimpleRegionAPI:SetAlpha"] = {
+			SecretArguments = "AllowedWhenTainted",
+			SecretArgumentsAddAspect = { Enum.SecretAspect.Alpha },
+			Arguments = {
+				{ Name = "alpha", Type = "SingleColorValue", Nilable = false },
 			},
 		},
 		["SimpleRegionAPI:SetIgnoreParentScale"] = {
@@ -986,6 +1023,16 @@ return {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {
 				{ Name = "snap", Type = "bool", Nilable = false, Default = false },
+			},
+		},
+		["SimpleTextureBaseAPI:SetTexCoord"] = {
+			SecretArguments = "AllowedWhenTainted",
+			SecretArgumentsAddAspect = { Enum.SecretAspect.TexCoords },
+			Arguments = {
+				{ Name = "left", Type = "number", Nilable = false },
+				{ Name = "right", Type = "number", Nilable = false },
+				{ Name = "bottom", Type = "number", Nilable = false },
+				{ Name = "top", Type = "number", Nilable = false },
 			},
 		},
 		["SimpleTextureBaseAPI:SetTexture"] = {

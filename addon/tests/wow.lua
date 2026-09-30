@@ -230,9 +230,10 @@ function UnitLevel(unit)
 	return u and u.level or 0
 end
 
--- The maps of the world by id: each one a { name, layers, textures, player } table, where
--- `player` is the position of the player on it, and `wow.playerMap` is the map where the
--- player stands. With no maps, the pane of the journal has nothing to draw.
+-- The maps of the world by id: each one a { name, layers, textures, player, explored }
+-- table, where `player` is the position of the player on it, `explored` is the list of the
+-- parts that the character explored, and `wow.playerMap` is the map where the player
+-- stands. With no maps, the pane of the journal has nothing to draw.
 wow.maps = {}
 wow.playerMap = nil
 
@@ -268,6 +269,12 @@ C_Map = {
 	end,
 	GetPlayerMapPosition = function(id)
 		return Map(id) and Map(id).player
+	end,
+}
+
+C_MapExplorationInfo = {
+	GetExploredMapTextures = function(id)
+		return Map(id) and Map(id).explored
 	end,
 }
 
@@ -366,6 +373,10 @@ end
 
 function Widget:SetAtlas(atlas)
 	self.atlas = atlas
+end
+
+function Widget:SetAlpha(alpha)
+	self.alpha = alpha
 end
 
 -- The player copies the selected text of an edit box with Ctrl+C.

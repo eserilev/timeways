@@ -23,6 +23,8 @@ return {
 		"C_Map.GetMapChildrenInfo",
 		"C_Map.GetMapInfo",
 		"C_Map.GetPlayerMapPosition",
+		"C_MapExplorationInfo",
+		"C_MapExplorationInfo.GetExploredMapTextures",
 		"C_QuestLog",
 		"C_QuestLog.GetInfo",
 		"C_QuestLog.GetNumQuestLogEntries",

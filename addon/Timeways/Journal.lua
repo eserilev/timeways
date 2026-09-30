@@ -506,6 +506,8 @@ local function Tasks(journal)
 	page.lines = QuestLines(task.quest, task.saving)
 	page.buttons = QuestButtons(task.quest, task.saving)
 	page.zone = GiverZone(journal, task.quest.giver)
+	page.pins = ns.TaskPins.For(journal, task.quest)
+	page.map = ns.TaskPins.MapOf(page.pins)
 	return page
 end
 
@@ -704,6 +706,8 @@ Journal.USAGE = {
 --   footer: the text at the bottom left.
 --   crumb: the last step of the path at the top, or nil for the name of the map.
 --   zone: the zone that the map shows, or nil for the zone of the player.
+--   map: the id of the map to show, which wins over `zone` when the game has its art.
+--   pins: the pins of the map, from `TaskPins.For`, or nil.
 --   side: what the left half shows: "map", or "sheet" for the list alone on parchment.
 function Journal.Render(journal, section)
 	local page = BUILDERS[section](journal)
@@ -720,6 +724,17 @@ function Journal.Page(section)
 		return { lines = { loading }, buttons = {}, footer = Journal.USAGE[section], side = "map" }
 	end
 	return Journal.Render(pages, section)
+end
+
+-- The subzones of this zone that the player visited, in the order of the first visit.
+function Journal.VisitedIn(zone)
+	local names = {}
+	for _, place in ipairs(pages and Entries(pages.places) or {}) do
+		if place.within == zone and type(place.name) == "string" then
+			names[#names + 1] = ns.Plain(place.name)
+		end
+	end
+	return names
 end
 
 function Journal.Lines(section)

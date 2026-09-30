@@ -82,6 +82,8 @@ globals:
     any: true
   C_Map:
     any: true
+  C_MapExplorationInfo:
+    any: true
   hooksecurefunc:
     args: [{type: any}, {type: any, required: false}, {type: any, required: false}]
   C_DeathRecap:
