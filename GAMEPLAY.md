@@ -142,19 +142,25 @@ An innkeeper tells you a rumor, and the rumor becomes a small quest line made fo
 - The rewards are story: a title in your journal, a line in your chronicle, and an NPC who trusts you more and tells you more lore later.
 - Hourglass keeps the quests consistent. A quest cannot send you to an NPC who died in your story, or to a place that you never heard of.
 
-**The first slice.** The combat log is closed and no loot event comes yet, so a step has one of two goals: `visit` a place, or `meet` an NPC.
+**The first slice.** The combat log is closed and no loot event comes yet, so a step has one of three goals: `visit` a place, `meet` an NPC, or `kill` a count of one creature ("Kill 6 Duskbats").
+
+- **Seen and met** (built). The addon sends each NPC that you hover or target once in a session (`npc_seen`): its name, `hostile` when you can attack it (`UnitCanAttack`) or `friendly`, and its creature type in English (`UnitCreatureType`, by its id: "beast", "humanoid"). The addon keys a session by the NPC id of `UnitGUID`, and never sends the GUID. It never sends a player or a pet, and it checks the name, the GUID, the reaction, and the type with `issecretvalue`. The world keeps `seen`, apart from `met`: seeing is not talking. The last sighting says whether the NPC is `hostile`, and a beast or a critter is an `animal` for good (5.1).
 
 - **The offer** (built): you target an NPC that you met and type `/quest`. The event `quest_asked` has no reply of its own. At the end of the batch, the model call of the quest takes the place of the narrator call. The offer comes back as the narrator line, so the relay needs no change. Asking is meeting, as a talk is. With no model, or with an offer that breaks a rule, the line says that the NPC has no task for you now.
 - **The check** (built, `quest.rs`): the code refuses an offer that breaks one of these rules.
   - The answer is JSON with a title (at most 60 characters), a text (at most 400), and 1 to 3 steps. The offer line fits in one narrator line (1000 bytes).
   - Each name is a string of the game, copied exactly, because progress matches it byte for byte.
   - A place is a zone or subzone that you visited. The addon names the zone of a text that you read by where you read it, so it adds no place.
-  - An NPC is one that you met, is not dead in your story, and is not the giver.
-  - No step comes twice, so one event never does two steps.
-  - **No overlap:** a subzone or NPC of a step is not in the title or the text of a game quest that you read. The title does not have the words of the title of such a quest, in any case. A zone is exempt, because most quest texts name their zone. The rule covers only the quests that you read.
+  - An NPC to meet is one that you met or saw. It is not hostile, not an animal, not dead in your story, and not the giver. So a task never sends you to talk to a bat.
+  - A creature to kill is one that you saw hostile, and not dead in your story. A kill step asks for 1 to 10 kills.
+  - Each step names a different target, so one event never does two steps.
+  - **No target twice in a row:** no place, NPC, or creature of your newest task comes again in the next one, from the same giver or any other. The newest task is the last offer in the log, in any state.
+  - **No overlap:** a subzone, NPC, or creature of a step is not in the title or the text of a game quest that you read. The title does not have the words of the title of such a quest, in any case. A zone is exempt, because most quest texts name their zone. The rule covers only the quests that you read.
+- **The prompt lists only what the check allows** (built): the places that you can visit, the NPCs that you can meet, and the creatures that you can hunt, at most 20 of each. One function of the code decides both the lists and the check, so they never disagree.
 - **Limits** (built): each giver has at most one offer that waits, and a new offer of the giver ends the old one. A giver with an open quest waits for you to finish it. You hold at most 3 open quests. The limits hold when you ask, when the offer comes, and when you accept, because the world moves on while the model thinks. A refused accept comes back as the narrator line of its batch.
-- **Accept and progress** (built): the buttons of the Tasks page name their quest by its number, so you accept the offer that you read. `/quest accept` or `/quest decline` answers the newest offer. The story program checks each step against later `zone_entered`, `npc_met`, `talk_asked`, and `npc_slapped` events, in order. A step that holds when it becomes the next step is done at once, because the addon sends a zone only when it changes. The addon sends an NPC again only after 5 minutes, and it forgets the NPCs that you met when you accept a quest. At the end, you get `quest_done`, and the giver trusts you 10 more. The model never picks this number. The finished quest is a deed, so it shows on the Deeds page and in the chronicle, and the saga gets it as a fact of the chapter.
-- **Storage** (built): the quest file `c_<name>.quests.jsonl` holds the offers, the answers, and the steps done. The world holds the facts: the giver holds `quest_offered`, and you hold `quest_accepted` and `quest_done`. The quest thing is named "quest <number>: <title>", so it never merges with a title.
+- **Accept and progress** (built): the buttons of the Tasks page name their quest by its number, so you accept the offer that you read. `/quest accept` or `/quest decline` answers the newest offer. The story program checks each step against later `zone_entered`, `npc_met`, `talk_asked`, `npc_slapped`, and `npc_killed` events, in order. A step that holds when it becomes the next step is done at once, because the addon sends a zone only when it changes. The addon sends an NPC again only after 5 minutes, and it forgets the NPCs that you met when you accept a quest.
+- **Kills** (built): the journal tells the addon the creature of the next step of each task in progress, when that step is a kill. The addon keeps, in memory only, the GUID of each unit of such a creature that you see and can attack. `PARTY_KILL` for one of these units sends `npc_killed` with the name, once for each unit. The story program counts a kill only for the next step of an accepted task, and only up to its count, in the quest file. A kill before you accept counts nothing. The Tasks page shows the count as the game does: "Duskbat slain: 2/6". At the end of a task, you get `quest_done`, and the giver trusts you 10 more. The model never picks this number. The finished quest is a deed, so it shows on the Deeds page and in the chronicle, and the saga gets it as a fact of the chapter.
+- **Storage** (built): the quest file `c_<name>.quests.jsonl` holds the offers, the answers, the kills, and the steps done. The world holds the facts: the giver holds `quest_offered`, and you hold `quest_accepted` and `quest_done`. The quest thing is named "quest <number>: <title>", so it never merges with a title.
 
 ### 3.5 Talk to an NPC
 
@@ -267,6 +273,9 @@ Each character has one Hourglass world. A guild has one more world, held by its 
 |---|---|---|---|---|
 | `located_in` | flag | free | one place | Declared by Hourglass itself. Where an NPC lives, or where you are. |
 | `met` | flag | up | person to person | You talked to this NPC. It never ends. |
+| `seen` | flag | up | person to person | You hovered or targeted this NPC (3.4). Seeing is not meeting. It never ends. |
+| `hostile` | flag | free | none | You can attack this NPC. The last sighting starts or ends it. |
+| `animal` | flag | up | none | A beast or a critter: no one to talk to. |
 | `trusts` | number, -100 to 100 | free | person to person | How much an NPC trusts you. |
 | `visited` | flag | up | person to place | You were in this place. It feeds the spoiler limit. |
 | `knows_lore` | flag | up | person to thing or place | You heard this piece of lore. It feeds the spoiler limit. |
@@ -316,6 +325,8 @@ A first list. Each name goes through the API gate of Gnomish Relay (`scripts/wow
 | Quest of the game taken and done (built) | `QUEST_ACCEPTED` and `QUEST_TURNED_IN`, with the title from `C_QuestLog.GetInfo`. The log puts a quest of your class under a header with the name of the class (`UnitClass`), so the addon marks it as a class quest. The log is read at login too, so a quest taken before still counts. A finished class quest is a big moment for the narrator (3.2) and a chapter milestone (3.3). |
 | Lasting buff or debuff of a quest (built) | `UNIT_AURA` for the player only, with its `addedAuras`. An aura counts only if it starts within 60 seconds after an event of a quest of the game (`QUEST_ACCEPTED`, `QUEST_WATCH_UPDATE`, `QUEST_TURNED_IN`), and it belongs to that quest. It must come from no player or pet, last 10 minutes or more (or have no end), and start out of combat. The state at login (`isFullUpdate`) and any hidden value never count. A short list of spell IDs drops Resurrection Sickness, the world buffs, and the Darkmoon fortunes. Each mark counts once. It is a deed, a fact of its chapter, and a moment for the narrator below a finished class quest. |
 | Kill of a rare or a boss | `PARTY_KILL` for a unit that the addon saw as rare, rare elite, or world boss (`PLAYER_TARGET_CHANGED`, `UPDATE_MOUSEOVER_UNIT`, `NAME_PLATE_UNIT_ADDED`), and `ENCOUNTER_END` with `success` 1 |
+| An NPC that you see (built) | `PLAYER_TARGET_CHANGED` and `UPDATE_MOUSEOVER_UNIT`, with `UnitCanAttack`, `UnitCreatureType`, and the NPC id of `UnitGUID`. Once for each NPC in a session (3.4). |
+| Kill for a task (built) | `PARTY_KILL` for a unit of the creature of a kill step that comes next (3.4) |
 | Your death | `PLAYER_DEAD`, and the killing blow from `C_DeathRecap.GetRecapEvents()` |
 | Boss fight | `ENCOUNTER_START`, `ENCOUNTER_END` |
 | Talk to an NPC | `GOSSIP_SHOW`, `QUEST_GREETING`, `QUEST_DETAIL`, `QUEST_PROGRESS`, `QUEST_COMPLETE` |
@@ -698,6 +709,6 @@ The guild world keeps `defeated` from the guild to each boss. So the saga gets a
 8. **The strength of the echo lore** (5.13). Off, light, or strong, and which level is the default? Does a strong level need a named bronze dragon, and how does it stay inside the lore cutoff?
 9. **The closed combat log** (5.4). Addons in this client cannot read the combat log. Kills of rares and bosses and your deaths work without it. These features still need a source:
    - Nemesis (4.1): the death recap names the killer, but gives no GUID, so the addon cannot tell a player from an NPC with the same name for sure.
-   - Critter kills and common mob counts (5.4.1): `UNIT_DIED` gives a GUID, but a GUID can be secret, and the range of the event is not documented.
+   - Critter kills and common mob counts (5.4.1): `UNIT_DIED` gives a GUID, but a GUID can be secret, and the range of the event is not documented. A kill step of a task (3.4) counts only the units of its creature that the addon saw, from `PARTY_KILL`.
    - Wipes and the first player to die in a raid (4.2).
    - A test in the game settles what `UNIT_DIED`, `PARTY_KILL`, and the recap really give, and when values are secret.

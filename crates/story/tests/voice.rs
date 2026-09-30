@@ -169,6 +169,8 @@ fn quest_offer() -> String {
         zones: vec!["Elwynn Forest", "Westfall"],
         subzones: vec!["Goldshire", "Fargodeep Mine", "Sentinel Hill"],
         npcs: vec!["Marshal Dughan", "Farmer Saldean"],
+        foes: vec!["Defias Thug", "Riverpaw Gnoll"],
+        last_targets: Vec::new(),
         seen: &[],
     };
     quest::prompt(&known, Some("Goldshire"))

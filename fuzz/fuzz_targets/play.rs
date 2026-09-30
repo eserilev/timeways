@@ -15,6 +15,8 @@ pub const CHARACTERS: [&str; 2] = [
 
 pub const FIELDS: [&str; 6] = ["origin", "background", "goal", "bond", "flaw", "traits"];
 pub const KINDS: [&str; 3] = ["quest", "gossip", "book"];
+/// Creature types as the addon sends them, and one that it never sends.
+const CREATURES: [&str; 4] = ["beast", "critter", "humanoid", "Not A Token"];
 pub const EMOTES: [&str; 5] = ["dance", "kiss", "wave", "cheer", "flex"];
 pub const CAUSES: [&str; 4] = ["falling", "drowning", "lava", "fire"];
 
@@ -65,6 +67,14 @@ pub enum Play {
         subzone: Option<Name>,
     },
     Meet(Name),
+    /// A hover or a target, with the creature type by index.
+    See {
+        name: Name,
+        hostile: bool,
+        creature: Option<u8>,
+    },
+    /// A kill for the kill step of a task.
+    Kill(Name),
     Defeat(Name),
     Die {
         killer: Option<Name>,
@@ -117,8 +127,8 @@ pub struct Words {
     trust: i8,
     title: Prose,
     text: Prose,
-    /// Steps by the index of a name that the prompt lists: `true` visits a place.
-    steps: Vec<(bool, u8)>,
+    /// Steps by goal, the index of a name that the prompt lists, and a count of kills.
+    steps: Vec<(u8, u8, u8)>,
     /// A name that the prompt does not list, for a step that the check refuses.
     stranger: Option<Name>,
 }
@@ -137,6 +147,17 @@ fn input(play: &Play, at: u64) -> Option<Value> {
             json!({"type": "zone_entered", "at": at, "zone": zone.0, "subzone": text(subzone)})
         }
         Play::Meet(name) => json!({"type": "npc_met", "at": at, "name": name.0}),
+        Play::See {
+            name,
+            hostile,
+            creature,
+        } => {
+            let reaction = if *hostile { "hostile" } else { "friendly" };
+            let creature = creature.map(|index| CREATURES[usize::from(index) % CREATURES.len()]);
+            json!({"type": "npc_seen", "at": at, "name": name.0, "reaction": reaction,
+                "creature": creature})
+        }
+        Play::Kill(name) => json!({"type": "npc_killed", "at": at, "name": name.0}),
         Play::Defeat(name) => json!({"type": "npc_defeated", "at": at, "name": name.0}),
         Play::Die {
             killer,
@@ -192,15 +213,17 @@ fn listed<'a>(prompt: &'a str, heading: &str) -> Vec<&'a str> {
 fn quest(prompt: &str, words: &Words) -> Value {
     let places = listed(prompt, "Places that the player can visit:");
     let people = listed(prompt, "People that the player can meet:");
+    let prey = listed(prompt, "Creatures that the player can hunt:");
     let mut steps: Vec<Value> = Vec::new();
-    for (visit, index) in &words.steps {
-        let names = if *visit { &places } else { &people };
+    for (goal, index, count) in &words.steps {
+        let names = [&places, &people, &prey][usize::from(*goal % 3)];
         let Some(name) = names.get(usize::from(*index) % names.len().max(1)) else {
             continue;
         };
-        steps.push(match visit {
-            true => json!({"goal": "visit", "place": name}),
-            false => json!({"goal": "meet", "npc": name}),
+        steps.push(match goal % 3 {
+            0 => json!({"goal": "visit", "place": name}),
+            1 => json!({"goal": "meet", "npc": name}),
+            _ => json!({"goal": "kill", "creature": name, "count": count % 12}),
         });
     }
     if let Some(stranger) = &words.stranger {

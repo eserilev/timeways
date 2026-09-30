@@ -2,7 +2,7 @@
 
 use hourglass::{EntityId, EntityType, Event, EventId, EventKind, Tick};
 use timeways_story::character::Character;
-use timeways_story::input::GameQuestKind;
+use timeways_story::input::{GameQuestKind, Reaction};
 use timeways_story::vocabulary::{
     DEAD, GAME_QUEST_TAKEN, LEVEL, MET, QUEST_ACCEPTED, QUEST_OFFERED, VISITED,
 };
@@ -572,4 +572,118 @@ fn a_taken_quest_of_the_game_is_held_under_its_own_name() {
     )
     .unwrap();
     assert!(holds(&character, GAME_QUEST_TAKEN, quest));
+}
+
+fn see(character: &mut Character, name: &str, reaction: Reaction, creature: Option<&str>) {
+    character
+        .see_npc(Tick(1), name, reaction, creature)
+        .unwrap();
+}
+
+#[test]
+fn seeing_an_npc_is_not_meeting_it() {
+    let mut character = Character::new();
+
+    see(
+        &mut character,
+        "Keeper Tessa",
+        Reaction::Friendly,
+        Some("humanoid"),
+    );
+
+    assert!(character.has_seen("Keeper Tessa"));
+    assert!(!character.has_met("Keeper Tessa"));
+}
+
+#[test]
+fn a_friendly_npc_that_you_saw_is_someone_to_meet() {
+    let mut character = Character::new();
+
+    see(
+        &mut character,
+        "Keeper Tessa",
+        Reaction::Friendly,
+        Some("humanoid"),
+    );
+
+    assert_eq!(character.npcs_to_meet(), ["Keeper Tessa"]);
+    assert!(character.foes_seen().is_empty());
+}
+
+#[test]
+fn a_hostile_creature_is_a_foe_and_never_someone_to_meet() {
+    let mut character = Character::new();
+
+    see(&mut character, "Duskbat", Reaction::Hostile, Some("beast"));
+
+    assert!(character.npcs_to_meet().is_empty());
+    assert_eq!(character.foes_seen(), ["Duskbat"]);
+}
+
+#[test]
+fn a_beast_is_never_someone_to_meet_even_a_friendly_one() {
+    let mut character = Character::new();
+
+    see(
+        &mut character,
+        "Old Mule",
+        Reaction::Friendly,
+        Some("beast"),
+    );
+    see(
+        &mut character,
+        "Barn Cat",
+        Reaction::Friendly,
+        Some("critter"),
+    );
+
+    assert!(character.npcs_to_meet().is_empty());
+}
+
+#[test]
+fn an_npc_that_you_met_and_later_saw_hostile_is_no_one_to_meet() {
+    let mut character = Character::new();
+    character.meet_npc(Tick(1), "Guard Rolf").unwrap();
+
+    see(
+        &mut character,
+        "Guard Rolf",
+        Reaction::Hostile,
+        Some("humanoid"),
+    );
+
+    assert!(character.npcs_to_meet().is_empty());
+    assert_eq!(character.foes_seen(), ["Guard Rolf"]);
+}
+
+#[test]
+fn a_foe_seen_friendly_later_is_someone_to_meet_again() {
+    let mut character = Character::new();
+    see(&mut character, "Guard Rolf", Reaction::Hostile, None);
+
+    see(&mut character, "Guard Rolf", Reaction::Friendly, None);
+
+    assert_eq!(character.npcs_to_meet(), ["Guard Rolf"]);
+    assert!(character.foes_seen().is_empty());
+}
+
+#[test]
+fn an_npc_both_met_and_seen_is_listed_once() {
+    let mut character = Character::new();
+    character.meet_npc(Tick(1), "Keeper Tessa").unwrap();
+
+    see(&mut character, "Keeper Tessa", Reaction::Friendly, None);
+
+    assert_eq!(character.npcs_to_meet(), ["Keeper Tessa"]);
+}
+
+#[test]
+fn the_same_sighting_twice_adds_no_events() {
+    let mut character = Character::new();
+    see(&mut character, "Duskbat", Reaction::Hostile, Some("beast"));
+    let events = character.world().history().len();
+
+    see(&mut character, "Duskbat", Reaction::Hostile, Some("beast"));
+
+    assert_eq!(character.world().history().len(), events);
 }

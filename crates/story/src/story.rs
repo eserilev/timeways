@@ -5,7 +5,7 @@ use crate::check;
 use crate::chronicle;
 use crate::flavor::{self, Flavor, HUMBLING_GAP, Kind, Teller, Told};
 use crate::hero::{self, Change, Entry};
-use crate::input::{CallId, GameQuestKind, Input, MessageId};
+use crate::input::{CallId, GameQuestKind, Input, MessageId, Reaction};
 use crate::journal::{Page, journal, pages};
 use crate::learned::{Read, Rumor, learned};
 use crate::lore::{Answer, LoreCall, Next};
@@ -293,15 +293,15 @@ impl Story {
                 self.advance_quests(at, None)
             }
             Input::InstanceEntered { at, zone, kind } => self.mark_instance(at, &zone, kind),
-            Input::NpcMet { at, name } => {
-                checked_name(&name)?;
-                self.change(|character| character.meet_npc(at, &name))?;
-                self.advance_quests(at, Some(&name))
-            }
-            Input::NpcDefeated { at, name } => {
-                checked_name(&name)?;
-                self.change(|character| character.defeat_npc(at, &name))
-            }
+            Input::NpcMet { at, name } => self.meet_npc(at, &name),
+            Input::NpcSeen {
+                at,
+                name,
+                reaction,
+                creature,
+            } => self.see_npc(at, &name, reaction, creature.as_deref()),
+            Input::NpcKilled { at, name } => self.count_kill(at, checked_name(&name)?),
+            Input::NpcDefeated { at, name } => self.defeat_npc(at, &name),
             Input::GameQuestAccepted { at, title, kind } => self.take_game_quest(at, &title, kind),
             Input::GameQuestDone { at, title, kind } => self.finish_game_quest(at, &title, kind),
             Input::QuestMarked { at, quest, mark } => self.take_quest_mark(at, &quest, &mark),
@@ -376,6 +376,29 @@ impl Story {
             Input::ModelAnswered { call, text } => self.answered(call, &text),
             Input::ModelFailed { call } => self.failed(call),
         }
+    }
+
+    fn defeat_npc(&mut self, at: Tick, name: &str) -> Result<Vec<Output>, StoryError> {
+        checked_name(name)?;
+        self.change(|character| character.defeat_npc(at, name))
+    }
+
+    fn meet_npc(&mut self, at: Tick, name: &str) -> Result<Vec<Output>, StoryError> {
+        checked_name(name)?;
+        self.change(|character| character.meet_npc(at, name))?;
+        self.advance_quests(at, Some(name))
+    }
+
+    fn see_npc(
+        &mut self,
+        at: Tick,
+        name: &str,
+        reaction: Reaction,
+        creature: Option<&str>,
+    ) -> Result<Vec<Output>, StoryError> {
+        checked_name(name)?;
+        creature.map(checked_token).transpose()?;
+        self.change(|character| character.see_npc(at, name, reaction, creature))
     }
 
     fn mark_instance(

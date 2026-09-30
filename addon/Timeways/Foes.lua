@@ -1,6 +1,7 @@
--- Kills of rares and bosses, and your deaths (GAMEPLAY.md 5.13). Addons cannot read the
--- combat log in this client, so this module reads what the client does give: the units
--- that you see, PARTY_KILL, ENCOUNTER_END, and the death recap.
+-- Kills of rares and bosses, kills for the kill steps of your tasks, and your deaths
+-- (GAMEPLAY.md 3.4 and 5.13). Addons cannot read the combat log in this client, so this
+-- module reads what the client does give: the units that you see, PARTY_KILL,
+-- ENCOUNTER_END, and the death recap.
 
 local _, ns = ...
 
@@ -16,6 +17,9 @@ local SAME_KILL_SECONDS = 120
 -- and bosses by GUID.
 local npcs, players, notable, levels = {}, {}, {}, {}
 local lastKill = {}
+-- The creatures of the next kill step of each task in progress, and the units of them that
+-- you saw and can attack, by GUID. A common mob counts only when a task hunts it.
+local hunted, prey = {}, {}
 
 -- The client can hide a value from addons. A hidden value is never compared or stored.
 local function Readable(...)
@@ -42,6 +46,9 @@ function Foes.See(unit)
 	end
 	npcs[name] = true
 	levels[name] = UnitLevel(unit)
+	if hunted[name] and UnitCanAttack("player", unit) then
+		prey[guid] = name
+	end
 	if NOTABLE[UnitClassification(unit)] then
 		notable[guid] = name
 	end
@@ -64,11 +71,49 @@ local function Defeated(name)
 	ns.Outbox.Add(ns.Inputs.Defeated(now, name))
 end
 
+-- The creature of the next step of a task in progress, when it is a kill step.
+local function NextKill(quest)
+	if type(quest) ~= "table" or quest.status ~= "accepted" or type(quest.steps) ~= "table" then
+		return nil
+	end
+	local done = type(quest.steps_done) == "number" and quest.steps_done or 0
+	local step = quest.steps[done + 1]
+	if type(step) == "table" and step.goal == "kill" and type(step.creature) == "string" then
+		return step.creature
+	end
+end
+
+-- The tasks of the journal say what to hunt. A unit of a creature that no task hunts now
+-- is forgotten.
+function Foes.Hunt(quests)
+	hunted = {}
+	for _, quest in ipairs(type(quests) == "table" and quests or {}) do
+		local creature = NextKill(quest)
+		if creature then
+			hunted[creature] = true
+		end
+	end
+	for guid, name in pairs(prey) do
+		if not hunted[name] then
+			prey[guid] = nil
+		end
+	end
+end
+
+local function CountKill(guid)
+	local name = prey[guid]
+	if name then
+		prey[guid] = nil
+		ns.Outbox.Add(ns.Inputs.Killed(time(), name))
+	end
+end
+
 -- PARTY_KILL fires for a killing blow of you or your group.
 function Foes.PartyKill(_, targetGUID)
 	if not Readable(targetGUID) then
 		return
 	end
+	CountKill(targetGUID)
 	local name = notable[targetGUID]
 	if name then
 		notable[targetGUID] = nil

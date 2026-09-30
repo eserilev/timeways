@@ -6,7 +6,7 @@
 use hourglass::Tick;
 use std::path::Path;
 use timeways_story::character::QUEST_TRUST;
-use timeways_story::input::{CallId, Input, MessageId};
+use timeways_story::input::{CallId, Input, MessageId, Reaction};
 use timeways_story::journal::{Deed, Page};
 use timeways_story::pack::Pack;
 use timeways_story::quest::{Status, Tracked};
@@ -336,8 +336,14 @@ fn a_quest_request_meets_its_giver() {
     assert!(people.iter().any(|person| person.name == "Innkeeper Pell"));
 }
 
-fn answer_with(story: &mut Story, call: CallId, title: &str) -> Option<String> {
-    let text = OFFER.replace("The Lost Lantern", title);
+const VISIT_POND: &str = r#"{"goal": "visit", "place": "Mill Pond"}"#;
+const MEET_BRAM: &str = r#"{"goal": "meet", "npc": "Farmer Bram"}"#;
+const VISIT_TOWER: &str = r#"{"goal": "visit", "place": "Old Tower"}"#;
+
+/// An offer of one step. Two tasks in a row never share a target, so the tests pick the
+/// step.
+fn answer_with(story: &mut Story, call: CallId, title: &str, step: &str) -> Option<String> {
+    let text = format!(r#"{{"title": "{title}", "text": "Go and look.", "steps": [{step}]}}"#);
     narrator(story.handle(Input::ModelAnswered { call, text }).unwrap())
 }
 
@@ -362,10 +368,10 @@ fn two_offers_of_one_giver_never_make_two_open_quests() {
     let mut story = story("two-offers");
     let (first, _) = call_of(ask(&mut story, 5));
     let (second, _) = call_of(ask(&mut story, 6));
-    answer_with(&mut story, first, "The Lost Lantern");
+    answer_with(&mut story, first, "The Lost Lantern", VISIT_POND);
     accept(&mut story, 7, None);
 
-    let line = answer_with(&mut story, second, "The Old Well");
+    let line = answer_with(&mut story, second, "The Old Well", MEET_BRAM);
     accept(&mut story, 8, None);
 
     assert_eq!(
@@ -382,7 +388,8 @@ fn an_accept_past_three_open_quests_is_refused_in_the_narrator_line() {
     for (n, giver) in (0u64..).zip(givers) {
         story.handle(meet(10 + n, giver)).unwrap();
         let (call, _) = call_of(ask_from(&mut story, giver, 20 + n));
-        answer_with(&mut story, call, &format!("Task {n}"));
+        let step = if n % 2 == 0 { VISIT_POND } else { MEET_BRAM };
+        answer_with(&mut story, call, &format!("Task {n}"), step);
     }
 
     for n in 1..=4 {
@@ -403,7 +410,7 @@ fn an_accept_with_a_number_takes_that_offer_and_not_the_newest() {
     story.handle(meet(10, "Innkeeper Pell")).unwrap();
     offer(&mut story, 11);
     let (call, _) = call_of(ask_from(&mut story, "Innkeeper Pell", 12));
-    answer_with(&mut story, call, "The Old Well");
+    answer_with(&mut story, call, "The Old Well", VISIT_TOWER);
 
     accept(&mut story, 13, Some(1));
 
@@ -418,7 +425,7 @@ fn a_new_offer_ends_only_the_waiting_offer_of_the_same_giver() {
     story.handle(meet(10, "Innkeeper Pell")).unwrap();
     offer(&mut story, 11);
     let (call, _) = call_of(ask_from(&mut story, "Innkeeper Pell", 12));
-    answer_with(&mut story, call, "The Old Well");
+    answer_with(&mut story, call, "The Old Well", VISIT_TOWER);
 
     offer(&mut story, 13);
 
@@ -510,4 +517,108 @@ fn abandoning_a_finished_quest_or_an_unknown_number_changes_nothing() {
     abandon(&mut story, 10, 42);
 
     assert_eq!(quests(&mut story)[0].status, Status::Done);
+}
+
+fn sight(story: &mut Story, at: u64, name: &str, reaction: Reaction, creature: &str) {
+    let seen = Input::NpcSeen {
+        at: Tick(at),
+        name: name.to_string(),
+        reaction,
+        creature: Some(creature.to_string()),
+    };
+    assert_eq!(story.handle(seen).unwrap(), []);
+}
+
+fn kill(story: &mut Story, at: u64, name: &str) {
+    let killed = Input::NpcKilled {
+        at: Tick(at),
+        name: name.to_string(),
+    };
+    story.handle(killed).unwrap();
+}
+
+const KILL_BATS: &str = r#"{"goal": "kill", "creature": "Duskbat", "count": 2}"#;
+
+/// A hunt of 2 Duskbats, accepted. The player saw the bats first.
+fn bat_hunt(name: &str) -> Story {
+    let mut story = story(name);
+    sight(&mut story, 5, "Duskbat", Reaction::Hostile, "beast");
+    let (call, _) = call_of(ask(&mut story, 6));
+    answer_with(&mut story, call, "Bats in the Belfry", KILL_BATS);
+    accept(&mut story, 7, None);
+    story
+}
+
+#[test]
+fn the_prompt_names_seen_foes_to_hunt_and_never_a_foe_to_meet() {
+    let mut story = story("prompt-foes");
+    sight(&mut story, 5, "Duskbat", Reaction::Hostile, "beast");
+    sight(&mut story, 5, "Tanner Ilsa", Reaction::Friendly, "humanoid");
+
+    let (_, prompt) = call_of(ask(&mut story, 6));
+
+    let hunt = prompt
+        .split("Creatures that the player can hunt:")
+        .nth(1)
+        .unwrap();
+    let meet = prompt
+        .split("People that the player can meet:")
+        .nth(1)
+        .unwrap();
+    let meet = meet.split("Creatures").next().unwrap();
+    assert!(hunt.starts_with("\n<<<\n- Duskbat\n>>>"), "{prompt}");
+    assert!(meet.contains("- Tanner Ilsa"), "{prompt}");
+    assert!(!meet.contains("Duskbat"), "{prompt}");
+}
+
+#[test]
+fn a_hunt_ends_after_its_kills_and_the_giver_trusts_you_more() {
+    let mut story = bat_hunt("hunt");
+
+    kill(&mut story, 8, "Duskbat");
+    assert_eq!(quests(&mut story)[0].kills, 1);
+    kill(&mut story, 9, "Duskbat");
+
+    let done = quests(&mut story).remove(0);
+    assert_eq!(done.status, Status::Done);
+    assert_eq!(trust_of_giver(&mut story), Some(QUEST_TRUST));
+}
+
+#[test]
+fn a_kill_of_another_creature_counts_nothing() {
+    let mut story = bat_hunt("other-kill");
+
+    kill(&mut story, 8, "Mill Rat");
+
+    assert_eq!(quests(&mut story)[0].kills, 0);
+}
+
+#[test]
+fn a_kill_before_the_hunt_is_accepted_counts_nothing() {
+    let mut story = story("early-kill");
+    sight(&mut story, 5, "Duskbat", Reaction::Hostile, "beast");
+    let (call, _) = call_of(ask(&mut story, 6));
+    answer_with(&mut story, call, "Bats in the Belfry", KILL_BATS);
+
+    kill(&mut story, 7, "Duskbat");
+    accept(&mut story, 8, None);
+
+    assert_eq!(quests(&mut story)[0].kills, 0);
+}
+
+#[test]
+fn the_next_task_never_names_a_target_of_the_last_one() {
+    let mut story = bat_hunt("last-task");
+    kill(&mut story, 8, "Duskbat");
+    kill(&mut story, 9, "Duskbat");
+    story.handle(meet(10, "Innkeeper Pell")).unwrap();
+
+    let (call, prompt) = call_of(ask_from(&mut story, "Innkeeper Pell", 11));
+    let line = answer_with(&mut story, call, "More Bats", KILL_BATS);
+
+    assert!(!prompt.contains("- Duskbat"), "{prompt}");
+    assert_eq!(
+        line.as_deref(),
+        Some("Innkeeper Pell has no task for you now.")
+    );
 }

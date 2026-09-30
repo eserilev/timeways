@@ -16,6 +16,16 @@ function Units.NpcName(unit)
 	end
 end
 
+-- The NPC id of the GUID "Creature-0-1-2-3-<npc id>-<spawn>". A player, a pet, and a
+-- hidden GUID give none.
+function Units.NpcId(unit)
+	local guid = UnitGUID(unit)
+	if issecretvalue(guid) or type(guid) ~= "string" then
+		return nil
+	end
+	return guid:match("^Creature%-%d+%-%d+%-%d+%-%d+%-(%d+)%-")
+end
+
 -- An NPC that you cannot attack: someone to talk to, or to ask for a task. A bat or a boar
 -- that you can attack never counts, so it never becomes someone that you met.
 function Units.FriendlyNpcName(unit)

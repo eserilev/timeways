@@ -101,6 +101,7 @@ function Journal.Receive(value)
 	ns.Hero.JournalCame()
 	ns.Quest.JournalCame()
 	ns.Trust.Update(pages.people)
+	ns.Foes.Hunt(pages.quests)
 	ns.JournalFrame.Refresh()
 	ns.Hero.AskOnce(pages.hero)
 end
@@ -281,12 +282,16 @@ local function Learned(entries)
 	return lines
 end
 
-local function StepText(step)
+-- `kills` is the count so far of a kill step, as the game shows a quest objective.
+local function StepText(step, kills)
 	if step.goal == "visit" then
 		return "Visit " .. Name(step.place) .. "."
 	end
 	if step.goal == "meet" then
 		return "Speak with " .. Name(step.npc) .. "."
+	end
+	if step.goal == "kill" and type(step.count) == "number" then
+		return string.format("%s slain: %d/%d", Name(step.creature), kills, step.count)
 	end
 	return "?"
 end
@@ -359,6 +364,17 @@ local function StepsDone(quest)
 	return type(quest.steps_done) == "number" and quest.steps_done or 0
 end
 
+-- A done step has all its kills, and only the next step has kills so far.
+local function StepKills(quest, n, step)
+	if n <= StepsDone(quest) then
+		return type(step.count) == "number" and step.count or 0
+	end
+	if n == StepsDone(quest) + 1 and type(quest.kills) == "number" then
+		return quest.kills
+	end
+	return 0
+end
+
 -- The rewards are story, never loot (3.4): the giver trusts you more, and the deed goes into
 -- your chronicle.
 local function QuestLines(quest, saving)
@@ -369,7 +385,7 @@ local function QuestLines(quest, saving)
 	end
 	for n, step in ipairs(Entries(quest.steps)) do
 		local mark = n <= StepsDone(quest) and " (Complete)" or ""
-		lines[#lines + 1] = Line("entry", StepText(step) .. mark)
+		lines[#lines + 1] = Line("entry", StepText(step, StepKills(quest, n, step)) .. mark)
 	end
 	lines[#lines + 1] = Line("section", "Rewards")
 	lines[#lines + 1] = Line("text", Name(quest.giver) .. " trusts you more.")

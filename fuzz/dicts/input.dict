@@ -44,3 +44,8 @@
 "\"kind\":\"book\""
 "\"title\":"
 "$N"
+"{\"type\":\"npc_seen\",\"at\":"
+"\"reaction\":\"hostile\""
+"\"reaction\":\"friendly\""
+"\"creature\":\"beast\""
+"{\"type\":\"npc_killed\",\"at\":"

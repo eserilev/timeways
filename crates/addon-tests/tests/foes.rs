@@ -267,3 +267,101 @@ fn a_known_killer_goes_out_with_its_level() {
     };
     assert_eq!(sent_after_flush(&game), [cow]);
 }
+
+const BAT: &str = "Creature-0-4372-0-17-1554-0000ABCDEF";
+
+/// A journal with one task in progress. Its next step kills 2 Duskbats.
+const HUNT: &str = r#"{"type":"journal","page":0,"pages":1,"quests":[{"number":1,"status":"accepted","steps_done":1,"kills":0,"steps":[{"goal":"visit","place":"Mill Pond"},{"goal":"kill","creature":"Duskbat","count":2}]}]}"#;
+
+fn killed(name: &str) -> Input {
+    Input::NpcKilled {
+        at: NOW,
+        name: name.to_string(),
+    }
+}
+
+fn hunted_bat(game: &Game, guid: &str) {
+    game.run(&format!(
+        "wow.units.target = {{ name = 'Duskbat', guid = '{guid}', hostile = true }}
+         wow.Fire('PLAYER_TARGET_CHANGED')"
+    ));
+}
+
+/// The sightings of the units go out too, so the test keeps only the kills.
+fn kills_after_flush(game: &Game) -> Vec<Input> {
+    let sent = sent_after_flush(game);
+    sent.into_iter()
+        .filter(|input| matches!(input, Input::NpcKilled { .. }))
+        .collect()
+}
+
+#[test]
+fn a_kill_of_a_creature_that_a_task_hunts_goes_out() {
+    let game = Game::new();
+    game.reply(HUNT);
+    hunted_bat(&game, BAT);
+
+    game.run(&format!("wow.Fire('PARTY_KILL', 'Player-1', '{BAT}')"));
+
+    assert_eq!(kills_after_flush(&game), [killed("Duskbat")]);
+}
+
+#[test]
+fn a_unit_counts_once() {
+    let game = Game::new();
+    game.reply(HUNT);
+    hunted_bat(&game, BAT);
+
+    game.run(&format!(
+        "wow.Fire('PARTY_KILL', 'Player-1', '{BAT}')
+         wow.Fire('PARTY_KILL', 'Player-1', '{BAT}')"
+    ));
+
+    assert_eq!(kills_after_flush(&game), [killed("Duskbat")]);
+}
+
+#[test]
+fn a_kill_that_no_task_hunts_stays_home() {
+    let game = Game::new();
+    hunted_bat(&game, BAT);
+
+    game.run(&format!("wow.Fire('PARTY_KILL', 'Player-1', '{BAT}')"));
+
+    assert!(kills_after_flush(&game).is_empty());
+}
+
+#[test]
+fn a_kill_step_that_is_not_next_hunts_nothing() {
+    let game = Game::new();
+    game.reply(&HUNT.replace(r#""steps_done":1"#, r#""steps_done":0"#));
+    hunted_bat(&game, BAT);
+
+    game.run(&format!("wow.Fire('PARTY_KILL', 'Player-1', '{BAT}')"));
+
+    assert!(kills_after_flush(&game).is_empty());
+}
+
+#[test]
+fn a_finished_hunt_forgets_the_units_that_it_saw() {
+    let game = Game::new();
+    game.reply(HUNT);
+    hunted_bat(&game, BAT);
+
+    game.reply(&HUNT.replace(r#""steps_done":1"#, r#""steps_done":2"#));
+    game.run(&format!("wow.Fire('PARTY_KILL', 'Player-1', '{BAT}')"));
+
+    assert!(kills_after_flush(&game).is_empty());
+}
+
+#[test]
+fn a_friendly_unit_of_a_hunted_name_never_counts() {
+    let game = Game::new();
+    game.reply(HUNT);
+    game.run(&format!(
+        "wow.units.target = {{ name = 'Duskbat', guid = '{BAT}' }}
+         wow.Fire('PLAYER_TARGET_CHANGED')
+         wow.Fire('PARTY_KILL', 'Player-1', '{BAT}')"
+    ));
+
+    assert!(kills_after_flush(&game).is_empty());
+}

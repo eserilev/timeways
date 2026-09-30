@@ -234,6 +234,17 @@ return {
 				{ Name = "result", Type = "cstring", Nilable = false },
 			},
 		},
+		UnitCreatureType = {
+			SecretArguments = "AllowedWhenUntainted",
+			SecretWhenUnitIdentityRestricted = true,
+			Arguments = {
+				{ Name = "unit", Type = "UnitToken", Nilable = false },
+			},
+			Returns = {
+				{ Name = "name", Type = "cstring", Nilable = false },
+				{ Name = "id", Type = "number", Nilable = false },
+			},
+		},
 		UnitExists = {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {

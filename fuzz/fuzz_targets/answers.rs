@@ -35,8 +35,10 @@ fn known(seen: &[SeenText]) -> Known<'_> {
     Known {
         giver: "Keeper Tessa",
         zones: vec!["Testvale"],
-        subzones: vec!["Old Tower"],
+        subzones: vec!["Old Tower", "Old Mill"],
         npcs: vec!["Keeper Tessa", "Farmer Bram"],
+        foes: vec!["Duskbat"],
+        last_targets: vec!["Old Mill"],
         seen,
     }
 }
@@ -66,8 +68,17 @@ fn assert_quest(text: &str) {
         match step {
             Step::Visit { place } => assert!(["Testvale", "Old Tower"].contains(&place.as_str())),
             Step::Meet { npc } => assert_eq!(npc, "Farmer Bram"),
+            Step::Kill { creature, count } => {
+                assert_eq!(creature, "Duskbat");
+                assert!((1..=quest::MAX_KILLS).contains(count));
+            }
         }
     }
+    let targets: Vec<&str> = offer.steps.iter().map(Step::target).collect();
+    let mut distinct = targets.clone();
+    distinct.sort_unstable();
+    distinct.dedup();
+    assert_eq!(distinct.len(), targets.len(), "a target twice: {targets:?}");
 }
 
 fuzz_target!(|data: &[u8]| {

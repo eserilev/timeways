@@ -36,6 +36,15 @@ function Inputs.Npc(at, name)
 	return { type = "npc_met", at = at, name = name }
 end
 
+-- `reaction` is "hostile" or "friendly". `creature` is an English creature type, or nil.
+function Inputs.NpcSeen(at, name, reaction, creature)
+	return { type = "npc_seen", at = at, name = name, reaction = reaction, creature = creature }
+end
+
+function Inputs.Killed(at, name)
+	return { type = "npc_killed", at = at, name = name }
+end
+
 function Inputs.Defeated(at, name)
 	return { type = "npc_defeated", at = at, name = name }
 end

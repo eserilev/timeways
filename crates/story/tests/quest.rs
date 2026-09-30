@@ -2,8 +2,8 @@
 
 use hourglass::Tick;
 use timeways_story::quest::{
-    Known, MAX_OFFER_BYTES, MAX_TITLE_CHARS, Quest, QuestChange, QuestFault, Status, Step,
-    checked_quest, offer_line, prompt, quest_log, thing_name, title_of_thing,
+    Known, MAX_KILLS, MAX_OFFER_BYTES, MAX_TITLE_CHARS, Quest, QuestChange, QuestFault, Status,
+    Step, checked_quest, offer_line, prompt, quest_log, thing_name, title_of_thing,
 };
 use timeways_story::seen::{SeenText, TextKind};
 
@@ -15,6 +15,8 @@ fn known(seen: &[SeenText]) -> Known<'_> {
         zones: vec!["Testvale"],
         subzones: vec!["Old Tower", "Mill Pond"],
         npcs: vec![GIVER, "Farmer Bram", "Miller Oda"],
+        foes: vec!["Duskbat", "Mill Rat"],
+        last_targets: Vec::new(),
         seen,
     }
 }
@@ -79,7 +81,7 @@ fn a_step_with_an_unknown_goal_is_refused() {
     let seen = [];
     let text = answer(
         "The Lost Lantern",
-        r#"{"goal": "kill", "npc": "Farmer Bram"}"#,
+        r#"{"goal": "collect", "item": "Lantern"}"#,
     );
 
     assert_eq!(
@@ -417,4 +419,205 @@ fn an_accept_by_number_takes_that_offer_when_another_one_waits_first() {
 
     assert_eq!(quests[0].status, Status::Offered);
     assert_eq!(quests[1].status, Status::Accepted);
+}
+
+const KILL_BATS: &str = r#"{"goal": "kill", "creature": "Duskbat", "count": 6}"#;
+
+#[test]
+fn a_kill_step_names_a_hostile_creature_that_you_saw() {
+    let seen = [];
+    let text = answer("Bats in the Belfry", KILL_BATS);
+
+    let quest = checked_quest(&text, &known(&seen)).unwrap();
+
+    assert_eq!(
+        quest.steps,
+        [Step::Kill {
+            creature: "Duskbat".to_string(),
+            count: 6
+        }]
+    );
+}
+
+#[test]
+fn a_kill_step_never_names_a_creature_that_you_never_saw_hostile() {
+    let seen = [];
+    let text = answer(
+        "Bats in the Belfry",
+        r#"{"goal": "kill", "creature": "Farmer Bram", "count": 1}"#,
+    );
+
+    assert_eq!(
+        checked_quest(&text, &known(&seen)).unwrap_err(),
+        QuestFault::UnknownFoe("Farmer Bram".to_string())
+    );
+}
+
+#[test]
+fn a_meet_step_never_names_a_foe() {
+    let seen = [];
+    let text = answer(
+        "Bats in the Belfry",
+        r#"{"goal": "meet", "npc": "Duskbat"}"#,
+    );
+
+    assert_eq!(
+        checked_quest(&text, &known(&seen)).unwrap_err(),
+        QuestFault::UnknownNpc("Duskbat".to_string())
+    );
+}
+
+#[test]
+fn a_kill_step_asks_for_one_to_ten_kills() {
+    let seen = [];
+    let kill = |count: u8| {
+        answer(
+            "Bats in the Belfry",
+            &format!(r#"{{"goal": "kill", "creature": "Duskbat", "count": {count}}}"#),
+        )
+    };
+
+    assert_eq!(
+        checked_quest(&kill(0), &known(&seen)).unwrap_err(),
+        QuestFault::KillCount(0)
+    );
+    assert!(checked_quest(&kill(1), &known(&seen)).is_ok());
+    assert!(checked_quest(&kill(MAX_KILLS), &known(&seen)).is_ok());
+    assert_eq!(
+        checked_quest(&kill(MAX_KILLS + 1), &known(&seen)).unwrap_err(),
+        QuestFault::KillCount(MAX_KILLS + 1)
+    );
+}
+
+#[test]
+fn two_steps_never_name_the_same_target() {
+    let seen = [];
+    let twice = r#"{"goal": "kill", "creature": "Duskbat", "count": 2}"#;
+    let text = answer("Bats in the Belfry", &format!("{KILL_BATS}, {twice}"));
+
+    assert_eq!(
+        checked_quest(&text, &known(&seen)).unwrap_err(),
+        QuestFault::RepeatedStep
+    );
+}
+
+#[test]
+fn a_creature_of_a_game_quest_that_you_read_is_no_kill_target() {
+    let seen = [game_quest("Pests", "Kill 8 Duskbat in the barn.")];
+    let text = answer("Bats in the Belfry", KILL_BATS);
+
+    assert_eq!(
+        checked_quest(&text, &known(&seen)).unwrap_err(),
+        QuestFault::GameQuest("Duskbat".to_string())
+    );
+}
+
+#[test]
+fn a_task_never_names_a_target_of_the_last_task() {
+    let seen = [];
+    let mut known = known(&seen);
+    known.last_targets = vec!["Old Tower", "Duskbat"];
+
+    let tower = checked_quest(&answer("The Lost Lantern", VISIT_TOWER), &known);
+    let bats = checked_quest(&answer("Bats in the Belfry", KILL_BATS), &known);
+
+    assert_eq!(
+        tower.unwrap_err(),
+        QuestFault::LastTask("Old Tower".to_string())
+    );
+    assert_eq!(
+        bats.unwrap_err(),
+        QuestFault::LastTask("Duskbat".to_string())
+    );
+    assert!(checked_quest(&answer("The Lost Lantern", MEET_BRAM), &known).is_ok());
+}
+
+#[test]
+fn the_prompt_lists_only_the_targets_that_the_check_allows() {
+    let seen = [game_quest("Rats", "Miller Oda needs help at Mill Pond.")];
+    let mut known = known(&seen);
+    known.last_targets = vec!["Mill Rat"];
+
+    let text = prompt(&known, Some("Testvale"));
+
+    for name in ["- Testvale", "- Old Tower", "- Farmer Bram", "- Duskbat"] {
+        assert!(text.contains(name), "{name}: {text}");
+    }
+    for name in [
+        "- Keeper Tessa",
+        "- Miller Oda",
+        "- Mill Pond",
+        "- Mill Rat",
+    ] {
+        assert!(!text.contains(name), "{name}: {text}");
+    }
+    assert!(text.contains(r#""goal": "kill""#), "{text}");
+}
+
+fn bat_hunt(status: Status) -> Vec<QuestChange> {
+    let mut changes = vec![QuestChange::Offered {
+        number: 1,
+        at: Tick(1),
+        giver: GIVER.to_string(),
+        title: "Bats in the Belfry".to_string(),
+        text: "Clear the belfry.".to_string(),
+        steps: vec![
+            Step::Visit {
+                place: "Old Tower".to_string(),
+            },
+            Step::Kill {
+                creature: "Duskbat".to_string(),
+                count: 2,
+            },
+        ],
+    }];
+    if status == Status::Accepted {
+        changes.push(QuestChange::Accepted {
+            number: 1,
+            at: Tick(2),
+        });
+    }
+    changes
+}
+
+fn killed(step: usize) -> QuestChange {
+    QuestChange::Killed {
+        number: 1,
+        step,
+        at: Tick(3),
+    }
+}
+
+#[test]
+fn a_kill_counts_only_for_the_next_step_and_only_up_to_its_count() {
+    let mut changes = bat_hunt(Status::Accepted);
+    changes.push(killed(1));
+    changes.push(QuestChange::StepDone {
+        number: 1,
+        step: 0,
+        at: Tick(3),
+    });
+    changes.extend([killed(1), killed(1), killed(1)]);
+
+    let quest = &quest_log(&changes)[0];
+
+    assert_eq!(quest.kills, 2);
+    assert!(quest.next_step_holds(&[], None));
+}
+
+#[test]
+fn a_kill_for_an_offer_counts_nothing() {
+    let mut changes = bat_hunt(Status::Offered);
+    changes.push(killed(0));
+
+    assert_eq!(quest_log(&changes)[0].kills, 0);
+}
+
+#[test]
+fn only_the_next_kill_step_hunts() {
+    let changes = bat_hunt(Status::Accepted);
+
+    let quest = &quest_log(&changes)[0];
+
+    assert!(!quest.hunts("Duskbat"));
 }

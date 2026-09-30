@@ -18,8 +18,11 @@ pub const MAX_STEPS: usize = 3;
 /// SPEC.md 9.8).
 pub const MAX_OFFER_BYTES: usize = 1000;
 
-/// The places and NPCs of one list in the prompt. A long list costs tokens and adds little.
+/// The names of one list in the prompt. A long list costs tokens and adds little.
 const PROMPT_NAMES: usize = 20;
+
+/// A kill step asks for 1 to this many kills.
+pub const MAX_KILLS: u8 = 10;
 
 /// A goal that the addon sees in game events (GAMEPLAY.md 3.4). Each name is a string of
 /// the game, so progress matches the event byte for byte.
@@ -28,6 +31,19 @@ const PROMPT_NAMES: usize = 20;
 pub enum Step {
     Visit { place: String },
     Meet { npc: String },
+    Kill { creature: String, count: u8 },
+}
+
+impl Step {
+    /// The place, NPC, or creature that the step names.
+    #[must_use]
+    pub fn target(&self) -> &str {
+        match self {
+            Step::Visit { place } => place,
+            Step::Meet { npc } => npc,
+            Step::Kill { creature, .. } => creature,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -44,10 +60,79 @@ pub struct Known<'a> {
     /// The zones that you visited.
     pub zones: Vec<&'a str>,
     pub subzones: Vec<&'a str>,
-    /// The NPCs that you met, except the dead of your story.
+    /// The NPCs that you can meet: you met them, or saw them friendly. Never a beast, and
+    /// never the dead of your story.
     pub npcs: Vec<&'a str>,
+    /// The creatures that you saw hostile, except the dead of your story.
+    pub foes: Vec<&'a str>,
+    /// The places, NPCs, and creatures of your newest task. The next task names none of
+    /// them, so two tasks in a row never send you to the same target.
+    pub last_targets: Vec<&'a str>,
     /// Every text that you read. Only the quests count.
     pub seen: &'a [SeenText],
+}
+
+impl Known<'_> {
+    /// The places that a visit step can name, as the check allows them.
+    #[must_use]
+    pub fn places(&self) -> Vec<&str> {
+        let all = self.zones.iter().chain(&self.subzones);
+        let visit = |place: &str| Step::Visit {
+            place: place.to_string(),
+        };
+        all.copied()
+            .filter(|place| self.step_fault(&visit(place)).is_none())
+            .collect()
+    }
+
+    /// The NPCs that a meet step can name, as the check allows them.
+    #[must_use]
+    pub fn people(&self) -> Vec<&str> {
+        let meet = |npc: &str| Step::Meet {
+            npc: npc.to_string(),
+        };
+        let allowed = |npc: &&str| self.step_fault(&meet(npc)).is_none();
+        self.npcs.iter().copied().filter(allowed).collect()
+    }
+
+    /// The creatures that a kill step can name, as the check allows them.
+    #[must_use]
+    pub fn prey(&self) -> Vec<&str> {
+        let kill = |creature: &str| Step::Kill {
+            creature: creature.to_string(),
+            count: 1,
+        };
+        let allowed = |creature: &&str| self.step_fault(&kill(creature)).is_none();
+        self.foes.iter().copied().filter(allowed).collect()
+    }
+
+    /// The first rule of 3.4 that one step breaks. A zone never counts as a goal of a game
+    /// quest: most quest texts name their zone, so the rule then bans every zone.
+    fn step_fault(&self, step: &Step) -> Option<QuestFault> {
+        let target = step.target();
+        if self.last_targets.contains(&target) {
+            return Some(QuestFault::LastTask(target.to_string()));
+        }
+        match step {
+            Step::Visit { place } if self.zones.contains(&place.as_str()) => None,
+            Step::Visit { place } if self.subzones.contains(&place.as_str()) => {
+                in_game_quests(place, self.seen)
+            }
+            Step::Visit { place } => Some(QuestFault::UnknownPlace(place.clone())),
+            Step::Meet { npc } if npc == self.giver => Some(QuestFault::MeetGiver),
+            Step::Meet { npc } if self.npcs.contains(&npc.as_str()) => {
+                in_game_quests(npc, self.seen)
+            }
+            Step::Meet { npc } => Some(QuestFault::UnknownNpc(npc.clone())),
+            Step::Kill { count, .. } if !(1..=MAX_KILLS).contains(count) => {
+                Some(QuestFault::KillCount(*count))
+            }
+            Step::Kill { creature, .. } if self.foes.contains(&creature.as_str()) => {
+                in_game_quests(creature, self.seen)
+            }
+            Step::Kill { creature, .. } => Some(QuestFault::UnknownFoe(creature.clone())),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Error)]
@@ -64,14 +149,20 @@ pub enum QuestFault {
     StepCount(usize),
     #[error("you never heard of the place \"{0}\"")]
     UnknownPlace(String),
-    #[error("you never met \"{0}\", or it is dead")]
+    #[error("you never met or saw \"{0}\" as a friend, or it is dead or a beast")]
     UnknownNpc(String),
+    #[error("you never saw \"{0}\" as a foe, or it is dead")]
+    UnknownFoe(String),
+    #[error("a kill step asks for 1 to {MAX_KILLS} kills, not {0}")]
+    KillCount(u8),
     #[error("a step sends you back to the giver")]
     MeetGiver,
     #[error("two steps are the same")]
     RepeatedStep,
     #[error("\"{0}\" belongs to a quest of the game")]
     GameQuest(String),
+    #[error("\"{0}\" is a target of your last task")]
+    LastTask(String),
 }
 
 #[derive(Deserialize)]
@@ -99,8 +190,11 @@ pub fn checked_quest(answer: &str, known: &Known<'_>) -> Result<Quest, QuestFaul
         return Err(QuestFault::GameQuest(title));
     }
     for (n, step) in reply.steps.iter().enumerate() {
-        check_step(step, known)?;
-        if reply.steps[..n].contains(step) {
+        if let Some(fault) = known.step_fault(step) {
+            return Err(fault);
+        }
+        let same_target = |earlier: &Step| earlier.target() == step.target();
+        if reply.steps[..n].iter().any(same_target) {
             return Err(QuestFault::RepeatedStep);
         }
     }
@@ -115,33 +209,13 @@ pub fn checked_quest(answer: &str, known: &Known<'_>) -> Result<Quest, QuestFaul
     Ok(quest)
 }
 
-/// A zone never counts as a goal of a game quest. Most quest texts name their zone, so
-/// the rule then bans every zone.
-fn check_step(step: &Step, known: &Known<'_>) -> Result<(), QuestFault> {
-    match step {
-        Step::Visit { place } if known.zones.contains(&place.as_str()) => Ok(()),
-        Step::Visit { place } if known.subzones.contains(&place.as_str()) => {
-            not_in_game_quests(place, known.seen)
-        }
-        Step::Visit { place } => Err(QuestFault::UnknownPlace(place.clone())),
-        Step::Meet { npc } if npc == known.giver => Err(QuestFault::MeetGiver),
-        Step::Meet { npc } if known.npcs.contains(&npc.as_str()) => {
-            not_in_game_quests(npc, known.seen)
-        }
-        Step::Meet { npc } => Err(QuestFault::UnknownNpc(npc.clone())),
-    }
-}
-
 /// Only the quests that you read count. A quest of the game that you never saw can still
 /// share a goal with a side quest.
-fn not_in_game_quests(name: &str, seen: &[SeenText]) -> Result<(), QuestFault> {
+fn in_game_quests(name: &str, seen: &[SeenText]) -> Option<QuestFault> {
     let named = game_quests(seen).any(|quest| {
         mentions(&quest.text, name) || quest.title.as_deref().is_some_and(|t| mentions(t, name))
     });
-    if named {
-        return Err(QuestFault::GameQuest(name.to_string()));
-    }
-    Ok(())
+    named.then(|| QuestFault::GameQuest(name.to_string()))
 }
 
 fn game_quests(seen: &[SeenText]) -> impl Iterator<Item = &SeenText> {
@@ -157,24 +231,31 @@ pub fn offer_line(giver: &str, quest: &Quest) -> String {
     )
 }
 
+/// The lists hold only the targets that the check allows, so the model has nothing else
+/// to pick.
 #[must_use]
 pub fn prompt(known: &Known<'_>, place: Option<&str>) -> String {
-    let places: Vec<&str> = known.zones.iter().chain(&known.subzones).copied().collect();
     format!(
         "{}\n{HOUSE_RULES}\n\nGive the player a small task of your own: a rumor, a favor, or \
          an errand.\n\nPlaces that the player can visit:\n{}\n\n\
          People that the player can meet:\n{}\n\n\
+         Creatures that the player can hunt:\n{}\n\n\
          Rules:\n\
          - 1 to {MAX_STEPS} steps. A step is {{\"goal\": \"visit\", \"place\": \"<a place \
-         above>\"}} or {{\"goal\": \"meet\", \"npc\": \"<a person above>\"}}.\n\
-         - Copy each name exactly as the list writes it. Use no other place or person.\n\
+         above>\"}}, {{\"goal\": \"meet\", \"npc\": \"<a person above>\"}}, or \
+         {{\"goal\": \"kill\", \"creature\": \"<a creature above>\", \"count\": <1 to \
+         {MAX_KILLS}>}}.\n\
+         - Copy each name exactly as the list writes it. Use no other place, person, or \
+         creature. An empty list has nothing to use.\n\
+         - Each step names a different place, person, or creature.\n\
          - The task is not a quest of the game, and it does not continue one.\n\
          - The title has at most {MAX_TITLE_CHARS} characters. The text has at most 60 \
          words, in your own voice.\n\n\
          Reply with JSON only: {{\"title\": \"...\", \"text\": \"...\", \"steps\": [...]}}",
         persona(known.giver, place),
-        list(&places),
-        list(&known.npcs)
+        list(&known.places()),
+        list(&known.people()),
+        list(&known.prey())
     )
 }
 
@@ -211,6 +292,12 @@ pub enum QuestChange {
         step: usize,
         at: Tick,
     },
+    /// One kill for the kill step with this index.
+    Killed {
+        number: u64,
+        step: usize,
+        at: Tick,
+    },
     Abandoned {
         number: u64,
         at: Tick,
@@ -239,6 +326,8 @@ pub struct Tracked {
     pub steps: Vec<Step>,
     /// The steps done, from the first. The next step has this index.
     pub steps_done: usize,
+    /// The kills for the next step, when it is a kill step.
+    pub kills: u8,
     pub status: Status,
     /// When the last step was done.
     pub done_at: Option<Tick>,
@@ -250,6 +339,24 @@ impl Tracked {
         (self.status == Status::Accepted)
             .then(|| self.steps.get(self.steps_done))
             .flatten()
+    }
+
+    /// Does the next step hold at this moment: you stand in its place, you meet its NPC,
+    /// or you made its kills?
+    #[must_use]
+    pub fn next_step_holds(&self, places_here: &[&str], npc: Option<&str>) -> bool {
+        match self.next_step() {
+            Some(Step::Visit { place }) => places_here.contains(&place.as_str()),
+            Some(Step::Meet { npc: wanted }) => npc == Some(wanted.as_str()),
+            Some(Step::Kill { count, .. }) => self.kills >= *count,
+            None => false,
+        }
+    }
+
+    /// Is the next step a kill of this creature?
+    #[must_use]
+    pub fn hunts(&self, name: &str) -> bool {
+        matches!(self.next_step(), Some(Step::Kill { creature, .. }) if creature == name)
     }
 }
 
@@ -287,6 +394,7 @@ fn apply(quests: &mut Vec<Tracked>, change: &QuestChange) {
                 text: text.clone(),
                 steps: steps.clone(),
                 steps_done: 0,
+                kills: 0,
                 status: Status::Offered,
                 done_at: None,
             });
@@ -294,6 +402,7 @@ fn apply(quests: &mut Vec<Tracked>, change: &QuestChange) {
         QuestChange::Accepted { number, .. } => answer_offer(quests, *number, Status::Accepted),
         QuestChange::Declined { number, .. } => answer_offer(quests, *number, Status::Declined),
         QuestChange::Abandoned { number, .. } => abandon(quests, *number),
+        QuestChange::Killed { number, step, .. } => count_kill(quests, *number, *step),
         QuestChange::StepDone { number, step, at } => {
             let Some(quest) = quests.iter_mut().find(|q| q.number == *number) else {
                 return;
@@ -303,11 +412,25 @@ fn apply(quests: &mut Vec<Tracked>, change: &QuestChange) {
                 return;
             }
             quest.steps_done += 1;
+            quest.kills = 0;
             if quest.steps_done == quest.steps.len() {
                 quest.status = Status::Done;
                 quest.done_at = Some(*at);
             }
         }
+    }
+}
+
+/// A kill counts only for the next step, and only up to its count.
+fn count_kill(quests: &mut [Tracked], number: u64, step: usize) {
+    let Some(quest) = quests.iter_mut().find(|q| q.number == number) else {
+        return;
+    };
+    let Some(Step::Kill { count, .. }) = quest.next_step() else {
+        return;
+    };
+    if quest.steps_done == step && quest.kills < *count {
+        quest.kills += 1;
     }
 }
 
@@ -352,13 +475,4 @@ pub fn title_of_thing(name: &str) -> Option<&str> {
     let (number, title) = name.strip_prefix("quest ")?.split_once(": ")?;
     number.parse::<u64>().ok()?;
     Some(title)
-}
-
-/// Does the step hold at this moment: you stand in its place, or you meet its NPC?
-#[must_use]
-pub fn step_holds(step: &Step, places_here: &[&str], npc: Option<&str>) -> bool {
-    match step {
-        Step::Visit { place } => places_here.contains(&place.as_str()),
-        Step::Meet { npc: wanted } => npc == Some(wanted.as_str()),
-    }
 }

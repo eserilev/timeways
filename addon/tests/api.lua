@@ -67,6 +67,7 @@ return {
 		"UnitCanAttack",
 		"UnitClass",
 		"UnitClassification",
+		"UnitCreatureType",
 		"UnitExists",
 		"UnitGUID",
 		"UnitIsPlayer",

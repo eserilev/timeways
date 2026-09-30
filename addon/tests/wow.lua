@@ -225,6 +225,14 @@ function UnitCanAttack(_, unit)
 	return u ~= nil and u.hostile == true
 end
 
+-- `creature` in the table of a unit is its creature type: { name, id }.
+function UnitCreatureType(unit)
+	local u = wow.units[unit]
+	if u and u.creature then
+		return u.creature[1], u.creature[2]
+	end
+end
+
 function UnitLevel(unit)
 	local u = wow.units[unit]
 	return u and u.level or 0
