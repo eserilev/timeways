@@ -40,4 +40,5 @@ JournalList.lua
 Editor.lua
 JournalFrame.lua
 SelfTest.lua
+Welcome.lua
 Core.lua

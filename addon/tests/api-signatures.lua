@@ -487,10 +487,25 @@ return {
 				{ Name = "text", Type = "cstring", Nilable = false },
 			},
 		},
+		["SimpleEditBoxAPI:HighlightText"] = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "start", Type = "number", Nilable = false, Default = 0 },
+				{ Name = "stop", Type = "number", Nilable = false, Default = -1 },
+			},
+		},
 		["SimpleEditBoxAPI:SetAutoFocus"] = {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {
 				{ Name = "autoFocus", Type = "bool", Nilable = false, Default = false },
+			},
+		},
+		["SimpleEditBoxAPI:SetCursorPosition"] = {
+			ChecksForbiddenAspects = { { Argument = "self", Aspect = Enum.ForbiddenAspect.ScriptedInput } },
+			SecretArguments = "AllowedWhenUntainted",
+			SecretArgumentsAddAspect = { Enum.SecretAspect.Cursor },
+			Arguments = {
+				{ Name = "cursorPosition", Type = "number", Nilable = false },
 			},
 		},
 		["SimpleEditBoxAPI:SetEnabled"] = {

@@ -368,6 +368,11 @@ function Widget:SetAtlas(atlas)
 	self.atlas = atlas
 end
 
+-- The player copies the selected text of an edit box with Ctrl+C.
+function Widget:HighlightText()
+	self.highlighted = true
+end
+
 function Widget:SetMaxLetters(letters)
 	self.maxLetters = letters
 end
@@ -440,7 +445,7 @@ C_Timer = {
 	end,
 	-- One-shot timers wait in `wow.after` until a test runs them.
 	After = function(seconds, callback)
-		wow.after[#wow.after + 1] = { seconds = seconds, callback = callback }
+		wow.after[#wow.after + 1] = { seconds = seconds, callback = callback, at = wow.now + seconds }
 	end,
 }
 

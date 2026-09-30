@@ -6,6 +6,8 @@ local FLUSH_SECONDS = 60
 
 local HANDLERS = {
 	PLAYER_ENTERING_WORLD = function()
+		-- First, so an error in the rest never hides the setup window.
+		ns.Welcome.Login()
 		ns.Watch.Login()
 		ns.GameQuests.Scan()
 	end,
@@ -119,6 +121,10 @@ SLASH_TIMEWAYSJOURNAL2 = "/timeways"
 SlashCmdList.TIMEWAYSJOURNAL = function(message)
 	if message:match("^%s*test%s*$") then
 		ns.SelfTest.Start()
+		return
+	end
+	if message:match("^%s*help%s*$") then
+		ns.Welcome.Open(ns.Welcome.Reason())
 		return
 	end
 	ns.JournalFrame.Toggle()

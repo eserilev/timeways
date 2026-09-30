@@ -21,6 +21,21 @@ What works:
 - **The narrator.** One short line in the voice of the chronicle at a big moment, such as a first kill of a rare, a level up, or a third death to the same murloc. At most 3 lines each hour.
 - **Kills, deaths, and slaps.** Addons cannot read the combat log in this client. So the addon reads kills and deaths from other events, and never sends the name of a real player.
 
+## Install
+
+Timeways has two parts: the addon in the game, and a desktop app on your computer. The addon comes from CurseForge. The desktop app, Gnomish Relay, is not on CurseForge, because CurseForge only ships addon files.
+
+1. Install the **Timeways** addon with the CurseForge app. The project page comes with the first release.
+2. Close WoW. The game only finds new addon files when it starts.
+3. Run the installer of the desktop app:
+   - Windows (PowerShell): `irm https://raw.githubusercontent.com/eserilev/gnomish-relay/main/scripts/install.ps1 | iex`
+   - macOS and Linux (Terminal): `curl -fsSL https://raw.githubusercontent.com/eserilev/gnomish-relay/main/scripts/install.sh | sh`
+4. Answer the questions of setup. Then start WoW.
+
+When the game can't reach the desktop app, Timeways opens a setup window with these steps. Type `/timeways help` to open it again.
+
+> **Not ready yet: the installer does not get the Timeways programs.** Today the installer sets up Gnomish Relay, and its setup finds the Timeways addon. In a later Gnomish Relay release, setup also downloads `timeways-story` and `timeways-pack` from the Timeways release, and builds the lore pack on your computer. Until then, build the programs from source (see "The story program").
+
 ## Layout
 
 | Path | What |
@@ -80,6 +95,30 @@ The API gate of Gnomish Relay checks that every WoW function and event that the 
 ../gnomish-relay/scripts/wow-api.sh --addon addon/Timeways --lint wow.yml \
   --fake addon/tests/wow.lua --api addon/tests/api.lua --signatures addon/tests/api-signatures.lua
 ```
+
+## Release
+
+A tag starts `.github/workflows/release.yml`:
+
+1. Set the new version in `crates/story/Cargo.toml`. The tag must match it.
+2. Push a tag such as `v0.2.0`.
+
+The job runs the checks, builds `timeways-story` and `timeways-pack` for Linux (x86_64), macOS (arm64 and x86_64), and Windows (x86_64), and makes a GitHub release with these files:
+
+| File | What |
+|---|---|
+| `timeways-<target>.tar.gz`, or `.zip` for Windows | `timeways-story`, `timeways-pack`, and `LICENSE` |
+| `timeways-addon.zip` | The addon, as the BigWigs packager builds it for CurseForge |
+| `<file>.sha256` | The SHA-256 sum of each archive |
+| `SHA256SUMS` | The sums of all archives |
+| `timeways-manifest.json` | The version, the archive and sum for each target, and the addon zip |
+
+The packager reads `.pkgmeta` and writes the tag into `## Version` of the TOC. It uploads the addon to CurseForge only when two things are set:
+
+- `## X-Curse-Project-ID` in `addon/Timeways/Timeways.toc` holds the real project id. With `0`, the packager only builds the zip.
+- The repository has the secret `CF_API_KEY`, a CurseForge API token.
+
+`Key.lua` never goes into the zip. The bridge writes it on each computer. `scripts/check-addon-zip.py` checks the zip against the TOC.
 
 ## License
 

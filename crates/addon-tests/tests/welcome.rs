@@ -1,0 +1,275 @@
+//! The setup window: a player who got the addon from `CurseForge` learns how to install the
+//! desktop app (GAMEPLAY.md 5.12).
+
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
+mod common;
+
+use common::Game;
+
+/// Words of the code that a player never sees (CLAUDE.md, "UI copy").
+const INTERNAL_WORDS: [&str; 8] = [
+    "story program",
+    "bridge",
+    "slot",
+    "strip",
+    "batch",
+    "fact",
+    "model",
+    "bard",
+];
+
+fn game_with_no_key() -> Game {
+    let game = Game::with_transport();
+    game.run("ns.key = nil");
+    game
+}
+
+/// Each slot load gives a fresh body, as a desktop app that runs does.
+fn game_with_the_desktop_app() -> Game {
+    let game = Game::with_transport();
+    game.run(
+        "C_AddOns.LoadAddOn = function(name)
+             wow.loaded[name] = true
+             Timeways_SlotData = { proto = 1, now = time(), replies = {} }
+             return true
+         end",
+    );
+    game
+}
+
+/// Plays for this long: the clock moves, every ticker runs, and each timer runs when it is due.
+fn wait(game: &Game, seconds: u32) {
+    game.run(&format!(
+        "for _ = 1, {seconds} do
+             wow.now = wow.now + 1
+             wow.RunTickers()
+             local timers = wow.after
+             wow.after = {{}}
+             for _, timer in ipairs(timers) do
+                 if timer.at <= wow.now then
+                     timer.callback()
+                 else
+                     table.insert(wow.after, timer)
+                 end
+             end
+         end"
+    ));
+}
+
+fn login(game: &Game) {
+    game.run("wow.Fire('PLAYER_ENTERING_WORLD')");
+}
+
+fn shown(game: &Game) -> bool {
+    game.eval("ns.Welcome.IsShown()")
+}
+
+/// Each text of the window that shows: its labels, and the lines of its edit boxes.
+fn texts(game: &Game) -> Vec<String> {
+    game.eval(
+        "local function InWindow(widget)
+             while widget do
+                 if widget == TimewaysWelcomeFrame then return true end
+                 if not widget.shown then return false end
+                 widget = widget.parent
+             end
+             return false
+         end
+         local out = {}
+         for _, widget in ipairs(wow.widgets) do
+             if widget.text and InWindow(widget) then table.insert(out, widget.text) end
+         end
+         return out",
+    )
+}
+
+fn heading(game: &Game) -> String {
+    texts(game)[1].clone()
+}
+
+#[test]
+fn a_player_with_no_desktop_app_sees_the_setup_window_at_login() {
+    let game = game_with_no_key();
+
+    login(&game);
+    wait(&game, 1);
+
+    assert!(shown(&game));
+    assert_eq!(heading(&game), "Install the desktop app");
+}
+
+#[test]
+fn the_window_gives_the_install_line_for_windows_and_for_macos_and_linux() {
+    let game = game_with_no_key();
+
+    game.run("ns.Welcome.Open('setup')");
+
+    let texts = texts(&game);
+    let windows: String = game.eval("ns.Welcome.COMMANDS.windows");
+    let unix: String = game.eval("ns.Welcome.COMMANDS.unix");
+    assert!(windows.contains("install.ps1 | iex"), "{windows}");
+    assert!(unix.starts_with("curl -fsSL "), "{unix}");
+    assert!(texts.contains(&windows), "{texts:?}");
+    assert!(texts.contains(&unix), "{texts:?}");
+    assert!(
+        texts.iter().any(|text| text.contains("Then restart WoW.")),
+        "{texts:?}"
+    );
+}
+
+#[test]
+fn a_running_desktop_app_shows_no_window() {
+    let game = game_with_the_desktop_app();
+
+    login(&game);
+    wait(&game, 120);
+
+    assert!(!shown(&game));
+}
+
+#[test]
+fn the_window_waits_a_minute_for_the_desktop_app() {
+    let game = Game::with_transport();
+    login(&game);
+
+    wait(&game, 59);
+    let before = shown(&game);
+    wait(&game, 1);
+
+    assert!(!before);
+    assert!(shown(&game));
+}
+
+#[test]
+fn missing_files_say_so_in_the_heading() {
+    let game = Game::with_transport();
+
+    login(&game);
+    wait(&game, 60);
+
+    assert_eq!(heading(&game), "Some Timeways files are missing");
+}
+
+#[test]
+fn a_desktop_app_that_stopped_gets_the_restart_hint() {
+    let game = game_with_the_desktop_app();
+    wait(&game, 10);
+    game.run("wow.now = wow.now + 3600");
+
+    game.run("ns.Welcome.Open(ns.Welcome.Reason())");
+
+    let texts = texts(&game);
+    assert_eq!(texts[0], "Timeways Setup");
+    assert_eq!(texts[1], "Can't reach the desktop app");
+    assert!(
+        texts
+            .iter()
+            .any(|text| text.contains("gnomish-relay restart")),
+        "{texts:?}"
+    );
+}
+
+#[test]
+fn a_player_who_needs_an_install_gets_no_restart_hint() {
+    let game = game_with_no_key();
+
+    game.run("ns.Welcome.Open(ns.Welcome.Reason())");
+
+    let texts = texts(&game);
+    assert!(
+        !texts
+            .iter()
+            .any(|text| text.contains("gnomish-relay restart")),
+        "{texts:?}"
+    );
+}
+
+#[test]
+fn the_window_shows_once_each_session() {
+    let game = game_with_no_key();
+    login(&game);
+    wait(&game, 1);
+    game.run("TimewaysWelcomeFrame:Hide()");
+
+    login(&game);
+    wait(&game, 120);
+
+    assert!(!shown(&game));
+}
+
+#[test]
+fn timeways_help_opens_the_window_again() {
+    let game = game_with_the_desktop_app();
+
+    game.run("wow.Slash('/timeways', 'help')");
+
+    assert!(shown(&game));
+    assert!(!game.eval::<bool>("TimewaysJournalFrame ~= nil"));
+}
+
+#[test]
+fn close_hides_the_window() {
+    let game = game_with_no_key();
+    game.run("ns.Welcome.Open('setup')");
+
+    game.run("wow.Button('Close'):Click()");
+
+    assert!(!shown(&game));
+}
+
+#[test]
+fn a_click_on_an_install_line_selects_it_for_copying() {
+    let game = game_with_no_key();
+    game.run("ns.Welcome.Open('setup')");
+
+    let highlighted: bool = game.eval(
+        "local box = wow.EditBox()
+         box.scripts.OnEditFocusGained(box)
+         return box.highlighted == true",
+    );
+
+    assert!(highlighted);
+}
+
+#[test]
+fn typing_in_an_install_line_puts_the_line_back() {
+    let game = game_with_no_key();
+    game.run("ns.Welcome.Open('setup')");
+
+    let text: String = game.eval(
+        "local box = wow.EditBox()
+         box:SetText('oops')
+         box.scripts.OnTextChanged(box, true)
+         return box:GetText()",
+    );
+
+    assert_eq!(text, game.eval::<String>("ns.Welcome.COMMANDS.windows"));
+}
+
+#[test]
+fn the_window_uses_no_internal_words() {
+    let game = game_with_no_key();
+
+    game.run("ns.Welcome.Open('offline')");
+
+    for text in texts(&game) {
+        let lower = text.to_lowercase();
+        for word in INTERNAL_WORDS {
+            assert!(!lower.contains(word), "{word:?} in {text:?}");
+        }
+    }
+}
+
+#[test]
+fn the_readme_gives_the_same_install_lines_as_the_window() {
+    let game = game_with_no_key();
+    let readme =
+        std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../../README.md")).unwrap();
+
+    let windows: String = game.eval("ns.Welcome.COMMANDS.windows");
+    let unix: String = game.eval("ns.Welcome.COMMANDS.unix");
+
+    assert!(readme.contains(&windows), "{windows}");
+    assert!(readme.contains(&unix), "{unix}");
+}

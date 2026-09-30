@@ -1633,6 +1633,18 @@ return {
 				"SetupTextureCoordinates",
 			},
 		},
+		InputBoxTemplate = {
+			base = "EditBox",
+			names = {
+				"Left",
+				"Middle",
+				"NarrationGetContext",
+				"NarrationGetDescription",
+				"NarrationGetName",
+				"Right",
+				"SetNarrationLabelRegion",
+			},
+		},
 		UIPanelButtonTemplate = {
 			base = "Button",
 			names = {
