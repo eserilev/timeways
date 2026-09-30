@@ -14,6 +14,7 @@ use crate::moments::{Moment, best, moments};
 use crate::narrator::{self, Budget};
 use crate::pace::Pace;
 use crate::pack::{Link, Pack, PackError, Passage};
+use crate::passage_limits;
 use crate::places::InstanceKind;
 use crate::prompt::Context;
 use crate::quest::{Status, quest_log};
@@ -1110,7 +1111,8 @@ impl Story {
 /// The question and where you stand pick the passages. The spoiler limit then drops each
 /// passage of the pack about something that your world does not hold. The text that you
 /// read passes it, and comes first: the pack only fills the gaps (GAMEPLAY.md 3.1.1). The
-/// rest stop at the size that leaves room for a model answer in one reply.
+/// rest stop at the size that leaves room for a model answer in one reply. Each passage
+/// keeps the limits of the bridge, also from an old pack.
 fn passages_for(
     pack: &Pack,
     seen: &SeenIndex,
@@ -1130,7 +1132,7 @@ fn passages_for(
     );
     let mut passages = Vec::new();
     let mut used = Size::default();
-    for passage in found {
+    for passage in found.into_iter().filter_map(passage_limits::fitted) {
         used = used
             .plus(Size::of(&passage))
             .plus(Size { line: 1, slot: 1 });

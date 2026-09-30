@@ -606,6 +606,7 @@ A web request for each question is slow, depends on one website, and sends whole
 - **A redirect** is followed one step. Two titles that lead to one book give its passages once.
 - **Plain text:** references, comments, HTML tags, templates, tables, pictures, and bold and italic marks go. A link keeps its label. Broken markup leaves no marks.
 - **A passage** is one line of plain text with at least 80 characters. A list line, a table line, or an indented line is no passage. The source is `the book "<title>"` or `the wiki page "<title>"`.
+- **The limits of the bridge:** a passage has at most 4096 bytes of text, and a source of at most 512 bytes with no control character. A longer paragraph becomes several passages, each cut after a sentence. A line of passages past a limit is refused with its number, and no pack is written.
 - **The report** gives the number of passages of each page, and names each missing chapter and each missing page. A missing page is skipped. A dump without the index page, or with broken XML, is an error, and no pack is written.
 - **The same dump gives the same pack**, in the order of the list.
 - **From lines:** `timeways-pack <passages.jsonl> <pack>` reads passages as JSON lines, each with its text, source, places, NPCs, and `common`. It is for tests and for passages by hand.
@@ -616,7 +617,7 @@ A web request for each question is slow, depends on one website, and sends whole
 
 1. The story module searches the pack for the question and the context (zone, target, quest).
 2. It keeps only passages whose links are in the world of the player: a zone that they visited, an NPC that they met, a quest that they did. This is the spoiler limit.
-3. The best 5 to 10 passages go into the prompt with their sources.
+3. The best 5 to 10 passages go into the prompt with their sources. A passage past a limit of the bridge, from an old pack or from a seen text that grew, is cut to its first piece or left out, so every answer reaches the game.
 4. The model answers only from them, and names the sources.
 
 **The lore of each player**, in the data folder of the bridge:

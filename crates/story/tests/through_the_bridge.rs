@@ -375,11 +375,53 @@ fn a_question_gets_a_model_call_while_a_saga_is_written() {
     assert_eq!(bridge.refused_calls(), 0);
 }
 
+/// A pack from before the builder cut long passages still gives an answer that the bridge
+/// takes. Else the batch waits, and the bridge stops the story program as hung.
+#[test]
+fn a_passage_over_the_limit_of_the_bridge_still_gets_an_answer() {
+    let long = "The tower of Testvale fell. ".repeat(200);
+    let mut bridge = FakeBridge::new(story_with_passage("through-long.sqlite", &long));
+    let zone = json!({"type": "zone_entered", "at": START, "zone": "Testvale", "subzone": null});
+    bridge.batch(&format!("{CHARACTER}\n{zone}"));
+
+    let question = json!({"type": "lore_asked", "at": START + 1, "question": "the tower"});
+    let reply = bridge.batch(&format!("{CHARACTER}\n{question}"));
+
+    assert!(
+        matches!(&reply, Reply::Done(text) if text.contains("Testvale fell")),
+        "{reply:?}"
+    );
+}
+
+/// Each `$N` of a seen text becomes "our hero", so the text grows past the size that the
+/// addon sent.
+#[test]
+fn a_seen_text_that_grows_past_the_limit_of_the_bridge_still_gets_an_answer() {
+    let story = story_with_passage("through-seen.sqlite", "The tower of Testvale fell.");
+    let mut bridge = FakeBridge::new(story);
+    let text = "$N ".repeat(660);
+    let seen = json!({"type": "text_seen", "at": START, "kind": "gossip", "npc": "Keeper Tessa",
+        "zone": "Testvale", "text": text});
+    bridge.batch(&format!("{CHARACTER}\n{seen}"));
+
+    let question = json!({"type": "lore_asked", "at": START + 1, "question": "Tessa"});
+    let reply = bridge.batch(&format!("{CHARACTER}\n{question}"));
+
+    assert!(
+        matches!(&reply, Reply::Done(text) if text.contains("our hero")),
+        "{reply:?}"
+    );
+}
+
 fn story_with_lore() -> Story {
-    let path = Path::new(env!("CARGO_TARGET_TMPDIR")).join("through-lore.sqlite");
+    story_with_passage("through-lore.sqlite", "The tower of Testvale fell.")
+}
+
+fn story_with_passage(file: &str, text: &str) -> Story {
+    let path = Path::new(env!("CARGO_TARGET_TMPDIR")).join(file);
     let _ = std::fs::remove_file(&path);
     let tower = timeways_story::pack::Passage {
-        text: "The tower of Testvale fell.".to_string(),
+        text: text.to_string(),
         source: "https://example.test/1".to_string(),
         links: vec![timeways_story::pack::Link::Place("Testvale".to_string())],
         origin: timeways_story::pack::Origin::Pack,

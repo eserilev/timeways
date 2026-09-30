@@ -3,6 +3,7 @@
 
 use crate::dump::{self, DumpError, Page};
 use crate::pack::{Link, Origin, Passage};
+use crate::passage_limits::pieces;
 use crate::wikitext::{book_content, listed_pages, plain, sections};
 use regex::Regex;
 use serde::Deserialize;
@@ -249,14 +250,16 @@ fn missing(title: &str) -> PageReport {
     }
 }
 
-/// Each line of plain text is a paragraph. Runs of spaces become one space.
+/// Each line of plain text is a paragraph. Runs of spaces become one space. A paragraph
+/// past the limit of the bridge becomes several.
 #[must_use]
 pub fn paragraphs(plain: &str) -> Vec<String> {
-    plain
-        .lines()
-        .map(|line| line.split_whitespace().collect::<Vec<_>>().join(" "))
-        .filter(|line| is_prose(line))
-        .collect()
+    let prose = plain.lines().map(one_line).filter(|line| is_prose(line));
+    prose.flat_map(|line| pieces(&line)).collect()
+}
+
+fn one_line(line: &str) -> String {
+    line.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 fn is_prose(line: &str) -> bool {

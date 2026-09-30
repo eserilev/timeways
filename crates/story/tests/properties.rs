@@ -20,6 +20,7 @@ use timeways_story::input::{GameQuestKind, Input, MessageId, Reaction};
 use timeways_story::journal::{Journal, journal, pages};
 use timeways_story::pace::{Pace, WINDOW_SECONDS};
 use timeways_story::pack::Pack;
+use timeways_story::passage_limits::{MAX_PASSAGE_BYTES, pieces};
 use timeways_story::places::InstanceKind;
 use timeways_story::quest::{MAX_KILLS, QuestChange, Status, Step, quest_log};
 use timeways_story::reply_size::{MAX_LINE, MAX_SLOT, Size};
@@ -536,6 +537,25 @@ fn pick() -> impl Strategy<Value = Pick> {
 }
 
 /// A step of time for the pace: often at the edge of the window.
+/// A text of about `len` bytes, from a pattern of words and sentence ends. A length at
+/// the limit of the bridge comes often.
+fn passage_text() -> impl Strategy<Value = String> {
+    let len = prop_oneof![
+        Just(MAX_PASSAGE_BYTES),
+        Just(MAX_PASSAGE_BYTES + 1),
+        Just(2 * MAX_PASSAGE_BYTES + 1),
+        0..3 * MAX_PASSAGE_BYTES,
+    ];
+    (len, "[a-zé .!?\n]{1,60}").prop_map(|(len, pattern)| {
+        let text = pattern.repeat(len / pattern.len() + 1);
+        let end = (0..=len)
+            .rev()
+            .find(|end| text.is_char_boundary(*end))
+            .unwrap_or(0);
+        text[..end].to_string()
+    })
+}
+
 fn pace_step() -> impl Strategy<Value = u64> {
     prop_oneof![
         0..3u64,
@@ -834,6 +854,18 @@ proptest! {
         for mark in ["[[", "]]", "{{", "}}", "''"] {
             prop_assert!(!cleaned.contains(mark), "{} in {:?}", mark, cleaned);
         }
+    }
+
+    #[test]
+    fn every_piece_of_a_passage_fits_the_bridge_and_no_word_is_lost(text in passage_text()) {
+        let cut = pieces(&text);
+
+        for piece in &cut {
+            prop_assert!(!piece.is_empty() && piece.len() <= MAX_PASSAGE_BYTES, "{}", piece.len());
+        }
+        let letters = |text: &str| text.split_whitespace().collect::<String>();
+        prop_assert_eq!(letters(&cut.concat()), letters(&text));
+        prop_assert_eq!(cut.len() == 1, text.trim().len() <= MAX_PASSAGE_BYTES && !text.trim().is_empty());
     }
 
     #[test]
