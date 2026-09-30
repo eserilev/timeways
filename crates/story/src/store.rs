@@ -152,6 +152,11 @@ impl Prose {
         self.chapters.get(&began)
     }
 
+    /// The sagas of the chapters that began before `began`.
+    pub fn before(&self, began: Tick) -> impl Iterator<Item = &Written> {
+        self.chapters.range(..began).map(|(_, written)| written)
+    }
+
     /// The chapters that have a saga.
     #[must_use]
     pub fn len(&self) -> usize {

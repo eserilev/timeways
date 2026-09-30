@@ -822,6 +822,92 @@ fn a_saga_recalls_the_last_chapters_before_it() {
     );
 }
 
+/// Three chapters, the last one still open. The narrator lines get no answer.
+fn three_chapters(story: &mut Story) {
+    meet(story, HOUR, "Gryan Stoutmantle");
+    play_fifty_minutes(story, HOUR, "Westfall");
+    enter(story, 5 * HOUR, "Duskwood", None);
+    play_fifty_minutes(story, 5 * HOUR, "Duskwood");
+    enter(story, 9 * HOUR, "Redridge Mountains", None);
+    let _ = close_narrator(story, 90);
+}
+
+/// The prompt of the saga call of the next batch. The call fails, so the next chapter
+/// gets its turn.
+fn failed_saga_prompt(story: &mut Story, batch: u64) -> String {
+    let outputs = story
+        .handle(Input::BatchEnd {
+            id: MessageId(batch),
+        })
+        .unwrap();
+    let [_, Output::ModelCall { call, prompt }] = outputs.as_slice() else {
+        panic!("expected a saga call, got {outputs:?}");
+    };
+    story.handle(Input::ModelFailed { call: *call }).unwrap();
+    prompt.clone()
+}
+
+/// Answers the saga call of the next batch with `saga`.
+fn write_saga(story: &mut Story, batch: u64, saga: &str) {
+    let outputs = story
+        .handle(Input::BatchEnd {
+            id: MessageId(batch),
+        })
+        .unwrap();
+    let [_, Output::ModelCall { call, .. }] = outputs.as_slice() else {
+        panic!("expected a saga call, got {outputs:?}");
+    };
+    let text = serde_json::json!({ "saga": saga }).to_string();
+    story
+        .handle(Input::ModelAnswered { call: *call, text })
+        .unwrap();
+}
+
+#[test]
+fn the_hero_sheet_goes_only_into_the_first_chapter() {
+    let mut story = story_with("sheet-once", &[]);
+    set_field(&mut story, "origin", "Born in a Brill cellar.").unwrap();
+    three_chapters(&mut story);
+
+    let first = failed_saga_prompt(&mut story, 3);
+    let second = saga_prompt(&mut story, 4);
+
+    assert!(first.contains("Born in a Brill cellar."), "{first}");
+    assert!(!second.contains("Born in a Brill cellar."), "{second}");
+}
+
+#[test]
+fn a_changed_hero_sheet_goes_into_the_chapter_where_it_changed() {
+    let mut story = story_with("sheet-changed", &[]);
+    meet(&mut story, HOUR, "Gryan Stoutmantle");
+    play_fifty_minutes(&mut story, HOUR, "Westfall");
+    enter(&mut story, 5 * HOUR, "Duskwood", None);
+    set_field(&mut story, "origin", "Born in a Brill cellar.").unwrap();
+    play_fifty_minutes(&mut story, 5 * HOUR, "Duskwood");
+    enter(&mut story, 9 * HOUR, "Redridge Mountains", None);
+    let _ = close_narrator(&mut story, 90);
+    let _ = close_narrator(&mut story, 91);
+
+    let second = saga_prompt(&mut story, 3);
+
+    assert!(second.contains("Write chapter 2"), "{second}");
+    assert!(second.contains("Born in a Brill cellar."), "{second}");
+}
+
+#[test]
+fn a_saga_that_repeats_an_earlier_saga_is_refused() {
+    let mut story = story_with("saga-repeat", &[]);
+    three_chapters(&mut story);
+    let saga = "Our hero walked the long road west and met a farmer by the old mill.";
+
+    write_saga(&mut story, 3, saga);
+    write_saga(&mut story, 4, saga);
+
+    let chapters = chapters(&mut story);
+    assert_eq!(chapters[0].prose.as_deref(), Some(saga));
+    assert_eq!(chapters[1].prose, None);
+}
+
 #[test]
 fn the_last_chapter_waits_for_the_next_session() {
     let mut story = story_with("saga-waits", &[]);

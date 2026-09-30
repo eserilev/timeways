@@ -455,6 +455,14 @@ impl Story {
         let Some(saga) = chronicle::checked_saga(text, kinds.len()) else {
             return Ok(());
         };
+        let earlier: Vec<&str> = active
+            .prose
+            .before(began)
+            .map(|written| written.text.as_str())
+            .collect();
+        if check::copies_a_sample(&saga.text, &earlier) {
+            return Ok(());
+        }
         let now = self.newest;
         for (moment, _) in &saga.footnotes {
             let told = Told {
@@ -896,7 +904,11 @@ impl Story {
         let hero = hero::hero(active.hero.changes());
         let in_chapter = |entry: &Entry| entry.at >= chapter.began && entry.at < next.began;
         let written = hero::newest_texts(&hero.entries, in_chapter);
-        let portrait = hero::portrait(&hero);
+        // The sheet is news only once, or when the player changed it, so chapters do not
+        // all open with the same portrait.
+        let sheet_is_news =
+            index == 0 || hero::sheet_changed(active.hero.changes(), chapter.began, next.began);
+        let portrait = sheet_is_news.then(|| hero::portrait(&hero)).flatten();
         let prompt = chronicle::prompt(chapter, earlier, &words, portrait.as_deref(), &written);
         self.chronicle_asked.insert(chapter.began);
         Some(self.open_call(pending, prompt))

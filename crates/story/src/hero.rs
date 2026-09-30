@@ -69,6 +69,14 @@ pub enum Change {
     },
 }
 
+/// True when the player set a field of the sheet in `[from, to)`.
+#[must_use]
+pub fn sheet_changed(changes: &[Change], from: Tick, to: Tick) -> bool {
+    changes
+        .iter()
+        .any(|change| matches!(change, Change::Set { at, .. } if *at >= from && *at < to))
+}
+
 /// The hero as the changes leave it.
 #[must_use]
 pub fn hero(changes: &[Change]) -> Hero {
