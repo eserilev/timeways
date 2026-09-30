@@ -285,6 +285,8 @@ local function Took(task)
 	if task.status == "offered" then
 		task.status = "accepted"
 		task.answeredAt = time()
+		-- A party that began before the accept counts from now.
+		ns.TaskTracker.RosterChanged()
 	end
 end
 
@@ -440,8 +442,4 @@ function PlayerTasks.Watching()
 		end
 	end
 	return watching
-end
-
-function PlayerTasks.Forget()
-	answered = {}
 end

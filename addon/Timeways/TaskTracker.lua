@@ -202,7 +202,7 @@ end
 -- A unit that you see: the target of a "defeat" step, an NPC that a doer talks to, or a
 -- player next to you.
 function TaskTracker.See(unit)
-	if not UnitExists(unit) then
+	if not UnitExists(unit) or #OpenSteps() == 0 then
 		return
 	end
 	local guid, name = UnitGUID(unit), UnitName(unit)

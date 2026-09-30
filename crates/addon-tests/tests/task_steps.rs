@@ -293,3 +293,23 @@ fn a_trade_with_a_player_of_no_task_leaves_no_record() {
     let trades: usize = ada.eval("#ns.TaskStore.Data().trades");
     assert_eq!(trades, 0);
 }
+
+#[test]
+fn a_party_that_began_before_the_accept_counts_from_the_accept() {
+    let (ada, corvin) = players::ada_and_corvin();
+    ada.in_party_with(&corvin);
+    corvin.in_party_with(&ada);
+    let id: String = ada.eval(&format!(
+        "return ns.PlayerTasks.Give({{ title = 'T', text = 'X.', reward = '', steps = {PLACE} }}, 'Corvin-Stormrage')"
+    ));
+    exchange(&ada, &corvin);
+
+    corvin.run(&format!("ns.PlayerTasks.Accept('{}')", received_key(&id)));
+    exchange(&ada, &corvin);
+
+    let open: bool = ada.eval(
+        "local stretch = ns.TaskStore.Data().party['Corvin-Stormrage'][1]
+         return stretch.from ~= nil and stretch.to == nil",
+    );
+    assert!(open);
+}

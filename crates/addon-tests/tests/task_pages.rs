@@ -508,3 +508,17 @@ fn a_click_on_give_a_task_in_the_book_opens_the_form() {
     assert_eq!(shown[0], "Give a task");
     assert!(!ada.eval::<bool>("wow.Button('Send').enabled"));
 }
+
+#[test]
+fn a_promise_that_ends_its_own_sentence_gets_no_second_period() {
+    let (ada, corvin) = ada_and_corvin();
+    let id: String = ada.eval(
+        "return ns.PlayerTasks.Give({ title = 'T', text = 'X.', reward = 'A kiss!',
+             steps = { { kind = 'place', target = 'Brill', count = 1 } } }, 'Corvin-Stormrage')",
+    );
+    exchange(&ada, &corvin);
+
+    open(&corvin, &format!("got:{}", received_key(&id)));
+
+    assert!(lines(&corvin).contains(&"text: A kiss! Promised by Ada, paid by trade.".to_string()));
+}

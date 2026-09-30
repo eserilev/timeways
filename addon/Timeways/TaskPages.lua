@@ -30,6 +30,11 @@ local function Clock(at)
 	return date("%H:%M", at)
 end
 
+-- A text of a player as a sentence: "5 gold" becomes "5 gold.", and "5 gold!" stays.
+local function Sentence(text)
+	return text:find("[%.!?]$") and text or (text .. ".")
+end
+
 -- Steps ------------------------------------------------------------------------------------
 
 local function Times(step)
@@ -148,7 +153,7 @@ function TaskPages.Rows()
 	return rows
 end
 
--- The key of the first task that you got, for a book with no other task to open.
+-- The key of the first player task of the list, for a book with no other task to open.
 function TaskPages.FirstKey()
 	for _, row in ipairs(TaskPages.Rows()) do
 		if row.style == "item" and row.key ~= GIVE then
@@ -217,7 +222,7 @@ local function GotLines(task)
 	lines[#lines + 1] = Line("section", "Rewards")
 	lines[#lines + 1] = Line("text", "This goes into your Chronicle, with " .. giver .. "'s name.")
 	if task.reward ~= "" then
-		lines[#lines + 1] = Line("text", task.reward .. ". Promised by " .. giver .. ", paid by trade.")
+		lines[#lines + 1] = Line("text", Sentence(task.reward) .. " Promised by " .. giver .. ", paid by trade.")
 	end
 	return lines
 end
@@ -310,7 +315,7 @@ local function GaveLines(task)
 	end
 	lines[#lines + 1] = Line("help", "Timeways checks what it can. It can't catch everything.")
 	lines[#lines + 1] = Line("section", "Reward")
-	local promise = task.reward ~= "" and (" " .. task.reward .. ".") or ""
+	local promise = task.reward ~= "" and (" " .. Sentence(task.reward)) or ""
 	lines[#lines + 1] = Line("text", TaskPages.RewardState(task) .. "." .. promise)
 	if task.reward ~= "" and task.status == "accepted" then
 		lines[#lines + 1] = Line("help", "Meet " .. doer .. " and stand next to each other. Pay in the trade window.")
