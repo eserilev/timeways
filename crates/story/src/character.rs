@@ -4,8 +4,8 @@ use crate::input::GameQuestKind;
 use crate::places::InstanceKind;
 use crate::vocabulary::{
     self, CLASS_QUEST, DEAD, DEATHS, DEFEATED, DUNGEON, GAME_QUEST_DONE, GAME_QUEST_TAKEN, LEVEL,
-    MET, QUEST_ACCEPTED, QUEST_DONE, QUEST_OFFERED, RAID, SLAPPED, TALLY, TITLE, TRUST, TRUSTS,
-    VISITED,
+    MARK_OF, MARKED_BY, MET, QUEST_ACCEPTED, QUEST_DONE, QUEST_OFFERED, RAID, SLAPPED, TALLY,
+    TITLE, TRUST, TRUSTS, VISITED,
 };
 use hourglass::{
     Entity, EntityId, EntityType, Event, EventHistory, EventKind, LOCATED_IN, Rejection, Tick,
@@ -258,6 +258,18 @@ impl Character {
     ) -> Result<(), Refusal> {
         let quest = self.game_quest(at, title, kind)?;
         self.start_once(at, self.you, GAME_QUEST_DONE, quest)
+    }
+
+    /// A quest of the game left a lasting buff or debuff on you. Each mark counts once.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first refusal of Hourglass.
+    pub fn take_quest_mark(&mut self, at: Tick, quest: &str, mark: &str) -> Result<(), Refusal> {
+        let quest = self.find_or_create(at, EntityType::Thing, &game_quest_name(quest))?;
+        let mark = self.find_or_create(at, EntityType::Thing, &mark_name(mark))?;
+        self.start_once(at, mark, MARK_OF, quest)?;
+        self.start_once(at, self.you, MARKED_BY, mark)
     }
 
     /// The class mark comes before any fact about the quest, so a moment of the same batch
@@ -642,4 +654,16 @@ fn game_quest_name(title: &str) -> String {
 #[must_use]
 pub fn title_of_game_quest(name: &str) -> Option<&str> {
     name.strip_prefix(GAME_QUEST_PREFIX)
+}
+
+const MARK_PREFIX: &str = "mark: ";
+
+fn mark_name(mark: &str) -> String {
+    format!("{MARK_PREFIX}{mark}")
+}
+
+/// The name of a buff or debuff, from the name of its thing.
+#[must_use]
+pub fn title_of_mark(name: &str) -> Option<&str> {
+    name.strip_prefix(MARK_PREFIX)
 }

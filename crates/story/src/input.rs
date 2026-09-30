@@ -60,6 +60,12 @@ pub enum Input {
         title: String,
         kind: GameQuestKind,
     },
+    /// A lasting buff or debuff came on you just after an event of this quest of the game.
+    QuestMarked {
+        at: Tick,
+        quest: String,
+        mark: String,
+    },
     /// You turned in a quest of the game.
     GameQuestDone {
         at: Tick,
@@ -188,6 +194,7 @@ impl Input {
             | Input::NpcSlapped { at, .. }
             | Input::GameQuestAccepted { at, .. }
             | Input::GameQuestDone { at, .. }
+            | Input::QuestMarked { at, .. }
             | Input::TalkAsked { at, .. }
             | Input::QuestAsked { at, .. }
             | Input::QuestAccepted { at, .. }

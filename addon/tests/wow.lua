@@ -33,6 +33,12 @@ function GetSubZoneText()
 	return wow.subzone
 end
 
+wow.combat = false
+
+function InCombatLockdown()
+	return wow.combat
+end
+
 -- "none" outside, or "party", "raid", "pvp", "arena".
 wow.instance = "none"
 
@@ -312,6 +318,11 @@ function Widget:RegisterEvent(event)
 	self.events[event] = true
 end
 
+-- The fake fires a unit event for every unit; a test fires it only for the unit it wants.
+function Widget:RegisterUnitEvent(event)
+	self.events[event] = true
+end
+
 function Widget:SetScript(name, handler)
 	self.scripts[name] = handler
 end
@@ -479,10 +490,6 @@ end
 
 function GetPhysicalScreenSize()
 	return 1920, 1080
-end
-
-function InCombatLockdown()
-	return false
 end
 
 function PlaySound() end

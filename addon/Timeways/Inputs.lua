@@ -66,6 +66,10 @@ function Inputs.GameQuestAccepted(at, title, kind)
 	return { type = "game_quest_accepted", at = at, title = title, kind = kind }
 end
 
+function Inputs.QuestMarked(at, quest, mark)
+	return { type = "quest_marked", at = at, quest = quest, mark = mark }
+end
+
 function Inputs.GameQuestDone(at, title, kind)
 	return { type = "game_quest_done", at = at, title = title, kind = kind }
 end

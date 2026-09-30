@@ -71,6 +71,8 @@ globals:
       - type: string
   IsInInstance:
     args: []
+  InCombatLockdown:
+    args: []
   C_QuestLog:
     any: true
   issecretvalue:

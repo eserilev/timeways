@@ -4,7 +4,7 @@ use hourglass::EntityType::{Faction, Person, Place, Thing};
 use hourglass::{Band, Count, Direction, EntityType, FactRules, FactVocabulary, Shape};
 
 /// A change to a declared name needs a new version and a migration (`hourglass::migrate`).
-pub const VERSION: u32 = 4;
+pub const VERSION: u32 = 5;
 
 pub const MET: &str = "met";
 pub const TRUSTS: &str = "trusts";
@@ -25,6 +25,10 @@ pub const GAME_QUEST_DONE: &str = "game_quest_done";
 pub const CLASS_QUEST: &str = "class_quest";
 /// An instance of the game. The place holds it.
 pub const DUNGEON: &str = "dungeon";
+/// A lasting buff or debuff that a quest of the game put on you.
+pub const MARKED_BY: &str = "marked_by";
+/// The quest that put the mark. The mark holds it.
+pub const MARK_OF: &str = "mark_of";
 pub const RAID: &str = "raid";
 pub const LEVEL: &str = "level";
 pub const SLAPPED: &str = "slapped";
@@ -63,6 +67,8 @@ pub fn vocabulary() -> FactVocabulary {
         .declare(GAME_QUEST_DONE, linked(up_flag(), Person, &[Thing]))
         .declare(CLASS_QUEST, FactRules::solo(up_flag()))
         .declare(DUNGEON, FactRules::solo(up_flag()))
+        .declare(MARKED_BY, linked(up_flag(), Person, &[Thing]))
+        .declare(MARK_OF, linked(up_flag(), Thing, &[Thing]))
         .declare(RAID, FactRules::solo(up_flag()))
         .declare(
             LEVEL,

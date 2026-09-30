@@ -615,6 +615,26 @@ fn a_turned_in_class_quest_asks_the_narrator_for_a_line() {
 }
 
 #[test]
+fn a_quest_mark_asks_the_narrator_for_a_line() {
+    let mut story = story_with("quest-mark", &[]);
+    let marked = Input::QuestMarked {
+        at: Tick(1),
+        quest: "Rediscovering the Light".to_string(),
+        mark: "Touched by the Light".to_string(),
+    };
+    assert!(story.handle(marked).unwrap().is_empty());
+
+    let (_, prompt) = model_call(batch_end(&mut story, 2));
+
+    assert!(
+        prompt.contains(
+            "During the quest \"Rediscovering the Light\", a lasting effect came on the player: \"Touched by the Light\"."
+        ),
+        "{prompt}"
+    );
+}
+
+#[test]
 fn a_first_dungeon_asks_the_narrator_for_a_line() {
     let mut story = story_with("first-dungeon", &[]);
     enter(&mut story, 1, "The Deadmines", None);

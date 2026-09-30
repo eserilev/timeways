@@ -224,3 +224,28 @@ fn the_first_visit_of_a_capital_is_its_own_moment_and_outranks_a_new_zone() {
         })
     );
 }
+
+#[test]
+fn a_quest_mark_is_a_moment_below_a_finished_class_quest() {
+    let mut character = Character::new();
+
+    let moments = moments_of(&mut character, |c| {
+        c.take_quest_mark(Tick(1), "Rediscovering the Light", "Touched by the Light")
+            .unwrap();
+    });
+    let both = moments_of(&mut character, |c| {
+        c.take_quest_mark(Tick(2), "Rediscovering the Light", "Blessed")
+            .unwrap();
+        c.finish_game_quest(Tick(2), "Rediscovering the Light", GameQuestKind::Class)
+            .unwrap();
+    });
+
+    assert_eq!(
+        moments,
+        [Moment::QuestMarked {
+            mark: "Touched by the Light".to_string(),
+            quest: "Rediscovering the Light".to_string(),
+        }]
+    );
+    assert!(matches!(best(both), Some(Moment::ClassQuestDone { .. })));
+}

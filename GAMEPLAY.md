@@ -276,6 +276,8 @@ Each character has one Hourglass world. A guild has one more world, held by its 
 | `game_quest_taken`, `game_quest_done` | flag | up | person to thing | A quest of the game that you took, and that you turned in. The thing is named `game quest: <title>`. |
 | `class_quest` | flag | up | none | On the thing of a game quest that only your class gets. |
 | `dungeon`, `raid` | flag | up | none | On a zone that the game called an instance. |
+| `marked_by` | flag | up | person to thing | A lasting buff or debuff that a quest of the game put on you. The thing is named `mark: <name>`. |
+| `mark_of` | flag | up | thing to thing | The quest of the game that put a mark. |
 | `level` | number, 1 to 60 | up | none | Your level. It only rises. |
 | `deaths` | number, 0 to 1000 | up | none | Your deaths, with a known killer or not. A known killer also holds `defeated`. |
 | `slapped` | number, 0 to 1000 | up | person to person | How often you slapped an NPC. It never ends. |
@@ -311,6 +313,7 @@ A first list. Each name goes through the API gate of Gnomish Relay (`scripts/wow
 | New zone | `ZONE_CHANGED_NEW_AREA`, `ZONE_CHANGED` |
 | Level up | `PLAYER_LEVEL_UP` |
 | Quest of the game taken and done (built) | `QUEST_ACCEPTED` and `QUEST_TURNED_IN`, with the title from `C_QuestLog.GetInfo`. The log puts a quest of your class under a header with the name of the class (`UnitClass`), so the addon marks it as a class quest. The log is read at login too, so a quest taken before still counts. A finished class quest is a big moment for the narrator (3.2) and a chapter milestone (3.3). |
+| Lasting buff or debuff of a quest (built) | `UNIT_AURA` for the player only, with its `addedAuras`. An aura counts only if it starts within 60 seconds after an event of a quest of the game (`QUEST_ACCEPTED`, `QUEST_WATCH_UPDATE`, `QUEST_TURNED_IN`), and it belongs to that quest. It must come from no player or pet, last 10 minutes or more (or have no end), and start out of combat. The state at login (`isFullUpdate`) and any hidden value never count. A short list of spell IDs drops Resurrection Sickness, the world buffs, and the Darkmoon fortunes. Each mark counts once. It is a deed, a fact of its chapter, and a moment for the narrator below a finished class quest. |
 | Kill of a rare or a boss | `PARTY_KILL` for a unit that the addon saw as rare, rare elite, or world boss (`PLAYER_TARGET_CHANGED`, `UPDATE_MOUSEOVER_UNIT`, `NAME_PLATE_UNIT_ADDED`), and `ENCOUNTER_END` with `success` 1 |
 | Your death | `PLAYER_DEAD`, and the killing blow from `C_DeathRecap.GetRecapEvents()` |
 | Boss fight | `ENCOUNTER_START`, `ENCOUNTER_END` |

@@ -2,15 +2,15 @@
 //! what you learned, and your side quests. No model takes part.
 
 use crate::chapters::{chapter_starts, is_level_milestone, sessions};
-use crate::character::{Character, title_of_game_quest};
+use crate::character::{Character, title_of_game_quest, title_of_mark};
 use crate::hero::{Entry, Hero};
 use crate::learned::Learned;
 use crate::places::{self, PlaceKind};
 use crate::quest::{Tracked, title_of_thing};
 use crate::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use crate::vocabulary::{
-    CLASS_QUEST, DEATHS, DEFEATED, GAME_QUEST_DONE, LEVEL, MET, QUEST_DONE, SLAPPED, TITLE, TRUSTS,
-    VISITED,
+    CLASS_QUEST, DEATHS, DEFEATED, GAME_QUEST_DONE, LEVEL, MARK_OF, MARKED_BY, MET, QUEST_DONE,
+    SLAPPED, TITLE, TRUSTS, VISITED,
 };
 use hourglass::{EntityId, EventKind, LOCATED_IN, Tick, World};
 use serde::Serialize;
@@ -122,6 +122,13 @@ pub enum Deed {
     /// A quest of the game that only your class gets.
     ClassQuestDone {
         title: String,
+        at: Tick,
+        place: Option<String>,
+    },
+    /// A quest of the game left a lasting buff or debuff on you.
+    QuestMarked {
+        mark: String,
+        quest: String,
         at: Tick,
         place: Option<String>,
     },
@@ -347,6 +354,7 @@ fn is_milestone(deed: &Deed) -> bool {
         Deed::Titled { .. }
         | Deed::QuestDone { .. }
         | Deed::GameQuestDone { .. }
+        | Deed::QuestMarked { .. }
         | Deed::Died { .. } => false,
     }
 }
@@ -373,6 +381,7 @@ impl Deed {
             | Deed::QuestDone { at, .. }
             | Deed::GameQuestDone { at, .. }
             | Deed::ClassQuestDone { at, .. }
+            | Deed::QuestMarked { at, .. }
             | Deed::Died { at, .. } => *at,
         }
     }
@@ -470,18 +479,9 @@ fn deeds(world: &World, you: EntityId) -> Vec<Deed> {
                 name,
                 linked_to: Some(thing),
                 ..
-            } if *entity == you && (name == TITLE || name == QUEST_DONE) => {
+            } if *entity == you && THING_DEEDS.contains(&name.as_str()) => {
                 let place = here.map(|place| name_of(world, place));
-                deeds.push(thing_deed(name, name_of(world, *thing), event.tick, place));
-            }
-            EventKind::FactStart {
-                entity,
-                name,
-                linked_to: Some(quest),
-                ..
-            } if *entity == you && name == GAME_QUEST_DONE => {
-                let place = here.map(|place| name_of(world, place));
-                deeds.extend(game_quest_deed(world, *quest, event.tick, place));
+                deeds.extend(thing_deed(world, name, *thing, event.tick, place));
             }
             EventKind::FactStart { entity, name, .. }
             | EventKind::FactUpdate { entity, name, .. }
@@ -501,16 +501,30 @@ fn deeds(world: &World, you: EntityId) -> Vec<Deed> {
 }
 
 /// A title that you earned, or a quest that you finished: both are things that you hold.
-fn thing_deed(fact: &str, thing: String, at: Tick, place: Option<String>) -> Deed {
-    if fact != QUEST_DONE {
-        return Deed::Titled {
-            title: thing,
+/// The facts of yours that point at a thing and make a deed.
+const THING_DEEDS: [&str; 4] = [TITLE, QUEST_DONE, GAME_QUEST_DONE, MARKED_BY];
+
+fn thing_deed(
+    world: &World,
+    fact: &str,
+    thing: EntityId,
+    at: Tick,
+    place: Option<String>,
+) -> Option<Deed> {
+    match fact {
+        GAME_QUEST_DONE => game_quest_deed(world, thing, at, place),
+        MARKED_BY => mark_deed(world, thing, at, place),
+        QUEST_DONE => {
+            let name = name_of(world, thing);
+            let title = title_of_thing(&name).map_or_else(|| name.clone(), str::to_string);
+            Some(Deed::QuestDone { title, at, place })
+        }
+        _ => Some(Deed::Titled {
+            title: name_of(world, thing),
             at,
             place,
-        };
+        }),
     }
-    let title = title_of_thing(&thing).map_or_else(|| thing.clone(), str::to_string);
-    Deed::QuestDone { title, at, place }
 }
 
 fn game_quest_deed(
@@ -525,6 +539,27 @@ fn game_quest_deed(
         return Some(Deed::ClassQuestDone { title, at, place });
     }
     Some(Deed::GameQuestDone { title, at, place })
+}
+
+fn mark_deed(world: &World, mark: EntityId, at: Tick, place: Option<String>) -> Option<Deed> {
+    let (mark, quest) = mark_and_quest(world, mark)?;
+    Some(Deed::QuestMarked {
+        mark,
+        quest,
+        at,
+        place,
+    })
+}
+
+/// The name of a mark, and the title of the quest that put it.
+#[must_use]
+pub fn mark_and_quest(world: &World, mark: EntityId) -> Option<(String, String)> {
+    let entity = world.entity(mark)?;
+    let quest = entity
+        .facts_named(MARK_OF)
+        .find_map(|fact| fact.linked_to)?;
+    let quest = title_of_game_quest(&world.entity(quest)?.name)?.to_string();
+    Some((title_of_mark(&entity.name)?.to_string(), quest))
 }
 
 fn level_deed(world: &World, from: Option<i64>, to: i64, at: Tick, here: Option<EntityId>) -> Deed {

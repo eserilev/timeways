@@ -333,3 +333,17 @@ fn a_battleground_is_no_instance_of_the_story() {
 
     assert!(parse(line).is_err());
 }
+
+#[test]
+fn a_quest_mark_reads_with_its_quest() {
+    let line = r#"{"type":"quest_marked","at":5,"quest":"Rediscovering the Light","mark":"Touched by the Light"}"#;
+
+    assert_eq!(
+        parse(line).unwrap(),
+        Input::QuestMarked {
+            at: Tick(5),
+            quest: "Rediscovering the Light".to_string(),
+            mark: "Touched by the Light".to_string(),
+        }
+    );
+}

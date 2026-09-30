@@ -643,3 +643,18 @@ fn a_quest_of_the_game_and_a_class_quest_show_as_deeds() {
         "entry: Finished the class quest Rediscovering the Light"
     );
 }
+
+#[test]
+fn a_quest_mark_shows_as_a_deed_with_its_quest() {
+    let game = Game::new();
+
+    game.reply(concat!(
+        r#"{"type":"journal","page":0,"pages":1,"deeds":["#,
+        r#"{"kind":"quest_marked","mark":"Touched by the Light","quest":"Rediscovering the Light","at":1790000000,"place":null}]}"#,
+    ));
+
+    assert_eq!(
+        lines(&game, "deeds")[0],
+        "entry: Touched by the Light, from Rediscovering the Light"
+    );
+}

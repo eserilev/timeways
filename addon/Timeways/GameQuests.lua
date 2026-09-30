@@ -10,6 +10,21 @@ ns.GameQuests = GameQuests
 -- carries only the ID, so the scan at the take keeps the rest.
 local known = {}
 
+-- A buff or debuff that comes this soon after an event of a quest belongs to that quest.
+local QUEST_EVENT_SECONDS = 60
+local lastEvent
+
+local function Noted(quest)
+	lastEvent = { title = quest.title, at = time() }
+end
+
+-- The title of the quest of the last quest event, while it is recent.
+function GameQuests.Recent()
+	if lastEvent and time() - lastEvent.at <= QUEST_EVENT_SECONDS then
+		return lastEvent.title
+	end
+end
+
 -- The client can hide a value from addons. A hidden value is never compared or sent.
 local function Readable(value)
 	return type(value) == "string" and value ~= "" and not issecretvalue(value)
@@ -40,6 +55,17 @@ function GameQuests.Accepted(questID)
 	local quest = known[questID]
 	if quest then
 		ns.Outbox.Add(ns.Inputs.GameQuestAccepted(time(), quest.title, quest.kind))
+		Noted(quest)
+	end
+end
+
+-- An objective of the quest moved on.
+function GameQuests.Progress(questID)
+	if not known[questID] then
+		GameQuests.Scan()
+	end
+	if known[questID] then
+		Noted(known[questID])
 	end
 end
 
@@ -50,4 +76,5 @@ function GameQuests.TurnedIn(questID)
 	end
 	known[questID] = nil
 	ns.Outbox.Add(ns.Inputs.GameQuestDone(time(), quest.title, quest.kind))
+	Noted(quest)
 end

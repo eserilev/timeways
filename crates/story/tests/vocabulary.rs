@@ -4,8 +4,8 @@ use hourglass::{
 };
 use timeways_story::vocabulary::{
     CLASS_QUEST, DEAD, DEATHS, DEFEATED, DUNGEON, GAME_QUEST_DONE, GAME_QUEST_TAKEN, KNOWS_LORE,
-    LEADER_OF, LEVEL, MEMBER_OF, MET, NEMESIS, QUEST_ACCEPTED, QUEST_DONE, QUEST_OFFERED, RAID,
-    SLAPPED, TITLE, TRUSTS, VISITED, vocabulary,
+    LEADER_OF, LEVEL, MARK_OF, MARKED_BY, MEMBER_OF, MET, NEMESIS, QUEST_ACCEPTED, QUEST_DONE,
+    QUEST_OFFERED, RAID, SLAPPED, TITLE, TRUSTS, VISITED, vocabulary,
 };
 
 const NOW: Tick = Tick(1);
@@ -146,6 +146,8 @@ fn vocabulary_holds_every_name_of_the_spec_and_located_in() {
         CLASS_QUEST,
         DUNGEON,
         RAID,
+        MARKED_BY,
+        MARK_OF,
         LEVEL,
         SLAPPED,
         TITLE,

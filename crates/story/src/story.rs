@@ -304,6 +304,7 @@ impl Story {
             }
             Input::GameQuestAccepted { at, title, kind } => self.take_game_quest(at, &title, kind),
             Input::GameQuestDone { at, title, kind } => self.finish_game_quest(at, &title, kind),
+            Input::QuestMarked { at, quest, mark } => self.take_quest_mark(at, &quest, &mark),
             Input::NpcSlapped { at, name } => {
                 checked_name(&name)?;
                 self.change(|character| character.slap(at, &name))?;
@@ -385,6 +386,17 @@ impl Story {
     ) -> Result<Vec<Output>, StoryError> {
         checked_name(zone)?;
         self.change(|character| character.mark_instance(at, zone, kind))
+    }
+
+    fn take_quest_mark(
+        &mut self,
+        at: Tick,
+        quest: &str,
+        mark: &str,
+    ) -> Result<Vec<Output>, StoryError> {
+        checked_name(quest)?;
+        checked_name(mark)?;
+        self.change(|character| character.take_quest_mark(at, quest, mark))
     }
 
     fn take_game_quest(

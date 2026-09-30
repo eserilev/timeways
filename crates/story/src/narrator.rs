@@ -87,6 +87,11 @@ fn what_happened(moment: &Moment) -> String {
             zone,
             kind: InstanceKind::Raid,
         } => format!("The player entered the raid {zone} for the first time."),
+        Moment::QuestMarked { mark, quest } => {
+            format!(
+                "During the quest \"{quest}\", a lasting effect came on the player: \"{mark}\"."
+            )
+        }
         Moment::FirstCapital { city } => {
             format!("The player arrived in the capital city {city} for the first time.")
         }

@@ -2,9 +2,11 @@
 //! (GAMEPLAY.md 3.2). The narrator speaks about the best one.
 
 use crate::character::title_of_game_quest;
+use crate::journal::mark_and_quest;
 use crate::places::{InstanceKind, is_capital};
 use crate::vocabulary::{
-    CLASS_QUEST, DEFEATED, DUNGEON, GAME_QUEST_DONE, LEVEL, RAID, SLAPPED, TITLE, VISITED,
+    CLASS_QUEST, DEFEATED, DUNGEON, GAME_QUEST_DONE, LEVEL, MARKED_BY, RAID, SLAPPED, TITLE,
+    VISITED,
 };
 use hourglass::{EntityId, Event, EventKind, World};
 
@@ -48,6 +50,11 @@ pub enum Moment {
         zone: String,
         kind: InstanceKind,
     },
+    /// A quest of the game left a lasting buff or debuff on you.
+    QuestMarked {
+        mark: String,
+        quest: String,
+    },
     /// The first visit of a capital city.
     FirstCapital {
         city: String,
@@ -63,7 +70,7 @@ impl Moment {
             Moment::Flavor { .. } => 0,
             Moment::FirstKill { .. } | Moment::FirstInstance { .. } => 5,
             Moment::SlainAgain { .. } => 4,
-            Moment::Slapped { .. } => 3,
+            Moment::Slapped { .. } | Moment::QuestMarked { .. } => 3,
             Moment::LevelUp { .. } | Moment::FirstCapital { .. } => 2,
             Moment::NewZone { .. } => 1,
         }
@@ -143,6 +150,15 @@ fn moment(world: &World, you: EntityId, kind: &EventKind) -> Option<Moment> {
                 return Some(Moment::FirstCapital { city: zone });
             }
             Some(Moment::NewZone { zone })
+        }
+        EventKind::FactStart {
+            entity,
+            name,
+            linked_to: Some(mark),
+            ..
+        } if *entity == you && name == MARKED_BY => {
+            let (mark, quest) = mark_and_quest(world, *mark)?;
+            Some(Moment::QuestMarked { mark, quest })
         }
         EventKind::FactStart {
             entity: place,

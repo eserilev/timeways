@@ -671,6 +671,18 @@ return {
 				{ Name = "buttons", Type = "MouseButton", Nilable = false, StrideIndex = 1 },
 			},
 		},
+		["SimpleFrameAPI:RegisterUnitEvent"] = {
+			AddsForbiddenAspects = { { Argument = "self", Aspect = Enum.ForbiddenAspect.EventRegistrations } },
+			ChecksForbiddenAspects = { { Argument = "self", Aspect = Enum.ForbiddenAspect.EventRegistrations } },
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "eventName", Type = "cstring", Nilable = false },
+				{ Name = "units", Type = "UnitTokenType", Nilable = false, StrideIndex = 1 },
+			},
+			Returns = {
+				{ Name = "registered", Type = "bool", Nilable = false },
+			},
+		},
 		["SimpleFrameAPI:SetClipsChildren"] = {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {
@@ -1059,11 +1071,25 @@ return {
 				{ Name = "moneyReward", Type = "number", Nilable = false },
 			},
 		},
+		QUEST_WATCH_UPDATE = {
+			SynchronousEvent = true,
+			Payload = {
+				{ Name = "questID", Type = "number", Nilable = false },
+			},
+		},
 		SCREENSHOT_FAILED = {
 			SynchronousEvent = true,
 		},
 		SCREENSHOT_SUCCEEDED = {
 			SynchronousEvent = true,
+		},
+		UNIT_AURA = {
+			SecretWhenAurasRestricted = true,
+			SynchronousEvent = true,
+			Payload = {
+				{ Name = "unitTarget", Type = "UnitTokenVariant", Nilable = false },
+				{ Name = "updateInfo", Type = "UnitAuraUpdateInfo", Nilable = false },
+			},
 		},
 		UPDATE_MOUSEOVER_UNIT = {
 			SynchronousEvent = true,

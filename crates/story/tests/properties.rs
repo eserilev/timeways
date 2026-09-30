@@ -42,6 +42,8 @@ enum Play {
     Quest(String, Vec<(bool, String)>),
     Accept,
     Decline,
+    /// A lasting buff or debuff of a quest of the game.
+    Mark(String, String),
     /// A zone that the game calls an instance.
     Instance(String, InstanceKind),
     /// A quest of the game: taken, or turned in.
@@ -87,6 +89,7 @@ fn play() -> impl Strategy<Value = Play> {
             .prop_map(|(npc, steps)| Play::Quest(npc, steps)),
         Just(Play::Accept),
         Just(Play::Decline),
+        (name(), name()).prop_map(|(quest, mark)| Play::Mark(quest, mark)),
         (
             name(),
             prop::sample::select(vec![InstanceKind::Dungeon, InstanceKind::Raid]),
@@ -175,6 +178,7 @@ fn input(play: &Play, at: Tick) -> Option<Input> {
         Play::Meet(name) => Input::NpcMet { at, name },
         Play::Defeat(name) => Input::NpcDefeated { at, name },
         Play::Slap(name) => Input::NpcSlapped { at, name },
+        Play::Mark(quest, mark) => Input::QuestMarked { at, quest, mark },
         Play::Instance(zone, kind) => Input::InstanceEntered { at, zone, kind },
         Play::GameQuest(title, kind, false) => Input::GameQuestAccepted { at, title, kind },
         Play::GameQuest(title, kind, true) => Input::GameQuestDone { at, title, kind },

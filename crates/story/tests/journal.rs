@@ -695,3 +695,29 @@ fn a_second_mark_of_an_instance_adds_no_event() {
 
     assert_eq!(character.world().history().len(), before);
 }
+
+#[test]
+fn a_quest_mark_is_a_deed_with_its_quest_once_and_no_milestone() {
+    let mut character = played_in_westfall(50);
+
+    for at in [HOUR + 50 * 60, HOUR + 51 * 60] {
+        character
+            .take_quest_mark(Tick(at), "Rediscovering the Light", "Touched by the Light")
+            .unwrap();
+    }
+
+    let journal = journal(&character);
+    let marks: Vec<&Deed> = journal
+        .deeds
+        .iter()
+        .filter(|deed| matches!(deed, Deed::QuestMarked { .. }))
+        .collect();
+    let expected = Deed::QuestMarked {
+        mark: "Touched by the Light".to_string(),
+        quest: "Rediscovering the Light".to_string(),
+        at: Tick(HOUR + 50 * 60),
+        place: Some("Farm 5".to_string()),
+    };
+    assert_eq!(marks, [&expected]);
+    assert_eq!(journal.chapters.len(), 1);
+}

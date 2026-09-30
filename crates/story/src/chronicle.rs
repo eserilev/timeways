@@ -198,6 +198,9 @@ fn deed_fact(deed: &Deed) -> String {
         Deed::QuestDone { title, .. } => format!("Finished the task \"{title}\""),
         Deed::GameQuestDone { title, .. } => format!("Finished the quest \"{title}\""),
         Deed::ClassQuestDone { title, .. } => format!("Finished the class quest \"{title}\""),
+        Deed::QuestMarked { mark, quest, .. } => {
+            format!("Gained the lasting effect \"{mark}\" during the quest \"{quest}\"")
+        }
         Deed::Died {
             killer: Some(killer),
             ..
