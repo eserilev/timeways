@@ -16,7 +16,7 @@ Journal.TITLES = {
 	people = "People",
 	deeds = "Deeds",
 	learned = "Knowledge",
-	quests = "Quests",
+	quests = "Tasks",
 }
 
 -- The lists that come in pages. The sheet of the hero comes on the first page only.
@@ -191,37 +191,72 @@ local function Together(names)
 	return table.concat(shown, ", ", 1, #shown - 1) .. " and " .. shown[#shown]
 end
 
--- A chapter is the list of what was new in one session (GAMEPLAY.md 3.3). Once the narrator
--- wrote it, its saga comes first.
-local function Chapters(chapters)
+-- The first zone of a chapter names it, as a chapter of a book has a title.
+local function ChapterPlace(chapter)
+	local zones = List(chapter.zones)
+	return type(zones[1]) == "string" and ns.Plain(zones[1]) or nil
+end
+
+local function ChapterNumber(chapter)
+	return type(chapter.number) == "number" and chapter.number or "?"
+end
+
+local function ChapterTitle(chapter)
+	local place = ChapterPlace(chapter)
+	local number = "Chapter " .. ChapterNumber(chapter)
+	return place and (number .. ": " .. place) or number
+end
+
+-- A session can run past midnight, so a chapter can span days.
+local function Dates(chapter)
+	local began, ended = Day(chapter.began), Day(chapter.ended)
+	if type(chapter.ended) ~= "number" or began == ended then
+		return began
+	end
+	return began .. " to " .. ended
+end
+
+-- A chapter is what was new in one session (GAMEPLAY.md 3.3). Once the narrator wrote it,
+-- its saga comes first.
+local function ChapterLines(chapter)
 	local lines = {}
-	for _, chapter in ipairs(chapters) do
-		local number = type(chapter.number) == "number" and chapter.number or "?"
-		lines[#lines + 1] = Line("heading", "Chapter " .. number)
-		lines[#lines + 1] = Line("text", Day(chapter.began) .. ".")
-		if type(chapter.prose) == "string" then
-			lines[#lines + 1] = Line("prose", ns.Plain(chapter.prose))
+	local place = ChapterPlace(chapter)
+	if place then
+		lines[#lines + 1] = Line("note", "Chapter " .. ChapterNumber(chapter))
+	end
+	lines[#lines + 1] = Line("heading", place or ("Chapter " .. ChapterNumber(chapter)))
+	lines[#lines + 1] = Line("text", Dates(chapter) .. ".")
+	if type(chapter.prose) == "string" then
+		lines[#lines + 1] = Line("prose", ns.Plain(chapter.prose))
+	end
+	for _, footnote in ipairs(List(chapter.footnotes)) do
+		if type(footnote) == "string" then
+			lines[#lines + 1] = Line("note", "* " .. ns.Plain(footnote))
 		end
-		for _, footnote in ipairs(List(chapter.footnotes)) do
-			if type(footnote) == "string" then
-				lines[#lines + 1] = Line("note", "* " .. ns.Plain(footnote))
-			end
+	end
+	if #List(chapter.zones) > 0 then
+		lines[#lines + 1] = Line("section", "Places you visited")
+		lines[#lines + 1] = Line("text", Together(List(chapter.zones)) .. ".")
+	end
+	if #List(chapter.people) > 0 then
+		lines[#lines + 1] = Line("section", "People you met")
+		lines[#lines + 1] = Line("text", Together(List(chapter.people)) .. ".")
+	end
+	local deeds = {}
+	for _, deed in ipairs(Entries(chapter.deeds)) do
+		local title = DeedTitle(deed)
+		if title then
+			deeds[#deeds + 1] = Line("entry", title .. ".")
 		end
-		if #List(chapter.zones) > 0 then
-			lines[#lines + 1] = Line("entry", "Traveled to " .. Together(List(chapter.zones)) .. ".")
-		end
-		if #List(chapter.people) > 0 then
-			lines[#lines + 1] = Line("entry", "Met " .. Together(List(chapter.people)) .. ".")
-		end
-		for _, deed in ipairs(Entries(chapter.deeds)) do
-			local title = DeedTitle(deed)
-			if title then
-				lines[#lines + 1] = Line("entry", title .. ".")
-			end
-		end
-		if type(chapter.left_out) == "number" and chapter.left_out > 0 then
-			lines[#lines + 1] = Line("text", string.format("And %d more.", chapter.left_out))
-		end
+	end
+	if #deeds > 0 then
+		lines[#lines + 1] = Line("section", "What you did")
+	end
+	for _, line in ipairs(deeds) do
+		lines[#lines + 1] = line
+	end
+	if type(chapter.left_out) == "number" and chapter.left_out > 0 then
+		lines[#lines + 1] = Line("text", string.format("And %d more.", chapter.left_out))
 	end
 	return lines
 end
@@ -276,7 +311,49 @@ local function StepText(step)
 	return "?"
 end
 
--- An offer carries its two buttons, because the chat line of the offer scrolls away.
+-- The open item of each page with a list, by its key. A key that is gone opens the default.
+local selected = {}
+
+function Journal.Select(section, key)
+	selected[section] = key
+end
+
+-- A row of the list on the left: a group title, a line of help, or an item that opens.
+local function Group(text)
+	return { style = "group", text = text }
+end
+
+local function Item(key, text, detail, mark)
+	return { style = "item", key = key, text = text, detail = detail, mark = mark }
+end
+
+local function Button(label, run, disabled)
+	return { label = label, run = run, disabled = disabled }
+end
+
+-- The place in `keys` of the selected key, or of the default when the selected key is gone.
+local function OpenIndex(section, keys, default)
+	for n, key in ipairs(keys) do
+		if key == selected[section] then
+			return n
+		end
+	end
+	return default
+end
+
+-- The buttons that open the item before and after the open one.
+local function Steps(keys, index, before, after)
+	local function Open(n)
+		return function()
+			ns.JournalFrame.Select(keys[n])
+		end
+	end
+	return {
+		Button(before, Open(index - 1), index <= 1),
+		Button(after, Open(index + 1), index >= #keys),
+	}
+end
+
 -- A number from the desktop that is no whole number goes out as no number: the newest offer.
 local function QuestNumber(quest)
 	local number = quest.number
@@ -290,61 +367,189 @@ local function QuestStatus(quest, saving)
 		return Line("hint", SAVING)
 	end
 	if quest.status == "offered" then
-		local decline = function()
-			ns.Quest.Decline(QuestNumber(quest))
-		end
-		return Line("note", "An offer. Do you take it?", { label = "Decline", run = decline })
+		return Line("note", "An offer. Do you take it?")
 	end
 	if quest.status == "done" then
 		return Line("note", "Done on " .. Day(quest.done_at) .. ".")
 	end
-	local number = QuestNumber(quest)
-	if not number then
-		return Line("note", "In progress.")
-	end
-	local abandon = function()
-		ns.Quest.Abandon(number, quest.title)
-	end
-	return Line("note", "In progress.", { label = "Abandon", run = abandon })
+	return Line("note", "In progress.")
 end
 
--- An accepted offer shows as saving until the journal confirms it.
-local function Quest(quest, saving)
-	local accept = quest.status == "offered"
-			and not saving
-			and {
-				label = "Accept",
-				run = function()
-					ns.Quest.Accept(QuestNumber(quest))
-				end,
-			}
-		or nil
-	local lines = { Line("heading", Name(quest.title), accept) }
+local function StepsDone(quest)
+	return type(quest.steps_done) == "number" and quest.steps_done or 0
+end
+
+-- The rewards are story, never loot (3.4): the giver trusts you more, and the deed goes into
+-- your chronicle.
+local function QuestLines(quest, saving)
+	local lines = { Line("heading", Name(quest.title)), QuestStatus(quest, saving) }
 	lines[#lines + 1] = Line("text", "From " .. Name(quest.giver) .. ", on " .. Day(quest.offered_at) .. ".")
 	if type(quest.text) == "string" then
 		lines[#lines + 1] = Line("prose", ns.Plain(quest.text))
 	end
-	local done = type(quest.steps_done) == "number" and quest.steps_done or 0
 	for n, step in ipairs(Entries(quest.steps)) do
-		local mark = n <= done and "(done) " or ""
+		local mark = n <= StepsDone(quest) and "(done) " or ""
 		lines[#lines + 1] = Line("entry", mark .. StepText(step))
 	end
-	lines[#lines + 1] = QuestStatus(quest, saving)
+	lines[#lines + 1] = Line("section", "Rewards")
+	lines[#lines + 1] = Line("text", Name(quest.giver) .. " trusts you more.")
+	lines[#lines + 1] = Line("text", "It goes into your chronicle.")
 	return lines
 end
 
--- A declined or abandoned task leaves the page at once.
-local function Quests(quests)
-	local lines = {}
-	for _, quest in ipairs(quests) do
+-- An offer has its buttons here too, because the chat line of the offer scrolls away.
+local function QuestButtons(quest, saving)
+	local number = QuestNumber(quest)
+	if saving then
+		return {}
+	end
+	if quest.status == "offered" then
+		return {
+			Button("Accept", function()
+				ns.Quest.Accept(number)
+			end),
+			Button("Decline", function()
+				ns.Quest.Decline(number)
+			end),
+		}
+	end
+	if quest.status == "done" or not number then
+		return {}
+	end
+	return {
+		Button("Abandon", function()
+			ns.Quest.Abandon(number, quest.title)
+		end),
+	}
+end
+
+-- The groups of the list, in order. A status that the addon does not know shows as in progress.
+local QUEST_GROUPS = { "offered", "accepted", "done" }
+local QUEST_GROUP_TITLES = { offered = "Offered", accepted = "In progress", done = "Done" }
+
+local function QuestGroup(quest)
+	if quest.status == "offered" or quest.status == "done" then
+		return quest.status
+	end
+	return "accepted"
+end
+
+local function QuestMark(quest, saving)
+	if saving then
+		return SAVING
+	end
+	if quest.status == "offered" then
+		return "New"
+	end
+	if quest.status == "done" then
+		return "Done"
+	end
+	return string.format("%d of %d", StepsDone(quest), #Entries(quest.steps))
+end
+
+-- A declined or abandoned task leaves the page at once. An accepted one shows as saving
+-- until the journal confirms it.
+local function OpenTasks(quests)
+	local open = {}
+	for n, quest in ipairs(quests) do
 		local answer = ns.Quest.Answered(QuestNumber(quest))
 		if answer ~= "declined" and answer ~= "abandoned" then
-			for _, line in ipairs(Quest(quest, answer == "accepted")) do
-				lines[#lines + 1] = line
+			local key = QuestNumber(quest) or ("#" .. n)
+			open[#open + 1] = { quest = quest, key = key, saving = answer == "accepted" }
+		end
+	end
+	return open
+end
+
+local function Grouped(tasks)
+	local grouped = {}
+	for _, group in ipairs(QUEST_GROUPS) do
+		for _, task in ipairs(tasks) do
+			if QuestGroup(task.quest) == group then
+				grouped[#grouped + 1] = task
 			end
 		end
 	end
-	return lines
+	return grouped
+end
+
+-- `tasks` come in the order of their groups, so each group title comes once.
+local function TaskList(tasks)
+	local rows, group = {}, nil
+	for _, task in ipairs(tasks) do
+		if QuestGroup(task.quest) ~= group then
+			group = QuestGroup(task.quest)
+			rows[#rows + 1] = Group(QUEST_GROUP_TITLES[group])
+		end
+		local quest = task.quest
+		rows[#rows + 1] = Item(task.key, Name(quest.title), Name(quest.giver), QuestMark(quest, task.saving))
+	end
+	return rows
+end
+
+-- The zone of a place: a subzone lies within its zone, and a zone is its own.
+local function ZoneOf(journal, place)
+	for _, known in ipairs(Entries(journal.places)) do
+		if known.name == place and type(known.within) == "string" then
+			return known.within
+		end
+	end
+	return place
+end
+
+-- A task belongs to the zone of the person who gave it.
+local function GiverZone(journal, giver)
+	for _, person in ipairs(Entries(journal.people)) do
+		if person.name == giver and type(person.place) == "string" then
+			return ZoneOf(journal, person.place)
+		end
+	end
+	return nil
+end
+
+local function Keys(items)
+	local keys = {}
+	for n, item in ipairs(items) do
+		keys[n] = item.key
+	end
+	return keys
+end
+
+local function Tasks(journal)
+	local tasks = Grouped(OpenTasks(Entries(journal.quests)))
+	local page = { list = TaskList(tasks), lines = {}, buttons = {}, side = "map" }
+	local task = tasks[OpenIndex("quests", Keys(tasks), 1)]
+	if not task then
+		return page
+	end
+	page.selected = task.key
+	page.lines = QuestLines(task.quest, task.saving)
+	page.buttons = QuestButtons(task.quest, task.saving)
+	page.zone = GiverZone(journal, task.quest.giver)
+	return page
+end
+
+-- The book opens on the newest chapter, the one still being written.
+local function Chronicle(journal)
+	local chapters = Entries(journal.chapters)
+	local page = { list = {}, lines = {}, buttons = {}, side = "map" }
+	for n, chapter in ipairs(chapters) do
+		local key = type(chapter.number) == "number" and chapter.number or ("#" .. n)
+		page.list[n] = Item(key, ChapterTitle(chapter), Dates(chapter))
+	end
+	local keys = Keys(page.list)
+	local index = OpenIndex("chapters", keys, #keys)
+	local chapter = chapters[index]
+	if not chapter then
+		return page
+	end
+	page.selected = keys[index]
+	page.lines = ChapterLines(chapter)
+	page.buttons = Steps(keys, index, "Previous chapter", "Next chapter")
+	page.footer = string.format("Chapter %d of %d", index, #chapters)
+	page.crumb = "Chapter " .. ChapterNumber(chapter)
+	page.zone = ChapterPlace(chapter)
+	return page
 end
 
 -- The texts of the sheet by field, with the edits that the desktop did not confirm yet.
@@ -361,28 +566,48 @@ local function SheetTexts(hero, unsaved)
 	return texts
 end
 
-local function Sheet(hero, unsaved)
-	local lines = { Line("heading", "Who You Are") }
-	local texts = SheetTexts(hero, unsaved)
+local function Answer(text)
+	return type(text) == "string" and ns.Plain(text) or "Not answered yet."
+end
+
+local function SheetList(texts)
+	local rows = {
+		Group("About your hero"),
+		{ style = "help", text = Journal.USAGE.hero },
+	}
 	for _, field in ipairs(ns.Hero.FIELDS) do
-		local text = texts[field]
-		local edit = {
-			label = "Edit",
-			run = function()
-				ns.Hero.Edit(field, text)
-			end,
-		}
-		lines[#lines + 1] = Line("entry", ns.Hero.LABELS[field], edit)
-		if type(text) == "string" then
-			lines[#lines + 1] = Line("text", ns.Plain(text))
-		else
-			lines[#lines + 1] = Line("hint", ns.Hero.HINTS[field])
-		end
-		if unsaved.fields[field] then
-			lines[#lines + 1] = Line("hint", SAVING)
-		end
+		rows[#rows + 1] = Item(field, ns.Hero.HINTS[field], Answer(texts[field]))
+	end
+	return rows
+end
+
+local function FieldLines(field, index, texts, unsaved)
+	local text = texts[field]
+	local edit = {
+		label = "Edit",
+		run = function()
+			ns.Hero.Edit(field, text)
+		end,
+	}
+	local lines = {
+		Line("note", string.format("Question %d of %d", index, #ns.Hero.FIELDS)),
+		Line("heading", ns.Hero.HINTS[field], edit),
+		Line(type(text) == "string" and "text" or "hint", Answer(text)),
+	}
+	if unsaved.fields[field] then
+		lines[#lines + 1] = Line("hint", SAVING)
 	end
 	return lines
+end
+
+local function AnsweredCount(texts)
+	local count = 0
+	for _, field in ipairs(ns.Hero.FIELDS) do
+		if type(texts[field]) == "string" then
+			count = count + 1
+		end
+	end
+	return count
 end
 
 local function SavedEntry(entry)
@@ -418,7 +643,7 @@ local function LoreEntries(hero, unsaved)
 end
 
 local function Lore(hero, unsaved)
-	local add = { label = "Add", run = ns.Hero.Write }
+	local add = { label = "Add a note", run = ns.Hero.Write }
 	local lines = { Line("heading", "Your Notes", add) }
 	local entries = LoreEntries(hero, unsaved)
 	if #entries == 0 then
@@ -430,14 +655,25 @@ local function Lore(hero, unsaved)
 	return lines
 end
 
--- Who the hero is (3.7): each field of the sheet with its button, then the player's own lore.
-local function Hero(hero)
-	local unsaved = ns.Hero.Unsaved()
-	local lines = Sheet(hero, unsaved)
+-- Who the hero is (3.7): the questions of the sheet on the left, and the open question with
+-- the player's own lore on the right.
+local function Hero(journal)
+	local hero, unsaved = journal.hero, ns.Hero.Unsaved()
+	local texts = SheetTexts(hero, unsaved)
+	local index = OpenIndex("hero", ns.Hero.FIELDS, 1)
+	local field = ns.Hero.FIELDS[index]
+	local lines = FieldLines(field, index, texts, unsaved)
 	for _, line in ipairs(Lore(hero, unsaved)) do
 		lines[#lines + 1] = line
 	end
-	return lines
+	return {
+		list = SheetList(texts),
+		selected = field,
+		lines = lines,
+		buttons = Steps(ns.Hero.FIELDS, index, "Previous", "Next"),
+		footer = string.format("%d of %d answered", AnsweredCount(texts), #ns.Hero.FIELDS),
+		side = "sheet",
+	}
 end
 
 -- The names of the people that you met in one place.
@@ -530,16 +766,28 @@ local function People(journal)
 	return lines
 end
 
+-- A page with no list: the lines alone, beside the map.
+local function SinglePage(builder)
+	return function(journal)
+		return { lines = builder(journal), buttons = {}, side = "map" }
+	end
+end
+
+-- A page that reads only its own list of the journal.
+local function OwnList(builder, section)
+	return SinglePage(function(journal)
+		return builder(List(journal[section]))
+	end)
+end
+
 local BUILDERS = {
-	hero = function(journal)
-		return Hero(journal.hero)
-	end,
-	chapters = Chapters,
-	places = Places,
-	people = People,
-	deeds = Deeds,
-	learned = Learned,
-	quests = Quests,
+	hero = Hero,
+	chapters = Chronicle,
+	places = SinglePage(Places),
+	people = SinglePage(People),
+	deeds = OwnList(Deeds, "deeds"),
+	learned = OwnList(Learned, "learned"),
+	quests = Tasks,
 }
 
 local EMPTY = {
@@ -551,7 +799,7 @@ local EMPTY = {
 	quests = "No one has asked you for a favor yet. Target someone, and type /quest.",
 }
 
--- The line under the title of the book, on how to use the page.
+-- The line at the bottom of the book, on how to use the page.
 Journal.USAGE = {
 	hero = "Your character's backstory. It shapes the story that the game writes about you.",
 	chapters = "Your story so far, chapter by chapter.",
@@ -562,25 +810,34 @@ Journal.USAGE = {
 	quests = "Favors from the people you meet. Target someone, and type /quest.",
 }
 
--- Each line is { style = "heading" | "prose" | "entry" | "text" | "note" | "hint" |
--- "help", text = ... }.
--- These pages join more than their own list.
-local WHOLE = { hero = true, people = true, places = true }
-
+-- A page is what the book shows for one section:
+--   lines: the parchment on the right. Each line is { style, text, action }, and the style
+--     is "heading", "section", "prose", "entry", "text", "note", "hint", or "help".
+--   list: the rows on the left, or nil. Each row is { style = "group" | "help" | "item",
+--     text, detail, mark, key }. A click on an item selects its key.
+--   selected: the key of the open item.
+--   buttons: the buttons at the bottom, each { label, run, disabled }.
+--   footer: the text at the bottom left.
+--   crumb: the last step of the path at the top, or nil for the name of the map.
+--   zone: the zone that the map shows, or nil for the zone of the player.
+--   side: what the left half shows: "map", or "sheet" for the list alone on parchment.
 function Journal.Render(journal, section)
-	local builder = BUILDERS[section]
-	local lines = WHOLE[section] and builder(journal) or builder(List(journal[section]))
-	if #lines == 0 then
-		return { Line("help", EMPTY[section]) }
+	local page = BUILDERS[section](journal)
+	page.footer = page.footer or Journal.USAGE[section]
+	if #page.lines == 0 then
+		page.lines = { Line("help", EMPTY[section]) }
 	end
-	return lines
+	return page
+end
+
+function Journal.Page(section)
+	if not pages then
+		local loading = Line("help", "Loading... If this stays empty, start Gnomish Relay on your computer.")
+		return { lines = { loading }, buttons = {}, footer = Journal.USAGE[section], side = "map" }
+	end
+	return Journal.Render(pages, section)
 end
 
 function Journal.Lines(section)
-	if not pages then
-		return {
-			Line("help", "Loading... If this stays empty, start Gnomish Relay on your computer."),
-		}
-	end
-	return Journal.Render(pages, section)
+	return Journal.Page(section).lines
 end

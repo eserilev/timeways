@@ -124,6 +124,7 @@ fn a_session_of_play_goes_through_the_bridge_and_back_into_the_book() {
     assert!(learned.contains("ruled here."), "{learned}");
     let people = lines(&game, "people");
     assert!(people.contains("Innkeeper Farley"), "{people}");
+    game.run("ns.Journal.Select('hero', 'goal')");
     let hero = lines(&game, "hero");
     assert!(hero.contains("Find my brother."), "{hero}");
     let quests = lines(&game, "quests");

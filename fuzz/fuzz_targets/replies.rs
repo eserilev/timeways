@@ -177,10 +177,19 @@ fuzz_target!(|input: Input| {
         "local out = {}
          for _, text in ipairs(wow.printed) do table.insert(out, text) end
          for _, section in ipairs(ns.Journal.SECTIONS) do
-             for _, line in ipairs(ns.Journal.Lines(section)) do
+             local page = ns.Journal.Page(section)
+             for _, row in ipairs(page.list or {}) do
+                 table.insert(out, row.text)
+                 table.insert(out, row.detail or '')
+                 table.insert(out, row.mark or '')
+             end
+             for _, line in ipairs(page.lines) do
                  table.insert(out, line.text)
                  if line.action then line.action.run() end
              end
+             table.insert(out, page.footer)
+             table.insert(out, page.crumb or '')
+             for _, button in ipairs(page.buttons) do button.run() end
          end
          return out",
     );

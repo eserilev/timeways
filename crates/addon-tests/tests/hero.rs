@@ -15,6 +15,9 @@ fn hero_reply(hero: &str, refused: &str) -> String {
 
 const FILLED: &str = r#"{"sheet":[{"field":"goal","text":"Find my brother."}],"entries":[{"number":4,"at":1790000000,"text":"An oath.","place":"Goldshire","npc":"Innkeeper Farley"}]}"#;
 
+/// The question of the goal, which opens the editor of the goal.
+const GOAL: &str = "What does your character want?";
+
 fn lines(game: &Game) -> Vec<String> {
     game.eval(
         "local out = {}
@@ -43,12 +46,13 @@ fn journal_asked(message: u64) -> Input {
     }
 }
 
-/// The Hero page of the book, as the player sees it before an edit. Opening the book sends
-/// the first message.
+/// The Hero page of the book, open on the goal, as the player sees it before an edit.
+/// Opening the book sends the first message.
 fn open_book(hero: &str) -> Game {
     let game = Game::new();
     game.run("wow.Slash('/hero', '')");
     game.reply(&hero_reply(hero, "null"));
+    game.run("ns.JournalFrame.Select('goal')");
     game
 }
 
@@ -64,19 +68,23 @@ fn editor_text(game: &Game) -> String {
 }
 
 #[test]
-fn the_hero_page_shows_each_field_with_its_button_and_each_entry() {
+fn the_hero_page_shows_the_open_question_with_its_button_and_each_entry() {
     let game = Game::new();
 
     game.reply(&hero_reply(FILLED, "null"));
 
     let lines = lines(&game);
-    assert_eq!(lines[0], "heading: Who You Are");
-    assert!(lines.contains(&"entry: Goal [Edit]".to_string()));
-    assert!(lines.contains(&"text: Find my brother.".to_string()));
-    assert!(lines.contains(&"hint: Where is your character from?".to_string()));
+    assert_eq!(
+        lines[..3],
+        [
+            "note: Question 1 of 6",
+            "heading: Where is your character from? [Edit]",
+            "hint: Not answered yet."
+        ]
+    );
     let own = lines
         .iter()
-        .position(|line| line == "heading: Your Notes [Add]")
+        .position(|line| line == "heading: Your Notes [Add a note]")
         .unwrap();
     assert_eq!(lines[own + 1], "entry: An oath. [Remove]");
     assert!(
@@ -86,11 +94,79 @@ fn the_hero_page_shows_each_field_with_its_button_and_each_entry() {
     );
 }
 
+/// The rows of the list of the Hero page, as `style: text (detail)`.
+fn sheet(game: &Game) -> Vec<String> {
+    game.eval(
+        "local out = {}
+         for _, row in ipairs(ns.Journal.Page('hero').list) do
+             local detail = row.detail and (' (' .. row.detail .. ')') or ''
+             table.insert(out, row.style .. ': ' .. row.text .. detail)
+         end
+         return out",
+    )
+}
+
+#[test]
+fn the_sheet_lists_each_question_with_its_answer() {
+    let game = Game::new();
+
+    game.reply(&hero_reply(FILLED, "null"));
+
+    let rows = sheet(&game);
+    assert_eq!(rows[0], "group: About your hero");
+    assert_eq!(rows.len(), 2 + 6);
+    assert_eq!(
+        rows[2..5],
+        [
+            "item: Where is your character from? (Not answered yet.)",
+            "item: What did your character do before adventuring? (Not answered yet.)",
+            "item: What does your character want? (Find my brother.)",
+        ]
+    );
+}
+
+#[test]
+fn a_question_of_the_sheet_opens_on_the_parchment() {
+    let game = open_book(FILLED);
+
+    let lines = lines(&game);
+
+    assert_eq!(
+        lines[..3],
+        [
+            "note: Question 3 of 6",
+            "heading: What does your character want? [Edit]",
+            "text: Find my brother."
+        ]
+    );
+}
+
+#[test]
+fn next_and_previous_step_through_the_questions() {
+    let game = open_book(FILLED);
+
+    game.run("wow.Button('Next'):Click()");
+    let after_next = lines(&game)[0].clone();
+    game.run("wow.Button('Previous'):Click(); wow.Button('Previous'):Click()");
+
+    assert_eq!(after_next, "note: Question 4 of 6");
+    assert_eq!(lines(&game)[0], "note: Question 2 of 6");
+}
+
+#[test]
+fn the_footer_counts_the_answered_questions() {
+    let game = open_book(FILLED);
+
+    let footer: String = game.eval("ns.Journal.Page('hero').footer");
+
+    assert_eq!(footer, "1 of 6 answered");
+}
+
 #[test]
 fn an_edit_sends_the_field_and_asks_for_the_journal_in_one_batch() {
     let game = open_book(FILLED);
 
-    click(&game, "Goal");
+    click(&game, GOAL);
     write(&game, "  Avenge my brother.  ");
 
     let set = Input::HeroSet {
@@ -106,7 +182,7 @@ fn an_edit_sends_the_field_and_asks_for_the_journal_in_one_batch() {
 fn the_editor_starts_with_the_text_of_the_field() {
     let game = open_book(FILLED);
 
-    click(&game, "Goal");
+    click(&game, GOAL);
 
     assert_eq!(editor_text(&game), "Find my brother.");
 }
@@ -116,7 +192,7 @@ fn the_editor_takes_the_place_of_the_page_until_the_player_cancels() {
     let game = open_book(FILLED);
     let page_shows = "return TimewaysJournalFrameScroll:IsShown()";
 
-    click(&game, "Goal");
+    click(&game, GOAL);
     let hidden_while_writing = !game.eval::<bool>(page_shows);
     game.run("wow.Button('Cancel'):Click()");
 
@@ -130,7 +206,7 @@ fn the_editor_takes_the_place_of_the_page_until_the_player_cancels() {
 fn enter_saves_the_text_and_a_line_break_becomes_a_space() {
     let game = open_book(FILLED);
 
-    click(&game, "Goal");
+    click(&game, GOAL);
     game.run(
         "local box = wow.EditBox()
          box:SetText('Avenge\\nmy brother.')
@@ -149,7 +225,7 @@ fn enter_saves_the_text_and_a_line_break_becomes_a_space() {
 fn the_editor_stops_at_the_limit_of_the_desktop_and_counts_the_letters() {
     let game = open_book(FILLED);
 
-    click(&game, "Goal");
+    click(&game, GOAL);
 
     let limit: usize = game.eval("wow.EditBox().maxLetters");
     assert_eq!(limit, timeways_story::hero::MAX_TEXT_CHARS);
@@ -162,7 +238,7 @@ fn the_editor_stops_at_the_limit_of_the_desktop_and_counts_the_letters() {
 fn an_unchanged_field_sends_nothing() {
     let game = open_book(FILLED);
 
-    click(&game, "Goal");
+    click(&game, GOAL);
     write(&game, "Find my brother.");
 
     assert_eq!(game.sent().len(), 1);
@@ -204,13 +280,13 @@ fn remove_asks_first_and_then_removes_the_entry() {
 fn a_saved_field_shows_at_once_with_a_saving_mark() {
     let game = open_book(FILLED);
 
-    click(&game, "Goal");
+    click(&game, GOAL);
     write(&game, "Avenge my brother.");
 
     let lines = lines(&game);
     let goal = lines
         .iter()
-        .position(|line| line == "entry: Goal [Edit]")
+        .position(|line| line == "heading: What does your character want? [Edit]")
         .unwrap();
     assert_eq!(
         lines[goal + 1..goal + 3],
@@ -222,24 +298,24 @@ fn a_saved_field_shows_at_once_with_a_saving_mark() {
 }
 
 #[test]
-fn a_cleared_field_shows_its_hint_at_once() {
+fn a_cleared_field_shows_as_not_answered_at_once() {
     let game = open_book(FILLED);
 
-    click(&game, "Goal");
+    click(&game, GOAL);
     write(&game, "");
 
     let lines = lines(&game);
-    assert!(lines.contains(&"hint: What does your character want?".to_string()));
+    assert!(lines.contains(&"hint: Not answered yet.".to_string()));
     assert!(!lines.contains(&"text: Find my brother.".to_string()));
 }
 
 #[test]
 fn the_editor_shows_the_saved_text_before_the_journal_comes() {
     let game = open_book(FILLED);
-    click(&game, "Goal");
+    click(&game, GOAL);
     write(&game, "Avenge my brother.");
 
-    click(&game, "Goal");
+    click(&game, GOAL);
 
     assert_eq!(editor_text(&game), "Avenge my brother.");
 }
@@ -278,7 +354,7 @@ fn a_removed_entry_leaves_the_page_at_once() {
 #[test]
 fn the_next_journal_replaces_the_unsaved_edits_and_clears_the_mark() {
     let game = open_book(FILLED);
-    click(&game, "Goal");
+    click(&game, GOAL);
     write(&game, "Avenge my brother.");
 
     let saved = r#"{"sheet":[{"field":"goal","text":"Avenge them all."}],"entries":[]}"#;
@@ -294,7 +370,7 @@ fn a_refused_edit_goes_away_and_the_reason_shows() {
     let game = open_book(FILLED);
     click(&game, "Your Notes");
     write(&game, "A stranger knew my name.");
-    click(&game, "Goal");
+    click(&game, GOAL);
     write(&game, "Avenge my brother.");
 
     game.reply(&hero_reply(FILLED, r#""Not saved: too long.""#));
@@ -427,7 +503,7 @@ fn the_book_has_seven_tabs_with_the_hero_first() {
             "People",
             "Deeds",
             "Knowledge",
-            "Quests"
+            "Tasks"
         ]
     );
 }

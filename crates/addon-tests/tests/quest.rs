@@ -48,13 +48,23 @@ fn quest_reply(quest: Tracked) -> String {
     .unwrap()
 }
 
-/// The page as text: one `style: text [button]` entry for each line.
+/// The parchment of the open task as text: one `style: text` entry for each line.
 fn lines(game: &Game) -> Vec<String> {
     game.eval(
         "local out = {}
          for _, line in ipairs(ns.Journal.Lines('quests')) do
-             local action = line.action and (' [' .. line.action.label .. ']') or ''
-             table.insert(out, line.style .. ': ' .. line.text .. action)
+             table.insert(out, line.style .. ': ' .. line.text)
+         end
+         return out",
+    )
+}
+
+/// The labels of the buttons at the bottom of the Tasks page.
+fn buttons(game: &Game) -> Vec<String> {
+    game.eval(
+        "local out = {}
+         for _, button in ipairs(ns.Journal.Page('quests').buttons) do
+             table.insert(out, button.label)
          end
          return out",
     )
@@ -62,11 +72,18 @@ fn lines(game: &Game) -> Vec<String> {
 
 fn click(game: &Game, label: &str) {
     game.run(&format!(
-        "for _, line in ipairs(ns.Journal.Lines('quests')) do
-             if line.action and line.action.label == '{label}' then line.action.run() end
+        "for _, button in ipairs(ns.Journal.Page('quests').buttons) do
+             if button.label == '{label}' then button.run() end
          end"
     ));
 }
+
+/// The lines of the rewards, at the end of each task of Keeper Tessa.
+const REWARDS: [&str; 3] = [
+    "section: Rewards",
+    "text: Keeper Tessa trusts you more.",
+    "text: It goes into your chronicle.",
+];
 
 fn day(game: &Game) -> String {
     game.eval(&format!("date('%d %b %Y', {DAY})"))
@@ -174,17 +191,17 @@ fn an_offer_shows_with_its_buttons() {
 
     game.reply(&quest_reply(lantern(Status::Offered, 0)));
 
-    assert_eq!(
-        lines(&game),
-        [
-            "heading: The Lost Lantern [Accept]".to_string(),
-            format!("text: From Keeper Tessa, on {}.", day(&game)),
-            "prose: Find the lantern.".to_string(),
-            "entry: Visit Mill Pond.".to_string(),
-            "entry: Speak with Farmer Bram.".to_string(),
-            "note: An offer. Do you take it? [Decline]".to_string(),
-        ]
-    );
+    let mut expected = vec![
+        "heading: The Lost Lantern".to_string(),
+        "note: An offer. Do you take it?".to_string(),
+        format!("text: From Keeper Tessa, on {}.", day(&game)),
+        "prose: Find the lantern.".to_string(),
+        "entry: Visit Mill Pond.".to_string(),
+        "entry: Speak with Farmer Bram.".to_string(),
+    ];
+    expected.extend(REWARDS.map(str::to_string));
+    assert_eq!(lines(&game), expected);
+    assert_eq!(buttons(&game), ["Accept", "Decline"]);
 }
 
 #[test]
@@ -244,7 +261,8 @@ fn an_accepted_offer_shows_as_saving_at_once() {
 
     let shown = lines(&game);
     assert_eq!(shown[0], "heading: The Lost Lantern");
-    assert_eq!(shown[5], "hint: Saving...");
+    assert_eq!(shown[1], "hint: Saving...");
+    assert!(buttons(&game).is_empty());
 }
 
 #[test]
@@ -284,7 +302,8 @@ fn the_journal_replaces_the_answer_that_waits() {
 
     game.reply(&quest_reply(lantern(Status::Accepted, 0)));
 
-    assert_eq!(lines(&game)[5], "note: In progress. [Abandon]");
+    assert_eq!(lines(&game)[1], "note: In progress.");
+    assert_eq!(buttons(&game), ["Abandon"]);
 }
 
 #[test]
@@ -294,10 +313,9 @@ fn a_quest_in_progress_marks_its_steps_done() {
     game.reply(&quest_reply(lantern(Status::Accepted, 1)));
 
     let shown = lines(&game);
-    assert_eq!(shown[0], "heading: The Lost Lantern");
-    assert_eq!(shown[3], "entry: (done) Visit Mill Pond.");
-    assert_eq!(shown[4], "entry: Speak with Farmer Bram.");
-    assert_eq!(shown[5], "note: In progress. [Abandon]");
+    assert_eq!(shown[1], "note: In progress.");
+    assert_eq!(shown[4], "entry: (done) Visit Mill Pond.");
+    assert_eq!(shown[5], "entry: Speak with Farmer Bram.");
 }
 
 #[test]
@@ -307,7 +325,8 @@ fn a_done_quest_shows_the_day_it_ended() {
     game.reply(&quest_reply(lantern(Status::Done, 2)));
 
     let expected = format!("note: Done on {}.", day(&game));
-    assert_eq!(lines(&game).last(), Some(&expected));
+    assert_eq!(lines(&game)[1], expected);
+    assert!(buttons(&game).is_empty());
 }
 
 #[test]
@@ -322,9 +341,12 @@ fn a_broken_quest_shows_gaps_and_no_error() {
         lines(&game),
         [
             "heading: ?",
+            "note: In progress.",
             "text: From ?, on an unknown day.",
             "entry: ?",
-            "note: In progress."
+            "section: Rewards",
+            "text: ? trusts you more.",
+            "text: It goes into your chronicle.",
         ]
     );
 }
@@ -339,24 +361,6 @@ fn with_no_quest_the_page_says_how_to_ask() {
         lines(&game),
         ["help: No one has asked you for a favor yet. Target someone, and type /quest."]
     );
-}
-
-#[test]
-fn the_tabs_stay_inside_the_row_of_the_frame() {
-    let game = Game::new();
-
-    game.run("wow.Slash('/journal', '')");
-
-    let right: f64 = game.eval(
-        "local right = 0
-         for _, widget in ipairs(wow.widgets) do
-             if widget.template == 'UIPanelButtonTemplate' and widget.parent == TimewaysJournalFrame then
-                 right = math.max(right, widget.point[4] + widget.width)
-             end
-         end
-         return right",
-    );
-    assert!(right <= 351.0, "{right}");
 }
 
 #[test]
@@ -421,4 +425,114 @@ fn an_open_task_asks_first_and_then_abandons() {
         ),
         "{inputs:?}"
     );
+}
+
+/// A journal with a task in each state, in an order that the list changes.
+const THREE_TASKS: &str = concat!(
+    r#"{"type":"journal","page":0,"pages":1,"quests":["#,
+    r#"{"number":1,"giver":"Keeper Tessa","title":"Old Bones","status":"done","steps":[]},"#,
+    r#"{"number":2,"giver":"Farmer Bram","title":"The Mill","status":"accepted","steps_done":1,"#,
+    r#""steps":[{"goal":"visit","place":"Mill Pond"},{"goal":"meet","npc":"Keeper Tessa"}]},"#,
+    r#"{"number":3,"giver":"Executor Arren","title":"Old Names","status":"offered","steps":[]}]}"#,
+);
+
+/// The rows of the list of the Tasks page, as `style: text (detail) [mark]`.
+fn task_rows(game: &Game) -> Vec<String> {
+    game.eval(
+        "local out = {}
+         for _, row in ipairs(ns.Journal.Page('quests').list) do
+             local detail = row.detail and (' (' .. row.detail .. ')') or ''
+             local mark = row.mark and (' [' .. row.mark .. ']') or ''
+             table.insert(out, row.style .. ': ' .. row.text .. detail .. mark)
+         end
+         return out",
+    )
+}
+
+#[test]
+fn the_task_list_groups_offers_then_tasks_in_progress_then_done_ones() {
+    let game = Game::new();
+
+    game.reply(THREE_TASKS);
+
+    assert_eq!(
+        task_rows(&game),
+        [
+            "group: Offered",
+            "item: Old Names (Executor Arren) [New]",
+            "group: In progress",
+            "item: The Mill (Farmer Bram) [1 of 2]",
+            "group: Done",
+            "item: Old Bones (Keeper Tessa) [Done]",
+        ]
+    );
+}
+
+#[test]
+fn the_tasks_page_opens_on_the_first_task_of_the_list() {
+    let game = Game::new();
+
+    game.reply(THREE_TASKS);
+
+    assert_eq!(lines(&game)[0], "heading: Old Names");
+    assert_eq!(buttons(&game), ["Accept", "Decline"]);
+}
+
+#[test]
+fn a_click_on_a_task_in_the_list_opens_it() {
+    let game = Game::new();
+    game.run("wow.Slash('/journal', '')");
+    game.reply(THREE_TASKS);
+    game.run("ns.JournalFrame.Open('quests')");
+
+    game.run(
+        "for _, widget in ipairs(wow.widgets) do
+             if widget.kind == 'FontString' and widget.text == 'The Mill' and widget.shown then
+                 widget.parent:Click()
+             end
+         end",
+    );
+
+    assert_eq!(lines(&game)[0], "heading: The Mill");
+    assert_eq!(buttons(&game), ["Abandon"]);
+}
+
+#[test]
+fn an_accepted_task_stays_open_when_it_moves_to_another_group() {
+    let game = Game::new();
+    game.reply(THREE_TASKS);
+    game.run("ns.Journal.Select('quests', 3)");
+
+    click(&game, "Accept");
+    game.reply(&THREE_TASKS.replace(r#""status":"offered""#, r#""status":"accepted""#));
+
+    assert_eq!(lines(&game)[0], "heading: Old Names");
+    assert_eq!(task_rows(&game)[0], "group: In progress");
+}
+
+#[test]
+fn a_declined_task_leaves_the_list_and_the_next_task_opens() {
+    let game = Game::new();
+    game.reply(THREE_TASKS);
+
+    click(&game, "Decline");
+
+    assert_eq!(task_rows(&game)[0], "group: In progress");
+    assert_eq!(lines(&game)[0], "heading: The Mill");
+}
+
+#[test]
+fn a_task_belongs_to_the_zone_of_its_giver() {
+    let game = Game::new();
+
+    game.reply(concat!(
+        r#"{"type":"journal","page":0,"pages":1,"#,
+        r#""places":[{"name":"Tirisfal Glades","first_visit":1790000000},"#,
+        r#"{"name":"Brill","within":"Tirisfal Glades","first_visit":1790000000}],"#,
+        r#""people":[{"name":"Keeper Tessa","place":"Brill","first_met":1790000000}],"#,
+        r#""quests":[{"number":1,"giver":"Keeper Tessa","title":"The Mill","status":"offered","steps":[]}]}"#,
+    ));
+
+    let zone: String = game.eval("ns.Journal.Page('quests').zone");
+    assert_eq!(zone, "Tirisfal Glades");
 }
