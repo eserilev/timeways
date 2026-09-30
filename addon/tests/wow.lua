@@ -503,12 +503,30 @@ function Widget:Click()
 	self.scripts.OnClick(self)
 end
 
-function Widget:CreateFontString()
-	return NewWidget("FontString", nil, self)
+-- The draw layer and its sublevel decide which region draws on top. Equal ones draw in no
+-- fixed order.
+local function Layered(widget, layer, sublevel)
+	widget.layer, widget.sublevel = layer or "ARTWORK", sublevel or 0
+	return widget
 end
 
-function Widget:CreateTexture()
-	return NewWidget("Texture", nil, self)
+function Widget:CreateFontString(_, layer)
+	return Layered(NewWidget("FontString", nil, self), layer)
+end
+
+function Widget:CreateTexture(_, layer, _, sublevel)
+	return Layered(NewWidget("Texture", nil, self), layer, sublevel)
+end
+
+function Widget:SetColorTexture(r, g, b, a)
+	self.color = { r, g, b, a }
+end
+
+local LAYERS = { BACKGROUND = 1, BORDER = 2, ARTWORK = 3, OVERLAY = 4, HIGHLIGHT = 5 }
+
+-- A number that grows with the order of drawing, for regions of one frame.
+function wow.DrawOrder(widget)
+	return LAYERS[widget.layer] * 100 + widget.sublevel
 end
 
 function CreateFrame(kind, name, parent, template)

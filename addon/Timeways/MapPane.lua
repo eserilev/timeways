@@ -12,6 +12,9 @@ local STEP_PIN_SIZE, GIVER_PIN_SIZE = 24, 20
 -- A done step stays on the map, faded, so the path of the task still shows.
 local DONE_ALPHA = 0.4
 local VISITED_HEIGHT = 22
+-- Regions of one layer and one sublevel draw in no fixed order, so the band of visited places
+-- sits under the task pins.
+local BAND_SUBLEVEL, PIN_SUBLEVEL = -1, 1
 
 local pane, empty, pin, visitedBand, visited
 local paneWidth, paneHeight
@@ -35,7 +38,7 @@ function MapPane.Build(parent, width, height)
 	empty = pane:CreateFontString(nil, "ARTWORK", "GameFontDisable")
 	empty:SetPoint("CENTER", pane, "CENTER")
 	empty:SetText("No map for this place.")
-	visitedBand = pane:CreateTexture(nil, "ARTWORK")
+	visitedBand = pane:CreateTexture(nil, "ARTWORK", nil, BAND_SUBLEVEL)
 	visitedBand:SetColorTexture(unpack(ns.Ink.night))
 	visitedBand:SetPoint("BOTTOMLEFT", pane, "BOTTOMLEFT", 0, 0)
 	visitedBand:SetSize(width, VISITED_HEIGHT)
@@ -206,7 +209,7 @@ end
 
 local function PinWidgets(n)
 	if not pins[n] then
-		local icon = pane:CreateTexture(nil, "ARTWORK")
+		local icon = pane:CreateTexture(nil, "ARTWORK", nil, PIN_SUBLEVEL)
 		local number = pane:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
 		number:SetPoint("CENTER", icon, "CENTER", 0, 3)
 		pins[n] = { icon = icon, number = number }
