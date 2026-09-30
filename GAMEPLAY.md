@@ -266,6 +266,8 @@ Each character has one Hourglass world. A guild has one more world, held by its 
 | `defeated` | number, 0 to 1000 | up | person or faction to person | How often the killer killed the target. A kill is a deed of the killer. The target stays alive (5.13). |
 | `nemesis` | number, 0 to 1000 | free | person to person | The kill count of a feud. Each side has its own value: `nemesis` on `P7` linked to you counts the kills of `P7`, and `nemesis` on you linked to `P7` counts yours. |
 | `quest_offered`, `quest_accepted`, `quest_done` | flag | up | person to thing | A personal quest and its state. |
+| `game_quest_taken`, `game_quest_done` | flag | up | person to thing | A quest of the game that you took, and that you turned in. The thing is named `game quest: <title>`. |
+| `class_quest` | flag | up | none | On the thing of a game quest that only your class gets. |
 | `level` | number, 1 to 60 | up | none | Your level. It only rises. |
 | `deaths` | number, 0 to 1000 | up | none | Your deaths, with a known killer or not. A known killer also holds `defeated`. |
 | `slapped` | number, 0 to 1000 | up | person to person | How often you slapped an NPC. It never ends. |

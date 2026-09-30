@@ -47,6 +47,18 @@ pub enum Input {
         npc: String,
         text: String,
     },
+    /// You took a quest of the game (GAMEPLAY.md 5.4).
+    GameQuestAccepted {
+        at: Tick,
+        title: String,
+        kind: GameQuestKind,
+    },
+    /// You turned in a quest of the game.
+    GameQuestDone {
+        at: Tick,
+        title: String,
+        kind: GameQuestKind,
+    },
     /// `/quest` to the NPC that you target (GAMEPLAY.md 3.4). The offer comes back as the
     /// narrator line of the batch, so this line has no reply of its own.
     QuestAsked {
@@ -148,6 +160,15 @@ pub enum Input {
     },
 }
 
+/// The quest log of the game puts a quest of your class under a header with the name of
+/// the class.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GameQuestKind {
+    Normal,
+    Class,
+}
+
 impl Input {
     /// The time of a game event or a request of the player, from the clock of the addon.
     pub fn at_mut(&mut self) -> Option<&mut Tick> {
@@ -157,6 +178,8 @@ impl Input {
             | Input::LevelReached { at, .. }
             | Input::NpcDefeated { at, .. }
             | Input::NpcSlapped { at, .. }
+            | Input::GameQuestAccepted { at, .. }
+            | Input::GameQuestDone { at, .. }
             | Input::TalkAsked { at, .. }
             | Input::QuestAsked { at, .. }
             | Input::QuestAccepted { at, .. }

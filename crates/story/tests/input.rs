@@ -1,5 +1,5 @@
 use hourglass::Tick;
-use timeways_story::input::{CallId, Input, MessageId};
+use timeways_story::input::{CallId, GameQuestKind, Input, MessageId};
 
 fn parse(line: &str) -> Result<Input, serde_json::Error> {
     serde_json::from_str(line)
@@ -263,4 +263,40 @@ fn the_edits_of_the_hero_read() {
             number: 4
         }
     );
+}
+
+#[test]
+fn a_quest_of_the_game_reads_with_its_kind() {
+    let taken = parse(
+        r#"{"type":"game_quest_accepted","at":5,"title":"Rediscovering the Light","kind":"class"}"#,
+    )
+    .unwrap();
+    let done = parse(
+        r#"{"type":"game_quest_done","at":6,"title":"Rattling the Rattlecages","kind":"normal"}"#,
+    )
+    .unwrap();
+
+    assert_eq!(
+        taken,
+        Input::GameQuestAccepted {
+            at: Tick(5),
+            title: "Rediscovering the Light".to_string(),
+            kind: GameQuestKind::Class,
+        }
+    );
+    assert_eq!(
+        done,
+        Input::GameQuestDone {
+            at: Tick(6),
+            title: "Rattling the Rattlecages".to_string(),
+            kind: GameQuestKind::Normal,
+        }
+    );
+}
+
+#[test]
+fn a_quest_of_the_game_with_an_unknown_kind_is_refused() {
+    let line = r#"{"type":"game_quest_done","at":6,"title":"X","kind":"epic"}"#;
+
+    assert!(parse(line).is_err());
 }

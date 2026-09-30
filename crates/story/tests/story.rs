@@ -2,7 +2,7 @@
 
 use hourglass::Tick;
 use std::path::Path;
-use timeways_story::input::{CallId, Input, MessageId};
+use timeways_story::input::{CallId, GameQuestKind, Input, MessageId};
 use timeways_story::lore::Answer;
 use timeways_story::pack::{Link, Origin, Pack, Passage};
 use timeways_story::store::Store;
@@ -591,6 +591,38 @@ fn a_big_moment_asks_the_model_for_a_narrator_line() {
             narrator
         })
     );
+}
+
+#[test]
+fn a_turned_in_class_quest_asks_the_narrator_for_a_line() {
+    let mut story = story_with("class-quest", &[]);
+    let done = Input::GameQuestDone {
+        at: Tick(1),
+        title: "Rediscovering the Light".to_string(),
+        kind: GameQuestKind::Class,
+    };
+    assert!(story.handle(done).unwrap().is_empty());
+
+    let (_, prompt) = model_call(batch_end(&mut story, 2));
+
+    assert!(
+        prompt.contains(
+            "The moment:\n<<<\nThe player finished \"Rediscovering the Light\", a quest of their class.\n>>>"
+        ),
+        "{prompt}"
+    );
+}
+
+#[test]
+fn a_quest_of_the_game_with_a_bad_title_is_refused() {
+    let mut story = story_with("bad-quest-title", &[]);
+    let done = Input::GameQuestDone {
+        at: Tick(1),
+        title: "a\nb".to_string(),
+        kind: GameQuestKind::Normal,
+    };
+
+    assert!(matches!(story.handle(done), Err(StoryError::BadName)));
 }
 
 #[test]

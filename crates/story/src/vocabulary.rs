@@ -4,7 +4,7 @@ use hourglass::EntityType::{Faction, Person, Place, Thing};
 use hourglass::{Band, Count, Direction, EntityType, FactRules, FactVocabulary, Shape};
 
 /// A change to a declared name needs a new version and a migration (`hourglass::migrate`).
-pub const VERSION: u32 = 2;
+pub const VERSION: u32 = 3;
 
 pub const MET: &str = "met";
 pub const TRUSTS: &str = "trusts";
@@ -18,6 +18,11 @@ pub const NEMESIS: &str = "nemesis";
 pub const QUEST_OFFERED: &str = "quest_offered";
 pub const QUEST_ACCEPTED: &str = "quest_accepted";
 pub const QUEST_DONE: &str = "quest_done";
+/// A quest of the game, not a side quest of Timeways.
+pub const GAME_QUEST_TAKEN: &str = "game_quest_taken";
+pub const GAME_QUEST_DONE: &str = "game_quest_done";
+/// A quest of the game that only your class gets. The quest holds it.
+pub const CLASS_QUEST: &str = "class_quest";
 pub const LEVEL: &str = "level";
 pub const SLAPPED: &str = "slapped";
 pub const TITLE: &str = "title";
@@ -51,6 +56,9 @@ pub fn vocabulary() -> FactVocabulary {
         .declare(QUEST_OFFERED, linked(up_flag(), Person, &[Thing]))
         .declare(QUEST_ACCEPTED, linked(up_flag(), Person, &[Thing]))
         .declare(QUEST_DONE, linked(up_flag(), Person, &[Thing]))
+        .declare(GAME_QUEST_TAKEN, linked(up_flag(), Person, &[Thing]))
+        .declare(GAME_QUEST_DONE, linked(up_flag(), Person, &[Thing]))
+        .declare(CLASS_QUEST, FactRules::solo(up_flag()))
         .declare(
             LEVEL,
             FactRules::solo(Shape::number(LEVELS).moving(Direction::Up)),

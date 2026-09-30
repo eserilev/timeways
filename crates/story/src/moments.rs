@@ -1,7 +1,8 @@
 //! The big moments of a batch, found in the events that the batch added to the history
 //! (GAMEPLAY.md 3.2). The narrator speaks about the best one.
 
-use crate::vocabulary::{DEFEATED, LEVEL, SLAPPED, TITLE, VISITED};
+use crate::character::title_of_game_quest;
+use crate::vocabulary::{CLASS_QUEST, DEFEATED, GAME_QUEST_DONE, LEVEL, SLAPPED, TITLE, VISITED};
 use hourglass::{EntityId, Event, EventKind, World};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -31,6 +32,10 @@ pub enum Moment {
     LevelUp {
         level: i64,
     },
+    /// A finished quest of your class: a turn of your own story.
+    ClassQuestDone {
+        title: String,
+    },
     /// The first visit of a zone, not of a subzone.
     NewZone {
         zone: String,
@@ -41,6 +46,7 @@ impl Moment {
     /// A higher rank wins when one batch holds several moments.
     fn rank(&self) -> u8 {
         match self {
+            Moment::ClassQuestDone { .. } => 7,
             Moment::Titled { .. } => 6,
             Moment::Flavor { .. } => 0,
             Moment::FirstKill { .. } => 5,
@@ -132,6 +138,18 @@ fn moment(world: &World, you: EntityId, kind: &EventKind) -> Option<Moment> {
         } if *entity == you && name == TITLE => Some(Moment::Titled {
             title: name_of(title)?,
         }),
+        EventKind::FactStart {
+            entity,
+            name,
+            linked_to: Some(quest),
+            ..
+        } if *entity == you && name == GAME_QUEST_DONE => {
+            let quest = world.entity(*quest)?;
+            quest.fact(CLASS_QUEST, None)?;
+            Some(Moment::ClassQuestDone {
+                title: title_of_game_quest(&quest.name)?.to_string(),
+            })
+        }
         _ => None,
     }
 }

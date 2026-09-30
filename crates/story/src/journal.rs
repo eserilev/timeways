@@ -2,13 +2,14 @@
 //! what you learned, and your side quests. No model takes part.
 
 use crate::chapters::{chapter_starts, is_level_milestone, sessions};
-use crate::character::Character;
+use crate::character::{Character, title_of_game_quest};
 use crate::hero::{Entry, Hero};
 use crate::learned::Learned;
 use crate::quest::{Tracked, title_of_thing};
 use crate::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use crate::vocabulary::{
-    DEATHS, DEFEATED, LEVEL, MET, QUEST_DONE, SLAPPED, TITLE, TRUSTS, VISITED,
+    CLASS_QUEST, DEATHS, DEFEATED, GAME_QUEST_DONE, LEVEL, MET, QUEST_DONE, SLAPPED, TITLE, TRUSTS,
+    VISITED,
 };
 use hourglass::{EntityId, EventKind, LOCATED_IN, Tick, World};
 use serde::Serialize;
@@ -106,6 +107,18 @@ pub enum Deed {
     },
     /// A side quest that you finished (3.4).
     QuestDone {
+        title: String,
+        at: Tick,
+        place: Option<String>,
+    },
+    /// A quest of the game that you turned in.
+    GameQuestDone {
+        title: String,
+        at: Tick,
+        place: Option<String>,
+    },
+    /// A quest of the game that only your class gets.
+    ClassQuestDone {
         title: String,
         at: Tick,
         place: Option<String>,
@@ -313,7 +326,7 @@ fn chapters(world: &World, places: &[Place], people: &[Person], deeds: &[Deed]) 
 }
 
 /// The ticks that can begin a chapter: the first visit of a zone, every tenth level, and
-/// the first kill of a rare or a boss.
+/// the first kill of a rare or a boss, and a finished class quest.
 fn milestones(places: &[Place], deeds: &[Deed]) -> Vec<Tick> {
     let zones = places
         .iter()
@@ -327,7 +340,11 @@ fn is_milestone(deed: &Deed) -> bool {
     match deed {
         Deed::Level { from, to, .. } => from.is_some() && is_level_milestone(*to),
         Deed::Defeated { times, .. } => *times == 1,
-        Deed::Titled { .. } | Deed::QuestDone { .. } | Deed::Died { .. } => false,
+        Deed::ClassQuestDone { .. } => true,
+        Deed::Titled { .. }
+        | Deed::QuestDone { .. }
+        | Deed::GameQuestDone { .. }
+        | Deed::Died { .. } => false,
     }
 }
 
@@ -351,6 +368,8 @@ impl Deed {
             | Deed::Defeated { at, .. }
             | Deed::Titled { at, .. }
             | Deed::QuestDone { at, .. }
+            | Deed::GameQuestDone { at, .. }
+            | Deed::ClassQuestDone { at, .. }
             | Deed::Died { at, .. } => *at,
         }
     }
@@ -452,6 +471,15 @@ fn deeds(world: &World, you: EntityId) -> Vec<Deed> {
                 let place = here.map(|place| name_of(world, place));
                 deeds.push(thing_deed(name, name_of(world, *thing), event.tick, place));
             }
+            EventKind::FactStart {
+                entity,
+                name,
+                linked_to: Some(quest),
+                ..
+            } if *entity == you && name == GAME_QUEST_DONE => {
+                let place = here.map(|place| name_of(world, place));
+                deeds.extend(game_quest_deed(world, *quest, event.tick, place));
+            }
             EventKind::FactStart { entity, name, .. }
             | EventKind::FactUpdate { entity, name, .. }
                 if *entity == you && name == DEATHS =>
@@ -480,6 +508,20 @@ fn thing_deed(fact: &str, thing: String, at: Tick, place: Option<String>) -> Dee
     }
     let title = title_of_thing(&thing).map_or_else(|| thing.clone(), str::to_string);
     Deed::QuestDone { title, at, place }
+}
+
+fn game_quest_deed(
+    world: &World,
+    quest: EntityId,
+    at: Tick,
+    place: Option<String>,
+) -> Option<Deed> {
+    let entity = world.entity(quest)?;
+    let title = title_of_game_quest(&entity.name)?.to_string();
+    if entity.fact(CLASS_QUEST, None).is_some() {
+        return Some(Deed::ClassQuestDone { title, at, place });
+    }
+    Some(Deed::GameQuestDone { title, at, place })
 }
 
 fn level_deed(world: &World, from: Option<i64>, to: i64, at: Tick, here: Option<EntityId>) -> Deed {

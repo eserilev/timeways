@@ -78,6 +78,9 @@ fn what_happened(moment: &Moment) -> String {
         }
         Moment::LevelUp { level } => format!("The player reached level {level}."),
         Moment::NewZone { zone } => format!("The player arrived in {zone} for the first time."),
+        Moment::ClassQuestDone { title } => {
+            format!("The player finished \"{title}\", a quest of their class.")
+        }
     }
 }
 

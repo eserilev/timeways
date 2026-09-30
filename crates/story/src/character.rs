@@ -1,8 +1,9 @@
 //! The world of one character, fed by game events (GAMEPLAY.md 5.1 and 5.2).
 
+use crate::input::GameQuestKind;
 use crate::vocabulary::{
-    self, DEAD, DEATHS, DEFEATED, LEVEL, MET, QUEST_ACCEPTED, QUEST_DONE, QUEST_OFFERED, SLAPPED,
-    TALLY, TITLE, TRUST, TRUSTS, VISITED,
+    self, CLASS_QUEST, DEAD, DEATHS, DEFEATED, GAME_QUEST_DONE, GAME_QUEST_TAKEN, LEVEL, MET,
+    QUEST_ACCEPTED, QUEST_DONE, QUEST_OFFERED, SLAPPED, TALLY, TITLE, TRUST, TRUSTS, VISITED,
 };
 use hourglass::{
     Entity, EntityId, EntityType, Event, EventHistory, EventKind, LOCATED_IN, Rejection, Tick,
@@ -229,6 +230,57 @@ impl Character {
         self.start_once(at, self.you, QUEST_DONE, quest)?;
         let giver = self.find_or_create(at, EntityType::Person, giver)?;
         self.change_trust(at, giver, QUEST_TRUST)
+    }
+
+    /// # Errors
+    ///
+    /// Returns the first refusal of Hourglass.
+    pub fn take_game_quest(
+        &mut self,
+        at: Tick,
+        title: &str,
+        kind: GameQuestKind,
+    ) -> Result<(), Refusal> {
+        let quest = self.game_quest(at, title, kind)?;
+        self.start_once(at, self.you, GAME_QUEST_TAKEN, quest)
+    }
+
+    /// # Errors
+    ///
+    /// Returns the first refusal of Hourglass.
+    pub fn finish_game_quest(
+        &mut self,
+        at: Tick,
+        title: &str,
+        kind: GameQuestKind,
+    ) -> Result<(), Refusal> {
+        let quest = self.game_quest(at, title, kind)?;
+        self.start_once(at, self.you, GAME_QUEST_DONE, quest)
+    }
+
+    /// The class mark comes before any fact about the quest, so a moment of the same batch
+    /// already sees it.
+    fn game_quest(
+        &mut self,
+        at: Tick,
+        title: &str,
+        kind: GameQuestKind,
+    ) -> Result<EntityId, Refusal> {
+        let quest = self.find_or_create(at, EntityType::Thing, &game_quest_name(title))?;
+        let marked = self
+            .world
+            .entity(quest)
+            .is_some_and(|entity| entity.fact(CLASS_QUEST, None).is_some());
+        if kind == GameQuestKind::Class && !marked {
+            let flag = EventKind::FactStart {
+                entity: quest,
+                name: CLASS_QUEST.to_string(),
+                value: None,
+                linked_to: None,
+            };
+            self.propose(at, flag)?;
+        }
+        Ok(quest)
     }
 
     #[must_use]
@@ -543,4 +595,17 @@ impl Character {
 #[must_use]
 pub fn next_trust(held: Option<i64>, by: i64) -> i64 {
     TRUST.clamp(held.unwrap_or(0).saturating_add(by))
+}
+
+const GAME_QUEST_PREFIX: &str = "game quest: ";
+
+/// A quest of the game lives as a thing apart from the side quests and the titles.
+fn game_quest_name(title: &str) -> String {
+    format!("{GAME_QUEST_PREFIX}{title}")
+}
+
+/// The title of a quest of the game, from the name of its thing.
+#[must_use]
+pub fn title_of_game_quest(name: &str) -> Option<&str> {
+    name.strip_prefix(GAME_QUEST_PREFIX)
 }

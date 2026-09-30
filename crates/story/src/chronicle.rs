@@ -181,6 +181,8 @@ fn deed_fact(deed: &Deed) -> String {
         Deed::Defeated { foe, times, .. } => format!("Defeated {foe} again, {times} times in all"),
         Deed::Titled { title, .. } => format!("Earned the title \"{title}\""),
         Deed::QuestDone { title, .. } => format!("Finished the task \"{title}\""),
+        Deed::GameQuestDone { title, .. } => format!("Finished the quest \"{title}\""),
+        Deed::ClassQuestDone { title, .. } => format!("Finished the class quest \"{title}\""),
         Deed::Died {
             killer: Some(killer),
             ..

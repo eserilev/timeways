@@ -1,5 +1,6 @@
 use hourglass::Tick;
 use timeways_story::character::Character;
+use timeways_story::input::GameQuestKind;
 use timeways_story::moments::{Moment, best, moments};
 
 /// The moments of what `act` adds to the world of `character`.
@@ -155,4 +156,27 @@ fn a_level_up_wins_over_a_new_zone_that_comes_after_it() {
     let chosen = best(vec![level.clone(), zone]);
 
     assert_eq!(chosen, Some(level));
+}
+
+#[test]
+fn a_finished_class_quest_is_the_biggest_moment_and_a_plain_quest_is_none() {
+    let mut character = Character::new();
+
+    let plain = moments_of(&mut character, |c| {
+        c.finish_game_quest(Tick(1), "Rattling the Rattlecages", GameQuestKind::Normal)
+            .unwrap();
+    });
+    let class = moments_of(&mut character, |c| {
+        c.earn_title(Tick(2), "Dance Machine").unwrap();
+        c.finish_game_quest(Tick(2), "Rediscovering the Light", GameQuestKind::Class)
+            .unwrap();
+    });
+
+    assert!(plain.is_empty(), "{plain:?}");
+    assert_eq!(
+        best(class),
+        Some(Moment::ClassQuestDone {
+            title: "Rediscovering the Light".to_string()
+        })
+    );
 }

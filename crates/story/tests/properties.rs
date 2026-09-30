@@ -12,7 +12,7 @@ use timeways_story::chapters::{
 use timeways_story::character::Character;
 use timeways_story::check::{Fault, check, without_citations};
 use timeways_story::house::fenced;
-use timeways_story::input::{Input, MessageId};
+use timeways_story::input::{GameQuestKind, Input, MessageId};
 use timeways_story::journal::{Journal, journal, pages};
 use timeways_story::pack::Pack;
 use timeways_story::quest::{QuestChange, Status, Step, quest_log};
@@ -41,6 +41,8 @@ enum Play {
     Quest(String, Vec<(bool, String)>),
     Accept,
     Decline,
+    /// A quest of the game: taken, or turned in.
+    GameQuest(String, GameQuestKind, bool),
     Wait(u64),
 }
 
@@ -82,6 +84,12 @@ fn play() -> impl Strategy<Value = Play> {
             .prop_map(|(npc, steps)| Play::Quest(npc, steps)),
         Just(Play::Accept),
         Just(Play::Decline),
+        (
+            name(),
+            prop::sample::select(vec![GameQuestKind::Normal, GameQuestKind::Class]),
+            any::<bool>(),
+        )
+            .prop_map(|(title, kind, done)| Play::GameQuest(title, kind, done)),
         (0u64..20_000).prop_map(Play::Wait),
     ]
 }
@@ -121,7 +129,6 @@ fn quest_change() -> impl Strategy<Value = QuestChange> {
     ]
 }
 
-/// The edges of `i64` come often, because a uniform draw almost never reaches them.
 /// Steps between two events of play. Most sit at the edges of the session gap, where a
 /// uniform draw almost never lands.
 fn play_step() -> impl Strategy<Value = u64> {
@@ -147,6 +154,7 @@ fn played_slowly(sessions: &[(Tick, Tick)], from: Tick, to: Tick) -> u64 {
         .count() as u64
 }
 
+/// The edges of `i64` come often, because a uniform draw almost never reaches them.
 fn change_of_trust() -> impl Strategy<Value = i64> {
     prop_oneof![Just(i64::MAX), Just(i64::MIN), -10i64..=10, any::<i64>()]
 }
@@ -159,6 +167,8 @@ fn input(play: &Play, at: Tick) -> Option<Input> {
         Play::Meet(name) => Input::NpcMet { at, name },
         Play::Defeat(name) => Input::NpcDefeated { at, name },
         Play::Slap(name) => Input::NpcSlapped { at, name },
+        Play::GameQuest(title, kind, false) => Input::GameQuestAccepted { at, title, kind },
+        Play::GameQuest(title, kind, true) => Input::GameQuestDone { at, title, kind },
         Play::Die(killer) => Input::Died {
             at,
             killer,

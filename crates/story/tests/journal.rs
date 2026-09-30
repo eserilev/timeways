@@ -2,7 +2,7 @@
 
 use hourglass::Tick;
 use timeways_story::character::Character;
-use timeways_story::input::MessageId;
+use timeways_story::input::{GameQuestKind, MessageId};
 use timeways_story::journal::{Chapter, Deed, Journal, Person, Place, journal, pages};
 use timeways_story::learned::{Read, learned};
 use timeways_story::reply_size::MAX_LINE;
@@ -532,4 +532,92 @@ fn a_death_with_no_killer_names_no_one_after_an_npc_starts_to_trust_you() {
         matches!(deeds.last(), Some(Deed::Died { killer: None, .. })),
         "{deeds:?}"
     );
+}
+
+#[test]
+fn a_turned_in_quest_of_the_game_is_a_deed_and_a_class_quest_is_its_own_kind() {
+    let mut character = Character::new();
+    character
+        .enter_zone(Tick(HOUR), "Tirisfal Glades", Some("Deathknell"))
+        .unwrap();
+    character
+        .take_game_quest(
+            Tick(HOUR),
+            "Rattling the Rattlecages",
+            GameQuestKind::Normal,
+        )
+        .unwrap();
+    character
+        .finish_game_quest(
+            Tick(HOUR + 60),
+            "Rattling the Rattlecages",
+            GameQuestKind::Normal,
+        )
+        .unwrap();
+    character
+        .finish_game_quest(
+            Tick(HOUR + 120),
+            "Rediscovering the Light",
+            GameQuestKind::Class,
+        )
+        .unwrap();
+
+    let deeds = journal(&character).deeds;
+
+    let place = Some("Deathknell".to_string());
+    assert_eq!(
+        deeds,
+        [
+            Deed::GameQuestDone {
+                title: "Rattling the Rattlecages".to_string(),
+                at: Tick(HOUR + 60),
+                place: place.clone(),
+            },
+            Deed::ClassQuestDone {
+                title: "Rediscovering the Light".to_string(),
+                at: Tick(HOUR + 120),
+                place,
+            },
+        ]
+    );
+}
+
+#[test]
+fn a_finished_class_quest_starts_a_chapter_and_a_plain_quest_does_not() {
+    let mut character = played_in_westfall(50);
+
+    character
+        .finish_game_quest(
+            Tick(HOUR + 50 * 60),
+            "The Defias Brotherhood",
+            GameQuestKind::Normal,
+        )
+        .unwrap();
+    character
+        .finish_game_quest(
+            Tick(HOUR + 51 * 60),
+            "The Tome of Valor",
+            GameQuestKind::Class,
+        )
+        .unwrap();
+
+    let starts: Vec<Tick> = journal(&character)
+        .chapters
+        .iter()
+        .map(|chapter| chapter.began)
+        .collect();
+    assert_eq!(starts, [Tick(HOUR), Tick(HOUR + 51 * 60)]);
+}
+
+#[test]
+fn a_quest_taken_again_after_a_turn_in_adds_no_second_deed() {
+    let mut character = Character::new();
+
+    for at in [HOUR, HOUR + 60] {
+        character
+            .finish_game_quest(Tick(at), "Rediscovering the Light", GameQuestKind::Class)
+            .unwrap();
+    }
+
+    assert_eq!(journal(&character).deeds.len(), 1);
 }

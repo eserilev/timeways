@@ -300,6 +300,14 @@ impl Story {
                 checked_name(&name)?;
                 self.change(|character| character.defeat_npc(at, &name))
             }
+            Input::GameQuestAccepted { at, title, kind } => {
+                checked_name(&title)?;
+                self.change(|character| character.take_game_quest(at, &title, kind))
+            }
+            Input::GameQuestDone { at, title, kind } => {
+                checked_name(&title)?;
+                self.change(|character| character.finish_game_quest(at, &title, kind))
+            }
             Input::NpcSlapped { at, name } => {
                 checked_name(&name)?;
                 self.change(|character| character.slap(at, &name))?;

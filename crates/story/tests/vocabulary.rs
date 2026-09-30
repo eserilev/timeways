@@ -3,8 +3,9 @@ use hourglass::{
     vocabulary_sound,
 };
 use timeways_story::vocabulary::{
-    DEAD, DEATHS, DEFEATED, KNOWS_LORE, LEADER_OF, LEVEL, MEMBER_OF, MET, NEMESIS, QUEST_ACCEPTED,
-    QUEST_DONE, QUEST_OFFERED, SLAPPED, TITLE, TRUSTS, VISITED, vocabulary,
+    CLASS_QUEST, DEAD, DEATHS, DEFEATED, GAME_QUEST_DONE, GAME_QUEST_TAKEN, KNOWS_LORE, LEADER_OF,
+    LEVEL, MEMBER_OF, MET, NEMESIS, QUEST_ACCEPTED, QUEST_DONE, QUEST_OFFERED, SLAPPED, TITLE,
+    TRUSTS, VISITED, vocabulary,
 };
 
 const NOW: Tick = Tick(1);
@@ -140,6 +141,9 @@ fn vocabulary_holds_every_name_of_the_spec_and_located_in() {
         QUEST_OFFERED,
         QUEST_ACCEPTED,
         QUEST_DONE,
+        GAME_QUEST_TAKEN,
+        GAME_QUEST_DONE,
+        CLASS_QUEST,
         LEVEL,
         SLAPPED,
         TITLE,
