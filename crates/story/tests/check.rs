@@ -277,13 +277,17 @@ fn the_names_of_the_keepers_of_time_are_after_the_cutoff() {
     for text in [
         "Murozond waited.",
         "The Infinite dragonflight came.",
-        "Chromie smiled.",
         "Deep in the Caverns of Time.",
         "Another timeline.",
         "All the timelines.",
     ] {
         assert!(!names_after_cutoff(text).is_empty(), "{text}");
     }
+}
+
+#[test]
+fn chromie_is_before_the_cutoff_because_she_stands_in_andorhal() {
+    assert!(names_after_cutoff("Chromie smiled.").is_empty());
 }
 
 /// Each kind of fact that a prompt of the narrator or the chronicle can hold, in words.
