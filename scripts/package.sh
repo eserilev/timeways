@@ -6,7 +6,7 @@ target=$1
 root=$(git rev-parse --show-toplevel)
 cd "$root"
 mkdir -p dist
-build=target/$target/release
+build=${CARGO_TARGET_DIR:-target}/$target/release
 if [[ $target == *windows* ]]; then
   name=timeways-$target.zip
   pwsh -NoProfile -Command "Compress-Archive -Force -Path '$build/timeways-story.exe', '$build/timeways-pack.exe', 'LICENSE' -DestinationPath 'dist/$name'"

@@ -1,5 +1,6 @@
 target/
-# The key of the Timeways strip. The bridge of Gnomish Relay writes it at setup.
+# An old desktop app wrote the key of the computer here. The key now lives in the
+# Timeways_Key addon, outside this repo.
 addon/Timeways/Key.lua
 mutants.out/
 mutants.out.old/

@@ -119,9 +119,10 @@ The API gate of Gnomish Relay checks that every WoW function and event that the 
 A tag starts `.github/workflows/release.yml`:
 
 1. Set the new version in `crates/story/Cargo.toml`. The tag must match it.
-2. Push a tag such as `v0.2.0`.
+2. Add a short entry for the new version at the top of `CHANGELOG.md`. CurseForge shows it.
+3. Push a tag such as `v0.2.0`. A tag with a `-`, such as `v0.2.0-rc.1`, makes a prerelease. Setup never downloads a prerelease.
 
-The job runs the checks, builds `timeways-story` and `timeways-pack` for Linux (x86_64), macOS (arm64 and x86_64), and Windows (x86_64), and makes a GitHub release with these files:
+The job runs every check of CI, builds `timeways-story` and `timeways-pack` for Linux (x86_64), macOS (arm64 and x86_64), and Windows (x86_64), and makes a GitHub release with these files:
 
 | File | What |
 |---|---|
@@ -129,14 +130,18 @@ The job runs the checks, builds `timeways-story` and `timeways-pack` for Linux (
 | `timeways-addon.zip` | The addon, as the BigWigs packager builds it for CurseForge |
 | `<file>.sha256` | The SHA-256 sum of each archive |
 | `SHA256SUMS` | The sums of all archives |
-| `timeways-manifest.json` | The version, the archive and sum for each target, and the addon zip |
+| `timeways-manifest.json` | The version, the addon version (`app_version`), the archive and sum for each target, and the addon zip |
+
+If a job fails, run the workflow again. It keeps the draft release and replaces the files that it uploaded before.
+
+`scripts/check-release-manifest.py` checks the release folder with the rules of the setup of Gnomish Relay. Each push to CI runs the release steps on fake programs (`scripts/release-dry-run.sh`), so a tag finds no surprise. A test checks that `ns.App.version` is in the range of the pinned bridge.
 
 The packager reads `.pkgmeta` and writes the tag into `## Version` of the TOC. It uploads the addon to CurseForge only when two things are set:
 
 - `## X-Curse-Project-ID` in `addon/Timeways/Timeways.toc` holds the real project id. With `0`, the packager only builds the zip.
 - The repository has the secret `CF_API_KEY`, a CurseForge API token.
 
-`Key.lua` never goes into the zip. The bridge writes it on each computer. `scripts/check-addon-zip.py` checks the zip against the TOC.
+The key of each computer never goes into the zip. The desktop app writes it into the `Timeways_Key` addon, and `KeyHandoff.lua` takes it from there. `scripts/check-addon-zip.py` checks the zip against the TOC, and refuses a zip with a `Key.lua`.
 
 ## License
 

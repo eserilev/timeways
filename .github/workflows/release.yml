@@ -24,25 +24,13 @@ jobs:
             exit 1
           fi
 
-  # A tag can point at a commit that CI never checked, so the release runs the checks itself.
+  # A tag can point at a commit that CI never checked, so the release runs every check of CI.
   test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # master
-        with:
-          toolchain: stable
-          components: rustfmt, clippy
-      - uses: taiki-e/install-action@7623a79cdfecb99d681017af368ca353d9f49bb5 # v2
-        with:
-          tool: stylua,selene
-      - run: cargo fmt --check
-      - run: cargo clippy --all-targets --locked -- -D warnings
-      - run: cargo test --locked
-      - run: stylua --check addon
-      - run: selene addon/Timeways
+    uses: ./.github/workflows/ci.yml
 
-  # The release starts as a draft, so nobody downloads half of it.
+  # The release starts as a draft, so nobody downloads half of it. A re-run keeps the draft
+  # of the failed run. A tag with "-", such as v0.2.0-rc.1, makes a prerelease, which never
+  # becomes the latest release that setup downloads.
   draft:
     needs: [version, test]
     runs-on: ubuntu-latest
@@ -52,7 +40,14 @@ jobs:
       - env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft \
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            exit 0
+          fi
+          prerelease=()
+          if [[ $GITHUB_REF_NAME == *-* ]]; then
+            prerelease=(--prerelease)
+          fi
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft "${prerelease[@]}" \
             --title "$GITHUB_REF_NAME" --notes "Install: see the README."
 
   build:
@@ -80,7 +75,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           scripts/package.sh ${{ matrix.target }}
-          gh release upload "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY"
+          gh release upload "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --clobber
 
   # The addon goes to CurseForge only after every program is built. With no CF_API_KEY
   # secret, or with project id 0 in the TOC, the packager only makes the zip.
@@ -107,7 +102,7 @@ jobs:
           cp ".release/Timeways-$GITHUB_REF_NAME.zip" dist/timeways-addon.zip
           scripts/check-addon-zip.py dist/timeways-addon.zip
           (cd dist && sha256sum timeways-addon.zip > timeways-addon.zip.sha256)
-          gh release upload "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY"
+          gh release upload "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --clobber
 
   publish:
     needs: addon
@@ -122,6 +117,7 @@ jobs:
           gh release download "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --dir dist \
             --pattern "timeways-*.zip" --pattern "timeways-*.tar.gz"
           scripts/release-manifest.py dist "$GITHUB_REF_NAME"
+          scripts/check-release-manifest.py dist
           gh release upload "$GITHUB_REF_NAME" dist/SHA256SUMS dist/timeways-manifest.json \
-            --repo "$GITHUB_REPOSITORY"
+            --repo "$GITHUB_REPOSITORY" --clobber
           gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false

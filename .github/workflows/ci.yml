@@ -1,4 +1,5 @@
 # Every action is pinned to a commit. The comment gives the tag.
+# The release workflow calls this one, so a tag gets the same checks.
 name: ci
 
 on:
@@ -6,6 +7,7 @@ on:
     branches: [master]
   pull_request:
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -20,14 +22,29 @@ jobs:
           toolchain: stable
           components: rustfmt, clippy
       - run: cargo fmt --check
-      - run: cargo clippy --all-targets -- -D warnings
-      - run: cargo test
+      - run: cargo clippy --all-targets --locked -- -D warnings
+      - run: cargo test --locked
+
+  # The release ships programs for these systems too.
+  rust-os:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # master
+        with:
+          toolchain: stable
+      - run: cargo build --release --locked --bin timeways-story --bin timeways-pack
+      - run: cargo test --locked
 
   supply-chain:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-      - uses: taiki-e/install-action@7623a79cdfecb99d681017af368ca353d9f49bb5 # v2
+      - uses: taiki-e/install-action@7623a79cdfecb99d681017af368ca353d9f49bb5 # v2.87.19
         with:
           tool: cargo-deny
       - run: cargo deny check
@@ -42,7 +59,7 @@ jobs:
           repository: eserilev/gnomish-relay
           ref: a65c37c70b94728bf2bbafe6970ee540efb06a50
           path: target/gnomish-relay
-      - uses: taiki-e/install-action@7623a79cdfecb99d681017af368ca353d9f49bb5 # v2
+      - uses: taiki-e/install-action@7623a79cdfecb99d681017af368ca353d9f49bb5 # v2.87.19
         with:
           tool: stylua,selene
       - run: stylua --check addon
@@ -56,7 +73,10 @@ jobs:
       # The shared transport is a copy of the pinned relay commit (relay SPEC.md 9.7,
       # decision 14). A change goes to the relay first, then the pin moves.
       # The fake bridge of the tests builds on the same relay commit.
-      - run: grep -q 'rev = "a65c37c70b94728bf2bbafe6970ee540efb06a50"' crates/fake-bridge/Cargo.toml
+      # Each crate that uses the relay must name the same commit.
+      - run: |
+          grep -q 'gnomish-relay' crates/fake-bridge/Cargo.toml crates/addon-tests/Cargo.toml
+          ! grep -h 'gnomish-relay' crates/*/Cargo.toml | grep -v 'rev = "a65c37c70b94728bf2bbafe6970ee540efb06a50"'
       - run: |
           for file in Sha256 Codec Saved Health Strip Slots Messages KeyHandoff; do
             diff -u target/gnomish-relay/addon/transport/$file.lua addon/Timeways/$file.lua
@@ -74,7 +94,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # master
         with:
           toolchain: nightly
-      - uses: taiki-e/install-action@7623a79cdfecb99d681017af368ca353d9f49bb5 # v2
+      - uses: taiki-e/install-action@7623a79cdfecb99d681017af368ca353d9f49bb5 # v2.87.19
         with:
           tool: cargo-fuzz
       # The inputs that the fuzzer keeps grow from run to run, in CI and in the nightly job.
@@ -94,3 +114,18 @@ jobs:
         with:
           name: fuzz-${{ matrix.target }}
           path: fuzz/artifacts/
+
+  # The release steps after the build, on fake programs. A tag runs the real ones.
+  release-dry-run:
+    if: github.ref_type != 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      # The packager reads the tags and the history for the version.
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+      - uses: BigWigsMods/packager@e50a250f8705041e40f2fa1ddcb280a686d65aa0 # v2.6.1
+        with:
+          args: -d -n "{package-name}-dry-run"
+          pandoc: "false"
+      - run: scripts/release-dry-run.sh .release/Timeways-dry-run.zip

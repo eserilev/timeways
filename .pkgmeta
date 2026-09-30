@@ -3,6 +3,11 @@
 # Everything else in the repository stays out. The release job checks the zip against the TOC.
 package-as: Timeways
 
+# The packager writes the git history as the changelog by default, with every commit trailer.
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown
+
 move-folders:
   Timeways/addon/Timeways: Timeways
 
@@ -27,5 +32,6 @@ ignore:
   - TESTING.md
   - wow.yml
   - addon/tests
-  # The bridge writes the key on each computer. It never goes into a package.
+  # An old desktop app wrote the key of the computer here. The key now lives in the
+  # Timeways_Key addon. A key never goes into a package.
   - addon/Timeways/Key.lua

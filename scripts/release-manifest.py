@@ -34,15 +34,14 @@ def archive(target):
     return f"timeways-{target}.tar.gz"
 
 
-def programs(target):
-    suffix = ".exe" if "windows" in target else ""
-    return [name + suffix for name in PROGRAMS]
-
-
-# The bridge accepts a range of these versions, so setup can refuse a release that it cannot talk to.
+# The bridge accepts a range of these versions, so setup can refuse a release that it cannot
+# talk to. The addon tests check the version against the range of the pinned bridge.
 def app_version():
     text = (ROOT / "addon/Timeways/App.lua").read_text()
-    return int(re.search(r"^\s*version = (\d+),", text, re.MULTILINE).group(1))
+    found = re.search(r"^\s*version = (\d+),", text, re.MULTILINE)
+    if found is None:
+        sys.exit("error: addon/Timeways/App.lua has no line 'version = <number>,'")
+    return int(found.group(1))
 
 
 def main(dist, tag):
@@ -57,7 +56,8 @@ def main(dist, tag):
             target: {
                 "asset": archive(target),
                 "sha256": sums[archive(target)],
-                "programs": programs(target),
+                # Plain names: the bridge adds ".exe" on Windows itself.
+                "programs": PROGRAMS,
             }
             for target in TARGETS
         },

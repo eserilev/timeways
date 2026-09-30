@@ -24,7 +24,7 @@ def toc_files():
 
 
 def problems(names):
-    wanted = (toc_files() - {KEY}) | {"Timeways.toc"}
+    wanted = toc_files() | {"Timeways.toc"}
     files = {name for name in names if not name.endswith("/")}
     outside = [name for name in files if not name.startswith("Timeways/")]
     inside = {name.removeprefix("Timeways/") for name in files} - set(outside)
