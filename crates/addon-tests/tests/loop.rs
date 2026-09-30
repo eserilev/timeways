@@ -28,8 +28,9 @@ fn model(prompt: &str) -> String {
     }
 }
 
-fn story() -> Story {
-    let path = Path::new(env!("CARGO_TARGET_TMPDIR")).join("loop.sqlite");
+/// Each test gets its own pack, because the tests run at once.
+fn story(name: &str) -> Story {
+    let path = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("loop-{name}.sqlite"));
     let _ = std::fs::remove_file(&path);
     Pack::write(&path, &[]).unwrap();
     Story::new(Pack::open(&path).unwrap(), Store::Memory)
@@ -85,7 +86,8 @@ fn lines(game: &Game, section: &str) -> String {
 #[test]
 fn a_session_of_play_goes_through_the_bridge_and_back_into_the_book() {
     let game = game();
-    let mut bridge = FakeBridge::new(story()).with_model(Box::new(|prompt| Some(model(prompt))));
+    let mut bridge =
+        FakeBridge::new(story("session")).with_model(Box::new(|prompt| Some(model(prompt))));
 
     let session = [
         "wow.units.player = { name = 'Ada', level = 12, player = true }
@@ -128,4 +130,32 @@ fn a_session_of_play_goes_through_the_bridge_and_back_into_the_book() {
     assert!(hero.contains("Find my brother."), "{hero}");
     let quests = lines(&game, "quests");
     assert!(quests.contains("The Lost Lantern"), "{quests}");
+}
+
+#[test]
+fn a_giver_with_no_task_says_so_in_a_line_of_timeways() {
+    let game = game();
+    let mut bridge = FakeBridge::new(story("no-task")).with_model(Box::new(|_| None));
+    play(
+        &game,
+        &mut bridge,
+        "wow.units.player = { name = 'Ada', level = 12, player = true }
+         wow.zone, wow.subzone = 'Elwynn Forest', 'Goldshire'
+         wow.Fire('PLAYER_ENTERING_WORLD')",
+    );
+
+    play(
+        &game,
+        &mut bridge,
+        "wow.units.target = { name = 'Innkeeper Farley' }
+         wow.Slash('/quest', '')",
+    );
+
+    let printed = game.printed();
+    let shown = "|cffc8a064Timeways|r: Innkeeper Farley has no task for you now.";
+    assert!(printed.iter().any(|line| line == shown), "{printed:?}");
+    assert!(
+        !printed.iter().any(|line| line.contains("Narrator")),
+        "{printed:?}"
+    );
 }
