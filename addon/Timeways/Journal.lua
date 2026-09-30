@@ -475,7 +475,7 @@ local EMPTY = {
 
 -- The line under the title of the book, on how to use the page.
 Journal.USAGE = {
-	hero = "Who you are, in your own hand.",
+	hero = "Your character's backstory. It shapes the story that the game writes about you.",
 	chapters = "Your story so far, chapter by chapter.",
 	places = "Everywhere your boots have been.",
 	people = "Everyone you've met, and what they make of you.",
