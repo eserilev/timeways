@@ -104,8 +104,8 @@ fn the_doer_sees_an_offer_with_its_steps_its_rewards_and_three_answers() {
             "entry: Bring 10 Linen Cloth to Ada.",
             "entry: Turn in to Ada, face to face.",
             "section: Rewards",
-            "text: This goes into your Chronicle, with Ada's name.",
-            "text: 5 gold. Promised by Ada, paid by trade.",
+            "text: A line about it in your journal, with Ada's name.",
+            "text: 5 gold. Ada pays it in a trade.",
         ]
     );
     assert_eq!(buttons(&corvin), ["Block player", "Decline", "Accept"]);
@@ -327,7 +327,7 @@ fn a_task_done_with_no_trade_shows_the_reward_as_not_paid() {
 }
 
 #[test]
-fn a_finished_task_goes_into_the_chronicle_of_the_doer_with_both_names() {
+fn a_finished_task_leaves_a_line_in_the_journal_of_the_doer_with_both_names() {
     let (ada, corvin, id) = accepted_task("{ { kind = 'place', target = 'Brill', count = 1 } }");
     corvin.run(&format!(
         "ns.PlayerTasks.AskTurnIn('{}')",
@@ -341,11 +341,53 @@ fn a_finished_task_goes_into_the_chronicle_of_the_doer_with_both_names() {
     open(&corvin, &format!("got:{}", received_key(&id)));
 
     let page = lines(&corvin);
-    assert!(page.contains(&"section: For your Chronicle".to_string()));
+    assert!(page.contains(&"section: Your story".to_string()));
     assert!(page.contains(
         &"prose: Corvin finished Trouble at Agamand Mills for Ada. They met face to face in Brill to turn it in."
             .to_string()
     ));
+}
+
+#[test]
+fn block_player_asks_first() {
+    let (_ada, corvin, id) = offered();
+    open(&corvin, &format!("got:{}", received_key(&id)));
+
+    click(&corvin, "Block player");
+    let before: bool = corvin.eval("next(ns.TaskStore.Data().blocked) ~= nil");
+    corvin.run("wow.AcceptPopup()");
+
+    assert!(!before);
+    let blocked: bool = corvin.eval("ns.TaskStore.Data().blocked['Ada-Stormrage'] ~= nil");
+    assert!(blocked);
+}
+
+#[test]
+fn a_blocked_player_can_be_unblocked_from_the_list() {
+    let (ada, corvin, id) = offered();
+    corvin.run(&format!("ns.PlayerTasks.Block('{}')", received_key(&id)));
+    exchange(&ada, &corvin);
+    open(&corvin, "blocked");
+    let page = lines(&corvin);
+
+    click_line(&corvin, "Ada", "Unblock");
+    ada.run("ns.PlayerTasks.Call()");
+    exchange(&ada, &corvin);
+    let again: Option<String> = ada.eval(&format!(
+        "return ns.PlayerTasks.Give({{ title = 'Again', text = 'Please.', reward = '',
+             steps = {TWO_STEPS} }}, 'Corvin-Stormrage')"
+    ));
+
+    assert!(
+        page.contains(&"text: Ada [Unblock]".to_string()),
+        "{page:?}"
+    );
+    assert!(again.is_some());
+    assert!(
+        rows(&corvin)
+            .iter()
+            .all(|row| !row.contains("Blocked players"))
+    );
 }
 
 #[test]

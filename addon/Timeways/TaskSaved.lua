@@ -170,9 +170,12 @@ local function CleanParty(party)
 	end
 end
 
+-- A name maps to the time it came. A file of an older version has `true`.
 local function CleanNames(names)
 	for name, value in pairs(names) do
-		if not IsName(name) or value ~= true then
+		if value == true then
+			names[name] = 0
+		elseif not IsName(name) or not IsNumber(value) then
 			names[name] = nil
 		end
 	end

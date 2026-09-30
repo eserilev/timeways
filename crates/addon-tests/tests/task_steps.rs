@@ -515,3 +515,16 @@ fn a_giver_holds_at_most_twenty_open_tasks() {
     assert!(given[..20].iter().all(|given| *given));
     assert!(!given[20]);
 }
+
+#[test]
+fn party_time_stays_only_for_the_doers_of_kept_tasks() {
+    let (ada, _corvin, _id) = accepted_task(PLACE);
+    ada.run("ns.TaskStore.Data().party['Bram-Stormrage'] = { { from = 1 } }");
+
+    ada.run("wow.Fire('GROUP_ROSTER_UPDATE')");
+
+    let names: Vec<String> = ada.eval(
+        "local names = {} for name in pairs(ns.TaskStore.Data().party) do table.insert(names, name) end return names",
+    );
+    assert_eq!(names, ["Corvin-Stormrage"]);
+}

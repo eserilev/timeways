@@ -106,3 +106,33 @@ fn only_the_newest_hundred_records_of_a_kind_stay() {
 
     assert_eq!(kept, [100, 51]);
 }
+
+#[test]
+fn only_the_newest_hundred_blocked_players_stay() {
+    let game = Game::new();
+
+    let kept: Vec<u32> = game.eval(
+        "local blocked = ns.TaskStore.Data().blocked
+         for n = 1, 101 do
+             wow.now = wow.now + 1
+             ns.TaskStore.AddName(blocked, 'Player' .. n .. '-Stormrage')
+         end
+         local count = 0
+         for _ in pairs(blocked) do count = count + 1 end
+         return { count, blocked['Player1-Stormrage'] == nil and 1 or 0 }",
+    );
+
+    assert_eq!(kept, [100, 1]);
+}
+
+#[test]
+fn a_blocked_player_of_an_older_file_stays_blocked() {
+    let game = Game::new();
+
+    let blocked: bool = game.eval(
+        "TimewaysTasks = { blocked = { ['Ada-Stormrage'] = true } }
+         return ns.TaskStore.Data().blocked['Ada-Stormrage'] ~= nil",
+    );
+
+    assert!(blocked);
+}

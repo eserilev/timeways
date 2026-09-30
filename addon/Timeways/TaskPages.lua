@@ -7,15 +7,20 @@ local _, ns = ...
 local TaskPages = {}
 ns.TaskPages = TaskPages
 
-local GIVE = "give"
+local GIVE, BLOCKED = "give", "blocked"
 local GOT_PREFIX, GAVE_PREFIX = "got:", "gave:"
 
 local function Line(style, text, action)
 	return { style = style, text = text, action = action }
 end
 
-local function Button(label, run, disabled)
-	return { label = label, run = run, disabled = disabled }
+local function Button(label, run)
+	return { label = label, run = run }
+end
+
+-- A button that shows what comes next, and does nothing yet.
+local function Disabled(label)
+	return { label = label, run = function() end, disabled = true }
 end
 
 local function Short(name)
@@ -128,6 +133,9 @@ local function GotRows(rows)
 			shown[#shown + 1] = Item(GOT_PREFIX .. entry.key, task.title, "From " .. Short(task.giver), GotMark(task))
 		end
 	end
+	if #ns.PlayerTasks.Blocked() > 0 then
+		shown[#shown + 1] = Item(BLOCKED, "Blocked players", "They can't send you tasks")
+	end
 	if #shown > 0 then
 		rows[#rows + 1] = Group("From players")
 	end
@@ -156,7 +164,7 @@ end
 -- The key of the first player task of the list, for a book with no other task to open.
 function TaskPages.FirstKey()
 	for _, row in ipairs(TaskPages.Rows()) do
-		if row.style == "item" and row.key ~= GIVE then
+		if row.style == "item" and row.key ~= GIVE and row.key ~= BLOCKED then
 			return row.key
 		end
 	end
@@ -197,7 +205,8 @@ local function GotProgress(task, index)
 	return ""
 end
 
--- The doer's own words, never a model's: the Chronicle of the desktop never gets it (5.11).
+-- The doer's own words, never a model's. The line names two players, so it stays in the
+-- addon, and the Chronicle of the desktop never gets it (5.11).
 function TaskPages.ChronicleLine(task)
 	local line = string.format("%s finished %s for %s.", Short(task.doer), task.title, Short(task.giver))
 	if task.place and task.place ~= "" then
@@ -216,13 +225,13 @@ local function GotLines(task)
 	local done = task.status == "done" and "(done) " or ""
 	lines[#lines + 1] = Line("entry", done .. "Turn in to " .. giver .. ", face to face.")
 	if task.status == "done" then
-		lines[#lines + 1] = Line("section", "For your Chronicle")
+		lines[#lines + 1] = Line("section", "Your story")
 		lines[#lines + 1] = Line("prose", TaskPages.ChronicleLine(task))
 	end
 	lines[#lines + 1] = Line("section", "Rewards")
-	lines[#lines + 1] = Line("text", "This goes into your Chronicle, with " .. giver .. "'s name.")
+	lines[#lines + 1] = Line("text", "A line about it in your journal, with " .. giver .. "'s name.")
 	if task.reward ~= "" then
-		lines[#lines + 1] = Line("text", Sentence(task.reward) .. " Promised by " .. giver .. ", paid by trade.")
+		lines[#lines + 1] = Line("text", Sentence(task.reward) .. " " .. giver .. " pays it in a trade.")
 	end
 	return lines
 end
@@ -232,7 +241,7 @@ local function GotButtons(key, task)
 	if task.status == "offered" then
 		return {
 			Button("Block player", function()
-				actions.Block(key)
+				StaticPopup_Show("TIMEWAYS_BLOCK_PLAYER", Short(task.giver), nil, { key = key })
 			end),
 			Button("Decline", function()
 				actions.Decline(key)
@@ -247,15 +256,28 @@ local function GotButtons(key, task)
 	end
 	-- Asking again is harmless, and the answer to the first ask can get lost.
 	local ready = CountClaims(task) == #task.steps
+	local turnIn = ready and Button("Turn in", function()
+		actions.AskTurnIn(key)
+	end) or Disabled("Turn in")
 	return {
 		Button("Give up", function()
 			actions.GiveUp(key)
 		end),
-		Button("Turn in", function()
-			actions.AskTurnIn(key)
-		end, not ready),
+		turnIn,
 	}
 end
+
+StaticPopupDialogs.TIMEWAYS_BLOCK_PLAYER = {
+	text = "Block %s? You won't get tasks from them anymore.",
+	button1 = "Block",
+	button2 = "Cancel",
+	timeout = 0,
+	whileDead = 1,
+	hideOnEscape = 1,
+	OnAccept = function(_, data)
+		ns.PlayerTasks.Block(data.key)
+	end,
+}
 
 -- A task that you gave, and its turn-in ----------------------------------------------------
 
@@ -336,13 +358,16 @@ local function GaveButtons(id, task)
 		end),
 	}
 	if task.status == "accepted" and task.turnInAt then
+		local complete = ns.TaskPeople.IsNear(task.doer)
+				and Button("Complete task", function()
+					ns.PlayerTasks.Complete(id)
+				end)
+			or Disabled("Complete task")
 		buttons = {
 			Button("Not yet", function()
 				ns.PlayerTasks.NotYet(id)
 			end),
-			Button("Complete task", function()
-				ns.PlayerTasks.Complete(id)
-			end, not ns.TaskPeople.IsNear(task.doer)),
+			complete,
 		}
 	end
 	return buttons
@@ -461,7 +486,7 @@ local function FormLines()
 	FieldLines(lines, "Name your task", "title", "No name yet.", "text")
 	FieldLines(lines, "What should they do?", "text", "Tell the story: who, what, and why.", "prose")
 	FieldLines(lines, "You promise", "reward", "Nothing. That's fine too.", "text")
-	lines[#lines + 1] = Line("text", "Story reward: the task goes into their Chronicle, with your name.")
+	lines[#lines + 1] = Line("text", "Story reward: a line in their journal, with your name.")
 	lines[#lines + 1] = Line("help", "Timeways can't hand over items. You trade the reward yourself when you meet.")
 	StepLines(lines)
 	ChoiceLines(lines)
@@ -476,14 +501,34 @@ end
 local function FormButtons()
 	local buttons = { Button("Help me write this", ns.TaskDraftHelp.Open) }
 	buttons[#buttons + 1] = Button("Cancel", ns.TaskForm.Cancel)
-	buttons[#buttons + 1] = Button("Send", ns.TaskForm.Send, ns.TaskForm.Missing() ~= nil)
+	buttons[#buttons + 1] = ns.TaskForm.Missing() and Disabled("Send") or Button("Send", ns.TaskForm.Send)
 	return buttons
+end
+
+-- The players that you blocked ------------------------------------------------------------
+
+local function BlockedLines()
+	local lines = { Line("heading", "Blocked players") }
+	for _, name in ipairs(ns.PlayerTasks.Blocked()) do
+		local unblock = {
+			label = "Unblock",
+			run = function()
+				ns.PlayerTasks.Unblock(name)
+			end,
+		}
+		lines[#lines + 1] = Line("text", Short(name), unblock)
+	end
+	if #lines == 1 then
+		lines[#lines + 1] = Line("hint", "Nobody is blocked.")
+	end
+	lines[#lines + 1] = Line("help", "A blocked player can't send you tasks.")
+	return lines
 end
 
 -- The page of a key -------------------------------------------------------------------------
 
 function TaskPages.Owns(key)
-	if key == GIVE then
+	if key == GIVE or key == BLOCKED then
 		return true
 	end
 	return type(key) == "string" and (key:sub(1, #GOT_PREFIX) == GOT_PREFIX or key:sub(1, #GAVE_PREFIX) == GAVE_PREFIX)
@@ -505,6 +550,8 @@ function TaskPages.Fill(page, key)
 	local filled
 	if key == GIVE then
 		filled = { lines = FormLines(), buttons = FormButtons(), crumb = "Give a task" }
+	elseif key == BLOCKED then
+		filled = { lines = BlockedLines(), buttons = {}, crumb = "Blocked players" }
 	elseif key:sub(1, #GOT_PREFIX) == GOT_PREFIX then
 		filled = Got(key:sub(#GOT_PREFIX + 1))
 	else

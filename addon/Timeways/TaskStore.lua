@@ -72,6 +72,21 @@ function TaskStore.NewId(now)
 	return table.concat(digits)
 end
 
+-- A set of names, such as the blocked players, keeps its newest names: { [name] = time }.
+function TaskStore.AddName(names, name)
+	names[name] = time()
+	local count, oldest = 0, nil
+	for known, at in pairs(names) do
+		count = count + 1
+		if not oldest or at < names[oldest] then
+			oldest = known
+		end
+	end
+	if count > MAX_RECORDS then
+		names[oldest] = nil
+	end
+end
+
 function TaskStore.ReceivedKey(giver, id)
 	return giver .. "/" .. id
 end

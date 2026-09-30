@@ -12,8 +12,9 @@ ns.PlayerTasks = PlayerTasks
 local OFFERS_PER_GIVER = 3
 local MAX_OPEN = 20
 
--- The players who answered a call, with how you know them: { [name] = relation }.
-local answered = {}
+-- The players who answered a call: { [name] = true }.
+local MAX_ANSWERED = 64
+local answered, answeredCount = {}, 0
 
 local function Say(text)
 	DEFAULT_CHAT_FRAME:AddMessage("|cffc8a064Timeways|r: " .. text)
@@ -209,13 +210,33 @@ function PlayerTasks.Block(key)
 	if not task then
 		return
 	end
-	data.blocked[task.giver] = true
+	ns.TaskStore.AddName(data.blocked, task.giver)
 	if ns.TaskStore.IsOpen(task) then
 		Close(task, "declined")
 	end
 	ns.TaskChannel.Whisper(task.giver, { type = "block", id = task.id })
 	Say("You won't get tasks from " .. Short(task.giver) .. " anymore.")
 	Changed()
+end
+
+function PlayerTasks.Unblock(name)
+	local blocked = ns.TaskStore.Data().blocked
+	if not blocked[name] then
+		return
+	end
+	blocked[name] = nil
+	Say(Short(name) .. " can send you tasks again.")
+	Changed()
+end
+
+-- The players that you blocked, sorted by name.
+function PlayerTasks.Blocked()
+	local names = {}
+	for name in pairs(ns.TaskStore.Data().blocked) do
+		names[#names + 1] = name
+	end
+	table.sort(names)
+	return names
 end
 
 function PlayerTasks.GiveUp(key)
@@ -362,7 +383,7 @@ local FROM_DOER = {
 	end,
 	block = function(task)
 		local data = ns.TaskStore.Data()
-		data.refusedBy[task.doer] = true
+		ns.TaskStore.AddName(data.refusedBy, task.doer)
 		if ns.TaskStore.IsOpen(task) then
 			Close(task, "declined")
 		end
@@ -415,11 +436,20 @@ local function Hello(sender)
 	end
 end
 
+-- A player who blocked you never answers a call, so an answer means that the block ended.
 local function Here(sender)
-	if ns.TaskPeople.Relation(sender) then
-		answered[sender] = true
-		Changed()
+	if not ns.TaskPeople.Relation(sender) then
+		return
 	end
+	if not answered[sender] then
+		if answeredCount >= MAX_ANSWERED then
+			answered, answeredCount = {}, 0
+		end
+		answeredCount = answeredCount + 1
+	end
+	answered[sender] = true
+	ns.TaskStore.Data().refusedBy[sender] = nil
+	Changed()
 end
 
 -- `sender` is the full name that the game gave. Each message is checked against what this
