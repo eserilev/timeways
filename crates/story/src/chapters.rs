@@ -60,5 +60,5 @@ fn played(sessions: &[(Tick, Tick)], from: Tick, to: Tick) -> u64 {
 
 #[must_use]
 pub fn is_level_milestone(level: i64) -> bool {
-    level > 0 && level % LEVEL_STEP == 0
+    level % LEVEL_STEP == 0
 }

@@ -438,3 +438,10 @@ fn brackets_that_are_no_citation_stay() {
 
     assert_eq!(without_citations(text), text);
 }
+
+#[test]
+fn a_capital_word_of_one_letter_is_no_name() {
+    let names = names_in_no_fact("Then I left, and A came.", "The facts.");
+
+    assert!(names.is_empty(), "{names:?}");
+}
