@@ -15,7 +15,7 @@ Early build. The parts work and have tests, but nobody has run them together in 
 What works:
 
 - **The world of each character.** An append-only history file on your computer, replayed at start.
-- **`/lore <question>`.** Passages from a lore pack, under a spoiler limit: you see lore only about places you visited and people you met. A model answer is checked for citations and for names from after the Forever timeline. You build the pack on your own computer from a wiki dump (below).
+- **`/lore <question>`.** The answer opens in a small lore book. Passages from a lore pack, under a spoiler limit: you see lore only about places you visited and people you met. A model answer is checked for citations and for names from after the Forever timeline. You build the pack on your own computer from a wiki dump (below).
 - **`/journal`.** A book in the look of the classic quest frame, with 5 tabs: Hero, Chronicle (one chapter for each play session), Deeds, Knowledge, and Tasks.
 - **The text you read.** The addon keeps the text of each quest, gossip window, and book that you read. `/lore` and `/talk` search it together with the lore pack, so they answer from real game text even with no pack.
 - **The narrator.** One short line in the voice of the chronicle at a big moment, such as a first kill of a rare, a level up, or a third death to the same murloc. At most 3 lines each hour.

@@ -66,7 +66,7 @@ Open `c_<name>.seen.jsonl` in the world folder. Your character name is not in th
 
 - Each Lua error, as text.
 - The chat lines of `/timeways test`.
-- What the chat showed for each `/lore` question.
+- What the lore book showed for each `/lore` question.
 - The offer line of `/quest`, and the Quests page at the end.
 - The first 3 lines of the `.seen.jsonl` file.
 - The result of each open question.

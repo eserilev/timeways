@@ -28,8 +28,10 @@ local function Bound()
 	end
 end
 
-function Outbox.Add(input)
-	waiting[#waiting + 1] = { line = ns.Json.Encode(input), reply = REPLIES[input.type] == true }
+-- `failed` runs with the error text when a question gets an error reply instead of its answer.
+function Outbox.Add(input, failed)
+	local reply = REPLIES[input.type] == true
+	waiting[#waiting + 1] = { line = ns.Json.Encode(input), reply = reply, failed = failed }
 	Bound()
 end
 
@@ -99,8 +101,13 @@ local function Answered(batch, status, text)
 		return
 	end
 	Return(batch)
-	if batch.ended then
-		ns.Link.ShowError(text)
+	if not batch.ended then
+		return
+	end
+	ns.Link.ShowError(text)
+	local question = batch.entries[#batch.entries]
+	if question.failed then
+		question.failed(text)
 	end
 end
 

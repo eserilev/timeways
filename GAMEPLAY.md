@@ -59,6 +59,7 @@ You target an NPC, stand in a place, or hold a quest, and you ask a question: `/
 - **The spoiler limit.** The agent tells only what your world already holds. Your world holds the places that you visited, the NPCs that you met, and the quests that you finished. The lore of later expansions and of quests that you have not reached stays hidden.
 - **A voice in the world.** The answer comes from a local historian.
 - **A follow-up question** continues the same conversation.
+- **The lore book** (built): the answer shows in a small window in the look of the journal. The question is the heading, and the answer is the page, which scrolls when it is long. The page says "Asking..." while the answer comes, and "Nobody here knows." when nothing does. With no model, the page shows the passages, with no sources. Previous and Next step through the last 10 questions of the session. Close and Escape close the book, and `/lore` with no question opens it again. An answer that comes while the book is closed gets one line in the chat. An error reply says so on the page too.
 
 This slice tests the whole chain with one question and one answer: the addon, the relay, the world, the spoiler limit, and the agent.
 

@@ -5,9 +5,6 @@ mod common;
 use common::Game;
 use hourglass::Tick;
 use timeways_story::input::{Input, MessageId};
-use timeways_story::lore::Answer;
-use timeways_story::pack::{Origin, Passage};
-use timeways_story::story::Output;
 
 const NOW: Tick = Tick(1_790_000_000);
 
@@ -18,27 +15,6 @@ fn zone(zone: &str, subzone: Option<&str>) -> Input {
         subzone: subzone.map(str::to_string),
         spot: None,
     }
-}
-
-fn reply_line(text: Option<&str>, passages: &[(&str, &str)]) -> String {
-    let passages = passages
-        .iter()
-        .map(|(text, source)| Passage {
-            text: (*text).to_string(),
-            source: (*source).to_string(),
-            links: Vec::new(),
-            origin: Origin::Pack,
-        })
-        .collect();
-    let answer = Answer {
-        text: text.map(str::to_string),
-        passages,
-    };
-    serde_json::to_string(&Output::LoreAnswer {
-        id: MessageId(1),
-        answer,
-    })
-    .unwrap()
 }
 
 #[test]
@@ -268,91 +244,6 @@ fn the_outbox_keeps_the_newest_five_hundred_events() {
 }
 
 #[test]
-fn an_answer_shows_its_text_alone_with_no_citations_or_sources() {
-    let game = Game::new();
-
-    game.reply(&reply_line(
-        Some("Goblins burned it [1], and the [2] rest fled [3]."),
-        &[("The tower fell.", "https://example.test/tower")],
-    ));
-
-    let printed = game.printed();
-    assert_eq!(printed.len(), 1);
-    assert!(printed[0].ends_with(": Goblins burned it, and the rest fled."));
-}
-
-#[test]
-fn a_long_answer_shows_as_short_lines_cut_after_a_sentence() {
-    let game = Game::new();
-    let sentence = "The Forsaken broke free of the Lich King and took the ruined capital.";
-    let text = [sentence; 5].join(" ");
-
-    game.reply(&reply_line(Some(&text), &[("x", "y")]));
-
-    let printed = game.printed();
-    assert_eq!(printed.len(), 3, "{printed:?}");
-    for line in &printed {
-        assert!(line.len() < 180, "{line}");
-        assert!(line.ends_with("capital."), "{line}");
-    }
-}
-
-#[test]
-fn marks_at_the_start_of_an_answer_stay() {
-    let game = Game::new();
-
-    game.reply(&reply_line(Some("...and then? It fell."), &[("x", "y")]));
-
-    assert!(game.printed()[0].ends_with(": ...and then? It fell."));
-}
-
-#[test]
-fn a_sentence_longer_than_a_line_still_shows_whole() {
-    let game = Game::new();
-    let text = "word ".repeat(60);
-
-    game.reply(&reply_line(Some(text.trim()), &[("x", "y")]));
-
-    let printed = game.printed();
-    assert_eq!(printed.len(), 1);
-    assert!(printed[0].ends_with("word word"), "{printed:?}");
-}
-
-#[test]
-fn an_answer_with_no_text_shows_the_passages_as_they_are() {
-    let game = Game::new();
-
-    game.reply(&reply_line(
-        None,
-        &[("The tower fell.", "https://example.test/tower")],
-    ));
-
-    assert_eq!(game.printed().len(), 1);
-    assert!(game.printed()[0].ends_with(": The tower fell."));
-}
-
-#[test]
-fn an_answer_with_nothing_says_that_nobody_knows() {
-    let game = Game::new();
-
-    game.reply(&reply_line(None, &[]));
-
-    assert!(game.printed()[0].ends_with("Nobody here knows."));
-}
-
-#[test]
-fn an_answer_that_the_bridge_escaped_shows_as_it_is() {
-    let game = Game::new();
-
-    game.reply(&reply_line(
-        Some("||cffff0000red||r ||Hitem:1||h[Fake]||h [1]"),
-        &[("x", "y")],
-    ));
-
-    assert!(game.printed()[0].ends_with("||cffff0000red||r ||Hitem:1||h[Fake]||h"));
-}
-
-#[test]
 fn a_reply_to_events_or_a_broken_reply_shows_nothing() {
     let game = Game::new();
 
@@ -487,16 +378,6 @@ fn an_entry_that_can_never_fit_is_dropped_and_blocks_nothing() {
         [Input::LevelReached { at: NOW, level: 4 }]
     );
     assert_eq!(game.eval::<u32>("ns.Outbox.Waiting()"), 0);
-}
-
-#[test]
-fn a_broken_passage_is_skipped_and_the_others_show() {
-    let game = Game::new();
-
-    game.reply(r#"{"type":"lore_answer","id":1,"passages":[1,{"text":"a","source":"https://b"}]}"#);
-
-    assert_eq!(game.printed().len(), 1);
-    assert!(game.printed()[0].ends_with(": a"), "{:?}", game.printed());
 }
 
 #[test]

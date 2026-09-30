@@ -29,6 +29,7 @@ GameQuests.lua
 QuestAuras.lua
 Emotes.lua
 Lore.lua
+LoreBook.lua
 Talk.lua
 Quest.lua
 Narrator.lua
