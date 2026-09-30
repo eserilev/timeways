@@ -119,6 +119,56 @@ fn an_npc_is_sent_again_after_five_minutes() {
     assert_eq!(meetings, 2);
 }
 
+fn meetings(game: &Game) -> Vec<String> {
+    game.sent_inputs()
+        .into_iter()
+        .filter_map(|input| match input {
+            Input::NpcMet { name, .. } => Some(name),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn a_quest_object_such_as_a_wanted_poster_counts_as_met() {
+    let game = Game::new();
+
+    game.run(
+        "wow.units.npc = { name = 'Wanted Poster', object = true }
+         wow.Fire('QUEST_DETAIL')
+         wow.RunTickers()",
+    );
+
+    assert_eq!(meetings(&game), ["Wanted Poster"]);
+}
+
+#[test]
+fn a_pet_in_the_talk_window_is_never_met() {
+    let game = Game::new();
+
+    game.run(
+        "wow.units.npc = { name = 'Fluffy', controlled = true }
+         wow.Fire('GOSSIP_SHOW')
+         wow.RunTickers()",
+    );
+
+    assert!(meetings(&game).is_empty());
+}
+
+#[test]
+fn a_hidden_name_in_the_talk_window_is_never_met() {
+    let game = Game::new();
+
+    game.run(
+        "wow.units.npc = { name = 'Innkeeper Farley' }
+         wow.secrets['Innkeeper Farley'] = true
+         wow.Fire('GOSSIP_SHOW')
+         wow.RunTickers()",
+    );
+
+    assert!(meetings(&game).is_empty());
+}
+
 #[test]
 fn a_level_up_sends_the_new_level() {
     let game = Game::new();

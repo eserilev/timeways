@@ -6,14 +6,17 @@ local _, ns = ...
 local Units = {}
 ns.Units = Units
 
+-- No UnitExists: the name alone says that the unit is there, so a quest object such as a
+-- Wanted poster counts too.
 function Units.NpcName(unit)
-	if not UnitExists(unit) or UnitIsPlayer(unit) or UnitPlayerControlled(unit) then
+	local name = UnitName(unit)
+	if type(name) ~= "string" or issecretvalue(name) then
 		return nil
 	end
-	local name = UnitName(unit)
-	if type(name) == "string" and not issecretvalue(name) then
-		return name
+	if UnitIsPlayer(unit) or UnitPlayerControlled(unit) then
+		return nil
 	end
+	return name
 end
 
 -- The NPC id of the GUID "Creature-0-1-2-3-<npc id>-<spawn>". A player, a pet, and a

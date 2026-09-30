@@ -41,9 +41,8 @@ end
 -- A party member who shares a quest is the "npc" unit too, and a player's name stays out
 -- (5.11).
 function Watch.Npc()
-	local name = UnitName("npc")
-	local recent = met[name] and time() - met[name] < MEET_AGAIN_SECONDS
-	if not name or recent or UnitIsPlayer("npc") then
+	local name = ns.Units.NpcName("npc")
+	if not name or (met[name] and time() - met[name] < MEET_AGAIN_SECONDS) then
 		return
 	end
 	met[name] = time()

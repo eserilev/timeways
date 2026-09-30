@@ -120,3 +120,18 @@ fn a_broken_person_is_skipped_and_raises_no_error() {
 
     assert!(tooltip(&game, "Ada").is_empty());
 }
+
+/// In restricted content, the tooltip can give a hidden unit token.
+#[test]
+fn a_tooltip_with_a_hidden_unit_is_left_alone() {
+    let game = Game::new();
+    game.reply(&journal_with("Innkeeper Farley", Some(-20), None));
+    game.run(
+        "wow.units.nameplate7 = { name = 'Innkeeper Farley' }
+         wow.secrets['nameplate7'] = true",
+    );
+
+    let lines: Vec<String> = game.eval("return wow.ShowTooltip('nameplate7')");
+
+    assert!(lines.is_empty());
+}

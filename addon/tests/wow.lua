@@ -46,13 +46,25 @@ function IsInInstance()
 	return wow.instance ~= "none", wow.instance
 end
 
+-- The table of a unit. The client refuses a hidden unit token as an argument, as it does in
+-- restricted content.
+local function Unit(unit)
+	if issecretvalue(unit) then
+		error("a secret value as the unit argument", 2)
+	end
+	return wow.units[unit]
+end
+
+-- A game object such as a Wanted poster has `object` in its table. It has a name, but the
+-- tests take the worst case: the client calls it absent.
 function UnitExists(unit)
-	return wow.units[unit] ~= nil
+	local u = Unit(unit)
+	return u ~= nil and not u.object
 end
 
 -- A player of another realm has `realm` in its table.
 function UnitName(unit)
-	local u = wow.units[unit]
+	local u = Unit(unit)
 	if not u then
 		return nil
 	end
@@ -60,17 +72,17 @@ function UnitName(unit)
 end
 
 function UnitIsPlayer(unit)
-	local u = wow.units[unit]
+	local u = Unit(unit)
 	return u ~= nil and u.player == true
 end
 
 function UnitGUID(unit)
-	local u = wow.units[unit]
+	local u = Unit(unit)
 	return u and u.guid
 end
 
 function UnitClassification(unit)
-	local u = wow.units[unit]
+	local u = Unit(unit)
 	return u and u.classification or "normal"
 end
 
@@ -91,7 +103,7 @@ TooltipDataProcessor = {
 GameTooltip = {
 	GetUnit = function()
 		local unit = wow.tooltip.unit
-		return unit and UnitName(unit), unit
+		return unit and wow.units[unit].name, unit
 	end,
 	AddLine = function(_, text)
 		table.insert(wow.tooltip.lines, text)
@@ -237,26 +249,26 @@ C_DeathRecap = {
 
 -- A pet or another unit of a player: `player` or `controlled` in its table.
 function UnitPlayerControlled(unit)
-	local u = wow.units[unit]
+	local u = Unit(unit)
 	return u ~= nil and (u.player == true or u.controlled == true)
 end
 
 -- A unit that you can attack has `hostile` in its table: a bat, a boar, an enemy.
 function UnitCanAttack(_, unit)
-	local u = wow.units[unit]
+	local u = Unit(unit)
 	return u ~= nil and u.hostile == true
 end
 
 -- `creature` in the table of a unit is its creature type: { name, id }.
 function UnitCreatureType(unit)
-	local u = wow.units[unit]
+	local u = Unit(unit)
 	if u and u.creature then
 		return u.creature[1], u.creature[2]
 	end
 end
 
 function UnitLevel(unit)
-	local u = wow.units[unit]
+	local u = Unit(unit)
 	return u and u.level or 0
 end
 
@@ -671,13 +683,13 @@ end
 
 -- A unit with `offline` in its table is a member of the group who logged out.
 function UnitIsConnected(unit)
-	local u = wow.units[unit]
+	local u = Unit(unit)
 	return u ~= nil and not u.offline
 end
 
 -- A unit with `near` in its table stands close enough to trade.
 function CheckInteractDistance(unit, _)
-	local u = wow.units[unit]
+	local u = Unit(unit)
 	return u ~= nil and u.near == true
 end
 
