@@ -276,6 +276,43 @@ fn an_answer_shows_its_text_alone_with_no_citations_or_sources() {
 }
 
 #[test]
+fn a_long_answer_shows_as_short_lines_cut_after_a_sentence() {
+    let game = Game::new();
+    let sentence = "The Forsaken broke free of the Lich King and took the ruined capital.";
+    let text = [sentence; 5].join(" ");
+
+    game.reply(&reply_line(Some(&text), &[("x", "y")]));
+
+    let printed = game.printed();
+    assert_eq!(printed.len(), 3, "{printed:?}");
+    for line in &printed {
+        assert!(line.len() < 180, "{line}");
+        assert!(line.ends_with("capital."), "{line}");
+    }
+}
+
+#[test]
+fn marks_at_the_start_of_an_answer_stay() {
+    let game = Game::new();
+
+    game.reply(&reply_line(Some("...and then? It fell."), &[("x", "y")]));
+
+    assert!(game.printed()[0].ends_with(": ...and then? It fell."));
+}
+
+#[test]
+fn a_sentence_longer_than_a_line_still_shows_whole() {
+    let game = Game::new();
+    let text = "word ".repeat(60);
+
+    game.reply(&reply_line(Some(text.trim()), &[("x", "y")]));
+
+    let printed = game.printed();
+    assert_eq!(printed.len(), 1);
+    assert!(printed[0].ends_with("word word"), "{printed:?}");
+}
+
+#[test]
 fn an_answer_with_no_text_shows_the_passages_as_they_are() {
     let game = Game::new();
 
