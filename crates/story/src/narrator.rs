@@ -1,7 +1,7 @@
 //! The narrator: one short line at a big moment, within a budget (GAMEPLAY.md 3.2). The
 //! words of its prompt live here.
 
-use crate::check::plain_text;
+use crate::check::voice_text;
 use crate::hero::OWN_WORDS;
 use crate::house::{HOUSE_RULES, fenced};
 use crate::moments::Moment;
@@ -82,5 +82,5 @@ fn what_happened(moment: &Moment) -> String {
 /// retry: silence costs nothing.
 #[must_use]
 pub fn checked_line(text: &str) -> Option<String> {
-    plain_text(text, MAX_LINE_CHARS, MAX_LINE_BYTES)
+    voice_text(text, MAX_LINE_CHARS, MAX_LINE_BYTES)
 }

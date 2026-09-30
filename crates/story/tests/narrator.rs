@@ -97,6 +97,12 @@ fn a_line_with_a_name_after_the_cutoff_is_dropped() {
 }
 
 #[test]
+fn a_line_out_of_voice_is_dropped() {
+    assert_eq!(checked_line("Level 20, guys!"), None);
+    assert_eq!(checked_line("The sands ran on."), None);
+}
+
+#[test]
 fn a_line_with_a_control_character_is_dropped() {
     assert_eq!(checked_line("Boom\u{7}!"), None);
 }

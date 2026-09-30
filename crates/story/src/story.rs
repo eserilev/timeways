@@ -222,6 +222,10 @@ pub struct Story {
     store: Store,
     active: Option<Active>,
     calls: BTreeMap<CallId, Pending>,
+    /// The prompt of each open call, for the name check of its answer.
+    prompts: BTreeMap<CallId, String>,
+    /// Lines for the log of the program, and never for the player.
+    notes: Vec<String>,
     next_call: CallId,
     /// The pages of the last journal request. Later pages come from here, so events that
     /// arrive between two requests never shift an entry to another page.
@@ -231,8 +235,8 @@ pub struct Story {
     /// The flavor moments of the batch so far, each with its score and its count.
     candidates: Vec<Candidate>,
     budget: Budget,
-    /// The chapters of the active character that the narrator was asked a saga for in this run. A
-    /// failed chapter keeps its plain list, and gets no second call.
+    /// The chapters of the active character that the narrator was asked a saga for in
+    /// this run. A failed chapter keeps its plain list, and gets no second call.
     chronicle_asked: BTreeSet<Tick>,
     quest_request: Option<QuestRequest>,
     /// The newest time of an input from the addon. An emote or a book changes no world, so
@@ -250,6 +254,8 @@ impl Story {
             store,
             active: None,
             calls: BTreeMap::new(),
+            prompts: BTreeMap::new(),
+            notes: Vec::new(),
             next_call: CallId(1),
             journal: Vec::new(),
             moments: Vec::new(),
@@ -400,8 +406,15 @@ impl Story {
         }
     }
 
+    /// The lines for the log since the last call, oldest first.
+    pub fn take_notes(&mut self) -> Vec<String> {
+        std::mem::take(&mut self.notes)
+    }
+
     fn answered(&mut self, call: CallId, text: &str) -> Result<Vec<Output>, StoryError> {
-        Ok(match self.take_call(call)? {
+        let (pending, prompt) = self.take_call(call)?;
+        self.note_names_in_no_fact(call, text, &prompt);
+        Ok(match pending {
             Pending::Lore { question, lore } => vec![self.follow(question, lore.answered(text))],
             Pending::Narrator { batch } => vec![Output::EventsSeen {
                 id: batch,
@@ -513,7 +526,8 @@ impl Story {
     }
 
     fn failed(&mut self, call: CallId) -> Result<Vec<Output>, StoryError> {
-        Ok(match self.take_call(call)? {
+        let (pending, _) = self.take_call(call)?;
+        Ok(match pending {
             Pending::Lore { question, lore } => vec![Output::LoreAnswer {
                 id: question,
                 answer: lore.failed(),
@@ -1008,13 +1022,26 @@ impl Story {
         let call = self.next_call;
         self.next_call = CallId(call.0 + 1);
         self.calls.insert(call, pending);
+        self.prompts.insert(call, prompt.clone());
         Output::ModelCall { call, prompt }
     }
 
-    fn take_call(&mut self, call: CallId) -> Result<Pending, StoryError> {
-        self.calls
+    /// The open call and its prompt.
+    fn take_call(&mut self, call: CallId) -> Result<(Pending, String), StoryError> {
+        let pending = self
+            .calls
             .remove(&call)
-            .ok_or(StoryError::UnknownCall(call))
+            .ok_or(StoryError::UnknownCall(call))?;
+        let prompt = self.prompts.remove(&call).unwrap_or_default();
+        Ok((pending, prompt))
+    }
+
+    /// Log only: the check refuses nothing yet (GAMEPLAY.md 3.2.1).
+    fn note_names_in_no_fact(&mut self, call: CallId, answer: &str, prompt: &str) {
+        for name in check::names_in_no_fact(answer, prompt) {
+            let note = format!("call {}: the answer names {name}, and no fact does", call.0);
+            self.notes.push(note);
+        }
     }
 }
 

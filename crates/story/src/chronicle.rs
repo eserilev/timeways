@@ -1,7 +1,7 @@
 //! The narrator writes each finished chapter of the chronicle as a short saga (GAMEPLAY.md 3.3).
 //! The words of its prompt live here, and the facts come from the chapter alone.
 
-use crate::check::{json_object, plain_text};
+use crate::check::{json_object, voice_text};
 use crate::hero::OWN_WORDS;
 use crate::house::{HOUSE_RULES, bulleted, fenced};
 use crate::journal::{Chapter, Deed};
@@ -120,14 +120,14 @@ fn numbered(moments: &[String]) -> String {
 #[must_use]
 pub fn checked_saga(text: &str, moment_count: usize) -> Option<Saga> {
     let reply: Reply = serde_json::from_str(json_object(text)?).ok()?;
-    let saga = plain_text(&reply.saga, MAX_CHAPTER_CHARS, MAX_CHAPTER_BYTES)?;
+    let saga = voice_text(&reply.saga, MAX_CHAPTER_CHARS, MAX_CHAPTER_BYTES)?;
     let mut footnotes: Vec<(usize, String)> = Vec::new();
     for footnote in reply.footnotes {
         let known = (1..=moment_count).contains(&footnote.moment);
         let new = footnotes
             .iter()
             .all(|(moment, _)| *moment != footnote.moment);
-        let text = plain_text(&footnote.text, MAX_FOOTNOTE_CHARS, MAX_FOOTNOTE_BYTES);
+        let text = voice_text(&footnote.text, MAX_FOOTNOTE_CHARS, MAX_FOOTNOTE_BYTES);
         if let (true, true, Some(text)) = (known, new, text) {
             footnotes.push((footnote.moment, text));
         }

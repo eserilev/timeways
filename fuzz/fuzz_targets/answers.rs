@@ -7,7 +7,9 @@
 mod common;
 
 use libfuzzer_sys::fuzz_target;
-use timeways_story::check::{check, later_names, names_after_cutoff, plain_text, same_words};
+use timeways_story::check::{
+    check, in_voice, later_names, names_after_cutoff, plain_text, same_words,
+};
 use timeways_story::house::without_fence_marks;
 use timeways_story::quest::{self, Known, Step};
 use timeways_story::seen::{SeenText, TextKind};
@@ -21,6 +23,11 @@ fn assert_plain(text: &str, max_chars: usize, max_bytes: usize) {
     assert!(!text.chars().any(char::is_control), "{text:?}");
     assert!(!text.is_empty() && text.trim() == text, "{text:?}");
     assert!(names_after_cutoff(text).is_empty(), "{text:?}");
+}
+
+fn assert_voice(text: &str, max_chars: usize, max_bytes: usize) {
+    assert_plain(text, max_chars, max_bytes);
+    assert!(in_voice(text), "{text:?}");
 }
 
 fn known(seen: &[SeenText]) -> Known<'_> {
@@ -67,7 +74,7 @@ fuzz_target!(|data: &[u8]| {
     let text = String::from_utf8_lossy(data);
 
     if let Some(saga) = chronicle::checked_saga(&text, moments) {
-        assert_plain(
+        assert_voice(
             &saga.text,
             chronicle::MAX_CHAPTER_CHARS,
             chronicle::MAX_CHAPTER_BYTES,
@@ -75,16 +82,16 @@ fuzz_target!(|data: &[u8]| {
         assert!(saga.footnotes.len() <= chronicle::MAX_FOOTNOTES);
         for (moment, footnote) in &saga.footnotes {
             assert!((1..=moments).contains(moment));
-            assert_plain(footnote, chronicle::MAX_FOOTNOTE_CHARS, 1600);
+            assert_voice(footnote, chronicle::MAX_FOOTNOTE_CHARS, 1600);
         }
     }
     if let Some(answer) = talk::checked_answer(&text) {
-        assert_plain(&answer.say, talk::MAX_SAY_CHARS, talk::MAX_SAY_BYTES);
+        assert_voice(&answer.say, talk::MAX_SAY_CHARS, talk::MAX_SAY_BYTES);
         assert!((-talk::MAX_TRUST_CHANGE..=talk::MAX_TRUST_CHANGE).contains(&answer.trust_change));
     }
     assert_quest(&text);
     if let Some(line) = narrator::checked_line(&text) {
-        assert_plain(&line, narrator::MAX_LINE_CHARS, narrator::MAX_LINE_BYTES);
+        assert_voice(&line, narrator::MAX_LINE_CHARS, narrator::MAX_LINE_BYTES);
     }
     if let Some(line) = plain_text(&text, 50, 200) {
         assert_plain(&line, 50, 200);

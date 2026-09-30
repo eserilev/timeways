@@ -139,6 +139,14 @@ fn a_change_of_trust_outside_the_band_is_dropped_and_the_words_stay() {
 }
 
 #[test]
+fn an_answer_out_of_voice_is_dropped() {
+    assert_eq!(
+        checked_answer(r#"{"say": "Okay, cool, I will help.", "trust": 1}"#),
+        None
+    );
+}
+
+#[test]
 fn a_broken_long_or_late_answer_is_dropped() {
     let long = format!(
         r#"{{"say": "{}", "trust": 0}}"#,

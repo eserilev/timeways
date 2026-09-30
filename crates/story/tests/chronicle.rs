@@ -139,6 +139,18 @@ fn a_footnote_of_no_listed_moment_twice_the_same_or_too_long_is_dropped_alone() 
 }
 
 #[test]
+fn a_saga_out_of_voice_is_dropped_and_a_footnote_out_of_voice_is_dropped_alone() {
+    let footnote = r#"{"saga": "Our hero rode west.", "footnotes": [{"moment": 1, "text": "lol"}, {"moment": 2, "text": "Why?"}]}"#;
+
+    assert_eq!(
+        checked_saga(r#"{"saga": "Like sand in an hourglass."}"#, 0),
+        None
+    );
+    let read = checked_saga(footnote, 2).unwrap();
+    assert_eq!(read.footnotes, [(2, "Why?".to_string())]);
+}
+
+#[test]
 fn a_saga_keeps_at_most_three_footnotes() {
     let text = r#"{"saga": "S", "footnotes": [{"moment": 1, "text": "a"}, {"moment": 2, "text": "b"}, {"moment": 3, "text": "c"}, {"moment": 4, "text": "d"}]}"#;
 

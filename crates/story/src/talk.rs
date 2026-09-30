@@ -1,7 +1,7 @@
 //! Talk to an NPC (GAMEPLAY.md 3.5). The model plays the NPC and proposes a change of its
 //! trust. The code checks both before anything shows or lands in the world (5.2).
 
-use crate::check::{json_object, plain_text};
+use crate::check::{json_object, voice_text};
 use crate::house::{HOUSE_RULES, bulleted, fenced};
 use crate::pack::Passage;
 use serde::Deserialize;
@@ -130,7 +130,7 @@ pub struct Answer {
 #[must_use]
 pub fn checked_answer(text: &str) -> Option<Answer> {
     let reply: Reply = serde_json::from_str(json_object(text)?).ok()?;
-    let say = plain_text(&reply.say, MAX_SAY_CHARS, MAX_SAY_BYTES)?;
+    let say = voice_text(&reply.say, MAX_SAY_CHARS, MAX_SAY_BYTES)?;
     let in_band = (-MAX_TRUST_CHANGE..=MAX_TRUST_CHANGE).contains(&reply.trust);
     Some(Answer {
         say,

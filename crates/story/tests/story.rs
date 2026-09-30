@@ -564,6 +564,28 @@ fn a_big_moment_asks_the_model_for_a_narrator_line() {
 }
 
 #[test]
+fn a_name_in_no_fact_is_logged_and_the_line_still_shows() {
+    let mut story = story_with("unknown-name", &[]);
+    level(&mut story, 1, 12);
+    level(&mut story, 2, 13);
+    let (call, _) = model_call(batch_end(&mut story, 3));
+
+    let text = "Our hero reached level 13 under the eyes of Varian.".to_string();
+    let output = one(story.handle(Input::ModelAnswered { call, text }).unwrap());
+
+    let shown = Some("Our hero reached level 13 under the eyes of Varian.".to_string());
+    assert!(matches!(output, Some(Output::EventsSeen { narrator, .. }) if narrator == shown));
+    assert_eq!(
+        story.take_notes(),
+        [format!(
+            "call {}: the answer names Varian, and no fact does",
+            call.0
+        )]
+    );
+    assert!(story.take_notes().is_empty());
+}
+
+#[test]
 fn a_failed_or_bad_narrator_line_is_silence() {
     let mut story = story_with("silent", &[]);
     level(&mut story, 1, 12);

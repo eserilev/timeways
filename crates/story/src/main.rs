@@ -42,6 +42,9 @@ fn serve(story: &mut Story) -> Result<(), Box<dyn Error>> {
         if let Some(error) = served.error {
             writeln!(log, "{error}")?;
         }
+        for note in served.notes {
+            writeln!(log, "{note}")?;
+        }
     }
     Ok(())
 }
