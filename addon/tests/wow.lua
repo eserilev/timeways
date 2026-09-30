@@ -50,9 +50,13 @@ function UnitExists(unit)
 	return wow.units[unit] ~= nil
 end
 
+-- A player of another realm has `realm` in its table.
 function UnitName(unit)
 	local u = wow.units[unit]
-	return u and u.name
+	if not u then
+		return nil
+	end
+	return u.name, u.realm
 end
 
 function UnitIsPlayer(unit)
@@ -185,8 +189,26 @@ function hooksecurefunc(owner, name, hook)
 	end
 end
 
+-- Each addon message that the addon sent waits in `wow.addonSent`, as { prefix, text,
+-- channel, target }, until a test delivers it.
+wow.addonSent = {}
+wow.prefixes = {}
+-- The game refuses a message with this result, for a test of the throttle.
+wow.sendResult = 0
+
 C_ChatInfo = {
 	PerformEmote = function() end,
+	RegisterAddonMessagePrefix = function(prefix)
+		wow.prefixes[prefix] = true
+		return 0
+	end,
+	SendAddonMessage = function(prefix, text, channel, target)
+		assert(#text <= 255, "an addon message holds at most 255 bytes")
+		if wow.sendResult == 0 then
+			wow.addonSent[#wow.addonSent + 1] = { prefix = prefix, text = text, channel = channel, target = target }
+		end
+		return wow.sendResult
+	end,
 }
 
 -- Dialogs of the game: each shown one waits in `wow.popups`, with its data.
@@ -580,5 +602,88 @@ function wow.ShownTexts(parent)
 	end
 	return texts
 end
+
+function GetNormalizedRealmName()
+	return (wow.realm:gsub("[%s-]", ""))
+end
+
+-- "none" drops the realm of a player of your own realm, as the game does.
+function Ambiguate(name, _)
+	local short, realm = name:match("^(.-)%-(.+)$")
+	if short and realm == GetNormalizedRealmName() then
+		return short
+	end
+	return name
+end
+
+-- The group is the units "party1" to "party4" and "raid1" to "raid40" in `wow.units`.
+function IsInGroup()
+	for unit in pairs(wow.units) do
+		if unit:match("^party%d") or unit:match("^raid%d") then
+			return true
+		end
+	end
+	return false
+end
+
+function IsInRaid()
+	for unit in pairs(wow.units) do
+		if unit:match("^raid%d") then
+			return true
+		end
+	end
+	return false
+end
+
+-- A unit with `offline` in its table is a member of the group who logged out.
+function UnitIsConnected(unit)
+	local u = wow.units[unit]
+	return u ~= nil and not u.offline
+end
+
+-- A unit with `near` in its table stands close enough to trade.
+function CheckInteractDistance(unit, _)
+	local u = wow.units[unit]
+	return u ~= nil and u.near == true
+end
+
+-- The guild: nil for none, or a list of { name = "Name-Realm", online }.
+wow.guild = nil
+
+function IsInGuild()
+	return wow.guild ~= nil
+end
+
+function GetNumGuildMembers()
+	return wow.guild and #wow.guild or 0
+end
+
+function GetGuildRosterInfo(index)
+	local member = wow.guild[index]
+	return member.name, "Member", 1, 60, "Warlock", "Brill", "", "", member.online
+end
+
+-- The friends list: each one { name, connected }, with the name as the game shows it.
+wow.friends = {}
+
+local function FriendInfo(friend)
+	return { name = friend.name, connected = friend.connected == true, guid = "Player-1-" .. friend.name, level = 60 }
+end
+
+C_FriendList = {
+	GetNumFriends = function()
+		return #wow.friends
+	end,
+	GetFriendInfoByIndex = function(index)
+		return wow.friends[index] and FriendInfo(wow.friends[index])
+	end,
+	GetFriendInfo = function(name)
+		for _, friend in ipairs(wow.friends) do
+			if friend.name == name then
+				return FriendInfo(friend)
+			end
+		end
+	end,
+}
 
 return wow

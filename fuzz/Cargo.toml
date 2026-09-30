@@ -74,3 +74,10 @@ path = "fuzz_targets/wikitext.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "task_wire"
+path = "fuzz_targets/task_wire.rs"
+test = false
+doc = false
+bench = false
