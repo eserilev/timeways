@@ -40,12 +40,15 @@ Timeways has two parts: the addon in the game, and a desktop app on your compute
 
 1. In the CurseForge app, install **Timeways**. CurseForge installs **Gnomish Relay** with it.
 2. Close WoW.
-3. Open a terminal: PowerShell on Windows, Terminal on macOS or Linux.
-4. Run the installer of the desktop app:
-   - Windows (PowerShell): `& ([scriptblock]::Create((irm https://raw.githubusercontent.com/eserilev/gnomish-relay/main/scripts/install.ps1))) --timeways`
-   - macOS and Linux: `curl -fsSL https://raw.githubusercontent.com/eserilev/gnomish-relay/main/scripts/install.sh | sh -s -- --timeways`
-5. Answer the questions of setup. It asks only what it can't find out itself.
-6. Start WoW.
+3. Install the desktop app:
+   - Windows: press Windows+R, paste this, and press Enter.
+     `powershell -c "irm https://eserilev.github.io/timeways/install.txt | iex"`
+   - Mac or Linux: open Terminal, paste this, and press Enter.
+     `curl -fsSL https://eserilev.github.io/timeways/install.sh | sh`
+4. Answer the questions of setup. It asks only what it can't find out itself.
+5. Start WoW.
+
+The setup window in the game shows the same lines.
 
 Setup finds the Timeways addon and writes its key. It installs the story program from the latest Timeways release, and adds a `[story]` part to the desktop app's `config.toml` with the model that it finds. It then builds the lore on your computer. With only Timeways and no coding agent, setup asks no folder question.
 
@@ -66,6 +69,7 @@ If a check fails, its line says why. When the game can't reach the desktop app, 
 | Path | What |
 |---|---|
 | `addon/Timeways` | The WoW addon, Lua 5.1. `Sha256`, `Codec`, `Saved`, `Health`, `Strip`, `Slots`, `Messages`, and `KeyHandoff` are copies of the shared transport of Gnomish Relay, pinned in CI. Change them in the relay first. `KeyHandoff.lua` takes the key from `Timeways_Key`, an addon that the desktop app writes outside this folder, so a CurseForge update keeps it. |
+| `docs` | The short install scripts on GitHub Pages. They run the Gnomish Relay installer with `--timeways`. |
 | `crates/story` | `timeways-story`, the story program on the desktop |
 | `crates/addon-tests` | Runs the addon in Lua 5.1 with a fake WoW API (`addon/tests/wow.lua`) |
 

@@ -16,11 +16,11 @@ local BOX_HEIGHT = 24
 -- The desktop app replies within seconds of login. A minute leaves room for a slow computer.
 local WAIT_SECONDS = 60
 
--- `--timeways` makes the relay setup also install the Timeways programs and build the lore
--- pack on this computer.
+-- The scripts in `docs/` on GitHub Pages run the relay installer with `--timeways`. The
+-- Windows line starts PowerShell itself, so it works from Windows+R.
 Welcome.COMMANDS = {
-	windows = "& ([scriptblock]::Create((irm https://raw.githubusercontent.com/eserilev/gnomish-relay/main/scripts/install.ps1))) --timeways",
-	unix = "curl -fsSL https://raw.githubusercontent.com/eserilev/gnomish-relay/main/scripts/install.sh | sh -s -- --timeways",
+	windows = 'powershell -c "irm https://eserilev.github.io/timeways/install.txt | iex"',
+	unix = "curl -fsSL https://eserilev.github.io/timeways/install.sh | sh",
 }
 
 -- The chat line of a later session, after the window showed once for the same reason.
@@ -125,9 +125,9 @@ local function BuildSheet()
 	Text(sheet, "QuestFont", ns.Ink.text, -48):SetText(
 		"Timeways needs its desktop app, Gnomish Relay, because addons can't save your story or talk to an AI on their own."
 	)
-	Text(sheet, "QuestFont", ns.Ink.text, -96):SetText("Windows (PowerShell):")
+	Text(sheet, "QuestFont", ns.Ink.text, -96):SetText("Windows: press Windows+R, paste this, and press Enter.")
 	CommandBox(sheet, Welcome.COMMANDS.windows, -114)
-	Text(sheet, "QuestFont", ns.Ink.text, -146):SetText("macOS or Linux (Terminal):")
+	Text(sheet, "QuestFont", ns.Ink.text, -146):SetText("Mac or Linux: paste this in Terminal and press Enter.")
 	CommandBox(sheet, Welcome.COMMANDS.unix, -164)
 	Text(sheet, "QuestFontNormalSmall", ns.Ink.faded, -194):SetText(
 		"Click a line and press Ctrl+C to copy it (Cmd+C on a Mac)."

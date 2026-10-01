@@ -108,8 +108,14 @@ fn the_window_gives_the_install_line_for_windows_and_for_macos_and_linux() {
     let texts = texts(&game);
     let windows: String = game.eval("ns.Welcome.COMMANDS.windows");
     let unix: String = game.eval("ns.Welcome.COMMANDS.unix");
-    assert!(windows.ends_with("install.ps1))) --timeways"), "{windows}");
-    assert!(unix.ends_with("install.sh | sh -s -- --timeways"), "{unix}");
+    assert!(
+        windows.contains("eserilev.github.io/timeways/install.txt |"),
+        "{windows}"
+    );
+    assert!(
+        unix.contains("eserilev.github.io/timeways/install.sh |"),
+        "{unix}"
+    );
     assert!(texts.contains(&windows), "{texts:?}");
     assert!(texts.contains(&unix), "{texts:?}");
     assert!(
