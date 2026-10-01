@@ -1265,6 +1265,9 @@ return {
 				{ Name = "targetGUID", Type = "WOWGUID", Nilable = false },
 			},
 		},
+		PLAYER_CAMPING = {
+			SynchronousEvent = true,
+		},
 		PLAYER_DEAD = {
 			SynchronousEvent = true,
 		},
@@ -1299,6 +1302,9 @@ return {
 			SynchronousEvent = true,
 		},
 		PLAYER_LOGOUT = {
+			SynchronousEvent = true,
+		},
+		PLAYER_QUITING = {
 			SynchronousEvent = true,
 		},
 		PLAYER_REGEN_ENABLED = {

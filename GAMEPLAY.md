@@ -412,7 +412,12 @@ A first list. Each name goes through the API gate of Gnomish Relay (`scripts/wow
 | Group and guild | `GROUP_ROSTER_UPDATE`, `GUILD_ROSTER_UPDATE` |
 | Player tasks (4.7) | `CHAT_MSG_ADDON`, `TRADE_SHOW`, `TRADE_ACCEPT_UPDATE`, `TRADE_CLOSED`, and the events above for the steps |
 
-The addon sends game events in batches with the next strip. Nothing needs to arrive at once.
+The addon sends game events in batches with the next strip. Each strip is a screenshot, so the addon takes few:
+
+- **Big moments go within 5 seconds:** a level up, a death, a new zone (not a new subzone), the kill of a rare or a boss, a finished quest of the game, and the entry into a dungeon or a raid. The narrator line belongs to that moment, so it must not come late. The other events of those 5 seconds go in the same batch.
+- **Every other event waits** for the flush every 10 minutes, or for the next big moment or question.
+- **A question goes at once:** `/lore`, a talk, `/quest`, a task answer, and a journal page.
+- **Camping and quitting send what waits** (`PLAYER_CAMPING`, `PLAYER_QUITING`), because the game still draws then. At `PLAYER_LOGOUT` no screenshot can go, so a logout in an inn can lose the small events of the last 10 minutes.
 
 **The combat log is closed to addons in this client.** `COMBAT_LOG_EVENT_UNFILTERED` fires, but only Blizzard code can read its payload (`C_CombatLogSecure` is secure-only). So the addon reads kills and deaths from the events above:
 

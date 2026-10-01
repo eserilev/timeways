@@ -2,7 +2,8 @@
 
 local ADDON_NAME, ns = ...
 
-local FLUSH_SECONDS = 60
+-- Each batch is a screenshot, so small events wait this long (GAMEPLAY.md 5.4).
+local FLUSH_SECONDS = 600
 
 local HANDLERS = {
 	-- The key addon can fail to load while the files of this addon load, so the handoff
@@ -62,6 +63,10 @@ local HANDLERS = {
 	PARTY_KILL = ns.Foes.PartyKill,
 	ENCOUNTER_END = ns.Foes.EncounterEnd,
 	PLAYER_DEAD = ns.Foes.Died,
+	-- The game still draws while the player camps or quits, so the waiting events go now.
+	-- At PLAYER_LOGOUT no screenshot can go.
+	PLAYER_CAMPING = ns.Outbox.Flush,
+	PLAYER_QUITING = ns.Outbox.Flush,
 }
 
 local frame = CreateFrame("Frame")
@@ -85,6 +90,8 @@ frame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
 frame:RegisterEvent("PARTY_KILL")
 frame:RegisterEvent("ENCOUNTER_END")
 frame:RegisterEvent("PLAYER_DEAD")
+frame:RegisterEvent("PLAYER_CAMPING")
+frame:RegisterEvent("PLAYER_QUITING")
 frame:RegisterEvent("QUEST_ACCEPTED")
 frame:RegisterEvent("QUEST_TURNED_IN")
 frame:RegisterEvent("QUEST_WATCH_UPDATE")

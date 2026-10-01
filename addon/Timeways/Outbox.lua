@@ -1,5 +1,6 @@
 -- Game events wait here and go out in batches, as many lines as fit in one message
--- (GAMEPLAY.md 5.4). No moment costs a strip of its own.
+-- (GAMEPLAY.md 5.4). Each batch costs a screenshot, so most events wait for the flush
+-- timer. A big moment goes soon, because its narrator line belongs to that moment.
 
 local _, ns = ...
 
@@ -13,7 +14,20 @@ local MAX_WAITING = 500
 -- The lines that get a reply. The bridge takes at most one in a batch, as its last line.
 local REPLIES = { lore_asked = true, journal_asked = true, talk_asked = true, draft_asked = true }
 
+-- The burst of a big moment, such as a level up in a new zone, goes in one batch.
+local SOON_SECONDS = 5
+-- A new zone counts too, but a new subzone waits.
+local BIG = {
+	level_reached = true,
+	died = true,
+	npc_defeated = true,
+	game_quest_done = true,
+	instance_entered = true,
+}
+
 local waiting = {}
+local soonPlanned = false
+local lastZone
 -- The batch of game events on its way, until its reply comes. A bridge that is down never
 -- answers, so one batch at a time keeps the strips few, and its events come back after the
 -- transport gives up.
@@ -28,11 +42,34 @@ local function Bound()
 	end
 end
 
+local function IsBig(input)
+	if input.type ~= "zone_entered" then
+		return BIG[input.type] == true
+	end
+	local newZone = input.zone ~= lastZone
+	lastZone = input.zone
+	return newZone
+end
+
+local function FlushSoon()
+	if soonPlanned then
+		return
+	end
+	soonPlanned = true
+	C_Timer.After(SOON_SECONDS, function()
+		soonPlanned = false
+		Outbox.Flush()
+	end)
+end
+
 -- `failed` runs with the error text when a question gets an error reply instead of its answer.
 function Outbox.Add(input, failed)
 	local reply = REPLIES[input.type] == true
 	waiting[#waiting + 1] = { line = ns.Json.Encode(input), reply = reply, failed = failed }
 	Bound()
+	if IsBig(input) then
+		FlushSoon()
+	end
 end
 
 function Outbox.Waiting()
