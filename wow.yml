@@ -182,6 +182,14 @@ globals:
     args: []
   GetTargetTradeMoney:
     args: []
+  GetCursorInfo:
+    args: []
+  ClearCursor:
+    args: []
+  C_Cursor:
+    any: true
+  C_Item:
+    any: true
 structs:
   BitLib:
     band: {args: [{type: number}, {type: "..."}]}

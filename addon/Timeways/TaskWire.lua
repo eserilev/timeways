@@ -13,8 +13,10 @@ local SEPARATOR = ";"
 
 TaskWire.MAX_STEPS = 5
 TaskWire.MAX_COUNT = 250
-TaskWire.LIMITS = { title = 60, text = 400, reward = 100, target = 96, zone = 96 }
-TaskWire.STEP_KINDS = { "place", "npc", "kill", "meet", "item" }
+TaskWire.LIMITS = { title = 60, text = 400, reward = 200, target = 96, zone = 96 }
+-- An "other" step is a line that the giver wrote and the game can't check. The doer marks
+-- it done, and the giver decides at the turn-in.
+TaskWire.STEP_KINDS = { "place", "npc", "kill", "meet", "item", "other" }
 
 local KINDS = {}
 for _, kind in ipairs(TaskWire.STEP_KINDS) do
@@ -85,7 +87,7 @@ end
 local READERS = {
 	id = Id,
 	title = Text(TaskWire.LIMITS.title),
-	text = Text(TaskWire.LIMITS.text),
+	text = Text(TaskWire.LIMITS.text, true),
 	reward = Text(TaskWire.LIMITS.reward, true),
 	kind = Kind,
 	target = Text(TaskWire.LIMITS.target),

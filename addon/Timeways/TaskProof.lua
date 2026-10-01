@@ -90,6 +90,10 @@ local WITNESSES = {
 		end
 		return count >= step.count
 	end,
+	-- Only the doer's word says that a step that the game can't see is done.
+	other = function()
+		return false
+	end,
 }
 
 function TaskProof.Witnessed(step, claim, task, records)
@@ -100,6 +104,9 @@ end
 -- the rest, the giver's addon was in a place to see it when the doer stood close to the
 -- giver as the step came (`claim.near`, from the giver's own range check).
 local function InSight(step, claim)
+	if step.kind == "other" then
+		return false
+	end
 	return step.kind == "item" or claim.near == true
 end
 

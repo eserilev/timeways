@@ -726,7 +726,8 @@ Journal.USAGE = {
 
 -- A page is what the book shows for one section:
 --   lines: the parchment on the right. Each line is { style, text, action }, and the style
---     is "heading", "section", "prose", "entry", "text", "note", "hint", or "help".
+--     is "heading", "section", "prose", "entry", "text", "note", "hint", or "help", or an
+--     input of JournalInputs: "field", "money", or "slots".
 --   list: the rows on the left, or nil. Each row is { style = "group" | "help" | "item",
 --     text, detail, mark, key }. A click on an item selects its key.
 --   selected: the key of the open item.

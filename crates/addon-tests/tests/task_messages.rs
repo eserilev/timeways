@@ -67,6 +67,7 @@ fn a_well_formed_message_of_each_type_is_taken() {
         "1;turnin;k3x9;1;1;1790000000;",
         "1;result;k3x9;notyet",
         "1;offer;a1;Title;Text;;1;npc;Innkeeper Renee;1",
+        "1;offer;a1;Title;;5 gold;1;other;Find my lost ring;1",
     ] {
         assert_eq!(decode(&game, text), "ok", "{text}");
     }
@@ -122,6 +123,24 @@ fn a_text_past_its_limit_is_refused() {
     let long_text = decode(&game, &format!("1;offer;a1;Title;{text};;1;npc;Renee;1"));
 
     assert_eq!([long_title, long_text], ["bad title", "bad text"]);
+}
+
+#[test]
+fn a_reward_past_its_limit_is_refused() {
+    let game = Game::new();
+    let fits = "a".repeat(200);
+    let long = "a".repeat(201);
+
+    let fitting = decode(
+        &game,
+        &format!("1;offer;a1;Title;Text;{fits};1;npc;Renee;1"),
+    );
+    let too_long = decode(
+        &game,
+        &format!("1;offer;a1;Title;Text;{long};1;npc;Renee;1"),
+    );
+
+    assert_eq!([fitting, too_long], ["ok", "bad reward"]);
 }
 
 /// The parts of a text, and the text that the collector puts back together from them in

@@ -1,6 +1,6 @@
--- The task that you write for another player, before you send it (GAMEPLAY.md 4.7). Each
--- step comes from the game: where you stand, or the unit that you target. So each name in
--- a step is the name that the game uses, and the doer's addon can match it.
+-- The task that you write for another player (GAMEPLAY.md 4.7). You save it, and send it
+-- now or later. A step is a line that you type: a model turns it into a step that the game
+-- can check, or it stays as you wrote it, and you check it yourself at the turn-in.
 
 local _, ns = ...
 
@@ -8,6 +8,8 @@ local TaskForm = {}
 ns.TaskForm = TaskForm
 
 local LIMITS = ns.TaskWire.LIMITS
+-- Saved tasks wait for a player, so a few are enough.
+local MAX_SAVED = 20
 
 local draft
 
@@ -15,12 +17,49 @@ local function Say(text)
 	DEFAULT_CHAT_FRAME:AddMessage("|cffc8a064Timeways|r: " .. text)
 end
 
+local function Changed()
+	ns.JournalFrame.Refresh()
+end
+
 local function Fresh()
-	return { title = "", text = "", reward = "", steps = {}, doer = nil }
+	return { title = "", text = "", money = 0, items = {}, steps = {}, stepText = "" }
+end
+
+local function CopySteps(steps)
+	local copy = {}
+	for n, step in ipairs(steps) do
+		copy[n] = { kind = step.kind, target = step.target, count = step.count }
+	end
+	return copy
+end
+
+local function CopyItems(items)
+	local copy = {}
+	for n, item in ipairs(items) do
+		copy[n] = { id = item.id, name = item.name, count = item.count }
+	end
+	return copy
+end
+
+-- The form edits a copy, so Cancel leaves the saved task as it was.
+local function Loaded(saved)
+	local form = Fresh()
+	form.id, form.title, form.text, form.money = saved.id, saved.title, saved.text, saved.money
+	form.items, form.steps = CopyItems(saved.items), CopySteps(saved.steps)
+	return form
 end
 
 function TaskForm.Draft()
 	draft = draft or Fresh()
+	return draft
+end
+
+-- The form of a saved task, loaded when the player opens it, or a new form for nil.
+function TaskForm.For(id)
+	if not draft or draft.id ~= id then
+		local saved = id and ns.TaskStore.Data().drafts[id]
+		draft = saved and Loaded(saved) or Fresh()
+	end
 	return draft
 end
 
@@ -29,85 +68,108 @@ function TaskForm.Clean(text)
 	return (tostring(text):gsub("[%c|]", " "):gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
-local function Changed()
-	ns.JournalFrame.Refresh()
-end
-
--- Opens the form, and asks who can get a task.
+-- Opens an empty form, and asks who can get a task.
 function TaskForm.Open()
-	TaskForm.Draft()
+	draft = Fresh()
 	ns.PlayerTasks.Call()
 	ns.JournalFrame.Select("give")
 end
 
-function TaskForm.IsOpen()
-	return ns.JournalFrame.IsShown()
-		and ns.JournalFrame.Section() == "quests"
-		and ns.Journal.Selected("quests") == "give"
+function TaskForm.OpenSaved(id)
+	TaskForm.For(id)
+	ns.PlayerTasks.Call()
+	ns.JournalFrame.Select("draft:" .. id)
 end
 
--- The "Add" lines follow your target.
-function TaskForm.TargetChanged()
-	if TaskForm.IsOpen() then
-		Changed()
-	end
+-- Title and text -----------------------------------------------------------------------------
+
+-- The box keeps what the player types. The limits of the wire are in bytes: "é" takes two.
+function TaskForm.SetTitle(text)
+	TaskForm.Draft().title = text
+	Changed()
 end
 
-local FIELDS = {
-	title = { title = "Name your task", hint = "A short name, like a quest title.", limit = LIMITS.title },
-	text = { title = "What should they do?", hint = "Tell the story: who, what, and why.", limit = LIMITS.text },
-	reward = {
-		title = "What do you promise?",
-		hint = "Leave it empty for no reward. You hand it over yourself, in a trade.",
-		limit = LIMITS.reward,
-	},
-}
-
--- The limits of the wire are in bytes, and the box counts letters: "é" takes two bytes.
-local function TooLong(limit)
-	return function(text)
-		if #TaskForm.Clean(text) > limit then
-			return "Too long to save. Try a shorter version."
-		end
-	end
-end
-
-function TaskForm.Edit(field)
-	local spec = FIELDS[field]
+function TaskForm.EditText()
 	ns.JournalFrame.Edit({
-		title = spec.title,
-		hint = spec.hint,
-		text = TaskForm.Draft()[field],
-		limit = spec.limit,
-		bytes = spec.limit,
-		problem = TooLong(spec.limit),
+		title = "Description",
+		hint = "",
+		text = TaskForm.Draft().text,
+		limit = LIMITS.text,
+		bytes = LIMITS.text,
+		problem = function(text)
+			if #TaskForm.Clean(text) > LIMITS.text then
+				return "Too long to save. Try a shorter version."
+			end
+		end,
 		save = function(text)
-			TaskForm.Draft()[field] = TaskForm.Clean(text)
+			TaskForm.Draft().text = TaskForm.Clean(text)
 		end,
 	})
 end
 
-local function Full()
-	if #TaskForm.Draft().steps >= ns.TaskWire.MAX_STEPS then
-		Say(string.format("A task has at most %d steps, and the turn-in.", ns.TaskWire.MAX_STEPS))
-		return true
-	end
-	return false
+function TaskForm.TitleTooLong()
+	return #TaskForm.Clean(TaskForm.Draft().title) > LIMITS.title
 end
 
--- The same step again raises its count, as "defeat 3 zombies".
-local function AddStep(kind, target, count)
-	for _, step in ipairs(TaskForm.Draft().steps) do
-		if step.kind == kind and step.target == target then
-			step.count = math.min(step.count + count, ns.TaskWire.MAX_COUNT)
-			Changed()
-			return
+-- Steps --------------------------------------------------------------------------------------
+
+function TaskForm.Full()
+	return #TaskForm.Draft().steps >= ns.TaskWire.MAX_STEPS
+end
+
+-- The same step again raises its count, as "defeat 3 zombies". Returns false when full.
+local function AddStep(step)
+	local steps = TaskForm.Draft().steps
+	for _, known in ipairs(steps) do
+		if known.kind == step.kind and known.target == step.target then
+			known.count = math.min(known.count + step.count, ns.TaskWire.MAX_COUNT)
+			return true
 		end
 	end
-	if not Full() then
-		table.insert(TaskForm.Draft().steps, { kind = kind, target = target, count = count })
-		Changed()
+	if TaskForm.Full() then
+		return false
 	end
+	steps[#steps + 1] = step
+	return true
+end
+
+function TaskForm.SetStepText(text)
+	TaskForm.Draft().stepText = text
+	Changed()
+end
+
+function TaskForm.StepTooLong()
+	return #TaskForm.Clean(TaskForm.Draft().stepText) > LIMITS.target
+end
+
+-- The typed line goes to the model. The box empties at once, and the step shows when the
+-- answer comes.
+function TaskForm.AddStep()
+	local form = TaskForm.Draft()
+	local text = TaskForm.Clean(form.stepText)
+	if text == "" or TaskForm.StepTooLong() or TaskForm.Full() or ns.TaskDraftHelp.Busy() then
+		return
+	end
+	form.stepText = ""
+	ns.TaskDraftHelp.CheckStep(text)
+	Changed()
+end
+
+-- The steps that the model made of one typed line.
+function TaskForm.AddChecked(steps)
+	for _, step in ipairs(steps) do
+		if not AddStep(step) then
+			Say(string.format("A task has at most %d steps.", ns.TaskWire.MAX_STEPS))
+			break
+		end
+	end
+	Changed()
+end
+
+-- A line that the model could not turn into a step, or that never reached it.
+function TaskForm.AddWritten(text)
+	AddStep({ kind = "other", target = text, count = 1 })
+	Changed()
 end
 
 function TaskForm.RemoveStep(index)
@@ -115,114 +177,171 @@ function TaskForm.RemoveStep(index)
 	Changed()
 end
 
--- A creature or a player that you can attack. A pet never counts: a player named it (5.11).
-local function FoeName(unit)
-	if not UnitCanAttack("player", unit) then
+-- Reward -------------------------------------------------------------------------------------
+
+function TaskForm.SetMoney(gold, silver, copper)
+	local form = TaskForm.Draft()
+	local money = ns.TaskReward.Copper(gold, silver, copper)
+	if ns.TaskReward.Fits(money, form.items) then
+		form.money = money
+	end
+	Changed()
+end
+
+local function Readable(...)
+	for n = 1, select("#", ...) do
+		local value = select(n, ...)
+		if value == nil or issecretvalue(value) then
+			return false
+		end
+	end
+	return true
+end
+
+-- The count of the stack on the cursor, as the trade window takes the whole stack.
+local function CursorCount()
+	local location = C_Cursor.GetCursorItem()
+	local count = location and C_Item.GetStackCount(location)
+	if type(count) == "number" and Readable(count) and count >= 1 then
+		return math.min(count, ns.TaskWire.MAX_COUNT)
+	end
+	return 1
+end
+
+-- The item on the cursor: { id, name, count }, or nil. The name comes from its link.
+local function CursorItem()
+	local kind, id, link = GetCursorInfo()
+	if not Readable(kind, id, link) or kind ~= "item" or type(link) ~= "string" then
 		return nil
 	end
-	if not UnitIsPlayer(unit) then
-		return ns.Units.NpcName(unit)
-	end
-	local name = UnitName(unit)
-	if type(name) == "string" and not issecretvalue(name) then
-		return name
-	end
-end
-
--- The steps that the game offers now: { kind, target, label }.
-function TaskForm.Choices()
-	local choices = {}
-	local place = GetSubZoneText()
-	place = place ~= "" and place or GetRealZoneText()
-	if place ~= "" and #place <= LIMITS.target then
-		choices[#choices + 1] = { kind = "place", target = place, label = "Go to " .. place .. ", where you stand." }
-	end
-	local friendly = ns.Units.FriendlyNpcName("target")
-	if friendly and #friendly <= LIMITS.target then
-		choices[#choices + 1] = { kind = "npc", target = friendly, label = "Talk to " .. friendly .. ", your target." }
-	end
-	local foe = FoeName("target")
-	if foe and #foe <= LIMITS.target then
-		choices[#choices + 1] = { kind = "kill", target = foe, label = "Defeat " .. foe .. ", your target." }
-	end
-	local player = ns.TaskPeople.OfUnit("target")
-	if player and player ~= ns.TaskPeople.Me() then
-		local label = "Find " .. ns.TaskPeople.Short(player) .. ", your target."
-		choices[#choices + 1] = { kind = "meet", target = player, label = label }
-	end
-	return choices
-end
-
-function TaskForm.Choose(choice)
-	AddStep(choice.kind, choice.target, 1)
-end
-
--- "10 Linen Cloth", or "Linen Cloth" for one.
-function TaskForm.ParseItem(text)
-	text = TaskForm.Clean(text)
-	local count, name = text:match("^(%d+)%s+(.+)$")
-	count, name = tonumber(count) or 1, name or text
-	if name == "" or #name > LIMITS.target or count < 1 or count > ns.TaskWire.MAX_COUNT then
+	local name = link:match("%[(.-)%]")
+	if not name or name == "" or #name > LIMITS.target or not ns.TaskWire.IsCleanText(name) then
 		return nil
 	end
-	return name, count
+	return { id = id, name = name, count = CursorCount() }
 end
 
-local function ItemProblem(text)
-	if not TaskForm.ParseItem(text) then
-		return "Write the number, then the item, like: 10 Linen Cloth."
+-- An item dropped on a slot of the reward. The item stays in your bags.
+function TaskForm.DropItem()
+	local item = CursorItem()
+	if not item then
+		return
 	end
+	ClearCursor()
+	local form = TaskForm.Draft()
+	if not ns.TaskReward.AddItem(form.money, form.items, item) then
+		Say("That's all the reward a task can hold.")
+	end
+	Changed()
 end
 
-function TaskForm.AddItem()
-	ns.JournalFrame.Edit({
-		title = "Bring an item",
-		hint = "Which item, and how many? For example: 10 Linen Cloth. Spell it as the game does.",
-		text = "",
-		limit = LIMITS.target + 4,
-		bytes = LIMITS.target + 4,
-		problem = ItemProblem,
-		save = function(text)
-			AddStep("item", TaskForm.ParseItem(text))
-		end,
-	})
+function TaskForm.RemoveItem(index)
+	table.remove(TaskForm.Draft().items, index)
+	Changed()
 end
+
+-- Who gets it --------------------------------------------------------------------------------
 
 function TaskForm.Pick(name)
 	TaskForm.Draft().doer = name
 	Changed()
 end
 
--- The reason the task can't go yet, or nil.
-function TaskForm.Missing()
+-- Save, send, and cancel ---------------------------------------------------------------------
+
+-- The first thing that stops a save, or nil.
+function TaskForm.CantSave()
 	local form = TaskForm.Draft()
-	if form.title == "" then
-		return "Name your task first."
+	if TaskForm.Clean(form.title) == "" then
+		return "Add a title."
 	end
-	if form.text == "" then
-		return "Say what they should do."
+	if TaskForm.TitleTooLong() then
+		return "The title is too long."
 	end
+end
+
+-- The first thing that stops a send, or nil.
+function TaskForm.CantSend()
+	local problem = TaskForm.CantSave()
+	if problem then
+		return problem
+	end
+	local form = TaskForm.Draft()
 	if #form.steps == 0 then
-		return "Add at least one step."
+		return "Add a step."
 	end
 	if not form.doer then
 		return "Pick who gets it."
 	end
 end
 
-function TaskForm.Send()
+local function Stored(form)
+	return {
+		id = form.id,
+		title = TaskForm.Clean(form.title),
+		text = form.text,
+		money = form.money,
+		items = CopyItems(form.items),
+		steps = CopySteps(form.steps),
+		savedAt = time(),
+	}
+end
+
+local function CountSaved(drafts)
+	local count = 0
+	for _ in pairs(drafts) do
+		count = count + 1
+	end
+	return count
+end
+
+function TaskForm.Save()
 	local form = TaskForm.Draft()
-	if TaskForm.Missing() then
+	if TaskForm.CantSave() then
 		return
 	end
-	local id = ns.PlayerTasks.Give(form, form.doer)
-	if id then
-		draft = nil
-		ns.JournalFrame.Select("gave:" .. id)
+	local drafts = ns.TaskStore.Data().drafts
+	if not form.id and CountSaved(drafts) >= MAX_SAVED then
+		Say(string.format("You have %d saved tasks. Delete one to save another.", MAX_SAVED))
+		return
 	end
+	form.id = form.id or ns.TaskStore.NewId(time())
+	drafts[form.id] = Stored(form)
+	ns.JournalFrame.Select("draft:" .. form.id)
+end
+
+function TaskForm.Send()
+	local form = TaskForm.Draft()
+	if TaskForm.CantSend() then
+		return
+	end
+	local task = Stored(form)
+	task.reward = ns.TaskReward.Text(form.money, form.items)
+	local id = ns.PlayerTasks.Give(task, form.doer)
+	if not id then
+		return
+	end
+	if form.id then
+		ns.TaskStore.Data().drafts[form.id] = nil
+	end
+	draft = nil
+	ns.JournalFrame.Select("gave:" .. id)
 end
 
 function TaskForm.Cancel()
 	draft = nil
 	ns.JournalFrame.Select(nil)
+end
+
+function TaskForm.Delete()
+	local form = TaskForm.Draft()
+	if form.id then
+		ns.TaskStore.Data().drafts[form.id] = nil
+	end
+	TaskForm.Cancel()
+end
+
+-- The saved tasks, newest first: { key, task }.
+function TaskForm.Saved()
+	return ns.TaskStore.List(ns.TaskStore.Data().drafts)
 end

@@ -63,6 +63,12 @@ return {
 				{ Name = "result", Type = "SendAddonMessageResult", Nilable = false },
 			},
 		},
+		["C_Cursor.GetCursorItem"] = {
+			MayReturnNothing = true,
+			Returns = {
+				{ Name = "item", Type = "ItemLocation", Mixin = "ItemLocationMixin", Nilable = false },
+			},
+		},
 		["C_DeathRecap.GetRecapEvents"] = {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {
@@ -115,6 +121,24 @@ return {
 			},
 		},
 		["C_GuildInfo.GuildRoster"] = {},
+		["C_Item.GetItemIconByID"] = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "itemInfo", Type = "ItemInfo", Nilable = false },
+			},
+			Returns = {
+				{ Name = "icon", Type = "fileID", Nilable = true },
+			},
+		},
+		["C_Item.GetStackCount"] = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "itemLocation", Type = "ItemLocation", Mixin = "ItemLocationMixin", Nilable = false },
+			},
+			Returns = {
+				{ Name = "stackCount", Type = "number", Nilable = false },
+			},
+		},
 		["C_Map.GetBestMapForUnit"] = {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {
@@ -235,6 +259,7 @@ return {
 				{ Name = "result", Type = "bool", Nilable = false },
 			},
 		},
+		ClearCursor = {},
 		GetBuildInfo = {
 			Returns = {
 				{ Name = "buildVersion", Type = "cstring", Nilable = false },
@@ -245,6 +270,7 @@ return {
 				{ Name = "buildInfo", Type = "string", Nilable = false },
 			},
 		},
+		GetCursorInfo = {},
 		GetGameMessageInfo = {
 			MayReturnNothing = true,
 			SecretArguments = "AllowedWhenUntainted",
@@ -568,6 +594,13 @@ return {
 				{ Name = "text", Type = "cstring", Nilable = false },
 			},
 		},
+		["SimpleButtonAPI:RegisterForClicks"] = {
+			IsProtectedFunction = true,
+			SecretArguments = "NotAllowed",
+			Arguments = {
+				{ Name = "buttons", Type = "ClickButton", Nilable = false, StrideIndex = 1 },
+			},
+		},
 		["SimpleButtonAPI:SetDisabledFontObject"] = {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {
@@ -682,6 +715,12 @@ return {
 				{ Name = "multiline", Type = "bool", Nilable = false, Default = false },
 			},
 		},
+		["SimpleEditBoxAPI:SetNumeric"] = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "isNumeric", Type = "bool", Nilable = false, Default = false },
+			},
+		},
 		["SimpleEditBoxAPI:SetText"] = {
 			SecretArguments = "AllowedWhenUntainted",
 			SecretArgumentsAddAspect = { Enum.SecretAspect.Text },
@@ -696,6 +735,15 @@ return {
 				{ Name = "colorG", Type = "number", Nilable = false },
 				{ Name = "colorB", Type = "number", Nilable = false },
 				{ Name = "a", Type = "SingleColorValue", Nilable = true },
+			},
+		},
+		["SimpleEditBoxAPI:SetTextInsets"] = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "left", Type = "uiUnit", Nilable = false },
+				{ Name = "right", Type = "uiUnit", Nilable = false },
+				{ Name = "top", Type = "uiUnit", Nilable = false },
+				{ Name = "bottom", Type = "uiUnit", Nilable = false },
 			},
 		},
 		["SimpleFontAPI:SetAlpha"] = {

@@ -120,8 +120,8 @@ function Inputs.Question(at, question, target)
 	return { type = "lore_asked", at = at, question = question, target = Present(target) }
 end
 
--- "Help me write this" for a player task (GAMEPLAY.md 4.7). The idea holds no name of a
--- player.
+-- "Help me write", or a typed step, for a player task (GAMEPLAY.md 4.7). The idea holds no
+-- name of a player.
 function Inputs.DraftAsked(at, idea)
 	return { type = "draft_asked", at = at, idea = idea }
 end

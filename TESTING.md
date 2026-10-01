@@ -78,14 +78,17 @@ The quest shows "Done on" with the day. Hover the giver: the tooltip has a "Time
 
 This test needs two characters with Timeways in one party, for example on two computers.
 
-1. On the first character (the giver), open `/journal` on the Tasks tab, and click Give a task.
-2. Pick the second character (the doer). Add two steps: go to a place where you stand, and talk to an NPC that you target.
-3. Type a short idea, and click "Help me write this". Check the draft, then click "Use this" or "Keep mine".
-4. Send the task. On the doer, the offer shows on the Tasks tab. Click Accept.
-5. Do the steps on the doer. Each step shows as done.
-6. Stand next to the giver, and click Turn in on the doer.
-7. On the giver, the turn-in card shows each step with its proof: Witnessed, Seen, or Not confirmed. Click Complete task.
-8. Give the doer an item in a trade. The line of the reward changes to "Reward: paid in trade".
+1. On the first character (the giver), open `/journal` on the Tasks tab, and click New task.
+2. Type a title. Type a step such as "talk to the innkeeper", and click Add. "Checking..." shows, then the step that the game checks.
+3. Type a step that the game can't check, such as "wave at me". It stays as you wrote it.
+4. Type 1 in the gold box. Drag a stack from your bags onto a reward slot. Right-click it to take it out, and drag it back.
+5. Click Save. The task shows in the list as "Not sent yet". Click it, pick the second character (the doer) under "Send to", and click Send.
+6. Click "Help me write" on a new task, and type a short idea. Check the draft, then click "Use this" or "Keep mine". Click Cancel.
+7. On the doer, the offer shows on the Tasks tab. Click Accept.
+8. Do the steps on the doer. Each step shows as done. Click Done on the step that you wrote.
+9. Stand next to the giver, and click Turn in on the doer.
+10. On the giver, the turn-in card shows each step with its proof: Witnessed, Seen, or Not confirmed. The written step says "They say it's done. You decide." Click Complete task.
+11. Give the doer the gold and the item in a trade. The line of the reward changes to "Reward: paid in trade".
 
 ### 7. Your name stays private
 

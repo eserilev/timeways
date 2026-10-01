@@ -1,5 +1,5 @@
 -- The saved state of player tasks, for each character (GAMEPLAY.md 4.7): the tasks that
--- you gave, the tasks that you got, the players that you blocked, and what your addon saw.
+-- you gave, the tasks that you wrote and did not send yet, the tasks that you got, the players that you blocked, and what your addon saw.
 -- Other addons can read saved variables, so this holds only what the two players already
 -- share in the game: the task, the names, and times. It never holds a key.
 
@@ -36,6 +36,7 @@ function TaskStore.Data()
 	_G[GLOBAL] = data
 	data.given = Table(data.given)
 	data.received = Table(data.received)
+	data.drafts = Table(data.drafts)
 	data.blocked = Table(data.blocked)
 	data.refusedBy = Table(data.refusedBy)
 	data.party = Table(data.party)
@@ -128,14 +129,15 @@ function TaskStore.Trim(tasks)
 	end
 end
 
--- The tasks of a map as a list, newest first.
+-- The tasks of a map as a list, newest first. A task that you did not send yet has only
+-- the time that you saved it.
 function TaskStore.List(tasks)
 	local list = {}
 	for key, task in pairs(tasks) do
 		list[#list + 1] = { key = key, task = task }
 	end
 	table.sort(list, function(a, b)
-		local left, right = a.task.sentAt or 0, b.task.sentAt or 0
+		local left, right = a.task.sentAt or a.task.savedAt or 0, b.task.sentAt or b.task.savedAt or 0
 		if left ~= right then
 			return left > right
 		end

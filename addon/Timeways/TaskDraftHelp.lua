@@ -1,5 +1,6 @@
--- "Help me write this" on the form of a player task (GAMEPLAY.md 4.7): a model turns an idea
--- into a title, a text, and steps. The player stays the author and picks what to keep.
+-- The model on the form of a player task (GAMEPLAY.md 4.7). "Help me write" turns an idea
+-- into a title, a text, and steps, and the player picks what to keep. A step that the
+-- player types goes the same way, and only the steps of the answer count.
 
 local _, ns = ...
 
@@ -10,13 +11,26 @@ ns.TaskDraftHelp = TaskDraftHelp
 local IDEA_LETTERS = 200
 local IDEA_BYTES = 255
 
+-- The model writes a task for an idea, so a typed step needs this frame to stay one step.
+local STEP_IDEA = "Only the steps in these words, nothing more: %s"
+
 -- The state of the help: nil, "asking", "failed" (no answer came), or "empty" (the answer
 -- held no draft). A draft that came waits in `suggestion`.
 local state
 local suggestion
+-- The typed step that waits for the model. One question goes at a time.
+local checking
 
 function TaskDraftHelp.State()
 	return state
+end
+
+function TaskDraftHelp.Checking()
+	return checking
+end
+
+function TaskDraftHelp.Busy()
+	return state == "asking" or checking ~= nil
 end
 
 function TaskDraftHelp.Suggestion()
@@ -30,6 +44,15 @@ end
 local function Failed()
 	state = "failed"
 	Changed()
+end
+
+-- With no answer, the step stays as the player wrote it.
+local function StepFailed()
+	local text = checking
+	checking = nil
+	if text then
+		ns.TaskForm.AddWritten(text)
+	end
 end
 
 -- The name of a real player never goes to a model (5.11).
@@ -55,13 +78,30 @@ local function Ask(idea)
 	Changed()
 end
 
+-- A desktop that is away answers only after the transport gives up, minutes later.
+local function DesktopAway()
+	return not ns.key or ns.Messages.Bridge() == "offline"
+end
+
+function TaskDraftHelp.CheckStep(text)
+	local idea = Scrubbed(STEP_IDEA:format(text))
+	if DesktopAway() or #idea > IDEA_BYTES then
+		ns.TaskForm.AddWritten(text)
+		return
+	end
+	checking = text
+	ns.Outbox.Add(ns.Inputs.DraftAsked(time(), idea), StepFailed)
+	ns.Outbox.Flush()
+	Changed()
+end
+
 function TaskDraftHelp.Open()
 	if ns.Welcome.OpenIfNoApp() then
 		return
 	end
 	ns.JournalFrame.Edit({
 		title = "What's your idea?",
-		hint = "Say it in plain words. Timeways turns it into a title, a task text, and steps the game can check.",
+		hint = "Describe it in a few words. We'll write the title, description, and steps.",
 		text = "",
 		limit = IDEA_LETTERS,
 		bytes = IDEA_BYTES,
@@ -72,6 +112,16 @@ end
 
 local GOALS = { place = true, npc = true, kill = true, item = true }
 
+-- "3 Rattlecage Soldier", or "Rattlecage Soldier" for one.
+local function CountAndName(target)
+	local count, name = target:match("^(%d+)%s+(.+)$")
+	count, name = tonumber(count) or 1, name or target
+	if name == "" or count < 1 or count > ns.TaskWire.MAX_COUNT then
+		return nil
+	end
+	return name, count
+end
+
 -- A step of the draft as a step of the form: "3 Rattlecage Soldier" is a count and a name.
 local function FormStep(step)
 	if type(step) ~= "table" or not GOALS[step.goal] or not ns.TaskWire.IsCleanText(step.target) then
@@ -79,7 +129,7 @@ local function FormStep(step)
 	end
 	local name, count = step.target, 1
 	if step.goal == "kill" or step.goal == "item" then
-		name, count = ns.TaskForm.ParseItem(step.target)
+		name, count = CountAndName(step.target)
 	end
 	if name and #name <= ns.TaskWire.LIMITS.target then
 		return { kind = step.goal, target = name, count = count }
@@ -143,8 +193,23 @@ function TaskDraftHelp.Check(draft)
 	return { title = title, text = text, steps = checked }
 end
 
+local function StepChecked(answer)
+	local text = checking
+	checking = nil
+	local draft = TaskDraftHelp.Check(answer.draft)
+	if draft and #draft.steps > 0 then
+		ns.TaskForm.AddChecked(draft.steps)
+	else
+		ns.TaskForm.AddWritten(text)
+	end
+end
+
 -- The reply `draft_answer`. With no draft, no model answered, or the draft broke a rule.
 function TaskDraftHelp.Receive(answer)
+	if checking then
+		StepChecked(answer)
+		return
+	end
 	suggestion = TaskDraftHelp.Check(answer.draft)
 	state = not suggestion and "empty" or nil
 	Changed()

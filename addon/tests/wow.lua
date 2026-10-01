@@ -128,6 +128,10 @@ TooltipDataProcessor = {
 }
 
 GameTooltip = {
+	SetOwner = function() end,
+	SetItemByID = function() end,
+	Show = function() end,
+	Hide = function() end,
 	GetUnit = function()
 		local unit = wow.tooltip.unit
 		return unit and wow.units[unit].name, unit
@@ -497,6 +501,14 @@ function Widget:HighlightText()
 	self.highlighted = true
 end
 
+function Widget:SetNumeric(numeric)
+	self.numeric = numeric
+end
+
+function Widget:SetMultiLine(multiLine)
+	self.multiLine = multiLine
+end
+
 function Widget:SetMaxLetters(letters)
 	self.maxLetters = letters
 end
@@ -729,6 +741,16 @@ function wow.EditBox()
 	error("no edit box")
 end
 
+-- The box of several lines of the editor, on a page that holds other boxes too.
+function wow.MultiLineBox()
+	for _, widget in ipairs(wow.widgets) do
+		if widget.kind == "EditBox" and widget.multiLine then
+			return widget
+		end
+	end
+	error("no box of several lines")
+end
+
 -- The font strings of a frame that show, in the order of creation.
 function wow.ShownTexts(parent)
 	local texts = {}
@@ -909,5 +931,35 @@ function wow.Trade(partner, trade)
 	wow.Fire("UI_INFO_MESSAGE", wow.TRADE_COMPLETE, "Trade complete.")
 	wow.units.npc = nil
 end
+
+-- The item that the player holds on the cursor: { id, name, count }, or nil.
+wow.cursor = nil
+
+function GetCursorInfo()
+	local item = wow.cursor
+	if item then
+		return "item", item.id, "|cffffffff|Hitem:" .. item.id .. "::::::::|h[" .. item.name .. "]|h|r"
+	end
+end
+
+function ClearCursor()
+	wow.cursor = nil
+end
+
+-- The location of an item stands in for the item on the cursor.
+C_Cursor = {
+	GetCursorItem = function()
+		return wow.cursor and { cursor = true }
+	end,
+}
+
+C_Item = {
+	GetStackCount = function(location)
+		return location and location.cursor and wow.cursor and wow.cursor.count
+	end,
+	GetItemIconByID = function()
+		return 134400
+	end,
+}
 
 return wow

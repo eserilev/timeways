@@ -39,6 +39,7 @@ Hero.lua
 Trust.lua
 TaskPins.lua
 TaskWire.lua
+TaskReward.lua
 TaskChunks.lua
 TaskPeople.lua
 TaskSaved.lua
@@ -57,6 +58,7 @@ Ink.lua
 MapPane.lua
 JournalList.lua
 Editor.lua
+JournalInputs.lua
 JournalFrame.lua
 SelfTest.lua
 Welcome.lua

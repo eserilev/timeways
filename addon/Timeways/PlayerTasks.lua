@@ -260,6 +260,16 @@ local function ClaimList(task)
 	return claims
 end
 
+-- The game can't see an "other" step, so the doer marks it done, and the giver decides.
+function PlayerTasks.MarkDone(key, index)
+	local task = ns.TaskStore.Data().received[key]
+	local step = task and task.steps[index]
+	if not step or task.status ~= "accepted" or step.kind ~= "other" then
+		return
+	end
+	PlayerTasks.Claim(task, index)
+end
+
 -- The turn-in carries every claim again, so a step message that got lost costs nothing.
 function PlayerTasks.AskTurnIn(key)
 	local task = ns.TaskStore.Data().received[key]

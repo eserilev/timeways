@@ -30,13 +30,18 @@ local BULLET = 16
 -- A hint and a help line fade, so they never read like a text of the player.
 local STYLES = {
 	heading = { font = "QuestTitleFont", indent = 0, gap = 14, ink = "title" },
-	section = { font = "GameFontNormal", indent = 0, gap = 14, ink = "title" },
+	-- As the headers of the quest frame of the game: "Description", "Rewards".
+	section = { font = "QuestTitleFont", indent = 0, gap = 16, ink = "title" },
 	prose = { font = "QuestFont", indent = 0, gap = 6, ink = "text" },
 	entry = { font = "QuestFont", indent = BULLET + 2, gap = 10, ink = "text", bullet = true },
 	text = { font = "QuestFont", indent = BULLET + 2, gap = 2, ink = "text" },
 	note = { font = "QuestFontNormalSmall", indent = 0, gap = 0, ink = "faded" },
 	hint = { font = "QuestFontNormalSmall", indent = BULLET + 2, gap = 2, ink = "faded" },
 	help = { font = "QuestFont", indent = 0, gap = 6, ink = "faded" },
+	-- The inputs of JournalInputs.
+	field = { indent = 0, gap = 8 },
+	money = { indent = BULLET + 2, gap = 8 },
+	slots = { indent = BULLET + 2, gap = 8 },
 }
 
 local TAB_PADDING, TAB_GAP = 16, 3
@@ -192,16 +197,33 @@ local function HideFrom(list, first)
 	end
 end
 
-local function DrawLine(n, line, y)
-	local style = STYLES[line.style]
+-- Returns the room that the button of the line takes.
+local function DrawAction(n, line, y)
 	local action = Action(n)
 	action:SetShown(line.action ~= nil)
-	local room = 0
-	if line.action then
-		room = FitButton(action, line.action.label) + 6
-		action:ClearAllPoints()
-		action:SetPoint("TOPRIGHT", page, "TOPLEFT", MARGIN_LEFT + PAGE_WIDTH, -y)
-		action:SetScript("OnClick", line.action.run)
+	if not line.action then
+		return 0
+	end
+	action:ClearAllPoints()
+	action:SetPoint("TOPRIGHT", page, "TOPLEFT", MARGIN_LEFT + PAGE_WIDTH, -y)
+	action:SetScript("OnClick", line.action.run)
+	action:SetEnabled(not line.action.disabled)
+	return FitButton(action, line.action.label) + 6
+end
+
+local function DrawInput(n, line, y, room)
+	FontString(n):Hide()
+	Bullet(n):Hide()
+	local indent = STYLES[line.style].indent
+	local height = ns.JournalInputs.Draw(page, line, MARGIN_LEFT + indent, PAGE_WIDTH - indent - room, y)
+	return math.max(height, line.action and BUTTON_HEIGHT or 0)
+end
+
+local function DrawLine(n, line, y)
+	local style = STYLES[line.style]
+	local room = DrawAction(n, line, y)
+	if ns.JournalInputs.Holds(line) then
+		return DrawInput(n, line, y, room)
 	end
 	local text = FontString(n)
 	local ink = ns.Ink[style.ink]
@@ -231,11 +253,13 @@ local function ShowScrollBar(height)
 end
 
 local function DrawLines(lines)
+	ns.JournalInputs.Begin()
 	local y = MARGIN_TOP
 	for n, line in ipairs(lines) do
 		y = y + (n > 1 and STYLES[line.style].gap or 0)
 		y = y + DrawLine(n, line, y)
 	end
+	ns.JournalInputs.Finish()
 	HideFrom(strings, #lines + 1)
 	HideFrom(bullets, #lines + 1)
 	HideFrom(actions, #lines + 1)

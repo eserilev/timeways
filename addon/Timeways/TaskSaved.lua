@@ -37,8 +37,8 @@ local function IsStep(step)
 	return whole and KINDS[step.kind] == true and IsText(step.target, ns.TaskWire.LIMITS.target)
 end
 
-local function IsSteps(steps)
-	if type(steps) ~= "table" or #steps < 1 or #steps > ns.TaskWire.MAX_STEPS then
+local function IsSteps(steps, least)
+	if type(steps) ~= "table" or #steps < (least or 1) or #steps > ns.TaskWire.MAX_STEPS then
 		return false
 	end
 	for _, step in ipairs(steps) do
@@ -84,7 +84,7 @@ local function IsTask(task)
 		and IsName(task.giver)
 		and IsName(task.doer)
 		and IsText(task.title, limits.title)
-		and IsText(task.text, limits.text)
+		and IsText(task.text, limits.text, true)
 		and IsText(task.reward, limits.reward, true)
 		and IsSteps(task.steps)
 		and STATUSES[task.status] == true
@@ -181,10 +181,56 @@ local function CleanNames(names)
 	end
 end
 
+local function IsItem(item)
+	return type(item) == "table"
+		and IsNumber(item.id)
+		and IsText(item.name, ns.TaskWire.LIMITS.target)
+		and IsNumber(item.count)
+		and item.count >= 1
+		and item.count <= ns.TaskWire.MAX_COUNT
+end
+
+local function IsRewardItems(items)
+	if type(items) ~= "table" or #items > ns.TaskReward.MAX_ITEMS then
+		return false
+	end
+	for _, item in ipairs(items) do
+		if not IsItem(item) then
+			return false
+		end
+	end
+	return true
+end
+
+-- A task that you wrote and did not send yet. It has no player and no status.
+local function IsDraft(draft)
+	local limits = ns.TaskWire.LIMITS
+	return type(draft) == "table"
+		and type(draft.id) == "string"
+		and draft.id:match("^%w+$") ~= nil
+		and IsText(draft.title, limits.title)
+		and IsText(draft.text, limits.text, true)
+		and IsNumber(draft.money)
+		and draft.money <= ns.TaskReward.MAX_COPPER
+		and IsRewardItems(draft.items)
+		and ns.TaskReward.Fits(draft.money, draft.items)
+		and IsSteps(draft.steps, 0)
+		and IsNumber(draft.savedAt)
+end
+
+local function CleanDrafts(drafts)
+	for key, draft in pairs(drafts) do
+		if type(key) ~= "string" or not IsDraft(draft) or draft.id ~= key then
+			drafts[key] = nil
+		end
+	end
+end
+
 -- `data` has the shape of TaskStore.Data, with every table in place.
 function TaskSaved.Clean(data)
 	CleanTasks(data.given)
 	CleanTasks(data.received)
+	CleanDrafts(data.drafts)
 	CleanRecords(data)
 	CleanParty(data.party)
 	CleanNames(data.blocked)

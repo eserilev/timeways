@@ -160,14 +160,16 @@ fn act(corvin: &players::Player, action: &Action) {
     }
 }
 
-/// Every page of the Tasks section renders, and no line holds a `|`.
+/// Every page of the Tasks section renders, and no line holds a `|`. An input of the form
+/// has no text of its own.
 fn check_pages(corvin: &players::Player) {
     corvin.run(
         "for _, row in ipairs(ns.Journal.Page('quests').list) do
                  if row.key then
                      ns.Journal.Select('quests', row.key)
                      for _, line in ipairs(ns.Journal.Page('quests').lines) do
-                         assert(not line.text:find('|', 1, true), line.text)
+                         local text = line.text or ''
+                         assert(not text:find('|', 1, true), text)
                      end
                  end
              end",

@@ -136,3 +136,52 @@ fn a_blocked_player_of_an_older_file_stays_blocked() {
 
     assert!(blocked);
 }
+
+const GOOD_DRAFT: &str = "{ id = 'd1', title = 'The Lost Lantern', text = '', money = 50000,
+    items = { { id = 2589, name = 'Linen Cloth', count = 10 } },
+    steps = { { kind = 'other', target = 'Find my lantern', count = 1 } }, savedAt = 100 }";
+
+/// The ids of the saved tasks that you did not send, after the addon reads this table.
+fn kept_drafts(saved: &str) -> Vec<String> {
+    let game = Game::new();
+    game.eval(&format!(
+        "TimewaysTasks = {saved}
+         local keys = {{}}
+         for key in pairs(ns.TaskStore.Data().drafts) do table.insert(keys, key) end
+         table.sort(keys)
+         return keys"
+    ))
+}
+
+#[test]
+fn a_saved_task_with_a_broken_field_is_dropped() {
+    let broken = [
+        "title = ''",
+        "money = -1",
+        "money = 1e12",
+        "items = { { id = 1, name = 'A |cffff0000red|r gem', count = 1 } }",
+        "items = { { id = 1, name = 'Gem', count = 0 } }",
+        "items = { 1, 2, 3, 4, 5, 6, 7 }",
+        "steps = { { kind = 'fly', target = 'Brill', count = 1 } }",
+        "savedAt = 'yesterday'",
+        "id = 'other'",
+    ];
+    for field in broken {
+        let saved = format!(
+            "{{ drafts = {{ d1 = {GOOD_DRAFT}, d2 = {GOOD_DRAFT} }} }}
+             TimewaysTasks.drafts.d2.id = 'd2'
+             TimewaysTasks.drafts.d2.{field}"
+        );
+        assert_eq!(kept_drafts(&saved), ["d1"], "{field}");
+    }
+}
+
+#[test]
+fn a_saved_task_with_no_steps_yet_stays() {
+    let saved = format!(
+        "{{ drafts = {{ d1 = {GOOD_DRAFT} }} }}
+         TimewaysTasks.drafts.d1.steps = {{}}"
+    );
+
+    assert_eq!(kept_drafts(&saved), ["d1"]);
+}

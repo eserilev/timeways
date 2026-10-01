@@ -58,7 +58,7 @@ fn pump(game: &Game, bridge: &mut FakeBridge, from: usize) -> usize {
 fn lines(game: &Game) -> Vec<String> {
     game.eval(
         "local out = {}
-         for _, line in ipairs(ns.Journal.Page('quests').lines) do table.insert(out, line.text) end
+         for _, line in ipairs(ns.Journal.Page('quests').lines) do table.insert(out, line.text or '') end
          return out",
     )
 }
@@ -80,9 +80,9 @@ fn ask_for_help(model: fake_bridge::Model) -> Game {
         "ns.JournalFrame.Open('quests')
          ns.TaskForm.Open()
          for _, button in ipairs(ns.Journal.Page('quests').buttons) do
-             if button.label == 'Help me write this' then button.run() end
+             if button.label == 'Help me write' then button.run() end
          end
-         wow.EditBox():SetText('Ada wants a friend to check on bram at the pond')
+         wow.MultiLineBox():SetText('Ada wants a friend to check on bram at the pond')
          ns.Editor.Save()",
     );
     pump(&game, &mut bridge, done);
@@ -139,17 +139,65 @@ fn a_draft_with_a_place_that_the_world_does_not_know_never_reaches_the_form() {
 
     let page = lines(&game);
     assert!(!page.contains(&"Suggestion".to_string()));
-    assert!(
-        page.contains(&"Timeways couldn't turn that into a task. Try other words.".to_string())
-    );
+    assert!(page.contains(&"Couldn't write that one. Try other words.".to_string()));
 }
 
 #[test]
 fn with_no_model_the_form_says_that_no_draft_came() {
     let game = ask_for_help(Box::new(|_| None));
 
-    assert!(
-        lines(&game)
-            .contains(&"Timeways couldn't turn that into a task. Try other words.".to_string())
+    assert!(lines(&game).contains(&"Couldn't write that one. Try other words.".to_string()));
+}
+
+/// Ada stands at Mill Pond, meets Farmer Bram, and types a step on the form.
+fn type_a_step(model: fake_bridge::Model, step: &str) -> Game {
+    let game = game();
+    let mut bridge = FakeBridge::new(story()).with_model(model);
+    game.run(
+        "wow.units.player = { name = 'Ada', level = 12, player = true }
+         wow.zone, wow.subzone = 'Testvale', 'Mill Pond'
+         wow.Fire('PLAYER_ENTERING_WORLD')
+         wow.units.npc = { name = 'Farmer Bram' }
+         wow.Fire('GOSSIP_SHOW')
+         ns.Outbox.Flush()",
     );
+    let done = pump(&game, &mut bridge, 0);
+    game.run(&format!(
+        "ns.JournalFrame.Open('quests')
+         ns.TaskForm.Open()
+         ns.TaskForm.SetStepText('{step}')
+         ns.TaskForm.AddStep()"
+    ));
+    pump(&game, &mut bridge, done);
+    game
+}
+
+#[test]
+fn a_typed_step_comes_back_through_the_bridge_as_a_step_the_game_checks() {
+    let game = type_a_step(
+        Box::new(|prompt| {
+            let answer = if prompt.contains("Only the steps in these words") {
+                r#"{"title": "Bram", "text": "Talk to him.", "steps": [{"goal": "talk to", "target": "Farmer Bram"}]}"#
+            } else {
+                "Our hero walks on."
+            };
+            Some(answer.to_string())
+        }),
+        "talk to bram",
+    );
+
+    let page = lines(&game);
+    assert!(
+        page.contains(&"Talk to Farmer Bram.".to_string()),
+        "{page:?}"
+    );
+}
+
+#[test]
+fn with_no_model_a_typed_step_stays_as_written() {
+    let game = type_a_step(Box::new(|_| None), "wave at the pond");
+
+    let page = lines(&game);
+    assert!(page.contains(&"wave at the pond.".to_string()), "{page:?}");
+    assert!(page.contains(&"You check this one at turn-in.".to_string()));
 }

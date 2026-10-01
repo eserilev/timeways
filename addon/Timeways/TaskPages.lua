@@ -8,7 +8,7 @@ local TaskPages = {}
 ns.TaskPages = TaskPages
 
 local GIVE, BLOCKED = "give", "blocked"
-local GOT_PREFIX, GAVE_PREFIX = "got:", "gave:"
+local GOT_PREFIX, GAVE_PREFIX, DRAFT_PREFIX = "got:", "gave:", "draft:"
 
 local function Line(style, text, action)
 	return { style = style, text = text, action = action }
@@ -62,6 +62,9 @@ local STEP_TEXTS = {
 	item = function(step, giver)
 		local count = step.count > 1 and (step.count .. " ") or ""
 		return "Bring " .. count .. step.target .. " to " .. giver .. "."
+	end,
+	other = function(step)
+		return Sentence(step.target)
 	end,
 }
 
@@ -145,8 +148,11 @@ local function GotRows(rows)
 end
 
 local function GaveRows(rows)
-	rows[#rows + 1] = Group("Tasks I gave")
-	rows[#rows + 1] = Item(GIVE, "Give a task", "Write one for a friend")
+	rows[#rows + 1] = Group("Tasks you wrote")
+	rows[#rows + 1] = Item(GIVE, "New task")
+	for _, entry in ipairs(ns.TaskForm.Saved()) do
+		rows[#rows + 1] = Item(DRAFT_PREFIX .. entry.key, entry.task.title, "Not sent yet")
+	end
 	for _, entry in ipairs(ns.PlayerTasks.Given()) do
 		local task = entry.task
 		local detail = "To " .. Short(task.doer) .. ". " .. TaskPages.RewardState(task)
@@ -164,7 +170,9 @@ end
 -- The key of the first player task of the list, for a book with no other task to open.
 function TaskPages.FirstKey()
 	for _, row in ipairs(TaskPages.Rows()) do
-		if row.style == "item" and row.key ~= GIVE and row.key ~= BLOCKED then
+		local task = row.style == "item"
+			and (row.key:sub(1, #GOT_PREFIX) == GOT_PREFIX or row.key:sub(1, #GAVE_PREFIX) == GAVE_PREFIX)
+		if task then
 			return row.key
 		end
 	end
@@ -215,12 +223,25 @@ function TaskPages.ChronicleLine(task)
 	return line
 end
 
-local function GotLines(task)
+-- The game can't see an "other" step, so the doer says when it is done.
+local function MarkDone(key, task, index)
+	if task.status ~= "accepted" or task.steps[index].kind ~= "other" or task.claims[index] then
+		return nil
+	end
+	return Button("Done", function()
+		ns.PlayerTasks.MarkDone(key, index)
+	end)
+end
+
+local function GotLines(key, task)
 	local giver = Short(task.giver)
 	local lines = { Line("heading", task.title), Line("note", GotStatus(task)), Line("text", From(task)) }
-	lines[#lines + 1] = Line("prose", task.text)
+	if task.text ~= "" then
+		lines[#lines + 1] = Line("prose", task.text)
+	end
 	for index, step in ipairs(task.steps) do
-		lines[#lines + 1] = Line("entry", GotProgress(task, index) .. TaskPages.StepText(step, giver))
+		local text = GotProgress(task, index) .. TaskPages.StepText(step, giver)
+		lines[#lines + 1] = Line("entry", text, MarkDone(key, task, index))
 	end
 	local done = task.status == "done" and "(done) " or ""
 	lines[#lines + 1] = Line("entry", done .. "Turn in to " .. giver .. ", face to face.")
@@ -294,6 +315,8 @@ local function ProofLine(step, task)
 	local text = PROOF_TEXTS[level]
 	if level == "unconfirmed" and step.step.kind == "item" then
 		text = "Not confirmed: your addon saw no trade with these items."
+	elseif claim and step.step.kind == "other" then
+		text = "They say it's done. You decide."
 	end
 	if claim then
 		text = text .. " " .. Clock(claim.at) .. "."
@@ -373,92 +396,112 @@ local function GaveButtons(id, task)
 	return buttons
 end
 
--- The form to give a task ------------------------------------------------------------------
+-- The form to write a task ------------------------------------------------------------------
 
-local function Edit(field)
-	return {
-		label = "Edit",
-		run = function()
-			ns.TaskForm.Edit(field)
-		end,
+local LIMITS = ns.TaskWire.LIMITS
+
+local function TitleLines(lines, form)
+	lines[#lines + 1] = {
+		style = "field",
+		text = "Title",
+		field = { value = form.title, letters = LIMITS.title, change = ns.TaskForm.SetTitle },
 	}
-end
-
-local function FieldLines(lines, heading, field, empty, style)
-	local form = ns.TaskForm.Draft()
-	lines[#lines + 1] = Line("section", heading, Edit(field))
-	if form[field] == "" then
-		lines[#lines + 1] = Line("hint", empty)
+	if ns.TaskForm.TitleTooLong() then
+		lines[#lines + 1] = Line("hint", "Too long. Try a shorter title.")
+	end
+	if form.text == "" then
+		lines[#lines + 1] = Line("help", "Description (optional)", Button("Add", ns.TaskForm.EditText))
 	else
-		lines[#lines + 1] = Line(style, form[field])
+		lines[#lines + 1] = Line("prose", form.text, Button("Edit", ns.TaskForm.EditText))
 	end
 end
 
-local function StepLines(lines)
+local function Remove(index)
+	return Button("Remove", function()
+		ns.TaskForm.RemoveStep(index)
+	end)
+end
+
+local function StepInputLines(lines, form)
+	if ns.TaskForm.Full() then
+		return
+	end
+	local busy = ns.TaskDraftHelp.Busy()
+	lines[#lines + 1] = {
+		style = "field",
+		text = "Add a step, like: kill 5 bats",
+		field = {
+			value = form.stepText,
+			letters = LIMITS.target,
+			change = ns.TaskForm.SetStepText,
+			submit = ns.TaskForm.AddStep,
+		},
+		action = busy and Disabled("Add") or Button("Add", ns.TaskForm.AddStep),
+	}
+	if ns.TaskForm.StepTooLong() then
+		lines[#lines + 1] = Line("hint", "Too long. Try a shorter step.")
+	end
+end
+
+local function StepLines(lines, form)
 	lines[#lines + 1] = Line("section", "Steps")
-	lines[#lines + 1] = Line("help", "Only steps the game can check. Add the same foe again for more kills.")
-	for index, step in ipairs(ns.TaskForm.Draft().steps) do
-		local remove = {
-			label = "Remove",
-			run = function()
-				ns.TaskForm.RemoveStep(index)
-			end,
-		}
-		lines[#lines + 1] = Line("entry", TaskPages.StepText(step, "you"), remove)
+	for index, step in ipairs(form.steps) do
+		lines[#lines + 1] = Line("entry", TaskPages.StepText(step, "you"), Remove(index))
+		if step.kind == "other" then
+			lines[#lines + 1] = Line("hint", "You check this one at turn-in.")
+		end
 	end
-	lines[#lines + 1] = Line("entry", "Turn in to you, face to face. Always last.")
+	local checking = ns.TaskDraftHelp.Checking()
+	if checking then
+		lines[#lines + 1] = Line("entry", Sentence(checking))
+		lines[#lines + 1] = Line("hint", "Checking...")
+	end
+	lines[#lines + 1] = Line("entry", "Turn in to you, face to face.")
+	StepInputLines(lines, form)
 end
 
-local function Add(run)
-	return { label = "Add", run = run }
+local function RewardLines(lines, form)
+	lines[#lines + 1] = Line("section", "Reward")
+	local coins = { ns.TaskReward.Coins(form.money) }
+	lines[#lines + 1] = { style = "money", money = { coins = coins, change = ns.TaskForm.SetMoney } }
+	lines[#lines + 1] = {
+		style = "slots",
+		slots = {
+			items = form.items,
+			size = ns.TaskReward.MAX_ITEMS,
+			drop = ns.TaskForm.DropItem,
+			remove = ns.TaskForm.RemoveItem,
+		},
+	}
+	lines[#lines + 1] = Line("help", "You trade it to them at turn-in.")
 end
 
-local function ChoiceLines(lines)
-	lines[#lines + 1] = Line("section", "Add a step")
-	local choices = ns.TaskForm.Choices()
-	for _, choice in ipairs(choices) do
-		lines[#lines + 1] = Line(
-			"text",
-			choice.label,
-			Add(function()
-				ns.TaskForm.Choose(choice)
-			end)
-		)
-	end
-	lines[#lines + 1] = Line("text", "Bring an item to you.", Add(ns.TaskForm.AddItem))
-	if not UnitExists("target") then
-		lines[#lines + 1] = Line("help", "Target someone to add a talk, defeat, or find step.")
-	end
-end
-
-local function RecipientLines(lines)
-	lines[#lines + 1] = Line("section", "Who gets it?")
+local function RecipientLines(lines, form)
+	lines[#lines + 1] = Line("section", "Send to")
 	local recipients = ns.PlayerTasks.Recipients()
-	local picked = ns.TaskForm.Draft().doer
 	for _, recipient in ipairs(recipients) do
-		local name = Short(recipient.name) .. " (" .. RELATIONS[recipient.relation] .. ")"
-		local pick = {
-			label = "Pick",
-			run = function()
-				ns.TaskForm.Pick(recipient.name)
-			end,
-		}
-		if recipient.name == picked then
-			lines[#lines + 1] = Line("entry", name .. ". Picked.")
+		local name = Short(recipient.name) .. " (" .. recipient.relation .. ")"
+		if recipient.name == form.doer then
+			lines[#lines + 1] = Line("entry", name)
 		else
-			lines[#lines + 1] = Line("text", name, pick)
+			lines[#lines + 1] = Line(
+				"text",
+				name,
+				Button("Pick", function()
+					ns.TaskForm.Pick(recipient.name)
+				end)
+			)
 		end
 	end
 	if #recipients == 0 then
-		lines[#lines + 1] = Line("hint", "Nobody online in your party, guild, or friends has Timeways right now.")
+		lines[#lines + 1] = Line("help", "Party, guild, and friends with Timeways show up here.")
 	end
-	lines[#lines + 1] = Line("help", "Party, guild, and friends who use Timeways.")
 end
 
 local HELP_STATES = {
-	asking = "Writing a draft...",
+	asking = "Writing...",
 	failed = "The desktop app didn't answer. Try again later.",
-	empty = "Timeways couldn't turn that into a task. Try other words.",
+	empty = "Couldn't write that one. Try other words.",
 }
 
 local function SuggestionLines(lines)
@@ -477,32 +520,50 @@ local function SuggestionLines(lines)
 		lines[#lines + 1] = Line("entry", TaskPages.StepText(step, "you"))
 	end
 	local keep = { label = "Keep mine", run = ns.TaskDraftHelp.Keep }
-	lines[#lines + 1] = Line("help", "Nothing changes until you pick. You can change every word after.", keep)
+	lines[#lines + 1] = Line("help", "Nothing changes until you pick.", keep)
 end
 
-local function FormLines()
-	local lines = { Line("heading", "Give a task") }
+local function FormLines(form)
+	local lines = {}
 	SuggestionLines(lines)
-	FieldLines(lines, "Name your task", "title", "No name yet.", "text")
-	FieldLines(lines, "What should they do?", "text", "Tell the story: who, what, and why.", "prose")
-	FieldLines(lines, "You promise", "reward", "Nothing. That's fine too.", "text")
-	lines[#lines + 1] = Line("text", "Story reward: a line in their journal, with your name.")
-	lines[#lines + 1] = Line("help", "Timeways can't hand over items. You trade the reward yourself when you meet.")
-	StepLines(lines)
-	ChoiceLines(lines)
-	RecipientLines(lines)
-	local missing = ns.TaskForm.Missing()
-	if missing then
-		lines[#lines + 1] = Line("hint", missing)
-	end
+	TitleLines(lines, form)
+	StepLines(lines, form)
+	RewardLines(lines, form)
+	RecipientLines(lines, form)
 	return lines
 end
 
-local function FormButtons()
-	local buttons = { Button("Help me write this", ns.TaskDraftHelp.Open) }
+local function FormButtons(form)
+	local buttons = {}
+	local busy = ns.TaskDraftHelp.Busy()
+	buttons[#buttons + 1] = busy and Disabled("Help me write") or Button("Help me write", ns.TaskDraftHelp.Open)
+	if form.id then
+		buttons[#buttons + 1] = Button("Delete", function()
+			StaticPopup_Show("TIMEWAYS_DELETE_TASK")
+		end)
+	end
 	buttons[#buttons + 1] = Button("Cancel", ns.TaskForm.Cancel)
-	buttons[#buttons + 1] = ns.TaskForm.Missing() and Disabled("Send") or Button("Send", ns.TaskForm.Send)
+	buttons[#buttons + 1] = ns.TaskForm.CantSave() and Disabled("Save") or Button("Save", ns.TaskForm.Save)
+	buttons[#buttons + 1] = ns.TaskForm.CantSend() and Disabled("Send") or Button("Send", ns.TaskForm.Send)
 	return buttons
+end
+
+StaticPopupDialogs.TIMEWAYS_DELETE_TASK = {
+	text = "Delete this task?",
+	button1 = "Delete",
+	button2 = "Cancel",
+	timeout = 0,
+	whileDead = 1,
+	hideOnEscape = 1,
+	OnAccept = function()
+		ns.TaskForm.Delete()
+	end,
+}
+
+local function Form(id)
+	local form = ns.TaskForm.For(id)
+	local crumb = id and form.title or "New task"
+	return { lines = FormLines(form), buttons = FormButtons(form), crumb = crumb, footer = ns.TaskForm.CantSend() or "" }
 end
 
 -- The players that you blocked ------------------------------------------------------------
@@ -527,16 +588,31 @@ end
 
 -- The page of a key -------------------------------------------------------------------------
 
+local PREFIXES = { GOT_PREFIX, GAVE_PREFIX, DRAFT_PREFIX }
+
 function TaskPages.Owns(key)
 	if key == GIVE or key == BLOCKED then
 		return true
 	end
-	return type(key) == "string" and (key:sub(1, #GOT_PREFIX) == GOT_PREFIX or key:sub(1, #GAVE_PREFIX) == GAVE_PREFIX)
+	if type(key) ~= "string" then
+		return false
+	end
+	for _, prefix in ipairs(PREFIXES) do
+		if key:sub(1, #prefix) == prefix then
+			return true
+		end
+	end
+	return false
 end
 
 local function Got(key)
 	local task = ns.TaskStore.Data().received[key]
-	return task and { lines = GotLines(task), buttons = GotButtons(key, task), crumb = task.title }
+	return task and { lines = GotLines(key, task), buttons = GotButtons(key, task), crumb = task.title }
+end
+
+-- A saved task that is gone, such as one sent from another form, leaves the page empty.
+local function Saved(id)
+	return ns.TaskStore.Data().drafts[id] and Form(id)
 end
 
 local function Gave(id)
@@ -549,7 +625,9 @@ end
 function TaskPages.Fill(page, key)
 	local filled
 	if key == GIVE then
-		filled = { lines = FormLines(), buttons = FormButtons(), crumb = "Give a task" }
+		filled = Form(nil)
+	elseif key:sub(1, #DRAFT_PREFIX) == DRAFT_PREFIX then
+		filled = Saved(key:sub(#DRAFT_PREFIX + 1))
 	elseif key == BLOCKED then
 		filled = { lines = BlockedLines(), buttons = {}, crumb = "Blocked players" }
 	elseif key:sub(1, #GOT_PREFIX) == GOT_PREFIX then
@@ -560,6 +638,7 @@ function TaskPages.Fill(page, key)
 	page.selected = key
 	if filled then
 		page.lines, page.buttons, page.crumb = filled.lines, filled.buttons, filled.crumb
+		page.footer = filled.footer
 	end
 	return page
 end
