@@ -163,6 +163,11 @@ The job runs every check of CI, builds `timeways-story` and `timeways-pack` for 
 | `SHA256SUMS` | The sums of all archives |
 | `timeways-manifest.json` | The version, the addon version (`app_version`), the archive and sum for each target, and the addon zip |
 
+The desktop app updates itself from these files. When the CurseForge app updates the addon, the desktop app reads `## Version` in `Timeways.toc` and installs the release with that tag. So two rules hold for each release:
+
+- Keep `## Version: @project-version@` in `Timeways.toc`. The packager writes the tag there.
+- Attach `timeways-manifest.json` to every release, at its own tag.
+
 If a job fails, run the workflow again. It keeps the draft release and replaces the files that it uploaded before.
 
 `scripts/check-release-manifest.py` checks the release folder with the rules of the setup of Gnomish Relay. Each push to CI runs the release steps on fake programs (`scripts/release-dry-run.sh`), so a tag finds no surprise. A test checks that `ns.App.version` is in the range of the pinned bridge.
