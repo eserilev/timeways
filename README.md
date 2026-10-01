@@ -151,7 +151,7 @@ A tag starts `.github/workflows/release.yml`:
 
 1. Set the new version in `crates/story/Cargo.toml`. The tag must match it.
 2. Add a short entry for the new version at the top of `CHANGELOG.md`. CurseForge shows it.
-3. Push a tag such as `v0.2.0`. A tag with a `-`, such as `v0.2.0-rc.1`, makes a prerelease. Setup never downloads a prerelease.
+3. Push a tag such as `v0.2.0`. A tag with a `-`, such as `v0.2.0-rc.1`, also makes a normal release, so testers install it with the same line as players.
 
 The job runs every check of CI, builds `timeways-story` and `timeways-pack` for Linux (x86_64), macOS (arm64 and x86_64), and Windows (x86_64), and makes a GitHub release with these files:
 

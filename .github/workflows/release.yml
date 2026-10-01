@@ -29,8 +29,10 @@ jobs:
     uses: ./.github/workflows/ci.yml
 
   # The release starts as a draft, so nobody downloads half of it. A re-run keeps the draft
-  # of the failed run. A tag with "-", such as v0.2.0-rc.1, makes a prerelease, which never
-  # becomes the latest release that setup downloads.
+  # of the failed run. Setup downloads only the latest release, and a prerelease never
+  # becomes it. So an RC tag, such as v0.2.0-rc.1, makes a normal release: the testers
+  # install it with the same line as players.
+  # TODO: make "-" tags prereleases again at the first release for real players.
   draft:
     needs: [version, test]
     runs-on: ubuntu-latest
@@ -43,11 +45,7 @@ jobs:
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
             exit 0
           fi
-          prerelease=()
-          if [[ $GITHUB_REF_NAME == *-* ]]; then
-            prerelease=(--prerelease)
-          fi
-          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft "${prerelease[@]}" \
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft \
             --title "$GITHUB_REF_NAME" --notes "Install: see the README."
 
   build:
