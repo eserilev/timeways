@@ -27,3 +27,5 @@ unexpected_cfgs = { level = "warn", check-cfg = ["cfg(kani)"] }
 pedantic = { level = "warn", priority = -1 }
 unwrap_used = "deny"
 expect_used = "deny"
+# Its fix, `assert_eq!(x, [] as [T; 0])`, reads worse than `assert!(x.is_empty())`.
+assert_is_empty = "allow"

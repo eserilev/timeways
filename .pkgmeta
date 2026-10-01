@@ -23,6 +23,7 @@ ignore:
   - clippy.toml
   - crates
   - deny.toml
+  - docs
   - fuzz
   - GAMEPLAY.md
   - README.md
