@@ -64,16 +64,21 @@ local function IsMark(aura)
 	return not IGNORED[aura.spellId] and not told[aura.spellId] and not FromPlayer(aura) and Lasting(aura)
 end
 
--- A full update is the state at login or after a load screen, not a new aura.
+-- A full update is the state at login or after a load screen, not a new aura. The client
+-- can hide the fields of an update, and a test of a hidden field is a Lua error.
 function QuestAuras.Changed(unit, info)
-	if unit ~= "player" or type(info) ~= "table" or info.isFullUpdate or InCombatLockdown() then
+	if unit ~= "player" or type(info) ~= "table" or InCombatLockdown() then
+		return
+	end
+	local full, added = info.isFullUpdate, info.addedAuras
+	if issecretvalue(full) or issecretvalue(added) or full or type(added) ~= "table" then
 		return
 	end
 	local quest = ns.GameQuests.Recent()
-	if not quest or type(info.addedAuras) ~= "table" then
+	if not quest then
 		return
 	end
-	for _, aura in ipairs(info.addedAuras) do
+	for _, aura in ipairs(added) do
 		if IsMark(aura) then
 			told[aura.spellId] = true
 			ns.Outbox.Add(ns.Inputs.QuestMarked(time(), quest, aura.name))
