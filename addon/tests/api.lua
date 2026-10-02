@@ -1,7 +1,7 @@
--- The WoW Forever 1.60.1.70124 API that Timeways uses.
+-- The WoW Forever 1.60.1.70009 API that Timeways uses.
 -- Written by scripts/wow-api.sh. Do not edit.
 return {
-	build = "1.60.1.70124",
+	build = "1.60.1.70009",
 	globals = {
 		"ActionStatus",
 		"Ambiguate",
