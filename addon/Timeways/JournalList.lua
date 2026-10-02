@@ -13,12 +13,40 @@ local FLOAT_WIDTH, FLOAT_INSET = 250, 10
 local PADDING = 8
 -- The scroll bar of the template stands right of the scroll frame.
 local SCROLL_BAR = 24
-local ITEM_HEIGHT, GROUP_HEIGHT, HELP_GAP = 36, 22, 8
+local HELP_GAP = 8
 local MARK_WIDTH = 60
 
+-- Over the map, the list prints in the gold UI fonts of the Quest Log. On parchment, it
+-- prints in the quest fonts of the right page. Their shadow smudges dark ink, so it goes.
 local SKINS = {
-	map = { title = ns.Ink.cream, detail = ns.Ink.muted, group = ns.Ink.gold },
-	sheet = { title = ns.Ink.text, detail = ns.Ink.faded, group = ns.Ink.title },
+	map = {
+		title = ns.Ink.cream,
+		detail = ns.Ink.muted,
+		group = ns.Ink.gold,
+		selected = ns.Ink.selected,
+		titleFont = "GameFontNormal",
+		detailFont = "GameFontHighlightSmall",
+		groupFont = "GameFontNormalSmall",
+		shadow = { 1, -1 },
+		capitals = true,
+		itemHeight = 36,
+		groupHeight = 22,
+		detailTop = -20,
+	},
+	sheet = {
+		title = ns.Ink.text,
+		detail = ns.Ink.faded,
+		group = ns.Ink.title,
+		selected = ns.Ink.selectedOnParchment,
+		titleFont = "QuestFont",
+		detailFont = "QuestFontNormalSmall",
+		groupFont = "QuestTitleFont",
+		shadow = { 0, 0 },
+		capitals = false,
+		itemHeight = 42,
+		groupHeight = 28,
+		detailTop = -23,
+	},
 }
 
 local pane, box, night, parchment, scroll, child
@@ -55,6 +83,12 @@ local function Color(text, color)
 	text:SetTextColor(color[1], color[2], color[3])
 end
 
+local function Ink(text, font, color, skin)
+	text:SetFontObject(font)
+	text:SetShadowOffset(unpack(SKINS[skin].shadow))
+	Color(text, color)
+end
+
 local function Label(parent, font)
 	local label = parent:CreateFontString(nil, "ARTWORK", font)
 	label:SetJustifyH("LEFT")
@@ -67,15 +101,12 @@ local function ItemButton(n)
 		return items[n]
 	end
 	local button = CreateFrame("Button", nil, child)
-	button:SetHeight(ITEM_HEIGHT)
 	button:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
 	button.shade = button:CreateTexture(nil, "BACKGROUND")
 	button.shade:SetAllPoints(button)
-	button.shade:SetColorTexture(unpack(ns.Ink.selected))
 	button.title = Label(button, "GameFontNormal")
-	button.title:SetPoint("TOPLEFT", button, "TOPLEFT", PADDING, -4)
+	button.title:SetPoint("TOPLEFT", button, "TOPLEFT", PADDING, -5)
 	button.detail = Label(button, "GameFontHighlightSmall")
-	button.detail:SetPoint("TOPLEFT", button, "TOPLEFT", PADDING, -20)
 	button.mark = Label(button, "GameFontHighlightSmall")
 	button.mark:SetJustifyH("RIGHT")
 	button.mark:SetPoint("RIGHT", button, "RIGHT", -PADDING, 0)
@@ -90,34 +121,39 @@ local function Text(n)
 end
 
 local function DrawItem(button, row, skin, openKey)
-	local colors = SKINS[skin]
+	local skinned = SKINS[skin]
 	local width = RowWidth(skin)
-	button:SetWidth(width)
+	button:SetSize(width, skinned.itemHeight)
 	button.title:SetText(row.text)
 	button.title:SetWidth(width - 2 * PADDING - (row.mark and MARK_WIDTH or 0))
-	Color(button.title, colors.title)
+	Ink(button.title, skinned.titleFont, skinned.title, skin)
+	button.detail:SetPoint("TOPLEFT", button, "TOPLEFT", PADDING, skinned.detailTop)
 	button.detail:SetText(row.detail or "")
 	button.detail:SetWidth(width - 2 * PADDING)
-	Color(button.detail, colors.detail)
+	Ink(button.detail, skinned.detailFont, skinned.detail, skin)
 	button.mark:SetText(row.mark or "")
-	Color(button.mark, colors.detail)
+	Ink(button.mark, skinned.detailFont, skinned.detail, skin)
+	button.shade:SetColorTexture(unpack(skinned.selected))
 	button.shade:SetShown(row.key == openKey)
 	button:SetScript("OnClick", function()
 		ns.JournalFrame.Select(row.key)
 	end)
-	return ITEM_HEIGHT
+	return skinned.itemHeight
 end
 
--- A group title is one short line in capitals. A line of help wraps.
+-- A group title is one short line, in capitals over the map. A line of help wraps.
 local function DrawText(text, row, skin)
-	local colors = SKINS[skin]
-	local group = row.style == "group"
-	text:SetFontObject(group and "GameFontNormalSmall" or "GameFontHighlightSmall")
+	local skinned = SKINS[skin]
 	text:SetJustifyH("LEFT")
 	text:SetWidth(RowWidth(skin) - 2 * PADDING)
-	text:SetText(group and row.text:upper() or row.text)
-	Color(text, group and colors.group or colors.detail)
-	return group and GROUP_HEIGHT or text:GetStringHeight() + HELP_GAP
+	if row.style == "group" then
+		Ink(text, skinned.groupFont, skinned.group, skin)
+		text:SetText(skinned.capitals and row.text:upper() or row.text)
+		return skinned.groupHeight
+	end
+	Ink(text, skinned.detailFont, skinned.detail, skin)
+	text:SetText(row.text)
+	return text:GetStringHeight() + HELP_GAP
 end
 
 local function Place(widget, y)

@@ -637,3 +637,34 @@ fn an_entry_number_that_is_no_whole_number_removes_nothing_and_raises_no_error()
     assert_eq!(game.eval::<u32>("#wow.popups"), 0);
     assert!(game.sent().is_empty());
 }
+
+/// The game's UI fonts have a shadow that smudges dark ink, so the parchment list takes
+/// the quest fonts of the right page. Only the list sets a shadow.
+#[test]
+fn the_questions_on_parchment_print_in_the_quest_fonts_with_no_shadow() {
+    let game = open_book(FILLED);
+
+    let fonts: Vec<String> = game.eval(
+        "local out = {}
+         for _, widget in ipairs(wow.widgets) do
+             local text = widget.text
+             if widget.kind == 'FontString' and widget.shown and widget.shadow
+                 and (text == 'About your hero' or text == 'What does your character want?'
+                     or text == 'Find my brother.') then
+                 local shadow = widget.shadow[1] .. ',' .. widget.shadow[2]
+                 table.insert(out, text .. ': ' .. tostring(widget.font) .. ' ' .. shadow)
+             end
+         end
+         table.sort(out)
+         return out",
+    );
+
+    assert_eq!(
+        fonts,
+        [
+            "About your hero: QuestTitleFont 0,0",
+            "Find my brother.: QuestFontNormalSmall 0,0",
+            "What does your character want?: QuestFont 0,0",
+        ]
+    );
+}

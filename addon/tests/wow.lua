@@ -586,8 +586,18 @@ local function Layered(widget, layer, sublevel)
 	return widget
 end
 
-function Widget:CreateFontString(_, layer)
-	return Layered(NewWidget("FontString", nil, self), layer)
+function Widget:CreateFontString(_, layer, font)
+	local text = Layered(NewWidget("FontString", nil, self), layer)
+	text.font = font
+	return text
+end
+
+function Widget:SetFontObject(font)
+	self.font = font
+end
+
+function Widget:SetShadowOffset(x, y)
+	self.shadow = { x, y }
 end
 
 function Widget:CreateTexture(_, layer, _, sublevel)
