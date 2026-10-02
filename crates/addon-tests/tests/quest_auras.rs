@@ -155,8 +155,9 @@ fn an_aura_of_another_unit_or_a_broken_update_raises_no_error() {
     assert!(marks(&game).is_empty());
 }
 
-/// Since 2026-10-01 the client can hide the whole update of an aura. A test of a hidden
-/// field raised a Lua error in the game, so the addon reads none of it.
+/// While the game restricts auras, the whole `UNIT_AURA` update is secret
+/// (`SecretWhenAurasRestricted`). A test of a secret field is a Lua error in the game, so
+/// the addon reads none of it.
 #[test]
 fn a_hidden_update_sends_nothing_and_raises_no_error() {
     let game = just_took_the_quest();

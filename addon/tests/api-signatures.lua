@@ -1,9 +1,9 @@
--- The documented WoW Forever 1.60.1.70009 API that Timeways uses.
+-- The documented WoW Forever 1.60.1.70124 API that Timeways uses.
 -- Written by scripts/wow-api.sh from Blizzard_APIDocumentationGenerated. Do not edit.
 -- A patch can change the arguments, returns, or secret flags and keep the name. The diff shows it.
 -- The scan does not know the type of each object, so methods has each widget type with a called name.
 return {
-	build = "1.60.1.70009",
+	build = "1.60.1.70124",
 	functions = {
 		Ambiguate = {
 			SecretArguments = "AllowedWhenTainted",
@@ -721,6 +721,13 @@ return {
 				{ Name = "isNumeric", Type = "bool", Nilable = false, Default = false },
 			},
 		},
+		["SimpleEditBoxAPI:SetShadowOffset"] = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "offsetX", Type = "number", Nilable = false },
+				{ Name = "offsetY", Type = "number", Nilable = false },
+			},
+		},
 		["SimpleEditBoxAPI:SetText"] = {
 			SecretArguments = "AllowedWhenUntainted",
 			SecretArgumentsAddAspect = { Enum.SecretAspect.Text },
@@ -764,6 +771,13 @@ return {
 				{ Name = "justifyH", Type = "JustifyHorizontal", Nilable = false },
 			},
 		},
+		["SimpleFontAPI:SetShadowOffset"] = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "offsetX", Type = "number", Nilable = false },
+				{ Name = "offsetY", Type = "number", Nilable = false },
+			},
+		},
 		["SimpleFontAPI:SetTextColor"] = {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {
@@ -804,6 +818,13 @@ return {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {
 				{ Name = "justifyH", Type = "JustifyHorizontal", Nilable = false },
+			},
+		},
+		["SimpleFontStringAPI:SetShadowOffset"] = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "offsetX", Type = "number", Nilable = false },
+				{ Name = "offsetY", Type = "number", Nilable = false },
 			},
 		},
 		["SimpleFontStringAPI:SetText"] = {
@@ -986,6 +1007,14 @@ return {
 				{ Name = "justifyH", Type = "JustifyHorizontal", Nilable = false },
 			},
 		},
+		["SimpleHTMLAPI:SetShadowOffset"] = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "textType", Type = "HTMLTextType", Nilable = false },
+				{ Name = "offsetX", Type = "number", Nilable = false },
+				{ Name = "offsetY", Type = "number", Nilable = false },
+			},
+		},
 		["SimpleHTMLAPI:SetText"] = {
 			SecretArguments = "AllowedWhenUntainted",
 			SecretArgumentsAddAspect = { Enum.SecretAspect.Text },
@@ -1029,6 +1058,13 @@ return {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {
 				{ Name = "justifyH", Type = "JustifyHorizontal", Nilable = false },
+			},
+		},
+		["SimpleMessageFrameAPI:SetShadowOffset"] = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "offsetX", Type = "number", Nilable = false },
+				{ Name = "offsetY", Type = "number", Nilable = false },
 			},
 		},
 		["SimpleMessageFrameAPI:SetTextColor"] = {
