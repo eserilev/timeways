@@ -39,13 +39,31 @@ fn talk_to_a_player_or_a_pet_is_refused_and_sends_nothing() {
 }
 
 #[test]
-fn talk_with_no_words_shows_help() {
+fn talk_with_no_words_says_hello_to_the_npc_that_you_target() {
     let game = Game::new();
 
     game.run("wow.units.target = { name = 'Innkeeper Farley' }; wow.Slash('/talk', ' ')");
 
+    let hello = Input::TalkAsked {
+        id: MessageId(1),
+        at: Tick(1_790_000_000),
+        npc: "Innkeeper Farley".to_string(),
+        text: "Hello.".to_string(),
+    };
+    assert_eq!(game.sent_inputs(), [hello]);
+}
+
+#[test]
+fn talk_with_no_words_and_no_target_asks_for_a_target() {
+    let game = Game::new();
+
+    game.run("wow.Slash('/talk', '')");
+
     assert!(game.sent().is_empty());
-    assert!(game.printed()[0].contains("/talk hello"));
+    assert_eq!(
+        game.printed(),
+        ["|cffc8a064Timeways|r: Target someone to talk to first."]
+    );
 }
 
 #[test]

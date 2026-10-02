@@ -9,11 +9,13 @@ local function Say(text)
 	DEFAULT_CHAT_FRAME:AddMessage("|cffc8a064Timeways|r: " .. text)
 end
 
+-- `/talk` alone is how most players try it first, so it opens with a greeting.
+local GREETING = "Hello."
+
 function Talk.Ask(words)
 	words = words:match("^%s*(.-)%s*$")
 	if words == "" then
-		Say("Target someone, then type: /talk hello")
-		return
+		words = GREETING
 	end
 	local npc = ns.Units.FriendlyNpcName("target")
 	local other = ns.Units.NpcName("target")

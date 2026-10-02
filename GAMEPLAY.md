@@ -185,7 +185,7 @@ An innkeeper tells you a rumor, and the rumor becomes a small quest line made fo
 
 ### 3.5 Talk to an NPC
 
-You target an NPC and type `/talk <words>`. The agent plays that NPC. What the NPC tells you, and how much it trusts you, go into your world.
+You target an NPC and type `/talk <words>`. `/talk` alone says "Hello." The agent plays that NPC. What the NPC tells you, and how much it trusts you, go into your world.
 
 Built:
 
