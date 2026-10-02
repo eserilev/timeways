@@ -391,5 +391,8 @@ fn a_declined_task_leaves_the_list_of_the_doer() {
 
     corvin.run(&format!("ns.PlayerTasks.Decline('{}')", received_key(&id)));
 
-    assert_eq!(rows(&corvin), ["group: Quests you wrote", "item: New quest"]);
+    assert_eq!(
+        rows(&corvin),
+        ["group: Quests you wrote", "item: New quest"]
+    );
 }
