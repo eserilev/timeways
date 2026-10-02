@@ -611,7 +611,7 @@ fn the_book_has_five_tabs_with_the_hero_first() {
          end
          return out",
     );
-    assert_eq!(tabs, ["Hero", "Chronicle", "Deeds", "Knowledge", "Tasks"]);
+    assert_eq!(tabs, ["Hero", "Chronicle", "Deeds", "Knowledge", "Quests"]);
 }
 
 #[test]

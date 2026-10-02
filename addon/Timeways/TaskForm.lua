@@ -159,7 +159,7 @@ end
 function TaskForm.AddChecked(steps)
 	for _, step in ipairs(steps) do
 		if not AddStep(step) then
-			Say(string.format("A task has at most %d steps.", ns.TaskWire.MAX_STEPS))
+			Say(string.format("A quest has at most %d steps.", ns.TaskWire.MAX_STEPS))
 			break
 		end
 	end
@@ -230,7 +230,7 @@ function TaskForm.DropItem()
 	ClearCursor()
 	local form = TaskForm.Draft()
 	if not ns.TaskReward.AddItem(form.money, form.items, item) then
-		Say("That's all the reward a task can hold.")
+		Say("That's all the reward a quest can hold.")
 	end
 	Changed()
 end
@@ -302,7 +302,7 @@ function TaskForm.Save()
 	end
 	local drafts = ns.TaskStore.Data().drafts
 	if not form.id and CountSaved(drafts) >= MAX_SAVED then
-		Say(string.format("You have %d saved tasks. Delete one to save another.", MAX_SAVED))
+		Say(string.format("You have %d saved quests. Delete one to save another.", MAX_SAVED))
 		return
 	end
 	form.id = form.id or ns.TaskStore.NewId(time())

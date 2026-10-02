@@ -278,6 +278,8 @@ In a dungeon group, the narrator of each player with the addon tells the same bi
 
 ### 4.7 Player tasks
 
+"Task" is the word of this document and of the code. The player never sees it: in the game, a player task and a side quest (3.4) are both a "quest", and the tab is "Quests" (the user, 2026-10-01).
+
 One player writes a task for another player who also has Timeways. The giver is the author, the game checks what it can, and the giver decides at the end. Built, in the addon: a task never goes to the desktop. Only the model help (below) asks the desktop: "Help me write", and the check of a typed step.
 
 **Who can send.** A task goes only to a player in your party, your guild, or your friends list, who has Timeways and is online. The form asks with a `hello` to the group, the guild, and each friend online. Each addon that hears it from one of these players answers `here`. The receiver checks the same rule for every offer, and a player can block a giver. The giver's addon learns of the block and sends no more tasks.

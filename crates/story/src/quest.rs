@@ -187,7 +187,7 @@ pub enum QuestFault {
     RepeatedStep,
     #[error("\"{0}\" belongs to a quest of the game")]
     GameQuest(String),
-    #[error("\"{0}\" is a target of your last task")]
+    #[error("\"{0}\" is a target of your last quest")]
     LastTask(String),
 }
 
@@ -252,7 +252,7 @@ fn game_quests(seen: &[SeenText]) -> impl Iterator<Item = &SeenText> {
 #[must_use]
 pub fn offer_line(giver: &str, quest: &Quest) -> String {
     format!(
-        "{giver} has a task for you: {}. {} Type /quest accept.",
+        "{giver} has a quest for you: {}. {} Type /quest accept.",
         quest.title, quest.text
     )
 }

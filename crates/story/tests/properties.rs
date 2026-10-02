@@ -496,7 +496,7 @@ fn offer_giver(outputs: &[Output]) -> Option<&str> {
     else {
         return None;
     };
-    line.split_once(" has a task for you: ")
+    line.split_once(" has a quest for you: ")
         .map(|(giver, _)| giver)
 }
 

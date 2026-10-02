@@ -26,7 +26,7 @@ pub fn summary(chapter: &Chapter) -> String {
         parts.push(format!("defeated {}", foes.join(", ")));
     }
     for title in finished_tasks(&chapter.deeds) {
-        parts.push(format!("finished the task \"{title}\""));
+        parts.push(format!("finished the quest \"{title}\""));
     }
     parts.extend(deaths(&chapter.deeds));
     if parts.is_empty() {

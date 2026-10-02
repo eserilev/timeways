@@ -445,14 +445,14 @@ fn a_notice_shows_as_a_line_of_timeways_and_not_of_the_narrator() {
     let game = Game::new();
 
     game.reply(
-        r#"{"type":"events_seen","id":3,"narrator":null,"notice":"You already have 3 tasks. Finish one first."}"#,
+        r#"{"type":"events_seen","id":3,"narrator":null,"notice":"You already have 3 quests. Finish one first."}"#,
     );
 
     let printed = game.printed();
     assert_eq!(printed.len(), 1);
     assert_eq!(
         printed[0],
-        "|cffc8a064Timeways|r: You already have 3 tasks. Finish one first."
+        "|cffc8a064Timeways|r: You already have 3 quests. Finish one first."
     );
 }
 

@@ -137,7 +137,7 @@ local function GotRows(rows)
 		end
 	end
 	if #ns.PlayerTasks.Blocked() > 0 then
-		shown[#shown + 1] = Item(BLOCKED, "Blocked players", "They can't send you tasks")
+		shown[#shown + 1] = Item(BLOCKED, "Blocked players", "They can't send you quests")
 	end
 	if #shown > 0 then
 		rows[#rows + 1] = Group("From players")
@@ -148,8 +148,8 @@ local function GotRows(rows)
 end
 
 local function GaveRows(rows)
-	rows[#rows + 1] = Group("Tasks you wrote")
-	rows[#rows + 1] = Item(GIVE, "New task")
+	rows[#rows + 1] = Group("Quests you wrote")
+	rows[#rows + 1] = Item(GIVE, "New quest")
 	for _, entry in ipairs(ns.TaskForm.Saved()) do
 		rows[#rows + 1] = Item(DRAFT_PREFIX .. entry.key, entry.task.title, "Not sent yet")
 	end
@@ -190,7 +190,7 @@ end
 
 local function GotStatus(task)
 	if task.status == "offered" then
-		return "New task."
+		return "New quest."
 	end
 	if task.status == "done" then
 		return "Done on " .. Day(task.closedAt) .. "."
@@ -289,7 +289,7 @@ local function GotButtons(key, task)
 end
 
 StaticPopupDialogs.TIMEWAYS_BLOCK_PLAYER = {
-	text = "Block %s? You won't get tasks from them anymore.",
+	text = "Block %s? You won't get quests from them anymore.",
 	button1 = "Block",
 	button2 = "Cancel",
 	timeout = 0,
@@ -328,7 +328,7 @@ local GAVE_STATUS = {
 	offered = "Waiting for an answer.",
 	accepted = "Accepted.",
 	declined = "Declined.",
-	cancelled = "You canceled this task.",
+	cancelled = "You canceled this quest.",
 	done = "Done.",
 }
 
@@ -376,16 +376,16 @@ local function GaveButtons(id, task)
 		return {}
 	end
 	local buttons = {
-		Button("Cancel task", function()
+		Button("Cancel quest", function()
 			ns.PlayerTasks.Cancel(id)
 		end),
 	}
 	if task.status == "accepted" and task.turnInAt then
 		local complete = ns.TaskPeople.IsNear(task.doer)
-				and Button("Complete task", function()
+				and Button("Complete quest", function()
 					ns.PlayerTasks.Complete(id)
 				end)
-			or Disabled("Complete task")
+			or Disabled("Complete quest")
 		buttons = {
 			Button("Not yet", function()
 				ns.PlayerTasks.NotYet(id)
@@ -549,7 +549,7 @@ local function FormButtons(form)
 end
 
 StaticPopupDialogs.TIMEWAYS_DELETE_TASK = {
-	text = "Delete this task?",
+	text = "Delete this quest?",
 	button1 = "Delete",
 	button2 = "Cancel",
 	timeout = 0,
@@ -562,7 +562,7 @@ StaticPopupDialogs.TIMEWAYS_DELETE_TASK = {
 
 local function Form(id)
 	local form = ns.TaskForm.For(id)
-	local crumb = id and form.title or "New task"
+	local crumb = id and form.title or "New quest"
 	return { lines = FormLines(form), buttons = FormButtons(form), crumb = crumb, footer = ns.TaskForm.CantSend() or "" }
 end
 
@@ -582,7 +582,7 @@ local function BlockedLines()
 	if #lines == 1 then
 		lines[#lines + 1] = Line("hint", "Nobody is blocked.")
 	end
-	lines[#lines + 1] = Line("help", "A blocked player can't send you tasks.")
+	lines[#lines + 1] = Line("help", "A blocked player can't send you quests.")
 	return lines
 end
 

@@ -152,7 +152,7 @@ fn a_giver_with_no_task_says_so_in_a_line_of_timeways() {
     );
 
     let printed = game.printed();
-    let shown = "|cffc8a064Timeways|r: Innkeeper Farley has no task for you now.";
+    let shown = "|cffc8a064Timeways|r: Innkeeper Farley has no quest for you now.";
     assert!(printed.iter().any(|line| line == shown), "{printed:?}");
     assert!(
         !printed.iter().any(|line| line.contains("Narrator")),

@@ -107,7 +107,7 @@ fn quest_asks_the_target_for_a_task_at_once() {
     assert!(asked, "{:?}", game.sent_inputs());
     assert_eq!(
         game.printed(),
-        ["|cffc8a064Timeways|r: You ask Keeper Tessa for a task."]
+        ["|cffc8a064Timeways|r: You ask Keeper Tessa for a quest."]
     );
 }
 
@@ -162,7 +162,7 @@ fn an_unknown_word_shows_how_to_use_quest() {
     assert_eq!(
         game.printed(),
         [
-            "|cffc8a064Timeways|r: Target someone and type /quest to ask for a task. Then /quest accept or /quest decline."
+            "|cffc8a064Timeways|r: Target someone and type /quest to ask for a quest. Then /quest accept or /quest decline."
         ]
     );
 }
@@ -361,7 +361,7 @@ fn with_no_quest_the_page_says_how_to_ask() {
 
     assert_eq!(
         lines(&game),
-        ["help: No tasks yet. Target someone and type /quest to ask for one."]
+        ["help: No quests yet. Target someone and type /quest to ask for one."]
     );
 }
 
@@ -387,7 +387,7 @@ fn a_finished_quest_shows_as_a_deed() {
     game.reply(&reply);
 
     let first: String = game.eval("ns.Journal.Lines('deeds')[1].text");
-    assert_eq!(first, "Finished the task The Lost Lantern");
+    assert_eq!(first, "Finished the quest The Lost Lantern");
 }
 
 #[test]
@@ -402,7 +402,7 @@ fn a_target_that_you_can_attack_has_no_tasks_to_give() {
     assert!(game.sent().is_empty());
     assert_eq!(
         game.printed(),
-        ["|cffc8a064Timeways|r: Duskbat has no tasks to give."]
+        ["|cffc8a064Timeways|r: Duskbat has no quests to give."]
     );
 }
 
@@ -467,8 +467,8 @@ fn the_task_list_groups_offers_then_tasks_in_progress_then_done_ones() {
             "item: The Mill (Farmer Bram) [1 of 2]",
             "group: Done",
             "item: Old Bones (Keeper Tessa) [Done]",
-            "group: Tasks you wrote",
-            "item: New task",
+            "group: Quests you wrote",
+            "item: New quest",
         ]
     );
 }

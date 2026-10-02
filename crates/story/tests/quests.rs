@@ -153,7 +153,7 @@ fn a_checked_offer_comes_back_as_a_notice_of_timeways() {
     assert_eq!(
         line.as_deref(),
         Some(
-            "Keeper Tessa has a task for you: The Lost Lantern. Find the lantern. Type /quest accept."
+            "Keeper Tessa has a quest for you: The Lost Lantern. Find the lantern. Type /quest accept."
         )
     );
     let offered = quests(&mut story);
@@ -170,7 +170,7 @@ fn with_no_model_the_giver_has_no_task() {
 
     assert_eq!(
         line.as_deref(),
-        Some("Keeper Tessa has no task for you now.")
+        Some("Keeper Tessa has no quest for you now.")
     );
     assert!(quests(&mut story).is_empty());
 }
@@ -185,7 +185,7 @@ fn an_offer_that_breaks_a_rule_shows_no_task_and_stays_out_of_the_log() {
 
     assert_eq!(
         line.as_deref(),
-        Some("Keeper Tessa has no task for you now.")
+        Some("Keeper Tessa has no quest for you now.")
     );
     assert!(quests(&mut story).is_empty());
 }
@@ -409,7 +409,7 @@ fn an_accept_past_three_open_quests_is_refused_in_a_notice() {
     assert_eq!(open_quests(&mut story), 3);
     assert_eq!(
         notice(batch).as_deref(),
-        Some("You already have 3 tasks. Finish one first.")
+        Some("You already have 3 quests. Finish one first.")
     );
 }
 
@@ -479,7 +479,7 @@ fn an_offer_that_sends_you_to_the_npc_of_a_game_quest_that_you_read_shows_no_tas
 
     assert_eq!(
         line.as_deref(),
-        Some("Keeper Tessa has no task for you now.")
+        Some("Keeper Tessa has no quest for you now.")
     );
 }
 
@@ -628,7 +628,7 @@ fn the_next_task_never_names_a_target_of_the_last_one() {
     assert!(!prompt.contains("- Duskbat"), "{prompt}");
     assert_eq!(
         line.as_deref(),
-        Some("Innkeeper Pell has no task for you now.")
+        Some("Innkeeper Pell has no quest for you now.")
     );
 }
 
@@ -752,7 +752,7 @@ fn a_hostile_npc_gives_no_task_and_asking_does_not_meet_it() {
 
     assert_eq!(
         line.as_deref(),
-        Some("Murloc Scout has no task for you now.")
+        Some("Murloc Scout has no quest for you now.")
     );
     assert!(!has_met(&mut story, "Murloc Scout"));
 }
@@ -764,7 +764,7 @@ fn a_beast_gives_no_task() {
 
     let line = refused_ask(&mut story, "Old Hound", 6);
 
-    assert_eq!(line.as_deref(), Some("Old Hound has no task for you now."));
+    assert_eq!(line.as_deref(), Some("Old Hound has no quest for you now."));
     assert!(!has_met(&mut story, "Old Hound"));
 }
 
@@ -802,7 +802,7 @@ fn an_offer_after_the_deadline_of_its_batch_comes_with_the_next_answer() {
     assert_eq!(
         notice(next).as_deref(),
         Some(
-            "Keeper Tessa has a task for you: The Lost Lantern. Find the lantern. Type /quest accept."
+            "Keeper Tessa has a quest for you: The Lost Lantern. Find the lantern. Type /quest accept."
         )
     );
     assert_eq!(quests(&mut story)[0].status, Status::Offered);

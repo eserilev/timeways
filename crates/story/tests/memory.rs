@@ -63,7 +63,7 @@ fn a_summary_tells_the_facts_of_its_chapter_in_one_line() {
     assert_eq!(
         line,
         "Chapter 2: traveled to Westfall; met Gryan Stoutmantle; reached level 13; defeated \
-         Mother Fang; finished the task \"The Lost Lantern\"; died once."
+         Mother Fang; finished the quest \"The Lost Lantern\"; died once."
     );
 }
 

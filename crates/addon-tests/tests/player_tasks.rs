@@ -55,7 +55,7 @@ fn an_offer_from_a_guild_member_waits_for_the_doer() {
     assert!(
         corvin
             .printed()
-            .contains(&"|cffc8a064Timeways|r: Ada sent you a task: Trouble at Agamand Mills. Open your journal to read it.".to_string())
+            .contains(&"|cffc8a064Timeways|r: Ada sent you a quest: Trouble at Agamand Mills. Open your journal to read it.".to_string())
     );
 }
 

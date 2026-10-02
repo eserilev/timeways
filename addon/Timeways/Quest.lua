@@ -40,7 +40,7 @@ function Quest.Ask()
 	local npc = ns.Units.FriendlyNpcName("target")
 	local other = ns.Units.NpcName("target")
 	if not npc and other then
-		Say(ns.Plain(other) .. " has no tasks to give.")
+		Say(ns.Plain(other) .. " has no quests to give.")
 		return
 	end
 	if not npc then
@@ -51,7 +51,7 @@ function Quest.Ask()
 		return
 	end
 	Send(ns.Inputs.QuestAsked(time(), npc))
-	Say("You ask " .. ns.Plain(npc) .. " for a task.")
+	Say("You ask " .. ns.Plain(npc) .. " for a quest.")
 end
 
 -- A meet step needs a new `npc_met`, also for an NPC that you met in this session. The
@@ -59,16 +59,16 @@ end
 function Quest.Accept(number)
 	ns.Watch.ForgetMet()
 	Answer(number, "accepted", ns.Inputs.QuestAccepted(time(), number))
-	Say("Task accepted.")
+	Say("Quest accepted.")
 end
 
 function Quest.Decline(number)
 	Answer(number, "declined", ns.Inputs.QuestDeclined(time(), number))
-	Say("Task declined.")
+	Say("Quest declined.")
 end
 
 StaticPopupDialogs.TIMEWAYS_QUEST_ABANDON = {
-	text = "Abandon this task?\n\n%s",
+	text = "Abandon this quest?\n\n%s",
 	button1 = "Abandon",
 	button2 = "Cancel",
 	timeout = 0,
@@ -76,7 +76,7 @@ StaticPopupDialogs.TIMEWAYS_QUEST_ABANDON = {
 	hideOnEscape = 1,
 	OnAccept = function(_, data)
 		Answer(data.number, "abandoned", ns.Inputs.QuestAbandoned(time(), data.number))
-		Say("Task abandoned.")
+		Say("Quest abandoned.")
 	end,
 }
 
@@ -98,7 +98,7 @@ local WORDS = {
 function Quest.Command(message)
 	local run = WORDS[message:match("^%s*(%S*)"):lower()]
 	if not run then
-		Say("Target someone and type /quest to ask for a task. Then /quest accept or /quest decline.")
+		Say("Target someone and type /quest to ask for a quest. Then /quest accept or /quest decline.")
 		return
 	end
 	run()

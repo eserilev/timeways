@@ -102,11 +102,11 @@ end
 function PlayerTasks.Give(draft, doer)
 	local data = ns.TaskStore.Data()
 	if data.refusedBy[doer] then
-		Say(Short(doer) .. " doesn't take tasks from you.")
+		Say(Short(doer) .. " doesn't take quests from you.")
 		return nil
 	end
 	if ns.TaskStore.CountOpen(data.given) >= MAX_OPEN then
-		Say(string.format("You have %d open tasks. Cancel one to give another.", MAX_OPEN))
+		Say(string.format("You have %d open quests. Cancel one to give another.", MAX_OPEN))
 		return nil
 	end
 	local id = ns.TaskStore.NewId(time())
@@ -191,7 +191,7 @@ function PlayerTasks.Accept(key)
 	local task = Answer(key, "accepted", "accept")
 	if task then
 		task.progress = {}
-		Say("Task accepted: " .. task.title .. ".")
+		Say("Quest accepted: " .. task.title .. ".")
 		ns.TaskTracker.Accepted()
 	end
 end
@@ -215,7 +215,7 @@ function PlayerTasks.Block(key)
 		Close(task, "declined")
 	end
 	ns.TaskChannel.Whisper(task.giver, { type = "block", id = task.id })
-	Say("You won't get tasks from " .. Short(task.giver) .. " anymore.")
+	Say("You won't get quests from " .. Short(task.giver) .. " anymore.")
 	Changed()
 end
 
@@ -225,7 +225,7 @@ function PlayerTasks.Unblock(name)
 		return
 	end
 	blocked[name] = nil
-	Say(Short(name) .. " can send you tasks again.")
+	Say(Short(name) .. " can send you quests again.")
 	Changed()
 end
 
@@ -278,7 +278,7 @@ function PlayerTasks.AskTurnIn(key)
 	end
 	task.turnInAt = time()
 	ns.TaskChannel.Whisper(task.giver, { type = "turnin", id = task.id, claims = ClaimList(task) })
-	Say("You asked " .. Short(task.giver) .. " to check your task. Stand next to them.")
+	Say("You asked " .. Short(task.giver) .. " to check your quest. Stand next to them.")
 	Changed()
 end
 
@@ -317,7 +317,7 @@ local function Offered(sender, message)
 		claims = {},
 	}
 	ns.TaskStore.Trim(data.received)
-	Say(Short(sender) .. " sent you a task: " .. message.title .. ". Open your journal to read it.")
+	Say(Short(sender) .. " sent you a quest: " .. message.title .. ". Open your journal to read it.")
 	Changed()
 end
 
@@ -418,7 +418,7 @@ local function Verdict(task, message)
 	if message.verdict == "done" then
 		Close(task, "done")
 		task.place = WhereYouStand()
-		Say("Task complete: " .. task.title .. ".")
+		Say("Quest complete: " .. task.title .. ".")
 		return
 	end
 	task.turnInAt = nil

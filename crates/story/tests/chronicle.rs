@@ -118,7 +118,7 @@ fn a_finished_quest_is_a_fact_of_its_chapter() {
     let prompt = prompt(&[], &chapter, &[], &[], None, &[]);
 
     assert!(
-        prompt.contains("- Finished the task \"The Lost Lantern\"."),
+        prompt.contains("- Finished the quest \"The Lost Lantern\"."),
         "{prompt}"
     );
 }

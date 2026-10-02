@@ -92,7 +92,7 @@ fn the_doer_sees_an_offer_with_its_steps_its_rewards_and_three_answers() {
         lines(&corvin),
         [
             "heading: Trouble at Agamand Mills",
-            "note: New task.",
+            "note: New quest.",
             "text: From Ada, your guild.",
             "prose: Put Gregor to rest.",
             "entry: Go to Agamand Mills.",
@@ -115,15 +115,15 @@ fn the_list_holds_tasks_from_players_and_the_tasks_that_you_gave() {
         [
             "group: From players",
             "item: Trouble at Agamand Mills (From Ada) [New]",
-            "group: Tasks you wrote",
-            "item: New task",
+            "group: Quests you wrote",
+            "item: New quest",
         ]
     );
     assert_eq!(
         rows(&ada),
         [
-            "group: Tasks you wrote",
-            "item: New task",
+            "group: Quests you wrote",
+            "item: New quest",
             "item: Trouble at Agamand Mills (To Corvin. Reward: promised) [Waiting]",
         ]
     );
@@ -254,7 +254,7 @@ fn the_giver_sees_each_step_with_how_sure_it_is() {
     );
     assert_eq!(page[5], "entry: Bring 10 Linen Cloth to you.");
     assert_eq!(page[6], "hint: Not done yet.");
-    assert_eq!(buttons(&ada), ["Cancel task"]);
+    assert_eq!(buttons(&ada), ["Cancel quest"]);
 }
 
 #[test]
@@ -273,12 +273,12 @@ fn the_turn_in_card_offers_complete_only_face_to_face() {
     let far_line = lines(&ada);
     ada.run("wow.units.target = { name = 'Corvin', player = true, near = true }");
 
-    assert_eq!(far, ["Not yet", "Complete task (off)"]);
+    assert_eq!(far, ["Not yet", "Complete quest (off)"]);
     assert!(
         far_line
             .contains(&"hint: Corvin isn't next to you. Target them and stand close.".to_string())
     );
-    assert_eq!(buttons(&ada), ["Not yet", "Complete task"]);
+    assert_eq!(buttons(&ada), ["Not yet", "Complete quest"]);
     assert!(lines(&ada).contains(&"hint: Face to face now.".to_string()));
 }
 
@@ -297,7 +297,7 @@ fn the_reward_line_follows_the_trade_window() {
         "wow.Trade('Corvin', { gave = {}, got = {}, money = 50000, moneyGot = 0 })
          wow.units.target = { name = 'Corvin', player = true, near = true }",
     );
-    click(&ada, "Complete task");
+    click(&ada, "Complete quest");
 
     assert!(promised.contains(&"text: Reward: promised. 5 gold.".to_string()));
     assert!(lines(&ada).contains(&"text: Reward: paid in trade. 5 gold.".to_string()));
@@ -391,5 +391,5 @@ fn a_declined_task_leaves_the_list_of_the_doer() {
 
     corvin.run(&format!("ns.PlayerTasks.Decline('{}')", received_key(&id)));
 
-    assert_eq!(rows(&corvin), ["group: Tasks you wrote", "item: New task"]);
+    assert_eq!(rows(&corvin), ["group: Quests you wrote", "item: New quest"]);
 }

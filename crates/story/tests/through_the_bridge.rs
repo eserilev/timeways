@@ -516,7 +516,7 @@ fn a_refused_accept_in_a_batch_with_a_journal_request_shows_on_the_journal() {
     let page: Value = serde_json::from_str(&text).unwrap();
     assert_eq!(
         page["notice"],
-        "You already have 3 tasks. Finish one first."
+        "You already have 3 quests. Finish one first."
     );
 }
 
@@ -547,7 +547,7 @@ fn a_task_asked_in_a_batch_with_a_journal_request_comes_with_the_next_answer() {
     let page: Value = serde_json::from_str(text).unwrap();
     assert_eq!(
         page["notice"],
-        "Keeper Tessa has a task for you: The Lost Lantern. Find it. Type /quest accept."
+        "Keeper Tessa has a quest for you: The Lost Lantern. Find it. Type /quest accept."
     );
     assert_eq!(givers(&list(&next, "quests"), "offered"), ["Keeper Tessa"]);
 }

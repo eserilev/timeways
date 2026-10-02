@@ -16,7 +16,7 @@ UI copy is every text a player reads: buttons, tabs, labels, page lines, empty s
 - **No internal words.** Never show "story program", "bridge", "slot", "strip", "batch", "fact", "tick", "model", or "bard" to a player.
 - **Errors say what went wrong and what to do next, with no blame.** Keep the player's input. Leave out the fix when a button next to the error already offers it.
 - **Cut every word that does not help.** Key fact first. A status is a few words: "Saving...", "Loading...".
-- **One name for each thing everywhere.** Tasks are "tasks" on every page and in every chat line. The Knowledge tab is "Knowledge".
+- **One name for each thing everywhere.** Quests are "quests" on every page and in every chat line, also the ones that players give. Never show "task". The Knowledge tab is "Knowledge".
 - **UI copy is not the story voice.** The narrator's voice (the keeper of time) lives only in model output. The UI never performs a voice.
 
 Bad and good, from this project:

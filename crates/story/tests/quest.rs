@@ -305,7 +305,7 @@ fn the_offer_line_names_the_giver_the_title_and_the_command() {
 
     assert_eq!(
         line,
-        "Keeper Tessa has a task for you: The Lost Lantern. Bring word to the tower. Type /quest accept."
+        "Keeper Tessa has a quest for you: The Lost Lantern. Bring word to the tower. Type /quest accept."
     );
     assert!(line.len() <= MAX_OFFER_BYTES);
 }

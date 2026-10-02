@@ -225,7 +225,7 @@ pub(super) fn notice_line(batch: MessageId, line: String) -> Output {
 
 /// With no model, or with an offer that breaks a rule, the giver has nothing to say.
 pub(super) fn no_task(giver: &str) -> String {
-    format!("{giver} has no task for you now.")
+    format!("{giver} has no quest for you now.")
 }
 
 /// The reason in words when the giver cannot give you a quest now.
@@ -242,7 +242,7 @@ fn refusal(quests: &[Tracked], giver: &str) -> Option<String> {
     }
     if open.len() >= MAX_OPEN_QUESTS {
         return Some(format!(
-            "You already have {MAX_OPEN_QUESTS} tasks. Finish one first."
+            "You already have {MAX_OPEN_QUESTS} quests. Finish one first."
         ));
     }
     None

@@ -401,7 +401,7 @@ fn a_reward_holds_at_most_six_items() {
     assert!(
         ada.printed()
             .iter()
-            .any(|line| line.contains("That's all the reward a task can hold."))
+            .any(|line| line.contains("That's all the reward a quest can hold."))
     );
 }
 
