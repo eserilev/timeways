@@ -8,7 +8,7 @@ use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use timeways_story::input::{CallId, Input, MessageId};
-use timeways_story::pack::Pack;
+use timeways_story::pack::{Link, Origin, Pack, Passage};
 use timeways_story::store::graph::weakest;
 use timeways_story::store::{
     CallEnd, CharacterKey, Database, Line, NewCall, Node, Outcome, PROMPTS_KEPT, Root, Store, Table,
@@ -616,35 +616,6 @@ fn a_quest_offer_reads_its_giver_and_rests_on_its_call() {
     assert_eq!(source.map(|source| source.call), Some(0));
 }
 
-#[test]
-fn clearing_the_history_keeps_every_proof() {
-    let folder = fresh_folder("clear");
-    let mut story = story(&folder);
-    meet(&mut story, 2, "Innkeeper Farley");
-    let call = talk(&mut story, "Innkeeper Farley");
-    answer(
-        &mut story,
-        call,
-        r#"{"say": "Nothing but rain.", "trust": 3}"#,
-    );
-    drop(story);
-    let mut database = database(&folder);
-    let trust = Node::Row(Table::Events, newest_event_of_a_call(&folder));
-    let before = database.proof_of(trust).unwrap();
-
-    database.clear_history().unwrap();
-
-    assert_eq!(database.proof_of(trust).unwrap(), before);
-    assert_eq!(database.call(0).unwrap().unwrap().prompt, None);
-    assert_eq!(
-        count(
-            &folder,
-            "SELECT count(*) FROM inputs WHERE body IS NOT NULL"
-        ),
-        0
-    );
-}
-
 fn call_line(position: u64) -> Line {
     Line {
         calls: vec![NewCall {
@@ -734,42 +705,6 @@ fn a_call_that_rests_on_itself_is_lost() {
     let proof = database(&folder).proof_of(Node::Call(0)).unwrap();
 
     assert_eq!(proof, BTreeSet::from([Root::Lost]));
-}
-
-#[test]
-fn a_cleared_history_keeps_every_proof_and_drops_every_word() {
-    let folder = fresh_folder("cleared");
-    let mut story = story(&folder);
-    meet(&mut story, 2, "Innkeeper Farley");
-    let call = talk(&mut story, "Innkeeper Farley");
-    answer(
-        &mut story,
-        call,
-        r#"{"say": "Nothing but rain.", "trust": 3}"#,
-    );
-    let trust = Node::Row(Table::Events, newest_event_of_a_call(&folder));
-    let before = database(&folder).proof_of(trust).unwrap();
-
-    story
-        .handle(Input::HistoryCleared { at: Tick(60) })
-        .unwrap();
-    drop(story);
-
-    assert_eq!(database(&folder).proof_of(trust).unwrap(), before);
-    assert_eq!(
-        count(
-            &folder,
-            "SELECT count(*) FROM inputs WHERE body LIKE '%any news%'"
-        ),
-        0
-    );
-    assert_eq!(
-        count(
-            &folder,
-            "SELECT count(*) FROM calls WHERE prompt IS NOT NULL"
-        ),
-        0
-    );
 }
 
 fn trust_why_of(story: &mut Story, npc: &str) -> Option<TrustWhy> {
@@ -863,4 +798,38 @@ fn a_trust_change_whose_cause_is_lost_shows_no_why() {
     let mut second = story(&folder);
 
     assert_eq!(trust_why_of(&mut second, "Innkeeper Farley"), None);
+}
+
+#[test]
+fn a_lore_question_leaves_no_input_and_no_call() {
+    let folder = fresh_folder("lore-no-row");
+    let tower = Passage {
+        text: "The tower of Elwynn fell long ago.".to_string(),
+        source: "https://example.test/1".to_string(),
+        links: vec![Link::Place("Elwynn Forest".to_string())],
+        origin: Origin::Pack,
+    };
+    Pack::write(&folder.join("pack.sqlite"), &[tower]).unwrap();
+    let mut story = story(&folder);
+    enter(&mut story, 1, "Elwynn Forest", None);
+    let inputs_before = count(&folder, "SELECT count(*) FROM inputs");
+
+    let outputs = story
+        .handle(Input::LoreAsked {
+            id: MessageId(7),
+            question: "why did the tower fall?".to_string(),
+            target: None,
+        })
+        .unwrap();
+    let call = call_of(&outputs);
+    story
+        .handle(Input::ModelAnswered {
+            call,
+            text: "Nobody knows [1].".to_string(),
+        })
+        .unwrap();
+    drop(story);
+
+    assert_eq!(count(&folder, "SELECT count(*) FROM inputs"), inputs_before);
+    assert_eq!(count(&folder, "SELECT count(*) FROM calls"), 0);
 }

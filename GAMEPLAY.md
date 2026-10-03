@@ -703,7 +703,7 @@ The name of a real player never goes to a model, local or cloud. The model does 
 
 Canon NPCs, such as Thrall or the innkeeper of Goldshire, keep their real names. They are part of the lore, not people.
 
-**Your own words go as you typed them.** A `/lore` question or `/talk` words reach the model as the player wrote them. If you type the name of another player there, it goes with them: the choice is yours, like a message that you send yourself (rule 5). A swap of known player names for aliases in typed text comes with the alias table. The `inputs` table and the prompts keep these words on this computer only, and `/timeways forget` clears them (5.14).
+**Your own words go as you typed them.** A `/lore` question or `/talk` words reach the model as the player wrote them. If you type the name of another player there, it goes with them: the choice is yours, like a message that you send yourself (rule 5). A swap of known player names for aliases in typed text comes with the alias table. The `inputs` table keeps `/talk` words on this computer only (5.14). A `/lore` question is not kept.
 
 **Pets count as players.** A player chose the name of a hunter pet, so the addon treats every unit that a player controls (`UnitPlayerControlled`) as a player: it never sends its name as a target, a foe, or a killer.
 
@@ -794,8 +794,8 @@ The guild world keeps `defeated` from the guild to each boss. So the saga gets a
 
 Each row of a world answers three questions: what proves it, which model call wrote it, and which calls used it. Plan and open steps: `docs/plans/links.md`.
 
-- **Inputs.** Each line from the addon goes into `inputs`, after the clock check, with its kind and its root. `hello`, a journal request, and the lines of a model call leave no input. Every batch starts with `character_entered`, so only the one that founds a world is kept. A refused line keeps its input.
-- **Calls.** Each model call gets a row in `calls` when it opens: its kind, the pack that it used, its prompt, and what it read. When it ends, the row keeps the answer and the result: `accepted`, `refused`, or `failed`. An answer for a character that is not active writes nothing in that world, and its call stays `open`. The `CallId` of the bridge starts again in each run, so it never names a row.
+- **Inputs.** Each line from the addon goes into `inputs`, after the clock check, with its kind and its root. `hello`, a journal request, a `/lore` question, and the lines of a model call leave no input, because none of them changes the world. Every batch starts with `character_entered`, so only the one that founds a world is kept. A refused line keeps its input.
+- **Calls.** Each model call of a character gets a row in `calls` when it opens. A lore call gets none, because a lore answer changes no world. The row holds its kind, the pack that it used, its prompt, and what it read. When it ends, the row keeps the answer and the result: `accepted`, `refused`, or `failed`. An answer for a character that is not active writes nothing in that world, and its call stays `open`. The `CallId` of the bridge starts again in each run, so it never names a row.
 - **What made a row.** Every row of a line names the input of the line, or the call whose answer the line carries. A call names the input or the call that opened it. So links only point back in time.
 - **Reads.** A call reads at least what its prompt held, and more is the safe side. The rules (`story/reads.rs`):
 
@@ -806,7 +806,6 @@ Each row of a world answers three questions: what proves it, which model call wr
   | Saga pick, second draft | the same, and the earlier calls of its round |
   | Quest offer, task draft | the events behind the giver and every place, NPC, and creature that the prompt can offer |
   | Talk | the events behind the NPC, the hero entries about it, and the `learned` rows of its passages |
-  | Lore | the `learned` rows of its passages. A pack passage has no row: its id changes with each pack. |
 
   The events behind a name are the event that made the thing, and the event that opened each fact that it holds or that points to it.
 - **Proof** is the set of roots that a row rests on: follow the input or the call that made it, and for a call, also what it read, down to the inputs. The weakest root shows:
@@ -822,7 +821,6 @@ Each row of a world answers three questions: what proves it, which model call wr
 - **Uses** are the accepted calls that read a row. A refused or failed call uses nothing. A row that changes while a call runs still counts as read, because the reads go in when the call opens.
 - **"Why?" shows only for trust** (3.5). The reads of a call hold far more than its cause, so the journal never shows them. Trust is the one value that a player cannot explain alone, and its cause is exact: the line or the call that made the newest change.
 - **Prompts.** The newest 500 calls keep their prompts. An older call keeps its row, its answer, and its links.
-- **Clearing the history.** `/timeways forget` asks first (Clear, Cancel), and then sends `history_cleared`. The line removes the words of every input and every prompt of the character, in its own transaction. The rows and the links stay, so every proof stays the same.
 
 ## 6. Build order
 

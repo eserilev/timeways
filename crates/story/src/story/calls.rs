@@ -63,10 +63,11 @@ impl Pending {
         }
     }
 
-    /// A lore call has no key: it always opens for the active character.
-    fn is_for(&self, active: &CharacterKey) -> bool {
+    /// A call gets a row only in the world of its character. A lore answer changes
+    /// nothing in any world, so it gets none.
+    fn has_row_in(&self, active: &CharacterKey) -> bool {
         match self {
-            Pending::Lore { .. } => true,
+            Pending::Lore { .. } => false,
             Pending::Narrator { key, .. }
             | Pending::Chronicle { key, .. }
             | Pending::Quest { key, .. }
@@ -237,7 +238,7 @@ impl Story {
         if let Some(active) = self
             .active
             .as_mut()
-            .filter(|active| pending.is_for(&active.key))
+            .filter(|active| pending.has_row_in(&active.key))
         {
             let pack = self.pack.label().to_string();
             active.open_call_row(call, pending.kind(), pack, prompt.clone(), reads);

@@ -112,10 +112,6 @@ function Inputs.StoryRemoved(at, number)
 	return { type = "story_removed", at = at, number = number }
 end
 
-function Inputs.HistoryCleared(at)
-	return { type = "history_cleared", at = at }
-end
-
 function Inputs.Emote(at, emote, target, hour)
 	return { type = "emote_done", at = at, emote = emote, target = target, hour = hour }
 end

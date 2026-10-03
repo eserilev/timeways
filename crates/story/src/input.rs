@@ -193,11 +193,6 @@ pub enum Input {
         at: Tick,
         number: u64,
     },
-    /// The player cleared their history: the words that they typed, and every prompt
-    /// (GAMEPLAY.md 5.14).
-    HistoryCleared {
-        at: Tick,
-    },
     /// The journal window opened, and needs its pages. Page 0 takes a new snapshot.
     JournalAsked {
         id: MessageId,
@@ -236,14 +231,16 @@ pub enum GameQuestKind {
 }
 
 impl Input {
-    /// A line of a model call fills its call. `hello` and a journal request change
-    /// nothing. Every other line is kept as an input (docs/plans/links.md).
+    /// A line of a model call fills its call. `hello`, a journal request, and a `/lore`
+    /// question change nothing in the world. Every other line is kept as an input
+    /// (GAMEPLAY.md 5.14).
     #[must_use]
     pub fn is_kept(&self) -> bool {
         !matches!(
             self,
             Input::Hello
                 | Input::JournalAsked { .. }
+                | Input::LoreAsked { .. }
                 | Input::ModelAnswered { .. }
                 | Input::ModelFailed { .. }
         )
@@ -256,7 +253,6 @@ impl Input {
         let typed = matches!(
             self,
             Input::TalkAsked { .. }
-                | Input::LoreAsked { .. }
                 | Input::DraftAsked { .. }
                 | Input::QuestAsked { .. }
                 | Input::QuestAccepted { .. }
@@ -265,7 +261,6 @@ impl Input {
                 | Input::HeroSet { .. }
                 | Input::HeroAdded { .. }
                 | Input::HeroRemoved { .. }
-                | Input::HistoryCleared { .. }
                 | Input::StoryRemoved { .. }
         );
         if matches!(self, Input::StoryAccepted { .. }) {
@@ -311,7 +306,6 @@ impl Input {
             | Input::HeroSet { at, .. }
             | Input::HeroAdded { at, .. }
             | Input::HeroRemoved { at, .. }
-            | Input::HistoryCleared { at }
             | Input::StoryAccepted { at, .. }
             | Input::StoryRemoved { at, .. }
             | Input::EmoteDone { at, .. }

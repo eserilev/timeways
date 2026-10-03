@@ -99,7 +99,6 @@ The prompt builders read derived values, such as deeds, chapters, and moments, n
 | Quest offer | the opening event of each place, NPC, and creature that the prompt offered |
 | Talk | the trust fact of the NPC, the slaps of the NPC, and the hero rows that the prompt held |
 | Narrator | the events of its moment, or its flavor row |
-| Lore | the `learned` rows of the passages that it got from seen text |
 
 - The memory of a saga (earlier chapters) comes from facts, never from earlier sagas (`memory.rs`). So a saga reads events, not sagas.
 - A lore passage from the pack gets no `read` row. Its id changes with each pack. The call keeps the pack version.
@@ -144,7 +143,7 @@ The internal name is "player story". `flavor::Told` already means a telling of a
 
 - `inputs` holds what the player typed in `/talk` and `/lore`, as the world holds today. The file never leaves the computer.
 - A prompt holds that text too, so it can hold a player name that the player typed. That is the player's own choice (rule 5).
-- **A "clear my history" action** deletes the `inputs` text and the prompts, and keeps the rows and links. Add it with the `inputs` table.
+- **Dropped: a "clear my history" action.** A `/lore` question changes nothing, so it is not kept at all. What is kept is what the proof needs, so nothing is left to clear.
 - After 500 calls, the store clears the prompt of the oldest call. The row, its answer, and its links stay.
 
 ## 11. Build order
@@ -153,7 +152,7 @@ Each step is one commit or a few, with its tests and its rules in `GAMEPLAY.md`.
 
 1. **Done. The base.** In-memory SQLite for `Store::Memory`. Event position = `EventId`. Foreign keys on. The cut at open in one transaction.
 2. **Done. `inputs` and the `input` column.** Only the `character_entered` that founds a world is kept, because every batch starts with one. The stored input is the parsed line after the clock check, also for a refused line.
-3. **Done. `calls` and the `call` column.** Every call gets a row when it opens, and its answer and result when it ends. Lore calls get a key.
+3. **Done. `calls` and the `call` column.** Every call gets a row when it opens, and its answer and result when it ends. A lore call gets no row: it changes no world.
 4. **Done. `reads`**, with the rules of section 6, one kind of call at a time: saga, quest, talk, narrator, lore.
 5. **Done. The queries:** `proof_of(row)`, `source_of(row)`, and `uses_of(row)`.
 6. **Done. `timeways.sqlite`:** the budget and the pace first. The alias table comes with 5.11.

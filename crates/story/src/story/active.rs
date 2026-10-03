@@ -53,8 +53,6 @@ pub(super) struct Active {
     pub(super) ended: Vec<CallEnd>,
     /// The row of the call whose answer the line carries. It made the rows of the line.
     pub(super) answering: Option<u64>,
-    /// The line clears the history (GAMEPLAY.md 5.14).
-    pub(super) clears_history: bool,
     pub(super) prose: Prose,
     pub(super) flavor: FlavorLog,
     pub(super) hero: HeroLog,
@@ -90,7 +88,6 @@ impl Active {
             calls: std::mem::take(&mut self.new_calls),
             ended: std::mem::take(&mut self.ended),
             rows: self.take_rows()?,
-            clears_history: std::mem::take(&mut self.clears_history),
             input,
         };
         self.database.save(&line)?;

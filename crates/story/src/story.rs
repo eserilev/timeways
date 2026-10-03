@@ -467,7 +467,6 @@ impl Story {
             Input::JournalAsked { id, page } => self.journal_answer(id, page),
             Input::StoryAccepted { at, number, text } => self.accept_story(at, number, &text),
             Input::StoryRemoved { at, number } => self.remove_story(at, number),
-            Input::HistoryCleared { .. } => self.clear_history(),
             Input::BatchEnd { id } => Ok(self.end_batch(id)),
             Input::ModelAnswered { call, text } => self.answered(call, &text),
             Input::ModelFailed { call } => self.failed(call),
@@ -651,13 +650,6 @@ impl Story {
         }
     }
 
-    /// The words go when the line saves, in its transaction (GAMEPLAY.md 5.14).
-    fn clear_history(&mut self) -> Result<Vec<Output>, StoryError> {
-        let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
-        active.clears_history = true;
-        Ok(Vec::new())
-    }
-
     /// The same character again changes nothing, so each batch can name it.
     /// A refused switch leaves no character active, so the events of the new character
     /// never land in the world of the old one.
@@ -714,7 +706,6 @@ impl Story {
             new_calls: Vec::new(),
             ended: Vec::new(),
             answering: None,
-            clears_history: false,
             prose,
             flavor,
             hero,
@@ -1093,12 +1084,7 @@ impl Story {
             }),
             Next::Ask(lore) => {
                 let prompt = lore.prompt().to_string();
-                let read = self
-                    .active
-                    .as_ref()
-                    .map(|active| reads::passages_read(active, lore.passages()))
-                    .unwrap_or_default();
-                self.open_call(Pending::Lore { question, lore }, prompt, read)
+                self.open_call(Pending::Lore { question, lore }, prompt, Vec::new())
             }
         }
     }

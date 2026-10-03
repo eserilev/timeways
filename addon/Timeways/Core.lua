@@ -166,9 +166,5 @@ SlashCmdList.TIMEWAYSJOURNAL = function(message)
 		ns.Welcome.Open(ns.Welcome.Reason())
 		return
 	end
-	if message:match("^%s*forget%s*$") then
-		ns.History.Clear()
-		return
-	end
 	ns.JournalFrame.Toggle()
 end
