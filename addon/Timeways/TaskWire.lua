@@ -116,6 +116,10 @@ local SCHEMAS = {
 	step = { "id", "index", "at", "zone" },
 	turnin = { "id", "claims" },
 	result = { "id", "verdict" },
+	-- A story about the player who gets it (4.8), and its answer.
+	story = { "id", "text" },
+	story_accept = { "id" },
+	story_decline = { "id" },
 }
 
 local function EncodeValue(value)

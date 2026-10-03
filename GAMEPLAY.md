@@ -337,6 +337,20 @@ The same step again raises its count. A kill by any member of the group counts, 
 
 **Storage.** The saved variables of each character, `TimewaysTasks`, hold the tasks, the saved tasks that wait for a player, the blocked players, and the giver's records, each list cut to its newest 100, and the zones to their newest 300. Stretches of party time stay only for the doers of the tasks that the store keeps. Any addon can read them (5.10). So they hold only what the two players already share in the game: the task, the names, and times, never a key. Any addon can also write them, so the addon checks each task and record when it first reads them (`TaskSaved.lua`), and drops a broken one.
 
+### 4.8 Player stories
+
+A player tells a short story about another player in the party, and that player accepts it into their own story, or declines it. Built, first version. Plan and later steps: `docs/plans/links.md` (section 9).
+
+- **Who can tell.** `/story <words>` tells the story to the player that you target, who must be in your group and have Timeways. The story goes as a whisper on the wire of player quests (4.7): `story` with an id and the text, at most 400 bytes, with no control character and no `|`. A blocked player gets no story from you, and you get none from a player that you blocked.
+- **Who can hear.** The addon takes a story only as a whisper, only from a player in the group at that moment, and not from a blocked player. A player holds at most 3 stories that wait from one author, and 20 in all.
+- **The answer.** "Ada told a story about you. Type /story to read it." `/story` shows the newest story that waits. `/story accept` and `/story decline` answer it, and so do Accept and Decline on the Hero page, under "Stories About You". The author hears "Corvin accepted your story." or "Corvin declined your story." (`story_accept`, `story_decline`). These answers name a story id, never the id of a quest.
+- **No real name leaves the addon.** On Accept, the addon takes the names of known players out of the text, as for a quest draft (`TaskNames.lua`): other players become "my friend", and your own name becomes `$N`. The author stays in the saved variables of the addon (`TimewaysStories`), by a number of the addon. The desktop gets `story_accepted` with that number and the text. The Hero page shows the text with your name back in place of `$N`, and "Told by Ada".
+- **The desktop.** An accepted story is a row of the `stories` table (5.7), with the root Shared (5.14). A number comes once, so a story removed and sent again is a new story. A story that is empty, longer than 400 bytes, or holds a control character or a `|` is refused, and its input stays.
+- **Remove.** Remove asks first, then sends `story_removed`. The desktop removes a story only while no accepted model call used it. A removal is a new row: tables only grow. The journal carries `used` for each story, and the Hero page shows Remove only on a story that is not used.
+- **No story reaches a model yet.** No read rule (5.14) reads the `stories` table. A property test checks that no prompt holds the text of a story. So a story never puts a real name in a prompt before the alias table (5.11) exists.
+- **No proof level yet.** Witnessed and Seen of player quests check a step that the game sees. A story is free text, so its proof is the word of its author: the root Shared. Being in the group is the gate.
+- **Later:** stories in the saga and the narrator, after the alias table; a party input from the addon, so a story about shared play can rest on what the reader's game saw; stories from guild members and friends.
+
 ## 5. Technical design
 
 ### 5.1 The world of a character

@@ -476,6 +476,9 @@ function PlayerTasks.Receive(sender, message, channel)
 	if message.type == "here" then
 		return Here(sender)
 	end
+	if ns.PlayerStories.TYPES[message.type] then
+		return ns.PlayerStories.Receive(sender, message)
+	end
 	if message.type == "offer" then
 		if ns.TaskPeople.Relation(sender) then
 			Offered(sender, message)

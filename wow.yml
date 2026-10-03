@@ -22,6 +22,8 @@ globals:
     property: full-write
   SLASH_TIMEWAYSQUEST1:
     property: full-write
+  SLASH_TIMEWAYSSTORY1:
+    property: full-write
   StaticPopupDialogs:
     property: new-fields
   StaticPopup_Show:

@@ -104,6 +104,14 @@ function Inputs.HeroRemoved(at, number)
 	return { type = "hero_removed", at = at, number = number }
 end
 
+function Inputs.StoryAccepted(at, number, text)
+	return { type = "story_accepted", at = at, number = number, text = text }
+end
+
+function Inputs.StoryRemoved(at, number)
+	return { type = "story_removed", at = at, number = number }
+end
+
 function Inputs.HistoryCleared(at)
 	return { type = "history_cleared", at = at }
 end

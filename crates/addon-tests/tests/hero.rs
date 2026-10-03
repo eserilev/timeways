@@ -437,6 +437,17 @@ fn the_editor_shows_the_saved_text_before_the_journal_comes() {
     assert_eq!(editor_text(&game), "Avenge my brother.");
 }
 
+/// The lines of the page up to the stories that players told, which follow the notes.
+fn notes(game: &Game) -> Vec<String> {
+    let mut lines = lines(game);
+    let stories = lines
+        .iter()
+        .position(|line| line == "heading: Stories About You")
+        .unwrap();
+    lines.truncate(stories);
+    lines
+}
+
 #[test]
 fn a_new_entry_shows_at_once_with_a_saving_mark() {
     let game = open_book(FILLED);
@@ -444,7 +455,7 @@ fn a_new_entry_shows_at_once_with_a_saving_mark() {
     click(&game, "Your Notes");
     write(&game, "A stranger knew my name.");
 
-    let lines = lines(&game);
+    let lines = notes(&game);
     assert_eq!(
         lines[lines.len() - 2..],
         ["entry: A stranger knew my name.", "hint: Saving..."]
@@ -458,7 +469,7 @@ fn a_removed_entry_leaves_the_page_at_once() {
     click(&game, "An oath.");
     game.run("wow.AcceptPopup()");
 
-    let lines = lines(&game);
+    let lines = notes(&game);
     assert!(!lines.contains(&"entry: An oath. [Remove]".to_string()));
     assert!(
         lines
@@ -667,4 +678,53 @@ fn the_questions_on_parchment_print_in_the_quest_fonts_with_no_shadow() {
             "What does your character want?: QuestFont 0,0",
         ]
     );
+}
+
+const STORIES: &str = r#"{"type":"journal","page":0,"pages":1,"hero":{"sheet":[],"entries":[]},"stories":[{"number":1,"text":"$N held the bridge.","at":1790000000,"used":false},{"number":2,"text":"A tale that stays.","at":1790000000,"used":true}]}"#;
+
+#[test]
+fn the_hero_page_shows_the_stories_about_you_with_their_authors() {
+    let game = Game::new();
+    game.run("wow.units.player = { name = 'Corvin', player = true, guid = 'Player-1-Corvin' }");
+    game.run(
+        "TimewaysStories = { authors = { [1] = 'Ada-Stormrage' }, nextNumber = 3,
+             waiting = { { id = 'a1', author = 'Bram-Stormrage', text = 'Bram saw it all.', at = 1 } } }",
+    );
+    game.run("wow.Slash('/hero', '')");
+    game.reply(STORIES);
+    let me: String = game.eval("return UnitName('player')");
+
+    let lines = lines(&game);
+
+    let stories = lines
+        .iter()
+        .position(|line| line == "heading: Stories About You")
+        .unwrap();
+    let day: String = game.eval("return date('%d %b %Y', 1790000000)");
+    assert_eq!(
+        lines[stories + 1..],
+        [
+            "entry: Bram saw it all. [Accept]".to_string(),
+            "text: Bram told this story about you. [Decline]".to_string(),
+            format!("entry: {me} held the bridge. [Remove]"),
+            format!("text: Told by Ada, {day}."),
+            "entry: A tale that stays.".to_string(),
+            format!("text: Told by a friend, {day}."),
+        ]
+    );
+}
+
+#[test]
+fn a_broken_saved_story_is_dropped() {
+    let game = Game::new();
+    game.run(
+        "TimewaysStories = { waiting = {
+             { id = 'a1', author = 'Bram-Stormrage', text = 'Fine.', at = 1 },
+             { id = 'a2', author = 'no realm', text = 'Broken.', at = 1 },
+             { id = 'a3', author = 'Bram-Stormrage', text = 'A |Hlink|h.', at = 1 } } }",
+    );
+
+    let waiting: usize = game.eval("return #ns.PlayerStories.Waiting()");
+
+    assert_eq!(waiting, 1);
 }

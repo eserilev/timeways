@@ -19,7 +19,7 @@ Journal.TITLES = {
 
 -- The lists that come in pages. The sheet of the hero comes on the first page only.
 -- Places and people have no page: the map and the tooltips read them.
-local LISTS = { "chapters", "places", "people", "deeds", "learned", "quests" }
+local LISTS = { "chapters", "places", "people", "deeds", "learned", "quests", "stories" }
 
 -- A reply holds at most 24 KB, so a long journal comes in pages. More than this many
 -- pages means a broken reply, not a long journal.
@@ -52,7 +52,7 @@ end
 
 local function Started(value)
 	local hero = type(value.hero) == "table" and value.hero or {}
-	local journal = { chapters = {}, places = {}, people = {}, deeds = {}, learned = {}, quests = {} }
+	local journal = { chapters = {}, places = {}, people = {}, deeds = {}, learned = {}, quests = {}, stories = {} }
 	journal.next = 0
 	journal.hero = { sheet = Entries(hero.sheet), entries = {} }
 	return journal
@@ -665,6 +665,64 @@ local function Lore(hero, unsaved)
 	return lines
 end
 
+-- A story that waits for your answer: Accept on its text, Decline on its author.
+local function WaitingStory(index, story)
+	local accept = {
+		label = "Accept",
+		run = function()
+			ns.PlayerStories.Accept(index)
+		end,
+	}
+	local decline = {
+		label = "Decline",
+		run = function()
+			ns.PlayerStories.Decline(index)
+		end,
+	}
+	return {
+		Line("entry", ns.Plain(story.text), accept),
+		Line("text", ns.TaskPeople.Short(story.author) .. " told this story about you.", decline),
+	}
+end
+
+-- An accepted story. One that the story already used stays, so it has no Remove.
+local function AcceptedStory(story)
+	local remove = not story.used
+			and {
+				label = "Remove",
+				run = function()
+					ns.PlayerStories.Remove(story)
+				end,
+			}
+		or nil
+	local author = ns.PlayerStories.AuthorOf(story.number)
+	local by = author and ns.TaskPeople.Short(author) or "a friend"
+	return {
+		Line("entry", ns.PlayerStories.Shown(story.text), remove),
+		Line("text", "Told by " .. by .. ", " .. Day(story.at) .. "."),
+	}
+end
+
+-- The stories that players told about you (4.8): the ones that wait, then the accepted ones.
+local function Stories(journal)
+	local lines = { Line("heading", "Stories About You") }
+	local waiting = ns.PlayerStories.Waiting()
+	for index = #waiting, 1, -1 do
+		for _, line in ipairs(WaitingStory(index, waiting[index])) do
+			lines[#lines + 1] = line
+		end
+	end
+	for _, story in ipairs(Entries(journal.stories)) do
+		for _, line in ipairs(AcceptedStory(story)) do
+			lines[#lines + 1] = line
+		end
+	end
+	if #lines == 1 then
+		lines[#lines + 1] = Line("help", "Target someone in your group and type /story to tell a story about them.")
+	end
+	return lines
+end
+
 -- Who the hero is (3.7): the questions of the sheet on the left, and the open question with
 -- the player's own lore on the right.
 local function Hero(journal)
@@ -674,6 +732,9 @@ local function Hero(journal)
 	local field = ns.Hero.FIELDS[index]
 	local lines = FieldLines(field, index, texts, unsaved)
 	for _, line in ipairs(Lore(hero, unsaved)) do
+		lines[#lines + 1] = line
+	end
+	for _, line in ipairs(Stories(journal)) do
 		lines[#lines + 1] = line
 	end
 	return {
