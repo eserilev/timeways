@@ -22,8 +22,8 @@ use crate::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use crate::seen::{MAX_SEEN_BYTES, SeenIndex, SeenText, TextKind};
 use crate::spot::Spot;
 use crate::store::{
-    CharacterKey, FlavorLog, HeroLog, HistoryFile, LearnedLog, Opened, Prose, QuestLog, Store,
-    StoreError,
+    CharacterKey, Database, FlavorLog, HeroLog, LearnedLog, Opened, Prose, QuestLog, Store,
+    StoreError, Table,
 };
 use crate::talk::{self, Scene};
 use crate::titles;
@@ -189,11 +189,13 @@ pub enum StoryError {
     BadHour,
 }
 
-/// The character of the last `character_entered`, and the file of its history.
+/// The character of the last `character_entered`, and its database.
 struct Active {
     key: CharacterKey,
     character: Character,
-    file: Option<HistoryFile>,
+    database: Option<Database>,
+    /// The events that the database holds. The next save starts after them.
+    saved_events: usize,
     prose: Prose,
     flavor: FlavorLog,
     hero: HeroLog,
@@ -205,20 +207,28 @@ struct Active {
 }
 
 impl Active {
-    /// Writes the events that the file does not hold yet.
+    /// Writes the new rows of every table in one transaction (GAMEPLAY.md 5.7).
     fn save(&mut self) -> Result<(), StoreError> {
-        let Some(file) = &mut self.file else {
-            return Ok(());
-        };
-        let new: Vec<_> = self
-            .character
-            .world()
-            .history()
+        let history = self.character.world().history();
+        let events = history
             .iter()
-            .skip(file.len())
-            .cloned()
-            .collect();
-        file.append(&new)
+            .skip(self.saved_events)
+            .map(serde_json::to_string)
+            .collect::<Result<Vec<_>, _>>()?;
+        let all_events = history.len();
+        let rows = vec![
+            (Table::Events, events),
+            (Table::Chapters, self.prose.take_unsaved()),
+            (Table::Flavor, self.flavor.take_unsaved()),
+            (Table::Hero, self.hero.take_unsaved()),
+            (Table::Learned, self.learned.take_unsaved()),
+            (Table::Quests, self.quests.take_unsaved()),
+        ];
+        if let Some(database) = &mut self.database {
+            database.save(&rows)?;
+        }
+        self.saved_events = all_events;
+        Ok(())
     }
 }
 
@@ -355,7 +365,28 @@ impl Story {
     /// Returns the refusal of the world for a game event, the error of the pack for a
     /// question, `UnknownCall` for the answer to a call that is not open, `NoCharacter`
     /// before the first `character_entered`, and the error of the store.
-    pub fn handle(&mut self, mut input: Input) -> Result<Vec<Output>, StoryError> {
+    pub fn handle(&mut self, input: Input) -> Result<Vec<Output>, StoryError> {
+        let outputs = self.handle_unsaved(input);
+        self.save_active()?;
+        outputs
+    }
+
+    /// The rows of a refused input stay too, because the events before a refusal landed.
+    /// A failed save loses the rows of its line, so the character comes back from the
+    /// disk, and the memory holds what the disk holds.
+    fn save_active(&mut self) -> Result<(), StoryError> {
+        let Some(active) = &mut self.active else {
+            return Ok(());
+        };
+        let Err(error) = active.save() else {
+            return Ok(());
+        };
+        let key = active.key.clone();
+        self.active = self.opened(key).ok();
+        Err(error.into())
+    }
+
+    fn handle_unsaved(&mut self, mut input: Input) -> Result<Vec<Output>, StoryError> {
         if let Some(at) = input.at_mut() {
             *at = self.checked_time(*at)?;
             self.newest = self.newest.max(*at);
@@ -776,10 +807,15 @@ impl Story {
         self.saga_round = None;
         self.quest_request = None;
         self.notice = None;
-        let key = key?;
+        self.active = Some(self.opened(key?)?);
+        Ok(())
+    }
+
+    fn opened(&self, key: CharacterKey) -> Result<Active, StoryError> {
         let Opened {
             character,
-            history,
+            database,
+            saved_events,
             prose,
             flavor,
             hero,
@@ -792,10 +828,11 @@ impl Story {
             .map(|read| read.text.clone())
             .collect();
         let seen_index = SeenIndex::new(&read)?;
-        self.active = Some(Active {
+        Ok(Active {
             key,
             character,
-            file: history,
+            database,
+            saved_events,
             prose,
             flavor,
             hero,
@@ -803,8 +840,7 @@ impl Story {
             quests,
             seen_index,
             hero_refused: None,
-        });
-        Ok(())
+        })
     }
 
     fn character(&self) -> Result<&Character, StoryError> {
@@ -814,8 +850,7 @@ impl Story {
             .ok_or(StoryError::NoCharacter)
     }
 
-    /// The events that landed before a refusal stay, so they are saved in both cases, and
-    /// their moments count.
+    /// The events that landed before a refusal stay, so their moments count.
     fn change(
         &mut self,
         act: impl FnOnce(&mut Character) -> Result<(), Refusal>,
@@ -827,7 +862,6 @@ impl Story {
         let added: Vec<_> = world.history().iter().skip(before).cloned().collect();
         self.moments
             .extend(moments(world, active.character.you(), &added));
-        active.save()?;
         changed.map_err(StoryError::Refused)?;
         Ok(Vec::new())
     }

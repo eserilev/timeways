@@ -181,7 +181,7 @@ An innkeeper tells you a rumor, and the rumor becomes a small quest line made fo
 - **Limits** (built): each giver has at most one offer that waits, and a new offer of the giver ends the old one. A giver with an open quest waits for you to finish it. You hold at most 3 open quests. The limits hold when you ask, when the offer comes, and when you accept, because the world moves on while the model thinks. A refusal (when you ask or accept) comes back as a notice of its batch, or of the question that ends the batch, never as a narrator line.
 - **Accept and progress** (built): the buttons of the Tasks page name their quest by its number, so you accept the offer that you read. `/quest accept` or `/quest decline` answers the newest offer. The story program checks each step against later `zone_entered`, `npc_met`, `talk_asked`, `npc_slapped`, and `npc_killed` events, in order. A step that holds when it becomes the next step is done at once, because the addon sends a zone only when it changes. The addon sends an NPC again only after 5 minutes, and it forgets the NPCs that you met when you accept a quest.
 - **Kills** (built): the journal tells the addon the creature of the next step of each task in progress, when that step is a kill. The addon keeps, in memory only, the GUID of each unit of such a creature that you see and can attack. `PARTY_KILL` for one of these units sends `npc_killed` with the name, once for each unit. A visit or a meeting can make a kill step the next one. So after a batch of events, the addon asks for the journal again while a task has a later kill step, at most once a minute. A unit of the new creature that you already target or hover counts at once. The story program counts a kill only for the next step of an accepted task, and only up to its count, in the quest file. A kill before you accept counts nothing. A kill step keeps its creature by name. When the creature is friendly later, the addon counts no kill of it, so the step waits until you abandon the task. The Tasks page shows the count as the game does: "Duskbat slain: 2/6". At the end of a task, you get `quest_done`, and the giver trusts you 10 more. The model never picks this number. The finished quest is a deed, so it shows on the Deeds page and in the chronicle, and the saga gets it as a fact of the chapter.
-- **Storage** (built): the quest file `c_<name>.quests.jsonl` holds the offers, the answers, the kills, and the steps done. The world holds the facts: the giver holds `quest_offered`, and you hold `quest_accepted` and `quest_done`. The quest thing is named "quest <number>: <title>", so it never merges with a title.
+- **Storage** (built): the `quests` table (5.7) holds the offers, the answers, the kills, and the steps done. The world holds the facts: the giver holds `quest_offered`, and you hold `quest_accepted` and `quest_done`. The quest thing is named "quest <number>: <title>", so it never merges with a title.
 
 ### 3.5 Talk to an NPC
 
@@ -229,7 +229,7 @@ Who your hero is, in your own words, as a player of a tabletop game writes befor
 
 - **The sheet:** origin, background, goal, bond, flaw, and traits. Each field is optional, and holds at most 1000 characters. You change a field at any time, and an empty text clears it.
 - **Your own lore:** entries that you add at any time, for example "A stranger at the inn knew my father's name." Each entry keeps its time and the place where you stood, and the NPC that you targeted when it is about one. You can remove your own entry.
-- **Nothing is lost.** Each change is a new line in `c_<character id>.hero.jsonl` next to the history (5.7). A removal and an old text of a field stay in the file.
+- **Nothing is lost.** Each change is a new row of the `hero` table (5.7). A removal and an old text of a field stay in the table.
 - **Your words are free.** No check reads the words of the player: a name from after the lore cutoff (5.9) is fine in your own story. A text has only these limits: an entry is not empty, no control character, at most 1000 characters, and at most 1200 bytes. The six fields go together on the first page of the journal, so a text also fits a sixth of a slot of the game: a text full of quotes is too long. An edit has no reply of its own, so a refused text leaves its reason for the next journal page, and the addon shows it once. The editor of the book stops at 1000 letters, and keeps a text over 1200 bytes open with the reason under it.
 - **A later name in a model answer:** the narrator, a chapter, and an NPC can name something from after the cutoff when your own text names it first. The check of the cutoff reads your sheet and your entries as allowed words. It reads each text alone, so a name split across two texts ("Caverns" at the end of one, "of Time" at the start of the next) is not allowed.
 - **Who reads it:**
@@ -492,7 +492,7 @@ The score uses whole numbers only, like Hourglass, so a test can state each rule
 - **Footnotes of the chronicle** (built): the prompt of a chapter gets the 5 best flavor moments of a finished chapter, numbered and in plain words. The moments of a chapter run until the next chapter begins, because an emote adds no event to the world. The narrator answers in JSON with its saga and at most 3 footnotes, each with the number of its moment. A footnote with no listed moment, a second one for the same moment, or one that breaks the text rules (at most 200 characters) is dropped alone. Each footnote counts as a telling of its kind.
 - **Streaks:** not yet. A streak needs the kills of common mobs (open question 9).
 - **No votes.** Timeways asks the player for no rating of a joke. The scoring and the cooldowns decide alone.
-- The moments and their tellings live in `c_<character id>.flavor.jsonl` next to the history (5.7).
+- The moments and their tellings live in the `flavor` table (5.7).
 
 **Joke titles** (built). A title is a rule over the flavor moments and the world. When a rule holds, the title lands in the world as a `title` fact, so it stays for good. It shows as a deed in the journal, and it is the best big moment of the narrator (3.2):
 
@@ -559,16 +559,29 @@ Timeways uses the transport of Gnomish Relay, with its own key and its own slots
 
 ### 5.7 Storage
 
-- The history of each world is a file in the data folder of the story program: `worlds/r_<realm id>/c_<character id>.jsonl`. The prefixes keep a name such as "Con" or "Aux" from naming a Windows device. The bridge gives the folder as the second argument, `<data>/timeways/story/`, and the sandbox lets the story program write only there (5.12).
+- **One database for each character.** The world of a character is a SQLite file in the data folder of the story program: `worlds/r_<realm id>/c_<character id>.sqlite`. The prefixes keep a name such as "Con" or "Aux" from naming a Windows device. The bridge gives the folder as the second argument, `<data>/timeways/story/`, and the sandbox lets the story program write only there (5.12).
 - Realm and character names come from the game, with spaces, apostrophes, and non-ASCII letters. They map to safe ids: ASCII letters and digits stay, and every other byte becomes `_` and two hex digits. So two names never share an id, and no id holds a `/`, a `.`, or a space.
-- The file has one JSON line for each Hourglass event, and it only grows. The story program writes the new events after each game event, also after a refusal, because the events before a refusal landed.
-- A failed write puts the file back to its last good length, and the next write tries the same events again.
+- **The tables.** Each table holds rows of JSON, in the order that they came, and only grows:
+
+  | Table | One row for each |
+  |---|---|
+  | `events` | Hourglass event. Its position is the id of the event. |
+  | `chapters` | saga of a chapter (3.3), keyed by the tick that began the chapter |
+  | `flavor` | flavor moment or telling (5.4.1) |
+  | `hero` | change of the story of the hero (3.7) |
+  | `learned` | text that the player read, or rumor (3.1.1, 5.10) |
+  | `quests` | change of a side quest (3.4) |
+
+- **One transaction for each line.** The story program keeps the new rows of a line from the bridge in memory. At the end of the line, it writes them all in one transaction, also after a refusal, because the events before a refusal landed. So a quest and the facts of its world never disagree.
+- **A failed write keeps nothing of its line.** The transaction rolls back, and the story program opens the character again from the disk. The memory then holds what the disk holds, and the next line works as before.
 - A failed `character_entered` leaves no character active, so the events of one character never land in the world of another.
-- The state is not stored. `World::replay` builds it from the history when a character enters.
-- **A crash in the middle of a write** leaves a broken last line. The replay stops at the first line that does not read or that has the wrong position, and cuts the file there. New events then follow the good part.
+- The state is not stored. `World::replay` builds it from the `events` table when a character enters.
+- **A crash** loses at most the line in progress, because SQLite keeps a journal for each transaction.
+- **A row that does not read** comes only from another program. The read stops at the first such row of a table, and deletes it and every row after it. An event with the wrong position counts as such a row. A `events` table that does not start with the founding of the character is refused, and so is a file that is not a SQLite database. The story program never replaces such a file.
 - **Whose world:** every batch from the addon starts with a `character_entered` line with the realm and the name. So the story program knows the world of each batch, also after it restarts. The addon holds its events until the login names the character.
-- The sagas of the chronicle (3.3) are words, not facts, so they live in a file of their own next to the history: `c_<character id>.chronicle.jsonl`, one line for each chapter, keyed by the tick that began the chapter. The same rules hold for a broken last line and a failed write.
+- **Old files.** A build before SQLite kept one JSON file for each table: `c_<character id>.jsonl` and `c_<character id>.<table>.jsonl`. When a character has no database yet, its open reads these files into a new database, and leaves them as they are. The import builds the database under a temporary name, and renames it at the end, so a crash during the import leaves no half database.
 - Undo is cheap: cut the history and replay (`World::rewind`).
+- To read a world by hand: `sqlite3 c_<name>.sqlite "SELECT body FROM learned LIMIT 3"`.
 
 ### 5.8 Sync between players
 
@@ -650,7 +663,7 @@ A web request for each question is slow, depends on one website, and sends whole
   - The text goes on one line: each run of control characters, such as the line breaks of a quest, becomes one space. The bridge drops a line of the addon with a control character.
   - The name of your character becomes `$N` as a whole word, in any case of ASCII and Latin-1 letters. A character past ASCII, such as the quote marks of "«Ada»", counts as no letter, so a name next to it becomes a mark too.
   - The name of the character becomes `$N` in the addon, so no model sees it (5.11). A letter that a player wrote has a creator, and never goes out.
-  - A file for each character keeps each text once (`c_<name>.learned.jsonl`, which also keeps the rumors (3.1.1)). An index in memory searches it, and is built again at each start.
+  - The `learned` table of each character keeps each text once, and also the rumors (3.1.1, 5.7). An index in memory searches it, and is built again at each start.
   - The player read the text, so it passes the spoiler limit. A search uses this text first, and the pack fills the rest (3.1.1).
   - The addon cuts a text at 2000 bytes.
 - **Not in the saved variables.** Any addon can read the saved variables of another addon, so they hold only window state. Player tasks are the one exception (4.7): they live between two players, not in a world.

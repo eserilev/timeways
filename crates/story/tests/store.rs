@@ -1,12 +1,13 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use hourglass::Tick;
+use rusqlite::{Connection, params};
 use std::fs;
 use std::path::{Path, PathBuf};
 use timeways_story::input::{Input, MessageId};
 use timeways_story::journal::Page;
 use timeways_story::pack::Pack;
-use timeways_story::store::{CharacterKey, Store, StoreError, safe_id};
+use timeways_story::store::{CharacterKey, Store, StoreError, Table, safe_id};
 use timeways_story::story::{Output, Story, StoryError};
 
 /// The one output of an input, or none.
@@ -68,11 +69,35 @@ fn places(story: &mut Story) -> Vec<String> {
     journal.places.into_iter().map(|place| place.name).collect()
 }
 
-fn history_file(folder: &Path, name: &str) -> PathBuf {
+fn world_file(folder: &Path, name: &str) -> PathBuf {
     folder
         .join("worlds")
         .join("r_Stormrage")
-        .join(format!("c_{name}.jsonl"))
+        .join(format!("c_{name}.sqlite"))
+}
+
+fn bodies(folder: &Path, table: &str) -> Vec<String> {
+    let connection = Connection::open(world_file(folder, "Ada")).unwrap();
+    let select = format!("SELECT body FROM {table} ORDER BY position");
+    let mut statement = connection.prepare(&select).unwrap();
+    statement
+        .query_map([], |row| row.get(0))
+        .unwrap()
+        .map(Result::unwrap)
+        .collect()
+}
+
+fn insert(folder: &Path, table: &str, body: &str) {
+    let connection = Connection::open(world_file(folder, "Ada")).unwrap();
+    let insert = format!("INSERT INTO {table} (body) VALUES (?1)");
+    connection.execute(&insert, params![body]).unwrap();
+}
+
+/// The file of a build before SQLite, next to where the database goes.
+fn old_file(folder: &Path, suffix: &str) -> PathBuf {
+    let realm = folder.join("worlds").join("r_Stormrage");
+    fs::create_dir_all(&realm).unwrap();
+    realm.join(format!("c_Ada{suffix}"))
 }
 
 #[test]
@@ -166,14 +191,12 @@ fn switching_characters_in_one_run_switches_worlds() {
 }
 
 #[test]
-fn a_damaged_last_line_is_cut_and_the_rest_stays() {
+fn a_row_that_does_not_read_is_cut_and_the_rest_stays() {
     let folder = fresh_folder("damaged");
     let mut first = story(&folder, "Ada");
     enter(&mut first, 1, "Elwynn Forest");
     drop(first);
-    let file = history_file(&folder, "Ada");
-    let good = fs::read_to_string(&file).unwrap();
-    fs::write(&file, format!("{good}{{\"id\":99,\"tick\":")).unwrap();
+    insert(&folder, "events", r#"{"id":99,"tick":"#);
 
     let mut second = story(&folder, "Ada");
     enter(&mut second, 2, "Westfall");
@@ -181,38 +204,54 @@ fn a_damaged_last_line_is_cut_and_the_rest_stays() {
 
     let mut third = story(&folder, "Ada");
     assert_eq!(places(&mut third), ["Elwynn Forest", "Westfall"]);
-    assert!(!fs::read_to_string(&file).unwrap().contains("\"id\":99"));
+    assert!(!bodies(&folder, "events").concat().contains("\"id\":99"));
 }
 
 #[test]
-fn a_line_with_the_wrong_position_ends_the_history() {
+fn an_event_with_the_wrong_position_ends_the_history() {
     let folder = fresh_folder("wrong-position");
     let mut first = story(&folder, "Ada");
     enter(&mut first, 1, "Elwynn Forest");
     drop(first);
-    let file = history_file(&folder, "Ada");
-    let lines: Vec<String> = fs::read_to_string(&file)
-        .unwrap()
-        .lines()
-        .map(str::to_string)
-        .collect();
-    let mut shuffled = lines.clone();
-    shuffled.swap(1, 2);
-    fs::write(&file, shuffled.join("\n") + "\n").unwrap();
+    let events = bodies(&folder, "events");
+    let connection = Connection::open(world_file(&folder, "Ada")).unwrap();
+    let swap = "UPDATE events SET body = ?1 WHERE position = ?2";
+    connection.execute(swap, params![events[2], 2]).unwrap();
+    connection.execute(swap, params![events[1], 3]).unwrap();
+    drop(connection);
 
     let mut second = story(&folder, "Ada");
 
     assert!(places(&mut second).is_empty());
-    assert_eq!(fs::read_to_string(&file).unwrap(), lines[0].clone() + "\n");
+    assert_eq!(bodies(&folder, "events"), [events[0].clone()]);
+}
+
+#[test]
+fn a_body_that_is_not_text_ends_its_table() {
+    let folder = fresh_folder("blob-body");
+    let mut first = story(&folder, "Ada");
+    enter(&mut first, 1, "Elwynn Forest");
+    drop(first);
+    let connection = Connection::open(world_file(&folder, "Ada")).unwrap();
+    let blob = "INSERT INTO events (body) VALUES (?1)";
+    connection.execute(blob, params![vec![0xC3_u8]]).unwrap();
+    drop(connection);
+
+    let mut second = story(&folder, "Ada");
+
+    assert_eq!(places(&mut second), ["Elwynn Forest"]);
 }
 
 #[test]
 fn a_history_that_another_program_wrote_is_refused() {
     let folder = fresh_folder("foreign");
-    let file = history_file(&folder, "Ada");
+    let file = world_file(&folder, "Ada");
     fs::create_dir_all(file.parent().unwrap()).unwrap();
+    Store::Folder(folder.clone())
+        .open(&CharacterKey::new("Stormrage", "Ada").unwrap())
+        .unwrap();
     let foreign = r#"{"id":0,"tick":0,"kind":{"EntityCreated":{"id":0,"entity_type":"Place","name":"Nowhere"}}}"#;
-    fs::write(&file, format!("{foreign}\n")).unwrap();
+    insert(&folder, "events", foreign);
     let mut story = Story::new(empty_pack(&folder), Store::Folder(folder.clone()));
 
     let result = story.handle(Input::CharacterEntered {
@@ -240,10 +279,7 @@ fn a_kill_past_the_cap_still_moves_the_foe_and_is_saved() {
             .unwrap();
     }
     enter(&mut first, 3, "Westfall");
-    let lines_before = fs::read_to_string(history_file(&folder, "Ada"))
-        .unwrap()
-        .lines()
-        .count();
+    let rows_before = bodies(&folder, "events").len();
 
     // Hogger moves to Westfall, and the count stays at 1000.
     let kill = first.handle(Input::NpcDefeated {
@@ -251,12 +287,9 @@ fn a_kill_past_the_cap_still_moves_the_foe_and_is_saved() {
         name: "Hogger".to_string(),
     });
 
-    let lines_after = fs::read_to_string(history_file(&folder, "Ada"))
-        .unwrap()
-        .lines()
-        .count();
+    let rows_after = bodies(&folder, "events").len();
     assert!(kill.is_ok());
-    assert_eq!(lines_after, lines_before + 1);
+    assert_eq!(rows_after, rows_before + 1);
 }
 
 #[test]
@@ -266,7 +299,7 @@ fn a_name_like_a_windows_device_still_names_a_plain_file() {
 
     enter(&mut con, 1, "Elwynn Forest");
 
-    assert!(history_file(&folder, "Con").is_file());
+    assert!(world_file(&folder, "Con").is_file());
 }
 
 #[test]
@@ -291,15 +324,16 @@ fn a_refused_character_switch_leaves_no_character_active() {
     assert!(places(&mut self::story(&folder, "Ada")).is_empty());
 }
 
+/// A folder that takes no new file takes no SQLite journal, so the save fails.
 #[cfg(unix)]
 #[test]
-fn a_failed_write_is_written_again_once_the_file_takes_it() {
+fn a_failed_save_loses_its_line_and_the_next_line_saves() {
     use std::os::unix::fs::PermissionsExt;
-    let folder = fresh_folder("failed-write");
+    let folder = fresh_folder("failed-save");
     let mut story = story(&folder, "Ada");
     enter(&mut story, 1, "Elwynn Forest");
-    let file = history_file(&folder, "Ada");
-    fs::set_permissions(&file, fs::Permissions::from_mode(0o444)).unwrap();
+    let realm = world_file(&folder, "Ada").parent().unwrap().to_path_buf();
+    fs::set_permissions(&realm, fs::Permissions::from_mode(0o555)).unwrap();
 
     let refused = story.handle(Input::ZoneEntered {
         at: Tick(2),
@@ -307,16 +341,15 @@ fn a_failed_write_is_written_again_once_the_file_takes_it() {
         subzone: None,
         spot: None,
     });
-    fs::set_permissions(&file, fs::Permissions::from_mode(0o644)).unwrap();
+    fs::set_permissions(&realm, fs::Permissions::from_mode(0o755)).unwrap();
+    let after_the_failure = places(&mut story);
     enter(&mut story, 3, "Duskwood");
     drop(story);
 
     assert!(matches!(refused, Err(StoryError::Store(_))));
+    assert_eq!(after_the_failure, ["Elwynn Forest"]);
     let mut reloaded = self::story(&folder, "Ada");
-    assert_eq!(
-        places(&mut reloaded),
-        ["Elwynn Forest", "Westfall", "Duskwood"]
-    );
+    assert_eq!(places(&mut reloaded), ["Elwynn Forest", "Duskwood"]);
 }
 
 /// Ends a batch, and lets each model call of it fail, so no narrator call keeps the saga
@@ -470,19 +503,68 @@ fn the_story_of_the_hero_survives_a_restart() {
 }
 
 #[test]
-fn a_line_cut_inside_a_character_is_cut_off_and_the_world_opens() {
-    let folder = fresh_folder("torn-utf8");
-    let mut first = story(&folder, "Ada");
-    enter(&mut first, 10, "Elwynn Forest");
-    drop(first);
-    let path = history_file(&folder, "Ada");
-    let mut bytes = fs::read(&path).unwrap();
+fn an_old_world_moves_into_the_database_at_its_first_open() {
+    let folder = fresh_folder("import");
+    let mut memory = story(&folder, "Ada");
+    enter(&mut memory, 1, "Elwynn Forest");
+    enter(&mut memory, 2, "Westfall");
+    drop(memory);
+    let events = bodies(&folder, "events");
+    fs::remove_file(world_file(&folder, "Ada")).unwrap();
+    fs::write(old_file(&folder, ".jsonl"), events.join("\n") + "\n").unwrap();
+
+    let mut story = story(&folder, "Ada");
+
+    assert_eq!(places(&mut story), ["Elwynn Forest", "Westfall"]);
+    assert!(old_file(&folder, ".jsonl").is_file());
+}
+
+#[test]
+fn an_old_line_cut_inside_a_character_is_left_out_of_the_import() {
+    let folder = fresh_folder("import-torn");
+    let mut memory = story(&folder, "Ada");
+    enter(&mut memory, 10, "Elwynn Forest");
+    drop(memory);
+    let events = bodies(&folder, "events");
+    fs::remove_file(world_file(&folder, "Ada")).unwrap();
+    let mut bytes = (events.join("\n") + "\n").into_bytes();
     bytes.extend_from_slice(b"{\"id\":99,\"text\":\"Caf\xC3");
-    fs::write(&path, bytes).unwrap();
+    fs::write(old_file(&folder, ".jsonl"), bytes).unwrap();
 
-    let mut second = story(&folder, "Ada");
+    let mut story = story(&folder, "Ada");
 
-    assert_eq!(places(&mut second), ["Elwynn Forest"]);
+    assert_eq!(places(&mut story), ["Elwynn Forest"]);
+    assert_eq!(bodies(&folder, "events"), events);
+}
+
+#[test]
+fn every_old_file_moves_into_its_table() {
+    let folder = fresh_folder("import-tables");
+    let saga = r#"{"began":5,"text":"Our hero came."}"#;
+    fs::write(old_file(&folder, ".chronicle.jsonl"), format!("{saga}\n")).unwrap();
+
+    let opened = Store::Folder(folder.clone())
+        .open(&CharacterKey::new("Stormrage", "Ada").unwrap())
+        .unwrap();
+
+    assert_eq!(opened.prose.get(Tick(5)).unwrap().text, "Our hero came.");
+    assert_eq!(bodies(&folder, "chapters"), [saga]);
+}
+
+#[test]
+fn a_file_that_is_not_a_database_is_an_error_and_stays() {
+    let folder = fresh_folder("not-a-database");
+    let file = world_file(&folder, "Ada");
+    fs::create_dir_all(file.parent().unwrap()).unwrap();
+    fs::write(&file, "not a database at all, just some words").unwrap();
+
+    let opened = Store::Folder(folder).open(&CharacterKey::new("Stormrage", "Ada").unwrap());
+
+    assert!(matches!(opened, Err(StoreError::Sqlite { .. })));
+    assert_eq!(
+        fs::read_to_string(&file).unwrap(),
+        "not a database at all, just some words"
+    );
 }
 
 /// A history that the program may not open is an error, never an empty world that then
@@ -495,17 +577,17 @@ fn a_history_that_cannot_be_opened_is_an_error_and_not_an_empty_world() {
     let mut first = story(&folder, "Ada");
     enter(&mut first, 1, "Elwynn Forest");
     drop(first);
-    let path = history_file(&folder, "Ada");
+    let path = world_file(&folder, "Ada");
     fs::set_permissions(&path, fs::Permissions::from_mode(0o000)).unwrap();
 
     let opened = Store::Folder(folder).open(&CharacterKey::new("Stormrage", "Ada").unwrap());
 
     fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).unwrap();
-    assert!(matches!(opened, Err(StoreError::Io { .. })));
+    assert!(matches!(opened, Err(StoreError::Sqlite { .. })));
 }
 
 #[test]
-fn a_new_character_opens_with_empty_files() {
+fn a_new_character_opens_with_empty_tables() {
     let folder = fresh_folder("new-files");
     let store = Store::Folder(folder);
 
@@ -513,9 +595,8 @@ fn a_new_character_opens_with_empty_files() {
         .open(&CharacterKey::new("Stormrage", "Ada").unwrap())
         .unwrap();
 
-    let history = opened.history.unwrap();
-    assert!(history.is_empty());
-    assert_eq!(history.len(), 0);
+    assert!(opened.database.is_some());
+    assert_eq!(opened.saved_events, 0);
     assert!(opened.prose.is_empty());
     assert_eq!(opened.prose.len(), 0);
 }
@@ -530,6 +611,8 @@ fn the_words_of_a_saga_come_back_after_a_restart() {
         footnotes: Vec::new(),
     };
     first.prose.add(Tick(5), written).unwrap();
+    let rows = vec![(Table::Chapters, first.prose.take_unsaved())];
+    first.database.unwrap().save(&rows).unwrap();
 
     let again = Store::Folder(folder).open(&key).unwrap();
 
@@ -548,5 +631,5 @@ fn a_history_with_events_opens_as_not_empty() {
         .open(&CharacterKey::new("Stormrage", "Ada").unwrap())
         .unwrap();
 
-    assert!(!opened.history.unwrap().is_empty());
+    assert!(opened.saved_events > 0);
 }

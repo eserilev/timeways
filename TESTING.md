@@ -8,7 +8,7 @@ The game runs a stable copy of the code, so work in the repo does not change the
 
 - **The addon:** the `Timeways` link in the AddOns folder points to `../timeways-test/addon/Timeways`. That folder is a git worktree of one commit. To see which one, run `git -C ../timeways-test log -1 --oneline`. To move it, run `git -C ../timeways-test checkout --detach <commit>`, and build the story program again.
 - **The story program:** `~/.local/bin/timeways-story`, built from the same commit. The old program is `~/.local/bin/timeways-story.old`.
-- **The world files:** `~/.local/share/gnomish-relay/timeways/story/worlds/r_<realm>/c_<name>.*.jsonl`.
+- **The world files:** `~/.local/share/gnomish-relay/timeways/story/worlds/r_<realm>/c_<name>.sqlite`. A world from before SQLite moves into this file at the first login, and its old `.jsonl` files stay.
 
 ## Before the first test
 
@@ -92,7 +92,7 @@ This test needs two characters with Timeways in one party, for example on two co
 
 ### 7. Your name stays private
 
-Open `c_<name>.learned.jsonl` in the world folder. Your character name is not in the file. `$N` stands in its place.
+In the world folder, run `sqlite3 c_<name>.sqlite "SELECT body FROM learned"`. Your character name is not in the result. `$N` stands in its place.
 
 ### 8. Open questions of the design
 
@@ -107,7 +107,7 @@ Open `c_<name>.learned.jsonl` in the world folder. Your character name is not in
 - What the lore book showed for each `/lore` question.
 - The offer line of `/quest`, and the Tasks tab at the end, with its map.
 - What each character saw in the test of player tasks.
-- The first 3 lines of the `.learned.jsonl` file.
+- The first 3 rows of `sqlite3 c_<name>.sqlite "SELECT body FROM learned LIMIT 3"`.
 - The result of each open question.
 
 ## After the test

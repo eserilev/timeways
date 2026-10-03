@@ -173,9 +173,16 @@ fn text_that_you_saw_stays_after_a_restart_and_is_written_once() {
         .unwrap()
         .flat_map(|realm| std::fs::read_dir(realm.unwrap().path()).unwrap())
         .map(|entry| entry.unwrap().path())
-        .find(|path| path.to_string_lossy().ends_with(".learned.jsonl"))
-        .expect("a learned file");
-    assert_eq!(std::fs::read_to_string(file).unwrap().lines().count(), 1);
+        .find(|path| {
+            path.extension()
+                .is_some_and(|extension| extension == "sqlite")
+        })
+        .expect("a world file");
+    let connection = rusqlite::Connection::open(file).unwrap();
+    let rows: i64 = connection
+        .query_row("SELECT count(*) FROM learned", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(rows, 1);
 }
 
 #[test]

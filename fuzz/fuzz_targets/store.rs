@@ -1,6 +1,7 @@
-//! Damaged files of a character. Opening them always works, because a crash can leave any
-//! damage (GAMEPLAY.md 5.7). Only a history from another program is refused. The repair of
-//! the first open leaves files that a second open reads the same way.
+//! Damaged files of a build before SQLite. Their import always works, because a crash can
+//! leave any damage (GAMEPLAY.md 5.7). Only a history from another program is refused. The
+//! first open cuts each row that does not read, so a second open reads the database the
+//! same way.
 
 #![no_main]
 
@@ -24,7 +25,7 @@ fn folder() -> PathBuf {
 /// The counts of what each file gave.
 fn counts(opened: &Opened) -> [usize; 8] {
     [
-        opened.history.as_ref().map_or(0, |file| file.len()),
+        opened.saved_events,
         opened.prose.len(),
         opened.flavor.moments().len(),
         opened.flavor.told().len(),
