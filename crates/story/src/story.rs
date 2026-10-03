@@ -21,7 +21,7 @@ use crate::quest::{Status, quest_log};
 use crate::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use crate::seen::{MAX_SEEN_BYTES, SeenIndex, SeenText, TextKind};
 use crate::spot::Spot;
-use crate::store::{CharacterKey, Node, Opened, Outcome, Store, StoreError, Table};
+use crate::store::{CharacterKey, Node, Opened, Outcome, Shared, Store, StoreError, Table};
 use crate::talk::{self, Scene};
 use crate::titles;
 use hourglass::Tick;
@@ -40,6 +40,10 @@ use active::{Active, Kept};
 use quests::QuestRequest;
 
 const DAY_SECONDS: u64 = 24 * 3600;
+
+/// The names of the values in `timeways.sqlite`.
+const BUDGET: &str = "budget";
+const PACE: &str = "pace";
 
 fn now() -> Tick {
     let since_epoch = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);
@@ -294,6 +298,9 @@ pub struct Story {
     /// The flavor moments of the batch so far, each with its score and its count.
     candidates: Vec<Candidate>,
     budget: Budget,
+    /// What all characters share. It opens with the first character, and holds the
+    /// budget and the pace across a restart.
+    shared: Option<Shared>,
     /// The chapters of the active character that the narrator was asked a saga for in
     /// this run. A failed chapter keeps its plain list, and gets no second round.
     chronicle_asked: BTreeSet<Tick>,
@@ -335,6 +342,7 @@ impl Story {
             moments: Vec::new(),
             candidates: Vec::new(),
             budget: Budget::default(),
+            shared: None,
             chronicle_asked: BTreeSet::new(),
             saga_round: None,
             pace: Pace::default(),
@@ -366,7 +374,28 @@ impl Story {
         let kept = Kept::of(&input)?;
         let outputs = self.handle_unsaved(input);
         self.save_active(kept)?;
+        self.save_shared()?;
         outputs
+    }
+
+    fn save_shared(&mut self) -> Result<(), StoryError> {
+        let Some(shared) = self.shared.as_mut() else {
+            return Ok(());
+        };
+        shared.save(BUDGET, &self.budget)?;
+        shared.save(PACE, &self.pace)?;
+        Ok(())
+    }
+
+    fn open_shared(&mut self) -> Result<(), StoryError> {
+        if self.shared.is_some() {
+            return Ok(());
+        }
+        let mut shared = self.store.open_shared()?;
+        self.budget = shared.load(BUDGET)?;
+        self.pace = shared.load(PACE)?;
+        self.shared = Some(shared);
+        Ok(())
     }
 
     /// The rows of a refused input stay too, because the events before a refusal landed.
@@ -815,6 +844,7 @@ impl Story {
     /// A refused switch leaves no character active, so the events of the new character
     /// never land in the world of the old one.
     fn enter_character(&mut self, realm: &str, name: &str) -> Result<(), StoryError> {
+        self.open_shared()?;
         let key = CharacterKey::new(realm, name);
         let same = |key: &CharacterKey| {
             self.active

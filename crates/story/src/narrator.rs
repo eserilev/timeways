@@ -7,6 +7,7 @@ use crate::moments::Moment;
 use crate::places::InstanceKind;
 use crate::samples::{self, Voice};
 use hourglass::Tick;
+use serde::{Deserialize, Serialize};
 use std::fmt::Write;
 
 /// About 50 words. The prompt asks for 25.
@@ -33,7 +34,7 @@ not hold.
 Answer with the line only.";
 
 /// Counts the lines of the last hour of game time, so the narrator talks little.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Budget {
     /// The times of the last lines, oldest first. No heap, so Kani proves the budget fast.
     spoken: [Option<Tick>; LINES_PER_HOUR],

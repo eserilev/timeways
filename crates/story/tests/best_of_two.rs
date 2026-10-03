@@ -291,6 +291,9 @@ fn a_restart_between_the_drafts_asks_the_chapter_again_and_keeps_one_saga() {
 
     let mut after = started(&folder, Store::Folder(folder.clone()));
     let unwritten = chapters(&mut after)[0].prose.clone();
+    // The pace of the calls before the restart stays, so the next round waits for a calm
+    // window to get its extra calls.
+    meet(&mut after, 7 * HOUR, "Tobias Mistmantle");
     let (first, prompt) = first_draft(&mut after, 3);
     let (second, _) = answered(&mut after, first, &saga(FIRST)).unwrap();
     let (judge, _) = answered(&mut after, second, &saga(SECOND)).unwrap();

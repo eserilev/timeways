@@ -6,6 +6,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use timeways_story::input::{Input, MessageId};
 use timeways_story::journal::Page;
+use timeways_story::pace::Pace;
 use timeways_story::pack::Pack;
 use timeways_story::store::{CharacterKey, Line, Store, StoreError, Table, safe_id};
 use timeways_story::story::{Output, Story, StoryError};
@@ -614,4 +615,71 @@ fn a_call_with_two_broken_links_opens_and_loses_both() {
         )
         .unwrap();
     assert_eq!(links, (None, None));
+}
+
+/// The narrator line of a batch, if the batch asks for one. Its call fails, and the line
+/// still counts against the budget.
+fn narrator_asked(story: &mut Story, batch: u64) -> bool {
+    let outputs = story
+        .handle(Input::BatchEnd {
+            id: MessageId(batch),
+        })
+        .unwrap();
+    let mut asked = false;
+    for output in outputs {
+        if let Output::ModelCall { call, .. } = output {
+            story.handle(Input::ModelFailed { call }).unwrap();
+            asked = true;
+        }
+    }
+    asked
+}
+
+#[test]
+fn a_restart_keeps_the_budget_of_the_narrator() {
+    let folder = fresh_folder("budget-restart");
+    let mut first = story(&folder, "Ada");
+    let mut asked = Vec::new();
+    for (minute, zone) in [(1, "Elwynn Forest"), (2, "Westfall"), (3, "Duskwood")] {
+        enter(&mut first, minute * 60, zone);
+        asked.push(narrator_asked(&mut first, minute));
+    }
+    drop(first);
+    let mut second = story(&folder, "Ada");
+
+    enter(&mut second, 4 * 60, "Redridge Mountains");
+
+    assert_eq!(asked, [true, true, true]);
+    assert!(!narrator_asked(&mut second, 4));
+}
+
+#[test]
+fn the_pace_of_the_model_comes_back_after_a_restart() {
+    let folder = fresh_folder("pace-restart");
+    let store = Store::Folder(folder.clone());
+    let mut pace = Pace::default();
+    pace.failed(Tick(1_000));
+    store.open_shared().unwrap().save("pace", &pace).unwrap();
+
+    let again: Pace = store.open_shared().unwrap().load("pace").unwrap();
+
+    assert!(again.is_tight(Tick(1_060)));
+}
+
+#[test]
+fn a_shared_value_that_does_not_read_comes_back_as_its_default() {
+    let folder = fresh_folder("shared-bad");
+    let store = Store::Folder(folder.clone());
+    drop(store.open_shared().unwrap());
+    Connection::open(folder.join("timeways.sqlite"))
+        .unwrap()
+        .execute(
+            "INSERT INTO state (name, body) VALUES ('pace', 'not json')",
+            [],
+        )
+        .unwrap();
+
+    let pace: Pace = store.open_shared().unwrap().load("pace").unwrap();
+
+    assert!(!pace.is_tight(Tick(1_000)));
 }

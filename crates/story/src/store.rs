@@ -4,12 +4,14 @@
 mod database;
 pub mod graph;
 mod logs;
+mod shared;
 
 pub use database::{
     CallEnd, CallRecord, Database, Line, NewCall, NewInput, NewRow, Next, Node, Origin, Outcome,
     PROMPTS_KEPT, Root, Table, oldest_prompt_kept,
 };
 pub use logs::{FlavorLog, HeroLog, LearnedLog, Prose, QuestLog, Written};
+pub use shared::Shared;
 
 use crate::character::Character;
 use hourglass::{Event, EventId};
@@ -132,6 +134,21 @@ struct Read {
 }
 
 impl Store {
+    /// What all characters share: `timeways.sqlite` in the data folder.
+    ///
+    /// # Errors
+    ///
+    /// Returns the error of SQLite or of the file system, or `OtherVersion`.
+    pub fn open_shared(&self) -> Result<Shared, StoreError> {
+        match self {
+            Store::Memory => Shared::in_memory(),
+            Store::Folder(folder) => {
+                fs::create_dir_all(folder).map_err(|source| io_error(folder, source))?;
+                Shared::open(&folder.join("timeways.sqlite"))
+            }
+        }
+    }
+
     /// # Errors
     ///
     /// Returns the error of SQLite or of the file system, `Foreign` for a world that

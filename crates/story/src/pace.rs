@@ -3,6 +3,7 @@
 //! budget with a plain `model_failed`. So a failure counts as a sign of a tight window.
 
 use hourglass::Tick;
+use serde::{Deserialize, Serialize};
 
 /// The window of the budget of the bridge.
 pub const WINDOW_SECONDS: u64 = 20 * 60;
@@ -12,7 +13,7 @@ pub const WINDOW_SECONDS: u64 = 20 * 60;
 pub const BUSY_CALLS: usize = 5;
 
 /// The newest opened calls and the newest failure, in the time of the addon.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Pace {
     /// The times of the last calls, oldest first. Only the last `BUSY_CALLS` matter.
     opened: [Option<Tick>; BUSY_CALLS],
