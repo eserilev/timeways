@@ -1,6 +1,6 @@
 # Plan: Timeways online
 
-Status: draft 1, 2026-10-03. The user decided the scope and the three features. Draft 2 takes in the account decision of the user: Battle.net login from the first version (section 5). Nothing is built. When a part is built, its rules move into `GAMEPLAY.md` (section 21 of this plan), and this plan marks the part as done.
+Status: draft 1, 2026-10-03. The user decided the scope and the three features. Draft 2 takes in the account decision of the user: Battle.net login from the first version (section 5). It also adds voice examples from real NPC lines (section 22). Nothing is built. When a part is built, its rules move into `GAMEPLAY.md` (section 21 of this plan), and this plan marks the part as done.
 
 This plan builds on these plans and does not repeat them:
 
@@ -17,6 +17,8 @@ Timeways online is a website, an API, and a database that we host. Players share
 1. **A quest library.** A player publishes a quest that they wrote. Other players get it on the website or in the game. In the game, it comes as an offer from a fitting NPC, like a side quest (3.4). Quests get likes, play counts, and reports. A guild or a roleplay group can keep quests for its members only.
 2. **A game text library.** The addon already keeps the quest text, gossip, and books that the player read (5.10). Players share them, with `$N` for the name. A text joins the library only after several independent players sent the same text. Every player downloads the library. Each player's spoiler limit still holds on their own computer. Section 8 also gives a middle path: share only which texts exist and where, and never the words.
 3. **Votes on AI text.** A thumbs up or down on a narrator line, a quest offer, or a talk answer. The vote carries the line, never a player name and never typed words. The best lines become candidates for the golden samples. The worst show weak prompts. A player can also report a lore problem in a `/lore` answer.
+
+The pooled text also gives **voice examples**: real lines in the voice of an NPC for the talk prompt (section 22). Most of them come from your own reading, with no pool.
 
 The same "several independent reports" rule also pools **world facts**: the title and the faction of an NPC, where it stands, and the continent of a zone. `npc-knowledge.md` needs these in a hand-written `zones.toml` today.
 
@@ -38,7 +40,7 @@ The rules of `GAMEPLAY.md` 2 still hold:
 | Accounts | "Log in with Battle.net" on the website (OAuth code flow). The desktop app links with a short code (RFC 8628 device flow). | Timeways |
 | Database | PostgreSQL, 22 tables (section 13). | Timeways |
 | Storage | Download files in object storage behind a CDN. | Timeways |
-| Story program | `library.rs`, `sharing.rs`, `pooled.rs`, `votes.rs`, `world_reports.rs`, `review.rs`, `online_call.rs` (new). New lines for the addon. | Timeways |
+| Story program | `library.rs`, `sharing.rs`, `pooled.rs`, `votes.rs`, `world_reports.rs`, `review.rs`, `online_call.rs`, `voice_lines.rs` (new). New lines for the addon. | Timeways |
 | Addon | A Sharing section in the game options, Publish on the quest form, thumbs, Report, `/quest add`. | Timeways |
 | App protocol | New `online_call`, `online_answered`, `online_failed`, and `online_updated` lines. Protocol 3. | relay |
 | Bridge | The HTTPS route to one host, the device code link, the token file with refresh, the `online` folder, a budget for each kind of call. | relay |
@@ -1112,7 +1114,9 @@ Each step is one commit with its tests, and each one ships. The first version is
 13. **Samples from players.** `samples.jsonl`.
 14. **The full text library**, after the legal decision of section 16.
 15. **Characters from the game**, the fallback of 5.3, when the Profile API does not cover Forever.
-16. **`GAMEPLAY.md`.** The text of section 21. This plan marks the steps as done.
+16. **Voice lines from your own reading** (section 22, sources 1, 2, and 4). It needs nothing online, so it can come before step 1, after the kinds of npc-knowledge.md and the conversation of talk-window.md. `voice_lines.rs`, the block, the copy check, the reads, and the budget tests.
+17. **Pooled voice lines** (section 22, source 3), after step 14. The `pooled:<hash>` address of the reads.
+18. **`GAMEPLAY.md`.** The text of section 21. This plan marks the steps as done.
 
 ## 19. Tests
 
@@ -1338,6 +1342,10 @@ In 3.4, after "**The offer**", add:
 
 > - **A library quest** (4.9) comes first when one fits the NPC: an added quest always, a quest of the feed in at most one offer of three. It passes the same check against your world. With none, the model writes the quest.
 
+In 3.5, add:
+
+> - **Voice examples.** The talk prompt gets 2 or 3 real lines in the voice of the NPC, in place of the golden samples: first its own gossip and quest text that you read, then lines that you read of NPCs of the same kind, then lines of the shared game text (4.9) that pass your spoiler limit. A line is the start of a text of at most 1000 characters, cut at a sentence end within 200 characters, with "you" in place of `$N`. A book or a rumor is never a voice line. A line of another NPC never names a zone that this NPC does not know. With fewer than 2 lines, the golden samples stay. The NPC copies the manner, never the facts: an answer that repeats 8 words in a row of a voice line is refused.
+
 In 5.10, after "The lore of each player", add:
 
 > **The shared game text** (4.9), when you turn it on: a third source after your own text and before the pack. It passes the spoiler limit as 4.9 says, and its source reads "players report".
@@ -1348,9 +1356,214 @@ In 5.12, in "**The story program**", add:
 
 In 5.14, in the table of roots, change the row Shared:
 
-> | Shared | another player said it: a player story, a library quest, or a shared game text |
+> | Shared | another player said it: a player story, a library quest, or a shared game text, also as a voice line of a talk |
+
+In 5.14, in the table of reads, add to the row Talk:
+
+> and the `learned` rows of its voice lines, and the pooled texts of its voice lines (3.5)
 
 In 9, add:
 
 > 10. **Battle.net characters for WoW: Forever** (4.9). Does the Profile API list them? A test with a real account decides.
 > 11. **The full text library** (4.9). Share the words of game text, or only where texts are?
+
+## 22. Voice examples from real NPC lines
+
+The user decided this on 2026-10-03. The idea comes from the Stardew Valley mod ValleyTalk: a small model copies a real voice better than it follows a description of one. So the talk prompt gets 2 or 3 real lines in the voice of the NPC, from game text. The golden samples (3.2.1) stay as the fallback.
+
+The first two sources need nothing online. The pool only adds the third source. So this section ships in two parts (18).
+
+### 22.1 Where the lines come from
+
+The sources, in order. The pick stops at 3 lines.
+
+| Order | Source | Needs |
+|---|---|---|
+| 1 | **This NPC's own lines that you read**: the seen texts (5.10) of kind `gossip` or `quest` whose `npc` is this NPC | nothing |
+| 2 | **Your lines of the same kind of NPC**: your seen texts of other NPCs of the kind of this NPC (npc-knowledge.md 5), by their title | the kinds of npc-knowledge.md |
+| 3 | **Pooled lines** (8.4) of this NPC, then of the same kind | "Use the shared game text", with the full text library |
+| 4 | **The golden samples** of `npc_replies.txt`, as today | nothing |
+
+- A book is never a voice line. A book is a writer, not the voice of the NPC.
+- A rumor is never a voice line. A rumor is model text (3.1.1), and a model must never learn its voice from its own words. Only rows of `TextSeen` count.
+- Within a source, gossip comes before quest text, because gossip is spoken. Then the same zone as the NPC first, then the newest read first. Pooled lines order by their number of independent reports, then by hash, so every player gets the same order.
+- **A local is wide.** Every NPC with no kind word is a local (npc-knowledge.md 5.1). So for a local, source 2 and the kind part of source 3 take only NPCs of the same zone.
+- **The kind of another NPC** comes from its title in your world (`title_of`). With no title there, the pooled world fact `npc_title` (section 9) gives it, when "Use the shared game text" or world facts are on. With neither, the NPC is a local.
+
+### 22.2 What each mode of the pool gives
+
+| Mode | Source 1 and 2 | Source 3 |
+|---|---|---|
+| Pool off | your own reading | none |
+| Middle path (8.5): hashes and places, no words | your own reading | **none.** The pool has no words. It still gives the kind of more NPCs through pooled titles, so source 2 finds more of your own lines. |
+| Full text (8.4) | your own reading | pooled lines that pass your spoiler limit |
+
+### 22.3 The rules of a line
+
+1. **Skip a long text.** A seen text over 1000 characters is skipped. A long text is exposition, not a voice.
+2. **Cut to the limit.** A line is the text from its start up to the last sentence end (`.`, `!`, or `?`) within 200 characters. With no sentence end there, the cut goes at the last whole word, with "...".
+3. **`$N` becomes "you".** The line speaks to the player. A line with any other `$` code is skipped: the game fills those before the addon reads them, so another code means a strange text.
+4. **No spoiler.** A line of your own reading passes: you read it. A pooled line passes the spoiler limit of 8.4: a quest text only for a quest that you hold or turned in, a gossip text only for an NPC that you met.
+5. **No knowledge leak.** A line of another NPC (sources 2 and 3) that names a zone of `zones.toml` that this NPC does not know (npc-knowledge.md 6.3) is skipped. So a voice line never teaches the NPC a place. The NPC's own lines need no such check.
+6. **The cutoff.** A line with a name after the cutoff (5.9) is skipped. Game text holds none, but a pooled text came from other computers.
+7. **Once.** The same text gives one line, also when it comes from two sources.
+8. **2 or nothing.** With 2 or 3 lines, the voice block takes the place of the golden samples. With 0 or 1 line, the prompt keeps the golden samples as today, and the one line is dropped. One example is too few: the model copies it word for word.
+9. **The same lines for a whole conversation.** The pick takes the number of the conversation (talk-window.md 4.1) as its rotation: the first line of each source rotates by it. So the lines stay the same over the turns of one talk, and change from talk to talk.
+
+### 22.4 The function
+
+A new module `crates/story/src/voice_lines.rs`, with pure functions only:
+
+```rust
+pub const MIN_VOICE_LINES: usize = 2;
+pub const MAX_VOICE_LINES: usize = 3;
+/// A text over this is exposition, not a voice.
+pub const MAX_SOURCE_CHARS: usize = 1000;
+pub const MAX_LINE_CHARS: usize = 200;
+
+/// Where a voice line came from. Its order is the order of the pick.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum VoiceSource { OwnNpc, OwnKind, PoolNpc, PoolKind }
+
+/// The row that a line came from, for the reads (22.6).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum VoiceRow { Learned(RowId), Pooled(TextHash) }
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct VoiceLine { pub text: String, pub source: VoiceSource, pub row: VoiceRow }
+
+/// What the pick needs to know about the NPC of the talk.
+pub struct Speaker<'a> { pub npc: &'a str, pub zone: Option<&'a str>, pub knower: &'a Knower }
+
+/// 2 or 3 lines in the voice of the speaker, or none: then the prompt keeps the golden samples.
+pub fn voice_lines(speaker: &Speaker<'_>, world: &Character, seen: &[SeenRow], pool: &Pooled, rotation: u32) -> Vec<VoiceLine>
+
+/// The cut form of a text (22.3, rules 1 to 3), or none when the text gives no line.
+pub fn voice_line_of(text: &str) -> Option<String>
+```
+
+- `voice_lines` reads the four sources in order, keeps each line that passes 22.3, and stops at `MAX_VOICE_LINES`. Under `MIN_VOICE_LINES` it gives none.
+- `voice_line_of` is the one place that cuts a text. The property test (22.9) uses it too.
+- `Pooled` is the text library of `pooled.rs` (8.4). With the pool off, or on the middle path, it holds no words, and sources 3 give nothing.
+- `story.rs` calls `voice_lines` once at the first turn of a conversation, and keeps the result with the conversation in memory (talk-window.md 4.1). So each later turn uses the same lines and the same reads.
+
+### 22.5 The prompt block
+
+The block takes the place of the golden samples in `talk::prompt`, in one fence, because a pooled line is hostile text (`house::fenced`):
+
+```
+How you talk. These are words you said before, or words of people like you. Copy the manner, never the facts, and never a whole line:
+<<<
+- Welcome to the inn, you. Make yourself at home, and mind the stairs.
+- Hot food, a warm bed, and no questions. That's the rule of my house.
+>>>
+```
+
+The prompt words are internal, not UI copy. The player never sees the block.
+
+**The copy check.** Today the check of a talk answer refuses a copy of a golden sample (`samples::every_sample`). It also takes the voice lines of the prompt: an answer that holds 8 or more words in a row of a voice line is refused, as a copy of a sample is. A talk has no retry (3.5), so the NPC "says nothing".
+
+**The order of the talk prompt**, with every plan:
+
+1. The persona, its title and kind sentence (npc-knowledge.md 7.1), and the house rules.
+2. What the NPC knows: the lore that it knows, the rumor block (npc-knowledge.md 7.2), and on the first turn only the memory block (npc-memory.md 5) and the talk of the town (standing.md 9.3).
+3. **The voice block** (this section), or the golden samples.
+4. The talk so far (talk-window.md 4.3), from the second turn.
+5. The words of this turn.
+6. The author's note, the options rule, and the JSON shape.
+
+The voice block goes right before the talk so far. So the last examples of manner that the model reads before the dialogue are real lines.
+
+**The budget.** A prompt has at most 1773 tokens (`tokens::Call::Talk`, talk-window.md 4.3).
+
+| Part | Tokens, at most |
+|---|---|
+| The voice block: 3 lines of 200 characters, the marks, and the heading of about 150 characters | 190 |
+| The golden samples that it replaces | counted as 0, so the table is on the safe side |
+
+| Turn | Before this plan | With the voice block | Room left |
+|---|---|---|---|
+| First turn: talk-window.md 882, the talk of the town 230 (standing.md 9.3), npc-knowledge.md 100 | 1212 | 1402 | 371 |
+| A later turn: talk-window.md 1217, npc-knowledge.md 100 | 1317 | 1507 | 266 |
+
+Both fit. `tests/voice.rs` gets the longest first turn and the longest later turn with 3 lines of 200 characters, and the budget test covers both.
+
+### 22.6 Reads and proof (5.14)
+
+- A talk call **reads** the `learned` row of each voice line of its own reading. These rows have Game proof, so the proof of a talk does not change.
+- A pooled voice line has no row in the world. Its read is a new address of links.md 5: `pooled:<hash>`, with the root Shared. So a talk that used a pooled line shows Shared: the words of another player's game shaped it. That is true, and it is the safe side.
+- The prompt of the call keeps the lines, as it keeps all of its text (5.14, "Prompts").
+- `story/reads.rs`, row Talk: add "and the rows behind its voice lines".
+
+### 22.7 Edge cases
+
+| Case | Rule |
+|---|---|
+| An NPC that you never read, of a kind with no lines | The golden samples, as today |
+| You read only one gossip of this NPC | One line from source 1, and the pick goes on to source 2 |
+| A quest text that holds the objectives at its end | The cut at 200 characters keeps the first sentences, which are the giver's words |
+| A text that is one long sentence | The cut at the last whole word, with "..." |
+| A text of exactly 1000 characters | Kept. 1001 is skipped. |
+| A line that names the player's class or race ("Greetings, night elf") | Kept. The game filled it for this player. |
+| A pooled line of a quest that you never took | Skipped (22.3, rule 4) |
+| The full text library ends after a takedown (8.6) | The next file has no words. Source 3 gives nothing, and the talk works as on the middle path. |
+| Two NPCs with one name | Source 1 takes the seen texts of the name, as the seen text does today (5.10) |
+| An NPC whose title changed (npc-knowledge.md 4.1) | The newest title sets the kind |
+| A seen text of another locale in the pool | Never: the pool file holds only the locale of the player (8.1) |
+| The model answers with a voice line word for word | The copy check refuses it (22.5) |
+
+### 22.8 Tests
+
+`crates/story/tests/voice_lines.rs` (new):
+
+- `the_npcs_own_lines_come_first`
+- `lines_of_the_same_kind_come_after_the_npcs_own`
+- `a_local_takes_lines_of_the_same_kind_only_from_its_zone`
+- `pooled_lines_come_after_your_own_reading`
+- `pooled_lines_of_the_npc_come_before_pooled_lines_of_its_kind`
+- `gossip_comes_before_quest_text`
+- `a_book_is_never_a_voice_line`
+- `a_rumor_is_never_a_voice_line`
+- `a_text_over_a_thousand_characters_is_skipped`
+- `a_text_of_a_thousand_characters_is_kept`
+- `a_line_is_cut_at_the_last_sentence_end_within_two_hundred_characters`
+- `a_line_with_no_sentence_end_is_cut_at_a_whole_word`
+- `dollar_n_becomes_you`
+- `a_line_with_another_dollar_code_is_skipped`
+- `a_pooled_quest_line_needs_the_quest`
+- `a_pooled_gossip_line_needs_the_npc`
+- `a_line_of_another_npc_that_names_a_zone_this_npc_does_not_know_is_skipped`
+- `a_line_with_a_name_after_the_cutoff_is_skipped`
+- `the_same_text_gives_one_line`
+- `one_line_gives_no_voice_block`
+- `the_middle_path_gives_no_pooled_line`
+- `a_pooled_title_sets_the_kind_of_an_npc_that_you_saw_with_no_title`
+- `the_lines_stay_the_same_for_each_turn_of_a_conversation`
+- `the_lines_change_with_the_conversation_number`
+
+`crates/story/tests/talk.rs`:
+
+- `the_voice_block_takes_the_place_of_the_golden_samples`
+- `the_voice_block_comes_before_the_talk_so_far`
+- `an_answer_that_copies_eight_words_of_a_voice_line_is_refused`
+- `a_talk_reads_the_learned_rows_of_its_voice_lines`
+- `a_talk_with_a_pooled_voice_line_has_shared_proof`
+
+`crates/story/tests/voice.rs`:
+
+- `the_longest_first_turn_with_voice_lines_fits_the_talk_budget`
+- `the_longest_later_turn_with_voice_lines_fits_the_talk_budget`
+
+### 22.9 Property test (`crates/story/tests/properties.rs`)
+
+`a_voice_line_in_a_prompt_is_always_read_or_counted_text`: for any play and any pool file, each line of the voice block of each talk prompt is `voice_line_of` of one of two texts:
+
+- the text of a `TextSeen` row of this character, of kind `gossip` or `quest`, or
+- a text of the pool file that passes the spoiler limit of 8.4 for this character. The pool file holds only texts with 3 independent reports (8.3), so a pooled line is always a counted text.
+
+The test also checks that no voice line comes from a rumor row or a book. It makes the edges likely: texts of 999, 1000, and 1001 characters, a sentence end at character 200 and at 201, a text with `$N` at its start and at its end, a pooled quest text of a quest held, done, and never taken, and a pick with exactly 1 and exactly 2 lines.
+
+### 22.10 Fuzz
+
+- `fuzz/fuzz_targets/seen.rs`: `voice_line_of` on every random text. A line it gives is at most 200 characters, holds no `$`, and has no control character.
+- `fuzz/fuzz_targets/online_files.rs`: `voice_lines` with the random pool file and a small world. It never panics.
