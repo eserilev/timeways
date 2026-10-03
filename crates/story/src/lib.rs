@@ -14,6 +14,7 @@ pub mod input;
 pub mod journal;
 pub mod learned;
 pub mod lore;
+pub mod lore_start;
 pub mod memory;
 pub mod moments;
 pub mod narrator;

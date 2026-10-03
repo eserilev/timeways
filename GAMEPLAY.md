@@ -649,6 +649,11 @@ A web request for each question is slow, depends on one website, and sends whole
 - The player builds it from the dump (below), and builds it again when Forever releases a new phase.
 - **The cutoff is built in.** The pack holds only the passages up to the current phase of Forever. A Molten Core passage is not in the file before Molten Core opens, so no model can see it. Layers 3 and 4 of 5.9 still apply to the text of the model.
 
+**The lore builds in the background** (built in the story program; the desktop part is relay SPEC 11.4). Setup ends without the pack. The desktop app downloads the dump and builds the pack after setup, and then starts the story program again.
+
+- With no file at the pack path, `timeways-story` starts anyway, with an empty pack in memory. `/lore` then answers from the text that the player read (3.1.1). The story program never creates or writes the pack, and reads it only at its start.
+- While it runs with no pack, it keeps the mark `lore-building` in its story folder. At its first start with a pack, it removes the mark, and the next answer of any kind carries the notice "Lore is ready.". A change of character keeps this notice.
+
 **The builder** (built): `timeways-pack` writes the pack. It refuses a passage with no link, and it never writes over a pack that exists.
 
 - **From a dump:** `timeways-pack from-dump <dump> <pack>` reads the MediaWiki XML export of the wiki, as a `.7z` archive or unpacked. It streams the file and keeps only the listed pages. It reads the dump at most twice: once for the index page, the wiki pages, and every redirect, and once for the books and the targets of redirects.

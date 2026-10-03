@@ -269,6 +269,9 @@ pub struct Story {
     /// A line of Timeways for the next answer of any kind: an offer that came too late for
     /// its batch, or why a task was refused.
     notice: Option<String>,
+    /// A line of the program itself, such as "Lore is ready.". A change of character keeps
+    /// it, and it waits while a line of the character takes the slot.
+    program_notice: Option<String>,
     /// After this time, the bridge drops the `events_seen` of a batch.
     events_deadline: Duration,
 }
@@ -300,8 +303,14 @@ impl Story {
             quest_request: None,
             newest: Tick(0),
             notice: None,
+            program_notice: None,
             events_deadline: EVENTS_DEADLINE,
         }
+    }
+
+    /// A line of the program for the next answer of any kind, such as "Lore is ready.".
+    pub fn set_program_notice(&mut self, line: String) {
+        self.program_notice = Some(line);
     }
 
     /// Tests set a short deadline to play a slow model.
@@ -1098,7 +1107,7 @@ impl Story {
         else {
             return;
         };
-        *slot = self.notice.take();
+        *slot = self.notice.take().or_else(|| self.program_notice.take());
     }
 
     /// The line goes on the answer of its batch, or on the next answer when the bridge

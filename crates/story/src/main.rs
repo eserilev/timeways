@@ -6,7 +6,7 @@ use std::error::Error;
 use std::io::{self, BufRead, Write};
 use std::path::PathBuf;
 use std::process::ExitCode;
-use timeways_story::pack::Pack;
+use timeways_story::lore_start::open_lore;
 use timeways_story::serve;
 use timeways_story::store::Store;
 use timeways_story::story::Story;
@@ -18,10 +18,16 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     };
     // With no data folder, nothing is saved. That is for a run by hand.
-    let store = args.next().map_or(Store::Memory, Store::Folder);
-    let result = Pack::open(&pack)
+    let folder = args.next();
+    let result = open_lore(&pack, folder.as_deref())
         .map_err(Box::from)
-        .and_then(|pack| serve(&mut Story::new(pack, store)));
+        .and_then(|start| {
+            let mut story = Story::new(start.pack, folder.map_or(Store::Memory, Store::Folder));
+            if let Some(notice) = start.notice {
+                story.set_program_notice(notice);
+            }
+            serve(&mut story)
+        });
     match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {

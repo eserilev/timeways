@@ -149,14 +149,19 @@ fn no_pack_is_a_failure_with_the_usage() {
     assert!(log.contains("usage"), "{log}");
 }
 
+/// The desktop app builds the pack after setup, so the program starts without it (relay
+/// SPEC 11.4), and never makes the file.
 #[test]
-fn a_missing_pack_is_a_failure() {
+fn a_missing_pack_starts_the_program_and_makes_no_pack() {
     let missing = Path::new(env!("CARGO_TARGET_TMPDIR")).join("bridge-missing.sqlite");
     let _ = std::fs::remove_file(&missing);
 
-    let output = run(&missing, "");
+    let output = run(&missing, "{\"type\":\"hello\"}\n");
 
-    assert!(!output.status.success());
+    assert!(output.status.success());
+    let out = String::from_utf8(output.stdout).unwrap();
+    assert!(out.contains(r#""type":"hello""#), "{out}");
+    assert!(!missing.exists());
 }
 
 #[test]

@@ -84,6 +84,19 @@ impl Pack {
         Ok(Pack { connection, label })
     }
 
+    /// A pack with no passage, in memory, while the desktop app builds the real one (relay
+    /// SPEC 11.4). `/lore` then answers from the text that the player read.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when SQLite fails.
+    pub fn empty() -> Result<Pack, PackError> {
+        let connection = Connection::open_in_memory()?;
+        connection.execute_batch(SCHEMA)?;
+        let label = "no pack yet".to_string();
+        Ok(Pack { connection, label })
+    }
+
     /// # Errors
     ///
     /// Returns an error when a passage has no links, or when SQLite fails. Nothing is
