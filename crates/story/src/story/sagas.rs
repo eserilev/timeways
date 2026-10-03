@@ -1,7 +1,7 @@
 //! The saga of each finished chapter in the story program (GAMEPLAY.md 3.3): the drafts,
 //! the judge, and the final saga on the disk.
 
-use super::{CHAPTER_MOMENTS, Output, Pending, Story, StoryError};
+use super::{CHAPTER_MOMENTS, Output, Pending, Story, StoryError, reads};
 use crate::best_of_two::{Next, Round};
 use crate::check;
 use crate::chronicle::{self, Draft, Pick, Saga};
@@ -9,7 +9,7 @@ use crate::flavor::{self, Teller, Told};
 use crate::hero::{self, Entry};
 use crate::journal::journal;
 use crate::memory;
-use crate::store::{CharacterKey, Written};
+use crate::store::{CharacterKey, Node, Outcome, Written};
 use hourglass::Tick;
 
 impl Story {
@@ -87,36 +87,45 @@ impl Story {
             facts,
             second,
         );
+        let read = reads::chapter_read(active, chapter.began, next.began);
         self.chronicle_asked.insert(chapter.began);
         self.saga_round = Some(round);
-        self.open_call(pending, first)
+        self.round_read.clone_from(&read);
+        self.round_calls.clear();
+        self.open_call(pending, first, read)
     }
 
-    /// `text` is None for a failed call. A failed judge picks the first draft.
+    /// `text` is None for a failed call. A failed judge picks the first draft. A draft
+    /// that passes its checks, and every pick, is accepted.
     pub(super) fn saga_answered(
         &mut self,
         key: &CharacterKey,
         began: Tick,
         text: Option<&str>,
-    ) -> Result<Vec<Output>, StoryError> {
+    ) -> Result<(Vec<Output>, Outcome), StoryError> {
         let Some(round) = self
             .saga_round
             .as_ref()
             .filter(|round| &round.key == key && round.began == began)
         else {
-            return Ok(Vec::new());
+            return Ok((Vec::new(), Outcome::Refused));
         };
         if round.is_judged() {
             let pick = text.map_or(Pick::First, chronicle::checked_pick);
             let saga = round.picked(pick);
             self.finish_round(saga)?;
-            return Ok(Vec::new());
+            return Ok((Vec::new(), Outcome::Accepted));
         }
         let draft = text.and_then(|text| self.checked_draft(round, text));
+        let outcome = if draft.is_some() {
+            Outcome::Accepted
+        } else {
+            Outcome::Refused
+        };
         if let Some(round) = self.saga_round.as_mut() {
             round.add_draft(draft);
         }
-        Ok(self.advance_round()?.into_iter().collect())
+        Ok((self.advance_round()?.into_iter().collect(), outcome))
     }
 
     /// A draft that repeats an earlier saga of the character is refused (3.3).
@@ -149,7 +158,9 @@ impl Story {
                     key: round.key.clone(),
                     began: round.began,
                 };
-                Ok(self.open_call(pending, prompt))
+                let earlier = self.round_calls.iter().map(|call| Node::Call(*call));
+                let read = self.round_read.iter().copied().chain(earlier).collect();
+                Ok(self.open_call(pending, prompt, read))
             }
         }
     }

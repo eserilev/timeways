@@ -1,0 +1,709 @@
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
+//! The proof, the source, and the uses of rows (docs/plans/links.md).
+
+use hourglass::Tick;
+use rusqlite::{Connection, params};
+use std::collections::BTreeSet;
+use std::fs;
+use std::path::{Path, PathBuf};
+use timeways_story::input::{CallId, Input, MessageId};
+use timeways_story::pack::Pack;
+use timeways_story::store::graph::weakest;
+use timeways_story::store::{
+    CallEnd, CharacterKey, Database, Line, NewCall, Node, Outcome, PROMPTS_KEPT, Root, Store, Table,
+};
+use timeways_story::story::{Output, Story, StoryError};
+
+const HOUR: u64 = 3600;
+
+fn fresh_folder(name: &str) -> PathBuf {
+    let folder = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("links-{name}"));
+    let _ = fs::remove_dir_all(&folder);
+    fs::create_dir_all(&folder).unwrap();
+    folder
+}
+
+fn story(folder: &Path) -> Story {
+    let pack = folder.join("pack.sqlite");
+    if !pack.exists() {
+        Pack::write(&pack, &[]).unwrap();
+    }
+    let mut story = Story::new(
+        Pack::open(&pack).unwrap(),
+        Store::Folder(folder.to_path_buf()),
+    );
+    story
+        .handle(Input::CharacterEntered {
+            realm: "Stormrage".to_string(),
+            name: "Ada".to_string(),
+        })
+        .unwrap();
+    story
+}
+
+fn key() -> CharacterKey {
+    CharacterKey::new("Stormrage", "Ada").unwrap()
+}
+
+fn world_file(folder: &Path) -> PathBuf {
+    folder
+        .join("worlds")
+        .join("r_Stormrage")
+        .join("c_Ada.sqlite")
+}
+
+/// The database of the world, as a second reader sees it.
+fn database(folder: &Path) -> Database {
+    Store::Folder(folder.to_path_buf())
+        .open(&key())
+        .unwrap()
+        .database
+}
+
+fn sql(folder: &Path) -> Connection {
+    Connection::open(world_file(folder)).unwrap()
+}
+
+fn count(folder: &Path, select: &str) -> i64 {
+    sql(folder).query_row(select, [], |row| row.get(0)).unwrap()
+}
+
+fn positions(folder: &Path, select: &str) -> Vec<u64> {
+    let connection = sql(folder);
+    let mut statement = connection.prepare(select).unwrap();
+    statement
+        .query_map([], |row| row.get::<_, i64>(0))
+        .unwrap()
+        .map(|row| u64::try_from(row.unwrap()).unwrap())
+        .collect()
+}
+
+fn enter(story: &mut Story, at: u64, zone: &str, subzone: Option<&str>) {
+    story
+        .handle(Input::ZoneEntered {
+            at: Tick(at),
+            zone: zone.to_string(),
+            subzone: subzone.map(str::to_string),
+            spot: None,
+        })
+        .unwrap();
+}
+
+fn meet(story: &mut Story, at: u64, name: &str) {
+    story
+        .handle(Input::NpcMet {
+            at: Tick(at),
+            name: name.to_string(),
+            spot: None,
+        })
+        .unwrap();
+}
+
+fn talk(story: &mut Story, npc: &str) -> CallId {
+    let outputs = story
+        .handle(Input::TalkAsked {
+            id: MessageId(8),
+            at: Tick(50),
+            npc: npc.to_string(),
+            text: "any news?".to_string(),
+        })
+        .unwrap();
+    call_of(&outputs)
+}
+
+fn call_of(outputs: &[Output]) -> CallId {
+    outputs
+        .iter()
+        .find_map(|output| match output {
+            Output::ModelCall { call, .. } => Some(*call),
+            _ => None,
+        })
+        .expect("a model call")
+}
+
+fn answer(story: &mut Story, call: CallId, text: &str) -> Vec<Output> {
+    story
+        .handle(Input::ModelAnswered {
+            call,
+            text: text.to_string(),
+        })
+        .unwrap()
+}
+
+/// The newest event that a model call made.
+fn newest_event_of_a_call(folder: &Path) -> u64 {
+    positions(
+        folder,
+        "SELECT position FROM events WHERE call IS NOT NULL ORDER BY position DESC LIMIT 1",
+    )[0]
+}
+
+#[test]
+fn every_kept_line_leaves_an_input_row() {
+    let folder = fresh_folder("inputs");
+    let mut story = story(&folder);
+
+    enter(&mut story, 1, "Elwynn Forest", None);
+    meet(&mut story, 2, "Marshal Dughan");
+    drop(story);
+
+    let kinds = sql(&folder)
+        .prepare("SELECT kind FROM inputs ORDER BY position")
+        .unwrap()
+        .query_map([], |row| row.get::<_, String>(0))
+        .unwrap()
+        .map(Result::unwrap)
+        .collect::<Vec<_>>();
+    assert_eq!(kinds, ["character_entered", "zone_entered", "npc_met"]);
+}
+
+#[test]
+fn a_journal_request_leaves_no_input_row() {
+    let folder = fresh_folder("journal-no-input");
+    let mut story = story(&folder);
+
+    story
+        .handle(Input::JournalAsked {
+            id: MessageId(1),
+            page: 0,
+        })
+        .unwrap();
+    drop(story);
+
+    assert_eq!(count(&folder, "SELECT count(*) FROM inputs"), 1);
+}
+
+#[test]
+fn a_refused_line_keeps_its_input_row() {
+    let folder = fresh_folder("refused-input");
+    let mut story = story(&folder);
+
+    let refused = story.handle(Input::TalkAsked {
+        id: MessageId(8),
+        at: Tick(5),
+        npc: String::new(),
+        text: "hi".to_string(),
+    });
+    drop(story);
+
+    assert!(refused.is_err());
+    assert_eq!(
+        count(
+            &folder,
+            "SELECT count(*) FROM inputs WHERE kind = 'talk_asked'"
+        ),
+        1
+    );
+}
+
+#[test]
+fn each_event_rests_on_the_line_that_made_it() {
+    let folder = fresh_folder("evidence");
+    let mut story = story(&folder);
+
+    enter(&mut story, 1, "Elwynn Forest", None);
+    drop(story);
+
+    let zone_line = positions(
+        &folder,
+        "SELECT position FROM inputs WHERE kind = 'zone_entered'",
+    )[0];
+    let from_zone = positions(
+        &folder,
+        &format!("SELECT position FROM events WHERE input = {zone_line}"),
+    );
+    assert!(!from_zone.is_empty());
+    assert_eq!(
+        count(
+            &folder,
+            "SELECT count(*) FROM events WHERE input IS NULL AND call IS NULL"
+        ),
+        0
+    );
+}
+
+#[test]
+fn an_event_keeps_its_position_after_a_cut() {
+    let folder = fresh_folder("positions");
+    let mut first = story(&folder);
+    enter(&mut first, 1, "Elwynn Forest", None);
+    drop(first);
+    let kept = count(&folder, "SELECT count(*) FROM events");
+    sql(&folder)
+        .execute(
+            "INSERT INTO events (position, body) VALUES (?1, 'broken')",
+            params![kept],
+        )
+        .unwrap();
+
+    let mut second = story(&folder);
+    enter(&mut second, 2, "Westfall", None);
+    drop(second);
+
+    let events = positions(&folder, "SELECT position FROM events ORDER BY position");
+    let ids = sql(&folder)
+        .prepare("SELECT body FROM events ORDER BY position")
+        .unwrap()
+        .query_map([], |row| row.get::<_, String>(0))
+        .unwrap()
+        .map(|body| {
+            let event: serde_json::Value = serde_json::from_str(&body.unwrap()).unwrap();
+            event["id"].as_u64().unwrap()
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(events, ids);
+    assert_eq!(events, (0..events.len() as u64).collect::<Vec<_>>());
+}
+
+#[test]
+fn a_failed_save_keeps_no_input_call_or_read() {
+    let folder = fresh_folder("failed-save");
+    let mut story = story(&folder);
+    enter(&mut story, 1, "Elwynn Forest", None);
+    let inputs_before = count(&folder, "SELECT count(*) FROM inputs");
+    let other = sql(&folder);
+    other.execute_batch("BEGIN IMMEDIATE").unwrap();
+
+    let refused = story.handle(Input::TalkAsked {
+        id: MessageId(8),
+        at: Tick(50),
+        npc: "Innkeeper Farley".to_string(),
+        text: "any news?".to_string(),
+    });
+    other.execute_batch("ROLLBACK").unwrap();
+    drop(story);
+
+    assert!(matches!(refused, Err(StoryError::Store(_))));
+    assert_eq!(count(&folder, "SELECT count(*) FROM inputs"), inputs_before);
+    assert_eq!(count(&folder, "SELECT count(*) FROM calls"), 0);
+    assert_eq!(count(&folder, "SELECT count(*) FROM reads"), 0);
+}
+
+#[test]
+fn a_call_keeps_its_prompt_its_answer_and_how_it_ended() {
+    let folder = fresh_folder("call-row");
+    let mut story = story(&folder);
+    let call = talk(&mut story, "Innkeeper Farley");
+
+    answer(
+        &mut story,
+        call,
+        r#"{"say": "Nothing but rain.", "trust": 3}"#,
+    );
+    drop(story);
+
+    let record = database(&folder).call(0).unwrap().unwrap();
+    assert_eq!(record.kind, "talk");
+    assert!(record.prompt.unwrap().contains("Innkeeper Farley"));
+    assert_eq!(
+        record.answer.as_deref(),
+        Some(r#"{"say": "Nothing but rain.", "trust": 3}"#)
+    );
+    assert_eq!(record.result, "accepted");
+}
+
+#[test]
+fn a_failed_call_ends_as_failed() {
+    let folder = fresh_folder("call-failed");
+    let mut story = story(&folder);
+    let call = talk(&mut story, "Innkeeper Farley");
+
+    story.handle(Input::ModelFailed { call }).unwrap();
+    drop(story);
+
+    let record = database(&folder).call(0).unwrap().unwrap();
+    assert_eq!(record.answer, None);
+    assert_eq!(record.result, "failed");
+}
+
+#[test]
+fn a_trust_change_from_talk_rests_on_the_words_of_the_player() {
+    let folder = fresh_folder("trust-proof");
+    let mut story = story(&folder);
+    enter(&mut story, 1, "Elwynn Forest", Some("Goldshire"));
+    meet(&mut story, 2, "Innkeeper Farley");
+    let call = talk(&mut story, "Innkeeper Farley");
+
+    answer(
+        &mut story,
+        call,
+        r#"{"say": "Nothing but rain.", "trust": 3}"#,
+    );
+    drop(story);
+
+    let trust = Node::Row(Table::Events, newest_event_of_a_call(&folder));
+    let proof = database(&folder).proof_of(trust).unwrap();
+    assert_eq!(proof, BTreeSet::from([Root::Player, Root::Game]));
+    assert_eq!(weakest(&proof), Root::Player);
+}
+
+#[test]
+fn a_talk_reads_the_npc_and_its_source_is_the_call() {
+    let folder = fresh_folder("talk-reads");
+    let mut story = story(&folder);
+    meet(&mut story, 2, "Innkeeper Farley");
+    let met = positions(&folder, "SELECT position FROM events WHERE input = 1");
+    let call = talk(&mut story, "Innkeeper Farley");
+
+    answer(
+        &mut story,
+        call,
+        r#"{"say": "Nothing but rain.", "trust": 3}"#,
+    );
+    drop(story);
+
+    let database = database(&folder);
+    let trust = Node::Row(Table::Events, newest_event_of_a_call(&folder));
+    let source = database.source_of(trust).unwrap().unwrap();
+    assert_eq!(source.call, 0);
+    for event in met {
+        assert!(
+            database
+                .uses_of(Node::Row(Table::Events, event))
+                .unwrap()
+                .contains(&0),
+            "event {event} is not read"
+        );
+    }
+}
+
+#[test]
+fn a_refused_call_uses_nothing() {
+    let folder = fresh_folder("refused-call");
+    let mut story = story(&folder);
+    meet(&mut story, 2, "Innkeeper Farley");
+    let call = talk(&mut story, "Innkeeper Farley");
+
+    answer(&mut story, call, "not json at all");
+    drop(story);
+
+    let database = database(&folder);
+    assert_eq!(database.call(0).unwrap().unwrap().result, "refused");
+    let read = database.reads_of(0).unwrap();
+    assert!(!read.is_empty());
+    for node in read {
+        assert!(database.uses_of(node).unwrap().is_empty(), "{node:?}");
+    }
+}
+
+#[test]
+fn a_hero_entry_removed_during_a_call_still_counts_as_read() {
+    let folder = fresh_folder("withdrawn");
+    let mut story = story(&folder);
+    meet(&mut story, 2, "Innkeeper Farley");
+    story
+        .handle(Input::HeroAdded {
+            at: Tick(3),
+            text: "Farley owes me gold.".to_string(),
+            npc: Some("Innkeeper Farley".to_string()),
+        })
+        .unwrap();
+    let call = talk(&mut story, "Innkeeper Farley");
+    story
+        .handle(Input::HeroRemoved {
+            at: Tick(60),
+            number: 1,
+        })
+        .unwrap();
+
+    answer(
+        &mut story,
+        call,
+        r#"{"say": "Ah, about that gold.", "trust": 0}"#,
+    );
+    drop(story);
+
+    let uses = database(&folder)
+        .uses_of(Node::Row(Table::Hero, 0))
+        .unwrap();
+    assert_eq!(uses, [0]);
+}
+
+#[test]
+fn an_answer_for_another_character_writes_nothing_here() {
+    let folder = fresh_folder("other-character");
+    let mut story = story(&folder);
+    let call = talk(&mut story, "Innkeeper Farley");
+    story
+        .handle(Input::CharacterEntered {
+            realm: "Stormrage".to_string(),
+            name: "Bren".to_string(),
+        })
+        .unwrap();
+
+    answer(
+        &mut story,
+        call,
+        r#"{"say": "Nothing but rain.", "trust": 3}"#,
+    );
+    drop(story);
+
+    let bren = folder
+        .join("worlds")
+        .join("r_Stormrage")
+        .join("c_Bren.sqlite");
+    let bren = Connection::open(bren).unwrap();
+    let calls: i64 = bren
+        .query_row("SELECT count(*) FROM calls", [], |row| row.get(0))
+        .unwrap();
+    let made: i64 = bren
+        .query_row(
+            "SELECT count(*) FROM events WHERE call IS NOT NULL",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!((calls, made), (0, 0));
+    assert_eq!(database(&folder).call(0).unwrap().unwrap().result, "open");
+}
+
+#[test]
+fn a_game_event_has_game_proof_alone() {
+    let folder = fresh_folder("game-proof");
+    let mut story = story(&folder);
+    enter(&mut story, 1, "Elwynn Forest", None);
+    story
+        .handle(Input::NpcDefeated {
+            at: Tick(2),
+            name: "Hogger".to_string(),
+        })
+        .unwrap();
+    drop(story);
+
+    let database = database(&folder);
+    let events = positions(&folder, "SELECT position FROM events ORDER BY position");
+    for event in events {
+        let proof = database.proof_of(Node::Row(Table::Events, event)).unwrap();
+        assert_eq!(proof, BTreeSet::from([Root::Game]), "event {event}");
+    }
+}
+
+#[test]
+fn a_row_whose_line_is_gone_is_lost() {
+    let folder = fresh_folder("lost");
+    let mut story = story(&folder);
+    enter(&mut story, 1, "Elwynn Forest", None);
+    drop(story);
+    let connection = sql(&folder);
+    connection
+        .execute_batch("PRAGMA foreign_keys = OFF")
+        .unwrap();
+    connection
+        .execute("DELETE FROM inputs WHERE position = 1", [])
+        .unwrap();
+    drop(connection);
+
+    let database = database(&folder);
+    let orphan = positions(
+        &folder,
+        "SELECT position FROM events WHERE input IS NULL AND call IS NULL",
+    );
+
+    assert!(!orphan.is_empty());
+    let proof = database
+        .proof_of(Node::Row(Table::Events, orphan[0]))
+        .unwrap();
+    assert_eq!(weakest(&proof), Root::Lost);
+}
+
+#[test]
+fn a_narrator_line_reads_the_events_of_its_batch() {
+    let folder = fresh_folder("narrator-reads");
+    let mut story = story(&folder);
+    enter(&mut story, 1, "Elwynn Forest", None);
+    let batch_events = positions(&folder, "SELECT position FROM events WHERE input = 1");
+
+    let outputs = story.handle(Input::BatchEnd { id: MessageId(3) }).unwrap();
+    let call = call_of(&outputs);
+    answer(
+        &mut story,
+        call,
+        "The forest knew your name before you did.",
+    );
+    drop(story);
+
+    let database = database(&folder);
+    let read = database.reads_of(0).unwrap();
+    assert_eq!(database.call(0).unwrap().unwrap().kind, "narrator");
+    for event in batch_events {
+        assert!(read.contains(&Node::Row(Table::Events, event)), "{event}");
+    }
+}
+
+/// Two chapters: the first one is finished. The narrator lines of the zones get no
+/// answer.
+fn two_sessions(story: &mut Story) {
+    meet(story, HOUR, "Gryan Stoutmantle");
+    enter(story, HOUR, "Westfall", None);
+    enter(story, HOUR + 25 * 60, "Westfall", Some("Camp One"));
+    enter(story, HOUR + 50 * 60, "Westfall", Some("Camp Two"));
+    enter(story, 5 * HOUR, "Duskwood", None);
+    let outputs = story.handle(Input::BatchEnd { id: MessageId(91) }).unwrap();
+    for output in outputs {
+        if let Output::ModelCall { call, .. } = output {
+            story.handle(Input::ModelFailed { call }).unwrap();
+        }
+    }
+    meet(story, 5 * HOUR, "Salma Saldean");
+}
+
+#[test]
+fn a_saga_reads_its_chapter_and_rests_on_its_call() {
+    let folder = fresh_folder("saga-reads");
+    let mut story = story(&folder);
+    two_sessions(&mut story);
+    let outputs = story.handle(Input::BatchEnd { id: MessageId(3) }).unwrap();
+    let call = call_of(&outputs[1..]);
+
+    answer(
+        &mut story,
+        call,
+        r#"{"saga": "Our hero rode into the golden fields of Westfall."}"#,
+    );
+    drop(story);
+
+    let database = database(&folder);
+    let saga_call = positions(&folder, "SELECT position FROM calls WHERE kind = 'saga'")[0];
+    let read = database.reads_of(saga_call).unwrap();
+    let gryan = positions(
+        &folder,
+        "SELECT position FROM events WHERE body LIKE '%Gryan Stoutmantle%'",
+    );
+    let salma = positions(
+        &folder,
+        "SELECT position FROM events WHERE body LIKE '%Salma Saldean%'",
+    );
+    assert!(read.contains(&Node::Row(Table::Events, gryan[0])));
+    assert!(!read.contains(&Node::Row(Table::Events, salma[0])));
+    let source = database.source_of(Node::Row(Table::Chapters, 0)).unwrap();
+    assert!(source.is_some_and(|source| source.call >= saga_call));
+}
+
+#[test]
+fn a_quest_offer_reads_its_giver_and_rests_on_its_call() {
+    let folder = fresh_folder("quest-reads");
+    let mut story = story(&folder);
+    enter(&mut story, 1, "Elwynn Forest", Some("Goldshire"));
+    meet(&mut story, 2, "Marshal Dughan");
+    story
+        .handle(Input::QuestAsked {
+            at: Tick(3),
+            npc: "Marshal Dughan".to_string(),
+        })
+        .unwrap();
+    let outputs = story.handle(Input::BatchEnd { id: MessageId(4) }).unwrap();
+    let call = call_of(&outputs);
+    let text = r#"{"title": "A Walk", "text": "Go to Goldshire.", "steps": [{"goal": "visit", "place": "Goldshire"}]}"#;
+
+    answer(&mut story, call, text);
+    drop(story);
+
+    let database = database(&folder);
+    assert_eq!(database.call(0).unwrap().unwrap().result, "accepted");
+    let dughan = positions(
+        &folder,
+        "SELECT position FROM events WHERE body LIKE '%Marshal Dughan%' ORDER BY position LIMIT 1",
+    )[0];
+    assert!(
+        database
+            .reads_of(0)
+            .unwrap()
+            .contains(&Node::Row(Table::Events, dughan))
+    );
+    let source = database.source_of(Node::Row(Table::Quests, 0)).unwrap();
+    assert_eq!(source.map(|source| source.call), Some(0));
+}
+
+#[test]
+fn clearing_the_history_keeps_every_proof() {
+    let folder = fresh_folder("clear");
+    let mut story = story(&folder);
+    meet(&mut story, 2, "Innkeeper Farley");
+    let call = talk(&mut story, "Innkeeper Farley");
+    answer(
+        &mut story,
+        call,
+        r#"{"say": "Nothing but rain.", "trust": 3}"#,
+    );
+    drop(story);
+    let mut database = database(&folder);
+    let trust = Node::Row(Table::Events, newest_event_of_a_call(&folder));
+    let before = database.proof_of(trust).unwrap();
+
+    database.clear_history().unwrap();
+
+    assert_eq!(database.proof_of(trust).unwrap(), before);
+    assert_eq!(database.call(0).unwrap().unwrap().prompt, None);
+    assert_eq!(
+        count(
+            &folder,
+            "SELECT count(*) FROM inputs WHERE body IS NOT NULL"
+        ),
+        0
+    );
+}
+
+fn call_line(position: u64) -> Line {
+    Line {
+        calls: vec![NewCall {
+            position,
+            kind: "lore",
+            pack: "test".to_string(),
+            prompt: format!("prompt {position}"),
+            reads: Vec::new(),
+        }],
+        ended: vec![CallEnd {
+            position,
+            answer: None,
+            outcome: Outcome::Failed,
+        }],
+        ..Line::default()
+    }
+}
+
+#[test]
+fn only_the_newest_prompts_are_kept() {
+    let folder = fresh_folder("prompts-kept");
+    let mut database = Store::Folder(folder.clone()).open(&key()).unwrap().database;
+
+    for position in 0..=PROMPTS_KEPT {
+        database.save(&call_line(position)).unwrap();
+    }
+
+    assert_eq!(database.call(0).unwrap().unwrap().prompt, None);
+    assert_eq!(
+        database.call(1).unwrap().unwrap().prompt.as_deref(),
+        Some("prompt 1")
+    );
+    assert_eq!(
+        count(
+            &folder,
+            "SELECT count(*) FROM calls WHERE prompt IS NOT NULL"
+        ),
+        i64::try_from(PROMPTS_KEPT).unwrap()
+    );
+}
+
+#[test]
+fn a_file_of_another_version_is_refused_and_left_as_it_is() {
+    let folder = fresh_folder("other-version");
+    let file = world_file(&folder);
+    fs::create_dir_all(file.parent().unwrap()).unwrap();
+    let connection = Connection::open(&file).unwrap();
+    connection
+        .execute_batch("CREATE TABLE events (position INTEGER PRIMARY KEY, body TEXT); PRAGMA user_version = 1;")
+        .unwrap();
+    drop(connection);
+
+    let opened = Store::Folder(folder.clone()).open(&key());
+
+    assert!(matches!(
+        opened,
+        Err(timeways_story::store::StoreError::OtherVersion { version: 1, .. })
+    ));
+    let version: i64 = sql(&folder)
+        .query_row("PRAGMA user_version", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(version, 1);
+}

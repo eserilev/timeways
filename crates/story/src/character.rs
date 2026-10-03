@@ -9,8 +9,8 @@ use crate::vocabulary::{
     QUEST_OFFERED, RAID, SEEN, SLAPPED, TALLY, TITLE, TRUST, TRUSTS, VISITED,
 };
 use hourglass::{
-    Entity, EntityId, EntityType, Event, EventHistory, EventKind, Fact, LOCATED_IN, Rejection,
-    Tick, World,
+    Entity, EntityId, EntityType, Event, EventHistory, EventId, EventKind, Fact, LOCATED_IN,
+    Rejection, Tick, World,
 };
 
 /// Every reason at once, as Hourglass gives them.
@@ -98,6 +98,37 @@ impl Character {
     #[must_use]
     pub fn has_met(&self, npc: &str) -> bool {
         self.holds_about(MET, npc)
+    }
+
+    /// The events behind what the world holds about each thing of this name: the event
+    /// that made it, and the event that opened each fact that it holds or that points to
+    /// it.
+    #[must_use]
+    pub fn events_about(&self, name: &str) -> Vec<EventId> {
+        let ids: Vec<EntityId> = self
+            .world
+            .entities()
+            .filter(|entity| entity.name == name)
+            .map(|entity| entity.id)
+            .collect();
+        let mut events: Vec<EventId> = self
+            .world
+            .history()
+            .iter()
+            .filter(|event| matches!(&event.kind, EventKind::EntityCreated { id, .. } if ids.contains(id)))
+            .map(|event| event.id)
+            .collect();
+        for id in &ids {
+            let held = self
+                .world
+                .entity(*id)
+                .into_iter()
+                .flat_map(|entity| &entity.facts);
+            events.extend(held.map(|fact| fact.opened));
+            let pointing = self.world.facts_linked_to(*id);
+            events.extend(pointing.into_iter().map(|(_, fact)| fact.opened));
+        }
+        events
     }
 
     /// The place of an NPC: where you met or fought it last.

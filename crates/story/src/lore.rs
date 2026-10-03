@@ -49,6 +49,11 @@ impl LoreCall {
         &self.prompt
     }
 
+    #[must_use]
+    pub fn passages(&self) -> &[Passage] {
+        &self.passages
+    }
+
     /// A second bad answer is dropped, and the passages show alone.
     #[must_use]
     pub fn answered(self, text: &str) -> Next {

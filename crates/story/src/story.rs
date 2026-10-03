@@ -21,10 +21,7 @@ use crate::quest::{Status, quest_log};
 use crate::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use crate::seen::{MAX_SEEN_BYTES, SeenIndex, SeenText, TextKind};
 use crate::spot::Spot;
-use crate::store::{
-    CharacterKey, Database, FlavorLog, HeroLog, LearnedLog, Opened, Prose, QuestLog, Store,
-    StoreError, Table,
-};
+use crate::store::{CharacterKey, Node, Opened, Outcome, Store, StoreError, Table};
 use crate::talk::{self, Scene};
 use crate::titles;
 use hourglass::Tick;
@@ -33,10 +30,13 @@ use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::time::{Duration, Instant};
 use thiserror::Error;
 
+mod active;
 mod drafts;
 mod quests;
+mod reads;
 mod sagas;
 
+use active::{Active, Kept};
 use quests::QuestRequest;
 
 const DAY_SECONDS: u64 = 24 * 3600;
@@ -189,49 +189,6 @@ pub enum StoryError {
     BadHour,
 }
 
-/// The character of the last `character_entered`, and its database.
-struct Active {
-    key: CharacterKey,
-    character: Character,
-    database: Option<Database>,
-    /// The events that the database holds. The next save starts after them.
-    saved_events: usize,
-    prose: Prose,
-    flavor: FlavorLog,
-    hero: HeroLog,
-    learned: LearnedLog,
-    quests: QuestLog,
-    seen_index: SeenIndex,
-    /// Why the last edit of the hero did not stand, until a journal page shows it.
-    hero_refused: Option<String>,
-}
-
-impl Active {
-    /// Writes the new rows of every table in one transaction (GAMEPLAY.md 5.7).
-    fn save(&mut self) -> Result<(), StoreError> {
-        let history = self.character.world().history();
-        let events = history
-            .iter()
-            .skip(self.saved_events)
-            .map(serde_json::to_string)
-            .collect::<Result<Vec<_>, _>>()?;
-        let all_events = history.len();
-        let rows = vec![
-            (Table::Events, events),
-            (Table::Chapters, self.prose.take_unsaved()),
-            (Table::Flavor, self.flavor.take_unsaved()),
-            (Table::Hero, self.hero.take_unsaved()),
-            (Table::Learned, self.learned.take_unsaved()),
-            (Table::Quests, self.quests.take_unsaved()),
-        ];
-        if let Some(database) = &mut self.database {
-            database.save(&rows)?;
-        }
-        self.saved_events = all_events;
-        Ok(())
-    }
-}
-
 /// A flavor moment of the batch, scored when it came in.
 struct Candidate {
     flavor: Flavor,
@@ -281,6 +238,32 @@ enum Pending {
     },
 }
 
+impl Pending {
+    /// The name of the kind in the `calls` table.
+    fn kind(&self) -> &'static str {
+        match self {
+            Pending::Lore { .. } => "lore",
+            Pending::Narrator { .. } => "narrator",
+            Pending::Chronicle { .. } => "saga",
+            Pending::Quest { .. } => "quest",
+            Pending::Draft { .. } => "draft",
+            Pending::Talk { .. } => "talk",
+        }
+    }
+
+    /// A lore call has no key: it always opens for the active character.
+    fn is_for(&self, active: &CharacterKey) -> bool {
+        match self {
+            Pending::Lore { .. } => true,
+            Pending::Narrator { key, .. }
+            | Pending::Chronicle { key, .. }
+            | Pending::Quest { key, .. }
+            | Pending::Draft { key, .. }
+            | Pending::Talk { key, .. } => key == active,
+        }
+    }
+}
+
 /// A batch of game events that waits for its `events_seen`, since its `batch_end`.
 #[derive(Clone, Copy)]
 struct EventsBatch {
@@ -317,6 +300,13 @@ pub struct Story {
     /// The drafts of the saga that is written now. Only a final saga goes to the disk.
     saga_round: Option<Round>,
     pace: Pace,
+    /// The rows that the batch so far added: its events and its flavor moments. The
+    /// narrator line of the batch reads them.
+    batch_rows: Vec<Node>,
+    /// What every call of the saga that is written now reads: the rows of its chapter.
+    round_read: Vec<Node>,
+    /// The calls of the saga that is written now. A later call of the round reads them.
+    round_calls: Vec<u64>,
     quest_request: Option<QuestRequest>,
     /// The newest time of an input from the addon. An emote or a book changes no world, so
     /// the tick of the world can be much older.
@@ -348,6 +338,9 @@ impl Story {
             chronicle_asked: BTreeSet::new(),
             saga_round: None,
             pace: Pace::default(),
+            batch_rows: Vec::new(),
+            round_read: Vec::new(),
+            round_calls: Vec::new(),
             quest_request: None,
             newest: Tick(0),
             notice: None,
@@ -365,20 +358,25 @@ impl Story {
     /// Returns the refusal of the world for a game event, the error of the pack for a
     /// question, `UnknownCall` for the answer to a call that is not open, `NoCharacter`
     /// before the first `character_entered`, and the error of the store.
-    pub fn handle(&mut self, input: Input) -> Result<Vec<Output>, StoryError> {
+    pub fn handle(&mut self, mut input: Input) -> Result<Vec<Output>, StoryError> {
+        if let Some(at) = input.at_mut() {
+            *at = self.checked_time(*at)?;
+            self.newest = self.newest.max(*at);
+        }
+        let kept = Kept::of(&input)?;
         let outputs = self.handle_unsaved(input);
-        self.save_active()?;
+        self.save_active(kept)?;
         outputs
     }
 
     /// The rows of a refused input stay too, because the events before a refusal landed.
     /// A failed save loses the rows of its line, so the character comes back from the
     /// disk, and the memory holds what the disk holds.
-    fn save_active(&mut self) -> Result<(), StoryError> {
+    fn save_active(&mut self, kept: Option<Kept>) -> Result<(), StoryError> {
         let Some(active) = &mut self.active else {
             return Ok(());
         };
-        let Err(error) = active.save() else {
+        let Err(error) = active.save(kept) else {
             return Ok(());
         };
         let key = active.key.clone();
@@ -386,11 +384,7 @@ impl Story {
         Err(error.into())
     }
 
-    fn handle_unsaved(&mut self, mut input: Input) -> Result<Vec<Output>, StoryError> {
-        if let Some(at) = input.at_mut() {
-            *at = self.checked_time(*at)?;
-            self.newest = self.newest.max(*at);
-        }
+    fn handle_unsaved(&mut self, input: Input) -> Result<Vec<Output>, StoryError> {
         let question = input.is_question();
         let ends_a_call = matches!(
             input,
@@ -646,35 +640,62 @@ impl Story {
         std::mem::take(&mut self.notes)
     }
 
+    /// The call ends in its row, and the rows of the line rest on it.
     fn answered(&mut self, call: CallId, text: &str) -> Result<Vec<Output>, StoryError> {
         let (pending, prompt) = self.take_call(call)?;
         self.note_names_in_no_fact(call, text, &prompt);
-        Ok(match pending {
-            Pending::Lore { question, lore } => self
-                .follow(question, lore.answered(text))
-                .into_iter()
-                .collect(),
-            Pending::Narrator { batch, key, moment } => vec![Output::EventsSeen {
-                id: batch,
-                narrator: narrator::checked_line(text, &self.player_text(&key))
-                    .filter(|line| narrator::numbers_from(line, &moment)),
-                notice: None,
-            }],
+        if let Some(active) = self.active.as_mut() {
+            active.answer_with(call);
+        }
+        let (outputs, outcome) = match pending {
+            Pending::Lore { question, lore } => {
+                let next = lore.answered(text);
+                let outcome =
+                    accepted_if(!matches!(&next, Next::Done(answer) if answer.text.is_none()));
+                (self.follow(question, next).into_iter().collect(), outcome)
+            }
+            Pending::Narrator { batch, key, moment } => {
+                let narrator = narrator::checked_line(text, &self.player_text(&key))
+                    .filter(|line| narrator::numbers_from(line, &moment));
+                let outcome = accepted_if(narrator.is_some());
+                let seen = Output::EventsSeen {
+                    id: batch,
+                    narrator,
+                    notice: None,
+                };
+                (vec![seen], outcome)
+            }
             Pending::Chronicle { key, began } => self.saga_answered(&key, began, Some(text))?,
             Pending::Talk {
                 question,
                 key,
                 npc,
                 at,
-            } => vec![self.talk_answered(question, &key, npc, at, text)],
+            } => {
+                let answer = self.talk_answered(question, &key, npc, at, text);
+                let outcome =
+                    accepted_if(matches!(&answer, Output::TalkAnswer { text: Some(_), .. }));
+                (vec![answer], outcome)
+            }
             Pending::Quest {
                 batch,
                 key,
                 giver,
                 at,
             } => self.quest_answered(batch, &key, &giver, at, text),
-            Pending::Draft { question, key } => vec![self.draft_answered(question, &key, text)],
-        })
+            Pending::Draft { question, key } => {
+                let answer = self.draft_answered(question, &key, text);
+                let outcome = accepted_if(matches!(
+                    &answer,
+                    Output::DraftAnswer { draft: Some(_), .. }
+                ));
+                (vec![answer], outcome)
+            }
+        };
+        if let Some(active) = self.active.as_mut() {
+            active.end_call_row(call, Some(text), outcome);
+        }
+        Ok(outputs)
     }
 
     /// The words always show. The change of trust lands only for the character that
@@ -732,6 +753,10 @@ impl Story {
     fn failed(&mut self, call: CallId) -> Result<Vec<Output>, StoryError> {
         let (pending, _) = self.take_call(call)?;
         self.pace.failed(self.newest);
+        if let Some(active) = self.active.as_mut() {
+            active.answer_with(call);
+            active.end_call_row(call, None, Outcome::Failed);
+        }
         Ok(match pending {
             Pending::Lore { question, lore } => vec![Output::LoreAnswer {
                 id: question,
@@ -743,7 +768,7 @@ impl Story {
                 narrator: None,
                 notice: None,
             }],
-            Pending::Chronicle { key, began } => self.saga_answered(&key, began, None)?,
+            Pending::Chronicle { key, began } => self.saga_answered(&key, began, None)?.0,
             Pending::Talk { question, npc, .. } => vec![Output::TalkAnswer {
                 id: question,
                 npc,
@@ -802,6 +827,7 @@ impl Story {
         self.active = None;
         self.journal.clear();
         self.moments.clear();
+        self.batch_rows.clear();
         self.candidates.clear();
         self.chronicle_asked.clear();
         self.saga_round = None;
@@ -816,6 +842,7 @@ impl Story {
             character,
             database,
             saved_events,
+            next,
             prose,
             flavor,
             hero,
@@ -833,6 +860,11 @@ impl Story {
             character,
             database,
             saved_events,
+            next,
+            call_rows: BTreeMap::new(),
+            new_calls: Vec::new(),
+            ended: Vec::new(),
+            answering: None,
             prose,
             flavor,
             hero,
@@ -860,6 +892,11 @@ impl Story {
         let changed = act(&mut active.character);
         let world = active.character.world();
         let added: Vec<_> = world.history().iter().skip(before).cloned().collect();
+        self.batch_rows.extend(
+            added
+                .iter()
+                .map(|event| Node::Row(Table::Events, event.id.0)),
+        );
         self.moments
             .extend(moments(world, active.character.you(), &added));
         changed.map_err(StoryError::Refused)?;
@@ -952,6 +989,9 @@ impl Story {
         let key = moment.kind.key();
         let count = earlier.iter().filter(|old| old.kind.key() == key).count() + 1;
         active.flavor.add_moment(moment.clone())?;
+        let row = active.flavor.moments_with_rows().last().map(|(row, _)| row);
+        self.batch_rows
+            .extend(row.map(|row| Node::Row(Table::Flavor, row)));
         self.candidates.push(Candidate {
             flavor: moment,
             score,
@@ -987,6 +1027,7 @@ impl Story {
             None => vec![self.narrator_call(batch)],
         };
         outputs.extend(self.saga_call());
+        self.batch_rows.clear();
         outputs
     }
 
@@ -1028,7 +1069,8 @@ impl Story {
         let key = active.key.clone();
         let prompt = narrator::prompt(&moment, self.turn());
         let moment = narrator::what_happened(&moment);
-        self.open_call(Pending::Narrator { batch, key, moment }, prompt)
+        let read = std::mem::take(&mut self.batch_rows);
+        self.open_call(Pending::Narrator { batch, key, moment }, prompt, read)
             .unwrap_or(quiet)
     }
 
@@ -1134,6 +1176,9 @@ impl Story {
                 || (place.is_some() && entry.place.as_deref() == place)
         };
         let own_lore = hero::newest_texts(&hero.entries, about);
+        let mut read = reads::events_about(active, [npc]);
+        read.extend(reads::entries_read(active, about));
+        read.extend(reads::passages_read(active, &passages));
         let scene = Scene {
             npc,
             place,
@@ -1149,7 +1194,7 @@ impl Story {
             npc: npc.to_string(),
             at,
         };
-        Ok(self.open_call(pending, prompt).into_iter().collect())
+        Ok(self.open_call(pending, prompt, read).into_iter().collect())
     }
 
     /// With no passage, a model has nothing to cite, so no call goes out.
@@ -1193,7 +1238,12 @@ impl Story {
             }),
             Next::Ask(lore) => {
                 let prompt = lore.prompt().to_string();
-                self.open_call(Pending::Lore { question, lore }, prompt)
+                let read = self
+                    .active
+                    .as_ref()
+                    .map(|active| reads::passages_read(active, lore.passages()))
+                    .unwrap_or_default();
+                self.open_call(Pending::Lore { question, lore }, prompt, read)
             }
         }
     }
@@ -1206,9 +1256,21 @@ impl Story {
 
     /// A call with no free slot waits for one, so the bridge never fails it for a saga
     /// (GAMEPLAY.md 3.3).
-    fn open_call(&mut self, pending: Pending, prompt: String) -> Option<Output> {
+    /// The call gets its row in the database of its character, with what it read.
+    fn open_call(&mut self, pending: Pending, prompt: String, reads: Vec<Node>) -> Option<Output> {
         let call = self.next_call;
         self.next_call = CallId(call.0 + 1);
+        if let Some(active) = self
+            .active
+            .as_mut()
+            .filter(|active| pending.is_for(&active.key))
+        {
+            let pack = self.pack.label().to_string();
+            active.open_call_row(call, pending.kind(), pack, prompt.clone(), reads);
+            if let (Pending::Chronicle { .. }, Some(row)) = (&pending, active.call_row(call)) {
+                self.round_calls.push(row);
+            }
+        }
         self.calls.insert(call, pending);
         self.prompts.insert(call, prompt);
         if !self.has_free_slot() {
@@ -1328,6 +1390,14 @@ fn passages_for(
 
 /// A seen text keeps its line breaks. Any other control character comes from a bug or a
 /// hostile addon.
+fn accepted_if(accepted: bool) -> Outcome {
+    if accepted {
+        Outcome::Accepted
+    } else {
+        Outcome::Refused
+    }
+}
+
 fn checked_seen(seen: SeenText) -> Result<SeenText, StoryError> {
     seen.title.as_deref().map(checked_name).transpose()?;
     seen.npc.as_deref().map(checked_name).transpose()?;

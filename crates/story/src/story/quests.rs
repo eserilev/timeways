@@ -1,14 +1,14 @@
 //! Side quests in the story program (GAMEPLAY.md 3.4): the offer at the end of a batch,
 //! the answer of the player, and the progress from game events.
 
-use super::{Active, EventsBatch, Pending, Story, StoryError, checked_name};
+use super::{Active, EventsBatch, Pending, Story, StoryError, checked_name, reads};
 use crate::character::Character;
 use crate::input::MessageId;
 use crate::quest::{
     self, Known, MAX_OPEN_QUESTS, QuestChange, Status, Tracked, next_number, quest_log, thing_name,
 };
 use crate::seen::SeenText;
-use crate::store::CharacterKey;
+use crate::store::{CharacterKey, Outcome};
 use crate::story::Output;
 use hourglass::Tick;
 
@@ -54,13 +54,14 @@ impl Story {
         let seen = seen_texts(active);
         let known = known(&active.character, giver, &seen, &quests);
         let prompt = quest::prompt(&known, active.character.place_of(giver));
+        let reads = reads::events_about(active, known_names(&known));
         let pending = Pending::Quest {
             batch,
             key: active.key.clone(),
             giver: request.giver,
             at: request.at,
         };
-        self.open_call(pending, prompt).into_iter().collect()
+        self.open_call(pending, prompt, reads).into_iter().collect()
     }
 
     /// An offer for another character, or one that breaks a rule, shows no task. The limits
@@ -72,25 +73,34 @@ impl Story {
         giver: &str,
         asked_at: Tick,
         text: &str,
-    ) -> Vec<Output> {
-        let line = self.offer(key, giver, asked_at, text);
-        self.deliver(batch, line)
+    ) -> (Vec<Output>, Outcome) {
+        let (line, outcome) = match self.offer(key, giver, asked_at, text) {
+            Ok(line) => (line, Outcome::Accepted),
+            Err(line) => (line, Outcome::Refused),
+        };
+        (self.deliver(batch, line), outcome)
     }
 
     /// The offer line, or why there is none.
-    fn offer(&mut self, key: &CharacterKey, giver: &str, asked_at: Tick, text: &str) -> String {
+    fn offer(
+        &mut self,
+        key: &CharacterKey,
+        giver: &str,
+        asked_at: Tick,
+        text: &str,
+    ) -> Result<String, String> {
         let none = no_task(giver);
         let Some(active) = self.active.as_mut().filter(|active| &active.key == key) else {
-            return none;
+            return Err(none);
         };
         let quests = quest_log(active.quests.changes());
         if let Some(refusal) = refusal(&quests, giver) {
-            return refusal;
+            return Err(refusal);
         }
         let seen = seen_texts(active);
         let known = known(&active.character, giver, &seen, &quests);
         let Ok(offer) = quest::checked_quest(text, &known) else {
-            return none;
+            return Err(none);
         };
         let at = asked_at.max(active.character.world().tick);
         let number = next_number(active.quests.changes());
@@ -104,13 +114,13 @@ impl Story {
             steps: offer.steps,
         };
         if active.quests.add(change).is_err() {
-            return none;
+            return Err(none);
         }
         // The log holds the offer, so a refusal of the world loses only the fact.
         let _ = self.change(|character| {
             character.offer_quest(at, giver, &thing_name(number, &offer.title))
         });
-        line
+        Ok(line)
     }
 
     /// The answer names its offer by number. With no number, it takes the newest offer.
@@ -279,6 +289,16 @@ fn known<'a>(
         last_targets: last_targets(quests),
         seen,
     }
+}
+
+/// The giver, and every place, NPC, and creature that the prompt can offer.
+fn known_names<'a>(known: &Known<'a>) -> Vec<&'a str> {
+    let mut names = vec![known.giver];
+    names.extend(&known.zones);
+    names.extend(&known.subzones);
+    names.extend(&known.npcs);
+    names.extend(&known.foes);
+    names
 }
 
 /// The order stays the same inside each group.

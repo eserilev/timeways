@@ -1,7 +1,7 @@
 //! "Help me write this" in the story program (GAMEPLAY.md 4.7): the idea of a player goes
 //! to a model with what the world knows, and the checked draft goes back.
 
-use super::{Active, Pending, Story, StoryError};
+use super::{Active, Pending, Story, StoryError, reads};
 use crate::character::Character;
 use crate::draft::{self, Draft, Known};
 use crate::input::MessageId;
@@ -18,12 +18,14 @@ impl Story {
     ) -> Result<Vec<Output>, StoryError> {
         let idea = draft::checked_idea(idea).ok_or(StoryError::BadWords)?;
         let active = self.active.as_ref().ok_or(StoryError::NoCharacter)?;
-        let prompt = draft::prompt(&known(active), idea);
+        let known = known(active);
+        let prompt = draft::prompt(&known, idea);
+        let reads = reads::events_about(active, known_names(&known));
         let pending = Pending::Draft {
             question: id,
             key: active.key.clone(),
         };
-        Ok(self.open_call(pending, prompt).into_iter().collect())
+        Ok(self.open_call(pending, prompt, reads).into_iter().collect())
     }
 
     /// A draft for another character, or one that breaks a rule, comes back as no draft.
@@ -58,6 +60,14 @@ fn known(active: &Active) -> Known<'_> {
         npcs: character.npcs_to_meet(),
         foes: foes(character),
     }
+}
+
+fn known_names<'a>(known: &Known<'a>) -> Vec<&'a str> {
+    let mut names = known.zones.clone();
+    names.extend(&known.subzones);
+    names.extend(&known.npcs);
+    names.extend(&known.foes);
+    names
 }
 
 fn foes(character: &Character) -> Vec<&str> {

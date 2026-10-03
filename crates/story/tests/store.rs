@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use timeways_story::input::{Input, MessageId};
 use timeways_story::journal::Page;
 use timeways_story::pack::Pack;
-use timeways_story::store::{CharacterKey, Store, StoreError, Table, safe_id};
+use timeways_story::store::{CharacterKey, Line, Store, StoreError, Table, safe_id};
 use timeways_story::story::{Output, Story, StoryError};
 
 /// The one output of an input, or none.
@@ -87,9 +87,11 @@ fn bodies(folder: &Path, table: &str) -> Vec<String> {
         .collect()
 }
 
+/// Adds a row at the end of a table, as another program can.
 fn insert(folder: &Path, table: &str, body: &str) {
     let connection = Connection::open(world_file(folder, "Ada")).unwrap();
-    let insert = format!("INSERT INTO {table} (body) VALUES (?1)");
+    let insert =
+        format!("INSERT INTO {table} (position, body) VALUES ((SELECT count(*) FROM {table}), ?1)");
     connection.execute(&insert, params![body]).unwrap();
 }
 
@@ -209,8 +211,8 @@ fn an_event_with_the_wrong_position_ends_the_history() {
     let events = bodies(&folder, "events");
     let connection = Connection::open(world_file(&folder, "Ada")).unwrap();
     let swap = "UPDATE events SET body = ?1 WHERE position = ?2";
-    connection.execute(swap, params![events[2], 2]).unwrap();
-    connection.execute(swap, params![events[1], 3]).unwrap();
+    connection.execute(swap, params![events[2], 1]).unwrap();
+    connection.execute(swap, params![events[1], 2]).unwrap();
     drop(connection);
 
     let mut second = story(&folder, "Ada");
@@ -226,7 +228,7 @@ fn a_body_that_is_not_text_ends_its_table() {
     enter(&mut first, 1, "Elwynn Forest");
     drop(first);
     let connection = Connection::open(world_file(&folder, "Ada")).unwrap();
-    let blob = "INSERT INTO events (body) VALUES (?1)";
+    let blob = "INSERT INTO events (position, body) VALUES ((SELECT count(*) FROM events), ?1)";
     connection.execute(blob, params![vec![0xC3_u8]]).unwrap();
     drop(connection);
 
@@ -317,16 +319,14 @@ fn a_refused_character_switch_leaves_no_character_active() {
     assert!(places(&mut self::story(&folder, "Ada")).is_empty());
 }
 
-/// A folder that takes no new file takes no SQLite journal, so the save fails.
-#[cfg(unix)]
+/// Another program that holds the write lock makes the save fail.
 #[test]
 fn a_failed_save_loses_its_line_and_the_next_line_saves() {
-    use std::os::unix::fs::PermissionsExt;
     let folder = fresh_folder("failed-save");
     let mut story = story(&folder, "Ada");
     enter(&mut story, 1, "Elwynn Forest");
-    let realm = world_file(&folder, "Ada").parent().unwrap().to_path_buf();
-    fs::set_permissions(&realm, fs::Permissions::from_mode(0o555)).unwrap();
+    let other = Connection::open(world_file(&folder, "Ada")).unwrap();
+    other.execute_batch("BEGIN IMMEDIATE").unwrap();
 
     let refused = story.handle(Input::ZoneEntered {
         at: Tick(2),
@@ -334,7 +334,7 @@ fn a_failed_save_loses_its_line_and_the_next_line_saves() {
         subzone: None,
         spot: None,
     });
-    fs::set_permissions(&realm, fs::Permissions::from_mode(0o755)).unwrap();
+    other.execute_batch("ROLLBACK").unwrap();
     let after_the_failure = places(&mut story);
     enter(&mut story, 3, "Duskwood");
     drop(story);
@@ -539,7 +539,6 @@ fn a_new_character_opens_with_empty_tables() {
         .open(&CharacterKey::new("Stormrage", "Ada").unwrap())
         .unwrap();
 
-    assert!(opened.database.is_some());
     assert_eq!(opened.saved_events, 0);
     assert!(opened.prose.is_empty());
     assert_eq!(opened.prose.len(), 0);
@@ -555,8 +554,11 @@ fn the_words_of_a_saga_come_back_after_a_restart() {
         footnotes: Vec::new(),
     };
     first.prose.add(Tick(5), written).unwrap();
-    let rows = vec![(Table::Chapters, first.prose.take_unsaved())];
-    first.database.unwrap().save(&rows).unwrap();
+    let line = Line {
+        rows: vec![(Table::Chapters, first.prose.take_unsaved())],
+        ..Line::default()
+    };
+    first.database.save(&line).unwrap();
 
     let again = Store::Folder(folder).open(&key).unwrap();
 

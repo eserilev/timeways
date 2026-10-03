@@ -4,12 +4,13 @@
 use crate::places::InstanceKind;
 use crate::seen::TextKind;
 use crate::spot::{self, Spot};
+use crate::store::Root;
 use hourglass::Tick;
 use serde::{Deserialize, Serialize};
 
 /// A game event carries the time from `time()` in the addon, in seconds since the Unix epoch.
 /// The bridge adds the `id` of the addon message to each line. Only a line with a reply keeps it.
-#[derive(Debug, PartialEq, Eq, Deserialize)]
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Input {
     /// The first line from the bridge. The bridge compares the protocol of the reply.
@@ -218,6 +219,39 @@ pub enum GameQuestKind {
 }
 
 impl Input {
+    /// A line of a model call fills its call. `hello` and a journal request change
+    /// nothing. Every other line is kept as an input (docs/plans/links.md).
+    #[must_use]
+    pub fn is_kept(&self) -> bool {
+        !matches!(
+            self,
+            Input::Hello
+                | Input::JournalAsked { .. }
+                | Input::ModelAnswered { .. }
+                | Input::ModelFailed { .. }
+        )
+    }
+
+    /// The player typed it, or clicked a button of Timeways. Every other kept line comes
+    /// from the game.
+    #[must_use]
+    pub fn root(&self) -> Root {
+        let typed = matches!(
+            self,
+            Input::TalkAsked { .. }
+                | Input::LoreAsked { .. }
+                | Input::DraftAsked { .. }
+                | Input::QuestAsked { .. }
+                | Input::QuestAccepted { .. }
+                | Input::QuestDeclined { .. }
+                | Input::QuestAbandoned { .. }
+                | Input::HeroSet { .. }
+                | Input::HeroAdded { .. }
+                | Input::HeroRemoved { .. }
+        );
+        if typed { Root::Player } else { Root::Game }
+    }
+
     /// True for a question: a line with a reply of its own. It ends its batch, so the
     /// batch gets no `batch_end`.
     #[must_use]

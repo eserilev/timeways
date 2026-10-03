@@ -64,6 +64,7 @@ pub enum PackError {
 
 pub struct Pack {
     connection: Connection,
+    label: String,
 }
 
 impl Pack {
@@ -77,7 +78,10 @@ impl Pack {
         if found != FORMAT_VERSION {
             return Err(PackError::Version { found });
         }
-        Ok(Pack { connection })
+        let passages: i64 =
+            connection.query_row("SELECT count(*) FROM passage", [], |row| row.get(0))?;
+        let label = format!("format {FORMAT_VERSION}, {passages} passages");
+        Ok(Pack { connection, label })
     }
 
     /// # Errors
@@ -99,6 +103,13 @@ impl Pack {
         transaction.pragma_update(None, "user_version", FORMAT_VERSION)?;
         transaction.commit()?;
         Ok(())
+    }
+
+    /// Which pack a model call used. A passage id changes with each pack, so a call keeps
+    /// this in its place.
+    #[must_use]
+    pub fn label(&self) -> &str {
+        &self.label
     }
 
     /// The best passages for the words of `text`, best first. Syntax of the index in
