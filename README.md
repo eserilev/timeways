@@ -40,25 +40,19 @@ Timeways has two parts: the addon in the game, and a desktop app on your compute
 ### Steps
 
 1. In the CurseForge app, install **Timeways**. CurseForge installs **Gnomish Relay** with it.
-2. Close WoW.
-3. Install the desktop app:
-   - Windows: press Windows+R, paste this, and press Enter.
-     `powershell -c "irm https://eserilev.github.io/timeways/install.txt | iex"`
-   - Mac or Linux: open Terminal, paste this, and press Enter.
-     `curl -fsSL https://eserilev.github.io/timeways/install.sh | sh`
-4. Answer the questions of setup. It asks only what it can't find out itself.
-5. Start WoW.
+2. Start WoW. At the first login, Timeways checks for its desktop app. When the app is missing, a window shows the one line that installs it.
+3. Copy that line, and run it:
+   - Windows: press Windows+R, paste the line, and press Enter.
+   - Mac or Linux: open Terminal, paste the line, and press Enter.
+4. Answer the questions of setup. It asks only what it can't find out itself. With no AI model on your computer, it offers a free one.
+5. Restart WoW, so the game loads the key that setup wrote.
 
-The setup window in the game shows the same lines.
+The lines, for reference:
 
-Setup finds the Timeways addon and writes its key. It installs the story program from the latest Timeways release, and adds a `[story]` part to the desktop app's `config.toml` with the model that it finds. It then builds the lore on your computer. With only Timeways and no coding agent, setup asks no folder question.
+- Windows: `powershell -c "irm https://eserilev.github.io/timeways/install.txt | iex"`
+- Mac or Linux: `curl -fsSL https://eserilev.github.io/timeways/install.sh | sh`
 
-### Check that it works
-
-1. In the game, type `/timeways test`.
-2. Wait for the line "3 of 3 checks passed." It can take a minute.
-
-If a check fails, its line says why. When the game can't reach the desktop app, Timeways opens a setup window with these steps. Type `/timeways help` to open it again.
+Setup finds WoW and the Timeways addon, writes the key, installs the story program, and picks the model that it finds. It then builds the lore on your computer. Timeways checks its desktop app at each login, and opens the setup window again only when something is wrong.
 
 ### Later
 

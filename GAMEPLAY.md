@@ -753,6 +753,20 @@ This keeps the releases apart: Timeways ships `timeways-story` on its own schedu
 
 **Versions.** Each addon sends its version in the hello, and in every strip (`ver=`). Timeways is version 1 (`ns.App.version`), and the bridge takes 1 to 1. The bridge keeps a supported range for each app. A version out of range gets one reply: "Timeways: update the addon", or "update the desktop program".
 
+### 5.12.1 Install for every player
+
+Today the desktop app installs only with one line in a terminal (Windows+R on Windows, Terminal on a Mac). Many players never open a terminal. So the desktop app also gets a normal download. Decided on 2026-10-03. Not built. The desktop app is Gnomish Relay, so its spec (relay SPEC 11.3) holds the design, and the relay session builds it.
+
+- **One page.** `https://eserilev.github.io/timeways/` shows one Download button for the system of the player: a Windows installer (`.exe`), or a Mac disk image (`.dmg`). Linux keeps the terminal line. The page also shows the terminal line, under "Other ways to install".
+- **The installer does what setup does.** It installs the desktop app, finds WoW, writes the key, and installs the story program. It asks only the one question of setup: "Install a free local AI model? It needs about 2 GB." It shows a progress bar, and ends with "Done. Restart WoW."
+- **The setup window in the game** shows the page as its first way: "Download the Timeways app" with the address to copy. The terminal line moves under "Other ways to install".
+- **The lore builds after setup**, in the background (relay SPEC 11.4). Setup ends at once. Until the lore is ready, `/lore` answers from the text that you read in the game. The desktop app tells the addon when the lore is ready, and the chat says "Lore is ready."
+- **Signing.** Both installers must be signed, or the system warns the player away from them:
+  - **Windows:** an Authenticode signature. With none, SmartScreen shows "Windows protected your PC", and the player must click "More info", then "Run anyway". The two routes are Azure Trusted Signing (a monthly fee, with a check of who you are), or a code signing certificate from a certificate authority (a yearly fee, with the key in a hardware token or a cloud key store). A new signature still builds trust with SmartScreen over downloads, so the first players can still see a warning.
+  - **macOS:** the Apple Developer Program (99 USD each year), a Developer ID certificate, and notarization of each release by Apple (`notarytool`, then `stapler`). With none, macOS refuses to open the app, and the player must allow it in System Settings, Privacy & Security.
+  - The release job of the relay signs each build in CI, with the keys as secrets. An update of the desktop app keeps the signature.
+- **Open:** whose name signs (a person or a company), the yearly cost, and whether the Windows certificate needs a company to get past SmartScreen faster.
+
 ### 5.13 Deaths and resets
 
 In WoW, the dead come back. A mob respawns, a rare returns, and a raid boss is back after the weekly reset. So in Timeways, a kill is a deed of the killer. It does not change the target.
