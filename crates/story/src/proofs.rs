@@ -3,6 +3,7 @@
 
 use crate::character::next_trust;
 use crate::narrator::Budget;
+use crate::store::{PROMPTS_KEPT, oldest_prompt_kept};
 use crate::vocabulary::TRUST;
 use hourglass::Tick;
 
@@ -48,4 +49,17 @@ fn the_narrator_never_speaks_four_times_in_one_hour() {
     }
 
     assert!(taken < 4 || at - first >= 3600);
+}
+
+/// The newest `PROMPTS_KEPT` calls keep their prompts, for any position, also at the edge
+/// of `u64`.
+#[kani::proof]
+fn the_newest_prompts_are_always_kept() {
+    let newest: u64 = kani::any();
+
+    let oldest = oldest_prompt_kept(newest);
+
+    assert!(oldest <= newest);
+    assert!(newest - oldest < PROMPTS_KEPT);
+    assert!(newest < PROMPTS_KEPT || newest - oldest == PROMPTS_KEPT - 1);
 }

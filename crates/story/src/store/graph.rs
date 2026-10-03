@@ -41,6 +41,10 @@ impl Database {
                 waiting.extend(self.reads_of(position)?);
             }
         }
+        // A cycle that another program wrote never reaches an input line.
+        if roots.is_empty() {
+            roots.insert(Root::Lost);
+        }
         Ok(roots)
     }
 

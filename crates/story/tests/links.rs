@@ -707,3 +707,30 @@ fn a_file_of_another_version_is_refused_and_left_as_it_is() {
         .unwrap();
     assert_eq!(version, 1);
 }
+
+/// The story program writes links back in time only. A fuzzer found a cycle that another
+/// program can write.
+#[test]
+fn a_call_that_rests_on_itself_is_lost() {
+    let folder = fresh_folder("cycle");
+    let mut story = story(&folder);
+    let call = talk(&mut story, "Innkeeper Farley");
+    answer(&mut story, call, "not json at all");
+    drop(story);
+    let connection = sql(&folder);
+    connection
+        .execute_batch("PRAGMA foreign_keys = OFF")
+        .unwrap();
+    connection
+        .execute(
+            "UPDATE calls SET input = NULL, call = 0 WHERE position = 0",
+            [],
+        )
+        .unwrap();
+    connection.execute("DELETE FROM reads", []).unwrap();
+    drop(connection);
+
+    let proof = database(&folder).proof_of(Node::Call(0)).unwrap();
+
+    assert_eq!(proof, BTreeSet::from([Root::Lost]));
+}

@@ -380,14 +380,18 @@ impl Database {
         if !check.exists([])? {
             return Ok(());
         }
+        // Both columns in one statement: `calls` points to itself, so SQLite checks the
+        // whole row of a call that changes, and a fix of one column fails while the other
+        // is still broken.
         for table in Table::ALL.map(Table::name).into_iter().chain(["calls"]) {
-            for (column, parent) in [("input", "inputs"), ("call", "calls")] {
-                let update = format!(
-                    "UPDATE {table} SET {column} = NULL WHERE {column} IS NOT NULL
-                     AND {column} NOT IN (SELECT position FROM {parent})"
-                );
-                self.connection.execute(&update, [])?;
-            }
+            let update = format!(
+                "UPDATE {table} SET
+                     input = CASE WHEN input IN (SELECT position FROM inputs) THEN input END,
+                     call = CASE WHEN call IN (SELECT position FROM calls) THEN call END
+                 WHERE input NOT IN (SELECT position FROM inputs)
+                     OR call NOT IN (SELECT position FROM calls)"
+            );
+            self.connection.execute(&update, [])?;
         }
         self.connection.execute(
             "DELETE FROM reads WHERE call NOT IN (SELECT position FROM calls)",

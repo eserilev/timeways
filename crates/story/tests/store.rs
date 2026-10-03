@@ -579,3 +579,39 @@ fn a_history_with_events_opens_as_not_empty() {
 
     assert!(opened.saved_events > 0);
 }
+
+/// A call whose line and parent call are both gone once failed the repair of its links.
+/// A fuzzer found it.
+#[test]
+fn a_call_with_two_broken_links_opens_and_loses_both() {
+    let folder = fresh_folder("two-broken-links");
+    let mut first = story(&folder, "Ada");
+    enter(&mut first, 1, "Elwynn Forest");
+    drop(first);
+    let connection = Connection::open(world_file(&folder, "Ada")).unwrap();
+    connection
+        .execute_batch("PRAGMA foreign_keys = OFF")
+        .unwrap();
+    connection
+        .execute(
+            "INSERT INTO calls (position, kind, input, call, pack, result)
+             VALUES (5, 'talk', 77, 88, '', 'open')",
+            [],
+        )
+        .unwrap();
+    drop(connection);
+
+    let opened =
+        Store::Folder(folder.clone()).open(&CharacterKey::new("Stormrage", "Ada").unwrap());
+
+    assert!(opened.is_ok(), "{:?}", opened.err());
+    let links: (Option<i64>, Option<i64>) = Connection::open(world_file(&folder, "Ada"))
+        .unwrap()
+        .query_row(
+            "SELECT input, call FROM calls WHERE position = 5",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(links, (None, None));
+}
