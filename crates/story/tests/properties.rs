@@ -26,7 +26,7 @@ use timeways_story::quest::{MAX_KILLS, QuestChange, Status, Step, Tracked, quest
 use timeways_story::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use timeways_story::seen::TextKind;
 use timeways_story::spot::{MAP_IDS, Spot, THOUSANDTHS, spot_of};
-use timeways_story::store::{CharacterKey, Store, safe_id};
+use timeways_story::store::{CharacterKey, Node, Store, Table, safe_id};
 use timeways_story::story::{Output, Story};
 use timeways_story::wikitext::plain;
 
@@ -61,6 +61,9 @@ enum Play {
     /// A quest of the game: taken, or turned in.
     GameQuest(String, GameQuestKind, bool),
     Wait(u64),
+    /// The end of a batch. The model answers each call of it, and each call that follows,
+    /// with these words: the narrator line, the drafts of a saga, and the pick.
+    EndBatch(String),
 }
 
 /// A step as a model proposes it. The count of a kill sits often at its edges.
@@ -182,6 +185,12 @@ fn play() -> impl Strategy<Value = Play> {
         )
             .prop_map(|(title, kind, done)| Play::GameQuest(title, kind, done)),
         (0u64..20_000).prop_map(Play::Wait),
+        prop::sample::select(vec![
+            "The road remembers you.".to_string(),
+            r#"{"saga": "Our hero walked on.", "pick": 2}"#.to_string(),
+            "not an answer".to_string(),
+        ])
+        .prop_map(Play::EndBatch),
     ]
 }
 
@@ -346,6 +355,7 @@ fn input(play: &Play, at: Tick) -> Option<Input> {
         Play::Accept => Input::QuestAccepted { at, number: None },
         Play::Decline => Input::QuestDeclined { at, number: None },
         Play::Wait(_) => return None,
+        Play::EndBatch(_) => Input::BatchEnd { id: MessageId(4) },
     })
 }
 
@@ -407,6 +417,9 @@ fn play_once(story: &mut Story, play: &Play, clock: &mut u64) -> Vec<Output> {
         return Vec::new();
     };
     let mut outputs = story.handle(input).unwrap_or_default();
+    if let Play::EndBatch(text) = play {
+        return answer_every_call(story, outputs, text);
+    }
     if let Play::Quest(..) = play {
         outputs = story
             .handle(Input::BatchEnd { id: MessageId(3) })
@@ -424,6 +437,33 @@ fn play_once(story: &mut Story, play: &Play, clock: &mut u64) -> Vec<Output> {
     story
         .handle(Input::ModelAnswered { call, text })
         .unwrap_or_default()
+}
+
+/// Answers each call of the outputs, and each call that the answers open, so no call stays
+/// open after the step.
+fn answer_every_call(story: &mut Story, mut outputs: Vec<Output>, text: &str) -> Vec<Output> {
+    for _ in 0..8 {
+        let calls: Vec<_> = outputs
+            .iter()
+            .filter_map(|output| match output {
+                Output::ModelCall { call, .. } => Some(*call),
+                _ => None,
+            })
+            .collect();
+        if calls.is_empty() {
+            break;
+        }
+        outputs = Vec::new();
+        for call in calls {
+            let text = text.to_string();
+            outputs.extend(
+                story
+                    .handle(Input::ModelAnswered { call, text })
+                    .unwrap_or_default(),
+            );
+        }
+    }
+    outputs
 }
 
 /// The rules of 3.4 for the targets of a task, stated again apart from the story, from
@@ -501,6 +541,79 @@ fn offer_giver(outputs: &[Output]) -> Option<&str> {
 }
 
 /// Every page of the journal as the bridge gets it.
+fn world_file(folder: &Path) -> PathBuf {
+    folder
+        .join("worlds")
+        .join("r_Stormrage")
+        .join("c_Ada.sqlite")
+}
+
+fn rows_of(connection: &rusqlite::Connection, select: &str) -> Vec<Vec<Option<String>>> {
+    let mut statement = connection.prepare(select).unwrap();
+    let columns = statement.column_count();
+    statement
+        .query_map([], |row| {
+            (0..columns)
+                .map(|column| {
+                    let value: rusqlite::types::Value = row.get(column)?;
+                    Ok(match value {
+                        rusqlite::types::Value::Null => None,
+                        rusqlite::types::Value::Integer(n) => Some(n.to_string()),
+                        rusqlite::types::Value::Text(text) => Some(text),
+                        other => Some(format!("{other:?}")),
+                    })
+                })
+                .collect()
+        })
+        .unwrap()
+        .map(Result::unwrap)
+        .collect()
+}
+
+/// Every link of the world, but the prompts: a prompt holds samples picked by the number
+/// of the call in the run, and a restart starts that number again.
+fn links_of(folder: &Path) -> Vec<Vec<Option<String>>> {
+    let connection = rusqlite::Connection::open(world_file(folder)).unwrap();
+    let mut links = rows_of(
+        &connection,
+        "SELECT 'input', position, kind, root, body FROM inputs ORDER BY position",
+    );
+    links.extend(rows_of(
+        &connection,
+        "SELECT 'call', position, kind, input, call, answer, result FROM calls ORDER BY position",
+    ));
+    links.extend(rows_of(
+        &connection,
+        "SELECT 'read', call, tab, row FROM reads ORDER BY call, tab, row",
+    ));
+    for table in Table::ALL {
+        let select = format!(
+            "SELECT '{}', position, input, call FROM {} ORDER BY position",
+            table.name(),
+            table.name()
+        );
+        links.extend(rows_of(&connection, &select));
+    }
+    links
+}
+
+/// Each row and call of the world, as a node of the graph.
+fn nodes_of(folder: &Path) -> Vec<Node> {
+    let connection = rusqlite::Connection::open(world_file(folder)).unwrap();
+    let mut nodes = Vec::new();
+    for table in Table::ALL {
+        let select = format!("SELECT position FROM {}", table.name());
+        for row in rows_of(&connection, &select) {
+            let position = row[0].as_deref().unwrap().parse().unwrap();
+            nodes.push(Node::Row(table, position));
+        }
+    }
+    for row in rows_of(&connection, "SELECT position FROM calls") {
+        nodes.push(Node::Call(row[0].as_deref().unwrap().parse().unwrap()));
+    }
+    nodes
+}
+
 fn journal_lines(story: &mut Story) -> Vec<String> {
     let mut lines = Vec::new();
     let mut page = 0;
@@ -659,6 +772,100 @@ proptest! {
         let after = journal_lines(&mut second);
 
         prop_assert_eq!(before, after);
+    }
+
+    #[test]
+    fn every_link_points_to_a_row_that_exists_and_came_before_it(plays in prop::collection::vec(play(), 0..80)) {
+        let folder = fresh("links-exist");
+        let mut clock = 1_000;
+        let mut story = story(&folder, Store::Folder(folder.clone()));
+        run(&mut story, &plays, &mut clock);
+        drop(story);
+
+        let connection = rusqlite::Connection::open(world_file(&folder)).unwrap();
+        let broken: i64 = connection.query_row("SELECT count(*) FROM pragma_foreign_key_check", [], |row| row.get(0)).unwrap();
+        prop_assert_eq!(broken, 0);
+        for read in rows_of(&connection, "SELECT call, tab, row FROM reads") {
+            let (call, tab, row) = (read[0].clone().unwrap(), read[1].clone().unwrap(), read[2].clone().unwrap());
+            let table = if tab == "calls" { "calls".to_string() } else { tab.clone() };
+            let found: i64 = connection
+                .query_row(&format!("SELECT count(*) FROM {table} WHERE position = ?1"), [&row], |found| found.get(0))
+                .unwrap();
+            prop_assert_eq!(found, 1, "call {} reads {} {}, which does not exist", call, tab, row);
+            if tab == "calls" {
+                prop_assert!(row.parse::<i64>().unwrap() < call.parse::<i64>().unwrap());
+            }
+        }
+        let later_parent: i64 = connection
+            .query_row("SELECT count(*) FROM calls WHERE call IS NOT NULL AND call >= position", [], |row| row.get(0))
+            .unwrap();
+        prop_assert_eq!(later_parent, 0);
+    }
+
+    #[test]
+    fn every_event_rests_on_a_line_or_a_call(plays in prop::collection::vec(play(), 0..80)) {
+        let folder = fresh("events-rest");
+        let mut clock = 1_000;
+        let mut story = story(&folder, Store::Folder(folder.clone()));
+        run(&mut story, &plays, &mut clock);
+        drop(story);
+
+        let connection = rusqlite::Connection::open(world_file(&folder)).unwrap();
+        let bare: i64 = connection
+            .query_row("SELECT count(*) FROM events WHERE input IS NULL AND call IS NULL", [], |row| row.get(0))
+            .unwrap();
+        prop_assert_eq!(bare, 0);
+    }
+
+    #[test]
+    fn the_proof_of_each_row_is_the_same_after_a_reopen(plays in prop::collection::vec(play(), 0..60)) {
+        let folder = fresh("proof-reopen");
+        let mut clock = 1_000;
+        let mut story = story(&folder, Store::Folder(folder.clone()));
+        run(&mut story, &plays, &mut clock);
+        drop(story);
+        let key = CharacterKey::new("Stormrage", "Ada").unwrap();
+        let nodes = nodes_of(&folder);
+        let proofs = |database: &timeways_story::store::Database| -> Vec<_> {
+            nodes.iter().map(|node| database.proof_of(*node).unwrap()).collect()
+        };
+        let before = proofs(&Store::Folder(folder.clone()).open(&key).unwrap().database);
+
+        let after = proofs(&Store::Folder(folder.clone()).open(&key).unwrap().database);
+
+        prop_assert_eq!(before, after);
+    }
+
+    /// The memory of one run, such as a saga that failed in this run, can make the calls
+    /// after a restart differ from one long run. A saved link never changes.
+    #[test]
+    fn a_restart_at_any_point_keeps_every_saved_link(
+        plays in prop::collection::vec(play(), 0..60),
+        restarts in prop::collection::vec(any::<prop::sample::Index>(), 0..4),
+    ) {
+        let folder = fresh("links-restarts");
+        let mut cuts: Vec<usize> = restarts.iter().map(|index| index.index(plays.len() + 1)).collect();
+        cuts.sort_unstable();
+        let mut clock = 1_000;
+        let mut restarted = story(&folder, Store::Folder(folder.clone()));
+        let mut from = 0;
+        let mut saved = Vec::new();
+        for cut in cuts.into_iter().chain([plays.len()]) {
+            run(&mut restarted, &plays[from..cut], &mut clock);
+            from = cut;
+            drop(restarted);
+            saved.push(links_of(&folder));
+            restarted = story(&folder, Store::Folder(folder.clone()));
+        }
+        run(&mut restarted, &plays[..plays.len().min(5)], &mut clock);
+        drop(restarted);
+
+        let last = links_of(&folder);
+        for links in saved {
+            for link in links {
+                prop_assert!(last.contains(&link), "a restart lost {:?}", link);
+            }
+        }
     }
 
     #[test]
