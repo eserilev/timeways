@@ -9,6 +9,7 @@ use crate::places::{self, PlaceKind};
 use crate::quest::{Tracked, title_of_thing};
 use crate::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use crate::spot::{Spot, spot_of};
+use crate::stories::PlayerStory;
 use crate::story::why::TrustWhy;
 use crate::vocabulary::{
     CLASS_QUEST, DEATHS, DEFEATED, GAME_QUEST_DONE, LEVEL, MARK_OF, MARKED_BY, MET, QUEST_DONE,
@@ -45,6 +46,8 @@ pub struct Journal {
     pub learned: Vec<Learned>,
     /// The side quests that you did not decline (3.4).
     pub quests: Vec<Tracked>,
+    /// The stories that players told about you, and that you accepted (4.8).
+    pub stories: Vec<PlayerStory>,
 }
 
 /// One chapter of the chronicle, from one milestone to the next, with no model: what was
@@ -187,6 +190,7 @@ pub fn pages(journal: Journal) -> Vec<Page> {
     items.extend(journal.deeds.into_iter().map(Item::Deed));
     items.extend(journal.learned.into_iter().map(Item::Learned));
     items.extend(journal.quests.into_iter().map(Item::Quest));
+    items.extend(journal.stories.into_iter().map(Item::Story));
     // The comma after an item.
     let comma = Size { line: 1, slot: 1 };
     for item in items {
@@ -221,6 +225,7 @@ enum Item {
     Deed(Deed),
     Learned(Learned),
     Quest(Tracked),
+    Story(PlayerStory),
 }
 
 impl Item {
@@ -233,6 +238,7 @@ impl Item {
             Item::Deed(deed) => Size::of(deed),
             Item::Learned(learned) => Size::of(learned),
             Item::Quest(quest) => Size::of(quest),
+            Item::Story(story) => Size::of(story),
         }
     }
 
@@ -246,6 +252,7 @@ impl Item {
             Item::Deed(_) => journal.deeds.len(),
             Item::Learned(_) => journal.learned.len(),
             Item::Quest(_) => journal.quests.len(),
+            Item::Story(_) => journal.stories.len(),
         }
     }
 
@@ -258,6 +265,7 @@ impl Item {
             Item::Deed(deed) => journal.deeds.push(deed),
             Item::Learned(learned) => journal.learned.push(learned),
             Item::Quest(quest) => journal.quests.push(quest),
+            Item::Story(story) => journal.stories.push(story),
         }
     }
 }

@@ -9,6 +9,8 @@
 "{\"type\":\"hero_added\",\"at\":"
 "{\"type\":\"hero_removed\",\"at\":"
 "{\"type\":\"history_cleared\",\"at\":"
+"{\"type\":\"story_accepted\",\"at\":"
+"{\"type\":\"story_removed\",\"at\":"
 "{\"type\":\"lore_asked\",\"id\":"
 "{\"type\":\"talk_asked\",\"id\":"
 "{\"type\":\"journal_asked\",\"id\":"

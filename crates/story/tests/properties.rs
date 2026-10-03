@@ -64,6 +64,9 @@ enum Play {
     /// The end of a batch. The model answers each call of it, and each call that follows,
     /// with these words: the narrator line, the drafts of a saga, and the pick.
     EndBatch(String),
+    /// A story that a player of the party told, accepted, with its number in the addon.
+    StoryAccept(u64, String),
+    StoryRemove(u64),
 }
 
 /// A step as a model proposes it. The count of a kill sits often at its edges.
@@ -191,6 +194,9 @@ fn play() -> impl Strategy<Value = Play> {
             "not an answer".to_string(),
         ])
         .prop_map(Play::EndBatch),
+        (0u64..4, "Zqstory [A-Za-z ]{1,60}")
+            .prop_map(|(number, text)| Play::StoryAccept(number, text)),
+        (0u64..4).prop_map(Play::StoryRemove),
     ]
 }
 
@@ -356,6 +362,8 @@ fn input(play: &Play, at: Tick) -> Option<Input> {
         Play::Decline => Input::QuestDeclined { at, number: None },
         Play::Wait(_) => return None,
         Play::EndBatch(_) => Input::BatchEnd { id: MessageId(4) },
+        Play::StoryAccept(number, text) => Input::StoryAccepted { at, number, text },
+        Play::StoryRemove(number) => Input::StoryRemoved { at, number },
     })
 }
 
@@ -802,6 +810,31 @@ proptest! {
         prop_assert_eq!(later_parent, 0);
     }
 
+    /// In this first version, no story reaches a model (GAMEPLAY.md 4.8), and each one rests
+    /// on the word of another player.
+    #[test]
+    fn no_prompt_holds_a_story_and_each_story_rests_on_another_player(plays in prop::collection::vec(play(), 0..80)) {
+        let folder = fresh("stories");
+        let mut clock = 1_000;
+        let mut story = story(&folder, Store::Folder(folder.clone()));
+        run(&mut story, &plays, &mut clock);
+        drop(story);
+
+        let connection = rusqlite::Connection::open(world_file(&folder)).unwrap();
+        let in_prompts: i64 = connection
+            .query_row("SELECT count(*) FROM calls WHERE prompt LIKE '%Zqstory%'", [], |row| row.get(0))
+            .unwrap();
+        prop_assert_eq!(in_prompts, 0);
+        let key = CharacterKey::new("Stormrage", "Ada").unwrap();
+        let database = Store::Folder(folder.clone()).open(&key).unwrap().database;
+        for node in nodes_of(&folder).into_iter().filter(|node| matches!(node, Node::Row(Table::Stories, _))) {
+            let proof = database.proof_of(node).unwrap();
+            let shared = proof == std::collections::BTreeSet::from([timeways_story::store::Root::Shared]);
+            let player = proof == std::collections::BTreeSet::from([timeways_story::store::Root::Player]);
+            prop_assert!(shared || player, "{:?} rests on {:?}", node, proof);
+        }
+    }
+
     #[test]
     fn every_event_rests_on_a_line_or_a_call(plays in prop::collection::vec(play(), 0..80)) {
         let folder = fresh("events-rest");
@@ -906,7 +939,7 @@ proptest! {
             let value: serde_json::Value = serde_json::from_str(&line).unwrap();
             let limit = Size { line: MAX_LINE, slot: MAX_SLOT };
             prop_assert!(Size::of_json(line.as_bytes()).fits(limit));
-            for list in ["chapters", "places", "people", "deeds", "learned", "quests"] {
+            for list in ["chapters", "places", "people", "deeds", "learned", "quests", "stories"] {
                 prop_assert!(value[list].as_array().unwrap().len() <= 200);
             }
         }

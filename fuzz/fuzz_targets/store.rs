@@ -15,7 +15,7 @@ fn folder() -> PathBuf {
 }
 
 /// The counts of what each table gave.
-fn counts(opened: &Opened) -> [usize; 8] {
+fn counts(opened: &Opened) -> [usize; 9] {
     [
         opened.saved_events,
         opened.prose.len(),
@@ -25,6 +25,7 @@ fn counts(opened: &Opened) -> [usize; 8] {
         opened.learned.read().len(),
         opened.learned.rumors().len(),
         opened.quests.changes().len(),
+        opened.stories.changes().len(),
     ]
 }
 
@@ -83,14 +84,14 @@ fn insert_call(connection: &Connection, line: &[u8]) {
 fn insert_read(connection: &Connection, line: &[u8]) {
     let byte = |index: usize| line.get(index).copied().unwrap_or(0);
     let tabs = [
-        "events", "chapters", "flavor", "hero", "learned", "quests", "calls", "nowhere",
+        "events", "chapters", "flavor", "hero", "learned", "quests", "stories", "calls", "nowhere",
     ];
     connection
         .execute(
             "INSERT INTO reads (call, tab, row) VALUES (?1, ?2, ?3)",
             params![
                 i64::from(byte(0) % 8),
-                tabs[usize::from(byte(1) % 8)],
+                tabs[usize::from(byte(1)) % tabs.len()],
                 i64::from(byte(2) % 8)
             ],
         )

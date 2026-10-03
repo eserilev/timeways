@@ -32,6 +32,7 @@ pub mod seen;
 pub mod serve;
 pub mod spot;
 pub mod store;
+pub mod stories;
 pub mod story;
 pub mod talk;
 pub mod titles;

@@ -22,6 +22,7 @@ use crate::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use crate::seen::{MAX_SEEN_BYTES, SeenIndex, SeenText, TextKind};
 use crate::spot::Spot;
 use crate::store::{CharacterKey, Node, Opened, Shared, Store, StoreError, Table};
+use crate::stories::MAX_STORY_BYTES;
 use crate::talk::{self, Scene};
 use crate::titles;
 use hourglass::Tick;
@@ -36,6 +37,7 @@ mod drafts;
 mod quests;
 mod reads;
 mod sagas;
+mod stories;
 pub mod why;
 
 use active::{Active, Kept};
@@ -188,6 +190,16 @@ pub enum StoryError {
     Seen(#[from] rusqlite::Error),
     #[error(transparent)]
     Store(#[from] StoreError),
+    #[error(
+        "a story is empty, longer than {MAX_STORY_BYTES} bytes, or holds a control character or a |"
+    )]
+    BadStory,
+    #[error("a story with the number {0} came before")]
+    StoryTaken(u64),
+    #[error("no story with the number {0} stands")]
+    NoStory(u64),
+    #[error("the story with the number {0} is part of the story now, so it stays")]
+    StoryInUse(u64),
     #[error("the time {0} is more than a day after the clock of this computer")]
     FutureTime(u64),
     #[error("an emote or a cause of death is empty, longer than 24 bytes, or not lowercase")]
@@ -453,6 +465,14 @@ impl Story {
             Input::QuestDeclined { at, number } => self.answer_quest(at, Status::Declined, number),
             Input::QuestAbandoned { at, number } => self.abandon_quest(at, number),
             Input::JournalAsked { id, page } => self.journal_answer(id, page),
+            Input::StoryAccepted { at, number, text } => {
+                self.accept_story(at, number, &text)?;
+                Ok(Vec::new())
+            }
+            Input::StoryRemoved { at, number } => {
+                self.remove_story(at, number)?;
+                Ok(Vec::new())
+            }
             Input::HistoryCleared { .. } => {
                 let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
                 active.clears_history = true;
@@ -679,6 +699,7 @@ impl Story {
             hero,
             learned,
             quests,
+            stories,
         } = self.store.open(&key)?;
         let read: Vec<SeenText> = learned
             .read()
@@ -702,6 +723,7 @@ impl Story {
             hero,
             learned,
             quests,
+            stories,
             seen_index,
             hero_refused: None,
         })
@@ -967,6 +989,7 @@ impl Story {
             for person in &mut journal.people {
                 person.trust_why = why::trust_why(active, &person.name)?;
             }
+            journal.stories = stories::journal_stories(active)?;
             journal.hero = hero::hero(active.hero.changes());
             journal.hero_refused = active.hero_refused.take();
             journal.learned = learned(active.learned.read(), active.learned.rumors());

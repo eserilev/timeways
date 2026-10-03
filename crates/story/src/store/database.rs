@@ -9,7 +9,7 @@ use std::time::Duration;
 
 /// A file of another version is refused, never changed. Nothing is live, so a new version
 /// starts with new worlds.
-const VERSION: i64 = 2;
+const VERSION: i64 = 3;
 
 /// WAL syncs the disk once for each line, and a reader such as `sqlite3` never blocks a
 /// save.
@@ -63,16 +63,18 @@ pub enum Table {
     Hero,
     Learned,
     Quests,
+    Stories,
 }
 
 impl Table {
-    pub const ALL: [Table; 6] = [
+    pub const ALL: [Table; 7] = [
         Table::Events,
         Table::Chapters,
         Table::Flavor,
         Table::Hero,
         Table::Learned,
         Table::Quests,
+        Table::Stories,
     ];
 
     #[must_use]
@@ -84,6 +86,7 @@ impl Table {
             Table::Hero => "hero",
             Table::Learned => "learned",
             Table::Quests => "quests",
+            Table::Stories => "stories",
         }
     }
 

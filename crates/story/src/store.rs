@@ -10,7 +10,7 @@ pub use database::{
     CallEnd, CallRecord, Database, Line, NewCall, NewInput, NewRow, Next, Node, Origin, Outcome,
     PROMPTS_KEPT, Root, Table, oldest_prompt_kept,
 };
-pub use logs::{FlavorLog, HeroLog, LearnedLog, Prose, QuestLog, Written};
+pub use logs::{FlavorLog, HeroLog, LearnedLog, Prose, QuestLog, StoryLog, Written};
 pub use shared::Shared;
 
 use crate::character::Character;
@@ -119,6 +119,7 @@ pub struct Opened {
     pub hero: HeroLog,
     pub learned: LearnedLog,
     pub quests: QuestLog,
+    pub stories: StoryLog,
 }
 
 /// Everything of `Opened` but the database, read in one transaction.
@@ -131,6 +132,7 @@ struct Read {
     hero: HeroLog,
     learned: LearnedLog,
     quests: QuestLog,
+    stories: StoryLog,
 }
 
 impl Store {
@@ -175,6 +177,7 @@ impl Store {
             hero: read.hero,
             learned: read.learned,
             quests: read.quests,
+            stories: read.stories,
         })
     }
 }
@@ -193,6 +196,7 @@ fn read_all(database: &Database, path: PathBuf) -> Result<Read, StoreError> {
     let hero = HeroLog::from_rows(database.read(Table::Hero, |_, _| true)?);
     let learned = LearnedLog::from_rows(database.read(Table::Learned, |_: &LearnedLine, _| true)?);
     let quests = QuestLog::from_rows(database.read(Table::Quests, |_, _| true)?);
+    let stories = StoryLog::from_rows(database.read(Table::Stories, |_, _| true)?);
     database.drop_broken_links()?;
     Ok(Read {
         character,
@@ -203,6 +207,7 @@ fn read_all(database: &Database, path: PathBuf) -> Result<Read, StoreError> {
         hero,
         learned,
         quests,
+        stories,
     })
 }
 

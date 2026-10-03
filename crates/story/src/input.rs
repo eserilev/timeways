@@ -181,6 +181,18 @@ pub enum Input {
         at: Tick,
         idea: String,
     },
+    /// The player accepted a story that a player of the party told about them (GAMEPLAY.md
+    /// 4.8). The number is the addon's own, and the text holds no real name.
+    StoryAccepted {
+        at: Tick,
+        number: u64,
+        text: String,
+    },
+    /// The player removed a story about them.
+    StoryRemoved {
+        at: Tick,
+        number: u64,
+    },
     /// The player cleared their history: the words that they typed, and every prompt
     /// (GAMEPLAY.md 5.14).
     HistoryCleared {
@@ -254,7 +266,11 @@ impl Input {
                 | Input::HeroAdded { .. }
                 | Input::HeroRemoved { .. }
                 | Input::HistoryCleared { .. }
+                | Input::StoryRemoved { .. }
         );
+        if matches!(self, Input::StoryAccepted { .. }) {
+            return Root::Shared;
+        }
         if typed { Root::Player } else { Root::Game }
     }
 
@@ -296,6 +312,8 @@ impl Input {
             | Input::HeroAdded { at, .. }
             | Input::HeroRemoved { at, .. }
             | Input::HistoryCleared { at }
+            | Input::StoryAccepted { at, .. }
+            | Input::StoryRemoved { at, .. }
             | Input::EmoteDone { at, .. }
             | Input::TextSeen { at, .. } => Some(at),
             Input::Hello

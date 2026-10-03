@@ -8,6 +8,7 @@ use crate::flavor::{Flavor, Told};
 use crate::hero::Change;
 use crate::learned::{Read, Rumor};
 use crate::quest::QuestChange;
+use crate::stories::StoryChange;
 use hourglass::Tick;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -331,6 +332,39 @@ impl QuestLog {
     ///
     /// Returns `Json` for a change that does not serialize, and then keeps nothing.
     pub fn add(&mut self, change: QuestChange) -> Result<(), StoreError> {
+        self.unsaved.push(&change)?;
+        self.changes.push(change);
+        Ok(())
+    }
+
+    pub fn take_unsaved(&mut self) -> Vec<NewRow> {
+        self.unsaved.take()
+    }
+}
+
+/// The changes of the player stories, oldest first (see `stories`). The row of a change is
+/// its place in the list.
+#[derive(Debug, Default)]
+pub struct StoryLog {
+    changes: Vec<StoryChange>,
+    unsaved: Unsaved,
+}
+
+impl StoryLog {
+    pub(super) fn from_rows(changes: Vec<StoryChange>) -> StoryLog {
+        let unsaved = Unsaved::after(changes.len());
+        StoryLog { changes, unsaved }
+    }
+
+    #[must_use]
+    pub fn changes(&self) -> &[StoryChange] {
+        &self.changes
+    }
+
+    /// # Errors
+    ///
+    /// Returns `Json` for a change that does not serialize, and then keeps nothing.
+    pub fn add(&mut self, change: StoryChange) -> Result<(), StoreError> {
         self.unsaved.push(&change)?;
         self.changes.push(change);
         Ok(())
