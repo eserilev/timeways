@@ -1,6 +1,6 @@
 # Plan: Timeways online
 
-Status: draft 1, 2026-10-03. The user decided the scope and the three features. Nothing is built. Accounts are an open decision (section 5). When a part is built, its rules move into `GAMEPLAY.md` (section 21 of this plan), and this plan marks the part as done.
+Status: draft 1, 2026-10-03. The user decided the scope and the three features. Draft 2 takes in the account decision of the user: Battle.net login from the first version (section 5). Nothing is built. When a part is built, its rules move into `GAMEPLAY.md` (section 21 of this plan), and this plan marks the part as done.
 
 This plan builds on these plans and does not repeat them:
 
@@ -35,12 +35,13 @@ The rules of `GAMEPLAY.md` 2 still hold:
 |---|---|---|
 | `crates/online-rules` (new) | The checks that need no world: the shape and limits of a quest template, the banned words, the later names, the text hash, the independence rule. One crate for the server and the story program, so both give the same verdict. | Timeways |
 | `crates/online-server` (new) | The API and the website, in one program. | Timeways |
-| Database | PostgreSQL, 23 tables (section 13). | Timeways |
+| Accounts | "Log in with Battle.net" on the website (OAuth code flow). The desktop app links with a short code (RFC 8628 device flow). | Timeways |
+| Database | PostgreSQL, 22 tables (section 13). | Timeways |
 | Storage | Download files in object storage behind a CDN. | Timeways |
 | Story program | `library.rs`, `sharing.rs`, `pooled.rs`, `votes.rs`, `world_reports.rs`, `review.rs`, `online_call.rs` (new). New lines for the addon. | Timeways |
 | Addon | A Sharing section in the game options, Publish on the quest form, thumbs, Report, `/quest add`. | Timeways |
 | App protocol | New `online_call`, `online_answered`, `online_failed`, and `online_updated` lines. Protocol 3. | relay |
-| Bridge | The HTTPS route to one host, the token file, the `online` folder, a budget for each kind of call. | relay |
+| Bridge | The HTTPS route to one host, the device code link, the token file with refresh, the `online` folder, a budget for each kind of call. | relay |
 | Story sandbox | No change: no network. One more folder to read. | relay |
 
 ## 3. Who makes the calls
@@ -132,46 +133,114 @@ crates/online-server/    the API, the website, the jobs
 
 ## 5. Accounts
 
-The user decides between two ways. The API takes both (5.4), so the choice changes the login pages and nothing else.
+The user decided on 2026-10-03: **Battle.net login is the account system from the first version.** The website logs in with Battle.net. The desktop app links to the account with a short code (5.2). No password ever goes into the game or the terminal.
 
-### 5.1 Way A: an install key, with no login
+### 5.1 Log in with Battle.net
 
-- When the player first turns on a sharing choice, the bridge asks `POST /v1/installs`. The answer holds a new install id and a random token of 256 bits.
-- The bridge keeps the token in `online.token` in its config folder, with mode 0600. The sandboxes hide that folder (relay SPEC 6.6.3, 6.6.4). The server keeps only a SHA-256 of the token.
-- Each call carries `Authorization: Bearer <token>`. `curl` reads the header from a file (`-H @file`), so the token is never in the arguments of a process.
-- **The website login.** The Sharing section in the game has "Open my page". The story program asks for a login code. The game shows a link with the code, in a box to copy. The link works once, for 10 minutes, and opens a website session for that install.
-- **A lost token** is a lost account. Its quests stay under its display name, and nobody can delete them with it. A maintainer deletes them on request, when the request names the quests (section 16).
+The website is a client of the Blizzard OAuth service. A maintainer registers it on develop.battle.net, and gets a client id and a client secret. The secret lives only in the config of the server.
 
-### 5.2 Way B: Battle.net login
+**The flow:** the OAuth 2.0 authorization code flow, with `state` and PKCE (S256).
 
-- The website uses the OAuth 2.0 code flow of Battle.net (`oauth.battle.net`), scope `openid`. The answer gives a stable account id (`sub`) and the BattleTag.
-- **The desktop link.** The website shows a link code after the login. The player pastes it in the Sharing section in the game. The bridge sends it with `POST /v1/installs/link`, and gets an install token for that account. After that, the calls work as in Way A.
-- The server keeps the `sub`. It keeps the BattleTag only when the player wants it shown, because a BattleTag lets anyone add the player as a friend.
-- Each install of one account is the same contributor. So the independence rule (12.2) counts one account once, also with five computers.
+1. The player clicks "Log in with Battle.net". The server makes a random `state` and a PKCE verifier, keeps them in a short cookie, and sends the browser to `https://oauth.battle.net/authorize` with the scopes `openid wow.profile`.
+2. The player logs in on the Blizzard page. We never see the password.
+3. Blizzard sends the browser back to `/login/callback` with a code. The server checks `state`, and trades the code and the verifier for an access token at `https://oauth.battle.net/token`.
+4. With that token, the server reads `https://oauth.battle.net/userinfo`: the account id (`sub`) and the BattleTag. It reads the WoW characters from the Profile API (5.3).
+5. The server makes or finds the contributor of that `sub`, opens a website session, and **drops the Blizzard token**. It keeps no Blizzard token on disk or in the database.
 
-### 5.3 Trade-offs
+- **Scopes.** `openid` gives the account id and the BattleTag. `wow.profile` gives the list of WoW characters. We ask for no other scope.
+- **Regions.** `oauth.battle.net` serves the Americas, Europe, Korea, and Taiwan. China has its own service, and the first version leaves it out (open question 7).
+- **The session** of the website lasts 30 days, in a cookie with `HttpOnly`, `Secure`, and `SameSite=Lax`. Log out ends it.
+- **A new character list** needs a new Blizzard token, so "Refresh my characters" on My page runs the login again. Blizzard usually skips its page when the player is still logged in there.
+- **One account is one contributor.** Each computer of one account is the same contributor. So the independence rule (12.2) counts one Battle.net account once, also with five computers.
 
-| | A: install key | B: Battle.net |
-|---|---|---|
-| Steps for the player | None. The first opt-in makes the key. | A website login and a code to paste. |
-| What we keep about a person | A random id | A Battle.net account id, and maybe a BattleTag: personal data under GDPR |
-| Cost of a fake account | Almost none: a new install is a new key | A Battle.net account. It is free, so it costs time, not money. |
-| Proof of a real player | None | A Battle.net account. It does not prove a WoW Forever license (open question 3). |
-| Independence of reports | Weak alone. Needs the network signal, the age, and the reputation of 12.3. | Better: one account counts once. Still needs 12.3. |
-| Website login | A link from the game | Normal login |
-| Lost computer | The account is gone | Log in again, link again |
-| Blizzard terms | None | The Blizzard Developer API terms apply, and Blizzard can end our client id. |
-| Moderation | A ban ends one key. A bad actor makes a new one. | A ban ends one Battle.net account. |
-| Work to build | Small | An OAuth client, a callback page, the link flow, a privacy text for the BattleTag |
+### 5.2 Link the desktop app: the device code flow
 
-**Recommendation:** start with Way A. It needs no login, it keeps no personal data, and it is enough for 100 players. Add Way B when fakes become a problem. A player with Way A links Battle.net later, and keeps their quests: the install joins the account.
+The desktop app has no browser and no password box. So it links with the device authorization grant of RFC 8628. Our server is the authorization server of this flow. Blizzard is not part of it: the player proves the account through the website login of 5.1.
 
-### 5.4 The API takes both
+**The steps.**
 
-- The API knows a **contributor**: the person behind the calls. An install belongs to one contributor. A Battle.net account belongs to one contributor.
-- Every call names its contributor through the token of its install. No endpoint takes a Battle.net token, so the bridge code is the same in both ways.
-- Each rule of abuse (section 12) counts contributors, never installs.
-- A link of an install to an account moves the install to the contributor of the account. When both had data, the data of the install moves too.
+1. The player clicks "Link this computer" in the Sharing section in the game, or runs `gnomish-relay online link`.
+2. The bridge asks `POST /v1/device/code`. The answer:
+
+   ```json
+   {"device_code": "<43 characters>", "user_code": "KXM-492", "verification_uri": "https://<site>/link", "verification_uri_complete": "https://<site>/link?code=KXM-492", "expires_in": 600, "interval": 5}
+   ```
+
+3. The bridge opens `verification_uri_complete` in the default browser of the computer, and shows the code in the game and in the terminal: "Your browser opened. Log in with Battle.net, then enter KXM-492."
+4. The website asks for the Battle.net login when there is no session. Then it shows the code box, filled from the link, and the kind of computer that asked ("A Windows computer, 1 minute ago"). The player checks the code and clicks "Link this computer".
+5. Meanwhile, the bridge asks `POST /v1/device/token` with the device code, each `interval` seconds. When the player has clicked, the answer holds the tokens. The bridge writes them into `online.token` in its config folder, with mode 0600, and the game says "This computer is linked."
+
+**The user code.**
+
+- 3 letters, a dash, and 3 digits: `KXM-492`. The letters come from 20 letters with no look-alikes (no `I`, `L`, `O`, `S`, `Z`, or `U`), and the digits from `2` to `9`. So about 4 million codes.
+- The website takes it in any case, with or without the dash.
+- It lives 10 minutes, and works once. A code that is still open is never given twice.
+- The code page takes at most 5 wrong codes from one session in 10 minutes, and 60 from one network. With 10 minutes of life, a guess almost never finds an open code.
+- **The trap of a guessed code.** A guesser who enters an open code links the computer of the player to the account of the guesser. The uploads of that computer then go to the wrong account. So the game always shows the account of the link: "Linked to Ada#1234". The BattleTag shows only on the player's own screen. A player who sees a wrong BattleTag clicks "Unlink this computer".
+
+**The device code** is 32 random bytes in base64url. The server keeps only its SHA-256.
+
+**Polling** (RFC 8628 section 3.5):
+
+| Answer | The bridge |
+|---|---|
+| `authorization_pending` | asks again after `interval` seconds |
+| `slow_down` | adds 5 seconds to `interval`, and asks again |
+| `access_denied` | stops. The player clicked "Cancel" on the website. |
+| `expired_token` | stops. The game says "That code expired. Try again." |
+| `200` with tokens | stops, and writes the tokens |
+
+The bridge stops at `expires_in` in any case, and polls off its main loop. One link runs at a time.
+
+**The tokens.**
+
+| Token | Life | Form | Where |
+|---|---|---|---|
+| Access token | 1 hour | 32 random bytes, opaque | `online.token`; the server keeps a SHA-256 |
+| Refresh token | 90 days from its last use | 32 random bytes, opaque | `online.token`; the server keeps a SHA-256 |
+
+- **Refresh.** The bridge calls `POST /v1/device/refresh` when the access token has less than 5 minutes left, or after a `401`. The answer holds a new access token and a **new refresh token**. The old refresh token ends.
+- **Reuse ends the link.** An old refresh token that comes again means a copy of the file. The server then revokes the whole link: both tokens and every later one of it. The player links again.
+- **A refresh that fails** with `invalid_grant` means the link ended. The bridge deletes `online.token`. The next online call gets `online_failed` with `unlinked`, and the game says "This computer isn't linked anymore. Link it again in the Sharing options."
+- Each call carries `Authorization: Bearer <access token>`. `curl` reads the header from a file (`-H @file`), so a token is never in the arguments of a process.
+- The bridge is a public client: it has no secret. The device code, the PKCE of 5.1, and the short life of each code protect the flow.
+
+**Revoke.**
+
+- **On the website:** My page lists each linked computer: its kind, when it was linked, and when it was last used. "Unlink" ends its tokens at once.
+- **In the game or the terminal:** "Unlink this computer" in the Sharing section, or `gnomish-relay online unlink`. The bridge calls `POST /v1/device/revoke` with its refresh token (as RFC 7009 does), and deletes `online.token` after the answer, or after 30 seconds with no answer.
+- **Delete my data** (15.4) revokes every link of the account.
+- A ban of a maintainer revokes every link too.
+
+### 5.3 Characters
+
+**First source: the Blizzard Profile API.** At each login, the server reads the WoW characters of the account with the scope `wow.profile` (`GET /profile/user/wow` of the region, with the namespace of the game). This is real proof: Blizzard says that this account owns this character.
+
+- The server keeps the name, the realm, the region, and the faction of each character. It keeps nothing else of the answer: no level, class, race, gender, guild, or character id.
+- These characters are **verified**.
+- A character that the next list no longer holds loses its proof (a transfer or a deletion). A verified character that a later list of another account holds moves to that account.
+- **The check before we rely on it.** The Profile API has namespaces for retail and for Classic. Whether one of them lists WoW: Forever characters is unknown (open question 3). A test with a real account decides it before step 3 of the build order. With no Forever namespace, no character is verified, and the fallback below is the only source.
+
+**Fallback: characters that the desktop app reports.** With "Add my characters from the game" on, the story program sends the realm and the name of each character that enters the game (`report_character`). These characters are **not verified**: a hacked addon can send any name.
+
+- A player sees their characters on My page, with "Not verified" next to the ones that only the game sent.
+- A reported character that the Profile API later lists becomes verified.
+- A character is "not verified" for good on the account that reported it, also when another account reported it too.
+
+**The rule of public names.** A character name shows in public only when it is verified: for example "A quest by Ada of Stormrage" on a quest page and in an offer line. A not-verified character never shows in public. So nobody can publish under the name of another player's character.
+
+**What a byline can be.** At each publish, the author picks how the quest names them: "Anonymous", their display name (a name that they type, checked by the words check), or a verified character. The BattleTag is never a byline.
+
+### 5.4 Rejected for now: an install key with no login
+
+The first draft offered an anonymous install key: the desktop app made a random key, with no login. It is rejected for now, for these reasons:
+
+- **No proof of a real player.** A new install is a new key, and costs nothing. The rule of 3 independent reports (12.2) and community review (11.4) rest on accounts that are hard to fake. With keys alone, one person with a script is many "players".
+- **No public names.** Only the Profile API proves that a player owns a character. With no login, no quest can say "by Ada of Stormrage".
+- **No recovery and no proof for deletion.** A lost key is a lost account. A request to delete its data has no proof of who asks.
+- **One way is simpler.** Two account systems mean two login paths, two sets of tests, and a merge of accounts.
+
+Look again if Blizzard ends our API access, or if many players cannot use Battle.net (for example China). The API keeps one "contributor" behind every call, so a second way can come later with no change of the other endpoints.
 
 ### 5.5 Maintainers
 
@@ -189,17 +258,18 @@ The addon has no network: a WoW addon can only talk in the game. The story progr
 |---|---|---|
 | `online_call` | story program | `call` (a number), `op` (a name of the list below), `body` (bounded JSON) |
 | `online_answered` | bridge | `call`, `status` (the HTTP status), `body` (bounded JSON) |
-| `online_failed` | bridge | `call`, `reason`: `off`, `limit`, `busy`, `offline`, `too_big`, or `failed` |
+| `online_failed` | bridge | `call`, `reason`: `off`, `unlinked`, `limit`, `busy`, `offline`, `too_big`, or `failed` |
+| `online_link_ended` | bridge | `result`: `linked`, `expired`, `denied`, or `failed`, and `battletag` when `linked`. The end of a device code link (5.2). |
 | `online_updated` | bridge | `files`: the names of the files that changed in the `online` folder |
 
 The ops, with their HTTP call and their budget in the bridge:
 
 | `op` | HTTP | Budget in the bridge | Feature |
 |---|---|---|---|
-| `register` | `POST /v1/installs` | 3 a day | any |
-| `link` | `POST /v1/installs/link` | 10 a day | Way B |
-| `web_login` | `POST /v1/web-logins` | 10 a day | any |
-| `sync` | `GET /v1/sync` | 30 a day | any download |
+| `link_start` | `POST /v1/device/code` | 10 a day | any upload |
+| `unlink` | `POST /v1/device/revoke` | 10 a day | any upload |
+| `sync` | `GET /v1/sync` with a link, `GET /v1/manifest` with none | 30 a day | any download |
+| `report_character` | `POST /v1/characters/reported` | 20 a day | characters |
 | `publish_quest` | `POST /v1/quests` | 10 a day | quests |
 | `withdraw_quest` | `DELETE /v1/quests/{code}` | 20 a day | quests |
 | `get_quest` | `GET /v1/quests/{code}` | 60 a day | quests |
@@ -214,6 +284,8 @@ The ops, with their HTTP call and their budget in the bridge:
 | `delete_me` | `DELETE /v1/me` | 3 a day | any |
 
 - The bridge maps each op to its call. The story program never names a URL, a method, or a header.
+- **Which calls need a link.** Every op that sends something needs a linked computer (5.2). The public reads need none: the manifest, the public files, and `get_quest` of a public quest. So "Get quests from other players" and "Use the shared game text" work with no Battle.net login. An op that needs a link, on a computer with none, gets `online_failed` with `unlinked` at once, and sends nothing.
+- **Inside the bridge, not ops:** the polls of `POST /v1/device/token` (5.2), at most one each `interval`, and `POST /v1/device/refresh`, at most 48 a day. The story program never sees a token.
 - The `body` is bounded JSON, as the journal is (relay SPEC 9.8): at most 32 KiB, depth at most 6, no control character, keys of `[a-z_]`.
 - The bridge holds at most 2 open online calls. A third gets `online_failed` with `busy`.
 - Each budget is a limiter of S14 with its own window. A hostile addon that drives Timeways sends at most these counts.
@@ -232,7 +304,7 @@ The bridge calls `curl` as it does for a local model, with these differences:
 
 ### 6.4 Downloads: the `online` folder
 
-`sync` answers with a manifest: the name, size, SHA-256, and URL of each file, and up to 3 review jobs (11.4).
+`sync` answers with a manifest: the name, size, SHA-256, and URL of each file. With a link, it also names the files of the player's groups, and up to 3 review jobs (11.4). With no link, the public manifest names only the public files.
 
 | File | Holds | Size cap |
 |---|---|---|
@@ -263,16 +335,16 @@ Each one is a game event with no reply of its own. The bridge passes a game even
 
 | Line | Fields | When |
 |---|---|---|
-| `sharing_set` | `quests`, `texts`, `votes`, `world`, `review` (booleans), `display_name` (optional) | The player changes the Sharing section |
-| `quest_publish_asked` | `title`, `text`, `steps`, `giver`, `levels`, `group` (optional) | Publish on the quest form |
+| `sharing_set` | `quests`, `texts`, `votes`, `world`, `review`, `characters` (booleans), `display_name` (optional) | The player changes the Sharing section |
+| `quest_publish_asked` | `title`, `text`, `steps`, `giver`, `levels`, `byline`, `group` (optional) | Publish on the quest form |
 | `quest_withdraw_asked` | `code` | Remove on a published quest |
 | `quest_add_asked` | `code` | `/quest add <code>` |
 | `quest_rated` | `code`, `liked` | Yes or No after a library quest |
 | `group_join_asked` | `code` | `/quest group <code>` |
 | `report_asked` | `what` (`quest`, `lore`), `ref`, `reason` | Report |
 | `line_voted` | `ref`, `up` | A thumb |
-| `web_login_asked` | none | Open my page |
-| `account_link_asked` | `code` | Link account (Way B) |
+| `link_asked` | none | Link this computer |
+| `unlink_asked` | none | Unlink this computer |
 | `online_delete_asked` | none | Delete my online data |
 
 A text that the story program already has (a seen text, a model line, a quest) goes by its row number (`ref`), never as text again. So the addon never sends model text back to the desktop, and a hostile addon cannot vote for a line that the model never wrote.
@@ -285,12 +357,14 @@ Send this list to the Gnomish Relay session. Per the project rule, tell it again
 2. The op table of 6.2: the map from op to method and path, and one S14 limiter for each op with the counts of the table. No new theorem: each limiter holds alone.
 3. At most 2 open online calls, apart from the model calls.
 4. The HTTPS route of 6.3, in its own module (`online_http.rs`), with the fake server tests of the model route: a redirect, a 500, a huge answer, a slow answer, a proxy in the environment, and an HTTP host in the config.
-5. `online.token` in the config folder, mode 0600, in `deny_folders` with a named test. `register` writes it. `delete_me` deletes it after a 200.
-6. The `online` folder (6.4): the download, the checks, the rename, the read-only bind in the story sandbox, and `online_updated`.
-7. Config: `[online] api` (HTTPS only) and `[online] enabled` (default `true`). With `enabled = false`, every `online_call` fails with `off` at once, and the bridge sends nothing. This is the switch of the desktop for a player who never wants any call.
-8. `status` gets one line: "Timeways online: off", or "Timeways online: on (last sync 2 hours ago)".
-9. A local log: each call that left the computer, with its op, its time, and its size, in `<data>/timeways/online.log`, the newest 1,000 lines. `gnomish-relay online log` prints it. So a player sees what left the computer.
-10. A fuzz target `online_http` for the parse of the answer and the manifest.
+5. The device code link of 5.2: `link_start` asks for the code, opens `verification_uri_complete` in the default browser (`xdg-open`, `open`, or `start`, with no shell), shows the code in the terminal of `gnomish-relay online link`, and answers the story program with the user code. Then the bridge polls `POST /v1/device/token` off its main loop, with `slow_down` and the end of life of RFC 8628, and sends `online_link_ended` at the end. One link at a time.
+6. `online.token` in the config folder, mode 0600, in `deny_folders` with a named test. It holds the access token, its end time, and the refresh token. The bridge refreshes it before the end and after a `401`, and writes the new pair with a rename, so a crash never leaves half a file. An `invalid_grant` deletes it. `unlink` and `delete_me` revoke the tokens, then delete it.
+7. `gnomish-relay online link` and `gnomish-relay online unlink` run the same steps from the terminal.
+8. The `online` folder (6.4): the download, the checks, the rename, the read-only bind in the story sandbox, and `online_updated`.
+9. Config: `[online] api` (HTTPS only) and `[online] enabled` (default `true`). With `enabled = false`, every `online_call` fails with `off` at once, and the bridge sends nothing. This is the switch of the desktop for a player who never wants any call.
+10. `status` gets one line: "Timeways online: off", "Timeways online: on, not linked", or "Timeways online: linked to Ada#1234 (last sync 2 hours ago)".
+11. A local log: each call that left the computer, with its op, its time, and its size, in `<data>/timeways/online.log`, the newest 1,000 lines. `gnomish-relay online log` prints it. So a player sees what left the computer.
+12. A fuzz target `online_http` for the parse of the answer, the manifest, and each answer of the device flow.
 
 ### 6.8 Sandbox impact
 
@@ -356,7 +430,7 @@ A published quest is a **template**: a quest with no world. Each player's story 
 ### 7.2 Publish, in the game
 
 1. The quest form of 4.7 gets a **Publish** button next to Save, on a saved quest.
-2. Publish opens a small panel: "Who gives it?" (an NPC that you met, or "Any innkeeper in Goldshire"), the levels (your level, plus and minus 3, to change), and "Who can get it?" (Everyone, or one of your groups).
+2. Publish opens a small panel: "Who gives it?" (an NPC that you met, or "Any innkeeper in Goldshire"), the levels (your level, plus and minus 3, to change), "Who can get it?" (Everyone, or one of your groups), and "Show my name as" (Anonymous, your display name, or a verified character, 5.3). A computer that is not linked shows "Link this computer" in place of Publish.
 3. The addon takes out the names of known players (`TaskNames.lua`), as for "Help me write". It refuses a quest with a step that has no template kind, and names the step: "Remove the step "Find Ada" first. Shared quests can't name players."
 4. The addon sends `quest_publish_asked`. The panel says "Checking...".
 5. The story program checks the template (7.3). A fail comes back as a notice with the reason, and the panel keeps the quest.
@@ -396,7 +470,7 @@ The story program keeps at most 50 added quests, and the newest 500 of the feed.
    - it passes the no-repeat rules of quest-variety.md 3: its shape and its title words are new;
    - you never accepted it before.
 2. **Pick.** An added quest that fits comes first. Else a fitting quest of the feed comes in at most one offer of three, from a count, as the hero hook of npc-memory.md 10.2 does. The most liked one wins, then the newest.
-3. **Offer.** The offer is a side quest, with the template's words. `$N` becomes the name of the character in the addon. The offer line adds the author: "Written by Ada." No model call runs, so a library quest also works with no model.
+3. **Offer.** The offer is a side quest, with the template's words. `$N` becomes the name of the character in the addon. The offer line adds the byline: "Written by Ada of Stormrage." for a verified character, the display name, or nothing for Anonymous. No model call runs, so a library quest also works with no model.
 4. **Else** the model writes a quest, as today.
 
 A library quest is a side quest from there on: the same accept, progress, kills, journal, and limits (3 open quests). Its row keeps the code of the template, and its proof root is Shared (5.14): another player wrote it.
@@ -421,9 +495,11 @@ A library quest is a side quest from there on: the same accept, progress, kills,
 |---|---|
 | Quests | A list with filters (zone, level, faction, genre) and sorts (Most liked, Most played, Newest) |
 | A quest | The title, the text with "you" in place of `$N`, the steps in the words of the game (quest-variety.md 11), the giver, the levels, likes, plays, Report, and the line "In WoW, type /quest add 7KQ4MX" with Copy |
-| An author | The display name and their public quests |
+| An author | The byline (a display name or a verified character) and the public quests under it. A quest with the byline Anonymous never shows on an author page. |
 | A group | Its quests and its members (members only), invite code (owner only) |
-| My page | My quests with their state, my groups, my sharing counts, Delete my data |
+| Log in | "Log in with Battle.net" |
+| Link | The code box of the device flow (5.2) |
+| My page | My quests with their state, my groups, my characters (verified or not), my linked computers with Unlink, my sharing counts, Refresh my characters, Delete my data |
 | Help | How to install Timeways, how to turn on sharing, the rules for quests |
 | Terms, Privacy, Takedown | Section 16 |
 
@@ -602,7 +678,7 @@ A quest that passes goes to community review (11.4). A group quest goes to its o
 
 Before a public quest goes into the feed, a few other players' AIs read it, in the background.
 
-**Who reviews.** A contributor with "Help review quests" on, with a model, and at the level Trusted (12.3). Not the author. Not a member of a group of the author. Not from the network of the author (12.2). The server picks 5 at random from the reviewers who synced in the last 24 hours.
+**Who reviews.** A contributor with "Help review quests" on, with a model, a linked computer, and at the level Trusted (12.3). Not the author. Not a member of a group of the author. Not from the network of the author (12.2). The server picks 5 at random from the reviewers who synced in the last 24 hours.
 
 **The job.** A review job comes in the `sync` answer: the title, the text, and the steps. Nothing about the author. The story program runs the prompt of 11.1 with the player's model, and sends `review_answer` with `ok` and a reason. The player sees nothing: it is a background call.
 
@@ -634,7 +710,9 @@ Two layers: the bridge budgets of 6.2 stop a hostile addon on one computer. The 
 
 | What | Each contributor | Each network (12.2) |
 |---|---|---|
-| New installs | n/a | 3 a day |
+| Device codes asked | 10 a day | 30 an hour |
+| Wrong codes on the link page | 5 in 10 minutes | 60 in 10 minutes |
+| Linked computers | 5 at once | n/a |
 | Quests published | 3 a day, 20 in review | 10 a day |
 | Texts | 2,000 a day | 10,000 a day |
 | World facts | 5,000 a day | 20,000 a day |
@@ -650,7 +728,7 @@ A call over a limit gets `429` with the seconds to wait. The bridge turns that i
 A text, a world fact, a vote for a candidate, and a report on a quest count only from **independent contributors**. Two reports are independent when all of these hold:
 
 - They come from two contributors.
-- The two contributors share no install (Way B can join installs).
+- They come from two Battle.net accounts. Each account is one contributor (5.1), so this is the same as two contributors. A verified character belongs to one account, so two accounts never share one.
 - They come from two networks: the IPv4 /24 or the IPv6 /48 of each call differs.
 - Each contributor is at the level Known or higher (12.3) when the count runs.
 
@@ -668,7 +746,7 @@ Four levels, from rows that the server already has. No hidden score.
 |---|---|---|
 | New | Less than 7 days since the first call, or no confirmed contribution | Reports wait. Quests go to human review. |
 | Known | 7 days, at least 1 contribution that others confirmed, nothing removed in 30 days | Reports count. |
-| Trusted | 30 days, at least 20 confirmed contributions, nothing removed in 90 days | Can review. A report on a quest counts as 2. |
+| Trusted | 30 days, at least 20 confirmed contributions, nothing removed in 90 days, and a verified character (5.3) | Can review. A report on a quest counts as 2. |
 | Limited | A removed quest, a ban of a maintainer, or reviews against the result | Reports and votes do not count. Quests go to human review. Ends after 30 days with nothing removed. |
 
 A confirmed contribution is a text or a fact that joined the library with the reports of others, or a public quest with more likes than reports.
@@ -677,7 +755,7 @@ A confirmed contribution is a text or a fact that joined the library with the re
 
 | Attack | Answer |
 |---|---|
-| A fake game text, sent from many fake installs, to put false lore in `/lore` | 3 independent Known contributors from 3 networks. A pooled text is "players report", never your own reading. The cutoff check of 5.9 runs on every answer. Your own reading wins. |
+| A fake game text, sent from many fake Battle.net accounts, to put false lore in `/lore` | 3 independent Known contributors from 3 networks. A pooled text is "players report", never your own reading. The cutoff check of 5.9 runs on every answer. Your own reading wins. |
 | A flood of junk quests | The budgets, the holdback, the duplicate check, and community review |
 | A hateful quest | The local AI, the words check, community review, reports, the queue |
 | A quest that names a real player to harass them | The name strip of the addon, the local AI, the `real_person` reason, reports. A template never has a player step. |
@@ -685,23 +763,25 @@ A confirmed contribution is a text or a fact that joined the library with the re
 | A brigade of down votes on a quest | Only players who finished it rate. Each contributor counts once. |
 | Report spam to remove a good quest | 3 independent reports only hide it. A maintainer decides. A report against the final result counts against the reporter. |
 | Poisoned votes to make a bad golden sample | 10 independent up votes, and a maintainer reads every candidate |
-| A poisoned download file | The story program reads every file as hostile text, with the checks of a quest, a sample, and a seen text. Later: the files carry a signature of an offline key (open question 9). |
-| A stolen token | It reaches only one contributor's calls. Delete my data and a new key end it. |
+| A poisoned download file | The story program reads every file as hostile text, with the checks of a quest, a sample, and a seen text. Later: the files carry a signature of an offline key (open question 13). |
+| A stolen `online.token` | It reaches only the calls of one account. Each access token lives 1 hour. The first refresh of the thief or the player ends the whole link (5.2). "Unlink" on the website ends it at once. |
+| Many free Battle.net accounts | A week and a confirmed contribution before reports count. Trusted needs a verified character, so a reviewer needs a WoW license, once the Profile API covers Forever (5.3). |
+| A guessed device code | 5.2: about 4 million codes, 10 minutes of life, 5 tries in 10 minutes, and the game shows the BattleTag of the link. |
+| A not-verified character used as a byline to pose as another player | Never shown in public (5.3). |
 | A hostile addon that drives the uploads | 6.9 |
 
 ## 13. The data model
 
-PostgreSQL. Every id is a `bigint` from a sequence, except the hash ids. Each table has `created_at`. A newtype in Rust wraps each id: `ContributorId`, `InstallId`, `QuestId`, and the rest.
+PostgreSQL. Every id is a `bigint` from a sequence, except the hash ids. Each table has `created_at`. A newtype in Rust wraps each id: `ContributorId`, `LinkId`, `CharacterId`, `QuestId`, and the rest.
 
 **People and access**
 
 | Table | Columns | Note |
 |---|---|---|
-| `contributors` | `id`, `display_name`, `level` (`new`, `known`, `trusted`, `limited`), `limited_until`, `first_call_at`, `banned_at` | The person behind the calls |
-| `installs` | `id`, `contributor_id`, `token_hash`, `last_sync_at`, `revoked_at` | One for each desktop app |
-| `bnet_accounts` | `sub`, `contributor_id`, `battletag` (null unless shown), `linked_at` | Way B only |
-| `link_codes` | `code_hash`, `contributor_id`, `expires_at`, `used_at` | Way B: website to desktop |
-| `web_logins` | `code_hash`, `install_id`, `expires_at`, `used_at` | Way A: game to website |
+| `contributors` | `id`, `bnet_sub` (unique), `battletag`, `display_name`, `level` (`new`, `known`, `trusted`, `limited`), `limited_until`, `first_call_at`, `banned_at` | One Battle.net account. The BattleTag shows only to its owner and to the maintainers. |
+| `characters` | `id`, `contributor_id`, `region`, `realm`, `name`, `faction`, `proof` (`verified`, `reported`), `verified_at`, `reported_at` | 5.3. A verified `region`, `realm`, and `name` is unique. |
+| `device_codes` | `device_code_hash`, `user_code` (unique while open), `client_os`, `expires_at`, `interval`, `last_poll_at`, `approved_by`, `denied_at` | 5.2. Deleted 1 day after the end. |
+| `links` | `id`, `contributor_id`, `client_os`, `access_hash`, `access_expires_at`, `refresh_hash`, `refresh_expires_at`, `old_refresh_hashes`, `last_used_at`, `revoked_at` | One linked computer. An old refresh hash that comes again revokes the row. |
 | `web_sessions` | `token_hash`, `contributor_id`, `expires_at` | A website session |
 | `maintainers` | `github_id`, `name`, `added_at` | The pages of section 5.5 |
 | `call_networks` | `contributor_id`, `network_hash`, `day` | 12.2. Deleted after 30 days. |
@@ -710,7 +790,7 @@ PostgreSQL. Every id is a `bigint` from a sequence, except the hash ids. Each ta
 
 | Table | Columns | Note |
 |---|---|---|
-| `quests` | `id`, `code`, `author_id`, `group_id` (null), `state` (`in_review`, `public`, `hidden`, `removed`, `withdrawn`), `format`, `locale`, `title`, `text`, `genre`, `giver` (JSON), `faction`, `level_min`, `level_max`, `steps` (JSON), `local_check` (`passed`, `none`), `published_at` | One template |
+| `quests` | `id`, `code`, `author_id`, `byline` (`anonymous`, `display_name`, or a character id), `group_id` (null), `state` (`in_review`, `public`, `hidden`, `removed`, `withdrawn`), `format`, `locale`, `title`, `text`, `genre`, `giver` (JSON), `faction`, `level_min`, `level_max`, `steps` (JSON), `local_check` (`passed`, `none`), `published_at` | One template |
 | `quest_reviews` | `quest_id`, `reviewer_id`, `assigned_at`, `answered_at`, `ok`, `reason`, `model` | 11.4 |
 | `quest_plays` | `quest_id`, `contributor_id`, `accepted_at`, `done_at` | One row for each pair |
 | `quest_ratings` | `quest_id`, `contributor_id`, `liked`, `updated_at` | One row for each pair |
@@ -722,9 +802,9 @@ PostgreSQL. Every id is a `bigint` from a sequence, except the hash ids. Each ta
 | Table | Columns | Note |
 |---|---|---|
 | `texts` | `hash`, `kind`, `locale`, `title`, `npc`, `zone`, `length`, `body` (null on the middle path), `first_build`, `state` (`waiting`, `pooled`, `removed`) | 8.3 |
-| `text_reports` | `hash`, `contributor_id`, `install_id`, `network_hash`, `zone`, `build`, `reported_at` | One row for each pair of text and contributor |
+| `text_reports` | `hash`, `contributor_id`, `network_hash`, `zone`, `build`, `reported_at` | One row for each pair of text and contributor |
 | `world_facts` | `id`, `kind`, `subject`, `value`, `locale`, `state` | 9 |
-| `world_fact_reports` | `fact_id`, `contributor_id`, `install_id`, `network_hash`, `reported_at` | |
+| `world_fact_reports` | `fact_id`, `contributor_id`, `network_hash`, `reported_at` | |
 
 **Votes and reports**
 
@@ -743,20 +823,29 @@ PostgreSQL. Every id is a `bigint` from a sequence, except the hash ids. Each ta
 
 **Rules of the data:**
 
-- No table holds a character name, a realm, an IP address, or a typed word.
+- Only `characters` holds a character name and a realm. No table holds an IP address, a Blizzard token, or a typed word.
 - `text_reports`, `world_fact_reports`, and `votes` keep the contributor so that a deletion can remove them, and so that each contributor counts once.
 - A count is a query, never a column that a call adds to. So a deletion fixes every count at once.
 
 ## 14. The API
 
-JSON, under `/v1/`. Each call but `POST /v1/installs` and the file downloads needs a token or a website session. Errors are `{"error": "<code>", "message": "<a line for a person>"}`.
+JSON, under `/v1/`. "Token" is the access token of a linked computer (5.2). "Session" is the cookie of the website (5.1). "None" is a public call. Errors are `{"error": "<code>", "message": "<a line for a person>"}`.
 
 | Method and path | Auth | Does |
 |---|---|---|
-| `POST /v1/installs` | none | Makes a contributor and an install. Answers the install id and the token. |
-| `POST /v1/installs/link` | token | Way B: moves the install to the account of a link code |
-| `POST /v1/web-logins` | token | Way A: answers a one-time website login link |
-| `GET /v1/sync?want=quests,texts,world,samples` | token | The manifest of the wanted files, and up to 3 review jobs |
+| `GET /login` | none | Sends the browser to Battle.net, with `state` and PKCE (5.1) |
+| `GET /login/callback` | none | Checks `state`, trades the code, reads the account and the characters, drops the Blizzard token, opens a session |
+| `POST /logout` | session | Ends the session |
+| `POST /v1/device/code` | none | 5.2. Answers the device code, the user code, the links, `expires_in` (600), and `interval` (5). |
+| `GET /link`, `POST /link` | session | The code box. `POST` approves or denies one user code for the account of the session. |
+| `POST /v1/device/token` | none | The poll, with the device code. Answers `authorization_pending`, `slow_down`, `access_denied`, `expired_token`, or the tokens and the BattleTag. |
+| `POST /v1/device/refresh` | none | With a refresh token. Answers a new pair, and ends the old refresh token. |
+| `POST /v1/device/revoke` | none | With a refresh token. Ends the link. Always answers 200, as RFC 7009 does. |
+| `GET /v1/me/links` | session | My linked computers |
+| `DELETE /v1/me/links/{id}` | session | Unlink this computer |
+| `POST /v1/characters/reported` | token | The fallback of 5.3: the realm and the name of a character from the game |
+| `GET /v1/manifest?want=quests,texts,world,samples` | none | The manifest of the public files |
+| `GET /v1/sync?want=quests,texts,world,samples` | token | The same, with the files of my groups and up to 3 review jobs |
 | `POST /v1/quests` | token | Publish a template. Answers the code and the state. |
 | `GET /v1/quests` | none | The public list, with filters and sorts. The website uses it. |
 | `GET /v1/quests/{code}` | token or none | One template: public, or of a group of the caller |
@@ -771,20 +860,22 @@ JSON, under `/v1/`. Each call but `POST /v1/installs` and the file downloads nee
 | `POST /v1/votes` | token | Up to 20 votes |
 | `POST /v1/reports` | token or session | One report |
 | `POST /v1/reviews/{id}` | token | The answer of a review job |
-| `GET /v1/me` | token or session | My data: quests, groups, counts, level |
+| `GET /v1/me` | token or session | My data: BattleTag, characters, quests, groups, counts, level |
 | `GET /v1/me/export` | session | Everything we hold about me, as one JSON file |
 | `DELETE /v1/me` | token or session | Delete my data (15.4) |
 | `GET /files/{name}` | none | A download file, through the CDN |
 
 **Versions.** The path holds the version. A breaking change is `/v2/`, and `/v1/` keeps working for 6 months. Each answer of `sync` carries `min_story_version`. A story program below it gets the notice "Update Timeways to keep sharing." and sends no more online calls.
 
-**The website** uses the same handlers through a session cookie (`HttpOnly`, `Secure`, `SameSite=Lax`), and a CSRF token on each form.
+**The website** uses the same handlers through the session cookie, and a CSRF token on each form.
+
+**The Blizzard calls** of the server are only two, both at a login: `userinfo` and the Profile API. Each one has a timeout of 10 seconds. A failed Profile API call keeps the old character list and still logs the player in.
 
 ## 15. Privacy
 
 ### 15.1 Opt-in
 
-Every choice is off until the player turns it on. Each one is its own switch in the Sharing section:
+Every choice is off until the player turns it on. Each one is its own switch in the Sharing section. A switch that sends needs a linked computer (5.2). A switch that only downloads needs none:
 
 | Switch | Sends | Downloads |
 |---|---|---|
@@ -795,19 +886,22 @@ Every choice is off until the player turns it on. Each one is its own switch in 
 | Share world facts | NPC titles, factions, zones | `world.jsonl` |
 | Rate AI lines | Votes, lore reports | `samples.jsonl` |
 | Help review quests | Review answers | Review jobs |
+| Add my characters from the game | The realm and the name of each character that enters the game (5.3) | none |
 
 The first switch that the player turns on shows one popup that says what leaves the computer, with a link to the privacy page. Turning a switch off stops its calls at once. `[online] enabled = false` on the desktop stops every call, whatever the game says (6.7).
 
 ### 15.2 What leaves the computer
 
-- The token of the install, and the IP address of each call (the server keeps only a keyed hash of the network, 30 days).
+- The access token of the link, and the IP address of each call (the server keeps only a keyed hash of the network, 30 days).
 - The locale and the build of the client.
 - For each switch, only the fields of its section: 7.1, 8.1, 9, 10.1, 10.4, 11.4.
-- The display name that the player picks. The default is "Anonymous".
+- The byline that the player picks for each quest. The default is "Anonymous".
+- With "Add my characters from the game" on, the realm and the name of your own characters.
 
 ### 15.3 What never leaves
 
-- The name of the character, the realm, the guild name, and the name of any other player.
+- The name of any other player, and the guild name.
+- The name and the realm of your own characters, unless "Add my characters from the game" is on.
 - Typed words: `/lore` questions, `/talk` words, and the ideas of "Help me write".
 - The world file, the chronicle, the hero sheet, player stories, and the prompts.
 - The rewards and the players of a player quest.
@@ -817,10 +911,25 @@ The first switch that the player turns on shows one popup that says what leaves 
 
 - **In the game:** "Delete my online data" in the Sharing section. It asks first: "Delete everything you shared? Your published quests come down too." The bridge sends `delete_me`, and deletes `online.token` after the answer.
 - **On the website:** the same button on My page.
-- **What goes:** the contributor, its installs, its quests (they leave the feed at the next build), its plays, likes, votes, reports, text reports, fact reports, reviews, groups that it owns, and network rows. A text or a fact that falls below 3 independent reports leaves the next build. A moderation row keeps its action, with no contributor.
+- **What goes:** the contributor, its characters, its links (each one revoked), its quests (they leave the feed at the next build), its plays, likes, votes, reports, text reports, fact reports, reviews, groups that it owns, and network rows. A text or a fact that falls below 3 independent reports leaves the next build. A moderation row keeps its action, with no contributor.
 - **When:** at once in the database. Backups age out in 30 days.
 - **Copies on other computers:** a player who accepted a deleted quest keeps it in their world, as a side quest. The privacy page says so.
-- **A lost token (Way A):** a request by mail to the address of the privacy page, with the codes of the quests. A maintainer removes the quests. Nothing else links to a person.
+- **A lost computer:** log in with Battle.net on the website, then Unlink it, or Delete my data. The Battle.net login is the proof of who asks.
+
+### 15.5 What the website keeps from Battle.net
+
+| Kept | Why |
+|---|---|
+| The account id (`sub`) | To know the same player at the next login |
+| The BattleTag | To show the player which account a computer is linked to (5.2). Only the player and the maintainers see it. Never a byline. |
+| The name, realm, region, and faction of each WoW character | Verified bylines (5.3). The faction keeps a quest of one faction from a byline of the other. |
+
+| Never kept | |
+|---|---|
+| The Blizzard access token | It is used in the login request, then dropped. |
+| The password, the e-mail address, the real name, the phone number, the payment data | Blizzard never sends them for our scopes. We never ask. |
+| The level, class, race, gender, guild, gear, and play time of a character | We do not need them. The Profile API sends some of them, and the server drops them. |
+| The Battle.net friends list | We never ask for it. |
 
 ## 16. Legal basics
 
@@ -828,7 +937,7 @@ This section lists what to prepare. It is not legal advice. A lawyer reads the t
 
 **Terms of use.** In plain words:
 
-- You must be 13 or older (16 in some EU countries, for consent to data use).
+- You must be 13 or older (16 in some EU countries, for consent to data use), and have a Battle.net account in good standing.
 - You wrote what you publish, or you have the right to share it.
 - You give us a free, worldwide license to host, show, and send your quests to other players, and to change them to fit the game (for example, `$N`).
 - No hate, no harassment, no sexual content, no real people, no ads, no cheats.
@@ -836,7 +945,7 @@ This section lists what to prepare. It is not legal advice. A lawyer reads the t
 - Timeways is a fan project. It is not made by, endorsed by, or connected to Blizzard Entertainment.
 - No warranty. The service can stop at any time.
 
-**Privacy policy.** Who runs the service and how to reach them. What we collect (section 15), why (to run the features the player turned on), the legal basis (consent, for each switch), how long we keep each thing, who processes it (the hosting, the database, the CDN), and the rights: see, export, delete, and complain to a data authority. Way B adds the Battle.net account id and the BattleTag.
+**Privacy policy.** Who runs the service and how to reach them. What we collect (section 15), why (to run the features the player turned on), the legal basis (consent, for each switch), how long we keep each thing, who processes it (the hosting, the database, the CDN), and the rights: see, export, delete, and complain to a data authority. It names the data of 15.5, and Blizzard as the source of the login and the characters.
 
 **Takedown.** A page and a mail address for copyright notices.
 
@@ -851,14 +960,14 @@ This section lists what to prepare. It is not legal advice. A lawyer reads the t
 - The Blizzard EULA forbids data mining. The addon reads only the text that the game shows to the player, but the pool collects it from many players.
 - The likely result of a problem is a takedown notice. The worse results are a cease-and-desist letter, or action against the Battle.net accounts of the project.
 - So the full text is one switch on the server (8.6). A takedown turns it off, and the middle path keeps working. The project never ships Blizzard text in the repo or in a release (5.10).
-- Way B adds the Blizzard Developer API terms.
+- The Battle.net login binds us to the Blizzard Developer API terms. They limit what we keep, how long, and any commercial use (open question 4). Blizzard can end our client id, and then nobody can log in. Section 5.4 says what comes then.
 - The Blizzard add-on policy asks for free add-ons, with no ads in the game. The addon never asks for money, and the website shows no ads.
 
 **Before the launch:** the terms, the privacy policy, the takedown page, the DMCA agent, a contact address, and a decision on the full text.
 
 ## 17. UI copy
 
-The copy follows the UI copy rules of `CLAUDE.md`. Players never see "online call", "sync", "pool", "hash", "template", "contributor", "token", "install key", "independent report", "reputation", "bridge", or "model".
+The copy follows the UI copy rules of `CLAUDE.md`. Players never see "online call", "sync", "pool", "hash", "template", "contributor", "token", "device code", "OAuth", "refresh", "independent report", "reputation", "bridge", or "model".
 
 **In the game.** The Sharing section is a part of the Timeways options in the game (the AddOns tab of the game options).
 
@@ -879,7 +988,19 @@ The copy follows the UI copy rules of `CLAUDE.md`. Players never see "online cal
 | Switch hint | Your AI checks a few quests a day for other players. |
 | Name box | Your name on shared quests |
 | Name box hint | Anonymous |
-| Button | Open my page |
+| Button, not linked | Link this computer |
+| While linking | Your browser opened. Log in with Battle.net, then enter KXM-492. |
+| Linked | Linked to Ada#1234 |
+| Button, linked | Unlink this computer |
+| Link done | This computer is linked. |
+| Code expired | That code expired. Try again. |
+| Link canceled on the website | Linking canceled. |
+| Link ended | This computer isn't linked anymore. Link it again in the Sharing options. |
+| A sending switch, not linked | Link this computer to share. |
+| Switch | Add my characters from the game |
+| Switch hint | Shows them on your page. Only characters Battle.net confirms show on your quests. |
+| Publish question | Show my name as |
+| Publish choices | Anonymous, Ada's Tales, Ada of Stormrage |
 | Button | Delete my online data |
 | First switch popup | This sends what you share to the Timeways website. It never sends your character's name or anything you type. |
 | Popup buttons | Okay, Cancel |
@@ -927,6 +1048,21 @@ The copy follows the UI copy rules of `CLAUDE.md`. Players never see "online cal
 | Sorts | Most liked, Most played, Newest |
 | My page heading | My Quests |
 | Delete button | Delete my data |
+| Login button | Log in with Battle.net |
+| Link page heading | Link Your Computer |
+| Link page line | Enter the code from the game. |
+| Link page asker | A Windows computer asked 1 minute ago. |
+| Link buttons | Link this computer, Cancel |
+| Link done | This computer is linked. You can close this page. |
+| Wrong code | That code didn't work. Check it in the game and try again. |
+| Computers heading | Your Computers |
+| Computer row | Windows · linked Oct 3 · last used today |
+| Unlink button | Unlink |
+| Unlink popup | Unlink this computer? It stops sharing until you link it again. |
+| Characters heading | Your Characters |
+| Not verified tag | Not verified |
+| Refresh button | Refresh my characters |
+| Byline on a quest | A quest by Ada of Stormrage |
 | Group heading | Ada's Guild |
 | Invite line | Share this code in your guild: /quest group 4XPL9R |
 
@@ -942,7 +1078,11 @@ The copy follows the UI copy rules of `CLAUDE.md`. Players never see "online cal
 | Moderation failed: `banned_word` | Can't publish this. It uses a word we don't allow. | No codes. Keep the player's text. |
 | The bridge could not reach api.timeways | Can't reach Timeways online. Try again later. | "Bridge" is internal. |
 | HTTP 429 Too Many Requests | You've shared a lot today. Try again tomorrow. | No numbers, no blame. |
-| Your install key is not linked | (only the Link account button) | The button already says it. |
+| This device is not linked | (only the Link this computer button) | The button already says it. |
+| Enter your RFC 8628 user code to authorize the device | Enter the code from the game. | No internal words. |
+| OAuth refresh failed: invalid_grant | This computer isn't linked anymore. Link it again in the Sharing options. | Say what happened and what to do. |
+| Character unverified (Profile API) | Not verified | A short tag. "Profile API" is internal. |
+| Thy name shall be inscribed in the annals | Show my name as | Fake flourish. |
 | Send your tome to the Great Library of the Bronze Flight! | Share my quests | Fake flourish. The UI never performs a voice. |
 | Reputation: Trusted | (nothing) | The level is a mechanism. |
 
@@ -954,10 +1094,10 @@ Each step is one commit with its tests, and each one ships. The first version is
 
 **First version: the quest library, by code, with a person who reviews.**
 
-1. **Decide.** The account way (5.3; the plan builds Way A first), the domain, and the host. Write the terms, the privacy policy, and the takedown page.
+1. **Decide and check.** The domain and the host. Register the client on develop.battle.net. Check with a real account whether the Profile API lists WoW: Forever characters, and read the API terms and rate limits (open questions 3 to 5). Write the terms, the privacy policy, and the takedown page.
 2. **`online-rules`.** The template parse and check, the words check, the hash, and `independent_count`, with all their tests. Nothing calls them yet.
-3. **The server skeleton.** Installs, tokens, `GET /v1/me`, `DELETE /v1/me`, the rate limits, the migrations, the API tests against PostgreSQL in CI. One host, no files yet.
-4. **The relay.** Protocol 3, the HTTPS route, the token, the op table, the local log (6.7). Wait for the relay session.
+3. **The server skeleton.** Log in with Battle.net, the characters of the Profile API, the device flow, links, Unlink, `GET /v1/me`, `DELETE /v1/me`, the rate limits, the migrations, the API tests against PostgreSQL and a fake Blizzard OAuth server in CI. One host, no files yet.
+4. **The relay.** Protocol 3, the HTTPS route, the device code link, the token file with refresh, the op table, the local log (6.7). Wait for the relay session.
 5. **Publish and get by code.** `quest_publish_asked`, the checks of 7.3, `publish_quest`, the queue page for a maintainer, `get_quest`, `/quest add`, the fit and the offer of 7.5. A quest goes public only after a maintainer reads it.
 6. **The website.** The quest list, the quest page, My page, Delete my data, the legal pages. Likes, plays, and reports.
 
@@ -971,7 +1111,7 @@ Each step is one commit with its tests, and each one ships. The first version is
 12. **Community review**, when 20 Trusted reviewers exist.
 13. **Samples from players.** `samples.jsonl`.
 14. **The full text library**, after the legal decision of section 16.
-15. **Battle.net login**, when the user picks Way B.
+15. **Characters from the game**, the fallback of 5.3, when the Profile API does not cover Forever.
 16. **`GAMEPLAY.md`.** The text of section 21. This plan marks the steps as done.
 
 ## 19. Tests
@@ -1064,13 +1204,19 @@ Each test is a sentence, and reads arrange, act, assert. No test needs the game,
 
 `online_call.rs`:
 
+- `an_op_that_sends_with_no_link_gets_unlinked_and_sends_nothing`
+- `a_download_works_with_no_link`
+- `a_link_that_ends_shows_one_notice`
+- `a_character_is_reported_only_with_its_switch_on`
+
 - `a_sync_runs_at_most_once_an_hour_at_entry`
 - `an_online_failure_shows_one_notice`
 - `an_old_story_program_stops_its_online_calls`
 
 ### 19.3 Property tests (`crates/story/tests/properties.rs` and `crates/online-rules/tests/properties.rs`)
 
-- For any set of reports, `independent_count` never exceeds the number of contributors, of networks, or of installs. Make one contributor, one network, and one install likely.
+- For any set of reports, `independent_count` never exceeds the number of contributors or of networks. Make one contributor and one network likely.
+- For any user code that the server makes, the code has 3 letters of the alphabet of 5.2, a dash, and 3 digits from 2 to 9, and the code box reads it back in any case, with or without the dash.
 - For any set of reports, removing every report of one contributor lowers the count by at most one.
 - For any order of the same reports, the count is the same.
 - For any play, no `online_call` body holds the name of the character, a realm, or a name of the alias table.
@@ -1081,6 +1227,28 @@ Each test is a sentence, and reads arrange, act, assert. No test needs the game,
 
 - `a_call_with_no_token_is_refused`
 - `a_token_is_stored_only_as_a_hash`
+- `a_login_with_a_wrong_state_is_refused`
+- `a_login_keeps_no_blizzard_token`
+- `a_login_keeps_only_name_realm_region_and_faction_of_a_character`
+- `a_failed_profile_call_keeps_the_old_characters`
+- `a_character_that_the_new_list_lacks_loses_its_proof`
+- `a_verified_character_moves_to_the_account_that_lists_it_last`
+- `a_reported_character_is_not_verified`
+- `a_byline_with_a_not_verified_character_is_refused`
+- `a_device_code_lives_ten_minutes`
+- `a_poll_before_the_interval_gets_slow_down`
+- `a_poll_before_approval_gets_authorization_pending`
+- `a_denied_code_gets_access_denied`
+- `an_approved_code_gives_tokens_once`
+- `a_sixth_wrong_code_in_ten_minutes_is_refused`
+- `a_refresh_gives_a_new_pair_and_ends_the_old_refresh_token`
+- `an_old_refresh_token_used_again_revokes_the_link`
+- `an_access_token_after_one_hour_gets_401`
+- `unlink_on_the_website_ends_both_tokens_at_once`
+- `revoke_with_an_unknown_token_answers_200`
+- `deleting_my_data_revokes_every_link`
+- `a_public_quest_needs_no_token`
+- `the_public_manifest_names_no_group_file`
 - `the_first_three_quests_of_a_contributor_go_to_review`
 - `three_reports_from_one_network_hide_nothing`
 - `three_independent_reports_hide_a_quest`
@@ -1096,7 +1264,7 @@ Each test is a sentence, and reads arrange, act, assert. No test needs the game,
 
 ### 19.5 Addon tests (`crates/addon-tests/tests/`)
 
-- `sharing.rs`: every switch starts off; the first switch shows the popup; Delete asks first.
+- `sharing.rs`: every switch starts off; the first switch shows the popup; Delete asks first; a sending switch with no link shows "Link this computer to share."; a linked computer shows its BattleTag; Unlink asks first.
 - `publish.rs`: Publish needs a saved quest; a step with a player shows the line of 17; the panel keeps the quest after a fail.
 - `thumbs.rs`: a thumb sends the row, never the text.
 
@@ -1110,17 +1278,21 @@ Each test is a sentence, and reads arrange, act, assert. No test needs the game,
 
 ## 20. Open questions
 
-1. **Accounts.** Way A, Way B, or A first and B later (the recommendation)?
+1. **Decided: Battle.net login** (the user, 2026-10-03). The install key with no login is rejected for now (5.4).
 2. **The full text library.** Build it after the middle path, or stay on the middle path? The user accepts the risk. A lawyer's view first?
-3. **A WoW license check.** Does the Battle.net profile API list WoW Forever characters? If yes, Way B can prove a real player. A test with a real account decides.
-4. **The domain and the name** of the website.
-5. **The kill count of a template.** A player quest allows 1 to 250 kills. A template follows the side quest limit of 10. Raise it for templates?
-6. **Carry items.** A template `carry` step follows the fixed list of quest-variety.md 4.9. Allow any item of the game for a template?
-7. **Who reviews in the first months.** Every quest goes to a maintainer until 20 Trusted reviewers exist. Is one maintainer enough, or does the user want a few trusted players as moderators?
-8. **Other locales.** A quest goes only to its locale. Allow a translation by its author later?
-9. **Signed files.** Sign the download files with an offline key, so a hacked server or CDN cannot push files? The story program already reads them as hostile.
-10. **The real-player check of the local AI.** The model cannot know which names are players. Is the name strip of the addon plus reports enough?
-11. **A website editor.** Write a quest on the website, with the names of the world facts? It needs the world facts first, and a check with no world of the author.
+3. **The Profile API and WoW: Forever.** Does a namespace of the Profile API list Forever characters? A test with a real account decides it before build step 3. With none, no character is verified: bylines are display names only, and Trusted needs another rule.
+4. **The Blizzard API terms.** What they allow for data use: how long we keep a character list, and whether we can show a character name in public. What they say about commercial use, for the later hosted model. A reading of the current terms decides, before the launch.
+5. **The Blizzard API rate limits.** The published limit was about 36,000 calls an hour and 100 a second for each client. Our use is 2 calls for each login, far below it. Check the current numbers.
+6. **The BattleTag in the game.** The game shows "Linked to Ada#1234" against a guessed code (5.2). Is that fine on a screen that a streamer shows? An option: show only the first letters.
+7. **China.** Battle.net in China has its own OAuth service. Leave it out of the first version?
+8. **The domain and the name** of the website.
+9. **The kill count of a template.** A player quest allows 1 to 250 kills. A template follows the side quest limit of 10. Raise it for templates?
+10. **Carry items.** A template `carry` step follows the fixed list of quest-variety.md 4.9. Allow any item of the game for a template?
+11. **Who reviews in the first months.** Every quest goes to a maintainer until 20 Trusted reviewers exist. Is one maintainer enough, or does the user want a few trusted players as moderators?
+12. **Other locales.** A quest goes only to its locale. Allow a translation by its author later?
+13. **Signed files.** Sign the download files with an offline key, so a hacked server or CDN cannot push files? The story program already reads them as hostile.
+14. **The real-player check of the local AI.** The model cannot know which names are players. Is the name strip of the addon plus reports enough?
+15. **A website editor.** Write a quest on the website, with the names of the world facts? It needs the world facts first, and a check with no world of the author.
 
 ## 21. GAMEPLAY.md text
 
@@ -1135,8 +1307,10 @@ Add a new section after 4.8:
 > Timeways online is a website and a database for players who want to share. Plan: `docs/plans/online.md`. Not built.
 >
 > - **Opt-in.** Each choice is off until you turn it on. Each one has its own switch in the Sharing section of the Timeways options. "Delete my online data" deletes everything you shared.
-> - **What never leaves your computer:** the name of your character, your realm, the name of another player, the words that you type, your world, your chronicle, and the prompts.
+> - **What never leaves your computer:** the name of your character and your realm (unless you add your characters from the game), the name of another player, the words that you type, your world, your chronicle, and the prompts.
 > - **Who makes the calls.** The desktop app makes every call to our servers, as it makes the model calls. The story program has no network. The addon has none either.
+> - **Accounts.** The website logs in with Battle.net. The desktop app links to the account with a short code: it opens the website, you log in with Battle.net, and you enter the code. No password goes into the game or the terminal. Unlink ends the link at once. Downloads need no account. Every upload needs a linked computer.
+> - **Characters.** The website reads your WoW characters from Battle.net. Only these verified characters can show by name in public: "A quest by Ada of Stormrage". The game can also add your characters, but they stay "Not verified" and never show in public.
 >
 > **The quest library.**
 >
@@ -1158,7 +1332,7 @@ Add a new section after 4.8:
 >
 > **Votes.** You rate a narrator line, a quest offer, or a talk answer with a thumb. The vote carries the line and the prompt it came from, never a name or your words. A person reads the best lines and makes golden samples of them. You can also report a problem in a `/lore` answer. The report never carries your question.
 >
-> **Independent reports.** Two reports count apart only from two players, two installs, and two networks, and only from players with a week of history. One player with many installs counts once.
+> **Independent reports.** Two reports count apart only from two Battle.net accounts on two networks, and only from accounts with a week of history. One account with many computers counts once.
 
 In 3.4, after "**The offer**", add:
 
@@ -1178,5 +1352,5 @@ In 5.14, in the table of roots, change the row Shared:
 
 In 9, add:
 
-> 10. **Accounts for Timeways online** (4.9). An install key with no login, or Battle.net login? The plan starts with the install key.
+> 10. **Battle.net characters for WoW: Forever** (4.9). Does the Profile API list them? A test with a real account decides.
 > 11. **The full text library** (4.9). Share the words of game text, or only where texts are?
