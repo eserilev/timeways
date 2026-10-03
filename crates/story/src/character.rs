@@ -185,6 +185,19 @@ impl Character {
         self.world.entity(id)?.fact(TRUSTS, Some(self.you))?.value
     }
 
+    /// The event of the newest change of the trust of an NPC, and whether it went up.
+    #[must_use]
+    pub fn last_trust_change(&self, npc: &str) -> Option<(EventId, bool)> {
+        let id = self.find(EntityType::Person, npc)?;
+        let opened = self.world.entity(id)?.fact(TRUSTS, Some(self.you))?.opened;
+        let up = match &self.world.history().get(opened)?.kind {
+            EventKind::FactUpdate { from, to, .. } => to > from,
+            EventKind::FactStart { value, .. } => value.is_some_and(|value| value > 0),
+            _ => return None,
+        };
+        Some((opened, up))
+    }
+
     #[must_use]
     pub fn slaps_of(&self, npc: &str) -> Option<i64> {
         let id = self.find(EntityType::Person, npc)?;

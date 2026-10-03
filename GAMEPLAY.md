@@ -198,6 +198,7 @@ Built:
 - **No retry.** With no model, or with an answer that breaks a rule, the NPC "looks at you and says nothing".
 - The target counts only when it is an NPC: never a player, and never a pet (5.11).
 - **Trust shows on the NPC, not in the book** (built). The tooltip of an NPC that you dealt with gets one line: "Timeways: Likes you. Slapped 2 times." An NPC that you only met gets none. When the feeling of an NPC changes band, the chat says so once: "Keeper Tessa now likes you." The bands: 50 and up trusts you, 10 and up likes you, -9 to 9 is neutral, -10 to -49 is wary of you, and below that distrusts you. The addon asks for the journal at login and after each talk, so the tooltips know the people before the book opens.
+- **Why the trust changed** (built). A second line of the tooltip names the cause of the newest change: "Went up after you talked.", "Went down after you talked.", "Went down when you slapped them.", or "Went up when you finished their quest." The journal carries it as `trust_why` for each person: `by` (`talk`, `slap`, or `quest`), `up`, and `at`. The desktop finds it in one step back from the trust event (5.14), never in the reads of a call. A cause that is lost shows no line.
 - **No People or Places page.** The chronicle names the people and places of each chapter, the map shows where you went, and the tooltip shows trust. The journal still carries the people and the places, for the map and the tooltips.
 
 ### 3.6 The journal
@@ -805,6 +806,7 @@ Each row of a world answers three questions: what proves it, which model call wr
 
   A game event has Game proof alone. A trust change from `/talk` rests on the words of the player and on the game, so it shows as Player.
 - **Uses** are the accepted calls that read a row. A refused or failed call uses nothing. A row that changes while a call runs still counts as read, because the reads go in when the call opens.
+- **"Why?" shows only for trust** (3.5). The reads of a call hold far more than its cause, so the journal never shows them. Trust is the one value that a player cannot explain alone, and its cause is exact: the line or the call that made the newest change.
 - **Prompts.** The newest 500 calls keep their prompts. An older call keeps its row, its answer, and its links.
 - **Clearing the history.** `/timeways forget` asks first (Clear, Cancel), and then sends `history_cleared`. The line removes the words of every input and every prompt of the character, in its own transaction. The rows and the links stay, so every proof stays the same.
 

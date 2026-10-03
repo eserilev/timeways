@@ -135,3 +135,44 @@ fn a_tooltip_with_a_hidden_unit_is_left_alone() {
 
     assert!(lines.is_empty());
 }
+
+/// A journal whose only person is `name`, with a trust and its cause.
+fn journal_with_why(name: &str, trust: i64, by: &str, up: bool) -> String {
+    let person = serde_json::json!({
+        "name": name,
+        "first_met": 1_790_000_000,
+        "trust": trust,
+        "trust_why": { "by": by, "up": up, "at": 1_790_000_100 },
+    });
+    serde_json::json!({ "type": "journal", "page": 0, "pages": 1, "people": [person] }).to_string()
+}
+
+#[test]
+fn the_tooltip_says_why_the_trust_changed_last() {
+    let cases = [
+        ("talk", true, "Went up after you talked."),
+        ("talk", false, "Went down after you talked."),
+        ("slap", false, "Went down when you slapped them."),
+        ("quest", true, "Went up when you finished their quest."),
+    ];
+    for (by, up, line) in cases {
+        let game = Game::new();
+
+        game.reply(&journal_with_why("Innkeeper Farley", 20, by, up));
+
+        assert_eq!(
+            tooltip(&game, "Innkeeper Farley"),
+            ["Timeways: Likes you.", line],
+            "{by} {up}"
+        );
+    }
+}
+
+#[test]
+fn an_unknown_cause_of_trust_shows_no_why() {
+    let game = Game::new();
+
+    game.reply(&journal_with_why("Innkeeper Farley", 20, "magic", true));
+
+    assert_eq!(tooltip(&game, "Innkeeper Farley"), ["Timeways: Likes you."]);
+}

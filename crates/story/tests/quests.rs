@@ -12,6 +12,7 @@ use timeways_story::journal::{Deed, Page};
 use timeways_story::pack::Pack;
 use timeways_story::quest::{Status, Tracked};
 use timeways_story::store::Store;
+use timeways_story::story::why::{TrustCause, TrustWhy};
 use timeways_story::story::{Output, Story};
 
 const GIVER: &str = "Keeper Tessa";
@@ -806,4 +807,28 @@ fn an_offer_after_the_deadline_of_its_batch_comes_with_the_next_answer() {
         )
     );
     assert_eq!(quests(&mut story)[0].status, Status::Offered);
+}
+
+#[test]
+fn trust_why_names_a_finished_quest() {
+    let mut story = story("why-quest");
+    offer(&mut story, 5);
+    story
+        .handle(Input::QuestAccepted {
+            at: Tick(6),
+            number: None,
+        })
+        .unwrap();
+    story.handle(zone(8, "Mill Pond")).unwrap();
+    story.handle(meet(9, "Farmer Bram")).unwrap();
+
+    let people = page(&mut story).journal.people;
+
+    let giver = people.iter().find(|person| person.name == GIVER).unwrap();
+    let why = TrustWhy {
+        by: TrustCause::Quest,
+        up: true,
+        at: Tick(9),
+    };
+    assert_eq!(giver.trust_why, Some(why));
 }

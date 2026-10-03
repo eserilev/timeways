@@ -48,6 +48,24 @@ function Trust.Line(person)
 	return table.concat(parts, " ")
 end
 
+-- The cause of the newest change of trust, as the desktop found it (GAMEPLAY.md 5.14).
+-- A slap only lowers trust, and a finished quest only raises it.
+local WHY = {
+	talk = { up = "Went up after you talked.", down = "Went down after you talked." },
+	slap = { down = "Went down when you slapped them." },
+	quest = { up = "Went up when you finished their quest." },
+}
+
+-- Nil when the journal names no cause, or one that this addon does not know.
+function Trust.Why(person)
+	local why = type(person.trust_why) == "table" and person.trust_why
+	local lines = why and WHY[why.by]
+	if not lines then
+		return nil
+	end
+	return lines[why.up == true and "up" or "down"]
+end
+
 local function Changed(before, now)
 	local band = Band(TrustOf(now))
 	if before ~= nil and band ~= Band(TrustOf(before)) then
@@ -78,10 +96,15 @@ function Trust.OnTooltip(tooltip)
 	if not unit or issecretvalue(unit) then
 		return
 	end
-	local name = ns.Units.NpcName(unit)
-	local line = name and people[name] and Trust.Line(people[name]) or ""
-	if line ~= "" then
-		tooltip:AddLine("Timeways: " .. line, 0.78, 0.63, 0.39)
+	local person = people[ns.Units.NpcName(unit) or ""]
+	local line = person and Trust.Line(person) or ""
+	if line == "" then
+		return
+	end
+	tooltip:AddLine("Timeways: " .. line, 0.78, 0.63, 0.39)
+	local why = Trust.Why(person)
+	if why then
+		tooltip:AddLine(why, 0.78, 0.63, 0.39)
 	end
 end
 

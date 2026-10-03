@@ -90,6 +90,7 @@ fn people_carry_the_place_where_you_met_them() {
         trust: None,
         slapped: None,
         spot: None,
+        trust_why: None,
     };
     assert_eq!(
         people,

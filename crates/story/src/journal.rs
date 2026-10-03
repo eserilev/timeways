@@ -9,6 +9,7 @@ use crate::places::{self, PlaceKind};
 use crate::quest::{Tracked, title_of_thing};
 use crate::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use crate::spot::{Spot, spot_of};
+use crate::story::why::TrustWhy;
 use crate::vocabulary::{
     CLASS_QUEST, DEATHS, DEFEATED, GAME_QUEST_DONE, LEVEL, MARK_OF, MARKED_BY, MET, QUEST_DONE,
     SLAPPED, TITLE, TRUSTS, VISITED,
@@ -89,6 +90,10 @@ pub struct Person {
     /// Where you stood on the map at the first meeting that had a position.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub spot: Option<Spot>,
+    /// The cause of the newest change of `trust`. The world alone does not know it, so
+    /// the story program adds it from the database (GAMEPLAY.md 5.14).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub trust_why: Option<TrustWhy>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -281,6 +286,7 @@ pub fn journal(character: &Character) -> Journal {
             trust: fact_value(world, npc, TRUSTS, you),
             slapped: fact_value(world, you, SLAPPED, npc),
             spot: spot_of(world, npc),
+            trust_why: None,
         })
         .collect();
     let deeds = deeds(world, you);

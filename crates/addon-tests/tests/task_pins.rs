@@ -40,6 +40,7 @@ fn person(name: &str, place: &str, spot: Option<Spot>) -> Person {
         trust: None,
         slapped: None,
         spot,
+        trust_why: None,
     }
 }
 

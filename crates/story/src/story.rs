@@ -36,6 +36,7 @@ mod drafts;
 mod quests;
 mod reads;
 mod sagas;
+pub mod why;
 
 use active::{Active, Kept};
 use calls::Pending;
@@ -962,6 +963,9 @@ impl Story {
                 let written = active.prose.get(chapter.began).cloned().unwrap_or_default();
                 chapter.prose = Some(written.text).filter(|text| !text.is_empty());
                 chapter.footnotes = written.footnotes;
+            }
+            for person in &mut journal.people {
+                person.trust_why = why::trust_why(active, &person.name)?;
             }
             journal.hero = hero::hero(active.hero.changes());
             journal.hero_refused = active.hero_refused.take();

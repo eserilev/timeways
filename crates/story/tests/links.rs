@@ -13,6 +13,7 @@ use timeways_story::store::graph::weakest;
 use timeways_story::store::{
     CallEnd, CharacterKey, Database, Line, NewCall, Node, Outcome, PROMPTS_KEPT, Root, Store, Table,
 };
+use timeways_story::story::why::{TrustCause, TrustWhy};
 use timeways_story::story::{Output, Story, StoryError};
 
 const HOUR: u64 = 3600;
@@ -769,4 +770,97 @@ fn a_cleared_history_keeps_every_proof_and_drops_every_word() {
         ),
         0
     );
+}
+
+fn trust_why_of(story: &mut Story, npc: &str) -> Option<TrustWhy> {
+    let outputs = story
+        .handle(Input::JournalAsked {
+            id: MessageId(1),
+            page: 0,
+        })
+        .unwrap();
+    let Some(Output::Journal { page, .. }) = outputs.into_iter().next() else {
+        panic!("expected a journal");
+    };
+    page.journal
+        .people
+        .into_iter()
+        .find(|person| person.name == npc)?
+        .trust_why
+}
+
+#[test]
+fn trust_why_names_the_talk_that_changed_it() {
+    let folder = fresh_folder("why-talk");
+    let mut story = story(&folder);
+    meet(&mut story, 2, "Innkeeper Farley");
+    let call = talk(&mut story, "Innkeeper Farley");
+
+    answer(
+        &mut story,
+        call,
+        r#"{"say": "Nothing but rain.", "trust": -3}"#,
+    );
+
+    let why = TrustWhy {
+        by: TrustCause::Talk,
+        up: false,
+        at: Tick(50),
+    };
+    assert_eq!(trust_why_of(&mut story, "Innkeeper Farley"), Some(why));
+}
+
+#[test]
+fn trust_why_names_a_slap() {
+    let folder = fresh_folder("why-slap");
+    let mut story = story(&folder);
+
+    story
+        .handle(Input::NpcSlapped {
+            at: Tick(7),
+            name: "Innkeeper Farley".to_string(),
+        })
+        .unwrap();
+
+    let why = TrustWhy {
+        by: TrustCause::Slap,
+        up: false,
+        at: Tick(7),
+    };
+    assert_eq!(trust_why_of(&mut story, "Innkeeper Farley"), Some(why));
+}
+
+#[test]
+fn an_npc_that_nothing_changed_has_no_why() {
+    let folder = fresh_folder("why-none");
+    let mut story = story(&folder);
+
+    meet(&mut story, 2, "Innkeeper Farley");
+
+    assert_eq!(trust_why_of(&mut story, "Innkeeper Farley"), None);
+}
+
+#[test]
+fn a_trust_change_whose_cause_is_lost_shows_no_why() {
+    let folder = fresh_folder("why-lost");
+    let mut first = story(&folder);
+    first
+        .handle(Input::NpcSlapped {
+            at: Tick(7),
+            name: "Innkeeper Farley".to_string(),
+        })
+        .unwrap();
+    drop(first);
+    let connection = sql(&folder);
+    connection
+        .execute_batch("PRAGMA foreign_keys = OFF")
+        .unwrap();
+    connection
+        .execute("DELETE FROM inputs WHERE kind = 'npc_slapped'", [])
+        .unwrap();
+    drop(connection);
+
+    let mut second = story(&folder);
+
+    assert_eq!(trust_why_of(&mut second, "Innkeeper Farley"), None);
 }

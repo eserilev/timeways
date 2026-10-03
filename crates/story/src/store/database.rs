@@ -481,6 +481,22 @@ impl Database {
         Ok(root.as_deref().map_or(Root::Lost, Root::named))
     }
 
+    /// The kind of an input line, such as `npc_slapped`.
+    ///
+    /// # Errors
+    ///
+    /// Returns the error of SQLite.
+    pub fn input_kind(&self, position: u64) -> Result<Option<String>, StoreError> {
+        self.connection
+            .query_row(
+                "SELECT kind FROM inputs WHERE position = ?1",
+                params![as_sql(position)],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(|source| self.error(source))
+    }
+
     /// What a call read when it opened.
     ///
     /// # Errors
