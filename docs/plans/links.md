@@ -1,6 +1,6 @@
 # Plan: links, proof, and one database
 
-Status: draft 2, 2026-10-03. Not built. Draft 2 takes in a review against the code. When a part is built, its rules move into `GAMEPLAY.md`, and this plan marks the part as done.
+Status: draft 2, 2026-10-03. Draft 2 takes in a review against the code. Steps 1 to 6 are built, and their rules are in `GAMEPLAY.md` 5.7 and 5.14. When a part is built, its rules move into `GAMEPLAY.md`, and this plan marks the part as done.
 
 Nothing is live, so there is no migration. A change of the tables deletes the test worlds.
 
@@ -151,12 +151,12 @@ The internal name is "player story". `flavor::Told` already means a telling of a
 
 Each step is one commit or a few, with its tests and its rules in `GAMEPLAY.md`.
 
-1. **The base.** In-memory SQLite for `Store::Memory`. Event position = `EventId`. Foreign keys on. The cut at open in one transaction.
-2. **`inputs` and the `input` column.** The stored input is the parsed line after the clock check, also for a refused line.
-3. **`calls` and the `call` column.** Every call gets a row when it opens, and its answer and result when it ends. Lore calls get a key.
-4. **`reads`**, with the rules of section 6, one kind of call at a time: saga, quest, talk, narrator, lore.
-5. **The queries:** `proof_of(row)`, `source_of(row)`, and `uses_of(row)`.
-6. **`timeways.sqlite`:** the budget and the pace first. The alias table comes with 5.11.
+1. **Done. The base.** In-memory SQLite for `Store::Memory`. Event position = `EventId`. Foreign keys on. The cut at open in one transaction.
+2. **Done. `inputs` and the `input` column.** Only the `character_entered` that founds a world is kept, because every batch starts with one. The stored input is the parsed line after the clock check, also for a refused line.
+3. **Done. `calls` and the `call` column.** Every call gets a row when it opens, and its answer and result when it ends. Lore calls get a key.
+4. **Done. `reads`**, with the rules of section 6, one kind of call at a time: saga, quest, talk, narrator, lore.
+5. **Done. The queries:** `proof_of(row)`, `source_of(row)`, and `uses_of(row)`.
+6. **Done. `timeways.sqlite`:** the budget and the pace first. The alias table comes with 5.11.
 7. **"Why?" in the journal.**
 8. **Player stories** (section 9).
 
