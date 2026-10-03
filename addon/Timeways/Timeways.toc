@@ -36,6 +36,7 @@ Talk.lua
 Quest.lua
 Narrator.lua
 Hero.lua
+History.lua
 Trust.lua
 TaskPins.lua
 TaskWire.lua

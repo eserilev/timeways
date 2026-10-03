@@ -734,3 +734,39 @@ fn a_call_that_rests_on_itself_is_lost() {
 
     assert_eq!(proof, BTreeSet::from([Root::Lost]));
 }
+
+#[test]
+fn a_cleared_history_keeps_every_proof_and_drops_every_word() {
+    let folder = fresh_folder("cleared");
+    let mut story = story(&folder);
+    meet(&mut story, 2, "Innkeeper Farley");
+    let call = talk(&mut story, "Innkeeper Farley");
+    answer(
+        &mut story,
+        call,
+        r#"{"say": "Nothing but rain.", "trust": 3}"#,
+    );
+    let trust = Node::Row(Table::Events, newest_event_of_a_call(&folder));
+    let before = database(&folder).proof_of(trust).unwrap();
+
+    story
+        .handle(Input::HistoryCleared { at: Tick(60) })
+        .unwrap();
+    drop(story);
+
+    assert_eq!(database(&folder).proof_of(trust).unwrap(), before);
+    assert_eq!(
+        count(
+            &folder,
+            "SELECT count(*) FROM inputs WHERE body LIKE '%any news%'"
+        ),
+        0
+    );
+    assert_eq!(
+        count(
+            &folder,
+            "SELECT count(*) FROM calls WHERE prompt IS NOT NULL"
+        ),
+        0
+    );
+}

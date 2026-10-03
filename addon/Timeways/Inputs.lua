@@ -104,6 +104,10 @@ function Inputs.HeroRemoved(at, number)
 	return { type = "hero_removed", at = at, number = number }
 end
 
+function Inputs.HistoryCleared(at)
+	return { type = "history_cleared", at = at }
+end
+
 function Inputs.Emote(at, emote, target, hour)
 	return { type = "emote_done", at = at, emote = emote, target = target, hour = hour }
 end

@@ -23,6 +23,7 @@ What works:
 - **Player quests.** Give a quest to a player in your party, guild, or friends list who has Timeways. The game checks the steps, and the giver decides at the end. You type each step in plain words, and "Help me write" drafts a whole quest.
 - **`/journal`.** A book in the look of the classic quest frame, with 5 tabs: Hero (your hero in your own words), Chronicle (one chapter for each milestone, with a saga from the narrator), Deeds, Knowledge, and Quests. The map shows where you have been.
 - **The narrator.** One short line in the voice of the chronicle at a big moment, such as a first kill of a rare, a level up, or a third death to the same murloc. At most 3 lines each hour.
+- **Your history stays on your computer.** Type `/timeways forget` to delete what you typed and what the AI was told. Your journal stays the same.
 - **Kills, deaths, and slaps.** Addons cannot read the combat log in this client. So the addon reads kills and deaths from other events, and never sends the name of a real player.
 
 ## Install

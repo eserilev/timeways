@@ -181,6 +181,11 @@ pub enum Input {
         at: Tick,
         idea: String,
     },
+    /// The player cleared their history: the words that they typed, and every prompt
+    /// (GAMEPLAY.md 5.14).
+    HistoryCleared {
+        at: Tick,
+    },
     /// The journal window opened, and needs its pages. Page 0 takes a new snapshot.
     JournalAsked {
         id: MessageId,
@@ -248,6 +253,7 @@ impl Input {
                 | Input::HeroSet { .. }
                 | Input::HeroAdded { .. }
                 | Input::HeroRemoved { .. }
+                | Input::HistoryCleared { .. }
         );
         if typed { Root::Player } else { Root::Game }
     }
@@ -289,6 +295,7 @@ impl Input {
             | Input::HeroSet { at, .. }
             | Input::HeroAdded { at, .. }
             | Input::HeroRemoved { at, .. }
+            | Input::HistoryCleared { at }
             | Input::EmoteDone { at, .. }
             | Input::TextSeen { at, .. } => Some(at),
             Input::Hello

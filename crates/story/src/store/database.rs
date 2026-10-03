@@ -202,12 +202,15 @@ pub struct Line {
     pub calls: Vec<NewCall>,
     pub ended: Vec<CallEnd>,
     pub rows: Vec<(Table, Vec<NewRow>)>,
+    /// Clears the words of every input and every prompt before the line writes its own.
+    pub clears_history: bool,
 }
 
 impl Line {
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.input.is_none()
+            && !self.clears_history
             && self.calls.is_empty()
             && self.ended.is_empty()
             && self.rows.iter().all(|(_, rows)| rows.is_empty())
@@ -541,11 +544,10 @@ impl Database {
     ///
     /// Returns the error of SQLite.
     pub fn clear_history(&mut self) -> Result<(), StoreError> {
-        self.connection
-            .execute_batch(
-                "BEGIN; UPDATE inputs SET body = NULL; UPDATE calls SET prompt = NULL; COMMIT;",
-            )
-            .map_err(|source| sqlite_error(&self.path, source))
+        self.save(&Line {
+            clears_history: true,
+            ..Line::default()
+        })
     }
 
     fn nodes(&self, select: &str, key: u64) -> Result<Vec<Node>, StoreError> {
@@ -580,6 +582,10 @@ pub struct CallRecord {
 }
 
 fn write_line(transaction: &rusqlite::Transaction<'_>, line: &Line) -> rusqlite::Result<()> {
+    if line.clears_history {
+        transaction
+            .execute_batch("UPDATE inputs SET body = NULL; UPDATE calls SET prompt = NULL;")?;
+    }
     if let Some(input) = &line.input {
         transaction.execute(
             "INSERT INTO inputs (position, kind, root, body) VALUES (?1, ?2, ?3, ?4)",

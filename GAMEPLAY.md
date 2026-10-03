@@ -561,25 +561,29 @@ Timeways uses the transport of Gnomish Relay, with its own key and its own slots
 
 - **One database for each character.** The world of a character is a SQLite file in the data folder of the story program: `worlds/r_<realm id>/c_<character id>.sqlite`. The prefixes keep a name such as "Con" or "Aux" from naming a Windows device. The bridge gives the folder as the second argument, `<data>/timeways/story/`, and the sandbox lets the story program write only there (5.12).
 - Realm and character names come from the game, with spaces, apostrophes, and non-ASCII letters. They map to safe ids: ASCII letters and digits stay, and every other byte becomes `_` and two hex digits. So two names never share an id, and no id holds a `/`, a `.`, or a space.
-- **The tables.** Each table holds rows of JSON, in the order that they came, and only grows:
+- **The row tables.** Each one holds rows of JSON, in the order that they came, and only grows. The position of a row is its place in its table, from 0, so the position of an event is its id. Each row also names the input line or the model call that made it (5.14).
 
   | Table | One row for each |
   |---|---|
-  | `events` | Hourglass event. Its position is the id of the event. |
+  | `events` | Hourglass event |
   | `chapters` | saga of a chapter (3.3), keyed by the tick that began the chapter |
   | `flavor` | flavor moment or telling (5.4.1) |
   | `hero` | change of the story of the hero (3.7) |
   | `learned` | text that the player read, or rumor (3.1.1, 5.10) |
   | `quests` | change of a side quest (3.4) |
 
-- **One transaction for each line.** The story program keeps the new rows of a line from the bridge in memory. At the end of the line, it writes them all in one transaction, also after a refusal, because the events before a refusal landed. So a quest and the facts of its world never disagree.
+- **The tables of proof** (5.14): `inputs` (the lines from the addon), `calls` (the model calls), and `reads` (what each call read).
+- **What all characters share** lives in `timeways.sqlite` in the data folder: the budget of the narrator (3.2) and the pace of the model (3.3). So a restart never lets the narrator speak 3 times at once. The file opens with the first `character_entered`, and a value that does not read comes back as its default.
+- **One transaction for each line.** The story program keeps the new rows of a line from the bridge in memory. At the end of the line, it writes them all in one transaction, with the input, the calls, and the reads, also after a refusal, because the events before a refusal landed. So a quest and the facts of its world never disagree.
 - **A failed write keeps nothing of its line.** The transaction rolls back, and the story program opens the character again from the disk. The memory then holds what the disk holds, and the next line works as before.
+- **WAL.** SQLite syncs the disk once for each line, and a reader such as `sqlite3` never blocks a save. A save waits at most half a second for another program that writes, and then fails.
 - A failed `character_entered` leaves no character active, so the events of one character never land in the world of another.
 - The state is not stored. `World::replay` builds it from the `events` table when a character enters.
 - **A crash** loses at most the line in progress, because SQLite keeps a journal for each transaction.
-- **A row that does not read** comes only from another program. The read stops at the first such row of a table, and deletes it and every row after it. An event with the wrong position counts as such a row. A `events` table that does not start with the founding of the character is refused, and so is a file that is not a SQLite database. The story program never replaces such a file.
+- **A row that does not read** comes only from another program. The read stops at the first such row of a table, or the first row out of its place, and deletes it, every row after it, and every read of them. An `events` table that does not start with the founding of the character is refused, and so is a file that is not a SQLite database. The open runs in one transaction, and writes only when it finds damage.
+- **A link to a line or a call that is gone** comes only from another program too. The open clears it, so the row shows as lost (5.14).
+- **A file of another version** is refused, never changed. Nothing is live, so a new version starts with new worlds. No migration exists before the first release.
 - **Whose world:** every batch from the addon starts with a `character_entered` line with the realm and the name. So the story program knows the world of each batch, also after it restarts. The addon holds its events until the login names the character.
-- Undo is cheap: cut the history and replay (`World::rewind`).
 - To read a world by hand: `sqlite3 c_<name>.sqlite "SELECT body FROM learned LIMIT 3"`.
 
 ### 5.8 Sync between players
@@ -684,7 +688,7 @@ The name of a real player never goes to a model, local or cloud. The model does 
 
 Canon NPCs, such as Thrall or the innkeeper of Goldshire, keep their real names. They are part of the lore, not people.
 
-**Your own words go as you typed them.** A `/lore` question or `/talk` words reach the model as the player wrote them. If you type the name of another player there, it goes with them: the choice is yours, like a message that you send yourself (rule 5). A swap of known player names for aliases in typed text comes with the alias table.
+**Your own words go as you typed them.** A `/lore` question or `/talk` words reach the model as the player wrote them. If you type the name of another player there, it goes with them: the choice is yours, like a message that you send yourself (rule 5). A swap of known player names for aliases in typed text comes with the alias table. The `inputs` table and the prompts keep these words on this computer only, and `/timeways forget` clears them (5.14).
 
 **Pets count as players.** A player chose the name of a hunter pet, so the addon treats every unit that a player controls (`UnitPlayerControlled`) as a player: it never sends its name as a target, a foe, or a killer.
 
@@ -770,6 +774,39 @@ The guild world keeps `defeated` from the guild to each boss. So the saga gets a
 - **Off:** kills are counts and deeds, with no echo text.
 - **Light:** the narrator and the chronicle mention echoes now and then.
 - **Strong:** a bronze dragon voice tells each reset. This voice is an invented character next to canon characters such as Anachronos.
+
+### 5.14 Proof: inputs, calls, and reads
+
+Each row of a world answers three questions: what proves it, which model call wrote it, and which calls used it. Plan and open steps: `docs/plans/links.md`.
+
+- **Inputs.** Each line from the addon goes into `inputs`, after the clock check, with its kind and its root. `hello`, a journal request, and the lines of a model call leave no input. Every batch starts with `character_entered`, so only the one that founds a world is kept. A refused line keeps its input.
+- **Calls.** Each model call gets a row in `calls` when it opens: its kind, the pack that it used, its prompt, and what it read. When it ends, the row keeps the answer and the result: `accepted`, `refused`, or `failed`. An answer for a character that is not active writes nothing in that world, and its call stays `open`. The `CallId` of the bridge starts again in each run, so it never names a row.
+- **What made a row.** Every row of a line names the input of the line, or the call whose answer the line carries. A call names the input or the call that opened it. So links only point back in time.
+- **Reads.** A call reads at least what its prompt held, and more is the safe side. The rules (`story/reads.rs`):
+
+  | Call | Reads |
+  |---|---|
+  | Narrator | the events and the flavor moments of its batch |
+  | Saga draft | every event, flavor moment, and hero row of its chapter, and the hero rows before it |
+  | Saga pick, second draft | the same, and the earlier calls of its round |
+  | Quest offer, task draft | the events behind the giver and every place, NPC, and creature that the prompt can offer |
+  | Talk | the events behind the NPC, the hero entries about it, and the `learned` rows of its passages |
+  | Lore | the `learned` rows of its passages. A pack passage has no row: its id changes with each pack. |
+
+  The events behind a name are the event that made the thing, and the event that opened each fact that it holds or that points to it.
+- **Proof** is the set of roots that a row rests on: follow the input or the call that made it, and for a call, also what it read, down to the inputs. The weakest root shows:
+
+  | Root | Means |
+  |---|---|
+  | Lost | the chain never reaches an input. Only another program makes one. |
+  | Shared | another player said it (later, player stories) |
+  | Player | the player typed it, or clicked a button of Timeways |
+  | Game | the game said it |
+
+  A game event has Game proof alone. A trust change from `/talk` rests on the words of the player and on the game, so it shows as Player.
+- **Uses** are the accepted calls that read a row. A refused or failed call uses nothing. A row that changes while a call runs still counts as read, because the reads go in when the call opens.
+- **Prompts.** The newest 500 calls keep their prompts. An older call keeps its row, its answer, and its links.
+- **Clearing the history.** `/timeways forget` asks first (Clear, Cancel), and then sends `history_cleared`. The line removes the words of every input and every prompt of the character, in its own transaction. The rows and the links stay, so every proof stays the same.
 
 ## 6. Build order
 

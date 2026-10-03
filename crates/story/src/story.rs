@@ -517,6 +517,11 @@ impl Story {
             Input::QuestDeclined { at, number } => self.answer_quest(at, Status::Declined, number),
             Input::QuestAbandoned { at, number } => self.abandon_quest(at, number),
             Input::JournalAsked { id, page } => self.journal_answer(id, page),
+            Input::HistoryCleared { .. } => {
+                let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
+                active.clears_history = true;
+                Ok(Vec::new())
+            }
             Input::BatchEnd { id } => Ok(self.end_batch(id)),
             Input::ModelAnswered { call, text } => self.answered(call, &text),
             Input::ModelFailed { call } => self.failed(call),
@@ -895,6 +900,7 @@ impl Story {
             new_calls: Vec::new(),
             ended: Vec::new(),
             answering: None,
+            clears_history: false,
             prose,
             flavor,
             hero,
