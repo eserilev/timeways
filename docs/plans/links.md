@@ -1,6 +1,6 @@
 # Plan: links, proof, and one database
 
-Status: draft 2, 2026-10-03. Draft 2 takes in a review against the code. Steps 1 to 6 are built, and their rules are in `GAMEPLAY.md` 5.7 and 5.14. When a part is built, its rules move into `GAMEPLAY.md`, and this plan marks the part as done.
+Status: draft 2, 2026-10-03. Draft 2 takes in a review against the code. Steps 1 to 8 are built. Step 7 is built for trust only, and step 8 is a first version with no story in a prompt. Their rules are in `GAMEPLAY.md` 3.6, 4.8, 5.7, and 5.14. When a part is built, its rules move into `GAMEPLAY.md`, and this plan marks the part as done.
 
 Nothing is live, so there is no migration. A change of the tables deletes the test worlds.
 
@@ -157,8 +157,8 @@ Each step is one commit or a few, with its tests and its rules in `GAMEPLAY.md`.
 4. **Done. `reads`**, with the rules of section 6, one kind of call at a time: saga, quest, talk, narrator, lore.
 5. **Done. The queries:** `proof_of(row)`, `source_of(row)`, and `uses_of(row)`.
 6. **Done. `timeways.sqlite`:** the budget and the pace first. The alias table comes with 5.11.
-7. **"Why?" in the journal.**
-8. **Player stories** (section 9).
+7. **Done, for trust only. "Why?" in the journal.** The reads of a call hold far more than its cause, so only trust shows a why: one step back from its newest change. Quests, chapters, and deeds show none.
+8. **Done, first version. Player stories** (section 9, and `GAMEPLAY.md` 4.8). No story reaches a prompt, so the alias table and a party input wait for the next version.
 
 ## 12. Tests that the plan needs
 

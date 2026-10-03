@@ -1,5 +1,6 @@
-//! Random play of player tasks through the real addon (GAMEPLAY.md 4.7): addon messages of
-//! peers, the answers of the player, trades, and a random saved file at the start. No Lua
+//! Random play of player tasks and stories through the real addon (GAMEPLAY.md 4.7 and
+//! 4.8): addon messages of peers, the answers of the player, trades, and random saved files
+//! at the start. No Lua
 //! error comes of it, each addon message fits in 255 bytes, and no line of a page holds a
 //! `|`, which starts a WoW escape.
 
@@ -45,8 +46,20 @@ impl Saved {
     }
 }
 
-const TYPES: [&str; 10] = [
-    "hello", "here", "offer", "accept", "decline", "block", "cancel", "step", "turnin", "result",
+const TYPES: [&str; 13] = [
+    "hello",
+    "here",
+    "offer",
+    "accept",
+    "decline",
+    "block",
+    "cancel",
+    "step",
+    "turnin",
+    "result",
+    "story",
+    "story_accept",
+    "story_decline",
 ];
 const IDS: [&str; 3] = ["a1", "b2", "zz9"];
 const SENDERS: [&str; 3] = ["Ada-Stormrage", "Bram-Stormrage", "Mallory-Elsewhere"];
@@ -74,6 +87,11 @@ enum Action {
         item: String,
         count: u8,
         money: u16,
+    },
+    /// Accept or decline a story that waits, or remove an accepted one.
+    Story {
+        which: u8,
+        index: u8,
     },
     Party(bool),
     Tick,
@@ -148,6 +166,13 @@ fn act(corvin: &players::Player, action: &Action) {
             run.call::<()>((partner, item.as_str(), *count, *money))
                 .unwrap();
         }
+        Action::Story { which, index } => {
+            let answer = ["Accept", "Decline"][usize::from(*which) % 2];
+            corvin.run(&format!(
+                "local waiting = ns.PlayerStories.Waiting()
+                 if #waiting > 0 then ns.PlayerStories.{answer}({index} % #waiting + 1) end"
+            ));
+        }
         Action::Party(on) => {
             corvin.run(if *on {
                 "wow.units.party1 = { name = 'Ada', player = true, guid = 'Player-1-Ada' }"
@@ -172,7 +197,10 @@ fn check_pages(corvin: &players::Player) {
                          assert(not text:find('|', 1, true), text)
                      end
                  end
-             end",
+             end
+         for _, line in ipairs(ns.Journal.Lines('hero')) do
+             assert(not (line.text or ''):find('|', 1, true), line.text)
+         end",
     );
 }
 
@@ -182,6 +210,7 @@ fuzz_target!(|play: Play| {
     corvin.in_guild_with(&[&ada]);
     if let Some(saved) = &play.saved {
         corvin.run(&format!("TimewaysTasks = {}", saved.lua(0)));
+        corvin.run(&format!("TimewaysStories = {}", saved.lua(0)));
     }
     for action in play.actions.iter().take(64) {
         act(&corvin, action);
