@@ -465,19 +465,9 @@ impl Story {
             Input::QuestDeclined { at, number } => self.answer_quest(at, Status::Declined, number),
             Input::QuestAbandoned { at, number } => self.abandon_quest(at, number),
             Input::JournalAsked { id, page } => self.journal_answer(id, page),
-            Input::StoryAccepted { at, number, text } => {
-                self.accept_story(at, number, &text)?;
-                Ok(Vec::new())
-            }
-            Input::StoryRemoved { at, number } => {
-                self.remove_story(at, number)?;
-                Ok(Vec::new())
-            }
-            Input::HistoryCleared { .. } => {
-                let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
-                active.clears_history = true;
-                Ok(Vec::new())
-            }
+            Input::StoryAccepted { at, number, text } => self.accept_story(at, number, &text),
+            Input::StoryRemoved { at, number } => self.remove_story(at, number),
+            Input::HistoryCleared { .. } => self.clear_history(),
             Input::BatchEnd { id } => Ok(self.end_batch(id)),
             Input::ModelAnswered { call, text } => self.answered(call, &text),
             Input::ModelFailed { call } => self.failed(call),
@@ -659,6 +649,13 @@ impl Story {
             Some(title) => self.record_flavor(at, None, Kind::Read { title }),
             None => Ok(Vec::new()),
         }
+    }
+
+    /// The words go when the line saves, in its transaction (GAMEPLAY.md 5.14).
+    fn clear_history(&mut self) -> Result<Vec<Output>, StoryError> {
+        let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
+        active.clears_history = true;
+        Ok(Vec::new())
     }
 
     /// The same character again changes nothing, so each batch can name it.
