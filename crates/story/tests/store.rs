@@ -93,13 +93,6 @@ fn insert(folder: &Path, table: &str, body: &str) {
     connection.execute(&insert, params![body]).unwrap();
 }
 
-/// The file of a build before SQLite, next to where the database goes.
-fn old_file(folder: &Path, suffix: &str) -> PathBuf {
-    let realm = folder.join("worlds").join("r_Stormrage");
-    fs::create_dir_all(&realm).unwrap();
-    realm.join(format!("c_Ada{suffix}"))
-}
-
 #[test]
 fn a_safe_id_keeps_letters_and_digits() {
     assert_eq!(safe_id("Grimtusk42"), "Grimtusk42");
@@ -500,55 +493,6 @@ fn the_story_of_the_hero_survives_a_restart() {
         .collect();
     assert_eq!(page.journal.hero.sheet[0].text, "Find my brother.");
     assert_eq!(numbers, [1, 2]);
-}
-
-#[test]
-fn an_old_world_moves_into_the_database_at_its_first_open() {
-    let folder = fresh_folder("import");
-    let mut memory = story(&folder, "Ada");
-    enter(&mut memory, 1, "Elwynn Forest");
-    enter(&mut memory, 2, "Westfall");
-    drop(memory);
-    let events = bodies(&folder, "events");
-    fs::remove_file(world_file(&folder, "Ada")).unwrap();
-    fs::write(old_file(&folder, ".jsonl"), events.join("\n") + "\n").unwrap();
-
-    let mut story = story(&folder, "Ada");
-
-    assert_eq!(places(&mut story), ["Elwynn Forest", "Westfall"]);
-    assert!(old_file(&folder, ".jsonl").is_file());
-}
-
-#[test]
-fn an_old_line_cut_inside_a_character_is_left_out_of_the_import() {
-    let folder = fresh_folder("import-torn");
-    let mut memory = story(&folder, "Ada");
-    enter(&mut memory, 10, "Elwynn Forest");
-    drop(memory);
-    let events = bodies(&folder, "events");
-    fs::remove_file(world_file(&folder, "Ada")).unwrap();
-    let mut bytes = (events.join("\n") + "\n").into_bytes();
-    bytes.extend_from_slice(b"{\"id\":99,\"text\":\"Caf\xC3");
-    fs::write(old_file(&folder, ".jsonl"), bytes).unwrap();
-
-    let mut story = story(&folder, "Ada");
-
-    assert_eq!(places(&mut story), ["Elwynn Forest"]);
-    assert_eq!(bodies(&folder, "events"), events);
-}
-
-#[test]
-fn every_old_file_moves_into_its_table() {
-    let folder = fresh_folder("import-tables");
-    let saga = r#"{"began":5,"text":"Our hero came."}"#;
-    fs::write(old_file(&folder, ".chronicle.jsonl"), format!("{saga}\n")).unwrap();
-
-    let opened = Store::Folder(folder.clone())
-        .open(&CharacterKey::new("Stormrage", "Ada").unwrap())
-        .unwrap();
-
-    assert_eq!(opened.prose.get(Tick(5)).unwrap().text, "Our hero came.");
-    assert_eq!(bodies(&folder, "chapters"), [saga]);
 }
 
 #[test]

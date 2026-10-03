@@ -579,7 +579,6 @@ Timeways uses the transport of Gnomish Relay, with its own key and its own slots
 - **A crash** loses at most the line in progress, because SQLite keeps a journal for each transaction.
 - **A row that does not read** comes only from another program. The read stops at the first such row of a table, and deletes it and every row after it. An event with the wrong position counts as such a row. A `events` table that does not start with the founding of the character is refused, and so is a file that is not a SQLite database. The story program never replaces such a file.
 - **Whose world:** every batch from the addon starts with a `character_entered` line with the realm and the name. So the story program knows the world of each batch, also after it restarts. The addon holds its events until the login names the character.
-- **Old files.** A build before SQLite kept one JSON file for each table: `c_<character id>.jsonl` and `c_<character id>.<table>.jsonl`. When a character has no database yet, its open reads these files into a new database, and leaves them as they are. The import builds the database under a temporary name, and renames it at the end, so a crash during the import leaves no half database.
 - Undo is cheap: cut the history and replay (`World::rewind`).
 - To read a world by hand: `sqlite3 c_<name>.sqlite "SELECT body FROM learned LIMIT 3"`.
 

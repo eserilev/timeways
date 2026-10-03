@@ -8,7 +8,7 @@ The game runs a stable copy of the code, so work in the repo does not change the
 
 - **The addon:** the `Timeways` link in the AddOns folder points to `../timeways-test/addon/Timeways`. That folder is a git worktree of one commit. To see which one, run `git -C ../timeways-test log -1 --oneline`. To move it, run `git -C ../timeways-test checkout --detach <commit>`, and build the story program again.
 - **The story program:** `~/.local/bin/timeways-story`, built from the same commit. The old program is `~/.local/bin/timeways-story.old`.
-- **The world files:** `~/.local/share/gnomish-relay/timeways/story/worlds/r_<realm>/c_<name>.sqlite`. A world from before SQLite moves into this file at the first login, and its old `.jsonl` files stay.
+- **The world files:** `~/.local/share/gnomish-relay/timeways/story/worlds/r_<realm>/c_<name>.sqlite`.
 
 ## Before the first test
 

@@ -658,6 +658,7 @@ dependencies = [
  "fake-bridge",
  "libfuzzer-sys",
  "mlua",
+ "rusqlite",
  "rusty-hourglass",
  "serde_json",
  "timeways-story",

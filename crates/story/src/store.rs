@@ -1,8 +1,6 @@
 //! The world of each character on disk: one SQLite file, with a table for each log
 //! (GAMEPLAY.md 5.7). The state is never stored. A replay builds it at start.
 
-mod legacy;
-
 use crate::character::Character;
 use crate::flavor::{Flavor, Told};
 use crate::hero::Change;
@@ -494,9 +492,6 @@ impl Store {
         let path = folder.join(key.relative_path());
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent).map_err(|source| io_error(&path, source))?;
-        }
-        if !path.exists() {
-            legacy::import(&path)?;
         }
         let database = Database::open(&path)?;
         let events: Vec<Event> = database.read(Table::Events, |event: &Event, n| {
