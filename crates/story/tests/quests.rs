@@ -873,3 +873,20 @@ fn trust_why_names_a_finished_quest() {
     };
     assert_eq!(giver.trust_why, Some(why));
 }
+
+#[test]
+fn asking_for_a_quest_moves_no_meet_step() {
+    let mut story = story("ask-no-meet");
+    let (call, _) = call_of(ask(&mut story, 5));
+    answer_with(&mut story, call, "Word for Bram", MEET_BRAM);
+    accept(&mut story, 6, None);
+
+    story
+        .handle(Input::QuestAsked {
+            at: Tick(7),
+            npc: "Farmer Bram".to_string(),
+        })
+        .unwrap();
+
+    assert_eq!(steps_done(&quests(&mut story)[0]), 0);
+}

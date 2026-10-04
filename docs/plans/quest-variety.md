@@ -5,6 +5,7 @@ Status: in build, 2026-10-03. The user approved the design. When a part is built
 Built so far (section 17):
 
 - Step 1, per-step state. Changed from this plan: an offer shows its steps plainly, not faded. Only a later step of a quest in progress shows faded, because a faded offer reads as a quest that you cannot take.
+- Step 2, one place moves the quests. `Here` and `Encounter` grow with the steps that need them.
 
 This plan builds on four plans and does not repeat them:
 

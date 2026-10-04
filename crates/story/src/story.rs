@@ -324,12 +324,14 @@ impl Story {
     /// question, `UnknownCall` for the answer to a call that is not open, `NoCharacter`
     /// before the first `character_entered`, and the error of the store.
     pub fn handle(&mut self, mut input: Input) -> Result<Vec<Output>, StoryError> {
+        let mut time = None;
         if let Some(at) = input.at_mut() {
             *at = self.checked_time(*at)?;
             self.newest = self.newest.max(*at);
+            time = Some(*at);
         }
         let kept = Kept::of(&input)?;
-        let outputs = self.handle_unsaved(input);
+        let outputs = self.handle_unsaved(input, time);
         self.save_active(kept)?;
         self.save_shared()?;
         outputs
@@ -370,13 +372,23 @@ impl Story {
         Err(error.into())
     }
 
-    fn handle_unsaved(&mut self, input: Input) -> Result<Vec<Output>, StoryError> {
+    /// After the line changed the world, the quests move once, because any line with a time
+    /// can do a step (docs/plans/quest-variety.md 6.6).
+    fn handle_unsaved(
+        &mut self,
+        input: Input,
+        at: Option<Tick>,
+    ) -> Result<Vec<Output>, StoryError> {
         let question = input.is_question();
         let ends_a_call = matches!(
             input,
             Input::ModelAnswered { .. } | Input::ModelFailed { .. }
         );
+        let met = quests::encounter(&input);
         let mut outputs = self.dispatch(input)?;
+        if let Some(at) = at {
+            self.advance_quests(at, &met)?;
+        }
         // A question ends its batch, so a `/quest` of the batch gets no `batch_end`.
         if question && let Some(request) = self.quest_request.take() {
             outputs.extend(self.quest_call(None, request));
@@ -494,8 +506,7 @@ impl Story {
         self.change(|character| {
             character.enter_zone(at, zone, subzone)?;
             spot.map_or(Ok(()), |spot| character.mark_here(at, spot))
-        })?;
-        self.advance_quests(at, None)
+        })
     }
 
     fn meet_npc(
@@ -509,8 +520,7 @@ impl Story {
             character.meet_npc(at, name)?;
             character.befriend(at, name)?;
             spot.map_or(Ok(()), |spot| character.mark_npc(at, name, spot))
-        })?;
-        self.advance_quests(at, Some(name))
+        })
     }
 
     fn defeat_npc(&mut self, at: Tick, name: &str) -> Result<Vec<Output>, StoryError> {
@@ -555,7 +565,6 @@ impl Story {
     fn slap_npc(&mut self, at: Tick, name: &str) -> Result<Vec<Output>, StoryError> {
         checked_name(name)?;
         self.change(|character| character.slap(at, name))?;
-        self.advance_quests(at, Some(name))?;
         self.award_titles(at)
     }
 
@@ -1017,7 +1026,6 @@ impl Story {
         }
         checked_words(words)?;
         self.change(|character| character.meet_npc(at, npc))?;
-        self.advance_quests(at, Some(npc))?;
         let active = self.active.as_ref().ok_or(StoryError::NoCharacter)?;
         let character = &active.character;
         let mut passages =

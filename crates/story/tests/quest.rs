@@ -2,8 +2,9 @@
 
 use hourglass::Tick;
 use timeways_story::quest::{
-    Known, MAX_KILLS, MAX_OFFER_BYTES, MAX_TITLE_CHARS, Quest, QuestChange, QuestFault, Status,
-    Step, checked_quest, offer_line, prompt, quest_log, thing_name, title_of_thing,
+    Encounter, Here, Known, MAX_KILLS, MAX_OFFER_BYTES, MAX_TITLE_CHARS, Quest, QuestChange,
+    QuestFault, Status, Step, checked_quest, offer_line, prompt, quest_log, thing_name,
+    title_of_thing,
 };
 use timeways_story::seen::{SeenText, TextKind};
 
@@ -619,7 +620,7 @@ fn a_kill_counts_only_for_an_open_step_and_only_up_to_its_count() {
     let quest = &quest_log(&changes)[0];
 
     assert_eq!(quest.kills[1], 2);
-    assert!(quest.step_holds(1, &[], None));
+    assert!(quest.step_holds(1, &Here::default(), &Encounter::None));
 }
 
 #[test]

@@ -14,6 +14,7 @@ mod progress;
 mod view;
 
 pub use log::{QuestChange, Status, Tracked, next_number, quest_log};
+pub use progress::{Encounter, Here};
 pub use view::{QuestView, StepState, StepView};
 
 pub const MAX_TITLE_CHARS: usize = 60;

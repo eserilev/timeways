@@ -3,9 +3,10 @@
 
 use super::{Active, EventsBatch, Pending, Story, StoryError, checked_name, reads};
 use crate::character::Character;
-use crate::input::MessageId;
+use crate::input::{Input, MessageId};
 use crate::quest::{
-    self, Known, MAX_OPEN_QUESTS, QuestChange, Status, Tracked, next_number, quest_log, thing_name,
+    self, Encounter, Here, Known, MAX_OPEN_QUESTS, QuestChange, Status, Tracked, next_number,
+    quest_log, thing_name,
 };
 use crate::seen::SeenText;
 use crate::store::{CharacterKey, Outcome};
@@ -151,8 +152,7 @@ impl Story {
         }
         active.quests.add(QuestChange::Accepted { number, at })?;
         let name = thing_name(number, &offer.title);
-        self.change(|character| character.accept_quest(at, &name))?;
-        self.advance_quests(at, None)
+        self.change(|character| character.accept_quest(at, &name))
     }
 
     /// A number with no open quest changes nothing.
@@ -172,19 +172,21 @@ impl Story {
         Ok(Vec::new())
     }
 
-    /// Each open step that holds now is done, one at a time, while steps hold. The last
-    /// step finishes the quest.
-    pub(super) fn advance_quests(
-        &mut self,
-        at: Tick,
-        npc: Option<&str>,
-    ) -> Result<Vec<Output>, StoryError> {
+    /// Each open step that holds now is done, one at a time, while steps hold. So one line
+    /// can do a step and the step after it. The last step finishes the quest. With no
+    /// character, no quest moves.
+    pub(super) fn advance_quests(&mut self, at: Tick, met: &Encounter) -> Result<(), StoryError> {
         loop {
-            let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
-            let places = active.character.place_names();
+            let Some(active) = self.active.as_mut() else {
+                return Ok(());
+            };
+            let here = Here {
+                at,
+                places: active.character.place_names(),
+            };
             let quests = quest_log(active.quests.changes());
-            let Some((quest, step)) = holding_step(&quests, &places, npc) else {
-                return Ok(Vec::new());
+            let Some((quest, step)) = holding_step(&quests, &here, met) else {
+                return Ok(());
             };
             let number = quest.number;
             active
@@ -197,8 +199,7 @@ impl Story {
         }
     }
 
-    /// A kill counts for each accepted quest with an open kill step of this creature. The
-    /// last kill of a step finishes it.
+    /// A kill counts for each accepted quest with an open kill step of this creature.
     pub(super) fn count_kill(&mut self, at: Tick, name: &str) -> Result<Vec<Output>, StoryError> {
         let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
         let quests = quest_log(active.quests.changes());
@@ -210,18 +211,29 @@ impl Story {
                     .add(QuestChange::Killed { number, step, at })?;
             }
         }
-        self.advance_quests(at, None)
+        Ok(Vec::new())
+    }
+}
+
+/// What the line did, as far as a step can see it. Asking for a quest meets the NPC, but it
+/// does no meet step.
+pub(super) fn encounter(input: &Input) -> Encounter {
+    match input {
+        Input::NpcMet { name, .. } => Encounter::Gossip(name.clone()),
+        Input::TalkAsked { npc, .. } => Encounter::Talk(npc.clone()),
+        Input::NpcSlapped { name, .. } => Encounter::Slap(name.clone()),
+        _ => Encounter::None,
     }
 }
 
 /// The first open step that holds now, with its quest.
 fn holding_step<'q>(
     quests: &'q [Tracked],
-    places: &[&str],
-    npc: Option<&str>,
+    here: &Here<'_>,
+    met: &Encounter,
 ) -> Option<(&'q Tracked, usize)> {
     for quest in quests {
-        let holds = |step: &usize| quest.step_holds(*step, places, npc);
+        let holds = |step: &usize| quest.step_holds(*step, here, met);
         if let Some(step) = quest.open_steps().into_iter().find(holds) {
             return Some((quest, step));
         }
