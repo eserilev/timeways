@@ -45,6 +45,13 @@ local function Entries(value)
 	return entries
 end
 
+-- The page draws again while it shows the count of a carry step.
+function Journal.BagsChanged()
+	if ns.QuestSteps.Carries() then
+		ns.JournalFrame.Refresh()
+	end
+end
+
 function Journal.Request(page)
 	ns.Outbox.Add(ns.Inputs.JournalAsked(page))
 	ns.Outbox.Flush()
@@ -318,6 +325,14 @@ local function WaitText(step)
 	return text .. "."
 end
 
+-- The count in your bags now, as the game shows a collect objective. A done step shows
+-- its whole count: you had the items when you met the NPC.
+local function CarryText(step)
+	local held = step.state == "done" and step.count or (ns.Carry.InBags(Name(step.item)) or 0)
+	local text = string.format("Bring %s to %s", Name(step.item), Name(step.npc))
+	return string.format("%s: %d/%d", text, math.min(held, step.count), step.count)
+end
+
 -- The kills so far of a kill step, as the game shows a quest objective.
 local function StepKills(step)
 	return type(step.kills) == "number" and step.kills or 0
@@ -335,6 +350,9 @@ local function StepText(step)
 	end
 	if step.goal == "talk" then
 		return "Talk to " .. Name(step.npc) .. " (/talk)."
+	end
+	if step.goal == "carry" and type(step.count) == "number" then
+		return CarryText(step)
 	end
 	if step.goal == "wait" and type(step.days) == "number" then
 		return WaitText(step)

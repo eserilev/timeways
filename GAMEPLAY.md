@@ -171,6 +171,7 @@ An innkeeper tells you a rumor, and the rumor becomes a small quest line made fo
 | `meet` | speak with an NPC | `npc_met`, `talk_asked`, or `npc_slapped` |
 | `talk` | use `/talk` with an NPC | `talk_asked` |
 | `kill` | kill 1 to 10 of a creature | `npc_killed` |
+| `carry` | have 1 to 20 of a common good in your bags when you meet an NPC. You keep them. | `items_held` |
 | `wait` | come back after 1 to 3 days | any line after the time |
 
 A quest has 1 to 4 steps. A set of 2 or 3 steps can come in any order: the answer gives it as one entry, `{"goal": "any_order", "steps": [...]}`, and the code keeps the steps in one flat list with the span of the set. A quest has at most one set, and at most one wait. A wait is never the first or the last step, and never in a set.
@@ -184,6 +185,7 @@ A quest has 1 to 4 steps. A set of 2 or 3 steps can come in any order: the answe
   - A place is a zone or subzone that you visited. The addon names the zone of a text that you read by where you read it, so it adds no place.
   - An NPC to meet is one that you met or saw. It is not hostile, not an animal, and not dead in your story. So a task never sends you to talk to a bat.
   - A `talk` step names an NPC that a meet step can name. Its optional topic has at most 60 characters.
+  - A `carry` step names a good of a fixed list for your level (`data/carry_items.txt`), and an NPC that a meet step can name. A good is the goal of many quests of the game, so it is exempt from the overlap rule. Its NPC keeps the rule.
   - A step can name the giver only after a wait: "Come back in two days and tell me what you found." The giver stands next to you at the accept, so a step before any wait never names the giver.
   - A creature to kill is one that you saw hostile, not dead in your story, and not the giver. A kill step asks for 1 to 10 kills.
   - Each step names a different target, so one event never does two steps.
@@ -193,6 +195,7 @@ A quest has 1 to 4 steps. A set of 2 or 3 steps can come in any order: the answe
 - **Limits** (built): each giver has at most one offer that waits, and a new offer of the giver ends the old one. A giver with an open quest waits for you to finish it. You hold at most 3 open quests. The limits hold when you ask, when the offer comes, and when you accept, because the world moves on while the model thinks. A refusal (when you ask or accept) comes back as a notice of its batch, or of the question that ends the batch, never as a narrator line.
 - **Accept and progress** (built): the buttons of the Tasks page name their quest by its number, so you accept the offer that you read. `/quest accept` or `/quest decline` answers the newest offer. After each line with a time, the story program checks the open steps once, in order, against what the world shows and what the line did. A step is open when the quest is accepted, the step is not done, and every step before its stage is done. A stage is one step, or a whole set. So the steps of a set can come in any order, and the step after a set waits for the whole set. The lines that do steps: `zone_entered`, `npc_met`, `talk_asked`, `npc_slapped`, and `npc_killed`. One line can do a step and the step after it. Asking for a quest meets the NPC, but it does no meet step. A wait opens when the step before it is done, and ends with the first line at or after its time: a day is 86400 seconds of the clock of the lines from the addon. A wait never ends early, also in a damaged quest file. The Tasks page shows the time left of an open wait in days and hours, and shows the wait as complete once its time passed. A step that holds when it becomes the next step is done at once, because the addon sends a zone only when it changes. The addon sends an NPC again only after 5 minutes, and it forgets the NPCs that you met when you accept a quest. The journal sends each step with its state: `done`, `open` (you can do it now), or `later`. The quest file keeps when each step was done. In a quest in progress, a later step shows faded. An offer shows its steps plainly.
 - **Kills** (built): the journal tells the addon the creatures of the open kill steps of each task in progress. The addon keeps, in memory only, the GUID of each unit of such a creature that you see and can attack. `PARTY_KILL` for one of these units sends `npc_killed` with the name, once for each unit. A visit or a meeting can open a kill step. So after a batch of events, the addon asks for the journal again while a task has a later kill step, at most once a minute (`QuestSteps.lua`). A unit of the new creature that you already target or hover counts at once. The story program counts a kill only for an open kill step of an accepted task, and only up to its count, in the quest file. Two kill steps of one set count apart. A kill before you accept counts nothing. A kill step keeps its creature by name. When the creature is friendly later, the addon counts no kill of it, so the step waits until you abandon the task. The Tasks page shows the count as the game does: "Duskbat slain: 2/6". At the end of a task, you get `quest_done`, and the giver trusts you 10 more. The model never picks this number. The finished quest is a deed, so it shows on the Deeds page and in the chronicle, and the saga gets it as a fact of the chapter.
+- **Items** (built): while a carry step is open, a gossip window or `/talk` with its NPC makes the addon count its item in your bags (`C_Item.GetItemCount`, the bags only), and send `items_held`. The addon counts only that item, and only then, at most once in 10 seconds for each NPC and item. A gossip window counts before the 5-minute rule of meetings, so you can come back with more items at once. You keep the items. The Tasks page shows the count in your bags now, and draws again on `BAG_UPDATE_DELAYED`: "Bring Linen Cloth to Farmer Bram: 6/10".
 - **Storage** (built): the `quests` table (5.7) holds the offers, the answers, the kills, and the steps done. The world holds the facts: the giver holds `quest_offered`, and you hold `quest_accepted` and `quest_done`. The quest thing is named "quest <number>: <title>", so it never merges with a title.
 
 ### 3.5 Talk to an NPC
@@ -485,6 +488,7 @@ A first list. Each name goes through the API gate of Gnomish Relay (`scripts/wow
 | The text that you read | The same events, and `ITEM_TEXT_READY` for a book (5.10) |
 | Loot | `CHAT_MSG_LOOT` |
 | Group and guild | `GROUP_ROSTER_UPDATE`, `GUILD_ROSTER_UPDATE` |
+| Item count for a quest (built) | `C_Item.GetItemCount` of the item of an open carry step, at a gossip window or `/talk` with its NPC (3.4). `BAG_UPDATE_DELAYED` draws the Tasks page again. |
 | Player tasks (4.7) | `CHAT_MSG_ADDON`, `TRADE_SHOW`, `TRADE_ACCEPT_UPDATE`, `TRADE_CLOSED`, and the events above for the steps |
 
 The addon sends game events in batches with the next strip. Each strip is a screenshot, so the addon takes few:
@@ -505,7 +509,7 @@ The addon sends game events in batches with the next strip. Each strip is a scre
 
 - **At once:** a boss kill, your death and the killer, a rare, a level up, a first visit to a zone.
 - **Counted, then sent in a batch:** repeated kills ("23 Defias in Westfall"), and the flavor moments below.
-- **Never:** each single cast, hit, or step; the text of chat and whispers; keys and clicks; your path; the private data of other players; your gold and bags, except notable loot.
+- **Never:** each single cast, hit, or step; the text of chat and whispers; keys and clicks; your path; the private data of other players; your gold and bags, except notable loot and the count of one item for an open carry step (3.4).
 
 The one name of another player that Timeways keeps is the enemy who kills you in world PvP. The nemesis feature (4.1) uses it only in your own world.
 

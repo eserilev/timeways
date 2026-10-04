@@ -247,6 +247,7 @@ fn quest_known() -> Known<'static> {
         foes: vec!["Defias Thug", "Riverpaw Gnoll"],
         last_targets: Vec::new(),
         seen: &[],
+        goods: quest::goods_for(Some(12)),
     }
 }
 

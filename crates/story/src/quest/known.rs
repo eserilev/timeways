@@ -1,6 +1,8 @@
 //! What the world of the player holds, and the rules of 3.4 for each step against it.
 
-use super::{MAX_KILLS, MAX_TOPIC_BYTES, MAX_TOPIC_CHARS, MAX_WAIT_DAYS, QuestFault, Step};
+use super::{
+    MAX_CARRY, MAX_KILLS, MAX_TOPIC_BYTES, MAX_TOPIC_CHARS, MAX_WAIT_DAYS, QuestFault, Step,
+};
 use crate::check::{mentions, plain_text};
 use crate::seen::{SeenText, TextKind};
 
@@ -19,6 +21,8 @@ pub struct Known<'a> {
     /// The places, NPCs, and creatures of your newest task. The next task names none of
     /// them, so two tasks in a row never send you to the same target.
     pub last_targets: Vec<&'a str>,
+    /// The goods that a carry step can ask for, for your level.
+    pub goods: Vec<&'a str>,
     /// Every text that you read. Only the quests count.
     pub seen: &'a [SeenText],
 }
@@ -71,6 +75,7 @@ impl Known<'_> {
             Step::Meet { npc } => self.person_fault(npc),
             Step::Talk { npc, about } => self.talk_fault(npc, about.as_deref()),
             Step::Kill { creature, count } => self.kill_fault(creature, *count),
+            Step::Carry { item, count, npc } => self.carry_fault(item, *count, npc),
             Step::Wait { days } => {
                 (!(1..=MAX_WAIT_DAYS).contains(days)).then_some(QuestFault::WaitDays(*days))
             }
@@ -102,6 +107,18 @@ impl Known<'_> {
     fn talk_fault(&self, npc: &str, about: Option<&str>) -> Option<QuestFault> {
         if about.is_some_and(|about| !is_topic(about)) {
             return Some(QuestFault::BadTopic);
+        }
+        self.person_fault(npc)
+    }
+
+    /// A good is the goal of many game quests, so it is exempt from the overlap rule. The
+    /// NPC keeps it.
+    fn carry_fault(&self, item: &str, count: u8, npc: &str) -> Option<QuestFault> {
+        if !self.goods.contains(&item) {
+            return Some(QuestFault::UnknownGood(item.to_string()));
+        }
+        if !(1..=MAX_CARRY).contains(&count) {
+            return Some(QuestFault::CarryCount(count));
         }
         self.person_fault(npc)
     }

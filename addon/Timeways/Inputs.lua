@@ -116,6 +116,11 @@ function Inputs.Emote(at, emote, target, hour)
 	return { type = "emote_done", at = at, emote = emote, target = target, hour = hour }
 end
 
+-- The count of one item in your bags, for an open carry step of this NPC.
+function Inputs.ItemsHeld(at, npc, item, count)
+	return { type = "items_held", at = at, npc = npc, item = item, count = count }
+end
+
 function Inputs.Level(at, level)
 	return { type = "level_reached", at = at, level = level }
 end

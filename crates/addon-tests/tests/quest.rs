@@ -691,3 +691,53 @@ fn an_any_order_set_shows_under_in_any_order() {
     assert_eq!(shown[5], "entry: Visit Mill Pond.");
     assert_eq!(shown[6], "entry: Speak with Farmer Bram.");
 }
+
+fn cloth_step() -> Step {
+    Step::Carry {
+        item: "Linen Cloth".to_string(),
+        count: 10,
+        npc: "Farmer Bram".to_string(),
+    }
+}
+
+#[test]
+fn a_carry_step_shows_the_count_in_your_bags() {
+    let game = Game::new();
+    game.run("wow.bags['Linen Cloth'] = 6");
+    let mut quest = lantern(Status::Accepted, 1);
+    quest.steps[1].step = cloth_step();
+
+    game.reply(&quest_reply(quest));
+
+    assert_eq!(
+        lines(&game)[5],
+        "entry: Bring Linen Cloth to Farmer Bram: 6/10"
+    );
+}
+
+#[test]
+fn the_page_draws_again_when_the_bags_change() {
+    let game = Game::new();
+    let mut quest = lantern(Status::Accepted, 1);
+    quest.steps[1].step = cloth_step();
+    game.reply(&quest_reply(quest));
+    game.run("ns.JournalFrame.Open('quests')");
+
+    game.run("wow.bags['Linen Cloth'] = 12; wow.Fire('BAG_UPDATE_DELAYED')");
+
+    let shown: Vec<String> = game.eval(
+        "local out = {}
+         for _, widget in ipairs(wow.widgets) do
+             if widget.kind == 'FontString' and widget.shown and widget.text then
+                 table.insert(out, widget.text)
+             end
+         end
+         return out",
+    );
+    assert!(
+        shown
+            .iter()
+            .any(|text| text == "Bring Linen Cloth to Farmer Bram: 10/10"),
+        "{shown:?}"
+    );
+}

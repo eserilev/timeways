@@ -156,6 +156,14 @@ pub enum Input {
         #[serde(default)]
         hour: Option<u8>,
     },
+    /// The count of one item in your bags, at a meeting with the NPC of an open carry step
+    /// (docs/plans/quest-variety.md 4.9). The bags only, not the bank.
+    ItemsHeld {
+        at: Tick,
+        npc: String,
+        item: String,
+        count: u16,
+    },
     /// The text of a quest, a gossip window, or a book, as the player read it. `$N` stands
     /// for the name of the character (GAMEPLAY.md 5.10).
     TextSeen {
@@ -309,6 +317,7 @@ impl Input {
             | Input::StoryAccepted { at, .. }
             | Input::StoryRemoved { at, .. }
             | Input::EmoteDone { at, .. }
+            | Input::ItemsHeld { at, .. }
             | Input::TextSeen { at, .. } => Some(at),
             Input::Hello
             | Input::CharacterEntered { .. }

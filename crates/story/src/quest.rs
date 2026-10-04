@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 mod answer;
+mod goods;
 mod known;
 mod log;
 mod progress;
@@ -15,6 +16,7 @@ mod structure;
 mod view;
 
 use answer::{Reply, flattened};
+pub use goods::goods_for;
 pub use known::Known;
 use known::game_quests;
 pub use log::{QuestChange, Status, Tracked, next_number, quest_log};
@@ -39,6 +41,9 @@ pub const MAX_WAIT_DAYS: u8 = 3;
 
 /// A day of the clock of the lines from the addon, not a day of the calendar.
 pub const DAY_SECONDS: u64 = 24 * 3600;
+
+/// A carry step asks for 1 to this many items: the common stack of cloth.
+pub const MAX_CARRY: u8 = 20;
 
 /// The topic of a talk step: one short phrase in a step line.
 pub const MAX_TOPIC_CHARS: usize = 60;
@@ -65,6 +70,13 @@ pub enum Step {
         creature: String,
         #[serde(deserialize_with = "whole_number")]
         count: u8,
+    },
+    /// Have the items in your bags when you meet the NPC. You keep them.
+    Carry {
+        item: String,
+        #[serde(deserialize_with = "whole_number")]
+        count: u8,
+        npc: String,
     },
     /// Come back later: the steps after it open only after the wait.
     Wait {
@@ -94,17 +106,17 @@ impl Step {
     pub fn target(&self) -> Option<&str> {
         match self {
             Step::Visit { place } => Some(place),
-            Step::Meet { npc } | Step::Talk { npc, .. } => Some(npc),
+            Step::Meet { npc } | Step::Talk { npc, .. } | Step::Carry { npc, .. } => Some(npc),
             Step::Kill { creature, .. } => Some(creature),
             Step::Wait { .. } => None,
         }
     }
 
-    /// The NPC that the step sends you to, as a meet or a talk does.
+    /// The NPC that the step sends you to, as a meet, a talk, or a carry does.
     #[must_use]
     pub fn person(&self) -> Option<&str> {
         match self {
-            Step::Meet { npc } | Step::Talk { npc, .. } => Some(npc),
+            Step::Meet { npc } | Step::Talk { npc, .. } | Step::Carry { npc, .. } => Some(npc),
             Step::Visit { .. } | Step::Kill { .. } | Step::Wait { .. } => None,
         }
     }
@@ -158,6 +170,10 @@ pub enum QuestFault {
          something after the cutoff"
     )]
     BadTopic,
+    #[error("\"{0}\" is no good of the list for your level")]
+    UnknownGood(String),
+    #[error("a carry step asks for 1 to {MAX_CARRY} items, not {0}")]
+    CarryCount(u8),
     #[error("a step sends you back to the giver with no wait before it")]
     MeetGiver,
     #[error("a wait lasts 1 to {MAX_WAIT_DAYS} days, not {0}")]

@@ -28,6 +28,7 @@ return {
 		"C_GuildInfo",
 		"C_GuildInfo.GuildRoster",
 		"C_Item",
+		"C_Item.GetItemCount",
 		"C_Item.GetItemIconByID",
 		"C_Item.GetStackCount",
 		"C_Map",

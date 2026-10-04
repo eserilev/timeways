@@ -455,6 +455,12 @@ impl Story {
                 checked_hour(hour)?;
                 self.record_flavor(at, hour, Kind::Emote { emote, target })
             }
+            // A count is no fact of the world. It only moves a step (`advance_quests`).
+            Input::ItemsHeld { npc, item, .. } => {
+                checked_name(&npc)?;
+                checked_name(&item)?;
+                Ok(Vec::new())
+            }
             Input::LevelReached { at, level } => {
                 self.change(|character| character.reach_level(at, level))
             }

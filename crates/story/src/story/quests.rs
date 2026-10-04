@@ -262,6 +262,13 @@ pub(super) fn encounter(input: &Input) -> Encounter {
         Input::NpcMet { name, .. } => Encounter::Gossip(name.clone()),
         Input::TalkAsked { npc, .. } => Encounter::Talk(npc.clone()),
         Input::NpcSlapped { name, .. } => Encounter::Slap(name.clone()),
+        Input::ItemsHeld {
+            npc, item, count, ..
+        } => Encounter::Carry {
+            npc: npc.clone(),
+            item: item.clone(),
+            count: *count,
+        },
         _ => Encounter::None,
     }
 }
@@ -353,6 +360,7 @@ fn known<'a>(
         npcs: near_first(character.npcs_to_meet(), near_npc),
         foes: near_first(character.foes_seen(), near_npc),
         last_targets: last_targets(quests),
+        goods: quest::goods_for(character.level()),
         seen,
     }
 }

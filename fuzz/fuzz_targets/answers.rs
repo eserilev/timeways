@@ -43,6 +43,7 @@ fn known(seen: &[SeenText]) -> Known<'_> {
         foes: vec!["Duskbat"],
         last_targets: vec!["Old Mill"],
         seen,
+        goods: vec!["Linen Cloth", "Light Leather"],
     }
 }
 
@@ -110,6 +111,11 @@ fn assert_step(step: &Step, before: &[Step]) {
             assert!((1..=quest::MAX_KILLS).contains(count));
         }
         Step::Wait { days } => assert!((1..=quest::MAX_WAIT_DAYS).contains(days)),
+        Step::Carry { item, count, npc } => {
+            assert!(["Linen Cloth", "Light Leather"].contains(&item.as_str()), "{item}");
+            assert!((1..=quest::MAX_CARRY).contains(count));
+            assert!(person(npc), "{npc}");
+        }
     }
 }
 

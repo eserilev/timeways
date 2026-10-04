@@ -42,6 +42,10 @@ end
 -- (5.11).
 function Watch.Npc()
 	local name = ns.Units.NpcName("npc")
+	if name then
+		-- Before the 5-minute rule: you can come back with more items a minute later.
+		ns.Carry.Met(name)
+	end
 	if not name or (met[name] and time() - met[name] < MEET_AGAIN_SECONDS) then
 		return
 	end

@@ -35,6 +35,7 @@ function Talk.Ask(words)
 	if ns.Welcome.OpenIfNoApp() then
 		return
 	end
+	ns.Carry.Met(npc)
 	ns.Outbox.Add(input)
 	ns.Outbox.Flush()
 end

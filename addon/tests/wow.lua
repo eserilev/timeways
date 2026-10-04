@@ -15,6 +15,8 @@ local wow = {
 	printed = {},
 	widgets = {},
 	tickers = {},
+	-- The count of each item in the bags, by name.
+	bags = {},
 }
 
 function time()
@@ -1099,6 +1101,9 @@ C_Cursor = {
 }
 
 C_Item = {
+	GetItemCount = function(item)
+		return wow.bags[item] or 0
+	end,
 	GetStackCount = function(location)
 		return location and location.cursor and wow.cursor and wow.cursor.count
 	end,

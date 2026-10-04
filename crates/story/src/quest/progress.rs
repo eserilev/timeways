@@ -21,6 +21,12 @@ pub enum Encounter {
     /// `/talk`: `talk_asked`.
     Talk(String),
     Slap(String),
+    /// `items_held`: the count of one item in your bags, at a meeting with the NPC.
+    Carry {
+        npc: String,
+        item: String,
+        count: u16,
+    },
 }
 
 impl Encounter {
@@ -29,8 +35,14 @@ impl Encounter {
     pub fn meets(&self, npc: &str) -> bool {
         match self {
             Encounter::Gossip(name) | Encounter::Talk(name) | Encounter::Slap(name) => name == npc,
-            Encounter::None => false,
+            Encounter::None | Encounter::Carry { .. } => false,
         }
+    }
+
+    /// Did the line show at least `count` of the item in your bags, at this NPC?
+    fn carries(&self, npc: &str, item: &str, count: u8) -> bool {
+        matches!(self, Encounter::Carry { npc: met, item: held, count: have }
+            if met == npc && held == item && *have >= u16::from(count))
     }
 }
 
@@ -44,6 +56,7 @@ impl Tracked {
             Some(Step::Meet { npc }) => met.meets(npc),
             Some(Step::Talk { npc, .. }) => matches!(met, Encounter::Talk(name) if name == npc),
             Some(Step::Kill { count, .. }) => self.kills[step] >= *count,
+            Some(Step::Carry { item, count, npc }) => met.carries(npc, item, *count),
             Some(Step::Wait { .. }) => self.ready_at(step).is_some_and(|ready| here.at >= ready),
             None => false,
         }

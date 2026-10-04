@@ -133,6 +133,19 @@ return {
 			},
 		},
 		["C_GuildInfo.GuildRoster"] = {},
+		["C_Item.GetItemCount"] = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "itemInfo", Type = "ItemInfo", Nilable = false },
+				{ Name = "includeBank", Type = "bool", Nilable = false, Default = false },
+				{ Name = "includeUses", Type = "bool", Nilable = false, Default = false },
+				{ Name = "includeReagentBank", Type = "bool", Nilable = false, Default = false },
+				{ Name = "includeAccountBank", Type = "bool", Nilable = false, Default = false },
+			},
+			Returns = {
+				{ Name = "count", Type = "number", Nilable = false },
+			},
+		},
 		["C_Item.GetItemIconByID"] = {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {
@@ -1337,6 +1350,9 @@ return {
 				{ Name = "addOnName", Type = "cstring", Nilable = false },
 				{ Name = "containsBindings", Type = "bool", Nilable = false },
 			},
+		},
+		BAG_UPDATE_DELAYED = {
+			UniqueEvent = true,
 		},
 		CHAT_MSG_ADDON = {
 			SynchronousEvent = true,

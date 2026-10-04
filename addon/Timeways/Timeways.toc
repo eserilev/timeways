@@ -27,6 +27,7 @@ Watch.lua
 Seen.lua
 Foes.lua
 QuestSteps.lua
+Carry.lua
 Sightings.lua
 GameQuests.lua
 QuestAuras.lua

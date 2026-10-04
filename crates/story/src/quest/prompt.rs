@@ -1,7 +1,7 @@
 //! The words of the quest prompt. The lists hold only the targets that the check allows,
 //! so the model has nothing else to pick (GAMEPLAY.md 3.4).
 
-use super::{Known, MAX_KILLS, MAX_STEPS, MAX_TITLE_CHARS, MAX_WAIT_DAYS};
+use super::{Known, MAX_CARRY, MAX_KILLS, MAX_STEPS, MAX_TITLE_CHARS, MAX_WAIT_DAYS};
 use crate::hero_hook::{Hook, QUEST_RULE, hook_block};
 use crate::house::{HOUSE_RULES, bulleted, fenced};
 use crate::talk::persona;
@@ -18,6 +18,7 @@ pub fn prompt(known: &Known<'_>, place: Option<&str>, hook: Option<Hook<'_>>) ->
     let places = known.places();
     let people = known.people();
     let prey = known.prey();
+    let goods = &known.goods;
     let hook = hook.map_or_else(String::new, |hook| {
         format!("{}\n\n", hook_block(&hook, QUEST_RULE))
     });
@@ -26,6 +27,7 @@ pub fn prompt(known: &Known<'_>, place: Option<&str>, hook: Option<Hook<'_>>) ->
          an errand.\n\nPlaces that the player can visit:\n{}\n\n\
          People that the player can meet:\n{}\n\n\
          Creatures that the player can hunt:\n{}\n\n\
+         Goods that the player can bring:\n{}\n\n\
          {hook}Rules:\n\
          - 1 to {MAX_STEPS} steps. Each step is one of these goals:\n{}\n\
          - Copy each name exactly as the list writes it. Use no other place, person, or \
@@ -43,7 +45,8 @@ pub fn prompt(known: &Known<'_>, place: Option<&str>, hook: Option<Hook<'_>>) ->
         list(&places),
         list(&people),
         list(&prey),
-        goals(&places, &people, &prey)
+        list(goods),
+        goals(&places, &people, &prey, goods)
     )
 }
 
@@ -53,7 +56,7 @@ fn list(names: &[&str]) -> String {
 
 /// A goal shows only when its list has a name, so the model never picks a goal that the
 /// check refuses.
-fn goals(places: &[&str], people: &[&str], prey: &[&str]) -> String {
+fn goals(places: &[&str], people: &[&str], prey: &[&str], goods: &[&str]) -> String {
     let kill = format!(
         r#"{{"goal": "kill", "creature": "<a creature above>", "count": <1 to {MAX_KILLS}>}}: hunt them."#
     );
@@ -69,6 +72,12 @@ fn goals(places: &[&str], people: &[&str], prey: &[&str]) -> String {
     }
     if !prey.is_empty() {
         goals.push(&kill);
+    }
+    let carry = format!(
+        r#"{{"goal": "carry", "item": "<a good above>", "count": <1 to {MAX_CARRY}>, "npc": "<a person above>"}}: have the goods in the bags when meeting the person. The player keeps them."#
+    );
+    if !goods.is_empty() && !people.is_empty() {
+        goals.push(&carry);
     }
     goals.push(&wait);
     let lines: Vec<String> = goals.iter().map(|goal| format!("  - {goal}")).collect();

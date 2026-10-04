@@ -8,10 +8,12 @@ local QuestSteps = {}
 ns.QuestSteps = QuestSteps
 
 -- The goals that the addon watches itself, while their steps are open.
-local WATCHED = { kill = true }
+local WATCHED = { kill = true, carry = true }
 
 -- The creatures of the open kill steps, as a set.
 local hunted = {}
+-- The items of the open carry steps, by NPC.
+local carries = {}
 -- True while a watched step waits for a step before it.
 local watchedStepWaits = false
 -- A batch of events goes out about once a minute, so this asks at most once for each batch.
@@ -29,11 +31,15 @@ local function Watch(step)
 	if step.state == "open" and step.goal == "kill" and type(step.creature) == "string" then
 		hunted[step.creature] = true
 	end
+	if step.state == "open" and step.goal == "carry" and type(step.npc) == "string" and type(step.item) == "string" then
+		carries[step.npc] = carries[step.npc] or {}
+		table.insert(carries[step.npc], step.item)
+	end
 end
 
 -- From each journal: the open steps that the addon watches, and whether one waits.
 function QuestSteps.Read(quests)
-	hunted, watchedStepWaits = {}, false
+	hunted, carries, watchedStepWaits = {}, {}, false
 	for _, quest in ipairs(type(quests) == "table" and quests or {}) do
 		if Accepted(quest) then
 			for _, step in ipairs(quest.steps) do
@@ -49,6 +55,16 @@ end
 -- The creatures of the open kill steps, as a set.
 function QuestSteps.Hunted()
 	return hunted
+end
+
+-- The items of the open carry steps of this NPC.
+function QuestSteps.CarriesFor(npc)
+	return carries[npc] or {}
+end
+
+-- True while a carry step is open, so the page shows the count of your bags.
+function QuestSteps.Carries()
+	return next(carries) ~= nil
 end
 
 -- The reply `events_seen`: the desktop read a batch of events, so a step can be open now.

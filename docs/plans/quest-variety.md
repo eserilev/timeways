@@ -9,6 +9,7 @@ Built so far (section 17):
 - Step 3, talk. The talk window of talk-window.md is not built, so "the later turns of the conversation" are the talks to the same NPC in the 10 minutes after the talk step. The talk calls `advance_quests` itself before its prompt, so the first talk already has the quest line.
 - Step 4, come back later. `MAX_STEPS` became 4 in this step. A choice quest is not built, so its rule (never the giver in a step) waits for standing.md.
 - Step 5, any order. `QuestSteps.lua` reads the open kill steps and asks for the journal while a watched step waits. `Foes.Hunt` takes the set of creatures from it.
+- Step 6, carry items. `items_held` waits for the next flush, as `npc_met` does. A done carry step shows its whole count on the page.
 
 This plan builds on four plans and does not repeat them:
 

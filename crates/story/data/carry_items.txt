@@ -1,0 +1,23 @@
+# Goods that a carry step can ask for (docs/plans/quest-variety.md 4.9): the exact English
+# name of the game, the lowest level, and the highest level. A test in the game confirms
+# each name with C_Item.GetItemCount.
+Linen Cloth | 1 | 20
+Wool Cloth | 15 | 30
+Silk Cloth | 25 | 40
+Mageweave Cloth | 35 | 50
+Runecloth | 45 | 60
+Light Leather | 5 | 20
+Medium Leather | 15 | 30
+Heavy Leather | 25 | 40
+Rough Stone | 1 | 15
+Coarse Stone | 10 | 25
+Copper Ore | 1 | 15
+Tin Ore | 10 | 25
+Peacebloom | 1 | 15
+Silverleaf | 1 | 15
+Briarthorn | 10 | 25
+Refreshing Spring Water | 1 | 10
+Ice Cold Milk | 5 | 20
+Melon Juice | 15 | 30
+Tough Jerky | 1 | 10
+Haunch of Meat | 5 | 20

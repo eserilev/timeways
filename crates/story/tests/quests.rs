@@ -1133,3 +1133,65 @@ fn the_steps_of_a_set_end_in_the_order_that_you_do_them() {
     assert_eq!(half.any_order, Some(AnyOrder { first: 0, last: 1 }));
     assert_eq!(quests(&mut story)[0].status, Status::Done);
 }
+
+/// An accepted quest of one step: bring 10 Linen Cloth to Farmer Bram. You are level 12.
+fn cloth_quest(name: &str) -> Story {
+    let mut story = story(name);
+    story
+        .handle(Input::LevelReached {
+            at: Tick(5),
+            level: 12,
+        })
+        .unwrap();
+    let step = r#"{"goal": "carry", "item": "Linen Cloth", "count": 10, "npc": "Farmer Bram"}"#;
+    let (call, _) = call_of(ask(&mut story, 5));
+    answer_with(&mut story, call, "Cloth for Bram", step);
+    accept(&mut story, 6, None);
+    story
+}
+
+fn items_held(at: u64, npc: &str, count: u16) -> Input {
+    Input::ItemsHeld {
+        at: Tick(at),
+        npc: npc.to_string(),
+        item: "Linen Cloth".to_string(),
+        count,
+    }
+}
+
+#[test]
+fn items_held_at_its_npc_does_a_carry_step() {
+    let mut story = cloth_quest("carry-done");
+
+    story.handle(items_held(7, "Farmer Bram", 12)).unwrap();
+
+    assert_eq!(quests(&mut story)[0].status, Status::Done);
+}
+
+#[test]
+fn items_held_below_the_count_leaves_the_carry_step_open() {
+    let mut story = cloth_quest("carry-short");
+
+    story.handle(items_held(7, "Farmer Bram", 6)).unwrap();
+    story.handle(items_held(8, "Miller Oda", 20)).unwrap();
+
+    assert_eq!(steps_done(&quests(&mut story)[0]), 0);
+}
+
+#[test]
+fn the_prompt_lists_the_goods_of_your_level() {
+    let mut story = story("carry-prompt");
+    story
+        .handle(Input::LevelReached {
+            at: Tick(5),
+            level: 12,
+        })
+        .unwrap();
+
+    let (_, prompt) = call_of(ask(&mut story, 6));
+
+    let goods = prompt_list(&prompt, "Goods that the player can bring:");
+    assert!(goods.contains(&"Linen Cloth"), "{prompt}");
+    assert!(!goods.contains(&"Runecloth"), "{prompt}");
+    assert!(prompt.contains(r#""goal": "carry""#), "{prompt}");
+}

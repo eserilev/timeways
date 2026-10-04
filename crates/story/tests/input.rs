@@ -406,3 +406,21 @@ fn a_kill_for_a_task_reads() {
         }
     );
 }
+
+#[test]
+fn an_item_count_reads_and_a_count_past_its_range_is_refused() {
+    let line =
+        r#"{"type":"items_held","at":100,"npc":"Farmer Bram","item":"Linen Cloth","count":6}"#;
+    let huge = line.replace(r#""count":6"#, r#""count":65536"#);
+
+    let input = parse(line).unwrap();
+
+    let expected = Input::ItemsHeld {
+        at: Tick(100),
+        npc: "Farmer Bram".to_string(),
+        item: "Linen Cloth".to_string(),
+        count: 6,
+    };
+    assert_eq!(input, expected);
+    assert!(parse(&huge).is_err());
+}

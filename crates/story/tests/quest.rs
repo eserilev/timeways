@@ -3,9 +3,9 @@
 use hourglass::Tick;
 use timeways_story::hero_hook::Hook;
 use timeways_story::quest::{
-    AnyOrder, DAY_SECONDS, Encounter, Here, Known, MAX_KILLS, MAX_OFFER_BYTES, MAX_TITLE_CHARS,
-    MAX_TOPIC_CHARS, MAX_WAIT_DAYS, Quest, QuestChange, QuestFault, Status, Step, checked_quest,
-    offer_line, prompt, quest_log, thing_name, title_of_thing,
+    AnyOrder, DAY_SECONDS, Encounter, Here, Known, MAX_CARRY, MAX_KILLS, MAX_OFFER_BYTES,
+    MAX_TITLE_CHARS, MAX_TOPIC_CHARS, MAX_WAIT_DAYS, Quest, QuestChange, QuestFault, Status, Step,
+    checked_quest, goods_for, offer_line, prompt, quest_log, thing_name, title_of_thing,
 };
 use timeways_story::seen::{SeenText, TextKind};
 
@@ -20,6 +20,7 @@ fn known(seen: &[SeenText]) -> Known<'_> {
         foes: vec!["Duskbat", "Mill Rat"],
         last_targets: Vec::new(),
         seen,
+        goods: vec!["Linen Cloth", "Light Leather"],
     }
 }
 
@@ -1163,4 +1164,136 @@ fn the_prompt_shows_how_to_ask_for_steps_in_any_order() {
         text.contains(r#"{"goal": "any_order", "steps": [...]}"#),
         "{text}"
     );
+}
+
+fn carry(item: &str, count: u8, npc: &str) -> String {
+    format!(r#"{{"goal": "carry", "item": "{item}", "count": {count}, "npc": "{npc}"}}"#)
+}
+
+#[test]
+fn a_carry_step_names_a_good_of_your_level_band() {
+    let goods = goods_for(Some(12));
+    let seen = [];
+    let mut known = known(&seen);
+    known.goods = goods.clone();
+    let text = answer("Cloth for Bram", &carry("Linen Cloth", 10, "Farmer Bram"));
+
+    let quest = checked_quest(&text, &known).unwrap();
+
+    assert!(goods.contains(&"Linen Cloth") && goods.contains(&"Light Leather"));
+    assert!(!goods.contains(&"Runecloth"));
+    assert!(goods_for(None).is_empty());
+    assert_eq!(quest.steps[0].person(), Some("Farmer Bram"));
+}
+
+#[test]
+fn a_good_outside_your_level_band_is_refused() {
+    let seen = [];
+    let text = answer("Cloth for Bram", &carry("Runecloth", 10, "Farmer Bram"));
+
+    assert_eq!(
+        checked_quest(&text, &known(&seen)).unwrap_err(),
+        QuestFault::UnknownGood("Runecloth".to_string())
+    );
+}
+
+#[test]
+fn a_carry_step_asks_for_one_to_twenty_items() {
+    let seen = [];
+    let steps = |count| {
+        answer(
+            "Cloth for Bram",
+            &carry("Linen Cloth", count, "Farmer Bram"),
+        )
+    };
+
+    for count in [1, MAX_CARRY] {
+        assert!(checked_quest(&steps(count), &known(&seen)).is_ok());
+    }
+    for count in [0, MAX_CARRY + 1] {
+        assert_eq!(
+            checked_quest(&steps(count), &known(&seen)).unwrap_err(),
+            QuestFault::CarryCount(count)
+        );
+    }
+}
+
+#[test]
+fn a_good_in_the_text_of_a_game_quest_is_still_a_goal() {
+    let seen = [game_quest("Cloth Drive", "Bring me 10 Linen Cloth.")];
+    let text = answer("Cloth for Bram", &carry("Linen Cloth", 10, "Farmer Bram"));
+
+    assert!(checked_quest(&text, &known(&seen)).is_ok());
+}
+
+#[test]
+fn the_npc_of_a_carry_step_keeps_the_overlap_rule() {
+    let seen = [game_quest("Cloth Drive", "Farmer Bram needs cloth.")];
+    let text = answer("Cloth for Bram", &carry("Linen Cloth", 10, "Farmer Bram"));
+
+    assert_eq!(
+        checked_quest(&text, &known(&seen)).unwrap_err(),
+        QuestFault::GameQuest("Farmer Bram".to_string())
+    );
+}
+
+/// An accepted quest of one step: bring 10 Linen Cloth to Farmer Bram.
+fn cloth_quest() -> timeways_story::quest::Tracked {
+    let changes = [
+        QuestChange::Offered {
+            number: 1,
+            at: Tick(1),
+            giver: GIVER.to_string(),
+            title: "Cloth for Bram".to_string(),
+            text: "Go.".to_string(),
+            steps: vec![Step::Carry {
+                item: "Linen Cloth".to_string(),
+                count: 10,
+                npc: "Farmer Bram".to_string(),
+            }],
+            any_order: None,
+        },
+        QuestChange::Accepted {
+            number: 1,
+            at: Tick(2),
+        },
+    ];
+    quest_log(&changes).remove(0)
+}
+
+fn held(npc: &str, item: &str, count: u16) -> Encounter {
+    Encounter::Carry {
+        npc: npc.to_string(),
+        item: item.to_string(),
+        count,
+    }
+}
+
+#[test]
+fn a_carry_step_holds_for_a_count_at_its_number() {
+    let quest = cloth_quest();
+
+    assert!(quest.step_holds(0, &Here::default(), &held("Farmer Bram", "Linen Cloth", 10)));
+    assert!(quest.step_holds(
+        0,
+        &Here::default(),
+        &held("Farmer Bram", "Linen Cloth", 300)
+    ));
+}
+
+#[test]
+fn a_count_below_the_number_leaves_the_carry_step_open() {
+    let quest = cloth_quest();
+
+    assert!(!quest.step_holds(0, &Here::default(), &held("Farmer Bram", "Linen Cloth", 9)));
+}
+
+#[test]
+fn a_count_for_another_npc_or_item_leaves_the_carry_step_open() {
+    let quest = cloth_quest();
+    let here = Here::default();
+
+    assert!(!quest.step_holds(0, &here, &held("Miller Oda", "Linen Cloth", 10)));
+    assert!(!quest.step_holds(0, &here, &held("Farmer Bram", "Wool Cloth", 10)));
+    assert!(!quest.step_holds(0, &here, &Encounter::Gossip("Farmer Bram".to_string())));
 }

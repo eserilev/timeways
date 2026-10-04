@@ -63,6 +63,7 @@ local HANDLERS = {
 	PARTY_KILL = ns.Foes.PartyKill,
 	ENCOUNTER_END = ns.Foes.EncounterEnd,
 	PLAYER_DEAD = ns.Foes.Died,
+	BAG_UPDATE_DELAYED = ns.Journal.BagsChanged,
 	-- The game still draws while the player camps or quits, so the waiting events go now.
 	-- At PLAYER_LOGOUT no screenshot can go.
 	PLAYER_CAMPING = ns.Outbox.Flush,
@@ -90,6 +91,7 @@ frame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
 frame:RegisterEvent("PARTY_KILL")
 frame:RegisterEvent("ENCOUNTER_END")
 frame:RegisterEvent("PLAYER_DEAD")
+frame:RegisterEvent("BAG_UPDATE_DELAYED")
 frame:RegisterEvent("PLAYER_CAMPING")
 frame:RegisterEvent("PLAYER_QUITING")
 frame:RegisterEvent("QUEST_ACCEPTED")
