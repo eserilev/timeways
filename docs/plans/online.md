@@ -1,6 +1,6 @@
 # Plan: Timeways online
 
-Status: draft 1, 2026-10-03. The user decided the scope and the three features. Draft 2 takes in the account decision of the user: Battle.net login from the first version (section 5). It also adds voice examples from real NPC lines (section 22), and Share a chapter (section 23). Nothing is built. When a part is built, its rules move into `GAMEPLAY.md` (section 21 of this plan), and this plan marks the part as done.
+Status: draft 1, 2026-10-03. The user decided the scope and the three features. Draft 2 takes in the account decision of the user: Battle.net login from the first version (section 5). It also adds voice examples from real NPC lines (section 22), Share a chapter (section 23), and an RP event board as a later part (section 24). Nothing is built. When a part is built, its rules move into `GAMEPLAY.md` (section 21 of this plan), and this plan marks the part as done.
 
 This plan builds on these plans and does not repeat them:
 
@@ -20,7 +20,7 @@ Timeways online is a website, an API, and a database that we host. Players share
 
 The pooled text also gives **voice examples**: real lines in the voice of an NPC for the talk prompt (section 22). Most of them come from your own reading, with no pool.
 
-A player can also **share a chapter** of their chronicle: as a page on their computer, or as a public link (section 23).
+A player can also **share a chapter** of their chronicle: as a page on their computer, or as a public link (section 23). Later, an **RP event board** lets players post events, say "I'll be there", and get a reminder (section 24).
 
 The same "several independent reports" rule also pools **world facts**: the title and the faction of an NPC, where it stands, and the continent of a zone. `npc-knowledge.md` needs these in a hand-written `zones.toml` today.
 
@@ -779,7 +779,7 @@ A confirmed contribution is a text or a fact that joined the library with the re
 
 PostgreSQL. Every id is a `bigint` from a sequence, except the hash ids. Each table has `created_at`. A newtype in Rust wraps each id: `ContributorId`, `LinkId`, `CharacterId`, `QuestId`, and the rest.
 
-Section 23.10 adds `shares` and `share_images`.
+Section 23.10 adds `shares` and `share_images`. Section 24.9 adds `events` and `event_signups`.
 
 **People and access**
 
@@ -836,7 +836,7 @@ Section 23.10 adds `shares` and `share_images`.
 
 ## 14. The API
 
-Section 23.10 adds the endpoints of a shared chapter. JSON, under `/v1/`. "Token" is the access token of a linked computer (5.2). "Session" is the cookie of the website (5.1). "None" is a public call. Errors are `{"error": "<code>", "message": "<a line for a person>"}`.
+Sections 23.10 and 24.9 add the endpoints of a shared chapter and of events. JSON, under `/v1/`. "Token" is the access token of a linked computer (5.2). "Session" is the cookie of the website (5.1). "None" is a public call. Errors are `{"error": "<code>", "message": "<a line for a person>"}`.
 
 | Method and path | Auth | Does |
 |---|---|---|
@@ -1123,7 +1123,9 @@ Each step is one commit with its tests, and each one ships. The first version is
 17. **Pooled voice lines** (section 22, source 3), after step 14. The `pooled:<hash>` address of the reads.
 18. **Share a chapter, the local page** (23.13, 18a). It needs nothing online, so it can come before step 1.
 19. **Share a chapter, the public link** (23.13, 18b), after step 6 and the verified characters of 5.3.
-20. **`GAMEPLAY.md`.** The text of section 21. This plan marks the steps as done.
+20. **Events on the wire** (24.12). After the quest library and Share a chapter.
+21. **Events online** (24.12), after step 20.
+22. **`GAMEPLAY.md`.** The text of section 21. This plan marks the steps as done.
 
 ## 19. Tests
 
@@ -1356,6 +1358,19 @@ In 3.5, add:
 In 3.3, add:
 
 > - **Share a chapter.** "Share" on a chapter of the Chronicle tab makes a page of it: the saga, the footnotes, what happened, a plain map of where it happened, and the screenshots that you pick. The desktop app finds the screenshots that WoW saved during the chapter, and skips every screenshot of a strip. Other players show by their card unless you keep their name on purpose. "Save to my computer" writes the page to the Pictures folder, with nothing online. "Share online" needs a linked computer and a character that Battle.net confirms (4.9). It makes a draft on the website, and nothing is public until you click Publish there. A public page goes through the local AI, the server checks, a person for your first 3 pages, and reports. You can delete it at any time. The page never shows the game's map art: the map is our own plain drawing.
+
+Add a new section after 4.9:
+
+> ### 4.10 The event board (later)
+>
+> Plan: `docs/plans/online.md` section 24. Not built.
+>
+> - **An event** has a title, a short text, a place that the organizer visited, a start, and a length of 30 minutes to 6 hours. It is for your guild, your friends, an RP group, or everyone on your realm. Times are stored in UTC and show in your local time. "Now" is the clock of the game server.
+> - **Guild and friends events** go on the player wire (4.7), on the logged channel, with no account. Only the organizer can post or cancel an event. The organizer's addon sends its events again when a member logs in.
+> - **RP group and realm events** live on the Timeways website. They need a linked computer and a character that Battle.net confirms. A realm event needs a week of sharing first.
+> - **"I'll be there"** gives a reminder in the chat 15 minutes before the start. Events show as pins on the journal map. Players going show their RP name next to the character. The organizer sees everyone going. Others see the count, and the names of players who chose to show them.
+> - **A moment.** When you spend 15 minutes in the place of an event that you hold, during the event, your chronicle gets a moment: "You went to Goldshire Wedding at Lion's Pride Inn." The story program checks it against your own `zone_entered` events. It is a moment only: no trust, no deed, and no reward.
+> - **Moderation.** Online events go through the local AI, the server checks, and reports. The organizer can cancel at any time. Each account posts at most 3 events a day.
 
 In 5.10, after "The lore of each player", add:
 
@@ -1861,3 +1876,269 @@ Steps 18 and 19 of section 18 hold this section:
 16. **The screenshot file names of WoW: Forever.** Is the name `WoWScrnShot_MMDDYY_HHMMSS`, and is the folder `_classic_beta_/Screenshots` at the launch too? A test in the game decides it.
 17. **A picture of a chapter.** A single PNG card for a chat app: wanted? It needs an image encoder in `timeways-page`.
 18. **Forever characters and the public link.** With no Forever namespace in the Profile API (open question 3), no character is verified, and the public link has no byline that we can prove. Allow a public page with the byline Anonymous then?
+
+## 24. An RP event board (later)
+
+The user decided this on 2026-10-03, as a later part: after the quest library and Share a chapter. Nothing in this section comes before steps 1 to 19 of section 18.
+
+**The gap.** Roleplay communities plan their events (tavern nights, weddings, campaigns) on Discord and Google Calendar. No addon in wide use fills this in the game. The calendar of WoW exists, but RP groups rarely use it. So Timeways gets a board: post an event, say "I'll be there", get a reminder, and see the event on the journal map.
+
+Two ways carry an event:
+
+| Way | For | Needs |
+|---|---|---|
+| **The wire** (4.7) | your guild, or your friends | nothing: no account, no desktop app |
+| **Online** | an RP group (7.7), or everyone on your realm | a linked computer (5.2) and a verified character (5.3) |
+
+### 24.1 An event
+
+| Field | Rule |
+|---|---|
+| Title | 1 to 60 bytes, the text rules of a quest title (7.1) |
+| Text | 0 to 400 bytes, the text rules of a quest text |
+| Place | a subzone that the organizer visited, with its zone. The spot of the organizer's first visit there (5.4) goes with it, for the map pin. |
+| Start | a time in UTC, from 15 minutes to 60 days ahead |
+| Length | 30 minutes to 6 hours, in steps of 30 minutes. Default 2 hours. |
+| For | `guild`, `friends` (the wire), `group` (an RP group), or `realm` (online) |
+| Faction | `alliance`, `horde`, or `both`, for a realm event. A guild or friends event takes no faction. |
+| Organizer | the character that posts it. On the wire, the sender that the game names. Online, a verified character. |
+
+**Time zones.** Every time is stored and sent in UTC, as seconds since 1970.
+
+- The form asks for the day and the time in the local time of the computer. The addon turns them into UTC with `time{...}`, which reads a table as local time, daylight saving included.
+- Every time shows in local time, with `date`. A tooltip adds the realm time, because many RP groups say "8 PM server".
+- "Now" is the clock of the game server (`GetServerTime`), never the clock of the computer. So a computer clock that is wrong moves no reminder and no attendance check.
+
+### 24.2 Events on the wire
+
+A guild or friends event needs no account. It travels like a player quest (4.7), on `TaskChannel`, with the prefix `Timeways`:
+
+| Type | Channel | Fields | Sent |
+|---|---|---|---|
+| `event` | logged (`docs/plans/logged-messages.md`) | id, title, text, zone, subzone, map, x, y, start, length, for, going count, shown names | by the organizer, to `GUILD` or as a whisper to each friend with Timeways |
+| `event_cancel` | normal | id | by the organizer |
+| `event_going` | normal | id, `yes` or `no`, show name (`1` or `0`), RP name | by an attendee, as a whisper to the organizer |
+| `event_ask` | normal | none | at login, to `GUILD`, and to each friend online with Timeways |
+
+- An `event` carries typed text, so it goes on the logged channel, and the receiver drops one that came on the normal channel (logged-messages.md 3.2). Blizzard support can read it after a report.
+- The id is a number of the organizer's addon. An event is the pair of the sender and the id.
+- **Only the organizer speaks for an event.** The receiver takes `event` and `event_cancel` only from the sender that posted the event. Another player cannot forward an event, because nothing proves that the organizer wrote it.
+- **A late member.** The organizer's addon sends its events again at its login, and as an answer to `event_ask`. A member who logs in while the organizer is offline sees the event when the organizer comes online.
+- **Who can send.** A guild event comes only from a guild member on `GUILD`. A friends event comes only as a whisper from a player on your friends list. A blocked player (4.7) sends no event.
+- **Limits.** An organizer has at most 10 open events, and sends an event to the guild at most once a minute. A player holds at most 50 events of others. The rate limits of the wire (4.7) hold.
+- **Storage.** The saved variables `TimewaysEvents` of each character hold the events, cut to the newest 50, and drop an event a day after its end. Any addon can read them, so they hold only what the guild or the friends already got. The addon checks each event when it reads them, as `TaskSaved.lua` does.
+- These events never reach the desktop, except the moment of 24.6.
+
+### 24.3 Events online
+
+An RP group event and a realm event live on our server.
+
+- **Post.** The addon sends `event_post_asked` to the story program. The story program runs the local AI check of 11.1 on the title and the text, takes out the names of known players, and asks `post_event`. The server needs a verified character of the account on the event's realm.
+- **See.** With "Show realm events" on, the sync downloads `events-<region>-<realm>.jsonl` (6.4): the public events of your realm that have not ended. The server builds it every 5 minutes. The file of a group comes with the files of your groups. The journal carries the events to the addon, as bounded JSON (relay SPEC 9.8).
+- **Going.** "I'll be there" sends `event_signup_asked`, and the story program asks `signup`. It needs a linked computer.
+- **Cancel.** The organizer cancels on the website or in the journal (`cancel_event`). The event stays on the board as "Canceled" until its end.
+- **The website** shows the realm boards and group boards, a page for each event, and Post on the website too.
+
+The addon lines are game events with no reply (6.6), so they need **no relay change**. The relay adds three ops to the table of 6.2: `post_event` (`POST /v1/events`, 3 a day), `cancel_event` (`POST /v1/events/{code}/cancel`, 20 a day), and `signup` (`PUT /v1/events/{code}/signup`, 60 a day), and the file name of the realm board.
+
+### 24.4 In the journal
+
+- **A new tab: Events.** It lists the events that you can see, soonest first: the time, the title, the place, the number going, and your answer. "Post an event" opens the form.
+- **The map.** Each event shows as a pin at its spot on the journal map (`MapPane.lua`). A pin shows the title and the time on hover, and a click opens the event. An event with no spot shows a pin at the zone's name label, with no position.
+- **Attendees.** The event lists the players going, each with their RP name from MSP (`docs/plans/msp.md`) next to the character: "Sister Ada (Ada)". The RP name comes from the attendee's own shared profile: on the wire in `event_going`, online in `signup`. With no shared profile, only the character shows.
+
+### 24.5 The reminder
+
+- 15 minutes before the start of an event that you said "I'll be there" to, the chat shows: "Timeways: Goldshire Wedding starts in 15 minutes at Lion's Pride Inn."
+- At login during an event that you're going to, the chat shows: "Timeways: Goldshire Wedding is on now at Lion's Pride Inn."
+- A canceled event sends "Timeways: Goldshire Wedding is canceled." once, to each player going.
+- The addon checks once a minute, with `GetServerTime`, only while you're going to an event in the next hour.
+
+### 24.6 Going to an event: a moment of your chronicle
+
+An event that you went to becomes a **moment** of your chronicle (5.4.1): "You went to Goldshire Wedding at Lion's Pride Inn." The narrator and the saga can tell it, as "the night of the Goldshire wedding".
+
+**The check, from game events:**
+
+1. The addon holds the event: it is on your board.
+2. During the event (from the start to the end, by `GetServerTime`), the addon adds up the time that your subzone (`GetSubZoneText`, on `ZONE_CHANGED`, `ZONE_CHANGED_INDOORS`, and `ZONE_CHANGED_NEW_AREA`) is the place of the event. A logout stops the count.
+3. At 15 minutes in all, the addon sends one game event to the desktop: `event_attended`, with the title, the zone, the subzone, the start, and the minutes. The title loses the names of known players first (`TaskNames.lua`), as a quest draft does. The organizer's name never goes.
+4. The story program checks it: the subzone is a place in your world, a `zone_entered` of that subzone came before the end of the event, and none of another place came between it and 15 minutes after the start. It refuses an event title with a name of the alias table (5.11). Then it adds a flavor moment of the new kind `event_attended`.
+
+- "I'll be there" is not needed. Being there counts.
+- **A moment only.** It gives no trust, no standing, no deed, no title, no item, and no reward of any kind (rule 2). It changes no quest.
+- At most one event moment a day.
+- **Proof.** The presence rests on the game (Game). The title was written by another player (Shared). So the moment shows Shared (5.14).
+- `event_attended` is a game event with no reply, so it needs no relay change. Tell the relay session, so its fake addon can send it.
+
+### 24.7 Moderation and spam
+
+- **Online events** go through the layers of a quest (section 11): the local AI, the server checks (the words, the limits, no web address), and reports. Community review does not fit: an event is often a day away, and review takes up to 72 hours.
+- **Who can post a realm event:** an account at the level Known or higher (12.3), with a verified character. So a new account cannot spam a realm on its first day.
+- **Limits for each account:** 3 new events a day, 5 open realm events, 10 open group events.
+- **Reports:** Offensive, Spam, Not a real event, Other. 3 independent reports hide an event (11.3), and the queue gets it. A maintainer can remove it.
+- **The organizer cancels** at any time.
+- **Wire events** go only to your guild or your friends, on the logged channel. The answer to abuse there is Block player (4.7) and a report to Blizzard support.
+
+### 24.8 Privacy: who sees who is going
+
+| Viewer | Wire event | Online event |
+|---|---|---|
+| The organizer | every player going, with their RP name | every player going, with their character and RP name |
+| Other players who can see the event | the number going, and the names of the players who picked "Show my name to others going" | the same. A name shows only for a verified character (5.3). |
+| Anyone else | nothing | a realm event: the number going, and the shown names, on the website. A group event: nothing. |
+
+- "Show my name to others going" is off by default, for each event.
+- **What leaves the computer** with "Show realm events" on: the realm and the region of the character, in the address of the download. With "I'll be there" on an online event: the character, and the RP name when the profile is shared.
+- The section 15.3 rule changes for this part only: the name of your realm leaves the computer when you turn on "Show realm events". The switch hint says so.
+- After an event ends, the server deletes its signups after 30 days, and keeps the event row for reports only.
+
+### 24.9 Data model and API
+
+New tables (the total becomes 26):
+
+| Table | Columns | Note |
+|---|---|---|
+| `events` | `id`, `code`, `organizer_id`, `character_id` (verified), `region`, `realm`, `faction`, `audience` (`realm`, `group`), `group_id` (null), `title`, `text`, `zone`, `subzone`, `spot` (JSON, null), `starts_at` (`timestamptz`, UTC), `ends_at`, `state` (`public`, `canceled`, `hidden`, `removed`) | One online event |
+| `event_signups` | `event_id`, `contributor_id`, `character_id`, `rp_name` (null), `show_name`, `going`, `updated_at` | One row for each pair |
+
+`reports.target_kind` gets `event`.
+
+| Method and path | Auth | Does |
+|---|---|---|
+| `POST /v1/events` | token or session | Post an event. Needs the level Known and a verified character on the realm. |
+| `GET /v1/events?region=&realm=` | none | The public board of a realm |
+| `GET /v1/events/{code}` | none, or token or session for a group event | One event |
+| `POST /v1/events/{code}/cancel` | token or session | Only the organizer |
+| `PUT /v1/events/{code}/signup` | token or session | `{"going": true, "show_name": false, "rp_name": "Sister Ada"}` |
+| `GET /v1/events/{code}/signups` | token or session | All of them for the organizer. The shown names for everyone else. |
+| `GET /files/events-<region>-<realm>.jsonl` | none | The realm board for the sync |
+
+### 24.10 UI copy
+
+The copy follows the UI copy rules of `CLAUDE.md`.
+
+| Where | Copy |
+|---|---|
+| Tab | Events |
+| Button | Post an event |
+| Form title | Post Event |
+| Field | Title |
+| Field hint | What's happening? |
+| Field | Where |
+| Field | When |
+| Field hint | In your time |
+| Field | How long |
+| Field | Who can come |
+| Choices | Your guild, Your friends, Moonlight Players (an RP group), Everyone on Stormrage |
+| Buttons | Post, Cancel |
+| Logged note | Like chat, Blizzard can read what you send. |
+| Event row | Sat, Oct 10 · 8:00 PM · Goldshire Wedding |
+| Event place | Lion's Pride Inn, Goldshire |
+| Realm time tooltip | 9:00 PM realm time |
+| Going count | 12 going |
+| Buttons | I'll be there, Can't make it |
+| Checkbox | Show my name to others going |
+| Attendee | Sister Ada (Ada) |
+| More attendees | and 9 more |
+| Organizer button | Cancel event |
+| Cancel popup | Cancel this event? Everyone going gets told. |
+| Cancel popup buttons | Cancel event, Keep it |
+| Canceled | Canceled |
+| Empty | No upcoming events. |
+| Reminder | Timeways: Goldshire Wedding starts in 15 minutes at Lion's Pride Inn. |
+| Reminder, at login | Timeways: Goldshire Wedding is on now at Lion's Pride Inn. |
+| Canceled line | Timeways: Goldshire Wedding is canceled. |
+| Realm needs a link | To post for everyone on Stormrage, link this computer. |
+| Not verified | To post for your realm, Battle.net must confirm this character. Log in on the website, then try again. |
+| Too new | You can post for your realm after a week of sharing. |
+| Too many | You've posted 3 events today. Try again tomorrow. |
+| Switch | Show realm events |
+| Switch hint | Shows events for your realm. This sends your realm name to the Timeways website. |
+| Chronicle moment | You went to Goldshire Wedding at Lion's Pride Inn. |
+
+Bad and good:
+
+| Bad | Good | Why |
+|---|---|---|
+| RSVP | I'll be there | A common word, in the player's voice. |
+| Start (UTC) | When (in your time) | Players think in their own time. UTC is a mechanism. |
+| Attendance verified: 15/15 minutes in subzone | (the moment in the chronicle, nothing else) | Internal check. |
+| Event broadcast to GUILD channel | (nothing) | Internal words. |
+| Hark! A gathering is called! | Goldshire Wedding starts in 15 minutes at Lion's Pride Inn. | Fake flourish. Key fact first. |
+| Your account reputation is too low | You can post for your realm after a week of sharing. | Say what to do, with no internal word. |
+| Hidden attendee count: 3 | and 3 more | Plain words. |
+
+### 24.11 Tests
+
+`crates/addon-tests/tests/events.rs` (new):
+
+- `an_event_from_a_guild_member_shows_on_the_board`
+- `an_event_from_a_stranger_is_dropped`
+- `an_event_on_the_normal_channel_is_dropped`
+- `a_cancel_from_anyone_but_the_organizer_is_dropped`
+- `a_blocked_player_sends_no_events`
+- `the_organizer_sends_its_events_again_at_event_ask`
+- `a_player_holds_at_most_fifty_events_of_others`
+- `the_form_turns_local_time_into_utc`
+- `an_event_shows_in_local_time`
+- `the_realm_time_shows_on_hover`
+- `a_reminder_comes_fifteen_minutes_before_the_start`
+- `no_reminder_for_an_event_you_are_not_going_to`
+- `the_reminder_uses_the_clock_of_the_game_server`
+- `fifteen_minutes_in_the_place_during_the_event_counts`
+- `fourteen_minutes_in_the_place_does_not_count`
+- `time_in_the_place_before_the_start_does_not_count`
+- `an_attended_event_sends_one_line`
+- `the_attended_line_holds_no_player_name`
+- `an_event_pin_shows_on_the_journal_map`
+- `an_attendee_shows_their_rp_name_next_to_the_character`
+- `a_hidden_attendee_counts_but_is_not_listed`
+- `the_organizer_sees_every_attendee`
+
+`crates/story/tests/events.rs` (new):
+
+- `an_attended_event_becomes_a_moment`
+- `an_attended_event_gives_no_trust_no_deed_and_no_reward`
+- `an_attended_event_in_a_place_you_never_entered_is_refused`
+- `an_attended_event_after_you_left_the_place_is_refused`
+- `at_most_one_event_moment_a_day`
+- `an_event_moment_has_shared_proof`
+- `an_event_title_with_a_name_of_the_alias_table_is_refused`
+- `a_realm_event_post_runs_the_local_check_first`
+
+`crates/online-server/tests/`:
+
+- `a_realm_event_needs_a_verified_character_on_its_realm`
+- `a_new_account_cannot_post_a_realm_event`
+- `an_event_starts_fifteen_minutes_to_sixty_days_ahead`
+- `an_account_posts_at_most_three_events_a_day`
+- `only_the_organizer_cancels`
+- `signups_show_only_the_names_that_opted_in`
+- `the_organizer_sees_every_signup`
+- `three_independent_reports_hide_an_event`
+- `the_realm_file_holds_only_public_events_that_have_not_ended`
+- `starts_at_is_stored_in_utc`
+- `signups_are_deleted_thirty_days_after_the_end`
+
+**Property tests:**
+
+- `crates/addon-tests/tests/properties.rs`: for any local time and any time zone with daylight saving, the time of the form turned into UTC and back shows the same day and hour. Make the hour of a daylight saving change likely.
+- For any list of times in and out of the place, `event_attended` goes exactly when the time in the place during the event adds up to 15 minutes. Make 14, 15, and 16 minutes, and a visit across the start and across the end, likely.
+
+**Fuzz:** `fuzz/fuzz_targets/task_wire.rs` gets the four event types with random fields. `fuzz/fuzz_targets/online_files.rs` gets random lines of a realm board. `fuzz/fuzz_targets/input.rs` gets `event_attended`.
+
+### 24.12 Build order
+
+Steps 20 and 21 of section 18 hold this section. Both come after the quest library and Share a chapter:
+
+- **20. Events on the wire.** `event`, `event_cancel`, `event_going`, `event_ask`, the Events tab, the form, the reminders, the map pins, the MSP names, `TimewaysEvents`, and the moment of 24.6 with `event_attended`. It needs nothing online.
+- **21. Events online.** The ops, the realm board file, the group boards, signups, the website pages, the moderation of 24.7, and the privacy rules of 24.8.
+
+### 24.13 Open questions
+
+19. **Realm time or local time first.** RP groups often say "8 PM server". The board shows local time, with the realm time on hover. Is that the right way round?
+20. **Links in an event.** RP events often link a Discord server. The words check refuses every web address. Allow a Discord invite in the text of a group event?
+21. **Both factions.** Players of two factions can't talk in the game, but some RP events take both. Keep `both` for realm events?
+22. **The calendar of the game.** Can the addon add an event to the WoW calendar with `C_Calendar`, or does it need a click of the player for each call? A test in the game decides it.
+23. **15 minutes.** Is 15 minutes in the place the right bar for a moment?
