@@ -875,6 +875,44 @@ fn only_the_newest_prompts_are_kept() {
 }
 
 #[test]
+fn a_line_of_many_calls_clears_each_prompt_that_aged_out() {
+    let folder = fresh_folder("prompts-kept-many");
+    let mut database = Store::Folder(folder.clone()).open(&key()).unwrap().database;
+    for position in 0..PROMPTS_KEPT {
+        database.save(&call_line(position)).unwrap();
+    }
+    let newest = PROMPTS_KEPT..PROMPTS_KEPT + 3;
+    let mut line = call_line(newest.start);
+    line.calls = newest
+        .flat_map(|position| call_line(position).calls)
+        .collect();
+
+    database.save(&line).unwrap();
+
+    let cleared = positions(
+        &folder,
+        "SELECT position FROM calls WHERE prompt IS NULL ORDER BY position",
+    );
+    assert_eq!(cleared, [0, 1, 2]);
+}
+
+#[test]
+fn the_count_of_calls_of_a_kind_reads_an_index() {
+    let folder = fresh_folder("calls-kind-index");
+    drop(database(&folder));
+
+    let plan: String = sql(&folder)
+        .query_row(
+            "EXPLAIN QUERY PLAN SELECT count(*) FROM calls WHERE kind IN ('talk', 'quest')",
+            [],
+            |row| row.get(3),
+        )
+        .unwrap();
+
+    assert!(plan.contains("calls_of_a_kind"), "{plan}");
+}
+
+#[test]
 fn a_file_of_another_version_is_refused_and_left_as_it_is() {
     let folder = fresh_folder("other-version");
     let file = world_file(&folder);

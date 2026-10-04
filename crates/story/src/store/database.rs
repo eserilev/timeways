@@ -2,14 +2,14 @@
 //! and what each call read (GAMEPLAY.md 5.7).
 
 use super::StoreError;
-use rusqlite::{Connection, OptionalExtension, params};
+use rusqlite::{Connection, OptionalExtension, params, params_from_iter};
 use serde::de::DeserializeOwned;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 /// A file of another version is refused, never changed. Nothing is live, so a new version
 /// starts with new worlds.
-const VERSION: i64 = 3;
+const VERSION: i64 = 4;
 
 /// WAL syncs the disk once for each line, and a reader such as `sqlite3` never blocks a
 /// save.
@@ -47,6 +47,7 @@ CREATE TABLE reads (
 );
 CREATE INDEX reads_of_a_row ON reads (tab, row);
 CREATE INDEX reads_of_a_call ON reads (call);
+CREATE INDEX calls_of_a_kind ON calls (kind);
 ";
 
 /// After this many calls, the prompt of an older call is cleared. Its row, its answer,
@@ -539,19 +540,13 @@ impl Database {
     ///
     /// Returns the error of SQLite.
     pub fn count_calls(&self, kinds: &[&str]) -> Result<u64, StoreError> {
-        let mut count = 0;
-        for kind in kinds {
-            let found: i64 = self
-                .connection
-                .query_row(
-                    "SELECT count(*) FROM calls WHERE kind = ?1",
-                    params![kind],
-                    |row| row.get(0),
-                )
-                .map_err(|source| self.error(source))?;
-            count += u64::try_from(found).unwrap_or_default();
-        }
-        Ok(count)
+        let marks = vec!["?"; kinds.len()].join(", ");
+        let select = format!("SELECT count(*) FROM calls WHERE kind IN ({marks})");
+        let found: i64 = self
+            .connection
+            .query_row(&select, params_from_iter(kinds), |row| row.get(0))
+            .map_err(|source| self.error(source))?;
+        Ok(u64::try_from(found).unwrap_or_default())
     }
 
     /// The prompt, the answer, and how a call ended.
@@ -661,11 +656,15 @@ fn write_line(transaction: &rusqlite::Transaction<'_>, line: &Line) -> rusqlite:
             )?;
         }
     }
-    if let Some(newest) = line.calls.last() {
-        let oldest_kept = oldest_prompt_kept(newest.position);
+    if let (Some(first), Some(newest)) = (line.calls.first(), line.calls.last()) {
+        // The prompts that aged out before this line are cleared already.
+        let aged_before = first.position.checked_sub(1).map_or(0, oldest_prompt_kept);
         transaction.execute(
-            "UPDATE calls SET prompt = NULL WHERE position < ?1 AND prompt IS NOT NULL",
-            params![as_sql(oldest_kept)],
+            "UPDATE calls SET prompt = NULL WHERE position >= ?1 AND position < ?2",
+            params![
+                as_sql(aged_before),
+                as_sql(oldest_prompt_kept(newest.position))
+            ],
         )?;
     }
     Ok(())
