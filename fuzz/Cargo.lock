@@ -502,7 +502,7 @@ checksum = "cf54715a573b99ac80df0bc206da022bcd442c974952c7b9720069370852e21f"
 [[package]]
 name = "rusty-hourglass"
 version = "0.1.0"
-source = "git+https://github.com/eserilev/rusty-hourglass?rev=f1a7bb45b3e4c009789c6f7bdc4341ee310b8baf#f1a7bb45b3e4c009789c6f7bdc4341ee310b8baf"
+source = "git+https://github.com/eserilev/rusty-hourglass?rev=dea7d40918e20386dfb92eedf6c3a6c660fba321#dea7d40918e20386dfb92eedf6c3a6c660fba321"
 dependencies = [
  "serde",
 ]

@@ -2,7 +2,7 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-use hourglass::Tick;
+use hourglass::{EntityId, EntityType, EventId, EventKind, Tick, World};
 use proptest::prelude::*;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -837,6 +837,34 @@ fn passage_text() -> impl Strategy<Value = String> {
 }
 
 /// With no spaces or invisible characters, and each look-alike angle as its ASCII angle.
+/// The walk over the whole history and world that `Character::events_about` replaced.
+fn events_about_by_walk(character: &Character, name: &str) -> Vec<EventId> {
+    let world: &World = character.world();
+    let ids: Vec<EntityId> = world
+        .entities()
+        .filter(|entity| entity.name == name)
+        .map(|entity| entity.id)
+        .collect();
+    let mut events: Vec<EventId> = world
+        .history()
+        .iter()
+        .filter(
+            |event| matches!(&event.kind, EventKind::EntityCreated { id, .. } if ids.contains(id)),
+        )
+        .map(|event| event.id)
+        .collect();
+    for id in &ids {
+        let held = world
+            .entity(*id)
+            .into_iter()
+            .flat_map(|entity| &entity.facts);
+        events.extend(held.map(|fact| fact.opened));
+        let pointing = world.facts_linked_to(*id);
+        events.extend(pointing.into_iter().map(|(_, fact)| fact.opened));
+    }
+    events
+}
+
 fn as_a_model_reads_it(text: &str) -> String {
     let invisible = ['\u{200B}', '\u{2060}', '\u{FEFF}', '\u{00AD}', '\u{FE0F}'];
     let seen = text
@@ -1295,6 +1323,34 @@ proptest! {
                 if let Some(spot) = spot_of(world, entity.id) {
                     prop_assert_eq!(*first.entry(entity.id).or_insert(spot), spot);
                 }
+            }
+        }
+    }
+
+    #[test]
+    fn the_lookups_by_name_answer_as_a_walk_over_the_world_does(
+        plays in prop::collection::vec(play(), 0..120),
+    ) {
+        let mut character = Character::new();
+        for (n, play) in plays.iter().enumerate() {
+            let at = Tick(1_000 + n as u64);
+            let _ = match play {
+                Play::Zone(zone, subzone, _) => character.enter_zone(at, zone, subzone.as_deref()),
+                Play::Meet(name, _) => character.meet_npc(at, name),
+                Play::Defeat(name) => character.defeat_npc(at, name),
+                Play::Slap(name) => character.slap(at, name),
+                _ => Ok(()),
+            };
+        }
+        for name in ["Goldshire", "Westfall", "Hogger", "Innkeeper Farley", "Cow"] {
+            prop_assert_eq!(character.events_about(name), events_about_by_walk(&character, name));
+            for entity_type in [EntityType::Person, EntityType::Place] {
+                let walked = character
+                    .world()
+                    .entities()
+                    .find(|entity| entity.entity_type == entity_type && entity.name == name)
+                    .map(|entity| entity.id);
+                prop_assert_eq!(character.world().find(entity_type, name), walked);
             }
         }
     }

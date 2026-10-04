@@ -104,7 +104,7 @@ impl Character {
     /// meeting, so a sighting gives None.
     #[must_use]
     pub fn first_met(&self, npc: &str) -> Option<(EventId, Tick)> {
-        let id = self.find(EntityType::Person, npc)?;
+        let id = self.world.find(EntityType::Person, npc)?;
         let met = self.world.entity(self.you)?.fact(MET, Some(id))?;
         Some((met.opened, self.world.history().get(met.opened)?.tick))
     }
@@ -114,20 +114,13 @@ impl Character {
     /// it.
     #[must_use]
     pub fn events_about(&self, name: &str) -> Vec<EventId> {
-        let ids: Vec<EntityId> = self
-            .world
-            .entities()
-            .filter(|entity| entity.name == name)
-            .map(|entity| entity.id)
-            .collect();
-        let mut events: Vec<EventId> = self
-            .world
-            .history()
+        let ids = self.world.named(name);
+        let mut events: Vec<EventId> = ids
             .iter()
-            .filter(|event| matches!(&event.kind, EventKind::EntityCreated { id, .. } if ids.contains(id)))
-            .map(|event| event.id)
+            .filter_map(|id| self.world.entity(*id))
+            .map(|entity| entity.created)
             .collect();
-        for id in &ids {
+        for id in ids {
             let held = self
                 .world
                 .entity(*id)
@@ -143,7 +136,7 @@ impl Character {
     /// The place of an NPC: where you met or fought it last.
     #[must_use]
     pub fn place_of(&self, npc: &str) -> Option<&str> {
-        let id = self.find(EntityType::Person, npc)?;
+        let id = self.world.find(EntityType::Person, npc)?;
         let place = self.world.location_of(id)?;
         Some(self.world.entity(place)?.name.as_str())
     }
@@ -175,7 +168,7 @@ impl Character {
     /// meeting is no history, so it makes no callback (GAMEPLAY.md 5.4.1).
     #[must_use]
     pub fn has_history_with(&self, npc: &str) -> bool {
-        let Some(id) = self.find(EntityType::Person, npc) else {
+        let Some(id) = self.world.find(EntityType::Person, npc) else {
             return false;
         };
         let theirs = self.world.entity(id).is_some_and(|entity| {
@@ -190,14 +183,14 @@ impl Character {
 
     #[must_use]
     pub fn trust_of(&self, npc: &str) -> Option<i64> {
-        let id = self.find(EntityType::Person, npc)?;
+        let id = self.world.find(EntityType::Person, npc)?;
         self.world.entity(id)?.fact(TRUSTS, Some(self.you))?.value
     }
 
     /// The event of the newest change of the trust of an NPC, and whether it went up.
     #[must_use]
     pub fn last_trust_change(&self, npc: &str) -> Option<(EventId, bool)> {
-        let id = self.find(EntityType::Person, npc)?;
+        let id = self.world.find(EntityType::Person, npc)?;
         let opened = self.world.entity(id)?.fact(TRUSTS, Some(self.you))?.opened;
         let up = match &self.world.history().get(opened)?.kind {
             EventKind::FactUpdate { from, to, .. } => to > from,
@@ -209,7 +202,7 @@ impl Character {
 
     #[must_use]
     pub fn slaps_of(&self, npc: &str) -> Option<i64> {
-        let id = self.find(EntityType::Person, npc)?;
+        let id = self.world.find(EntityType::Person, npc)?;
         self.world.entity(self.you)?.fact(SLAPPED, Some(id))?.value
     }
 
@@ -334,14 +327,16 @@ impl Character {
     /// A hostile NPC or a beast has no task to give, and nothing to say (GAMEPLAY.md 3.4).
     #[must_use]
     pub fn is_hostile_or_animal(&self, npc: &str) -> bool {
-        self.find(EntityType::Person, npc)
+        self.world
+            .find(EntityType::Person, npc)
             .and_then(|id| self.world.entity(id))
             .is_some_and(|entity| holds_flag(entity, HOSTILE) || holds_flag(entity, ANIMAL))
     }
 
     #[must_use]
     pub fn is_dead(&self, npc: &str) -> bool {
-        self.find(EntityType::Person, npc)
+        self.world
+            .find(EntityType::Person, npc)
             .and_then(|id| self.world.entity(id))
             .is_some_and(|entity| entity.fact(DEAD, None).is_some())
     }
@@ -365,7 +360,7 @@ impl Character {
     /// The zone where an NPC lives: the outermost place around it.
     #[must_use]
     pub fn zone_of_npc(&self, npc: &str) -> Option<&str> {
-        let id = self.find(EntityType::Person, npc)?;
+        let id = self.world.find(EntityType::Person, npc)?;
         self.zone_around(self.world.location_of(id)?)
     }
 
@@ -373,7 +368,7 @@ impl Character {
     /// zones gives one of them.
     #[must_use]
     pub fn zone_of_place(&self, place: &str) -> Option<&str> {
-        self.zone_around(self.find(EntityType::Place, place)?)
+        self.zone_around(self.world.find(EntityType::Place, place)?)
     }
 
     fn zone_around(&self, place: EntityId) -> Option<&str> {
@@ -570,7 +565,7 @@ impl Character {
     ///
     /// Returns the first refusal of Hourglass.
     pub fn mark_npc(&mut self, at: Tick, npc: &str, spot: Spot) -> Result<(), Refusal> {
-        let Some(npc) = self.find(EntityType::Person, npc) else {
+        let Some(npc) = self.world.find(EntityType::Person, npc) else {
             return Ok(());
         };
         self.mark_spot(at, npc, spot)
@@ -639,7 +634,7 @@ impl Character {
     ///
     /// Returns the first refusal of Hourglass.
     pub fn befriend(&mut self, at: Tick, npc: &str) -> Result<(), Refusal> {
-        let Some(npc) = self.find(EntityType::Person, npc) else {
+        let Some(npc) = self.world.find(EntityType::Person, npc) else {
             return Ok(());
         };
         self.set_hostile(at, npc, Reaction::Friendly)
@@ -772,7 +767,7 @@ impl Character {
         entity_type: EntityType,
         name: &str,
     ) -> Result<EntityId, Refusal> {
-        if let Some(id) = self.find(entity_type, name) {
+        if let Some(id) = self.world.find(entity_type, name) {
             return Ok(id);
         }
         let id = self.world.next_entity_id();
@@ -806,13 +801,12 @@ impl Character {
         name: &str,
         within: Option<EntityId>,
     ) -> Result<EntityId, Refusal> {
-        let found = self.world.entities().find(|entity| {
-            entity.entity_type == EntityType::Place
-                && entity.name == name
-                && entity.location() == within
+        let found = self.world.named(name).iter().copied().find(|id| {
+            self.world.type_of(*id) == Some(EntityType::Place)
+                && self.world.location_of(*id) == within
         });
         if let Some(place) = found {
-            return Ok(place.id);
+            return Ok(place);
         }
         let id = self.world.next_entity_id();
         let kind = EventKind::EntityCreated {
@@ -825,13 +819,6 @@ impl Character {
             self.settle(at, id, zone)?;
         }
         Ok(id)
-    }
-
-    fn find(&self, entity_type: EntityType, name: &str) -> Option<EntityId> {
-        self.world
-            .entities()
-            .find(|entity| entity.entity_type == entity_type && entity.name == name)
-            .map(|entity| entity.id)
     }
 
     fn settle(&mut self, at: Tick, entity: EntityId, place: EntityId) -> Result<(), Refusal> {
