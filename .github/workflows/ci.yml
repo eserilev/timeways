@@ -85,6 +85,18 @@ jobs:
           done
           diff -u target/gnomish-relay/addon/tests/bit.lua addon/tests/bit.lua
 
+  # Timeways speaks MSP with the MSP code of MyRolePlay, at the pin in scripts/fetch-mrp.sh
+  # (docs/plans/msp.md, section 4). A move of the pin shows a change of the protocol.
+  mrp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # master
+        with:
+          toolchain: stable
+      - run: scripts/fetch-mrp.sh
+      - run: cargo test --locked -p addon-tests --test msp_mrp -- --ignored
+
   # A short run of every target on one machine. The nightly job runs them long.
   fuzz:
     runs-on: ubuntu-latest

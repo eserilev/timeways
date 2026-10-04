@@ -93,8 +93,8 @@ impl Game {
         game
     }
 
-    /// The addon with the real seam: the shared `Messages.lua` of Gnomish Relay.
-    pub fn with_transport() -> Game {
+    /// The fake game alone, with no addon: for the code of another addon.
+    pub fn without_addon() -> Game {
         let lua = Lua::new();
         let bit: Table = lua
             .load(test_source("bit.lua"))
@@ -108,6 +108,12 @@ impl Game {
             .call(())
             .unwrap();
         lua.globals().set("wow", wow).unwrap();
+        Game { lua }
+    }
+
+    /// The addon with the real seam: the shared `Messages.lua` of Gnomish Relay.
+    pub fn with_transport() -> Game {
+        let lua = Game::without_addon().lua;
         let ns = lua.create_table().unwrap();
         // Setup writes the real key into Key.lua. The tests sign with this one.
         ns.set("key", TEST_KEY).unwrap();
