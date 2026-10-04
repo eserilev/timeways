@@ -1,8 +1,8 @@
 //! Random play of player tasks and stories through the real addon (GAMEPLAY.md 4.7 and
-//! 4.8): addon messages of peers, the answers of the player, trades, and random saved files
-//! at the start. No Lua
-//! error comes of it, each addon message fits in 255 bytes, and no line of a page holds a
-//! `|`, which starts a WoW escape.
+//! 4.8): addon messages of peers on both addon channels, the answers of the player, trades,
+//! and random saved files at the start. No Lua error comes of it, each addon message fits in
+//! 255 bytes, no line of a page holds a `|`, which starts a WoW escape, and no type with
+//! text of a player gets in on the normal channel.
 
 #![no_main]
 
@@ -64,12 +64,29 @@ const TYPES: [&str; 13] = [
 const IDS: [&str; 3] = ["a1", "b2", "zz9"];
 const SENDERS: [&str; 3] = ["Ada-Stormrage", "Bram-Stormrage", "Mallory-Elsewhere"];
 
+/// The addon channel that a message comes on.
+#[derive(Arbitrary, Debug, Clone, Copy)]
+enum Log {
+    Normal,
+    Logged,
+}
+
+impl Log {
+    fn event(self) -> &'static str {
+        match self {
+            Log::Normal => players::NORMAL,
+            Log::Logged => players::LOGGED,
+        }
+    }
+}
+
 #[derive(Arbitrary, Debug)]
 enum Action {
     /// Any text as an addon message.
     Raw {
         sender: u8,
         text: Vec<u8>,
+        log: Log,
     },
     /// A message of a known type and id, with any fields after them.
     Message {
@@ -77,6 +94,7 @@ enum Action {
         kind: u8,
         id: u8,
         fields: Vec<String>,
+        log: Log,
     },
     Answer {
         which: u8,
@@ -104,27 +122,51 @@ struct Play {
 }
 
 fn escape(field: &str) -> String {
-    field.replace('%', "%25").replace(';', "%3B")
+    field
+        .replace('%', "%25")
+        .replace(';', "%3B")
+        .replace('\\', "%5C")
+}
+
+/// Fires the event of `log`, and tells the check of `watch_the_log` which event it is.
+fn hear(corvin: &players::Player, text: &str, sender: u8, log: Log) {
+    let event = log.event();
+    corvin.run(&format!("fuzzEvent = '{event}'"));
+    corvin.hear_on(
+        event,
+        "Timeways",
+        text,
+        "WHISPER",
+        SENDERS[usize::from(sender) % 3],
+    );
+}
+
+/// Every message that reaches the quests and the stories: a type with text of a player came
+/// on the logged channel. The list of these types is written here again, apart from the addon.
+fn watch_the_log(corvin: &players::Player) {
+    corvin.run(
+        "local logged = { offer = true, story = true, step = true, turnin = true }
+         local receive = ns.PlayerTasks.Receive
+         ns.PlayerTasks.Receive = function(sender, message, channel)
+             assert(fuzzEvent == 'CHAT_MSG_ADDON_LOGGED' or not logged[message.type], message.type)
+             return receive(sender, message, channel)
+         end",
+    );
 }
 
 const ANSWERS: [&str; 5] = ["Accept", "Decline", "Block", "GiveUp", "AskTurnIn"];
 
 fn act(corvin: &players::Player, action: &Action) {
     match action {
-        Action::Raw { sender, text } => {
-            let text = String::from_utf8_lossy(text);
-            corvin.hear(
-                "Timeways",
-                &text,
-                "WHISPER",
-                SENDERS[usize::from(*sender) % 3],
-            );
+        Action::Raw { sender, text, log } => {
+            hear(corvin, &String::from_utf8_lossy(text), *sender, *log);
         }
         Action::Message {
             sender,
             kind,
             id,
             fields,
+            log,
         } => {
             let mut parts = vec![
                 "1".to_string(),
@@ -134,12 +176,7 @@ fn act(corvin: &players::Player, action: &Action) {
             parts.extend(fields.iter().map(|field| escape(field)));
             let text = format!("1:1:1:{}", parts.join(";"));
             if text.len() <= 255 {
-                corvin.hear(
-                    "Timeways",
-                    &text,
-                    "WHISPER",
-                    SENDERS[usize::from(*sender) % 3],
-                );
+                hear(corvin, &text, *sender, *log);
             }
         }
         Action::Answer { which, task } => {
@@ -208,6 +245,7 @@ fuzz_target!(|play: Play| {
     let ada = players::Player::new("Ada");
     let corvin = players::Player::new("Corvin");
     corvin.in_guild_with(&[&ada]);
+    watch_the_log(&corvin);
     if let Some(saved) = &play.saved {
         corvin.run(&format!("TimewaysTasks = {}", saved.lua(0)));
         corvin.run(&format!("TimewaysStories = {}", saved.lua(0)));
