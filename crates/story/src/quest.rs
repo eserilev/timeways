@@ -1,20 +1,22 @@
 //! Personal side quests (GAMEPLAY.md 3.4). The model proposes a quest, and the code checks
-//! each step against the world before the offer shows (5.2). The words of the prompt live
-//! here.
+//! each step against the world before the offer shows (5.2).
 
-use crate::check::{json_object, mentions, plain_text, same_words};
-use crate::house::{HOUSE_RULES, bulleted, fenced};
-use crate::seen::{SeenText, TextKind};
-use crate::talk::persona;
+use crate::check::{json_object, plain_text, same_words};
+use crate::seen::SeenText;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+mod known;
 mod log;
 mod progress;
+mod prompt;
 mod view;
 
+pub use known::Known;
+use known::game_quests;
 pub use log::{QuestChange, Status, Tracked, next_number, quest_log};
 pub use progress::{Encounter, Here};
+pub use prompt::prompt;
 pub use view::{QuestView, StepState, StepView};
 
 pub const MAX_TITLE_CHARS: usize = 60;
@@ -24,9 +26,6 @@ pub const MAX_STEPS: usize = 3;
 /// The offer goes out as a narrator line, so it has the limit of one (Gnomish Relay
 /// SPEC.md 9.8).
 pub const MAX_OFFER_BYTES: usize = 1000;
-
-/// The names of one list in the prompt. A long list costs tokens and adds little.
-const PROMPT_NAMES: usize = 20;
 
 /// A kill step asks for 1 to this many kills.
 pub const MAX_KILLS: u8 = 10;
@@ -81,89 +80,6 @@ pub struct Quest {
     pub title: String,
     pub text: String,
     pub steps: Vec<Step>,
-}
-
-/// What the world of the player holds, as far as a quest can use it.
-#[derive(Debug, Default)]
-pub struct Known<'a> {
-    pub giver: &'a str,
-    /// The zones that you visited.
-    pub zones: Vec<&'a str>,
-    pub subzones: Vec<&'a str>,
-    /// The NPCs that you can meet: you met them, or saw them friendly. Never a beast, and
-    /// never the dead of your story.
-    pub npcs: Vec<&'a str>,
-    /// The creatures that you saw hostile, except the dead of your story.
-    pub foes: Vec<&'a str>,
-    /// The places, NPCs, and creatures of your newest task. The next task names none of
-    /// them, so two tasks in a row never send you to the same target.
-    pub last_targets: Vec<&'a str>,
-    /// Every text that you read. Only the quests count.
-    pub seen: &'a [SeenText],
-}
-
-impl Known<'_> {
-    /// The places that a visit step can name, as the check allows them.
-    #[must_use]
-    pub fn places(&self) -> Vec<&str> {
-        let all = self.zones.iter().chain(&self.subzones);
-        let visit = |place: &str| Step::Visit {
-            place: place.to_string(),
-        };
-        all.copied()
-            .filter(|place| self.step_fault(&visit(place)).is_none())
-            .collect()
-    }
-
-    /// The NPCs that a meet step can name, as the check allows them.
-    #[must_use]
-    pub fn people(&self) -> Vec<&str> {
-        let meet = |npc: &str| Step::Meet {
-            npc: npc.to_string(),
-        };
-        let allowed = |npc: &&str| self.step_fault(&meet(npc)).is_none();
-        self.npcs.iter().copied().filter(allowed).collect()
-    }
-
-    /// The creatures that a kill step can name, as the check allows them.
-    #[must_use]
-    pub fn prey(&self) -> Vec<&str> {
-        let kill = |creature: &str| Step::Kill {
-            creature: creature.to_string(),
-            count: 1,
-        };
-        let allowed = |creature: &&str| self.step_fault(&kill(creature)).is_none();
-        self.foes.iter().copied().filter(allowed).collect()
-    }
-
-    /// The first rule of 3.4 that one step breaks. A zone never counts as a goal of a game
-    /// quest: most quest texts name their zone, so the rule then bans every zone.
-    fn step_fault(&self, step: &Step) -> Option<QuestFault> {
-        let target = step.target();
-        if self.last_targets.contains(&target) {
-            return Some(QuestFault::LastTask(target.to_string()));
-        }
-        match step {
-            Step::Visit { place } if self.zones.contains(&place.as_str()) => None,
-            Step::Visit { place } if self.subzones.contains(&place.as_str()) => {
-                in_game_quests(place, self.seen)
-            }
-            Step::Visit { place } => Some(QuestFault::UnknownPlace(place.clone())),
-            Step::Meet { npc } if npc == self.giver => Some(QuestFault::MeetGiver),
-            Step::Meet { npc } if self.npcs.contains(&npc.as_str()) => {
-                in_game_quests(npc, self.seen)
-            }
-            Step::Meet { npc } => Some(QuestFault::UnknownNpc(npc.clone())),
-            Step::Kill { creature, .. } if creature == self.giver => Some(QuestFault::KillGiver),
-            Step::Kill { count, .. } if !(1..=MAX_KILLS).contains(count) => {
-                Some(QuestFault::KillCount(*count))
-            }
-            Step::Kill { creature, .. } if self.foes.contains(&creature.as_str()) => {
-                in_game_quests(creature, self.seen)
-            }
-            Step::Kill { creature, .. } => Some(QuestFault::UnknownFoe(creature.clone())),
-        }
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Error)]
@@ -242,19 +158,6 @@ pub fn checked_quest(answer: &str, known: &Known<'_>) -> Result<Quest, QuestFaul
     Ok(quest)
 }
 
-/// Only the quests that you read count. A quest of the game that you never saw can still
-/// share a goal with a side quest.
-fn in_game_quests(name: &str, seen: &[SeenText]) -> Option<QuestFault> {
-    let named = game_quests(seen).any(|quest| {
-        mentions(&quest.text, name) || quest.title.as_deref().is_some_and(|t| mentions(t, name))
-    });
-    named.then(|| QuestFault::GameQuest(name.to_string()))
-}
-
-fn game_quests(seen: &[SeenText]) -> impl Iterator<Item = &SeenText> {
-    seen.iter().filter(|text| text.kind == TextKind::Quest)
-}
-
 /// The words that the player sees in the chat.
 #[must_use]
 pub fn offer_line(giver: &str, quest: &Quest) -> String {
@@ -262,38 +165,6 @@ pub fn offer_line(giver: &str, quest: &Quest) -> String {
         "{giver} has a quest for you: {}. {} Type /quest accept.",
         quest.title, quest.text
     )
-}
-
-/// The lists hold only the targets that the check allows, so the model has nothing else
-/// to pick.
-#[must_use]
-pub fn prompt(known: &Known<'_>, place: Option<&str>) -> String {
-    format!(
-        "{}\n{HOUSE_RULES}\n\nGive the player a small task of your own: a rumor, a favor, or \
-         an errand.\n\nPlaces that the player can visit:\n{}\n\n\
-         People that the player can meet:\n{}\n\n\
-         Creatures that the player can hunt:\n{}\n\n\
-         Rules:\n\
-         - 1 to {MAX_STEPS} steps. A step is {{\"goal\": \"visit\", \"place\": \"<a place \
-         above>\"}}, {{\"goal\": \"meet\", \"npc\": \"<a person above>\"}}, or \
-         {{\"goal\": \"kill\", \"creature\": \"<a creature above>\", \"count\": <1 to \
-         {MAX_KILLS}>}}.\n\
-         - Copy each name exactly as the list writes it. Use no other place, person, or \
-         creature. An empty list has nothing to use.\n\
-         - Each step names a different place, person, or creature.\n\
-         - The task is not a quest of the game, and it does not continue one.\n\
-         - The title has at most {MAX_TITLE_CHARS} characters. The text has at most 60 \
-         words, in your own voice.\n\n\
-         Reply with JSON only: {{\"title\": \"...\", \"text\": \"...\", \"steps\": [...]}}",
-        persona(known.giver, place),
-        list(&known.places()),
-        list(&known.people()),
-        list(&known.prey())
-    )
-}
-
-fn list(names: &[&str]) -> String {
-    fenced(&bulleted(&names[..names.len().min(PROMPT_NAMES)]))
 }
 
 /// Past this, a new quest waits until you finish one.
