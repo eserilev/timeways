@@ -142,7 +142,8 @@ pub enum Outcome {
     Open,
     /// The answer passed its checks, and the story used it.
     Accepted,
-    /// The answer broke a rule, or came for a character that is not active.
+    /// The answer broke a rule. An answer for a character that is not active ends
+    /// nothing: its call stays open.
     Refused,
     Failed,
 }
@@ -324,7 +325,7 @@ impl Database {
     /// # Errors
     ///
     /// Returns the error of SQLite.
-    pub fn read<T: DeserializeOwned>(
+    pub fn read_and_repair<T: DeserializeOwned>(
         &self,
         table: Table,
         accept: impl Fn(&T, usize) -> bool,

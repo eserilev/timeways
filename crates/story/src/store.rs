@@ -188,7 +188,7 @@ impl Store {
 }
 
 fn read_all(database: &Database, path: PathBuf) -> Result<Read, StoreError> {
-    let events: Vec<Event> = database.read(Table::Events, |event: &Event, n| {
+    let events: Vec<Event> = database.read_and_repair(Table::Events, |event: &Event, n| {
         event.id == EventId(n as u64)
     })?;
     let character = if events.is_empty() {
@@ -196,12 +196,15 @@ fn read_all(database: &Database, path: PathBuf) -> Result<Read, StoreError> {
     } else {
         Character::from_history(&events).ok_or(StoreError::Foreign { path })?
     };
-    let prose = Prose::from_rows(database.read(Table::Chapters, |_: &ChapterProse, _| true)?);
-    let flavor = FlavorLog::from_rows(database.read(Table::Flavor, |_: &FlavorLine, _| true)?);
-    let hero = HeroLog::from_rows(database.read(Table::Hero, |_, _| true)?);
-    let learned = LearnedLog::from_rows(database.read(Table::Learned, |_: &LearnedLine, _| true)?);
-    let quests = QuestLog::from_rows(database.read(Table::Quests, |_, _| true)?);
-    let stories = StoryLog::from_rows(database.read(Table::Stories, |_, _| true)?);
+    let prose =
+        Prose::from_rows(database.read_and_repair(Table::Chapters, |_: &ChapterProse, _| true)?);
+    let flavor =
+        FlavorLog::from_rows(database.read_and_repair(Table::Flavor, |_: &FlavorLine, _| true)?);
+    let hero = HeroLog::from_rows(database.read_and_repair(Table::Hero, |_, _| true)?);
+    let learned =
+        LearnedLog::from_rows(database.read_and_repair(Table::Learned, |_: &LearnedLine, _| true)?);
+    let quests = QuestLog::from_rows(database.read_and_repair(Table::Quests, |_, _| true)?);
+    let stories = StoryLog::from_rows(database.read_and_repair(Table::Stories, |_, _| true)?);
     database.drop_broken_links()?;
     Ok(Read {
         character,

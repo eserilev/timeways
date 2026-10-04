@@ -660,6 +660,7 @@ Timeways uses the transport of Gnomish Relay, with its own key and its own slots
   | `hero` | change of the story of the hero (3.7) |
   | `learned` | text that the player read, or rumor (3.1.1, 5.10) |
   | `quests` | change of a side quest (3.4) |
+  | `stories` | change of a player story (4.8) |
 
 - **The tables of proof** (5.14): `inputs` (the lines from the addon), `calls` (the model calls), and `reads` (what each call read).
 - **What all characters share** lives in `timeways.sqlite` in the data folder: the budget of the narrator (3.2) and the pace of the model (3.3). So a restart never lets the narrator speak 3 times at once. The file opens with the first `character_entered`, and a value that does not read comes back as its default. A file that does not open, such as a file of another version, never locks a character out: the values start from their defaults and stay in memory for the run. A failed save of a shared value goes to the log, and the next line tries it again.

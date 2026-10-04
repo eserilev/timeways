@@ -14,6 +14,9 @@ pub(super) struct Kept {
     kind: String,
     root: Root,
     body: String,
+    /// Every batch starts with `character_entered`, so only the one that founds the world
+    /// is kept.
+    only_to_found: bool,
 }
 
 impl Kept {
@@ -32,6 +35,7 @@ impl Kept {
             kind,
             root: input.root(),
             body: value.to_string(),
+            only_to_found: matches!(input, Input::CharacterEntered { .. }),
         }))
     }
 }
@@ -64,10 +68,8 @@ impl Active {
     /// Writes everything of the line in one transaction: the input, the calls, and the
     /// rows, each row with the line or the call that made it.
     pub(super) fn save(&mut self, kept: Option<Kept>) -> Result<(), StoreError> {
-        // Every batch starts with `character_entered`, so only the one that founds the
-        // world is kept.
         let founds = self.saved_events == 0;
-        let kept = kept.filter(|kept| kept.kind != "character_entered" || founds);
+        let kept = kept.filter(|kept| !kept.only_to_found || founds);
         let input = kept.map(|kept| NewInput {
             position: self.next.input,
             kind: kept.kind,

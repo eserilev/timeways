@@ -217,8 +217,8 @@ impl Story {
             }
         }
         if same && answer.trust_change != 0 {
-            // A refusal is not possible here, and a failed save keeps the events in
-            // memory for the next save, so the words need not wait for either.
+            // A refusal is not possible here. A failed save loses the change, because the
+            // character opens again from the disk, and the words still show.
             let _ = self.change(|character| {
                 let at = asked_at.max(character.world().tick);
                 character.adjust_trust(at, &npc, answer.trust_change)
