@@ -60,8 +60,11 @@ local function Text(parent, font, ink, top)
 	return text
 end
 
--- WoW can't write to the clipboard, so the box selects its whole line for Ctrl+C.
-local function CommandBox(parent, command, top)
+-- WoW can't write to the clipboard, so the box selects its whole line for Ctrl+C. An edit
+-- box keeps a typed "|" as "||", shows it as one "|", and copies it as one. A lone "|"
+-- starts an escape, so the box gets the line as if the player typed it.
+local function CommandBox(parent, line, top)
+	local command = line:gsub("|", "||")
 	local box = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
 	box:SetAutoFocus(false)
 	box:SetFontObject("ChatFontNormal")

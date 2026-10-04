@@ -689,6 +689,13 @@ function Widget:GetText()
 	return self.text
 end
 
+-- The text as the game draws it: "||" shows as one "|", and color codes show nothing. The
+-- game also takes this text for Ctrl+C, as a typed "|" is kept as "||" and copies as one.
+function Widget:GetDisplayText()
+	local text = (self.text or ""):gsub("||", "\1"):gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+	return (text:gsub("\1", "|"))
+end
+
 -- A line of the quest font is 14 high. A text wraps at the width of its font string, with
 -- letters as wide as GetStringWidth gives them, and each line break starts a line.
 local LINE_HEIGHT = 14

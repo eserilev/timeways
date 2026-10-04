@@ -78,7 +78,7 @@ fn texts(game: &Game) -> Vec<String> {
          end
          local out = {}
          for _, widget in ipairs(wow.widgets) do
-             if widget.text and InWindow(widget) then table.insert(out, widget.text) end
+             if widget.text and InWindow(widget) then table.insert(out, widget:GetDisplayText()) end
          end
          return out",
     )
@@ -238,6 +238,34 @@ fn a_click_on_an_install_line_selects_it_for_copying() {
     assert!(highlighted);
 }
 
+/// The text of each edit box of the window, as the method `get` gives it.
+fn boxes(game: &Game, get: &str) -> Vec<String> {
+    game.eval(&format!(
+        "local out = {{}}
+         for _, widget in ipairs(wow.widgets) do
+             if widget.kind == 'EditBox' then table.insert(out, widget:{get}()) end
+         end
+         return out"
+    ))
+}
+
+#[test]
+fn an_install_line_shows_and_copies_its_pipe_as_one_pipe() {
+    let game = game_with_no_key();
+
+    game.run("ns.Welcome.Open('setup')");
+
+    let windows: String = game.eval("ns.Welcome.COMMANDS.windows");
+    let unix: String = game.eval("ns.Welcome.COMMANDS.unix");
+    assert_eq!(boxes(&game, "GetDisplayText"), [windows, unix]);
+    for kept in boxes(&game, "GetText") {
+        assert!(
+            !kept.replace("||", "").contains('|'),
+            "a lone | in {kept:?}"
+        );
+    }
+}
+
 #[test]
 fn typing_in_an_install_line_puts_the_line_back() {
     let game = game_with_no_key();
@@ -247,7 +275,7 @@ fn typing_in_an_install_line_puts_the_line_back() {
         "local box = wow.EditBox()
          box:SetText('oops')
          box.scripts.OnTextChanged(box, true)
-         return box:GetText()",
+         return box:GetDisplayText()",
     );
 
     assert_eq!(text, game.eval::<String>("ns.Welcome.COMMANDS.windows"));
