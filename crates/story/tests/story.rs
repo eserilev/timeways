@@ -60,6 +60,7 @@ fn enter(story: &mut Story, at: u64, zone: &str, subzone: Option<&str>) {
         zone: zone.to_string(),
         subzone: subzone.map(str::to_string),
         spot: None,
+        hour: None,
     };
     assert_eq!(one(story.handle(input).unwrap()), None);
 }
@@ -1146,6 +1147,7 @@ fn a_moment_before_a_refusal_still_counts() {
         zone: "Westfall".to_string(),
         subzone: None,
         spot: None,
+        hour: None,
     };
     assert!(story.handle(zone).is_ok());
     let old_event = Input::LevelReached {

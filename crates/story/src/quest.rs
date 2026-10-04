@@ -61,6 +61,11 @@ pub enum Step {
     Visit {
         place: String,
     },
+    /// Be in the place at a time of day, in the local time of the player.
+    VisitAt {
+        place: String,
+        time: TimeOfDay,
+    },
     Meet {
         npc: String,
     },
@@ -121,7 +126,7 @@ impl Step {
     #[must_use]
     pub fn target(&self) -> Option<&str> {
         match self {
-            Step::Visit { place } => Some(place),
+            Step::Visit { place } | Step::VisitAt { place, .. } => Some(place),
             Step::Meet { npc }
             | Step::Talk { npc, .. }
             | Step::Carry { npc, .. }
@@ -137,6 +142,7 @@ impl Step {
     pub fn goal(&self) -> &'static str {
         match self {
             Step::Visit { .. } => "visit",
+            Step::VisitAt { .. } => "visit_at",
             Step::Meet { .. } => "meet",
             Step::Talk { .. } => "talk",
             Step::Kill { .. } => "kill",
@@ -156,7 +162,37 @@ impl Step {
             | Step::Carry { npc, .. }
             | Step::Slap { npc } => Some(npc),
             Step::Emote { npc, .. } => npc.as_deref(),
-            Step::Visit { .. } | Step::Kill { .. } | Step::Wait { .. } => None,
+            Step::Visit { .. } | Step::VisitAt { .. } | Step::Kill { .. } | Step::Wait { .. } => {
+                None
+            }
+        }
+    }
+}
+
+/// A time of day, in the local hours of the player. The code owns the hours, so each edge
+/// has a test, and each time is at least 3 hours long.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TimeOfDay {
+    /// 5:00 to 7:59.
+    Dawn,
+    /// 11:00 to 13:59.
+    Noon,
+    /// 18:00 to 20:59.
+    Dusk,
+    /// 21:00 to 4:59.
+    Night,
+}
+
+impl TimeOfDay {
+    /// Does the hour, from 0 to 23, fall in this time?
+    #[must_use]
+    pub fn holds_at(self, hour: u8) -> bool {
+        match self {
+            TimeOfDay::Dawn => (5..=7).contains(&hour),
+            TimeOfDay::Noon => (11..=13).contains(&hour),
+            TimeOfDay::Dusk => (18..=20).contains(&hour),
+            TimeOfDay::Night => (21..=23).contains(&hour) || hour <= 4,
         }
     }
 }

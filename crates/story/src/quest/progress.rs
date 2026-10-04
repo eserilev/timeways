@@ -9,6 +9,8 @@ pub struct Here<'a> {
     pub at: Tick,
     /// Where you stand: the subzone, then the zone.
     pub places: Vec<&'a str>,
+    /// The local hour of this line, when it carries one.
+    pub hour: Option<u8>,
 }
 
 /// What one line of the addon did, as far as a step can see it. It owns its names, because
@@ -64,6 +66,10 @@ impl Tracked {
     pub fn step_holds(&self, step: usize, here: &Here<'_>, met: &Encounter) -> bool {
         match self.steps.get(step) {
             Some(Step::Visit { place }) => here.places.contains(&place.as_str()),
+            Some(Step::VisitAt { place, time }) => {
+                here.places.contains(&place.as_str())
+                    && here.hour.is_some_and(|hour| time.holds_at(hour))
+            }
             Some(Step::Meet { npc }) => met.meets(npc),
             Some(Step::Talk { npc, .. }) => matches!(met, Encounter::Talk(name) if name == npc),
             Some(Step::Kill { count, .. }) => self.kills[step] >= *count,

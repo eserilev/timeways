@@ -8,7 +8,7 @@ use common::{Game, step_views};
 use hourglass::Tick;
 use timeways_story::input::{Input, MessageId};
 use timeways_story::journal::{Deed, Journal, pages};
-use timeways_story::quest::{AnyOrder, QuestView, Status, Step, StepState};
+use timeways_story::quest::{AnyOrder, QuestView, Status, Step, StepState, TimeOfDay};
 use timeways_story::story::Output;
 
 const DAY: u64 = 1_790_000_000;
@@ -781,4 +781,17 @@ fn a_quest_with_a_slap_says_the_npc_will_like_you_less() {
         .position(|line| line == "section: Rewards")
         .unwrap();
     assert_eq!(shown[rewards + 2], "text: Farmer Bram will like you less.");
+}
+
+#[test]
+fn a_time_step_names_its_hours() {
+    let night = Step::VisitAt {
+        place: "Old Mill".to_string(),
+        time: TimeOfDay::Night,
+    };
+
+    assert_eq!(
+        second_step_line(night),
+        "entry: Visit Old Mill at night (9 PM to 5 AM)."
+    );
 }

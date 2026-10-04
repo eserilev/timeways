@@ -5,8 +5,8 @@ use timeways_story::hero_hook::Hook;
 use timeways_story::quest::{
     AnyOrder, DAY_SECONDS, Encounter, Genre, Here, Known, MAX_CARRY, MAX_KILLS, MAX_OFFER_BYTES,
     MAX_TITLE_CHARS, MAX_TOPIC_CHARS, MAX_WAIT_DAYS, Quest, QuestChange, QuestFault, Status, Step,
-    checked_quest, goods_for, is_cruel_target, offer_line, prompt, quest_emotes, quest_log,
-    thing_name, title_of_thing,
+    TimeOfDay, checked_quest, goods_for, is_cruel_target, offer_line, prompt, quest_emotes,
+    quest_log, thing_name, title_of_thing,
 };
 use timeways_story::seen::{SeenText, TextKind};
 
@@ -1435,4 +1435,48 @@ fn the_prompt_offers_emotes_and_slaps_only_with_people_or_places() {
     assert!(full.contains(r#""goal": "slap""#), "{full}");
     assert!(!bare.contains(r#""goal": "emote""#), "{bare}");
     assert!(!bare.contains(r#""goal": "slap""#), "{bare}");
+}
+
+#[test]
+fn each_time_of_day_starts_and_ends_at_its_hours() {
+    let times = [
+        (TimeOfDay::Dawn, 5, 7),
+        (TimeOfDay::Noon, 11, 13),
+        (TimeOfDay::Dusk, 18, 20),
+    ];
+
+    for (time, first, last) in times {
+        assert!(!time.holds_at(first - 1), "{time:?}");
+        assert!(time.holds_at(first) && time.holds_at(last), "{time:?}");
+        assert!(!time.holds_at(last + 1), "{time:?}");
+    }
+}
+
+#[test]
+fn night_wraps_past_midnight() {
+    for hour in [21, 23, 0, 4] {
+        assert!(TimeOfDay::Night.holds_at(hour), "{hour}");
+    }
+    for hour in [5, 12, 20] {
+        assert!(!TimeOfDay::Night.holds_at(hour), "{hour}");
+    }
+}
+
+#[test]
+fn a_time_step_with_an_unknown_time_is_refused() {
+    let seen = [];
+    let step =
+        |time: &str| format!(r#"{{"goal": "visit_at", "place": "Old Tower", "time": "{time}"}}"#);
+
+    let night = checked_quest(&answer("Night Watch", &step("night")), &known(&seen));
+    let teatime = checked_quest(&answer("Night Watch", &step("teatime")), &known(&seen));
+
+    assert_eq!(
+        night.unwrap().steps[0],
+        Step::VisitAt {
+            place: "Old Tower".to_string(),
+            time: TimeOfDay::Night,
+        }
+    );
+    assert_eq!(teatime.unwrap_err(), QuestFault::NotJson);
 }

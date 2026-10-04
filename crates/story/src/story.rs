@@ -386,9 +386,10 @@ impl Story {
             Input::ModelAnswered { .. } | Input::ModelFailed { .. }
         );
         let met = quests::encounter(&input);
+        let hour = input.hour();
         let mut outputs = self.dispatch(input)?;
         if let Some(at) = at {
-            self.advance_quests(at, &met)?;
+            self.advance_quests(at, hour, &met)?;
         }
         // A question ends its batch, so a `/quest` of the batch gets no `batch_end`.
         if question && let Some(request) = self.quest_request.take() {
@@ -413,7 +414,10 @@ impl Story {
                 zone,
                 subzone,
                 spot,
-            } => self.enter_zone(at, &zone, subzone.as_deref(), spot),
+                hour,
+            } => self.enter_zone(at, &zone, subzone.as_deref(), spot, hour),
+            // An hour is no fact of the world. It only moves a step (`advance_quests`).
+            Input::HourChanged { hour, .. } => checked_hour(Some(hour)).map(|()| Vec::new()),
             Input::InstanceEntered { at, zone, kind } => self.mark_instance(at, &zone, kind),
             Input::NpcMet { at, name, spot } => self.meet_npc(at, &name, spot),
             Input::NpcSeen {
@@ -456,11 +460,9 @@ impl Story {
                 self.record_flavor(at, hour, Kind::Emote { emote, target })
             }
             // A count is no fact of the world. It only moves a step (`advance_quests`).
-            Input::ItemsHeld { npc, item, .. } => {
-                checked_name(&npc)?;
-                checked_name(&item)?;
-                Ok(Vec::new())
-            }
+            Input::ItemsHeld { npc, item, .. } => checked_name(&item)
+                .and(checked_name(&npc))
+                .map(|_| Vec::new()),
             Input::LevelReached { at, level } => {
                 self.change(|character| character.reach_level(at, level))
             }
@@ -507,7 +509,9 @@ impl Story {
         zone: &str,
         subzone: Option<&str>,
         spot: Option<Spot>,
+        hour: Option<u8>,
     ) -> Result<Vec<Output>, StoryError> {
+        checked_hour(hour)?;
         checked_name(zone)?;
         subzone.map(checked_name).transpose()?;
         self.change(|character| {
@@ -1034,7 +1038,7 @@ impl Story {
         checked_words(words)?;
         self.change(|character| character.meet_npc(at, npc))?;
         // The talk step is done before the prompt, so the NPC hears of the quest at once.
-        self.advance_quests(at, &Encounter::Talk(npc.to_string()))?;
+        self.advance_quests(at, None, &Encounter::Talk(npc.to_string()))?;
         let active = self.active.as_ref().ok_or(StoryError::NoCharacter)?;
         let character = &active.character;
         let quest_log = quest_log(active.quests.changes());

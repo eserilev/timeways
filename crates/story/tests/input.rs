@@ -17,6 +17,7 @@ fn a_zone_input_reads_with_its_subzone() {
         zone: "Elwynn Forest".to_string(),
         subzone: Some("Goldshire".to_string()),
         spot: None,
+        hour: None,
     };
     assert_eq!(input, expected);
 }
@@ -32,6 +33,7 @@ fn a_zone_input_reads_with_no_subzone() {
         zone: "Elwynn Forest".to_string(),
         subzone: None,
         spot: None,
+        hour: None,
     };
     assert_eq!(input, expected);
 }
@@ -423,4 +425,23 @@ fn an_item_count_reads_and_a_count_past_its_range_is_refused() {
     };
     assert_eq!(input, expected);
     assert!(parse(&huge).is_err());
+}
+
+#[test]
+fn an_hour_change_and_the_hour_of_a_zone_read() {
+    let changed = r#"{"type":"hour_changed","at":100,"hour":21}"#;
+    let zone = r#"{"type":"zone_entered","at":100,"zone":"Duskwood","hour":3}"#;
+
+    let changed = parse(changed).unwrap();
+    let zone = parse(zone).unwrap();
+
+    assert_eq!(
+        changed,
+        Input::HourChanged {
+            at: Tick(100),
+            hour: 21
+        }
+    );
+    assert_eq!(changed.hour(), Some(21));
+    assert_eq!(zone.hour(), Some(3));
 }

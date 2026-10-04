@@ -27,6 +27,15 @@ pub enum Input {
         subzone: Option<String>,
         #[serde(default, deserialize_with = "spot::lenient")]
         spot: Option<Spot>,
+        /// The local hour of the player, from 0 to 23.
+        #[serde(default)]
+        hour: Option<u8>,
+    },
+    /// The local hour changed while a time-of-day step is open (docs/plans/quest-variety.md
+    /// 4.5).
+    HourChanged {
+        at: Tick,
+        hour: u8,
     },
     /// The zone that just came is an instance. It follows its `ZoneEntered`.
     InstanceEntered {
@@ -290,6 +299,18 @@ impl Input {
         )
     }
 
+    /// The local hour of the player that the line carries, when it carries one.
+    #[must_use]
+    pub fn hour(&self) -> Option<u8> {
+        match self {
+            Input::ZoneEntered { hour, .. }
+            | Input::EmoteDone { hour, .. }
+            | Input::Died { hour, .. } => *hour,
+            Input::HourChanged { hour, .. } => Some(*hour),
+            _ => None,
+        }
+    }
+
     /// The time of a game event or a request of the player, from the clock of the addon.
     pub fn at_mut(&mut self) -> Option<&mut Tick> {
         match self {
@@ -318,6 +339,7 @@ impl Input {
             | Input::StoryRemoved { at, .. }
             | Input::EmoteDone { at, .. }
             | Input::ItemsHeld { at, .. }
+            | Input::HourChanged { at, .. }
             | Input::TextSeen { at, .. } => Some(at),
             Input::Hello
             | Input::CharacterEntered { .. }

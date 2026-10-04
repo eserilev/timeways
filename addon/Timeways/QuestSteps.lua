@@ -8,12 +8,14 @@ local QuestSteps = {}
 ns.QuestSteps = QuestSteps
 
 -- The goals that the addon watches itself, while their steps are open.
-local WATCHED = { kill = true, carry = true }
+local WATCHED = { kill = true, carry = true, visit_at = true }
 
 -- The creatures of the open kill steps, as a set.
 local hunted = {}
 -- The items of the open carry steps, by NPC.
 local carries = {}
+-- True while a time-of-day step is open.
+local watchesHour = false
 -- True while a watched step waits for a step before it.
 local watchedStepWaits = false
 -- A batch of events goes out about once a minute, so this asks at most once for each batch.
@@ -31,6 +33,9 @@ local function Watch(step)
 	if step.state == "open" and step.goal == "kill" and type(step.creature) == "string" then
 		hunted[step.creature] = true
 	end
+	if step.state == "open" and step.goal == "visit_at" then
+		watchesHour = true
+	end
 	if step.state == "open" and step.goal == "carry" and type(step.npc) == "string" and type(step.item) == "string" then
 		carries[step.npc] = carries[step.npc] or {}
 		table.insert(carries[step.npc], step.item)
@@ -39,7 +44,7 @@ end
 
 -- From each journal: the open steps that the addon watches, and whether one waits.
 function QuestSteps.Read(quests)
-	hunted, carries, watchedStepWaits = {}, {}, false
+	hunted, carries, watchesHour, watchedStepWaits = {}, {}, false, false
 	for _, quest in ipairs(type(quests) == "table" and quests or {}) do
 		if Accepted(quest) then
 			for _, step in ipairs(quest.steps) do
@@ -65,6 +70,24 @@ end
 -- True while a carry step is open, so the page shows the count of your bags.
 function QuestSteps.Carries()
 	return next(carries) ~= nil
+end
+
+-- True while a visit_at step is open, so a change of the hour goes out.
+function QuestSteps.WatchesHour()
+	return watchesHour
+end
+
+-- The hour at the last tick, to see it change.
+local lastHour
+
+-- Each minute: a change of the local hour goes out while a visit_at step is open, so a
+-- player who stands in the place as night falls gets the step.
+function QuestSteps.HourTick()
+	local hour = ns.Inputs.Hour()
+	if lastHour and hour ~= lastHour and watchesHour then
+		ns.Outbox.Add(ns.Inputs.HourChanged(time(), hour))
+	end
+	lastHour = hour
 end
 
 -- The reply `events_seen`: the desktop read a batch of events, so a step can be open now.

@@ -245,7 +245,12 @@ impl Story {
     /// Each open step that holds now is done, one at a time, while steps hold. So one line
     /// can do a step and the step after it. The last step finishes the quest. With no
     /// character, no quest moves.
-    pub(super) fn advance_quests(&mut self, at: Tick, met: &Encounter) -> Result<(), StoryError> {
+    pub(super) fn advance_quests(
+        &mut self,
+        at: Tick,
+        hour: Option<u8>,
+        met: &Encounter,
+    ) -> Result<(), StoryError> {
         loop {
             let Some(active) = self.active.as_mut() else {
                 return Ok(());
@@ -253,6 +258,7 @@ impl Story {
             let here = Here {
                 at,
                 places: active.character.place_names(),
+                hour,
             };
             let quests = quest_log(active.quests.changes());
             let Some((quest, step)) = holding_step(&quests, &here, met) else {

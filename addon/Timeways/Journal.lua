@@ -325,6 +325,14 @@ local function WaitText(step)
 	return text .. "."
 end
 
+-- The hours of each time of day, as the clock of the game shows them in English.
+local TIMES = {
+	dawn = "at dawn (5 AM to 8 AM)",
+	noon = "at noon (11 AM to 2 PM)",
+	dusk = "at dusk (6 PM to 9 PM)",
+	night = "at night (9 PM to 5 AM)",
+}
+
 -- The command that the player types, as WoW writes an emote objective.
 local function EmoteText(step)
 	local command = "Use /" .. ns.Plain(step.emote)
@@ -350,6 +358,9 @@ end
 local function StepText(step)
 	if step.goal == "visit" then
 		return "Visit " .. Name(step.place) .. "."
+	end
+	if step.goal == "visit_at" and TIMES[step.time] then
+		return "Visit " .. Name(step.place) .. " " .. TIMES[step.time] .. "."
 	end
 	if step.goal == "meet" then
 		return "Speak with " .. Name(step.npc) .. "."

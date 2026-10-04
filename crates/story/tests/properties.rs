@@ -361,6 +361,7 @@ fn input(play: &Play, at: Tick) -> Option<Input> {
             zone,
             subzone,
             spot,
+            hour: None,
         },
         Play::Meet(name, spot) => Input::NpcMet { at, name, spot },
         Play::Defeat(name) => Input::NpcDefeated { at, name },

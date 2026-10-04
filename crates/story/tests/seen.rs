@@ -131,6 +131,7 @@ fn text_that_you_read_comes_first_and_the_pack_fills_the_rest() {
             zone: "Elwynn Forest".to_string(),
             subzone: None,
             spot: None,
+            hour: None,
         })
         .unwrap();
     see(&mut story, "Guard Thomas", "Gnolls took the farm.");

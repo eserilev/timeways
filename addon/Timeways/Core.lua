@@ -104,6 +104,7 @@ frame:SetScript("OnEvent", function(_, event, ...)
 end)
 
 C_Timer.NewTicker(FLUSH_SECONDS, ns.Outbox.Flush)
+C_Timer.NewTicker(60, ns.QuestSteps.HourTick)
 
 hooksecurefunc(C_ChatInfo, "PerformEmote", ns.Emotes.Performed)
 

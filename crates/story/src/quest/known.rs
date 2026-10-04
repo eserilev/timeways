@@ -75,7 +75,7 @@ impl Known<'_> {
             return Some(QuestFault::LastTask(target.to_string()));
         }
         match step {
-            Step::Visit { place } => self.visit_fault(place),
+            Step::Visit { place } | Step::VisitAt { place, .. } => self.visit_fault(place),
             Step::Meet { npc } => self.person_fault(npc),
             Step::Talk { npc, about } => self.talk_fault(npc, about.as_deref()),
             Step::Kill { creature, count } => self.kill_fault(creature, *count),

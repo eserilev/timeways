@@ -202,6 +202,7 @@ fn story(name: &str) -> Story {
             zone: "Testvale".to_string(),
             subzone: Some("Mill Pond".to_string()),
             spot: None,
+            hour: None,
         },
         Input::NpcMet {
             at: Tick(2),

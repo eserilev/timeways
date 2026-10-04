@@ -64,6 +64,7 @@ fn zone(at: u64, subzone: &str) -> Input {
         zone: "Testvale".to_string(),
         subzone: Some(subzone.to_string()),
         spot: None,
+        hour: None,
     }
 }
 
@@ -791,6 +792,7 @@ fn the_prompt_lists_the_people_and_places_of_the_zone_of_the_giver_first() {
         zone: "Farvale".to_string(),
         subzone: Some("Far Farm".to_string()),
         spot: None,
+        hour: None,
     };
     story.handle(far).unwrap();
     story.handle(meet(11, "Farmer Fen")).unwrap();
@@ -1404,4 +1406,82 @@ fn a_slap_step_costs_trust_as_any_slap() {
         .unwrap();
     assert_eq!(bram.trust, Some(-SLAP_TRUST));
     assert_eq!(bram.slapped, Some(1));
+}
+
+/// An accepted quest of one step: be at Mill Pond at night. You stand in Old Tower.
+fn night_quest(name: &str) -> Story {
+    let step = r#"{"goal": "visit_at", "place": "Mill Pond", "time": "night"}"#;
+    one_step_quest(name, "mystery", step)
+}
+
+fn zone_at_hour(at: u64, subzone: &str, hour: Option<u8>) -> Input {
+    Input::ZoneEntered {
+        at: Tick(at),
+        zone: "Testvale".to_string(),
+        subzone: Some(subzone.to_string()),
+        spot: None,
+        hour,
+    }
+}
+
+#[test]
+fn a_zone_at_the_right_hour_does_a_time_step() {
+    let mut story = night_quest("night-zone");
+
+    story
+        .handle(zone_at_hour(7, "Mill Pond", Some(23)))
+        .unwrap();
+
+    assert_eq!(quests(&mut story)[0].status, Status::Done);
+}
+
+#[test]
+fn a_zone_at_the_wrong_hour_leaves_the_time_step_open() {
+    let mut story = night_quest("noon-zone");
+
+    story
+        .handle(zone_at_hour(7, "Mill Pond", Some(12)))
+        .unwrap();
+
+    assert_eq!(steps_done(&quests(&mut story)[0]), 0);
+}
+
+#[test]
+fn an_hour_change_while_you_stand_in_the_place_does_the_time_step() {
+    let mut story = night_quest("night-falls");
+    story
+        .handle(zone_at_hour(7, "Mill Pond", Some(20)))
+        .unwrap();
+
+    story
+        .handle(Input::HourChanged {
+            at: Tick(8),
+            hour: 21,
+        })
+        .unwrap();
+
+    assert_eq!(quests(&mut story)[0].status, Status::Done);
+}
+
+#[test]
+fn a_line_with_no_hour_never_does_a_time_step() {
+    let mut story = night_quest("no-hour");
+
+    story.handle(zone_at_hour(7, "Mill Pond", None)).unwrap();
+    story.handle(meet(8, "Farmer Bram")).unwrap();
+
+    assert_eq!(steps_done(&quests(&mut story)[0]), 0);
+}
+
+#[test]
+fn an_hour_past_twenty_three_is_refused() {
+    let mut story = story("hour-24");
+
+    let changed = story.handle(Input::HourChanged {
+        at: Tick(7),
+        hour: 24,
+    });
+    let zone = story.handle(zone_at_hour(8, "Mill Pond", Some(24)));
+
+    assert!(changed.is_err() && zone.is_err());
 }

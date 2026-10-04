@@ -31,13 +31,15 @@ local function Named(list, name)
 	end
 end
 
+-- The goals whose step names a place.
+local PLACE_GOALS = { visit = true, visit_at = true }
 -- The goals whose step names an NPC.
 local PERSON_GOALS = { meet = true, talk = true, carry = true, slap = true }
 
 -- A place can be a zone or a subzone. A step names it as the game does. An emote names
 -- an NPC or a place.
 local function StepSpot(journal, step)
-	if step.goal == "visit" or (step.goal == "emote" and type(step.place) == "string") then
+	if PLACE_GOALS[step.goal] or (step.goal == "emote" and type(step.place) == "string") then
 		return Spot(Named(journal.places, step.place))
 	end
 	if PERSON_GOALS[step.goal] or step.goal == "emote" then

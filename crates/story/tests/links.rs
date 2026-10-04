@@ -87,6 +87,7 @@ fn enter(story: &mut Story, at: u64, zone: &str, subzone: Option<&str>) {
             zone: zone.to_string(),
             subzone: subzone.map(str::to_string),
             spot: None,
+            hour: None,
         })
         .unwrap();
 }

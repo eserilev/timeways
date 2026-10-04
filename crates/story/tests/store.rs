@@ -49,6 +49,7 @@ fn enter(story: &mut Story, at: u64, zone: &str) {
         zone: zone.to_string(),
         subzone: None,
         spot: None,
+        hour: None,
     };
     one(story.handle(input).unwrap());
 }
@@ -313,6 +314,7 @@ fn a_refused_character_switch_leaves_no_character_active() {
         zone: "Westfall".to_string(),
         subzone: None,
         spot: None,
+        hour: None,
     });
 
     assert!(matches!(result, Err(StoryError::NoCharacter)));
@@ -334,6 +336,7 @@ fn a_failed_save_loses_its_line_and_the_next_line_saves() {
         zone: "Westfall".to_string(),
         subzone: None,
         spot: None,
+        hour: None,
     });
     other.execute_batch("ROLLBACK").unwrap();
     let after_the_failure = places(&mut story);
@@ -378,6 +381,7 @@ fn the_saga_survives_a_restart() {
             zone: zone.to_string(),
             subzone: subzone.map(str::to_string),
             spot: None,
+            hour: None,
         };
         first.handle(entered).unwrap();
         fail_each_call(&mut first, 90 + batch as u64);
@@ -425,6 +429,7 @@ fn flavor_moments_survive_a_restart_and_keep_counting_toward_a_title() {
             zone: "Elwynn Forest".to_string(),
             subzone: Some("Goldshire".to_string()),
             spot: None,
+            hour: None,
         })
         .unwrap();
     first.handle(dance(2)).unwrap();

@@ -12,6 +12,7 @@ use crate::talk::persona;
 const PROMPT_NAMES: usize = 20;
 
 const VISIT: &str = r#"{"goal": "visit", "place": "<a place above>"}: go there."#;
+const VISIT_AT: &str = r#"{"goal": "visit_at", "place": "<a place above>", "time": "<dawn, noon, dusk, or night>"}: be there at that time of day, in the player's own time."#;
 const MEET: &str = r#"{"goal": "meet", "npc": "<a person above>"}: speak with them."#;
 const SLAP: &str = r#"{"goal": "slap", "npc": "<a person above>"}: slap them. Only in a comic quest, and never you."#;
 const TALK: &str = r#"{"goal": "talk", "npc": "<a person above>", "about": "<a topic in a few words>"}: ask them about something with /talk. The topic is optional."#;
@@ -69,6 +70,7 @@ fn list(names: &[&str]) -> String {
 fn goals(places: &[&str], people: &[&str], prey: &[&str], goods: &[&str]) -> String {
     let goals = [
         (!places.is_empty(), VISIT.to_string()),
+        (!places.is_empty(), VISIT_AT.to_string()),
         (!people.is_empty(), MEET.to_string()),
         (!people.is_empty(), TALK.to_string()),
         (!places.is_empty() || !people.is_empty(), emote_goal()),

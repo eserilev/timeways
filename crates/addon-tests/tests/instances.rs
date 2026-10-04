@@ -27,6 +27,7 @@ fn zone(name: &str) -> Input {
         zone: name.to_string(),
         subzone: None,
         spot: None,
+        hour: Some(14),
     }
 }
 

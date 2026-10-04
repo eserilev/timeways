@@ -25,7 +25,19 @@ end
 
 -- `spot` is where the player stands, from `Position.Here`, or nil.
 function Inputs.Zone(at, zone, subzone, spot)
-	return { type = "zone_entered", at = at, zone = zone, subzone = Present(subzone), spot = spot }
+	return {
+		type = "zone_entered",
+		at = at,
+		zone = zone,
+		subzone = Present(subzone),
+		spot = spot,
+		hour = Inputs.Hour(),
+	}
+end
+
+-- The local hour changed while a time-of-day step is open.
+function Inputs.HourChanged(at, hour)
+	return { type = "hour_changed", at = at, hour = hour }
 end
 
 -- `kind` is "party" for a dungeon, or "raid".

@@ -14,6 +14,7 @@ fn zone(zone: &str, subzone: Option<&str>) -> Input {
         zone: zone.to_string(),
         subzone: subzone.map(str::to_string),
         spot: None,
+        hour: Some(14),
     }
 }
 

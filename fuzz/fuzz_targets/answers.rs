@@ -158,7 +158,9 @@ fn assert_step(step: &Step, before: &[Step]) {
     let after_wait = before.iter().any(|step| matches!(step, Step::Wait { .. }));
     let person = |npc: &str| npc == "Farmer Bram" || (after_wait && npc == "Keeper Tessa");
     match step {
-        Step::Visit { place } => assert!(["Testvale", "Old Tower"].contains(&place.as_str())),
+        Step::Visit { place } | Step::VisitAt { place, .. } => {
+            assert!(["Testvale", "Old Tower"].contains(&place.as_str()));
+        }
         Step::Meet { npc } => assert!(person(npc), "{npc}"),
         Step::Talk { npc, about } => {
             assert!(person(npc), "{npc}");
