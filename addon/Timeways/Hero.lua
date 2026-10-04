@@ -89,9 +89,9 @@ local function IsField(field)
 	return Hero.LIMITS[field] ~= nil
 end
 
--- The desktop refuses a control character, so a line break becomes a space.
+-- The desktop refuses a control character, so a pasted line break or tab becomes a space.
 local function Clean(text)
-	local flat = tostring(text or ""):gsub("%s*[\r\n]+%s*", " ")
+	local flat = tostring(text or ""):gsub("%s*%c[%c%s]*", " ")
 	return (flat:match("^%s*(.-)%s*$"))
 end
 

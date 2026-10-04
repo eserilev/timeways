@@ -222,6 +222,21 @@ fn enter_saves_the_text_and_a_line_break_becomes_a_space() {
 }
 
 #[test]
+fn a_pasted_tab_or_other_control_character_becomes_a_space() {
+    let game = open_book(FILLED);
+
+    click(&game, GOAL);
+    write(&game, "Avenge\\tmy\\abrother.");
+
+    let set = Input::HeroSet {
+        at: NOW,
+        field: "goal".to_string(),
+        text: "Avenge my brother.".to_string(),
+    };
+    assert_eq!(game.sent_inputs()[1], set);
+}
+
+#[test]
 fn the_editor_stops_at_the_limit_of_the_desktop_and_counts_the_letters() {
     let game = open_book(FILLED);
 
