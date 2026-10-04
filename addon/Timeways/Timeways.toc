@@ -39,6 +39,8 @@ Talk.lua
 Quest.lua
 Narrator.lua
 Hero.lua
+PartCollector.lua
+PeerAllowance.lua
 MspWire.lua
 MspParts.lua
 Trust.lua

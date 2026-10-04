@@ -22,6 +22,7 @@ thread_local! {
         for (name, source) in [
             ("Utf8.lua", include_str!("../../addon/Timeways/Utf8.lua")),
             ("TaskWire.lua", include_str!("../../addon/Timeways/TaskWire.lua")),
+            ("PartCollector.lua", include_str!("../../addon/Timeways/PartCollector.lua")),
             ("TaskChunks.lua", include_str!("../../addon/Timeways/TaskChunks.lua")),
         ] {
             lua.load(source).set_name(name).call::<()>(("Timeways", ns.clone())).unwrap();

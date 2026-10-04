@@ -9,9 +9,6 @@ ns.TaskChannel = TaskChannel
 
 TaskChannel.PREFIX = "Timeways"
 
--- A peer gets this many parts in a burst, and one more each few seconds.
-local PEER_BURST, PEER_SECONDS = 24, 2
-local MAX_PEERS = 64
 local MAX_WAITING = 100
 -- A whisper that found its player offline waits this long before it tries again, unless
 -- the player shows as online first. Each try puts an error in the chat.
@@ -36,8 +33,7 @@ local collectors = {
 	[ns.TaskWire.LOGGED] = ns.TaskChunks.NewCollector(),
 	[ns.TaskWire.UNLOGGED] = ns.TaskChunks.NewCollector(),
 }
-local allowance = {}
-local allowanceCount = 0
+local allowance = ns.PeerAllowance.New()
 
 -- The messages that wait, oldest first: { to, channel, log, parts, retryAt }. `parts` holds
 -- the parts that the game has not taken yet.
@@ -143,25 +139,6 @@ function TaskChannel.Waiting()
 	return #waiting
 end
 
--- True while the peer has parts left. A peer that floods loses its parts, and nobody else's.
-local function Allowed(sender, now)
-	local peer = allowance[sender]
-	if not peer then
-		if allowanceCount >= MAX_PEERS then
-			allowance, allowanceCount = {}, 0
-		end
-		peer = { parts = PEER_BURST, at = now }
-		allowance[sender], allowanceCount = peer, allowanceCount + 1
-	end
-	peer.parts = math.min(PEER_BURST, peer.parts + (now - peer.at) / PEER_SECONDS)
-	peer.at = now
-	if peer.parts < 1 then
-		return false
-	end
-	peer.parts = peer.parts - 1
-	return true
-end
-
 -- `log` is the channel that the part came on. The rest is the payload of CHAT_MSG_ADDON. The
 -- game names the sender, so the sender is known.
 function TaskChannel.Received(log, prefix, text, channel, sender)
@@ -170,7 +147,7 @@ function TaskChannel.Received(log, prefix, text, channel, sender)
 	end
 	sender = ns.TaskPeople.Full(sender)
 	local now = GetTime()
-	if not sender or sender == ns.TaskPeople.Me() or not Allowed(sender, now) then
+	if not sender or sender == ns.TaskPeople.Me() or not ns.PeerAllowance.Take(allowance, sender, now) then
 		return
 	end
 	ns.TaskPeople.Heard(sender)

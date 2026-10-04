@@ -13,9 +13,6 @@ local OWN_BURST, OWN_SECONDS = 4, 2
 -- The limits of LibMSP: a field is asked again only after 30 seconds, a player who never
 -- answered only after 300, and the same request again within 5 seconds gets no answer.
 local ASK_SECONDS, PROBE_SECONDS, REPEAT_SECONDS = 30, 300, 5
--- A sender gets this many parts in a burst, and one more each few seconds.
-local PEER_BURST, PEER_SECONDS = 24, 2
-local MAX_PEERS = 64
 local MAX_PLAYERS = 200
 local MAX_WAITING = 50
 -- The longest name or title that the tooltip shows.
@@ -29,7 +26,7 @@ local KEPT = { NA = true, NT = true, CU = true, DE = true, AG = true, MO = true,
 local own, ownAt = OWN_BURST, nil
 local session = math.random(0, 4095)
 local collector = ns.MspParts.NewCollector()
-local allowance, allowanceCount = {}, 0
+local allowance = ns.PeerAllowance.New()
 -- The messages that wait: { to, logged, parts }.
 local waiting = {}
 -- What other players shared, in memory only: { fields, versions, asked, answered, probedAt }.
@@ -186,24 +183,6 @@ local function Keep(player, command, logged)
 	end
 end
 
-local function Allowed(sender, now)
-	local peer = allowance[sender]
-	if not peer then
-		if allowanceCount >= MAX_PEERS then
-			allowance, allowanceCount = {}, 0
-		end
-		peer = { parts = PEER_BURST, at = now }
-		allowance[sender], allowanceCount = peer, allowanceCount + 1
-	end
-	peer.parts = math.min(PEER_BURST, peer.parts + (now - peer.at) / PEER_SECONDS)
-	peer.at = now
-	if peer.parts < 1 then
-		return false
-	end
-	peer.parts = peer.parts - 1
-	return true
-end
-
 local function Handle(sender, message, logged, now)
 	local player = Player(sender, now)
 	local requests = {}
@@ -224,7 +203,7 @@ function Msp.Received(prefix, text, sender, logged)
 	end
 	sender = ns.TaskPeople.Full(sender)
 	local now = GetTime()
-	if not sender or sender == ns.TaskPeople.Me() or not Allowed(sender, now) then
+	if not sender or sender == ns.TaskPeople.Me() or not ns.PeerAllowance.Take(allowance, sender, now) then
 		return
 	end
 	local whole, allLogged = ns.MspParts.Add(collector, sender, text, logged, now)

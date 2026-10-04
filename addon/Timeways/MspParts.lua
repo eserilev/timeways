@@ -18,12 +18,6 @@ local ACCEPTED_FLAGS = 0x02A
 local SESSIONS = 4096
 MspParts.MAX_PARTS = 64
 
--- A sender with more open messages than this loses its oldest one.
-local OPEN_PER_SENDER = 4
-local MAX_SENDERS = 32
--- The parts of one message come within seconds. A part older than this is dropped.
-local EXPIRE_SECONDS = 60
-
 local ESCAPE = 126 -- "~"
 
 -- The length of a piece that ends before `last` and splits no escape "~XX" and no letter of
@@ -88,92 +82,16 @@ local function Header(part)
 	return session, number, count, text
 end
 
-function MspParts.NewCollector()
-	return { senders = {} }
-end
-
-local function ForgetOld(open, now)
-	for session, message in pairs(open) do
-		if now - message.started > EXPIRE_SECONDS then
-			open[session] = nil
-		end
-	end
-end
-
-local function CountOf(map)
-	local count = 0
-	for _ in pairs(map) do
-		count = count + 1
-	end
-	return count
-end
-
--- The open messages of a sender, or nil when too many senders have open messages.
-local function OpenOf(collector, sender, now)
-	if collector.senders[sender] then
-		return collector.senders[sender]
-	end
-	for name, open in pairs(collector.senders) do
-		ForgetOld(open, now)
-		if next(open) == nil then
-			collector.senders[name] = nil
-		end
-	end
-	if CountOf(collector.senders) >= MAX_SENDERS then
-		return nil
-	end
-	collector.senders[sender] = {}
-	return collector.senders[sender]
-end
-
-local function DropOldest(open)
-	local oldest
-	for session, message in pairs(open) do
-		if not oldest or message.started < open[oldest].started then
-			oldest = session
-		end
-	end
-	open[oldest] = nil
-end
-
-local function Started(open, session, count, now)
-	if open[session] and open[session].count == count then
-		return open[session]
-	end
-	open[session] = nil
-	if CountOf(open) >= OPEN_PER_SENDER then
-		DropOldest(open)
-	end
-	open[session] = { count = count, parts = {}, got = 0, started = now, logged = true }
-	return open[session]
-end
-
-local function Joined(message)
-	local pieces = {}
-	for n = 1, message.count do
-		pieces[n] = message.parts[n]
-	end
-	return table.concat(pieces)
-end
+MspParts.NewCollector = ns.PartCollector.New
 
 -- Returns the whole text once its last part came, and whether every part came logged.
 -- A logged part is decoded here, because Chomp escapes it part by part.
 function MspParts.Add(collector, sender, part, logged, now)
 	local session, number, count, text = Header(part)
-	local open = session and OpenOf(collector, sender, now)
-	if not open then
+	if not session then
 		return nil
 	end
-	ForgetOld(open, now)
-	local message = Started(open, session, count, now)
-	if not message.parts[number] then
-		message.parts[number] = logged and ns.MspWire.Unescape(text) or text
-		message.got = message.got + 1
-		message.logged = message.logged and logged
-	end
-	if message.got < message.count then
-		return nil
-	end
-	open[session] = nil
-	return Joined(message), message.logged
+	text = logged and ns.MspWire.Unescape(text) or text
+	local piece = { id = session, number = number, count = count, text = text, logged = logged }
+	return ns.PartCollector.Add(collector, sender, piece, now)
 end
