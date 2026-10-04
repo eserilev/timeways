@@ -26,12 +26,12 @@ fn story(name: &str) -> Story {
 }
 
 /// The story program with an empty pack and this store, and the character of the tests.
-fn opened(name: &str, store: Store) -> Story {
+fn opened(name: &str, files: Store) -> Story {
     let path = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("quests-{name}.sqlite"));
     if !path.exists() {
         Pack::write(&path, &[]).unwrap();
     }
-    let mut story = Story::new(Pack::open(&path).unwrap(), store);
+    let mut story = Story::new(Pack::open(&path).unwrap(), files);
     let entered = Input::CharacterEntered {
         realm: "Testrealm".to_string(),
         name: "Tester".to_string(),
@@ -42,10 +42,10 @@ fn opened(name: &str, store: Store) -> Story {
 
 /// A world where you visited Mill Pond and Old Tower, met Farmer Bram and the giver, and
 /// stand in Old Tower.
-fn story_in(name: &str, store: Store) -> Story {
+fn story_in(name: &str, files: Store) -> Story {
     let path = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("quests-{name}.sqlite"));
     let _ = std::fs::remove_file(&path);
-    let mut story = opened(name, store);
+    let mut story = opened(name, files);
     let inputs = [
         zone(1, "Mill Pond"),
         meet(2, "Farmer Bram"),
