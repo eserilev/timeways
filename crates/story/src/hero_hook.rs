@@ -3,9 +3,9 @@
 
 use crate::hero::{Field, Hero, cut};
 use crate::house::fenced;
+use timeways_rules::hero_hook::pick;
 
-/// A hook applies to one call in this many.
-pub const HOOK_EVERY: u64 = 3;
+pub use timeways_rules::hero_hook::{HOOK_EVERY, applies};
 
 /// The fields that say what the hero wants and is now. The past stays with the narrator.
 pub const HOOK_FIELDS: [&str; 4] = ["goal", "bond", "flaw", "traits"];
@@ -23,23 +23,12 @@ pub struct Hook<'a> {
     pub text: &'a str,
 }
 
-/// `count` is the number of talk and quest calls of the character before this one. The
-/// third, sixth, and ninth call get a hook.
-#[must_use]
-pub fn applies(count: u64) -> bool {
-    count % HOOK_EVERY == HOOK_EVERY - 1
-}
-
-/// Each hook call takes the next filled field, and starts again after the last one.
+/// Each hook call takes the next filled field, and starts again after the last one. Lean
+/// proves the pick (lean/README.md).
 #[must_use]
 pub fn hook(hero: &Hero, count: u64) -> Option<Hook<'_>> {
-    if !applies(count) {
-        return None;
-    }
     let filled = filled(hero);
-    let len = u64::try_from(filled.len()).ok().filter(|len| *len > 0)?;
-    let pick = usize::try_from((count / HOOK_EVERY) % len).ok()?;
-    let field = filled.get(pick)?;
+    let field = filled.get(pick(filled.len(), count)?)?;
     Some(Hook {
         field: &field.field,
         text: cut(&field.text),

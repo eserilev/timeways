@@ -6,7 +6,7 @@ use crate::spot::{self, Spot};
 use crate::vocabulary::{
     self, ANIMAL, CLASS_QUEST, DEAD, DEATHS, DEFEATED, DUNGEON, GAME_QUEST_DONE, GAME_QUEST_TAKEN,
     HOSTILE, LEVEL, MAP_X, MAP_Y, MARK_OF, MARKED_BY, MET, ON_MAP, QUEST_ACCEPTED, QUEST_DONE,
-    QUEST_OFFERED, RAID, SEEN, SLAPPED, TALLY, TITLE, TRUST, TRUSTS, VISITED,
+    QUEST_OFFERED, RAID, SEEN, SLAPPED, TALLY, TITLE, TRUSTS, VISITED,
 };
 use hourglass::{
     Entity, EntityId, EntityType, Event, EventHistory, EventId, EventKind, Fact, LOCATED_IN,
@@ -942,11 +942,8 @@ fn is_animal(creature: &str) -> bool {
     matches!(creature, "beast" | "critter")
 }
 
-/// The trust after a change of `by`, inside the band. An NPC with no trust yet starts at 0.
-#[must_use]
-pub fn next_trust(held: Option<i64>, by: i64) -> i64 {
-    TRUST.clamp(held.unwrap_or(0).saturating_add(by))
-}
+/// Lean proves it (lean/README.md).
+pub use timeways_rules::trust::next_trust;
 
 const GAME_QUEST_PREFIX: &str = "game quest: ";
 

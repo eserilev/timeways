@@ -33,6 +33,63 @@ def core.option.Option.Insts.CoreCloneClone {T : Type} (cloneCloneInst :
   clone := core.option.Option.Insts.CoreCloneClone.clone cloneCloneInst
 }
 
+/-- [timeways_rules::budget::HOUR]
+    Source: 'crates/rules/src/budget.rs', lines 5:0-5:23 -/
+@[global_simps, irreducible] def budget.HOUR : Std.U64 := 3600#u64
+
+/-- [timeways_rules::budget::{timeways_rules::budget::Budget}::take]:
+    Source: 'crates/rules/src/budget.rs', lines 17:4-30:5
+    Visibility: public -/
+def budget.Budget.take
+  (self : budget.Budget) («at» : Std.U64) :
+  Result (Bool × budget.Budget)
+  := do
+  let oldest ← Array.index_usize self.spoken 0#usize
+  let too_soon ←
+    match oldest with
+    | none => ok false
+    | some oldest1 =>
+      do
+      let i ← lift (core.num.U64.saturating_sub «at» oldest1)
+      ok (i < budget.HOUR)
+  if too_soon
+  then ok (false, self)
+  else
+    let o ← Array.index_usize self.spoken 1#usize
+    let o1 ← Array.index_usize self.spoken 2#usize
+    ok (true, { spoken := (Array.make 3#usize [ o, o1, some «at» ]) })
+
+/-- [timeways_rules::hero_hook::HOOK_EVERY]
+    Source: 'crates/rules/src/hero_hook.rs', lines 4:0-4:30
+    Visibility: public -/
+@[global_simps, irreducible] def hero_hook.HOOK_EVERY : Std.U64 := 3#u64
+
+/-- [timeways_rules::hero_hook::applies]:
+    Source: 'crates/rules/src/hero_hook.rs', lines 10:0-12:1
+    Visibility: public -/
+def hero_hook.applies (count : Std.U64) : Result Bool := do
+  let i ← count % hero_hook.HOOK_EVERY
+  let i1 ← hero_hook.HOOK_EVERY - 1#u64
+  ok (i = i1)
+
+/-- [timeways_rules::hero_hook::pick]:
+    Source: 'crates/rules/src/hero_hook.rs', lines 18:0-29:1
+    Visibility: public -/
+def hero_hook.pick
+  (filled : Std.Usize) (count : Std.U64) : Result (Option Std.Usize) := do
+  let b ← hero_hook.applies count
+  if b
+  then
+    if filled = 0#usize
+    then ok none
+    else
+      let turn ← count / hero_hook.HOOK_EVERY
+      let i ← lift (UScalar.cast .U64 filled)
+      let i1 ← turn % i
+      let index ← lift (UScalar.cast .Usize i1)
+      ok (some index)
+  else ok none
+
 /-- [timeways_rules::quest_log::DAY_SECONDS]
     Source: 'crates/rules/src/quest_log.rs', lines 6:0-6:39
     Visibility: public -/
@@ -697,5 +754,24 @@ def quest_log.quest_log
   Result (alloc.vec.Vec quest_log.Quest)
   := do
   quest_log.quest_log_loop changes (alloc.vec.Vec.new quest_log.Quest) 0#usize
+
+/-- [timeways_rules::trust::MIN_TRUST]
+    Source: 'crates/rules/src/trust.rs', lines 4:0-4:32
+    Visibility: public -/
+@[global_simps, irreducible] def trust.MIN_TRUST : Std.I64 := (-100)#i64
+
+/-- [timeways_rules::trust::MAX_TRUST]
+    Source: 'crates/rules/src/trust.rs', lines 5:0-5:31
+    Visibility: public -/
+@[global_simps, irreducible] def trust.MAX_TRUST : Std.I64 := 100#i64
+
+/-- [timeways_rules::trust::next_trust]:
+    Source: 'crates/rules/src/trust.rs', lines 10:0-14:1
+    Visibility: public -/
+def trust.next_trust
+  (held : Option Std.I64) («by» : Std.I64) : Result Std.I64 := do
+  let i ← lift (core.option.Option.unwrap_or held 0#i64)
+  let i1 ← lift (core.num.I64.saturating_add i «by»)
+  core.cmp.impls.OrdI64.clamp i1 trust.MIN_TRUST trust.MAX_TRUST
 
 end timeways_rules

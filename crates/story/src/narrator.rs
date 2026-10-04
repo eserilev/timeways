@@ -9,15 +9,13 @@ use crate::samples::{self, Voice};
 use hourglass::Tick;
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
+use timeways_rules::budget::{self as rules, LINES_PER_HOUR};
 
 /// About 50 words. The prompt asks for 25.
 pub const MAX_LINE_CHARS: usize = 300;
 
 /// The limit of the bridge for a narrator line (Gnomish Relay SPEC.md 9.8).
 pub const MAX_LINE_BYTES: usize = 1000;
-
-const LINES_PER_HOUR: usize = 3;
-const HOUR: u64 = 3600;
 
 /// The persona of the narrator: its manner only, never lore (GAMEPLAY.md 3.2.1). The
 /// chronicle shares it, and an NPC never gets it.
@@ -33,23 +31,23 @@ Name the place, foe, or number of the moment plainly. Add nothing that the momen
 not hold.
 Answer with the line only.";
 
-/// Counts the lines of the last hour of game time, so the narrator talks little.
+/// Counts the lines of the last hour of game time, so the narrator talks little. The rule
+/// lives in timeways-rules, where Lean proves it (lean/README.md).
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Budget {
-    /// The times of the last lines, oldest first. No heap, so Kani proves the budget fast.
+    /// The times of the last lines, oldest first.
     spoken: [Option<Tick>; LINES_PER_HOUR],
 }
 
 impl Budget {
     /// True when the narrator has a line left at `at`. That line then counts.
     pub fn take(&mut self, at: Tick) -> bool {
-        let oldest = self.spoken[0];
-        if oldest.is_some_and(|first| at.0.saturating_sub(first.0) < HOUR) {
-            return false;
-        }
-        self.spoken.rotate_left(1);
-        self.spoken[LINES_PER_HOUR - 1] = Some(at);
-        true
+        let mut rules = rules::Budget {
+            spoken: self.spoken.map(|line| line.map(|line| line.0)),
+        };
+        let taken = rules.take(at.0);
+        self.spoken = rules.spoken.map(|line| line.map(Tick));
+        taken
     }
 }
 

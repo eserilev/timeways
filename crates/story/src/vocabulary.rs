@@ -50,8 +50,8 @@ pub const MAP_Y: &str = "map_y";
 
 /// The band of `trusts`. Public, because a change of trust stops at its ends.
 pub const TRUST: Band = Band {
-    min: -100,
-    max: 100,
+    min: timeways_rules::trust::MIN_TRUST,
+    max: timeways_rules::trust::MAX_TRUST,
 };
 /// The levels of the game.
 pub const LEVELS: Band = Band { min: 1, max: 60 };
