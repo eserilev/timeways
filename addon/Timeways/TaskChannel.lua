@@ -8,8 +8,6 @@ ns.TaskChannel = TaskChannel
 
 TaskChannel.PREFIX = "Timeways"
 
--- The game drops addon messages past about 10 in a burst and 1 each second after it.
-local BURST, PER_SECOND = 8, 1
 -- A peer gets this many parts in a burst, and one more each few seconds.
 local PEER_BURST, PEER_SECONDS = 24, 2
 local MAX_PEERS = 64
@@ -30,7 +28,6 @@ local PERMANENT = {
 	[RESULT.NotInGuild] = true,
 }
 
-local tokens, filled = BURST, nil
 -- A random start: after a reload, a counter from 1 joins old parts of a peer to new ones.
 local number = math.random(0, 9998)
 local collector = ns.TaskChunks.NewCollector()
@@ -42,12 +39,6 @@ local allowanceCount = 0
 local waiting = {}
 
 C_ChatInfo.RegisterAddonMessagePrefix(TaskChannel.PREFIX)
-
-local function Refill(now)
-	filled = filled or now
-	tokens = math.min(BURST, tokens + (now - filled) * PER_SECOND)
-	filled = now
-end
 
 local function Ready(entry, now)
 	if entry.channel ~= "WHISPER" then
@@ -66,7 +57,7 @@ end
 -- Sends the parts while the rate limit allows. Returns "sent", "wait", or "drop".
 local function SendParts(entry, now)
 	local target = entry.channel == "WHISPER" and entry.to or nil
-	while #entry.parts > 0 and tokens >= 1 do
+	while #entry.parts > 0 and ns.AddonBudget.Has() do
 		local result = C_ChatInfo.SendAddonMessage(TaskChannel.PREFIX, entry.parts[1], entry.channel, target)
 		if PERMANENT[result] then
 			return "drop"
@@ -79,14 +70,13 @@ local function SendParts(entry, now)
 			return "wait"
 		end
 		table.remove(entry.parts, 1)
-		tokens = tokens - 1
+		ns.AddonBudget.Spend()
 	end
 	return #entry.parts == 0 and "sent" or "wait"
 end
 
 function TaskChannel.Flush()
 	local now = GetTime()
-	Refill(now)
 	local kept = {}
 	for _, entry in ipairs(waiting) do
 		local outcome = Ready(entry, now) and SendParts(entry, now) or "wait"

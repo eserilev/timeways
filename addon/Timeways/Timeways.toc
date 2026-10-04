@@ -47,6 +47,7 @@ TaskPeople.lua
 TaskSaved.lua
 TaskStore.lua
 TaskProof.lua
+AddonBudget.lua
 TaskChannel.lua
 PlayerTasks.lua
 PlayerStories.lua
