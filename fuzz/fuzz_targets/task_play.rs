@@ -1,8 +1,8 @@
 //! Random play of player tasks and stories through the real addon (GAMEPLAY.md 4.7 and
 //! 4.8): addon messages of peers on both addon channels, the answers of the player, trades,
-//! and random saved files at the start. No Lua error comes of it, each addon message fits in
-//! 255 bytes, no line of a page holds a `|`, which starts a WoW escape, and no type with
-//! text of a player gets in on the normal channel.
+//! stories that the player tells, and random saved files at the start. No Lua error comes
+//! of it, each addon message fits in 255 bytes, no line of a page holds a `|`, which starts
+//! a WoW escape, and no type with text of a player gets in on the normal channel.
 
 #![no_main]
 
@@ -111,14 +111,43 @@ enum Action {
         which: u8,
         index: u8,
     },
+    /// Corvin targets Ada and types `/story` with these words.
+    Tell(String),
     Party(bool),
     Tick,
+}
+
+/// A story in the saved file that Corvin told Ada, with any value as its time.
+#[derive(Arbitrary, Debug)]
+struct ToldStory {
+    id: String,
+    text: String,
+    at: Saved,
 }
 
 #[derive(Arbitrary, Debug)]
 struct Play {
     saved: Option<Saved>,
+    told: Vec<ToldStory>,
     actions: Vec<Action>,
+}
+
+fn told_stories(told: &[ToldStory]) -> String {
+    let stories: Vec<String> = told
+        .iter()
+        .map(|story| {
+            format!(
+                "[{:?}] = {{ to = 'Ada-Stormrage', text = {:?}, at = {} }}",
+                story.id,
+                story.text,
+                story.at.lua(1)
+            )
+        })
+        .collect();
+    format!(
+        "TimewaysStories = {{ told = {{ {} }} }}",
+        stories.join(", ")
+    )
 }
 
 fn escape(field: &str) -> String {
@@ -210,6 +239,15 @@ fn act(corvin: &players::Player, action: &Action) {
                  if #waiting > 0 then ns.PlayerStories.{answer}({index} % #waiting + 1) end"
             ));
         }
+        Action::Tell(words) => {
+            let tell: mlua::Function = corvin.eval(
+                "return function(words)
+                     wow.units.target = { name = 'Ada', player = true, guid = 'Player-1-Ada' }
+                     wow.Slash('/story', words)
+                 end",
+            );
+            tell.call::<()>(words.as_str()).unwrap();
+        }
         Action::Party(on) => {
             corvin.run(if *on {
                 "wow.units.party1 = { name = 'Ada', player = true, guid = 'Player-1-Ada' }"
@@ -249,6 +287,9 @@ fuzz_target!(|play: Play| {
     if let Some(saved) = &play.saved {
         corvin.run(&format!("TimewaysTasks = {}", saved.lua(0)));
         corvin.run(&format!("TimewaysStories = {}", saved.lua(0)));
+    }
+    if !play.told.is_empty() {
+        corvin.run(&told_stories(&play.told));
     }
     for action in play.actions.iter().take(64) {
         act(&corvin, action);
