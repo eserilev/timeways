@@ -1,6 +1,6 @@
 # Plan: Timeways online
 
-Status: draft 1, 2026-10-03. The user decided the scope and the three features. Draft 2 takes in the account decision of the user: Battle.net login from the first version (section 5). It also adds voice examples from real NPC lines (section 22). Nothing is built. When a part is built, its rules move into `GAMEPLAY.md` (section 21 of this plan), and this plan marks the part as done.
+Status: draft 1, 2026-10-03. The user decided the scope and the three features. Draft 2 takes in the account decision of the user: Battle.net login from the first version (section 5). It also adds voice examples from real NPC lines (section 22), and Share a chapter (section 23). Nothing is built. When a part is built, its rules move into `GAMEPLAY.md` (section 21 of this plan), and this plan marks the part as done.
 
 This plan builds on these plans and does not repeat them:
 
@@ -19,6 +19,8 @@ Timeways online is a website, an API, and a database that we host. Players share
 3. **Votes on AI text.** A thumbs up or down on a narrator line, a quest offer, or a talk answer. The vote carries the line, never a player name and never typed words. The best lines become candidates for the golden samples. The worst show weak prompts. A player can also report a lore problem in a `/lore` answer.
 
 The pooled text also gives **voice examples**: real lines in the voice of an NPC for the talk prompt (section 22). Most of them come from your own reading, with no pool.
+
+A player can also **share a chapter** of their chronicle: as a page on their computer, or as a public link (section 23).
 
 The same "several independent reports" rule also pools **world facts**: the title and the faction of an NPC, where it stands, and the continent of a zone. `npc-knowledge.md` needs these in a hand-written `zones.toml` today.
 
@@ -367,6 +369,7 @@ Send this list to the Gnomish Relay session. Per the project rule, tell it again
 10. `status` gets one line: "Timeways online: off", "Timeways online: on, not linked", or "Timeways online: linked to Ada#1234 (last sync 2 hours ago)".
 11. A local log: each call that left the computer, with its op, its time, and its size, in `<data>/timeways/online.log`, the newest 1,000 lines. `gnomish-relay online log` prints it. So a player sees what left the computer.
 12. A fuzz target `online_http` for the parse of the answer, the manifest, and each answer of the device flow.
+13. The lines, the page folder, the shot pick, `timeways-page`, and the upload of a shared chapter (23.6).
 
 ### 6.8 Sandbox impact
 
@@ -776,6 +779,8 @@ A confirmed contribution is a text or a fact that joined the library with the re
 
 PostgreSQL. Every id is a `bigint` from a sequence, except the hash ids. Each table has `created_at`. A newtype in Rust wraps each id: `ContributorId`, `LinkId`, `CharacterId`, `QuestId`, and the rest.
 
+Section 23.10 adds `shares` and `share_images`.
+
 **People and access**
 
 | Table | Columns | Note |
@@ -831,7 +836,7 @@ PostgreSQL. Every id is a `bigint` from a sequence, except the hash ids. Each ta
 
 ## 14. The API
 
-JSON, under `/v1/`. "Token" is the access token of a linked computer (5.2). "Session" is the cookie of the website (5.1). "None" is a public call. Errors are `{"error": "<code>", "message": "<a line for a person>"}`.
+Section 23.10 adds the endpoints of a shared chapter. JSON, under `/v1/`. "Token" is the access token of a linked computer (5.2). "Session" is the cookie of the website (5.1). "None" is a public call. Errors are `{"error": "<code>", "message": "<a line for a person>"}`.
 
 | Method and path | Auth | Does |
 |---|---|---|
@@ -1116,7 +1121,9 @@ Each step is one commit with its tests, and each one ships. The first version is
 15. **Characters from the game**, the fallback of 5.3, when the Profile API does not cover Forever.
 16. **Voice lines from your own reading** (section 22, sources 1, 2, and 4). It needs nothing online, so it can come before step 1, after the kinds of npc-knowledge.md and the conversation of talk-window.md. `voice_lines.rs`, the block, the copy check, the reads, and the budget tests.
 17. **Pooled voice lines** (section 22, source 3), after step 14. The `pooled:<hash>` address of the reads.
-18. **`GAMEPLAY.md`.** The text of section 21. This plan marks the steps as done.
+18. **Share a chapter, the local page** (23.13, 18a). It needs nothing online, so it can come before step 1.
+19. **Share a chapter, the public link** (23.13, 18b), after step 6 and the verified characters of 5.3.
+20. **`GAMEPLAY.md`.** The text of section 21. This plan marks the steps as done.
 
 ## 19. Tests
 
@@ -1346,6 +1353,10 @@ In 3.5, add:
 
 > - **Voice examples.** The talk prompt gets 2 or 3 real lines in the voice of the NPC, in place of the golden samples: first its own gossip and quest text that you read, then lines that you read of NPCs of the same kind, then lines of the shared game text (4.9) that pass your spoiler limit. A line is the start of a text of at most 1000 characters, cut at a sentence end within 200 characters, with "you" in place of `$N`. A book or a rumor is never a voice line. A line of another NPC never names a zone that this NPC does not know. With fewer than 2 lines, the golden samples stay. The NPC copies the manner, never the facts: an answer that repeats 8 words in a row of a voice line is refused.
 
+In 3.3, add:
+
+> - **Share a chapter.** "Share" on a chapter of the Chronicle tab makes a page of it: the saga, the footnotes, what happened, a plain map of where it happened, and the screenshots that you pick. The desktop app finds the screenshots that WoW saved during the chapter, and skips every screenshot of a strip. Other players show by their card unless you keep their name on purpose. "Save to my computer" writes the page to the Pictures folder, with nothing online. "Share online" needs a linked computer and a character that Battle.net confirms (4.9). It makes a draft on the website, and nothing is public until you click Publish there. A public page goes through the local AI, the server checks, a person for your first 3 pages, and reports. You can delete it at any time. The page never shows the game's map art: the map is our own plain drawing.
+
 In 5.10, after "The lore of each player", add:
 
 > **The shared game text** (4.9), when you turn it on: a third source after your own text and before the pack. It passes the spoiler limit as 4.9 says, and its source reads "players report".
@@ -1567,3 +1578,286 @@ The test also checks that no voice line comes from a rumor row or a book. It mak
 
 - `fuzz/fuzz_targets/seen.rs`: `voice_line_of` on every random text. A line it gives is at most 200 characters, holds no `$`, and has no control character.
 - `fuzz/fuzz_targets/online_files.rs`: `voice_lines` with the random pool file and a small world. It never panics.
+
+## 23. Share a chapter
+
+The user decided this on 2026-10-03. A player turns one chapter of their chronicle (3.3) into a page to share outside the game. It comes in two forms:
+
+1. **A page on your computer.** The desktop app writes an HTML page with the saga, the facts of the chapter, a plain map, and the screenshots that you pick. It needs nothing online.
+2. **A public link** on the Timeways website, such as "Ada's chronicle, chapter 3". It needs a linked computer (5.2) and a verified character (5.3).
+
+The local page comes first in the build order (18), because it needs no server.
+
+### 23.1 What a page holds
+
+All of it comes from the `Chapter` of the journal (`crates/story/src/journal.rs`) and from `chronicle.rs`:
+
+| Part | From | Note |
+|---|---|---|
+| Title | the character and the number | "Ada's chronicle, chapter 3" |
+| Dates | `began`, `ended` | "October 1 to October 3" |
+| The saga | `prose` (at most 600 characters) | Only when a model wrote it. A chapter with no saga still has a page. |
+| Footnotes | `footnotes` (at most 3) | |
+| What happened | `deeds`, `zones`, `people` | The lists of the chapter, at most 20 each, as the journal shows them |
+| The facts | `chronicle::facts` | The same plain list that the saga prompt gets |
+| The map | the `spot` of each `Place` of the chapter | 23.3 |
+| Screenshots | the Screenshots folder of WoW | 23.2 |
+
+**The name rule.** A real player is `P7` in the world (5.11). On your own screen, the journal swaps the real name back. On a page, each player shows as their card ("an Undead Rogue"), as in a guild share (5.11). You can keep a name on purpose: the share panel lists each player of the chapter, each one off until you pick it. A player story (4.8) never goes on a page.
+
+**One format.** The story program writes the page data as one JSON object, `ChapterShare`, format 1: the fields of the table, with the names already swapped. The local page and the public page both render it. The server gets the same object.
+
+### 23.2 Screenshots
+
+**The folder.** WoW writes screenshots to the `Screenshots` folder of the game, today `_classic_beta_/Screenshots` for WoW: Forever (relay SPEC 7.1). The bridge already watches it for strips, and its `GameFolders` already names it.
+
+**The files.** The name is `WoWScrnShot_MMDDYY_HHMMSS` in the local time of the computer, with `.png`, `.jpg`, or `.tga`. The relay addon sets `screenshotFormat` to `png`, so most are PNG. This name form comes from the other WoW clients. A test in the Forever client confirms it (open question 16).
+
+**Which ones.** The bridge takes the screenshots whose file time is from `began` of the chapter to 15 minutes after `ended`. The file time is the source, because the name holds a local time with no time zone. At most the newest 24.
+
+**Never a strip.** A strip screenshot holds a prompt in its pixels (relay SPEC 6.5). The bridge deletes each valid strip, but keeps a frame that fails for some reasons, and a screenshot of the player can catch a strip on the screen. So the bridge skips every file in which its strip reader finds a frame, valid or not.
+
+**The sandbox.** `Screenshots` is a `deny` path (relay SPEC 6.6.3). The story program and every agent cannot read it, and this does not change. Only the bridge reads it, as it does today. The story program never sees a screenshot or a path: it gets only the numbers and times of the shots.
+
+**You pick.** The page on your computer first shows every shot of the span, each with a big number. The share panel in the game lists the same numbers with their times, each one off until you pick it. The final page and the public page hold only the shots that you picked. The bridge deletes the copies of the other shots from the page folder. It never touches the files of the Screenshots folder.
+
+### 23.3 The map
+
+The game's own map art belongs to Blizzard. A page that we publish never holds it, and neither does a file that the desktop app writes. The options:
+
+| Option | What it is | Legal |
+|---|---|---|
+| The game map art | The zone maps of the client | No. Blizzard owns the art. |
+| A traced map | Our drawing of the shape of a zone, traced from the game map | No. It copies the art. |
+| **A plain map** (the pick) | For each map of the chapter: a plain rectangle with the zone name, a numbered dot at each `spot` (x and y in thousandths of the zone map), the place names, and a thin line in the order of the visits | Yes. The positions are facts of your play, and the drawing is ours. |
+| No map | The places as a list | Yes. It is the fallback when no place of the chapter has a spot. |
+
+The renderer draws the plain map as inline SVG. A place with no spot gets no dot, and stays in the list.
+
+### 23.4 The local page
+
+1. **The button.** The chapter page of the Chronicle tab gets "Share". Where it sits, and how it looks, waits for the design of `docs/plans/readable-chronicle.md` (its problem 6: "Show a friend my best moments"). Until that design, it is a button under the saga.
+2. **The panel.** "Share" opens a small panel: the screenshots to pick, the names to keep, and two buttons: "Save to my computer" and "Share online".
+3. **The line.** On open, the addon sends `chapter_share_asked` with the chapter number. It is a game event with no reply, so the addon line needs **no relay change**.
+4. **The data.** The story program writes `ChapterShare` to `<data>/timeways/story/exports/<share id>/chapter.json`, and asks the bridge with `export_asked` (23.6).
+5. **The folder.** The bridge makes the page folder: `Pictures/Timeways/<date> Chapter <number>/`. The name holds no character name, because a name from the game never becomes a file name (relay SPEC 9.7, decision 19). A second folder of the same name gets " (2)".
+6. **The shots.** The bridge copies the shots of the span into `shots/01.png` and the next numbers, and answers `export_ready` with the number and the time of each.
+7. **The page.** The bridge runs `timeways-page` (23.5) on `chapter.json` with the numbers of all the shots, writes `index.html`, and opens it in the default browser. The page heads each shot with its number.
+8. **The pick.** You pick shots and names in the panel. Each change sends `chapter_share_picked`. The story program writes `chapter.json` again with the kept names, and asks for the page again. The bridge renders it again, and the browser shows it after a reload.
+9. **Save.** "Save to my computer" sends the final pick. The bridge renders the final page, deletes the shots that you did not pick from the page folder, and the game says "Saved in Pictures/Timeways." The folder is yours to keep, zip, or send.
+
+**An image.** A single picture of a chapter (a card for a chat app) comes later: the renderer needs an image encoder for it, and a screenshot of the page in the browser does the same today (open question 17).
+
+### 23.5 `timeways-page`: the page renderer
+
+The story program reads hostile text: lines from any addon, other players' messages, and model answers (relay SPEC 9.7, decision 9). An HTML file that it writes, opened in a browser, gives it what its sandbox takes away: a script with the network. So the story program writes only JSON, and the page comes from a separate program.
+
+- `timeways-page <chapter.json> <out.html> <shot numbers>` is a third program of the Timeways release, next to `timeways-story` and `timeways-pack`. Setup installs it the same way (relay SPEC 11.4).
+- It reads the JSON with the limits of format 1, and writes one page from a fixed template in its own code. Every text from the JSON is escaped as HTML text. The JSON never adds a tag or an attribute.
+- The page has **no script**, and its first element is a fixed Content Security Policy: `default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; form-action 'none'; base-uri 'none'`. It holds no link to any host, and no `<meta http-equiv="refresh">`.
+- An image source is only `shots/NN.png` for a number of the list, or the inline SVG of the map.
+- The bridge runs it with no network, the environment allowlist, and write access to the page folder only, as it runs `timeways-pack`.
+- The website renders the same `ChapterShare` with its own templates and the same escape rule, so the two pages match.
+
+### 23.6 What the relay adds
+
+The addon lines need no relay change (6.6). The story program and the bridge need new lines, because only the bridge can read the screenshots and write outside `<data>/timeways/`:
+
+| Line | From | Fields |
+|---|---|---|
+| `export_asked` | story program | `share` (a number), `began`, `ended` (times) |
+| `export_ready` | bridge | `share`, `shots`: a list of `{"n": 1, "at": <time>}`, at most 24 |
+| `export_failed` | bridge | `share`, `reason`: `no_folder`, `no_space`, `render`, or `failed` |
+| `page_asked` | story program | `share`, `keep` (the shot numbers), `final` (boolean) |
+
+For the public form, three ops join the table of 6.2:
+
+| `op` | HTTP | Budget in the bridge |
+|---|---|---|
+| `share_chapter` | `POST /v1/shares` | 10 a day |
+| `upload_shot` | `PUT /v1/shares/{id}/images/{n}` | 12 a share, 60 a day |
+| `delete_share` | `DELETE /v1/shares/{id}` | 20 a day |
+
+The message for the relay session, added to 6.7:
+
+1. The four lines above, with `deny_unknown_fields`.
+2. The page folder in the Pictures folder of the user (`xdg-user-dir PICTURES` on Linux, `~/Pictures` on macOS, the Pictures folder of the user on Windows), with no write through a symbolic link (relay SPEC 6.2). The folder is never a `deny` path, and never inside one.
+3. The shot pick of 23.2: the span, the newest 24, and the skip of every file with a frame.
+4. A run of `timeways-page` in a sandbox like `timeways-pack`, and the open of `index.html` in the default browser (`xdg-open`, `open`, or `start`, with no shell).
+5. `upload_shot` is the one op with a body that is not JSON. The bridge reads `shots/NN.png` from a page folder that it made, decodes it with the size limits of the strip reader (4096 × 4096 pixels), scales it to at most 1920 pixels wide, and encodes a new PNG of at most 8 MiB. So no text chunk or other metadata of the file leaves. The story program names only the share and the number, never a path.
+6. The fake story program and the end-to-end test: a share of a chapter with two shots, and a folder with a strip screenshot that the pick skips.
+
+### 23.7 The public link
+
+1. In the panel, "Share online" needs a linked computer. With none, it shows "Link this computer" in its place.
+2. A click sends `chapter_share_picked` with `online`. The story program runs the local AI check of 11.1 on the texts of the page, then asks `share_chapter` with `ChapterShare`, the realm and the name of the character, and the number of kept shots.
+3. The server checks the body (23.8) and that the character is a **verified character** of the account (5.3). A not-verified character gets `403` with `character_not_verified`, and nothing is kept.
+4. The server keeps a **draft**: nobody else can see it. The answer holds the share id and the address of the draft.
+5. The story program asks `upload_shot` for each kept shot.
+6. The game says "Your page is ready to check:" with the address in a box to copy.
+7. On the website, logged in with Battle.net, the draft page shows exactly the public page, with "Publish" and "Delete". **Nothing is public until you click Publish there.**
+8. After Publish, the page lives at `https://<site>/c/<code>`, such as `/c/7KQ4MX`, with Copy link.
+
+**Delete, at any time.** "Delete" on the page on the website, on My page, or "Delete online page" on the chapter in the game (`delete_share`). The server deletes the row and the images at once, and asks the CDN to purge them. A copy that someone else saved stays out of our reach, and the privacy page says so.
+
+### 23.8 Moderation
+
+A public page goes through the layers of a quest (section 11):
+
+- **The local AI** (11.1) reads the texts of the page: the title, the saga, the footnotes, and the kept names. A fail shows at once, and nothing is sent.
+- **The server checks** (11.2): the shape and limits of format 1, the words check, and the later names.
+- **No community review.** The texts are model text that the story program already checked, and a text model cannot judge a screenshot. So a review costs the reviewers and catches little.
+- **Images.** The server decodes each image again with size limits, and encodes it again. It runs the known-abuse hash check of the CDN (for example the free CSAM scanning tool of Cloudflare). A match removes the page and goes to a maintainer.
+- **A person** reads the first 3 public pages of each account before anyone else sees them, as for quests. Until then, Publish says "In review".
+- **Reports** on the page: Offensive, Shows someone's private info, Spam, Other. 3 independent reports hide it (11.3), and the queue gets it.
+
+### 23.9 Privacy
+
+- **Nothing leaves until you click.** The local page never leaves the computer. For the public link, nothing leaves before "Share online", and nothing is public before "Publish" on the website.
+- **Other players** show by their card, unless you keep their name on purpose. A screenshot can show names over heads and the chat: the panel says so, and suggests Alt+Z, which hides the game interface before a screenshot.
+- **What the public page holds:** the fields of 23.1, the verified character and realm, and the shots that you picked. Never the world file, the prompts, the hero sheet, player stories, or another chapter.
+- **Delete** is at any time (23.7). Delete my data (15.4) deletes every page.
+
+### 23.10 Data model and API
+
+New tables (section 13 has 22; these make 24):
+
+| Table | Columns | Note |
+|---|---|---|
+| `shares` | `id`, `code`, `author_id`, `character_id` (a verified character), `state` (`draft`, `in_review`, `public`, `hidden`, `removed`), `format`, `body` (JSON: `ChapterShare`), `local_check`, `published_at` | One chapter page |
+| `share_images` | `share_id`, `n`, `object_key`, `sha256`, `width`, `height`, `bytes` | At most 24 for each share |
+
+`reports.target_kind` gets `share`. A draft that nobody published is deleted after 7 days, with its images.
+
+New endpoints (section 14):
+
+| Method and path | Auth | Does |
+|---|---|---|
+| `POST /v1/shares` | token | A draft from `ChapterShare`. Needs a verified character. Answers the id, the code, and the draft address. |
+| `PUT /v1/shares/{id}/images/{n}` | token | One PNG of at most 8 MiB, for a draft of the caller |
+| `POST /v1/shares/{id}/publish` | session | Publish a draft, after the preview |
+| `DELETE /v1/shares/{id}` | token or session | Delete it, with its images |
+| `GET /v1/me/shares` | session | My pages |
+| `GET /c/{code}` | none | The public page |
+
+**Cost.** 1,000 pages a month with 6 images of 2 MB each add about 12 GB of storage a month: under 1 USD a month on R2.
+
+### 23.11 UI copy
+
+The copy follows the UI copy rules of `CLAUDE.md`.
+
+| Where | Copy |
+|---|---|
+| Chapter button | Share |
+| Panel title | Share Chapter |
+| Screenshots heading | Screenshots |
+| Screenshots line | Pick the ones to share. The numbers match the page in your browser. |
+| Screenshot row | 4 · 9:12 PM |
+| No screenshots | No screenshots from this chapter. |
+| Screenshot tip | Screenshots can show names and chat. Tip: Alt+Z hides the interface before you take one. |
+| Names heading | Names |
+| Names line | Other players show as "an Undead Rogue" unless you pick them. |
+| Button | Save to my computer |
+| Button | Share online |
+| While making | Making your page... |
+| Page opened | Your page opened in your browser. |
+| Saved | Saved in Pictures/Timeways. |
+| Make failed | Couldn't make your page. Try again. |
+| Not linked | Link this computer (button) |
+| Not verified | To share online, Battle.net must confirm this character. Log in on the website, then try again. |
+| Draft ready | Your page is ready to check: |
+| Chapter, after sharing | Delete online page |
+| Delete popup | Delete this page? People with the link can't see it anymore. |
+| Delete buttons | Delete, Cancel |
+
+On the pages:
+
+| Where | Copy |
+|---|---|
+| Page title | Ada's chronicle, chapter 3 |
+| Byline | Ada of Stormrage |
+| Dates | October 1 to October 3 |
+| Headings | The Story, What Happened, Where, Screenshots |
+| Local page footer | This page is only on your computer. |
+| Draft banner | Only you can see this. Check it, then publish. |
+| Draft buttons | Publish, Delete |
+| In review | In review. We'll publish it soon. |
+| Public | Your page is live. |
+| Copy button | Copy link |
+| Report reasons | Offensive, Shows someone's private info, Spam, Other |
+
+Bad and good:
+
+| Bad | Good | Why |
+|---|---|---|
+| Export chapter 3 to HTML | Save to my computer | Name the goal, not the mechanism. |
+| Rendering ChapterShare... | Making your page... | Internal words. |
+| Select screenshots within the chapter window (began..ended+15m) | Pick the ones to share. | The rule is internal. |
+| P7 will be replaced by their card | Other players show as "an Undead Rogue" unless you pick them. | No internal ids. |
+| Upload complete. Draft 7KQ4MX awaiting publication. | Your page is ready to check: | A status is a few words. |
+| 403 character_not_verified | To share online, Battle.net must confirm this character. Log in on the website, then try again. | Say what is wrong and what to do. |
+| Inscribe thy deeds upon the great scroll | Share | Fake flourish. |
+
+### 23.12 Tests
+
+`crates/story/tests/chapter_share.rs` (new):
+
+- `a_shared_chapter_shows_other_players_by_their_card`
+- `a_name_that_the_player_keeps_shows_on_the_page`
+- `a_shared_chapter_never_holds_a_player_story`
+- `a_chapter_with_no_saga_still_has_a_page`
+- `a_place_with_no_spot_gets_no_dot`
+- `the_share_asks_for_the_chapter_span_plus_fifteen_minutes`
+- `the_share_names_no_path`
+- `a_failed_local_check_sends_nothing`
+- `share_online_with_no_link_sends_nothing`
+- `a_chapter_share_round_trips_through_its_json`
+
+`crates/page/tests/` (new, for `timeways-page`):
+
+- `every_text_of_the_json_is_escaped`
+- `the_page_has_no_script`
+- `the_csp_is_the_first_element_of_the_head`
+- `the_page_links_to_no_host`
+- `an_image_source_is_only_a_listed_shot`
+- `the_plain_map_puts_a_dot_at_each_spot`
+- `a_chapter_with_no_spot_shows_the_places_as_a_list`
+- `the_page_numbers_each_shot`
+- `a_json_over_the_limits_writes_no_page`
+
+`crates/online-server/tests/`:
+
+- `a_share_needs_a_verified_character`
+- `a_draft_is_visible_only_to_its_author`
+- `publish_needs_a_website_session`
+- `the_first_three_pages_of_an_account_go_to_review`
+- `deleting_a_share_deletes_its_images`
+- `an_unpublished_draft_is_deleted_after_seven_days`
+- `an_image_over_eight_mib_is_refused`
+- `three_independent_reports_hide_a_page`
+
+`crates/addon-tests/tests/chapter_share.rs`:
+
+- `share_sends_one_event`
+- `every_shot_and_every_name_starts_off`
+- `share_online_with_no_link_shows_link_this_computer`
+- `delete_online_page_asks_first`
+
+**Property test** (`crates/page/tests/properties.rs`): for any `ChapterShare` within the limits, the page holds only the tags and attributes of the template, no `<script`, no `on` attribute, and no `http`. Make a text with `<`, `"`, `&`, `]]>`, and `</style>` likely.
+
+**Fuzz:** `fuzz/fuzz_targets/share_page.rs` (new): random JSON through the reader and the renderer of `timeways-page`. It never panics, and every page that it writes passes the property above.
+
+The relay tests for the four lines, the shot pick, and the upload belong to the relay session (23.6).
+
+### 23.13 Build order
+
+Steps 18 and 19 of section 18 hold this section:
+
+- **18a. The local page.** `ChapterShare`, the name rule, `chapter_share_asked`, `chapter_share_picked`, `timeways-page` with its template and the plain map, the panel, and the button. Then the relay lines of 23.6, items 1 to 4 and 6. It needs nothing online, so it can come before step 1.
+- **18b. The public link**, after step 6 and the verified characters of 5.3: the ops, the draft, the upload, Publish, Delete, the review of the first 3 pages, and the reports.
+
+### 23.14 Open questions
+
+16. **The screenshot file names of WoW: Forever.** Is the name `WoWScrnShot_MMDDYY_HHMMSS`, and is the folder `_classic_beta_/Screenshots` at the launch too? A test in the game decides it.
+17. **A picture of a chapter.** A single PNG card for a chat app: wanted? It needs an image encoder in `timeways-page`.
+18. **Forever characters and the public link.** With no Forever namespace in the Profile API (open question 3), no character is verified, and the public link has no byline that we can prove. Allow a public page with the byline Anonymous then?
