@@ -4,7 +4,7 @@
 use super::{AnyOrder, Genre, Step};
 use hourglass::Tick;
 use serde::{Deserialize, Serialize};
-use timeways_rules::quest as rules;
+use timeways_rules::quest_log as rules;
 
 /// One change of the quest log. The quest file holds these lines, oldest first. The words
 /// of a quest are not facts, so they live next to the history, as the hero does.

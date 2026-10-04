@@ -1,0 +1,15 @@
+name = "timeways-proofs"
+defaultTargets = ["Timeways"]
+
+# The Aeneas Lean library. Keep this rev equal to the Aeneas commit
+# that generated the files in Timeways/, because the generated code
+# names the library by that version. It is the pin of Hourglass too,
+# so one toolchain serves both repositories.
+[[require]]
+name = "aeneas"
+git = "https://github.com/AeneasVerif/aeneas.git"
+rev = "fd27c97d39108dd1c6b0cb46bbefd0b94a47b591"
+subDir = "backends/lean"
+
+[[lean_lib]]
+name = "Timeways"

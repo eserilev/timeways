@@ -3,7 +3,7 @@
 
 use super::{AnyOrder, QuestFault, Step};
 use serde::Deserialize;
-use timeways_rules::quest::{MAX_SET_STEPS, MIN_SET_STEPS};
+use timeways_rules::quest_log::{MAX_SET_STEPS, MIN_SET_STEPS};
 
 const SET_SIZES: std::ops::RangeInclusive<usize> = MIN_SET_STEPS..=MAX_SET_STEPS;
 
