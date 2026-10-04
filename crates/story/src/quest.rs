@@ -46,8 +46,7 @@ pub const MAX_LEVELS_AHEAD: i64 = 3;
 /// A wait step lasts 1 to this many days. More holds one of your 3 open quests too long.
 pub const MAX_WAIT_DAYS: u8 = 3;
 
-/// A day of the clock of the lines from the addon, not a day of the calendar.
-pub const DAY_SECONDS: u64 = 24 * 3600;
+pub use timeways_rules::quest::DAY_SECONDS;
 
 /// A carry step asks for 1 to this many items: the common stack of cloth.
 pub const MAX_CARRY: u8 = 20;

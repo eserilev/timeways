@@ -3,9 +3,9 @@
 
 use super::{AnyOrder, QuestFault, Step};
 use serde::Deserialize;
+use timeways_rules::quest::{MAX_SET_STEPS, MIN_SET_STEPS};
 
-/// The steps of an any-order set: 2 or 3.
-const SET_SIZES: std::ops::RangeInclusive<usize> = 2..=3;
+const SET_SIZES: std::ops::RangeInclusive<usize> = MIN_SET_STEPS..=MAX_SET_STEPS;
 
 #[derive(Deserialize)]
 pub(super) struct Reply {
@@ -68,9 +68,9 @@ fn checked_set(first: usize, steps: &[Step]) -> Result<AnyOrder, QuestFault> {
     })
 }
 
-/// The fault of a set that breaks the rule: 2 or 3 steps, and no wait. An answer and a line
-/// of the quest file both keep the rule.
-pub(super) fn set_fault(steps: &[Step]) -> Option<QuestFault> {
+/// The fault of a set that breaks the rule: 2 or 3 steps, and no wait. The quest log keeps
+/// the same rule for a line of the quest file (timeways-rules).
+fn set_fault(steps: &[Step]) -> Option<QuestFault> {
     if !SET_SIZES.contains(&steps.len()) {
         return Some(QuestFault::AnyOrderSize(steps.len()));
     }

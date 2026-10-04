@@ -8,6 +8,7 @@ description = "The story program of Timeways: the world, the lore pack, the scor
 
 [dependencies]
 rusty-hourglass.workspace = true
+timeways-rules.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 rusqlite.workspace = true

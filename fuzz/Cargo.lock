@@ -666,6 +666,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "timeways-rules"
+version = "0.1.0"
+
+[[package]]
 name = "timeways-story"
 version = "0.1.0-rc.3"
 dependencies = [
@@ -677,6 +681,7 @@ dependencies = [
  "serde_json",
  "sevenz-rust2",
  "thiserror",
+ "timeways-rules",
  "toml",
 ]
 

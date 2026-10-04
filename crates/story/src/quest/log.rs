@@ -1,10 +1,10 @@
 //! The quest log: each change of a side quest, and the state of each quest and each of its
 //! steps (GAMEPLAY.md 3.4, docs/plans/quest-variety.md 6).
 
-use super::answer::set_fault;
-use super::{AnyOrder, DAY_SECONDS, Genre, Step};
+use super::{AnyOrder, Genre, Step};
 use hourglass::Tick;
 use serde::{Deserialize, Serialize};
+use timeways_rules::quest as rules;
 
 /// One change of the quest log. The quest file holds these lines, oldest first. The words
 /// of a quest are not facts, so they live next to the history, as the hero does.
@@ -98,10 +98,10 @@ pub struct Tracked {
 }
 
 impl Tracked {
-    /// A new offer, from its line. A span from a damaged file that does not fit the steps,
-    /// or that breaks the rule of a set, counts as no span. A wait in a set could end early.
-    fn offered(change: &QuestChange) -> Option<Self> {
-        let QuestChange::Offered {
+    /// The quest of the log, with the words of its offer. None when the line of the offer is
+    /// no offer, which the rules never give.
+    fn from_rules(quest: rules::Quest, changes: &[QuestChange]) -> Option<Self> {
+        let Some(QuestChange::Offered {
             number,
             at,
             giver,
@@ -109,16 +109,12 @@ impl Tracked {
             text,
             steps,
             genre,
-            any_order,
-        } = change
+            ..
+        }) = changes.get(quest.line)
         else {
             return None;
         };
-        let fits = |span: &AnyOrder| {
-            span.first < span.last
-                && span.last < steps.len()
-                && set_fault(&steps[span.first..=span.last]).is_none()
-        };
+        let progress = quest.progress;
         Some(Tracked {
             number: *number,
             offered_at: *at,
@@ -127,56 +123,63 @@ impl Tracked {
             text: text.clone(),
             steps: steps.clone(),
             genre: *genre,
-            any_order: any_order.filter(fits),
-            status: Status::Offered,
-            accepted_at: None,
-            done: vec![None; steps.len()],
-            kills: vec![0; steps.len()],
-            done_at: None,
+            any_order: progress.any_order.map(AnyOrder::from_rules),
+            status: Status::from_rules(progress.status),
+            accepted_at: progress.accepted_at.map(Tick),
+            done: progress
+                .done_times
+                .iter()
+                .map(|done| done.map(Tick))
+                .collect(),
+            kills: progress.kills,
+            done_at: progress.done_at.map(Tick),
         })
+    }
+
+    /// The quest as the rules see it. Each question about a step goes to the rules, so the
+    /// answer is the one that the proofs read.
+    fn progress(&self) -> rules::Progress {
+        rules::Progress {
+            steps: self.steps.iter().map(goal_of).collect(),
+            any_order: self.any_order.map(AnyOrder::for_rules),
+            status: self.status.for_rules(),
+            accepted_at: self.accepted_at.map(|at| at.0),
+            done_times: self.done.iter().map(|done| done.map(|at| at.0)).collect(),
+            kills: self.kills.clone(),
+            done_at: self.done_at.map(|at| at.0),
+        }
     }
 
     #[must_use]
     pub fn steps_done(&self) -> usize {
-        self.done.iter().filter(|done| done.is_some()).count()
+        self.progress().steps_done()
     }
 
     #[must_use]
     pub fn is_done(&self, step: usize) -> bool {
-        self.done.get(step).is_some_and(Option::is_some)
-    }
-
-    /// The first step of the stage of this step. A stage is one step, or the whole
-    /// any-order set.
-    fn stage_start(&self, step: usize) -> usize {
-        match self.any_order {
-            Some(span) if span.contains(step) => span.first,
-            _ => step,
-        }
+        self.progress().is_done(step)
     }
 
     /// Is the step in the first stage: the first step, or the set that the quest starts
     /// with?
     #[must_use]
     pub fn in_first_stage(&self, step: usize) -> bool {
-        step < self.steps.len() && self.stage_start(step) == 0
+        self.progress().in_first_stage(step)
     }
 
     /// Can the player do this step now? The quest is accepted, the step is not done, and
     /// every step before its stage is done.
     #[must_use]
     pub fn is_open(&self, step: usize) -> bool {
-        self.status == Status::Accepted
-            && step < self.steps.len()
-            && !self.is_done(step)
-            && (0..self.stage_start(step)).all(|before| self.is_done(before))
+        self.progress().is_open(step)
     }
 
     /// The steps that the player can do now, by index.
     #[must_use]
     pub fn open_steps(&self) -> Vec<usize> {
+        let progress = self.progress();
         (0..self.steps.len())
-            .filter(|step| self.is_open(*step))
+            .filter(|step| progress.is_open(*step))
             .collect()
     }
 
@@ -184,22 +187,13 @@ impl Tracked {
     /// stage. None while it is not open.
     #[must_use]
     pub fn opened_at(&self, step: usize) -> Option<Tick> {
-        if !self.is_open(step) {
-            return None;
-        }
-        let before = self.done[..self.stage_start(step)].iter().flatten().max();
-        before.copied().or(self.accepted_at)
+        self.progress().opened_at(step).map(Tick)
     }
 
     /// When an open wait step is over. None for another step, or a wait that is not open.
     #[must_use]
     pub fn ready_at(&self, step: usize) -> Option<Tick> {
-        let Some(Step::Wait { days }) = self.steps.get(step) else {
-            return None;
-        };
-        let opened = self.opened_at(step)?;
-        let wait = u64::from(*days).saturating_mul(DAY_SECONDS);
-        Some(Tick(opened.0.saturating_add(wait)))
+        self.progress().ready_at(step).map(Tick)
     }
 
     /// The open kill step of this creature, by index.
@@ -213,90 +207,95 @@ impl Tracked {
 /// The quests of a log, oldest first. At most one offer of each giver waits: a new offer
 /// ends the old one of the same giver. A change that does not fit the state of its quest
 /// changes nothing. A quest file is read again at each start, and a file can be damaged, so
-/// these checks hold even when the story program is right.
+/// these checks hold even when the story program is right. The rules live in
+/// timeways-rules, where Lean proves them (lean/README.md).
 #[must_use]
 pub fn quest_log(changes: &[QuestChange]) -> Vec<Tracked> {
-    let mut quests: Vec<Tracked> = Vec::new();
-    for change in changes {
-        apply(&mut quests, change);
-    }
-    quests
+    let lines: Vec<rules::Change> = changes.iter().map(QuestChange::for_rules).collect();
+    rules::quest_log(&lines)
+        .into_iter()
+        .filter_map(|quest| Tracked::from_rules(quest, changes))
+        .collect()
 }
 
-fn apply(quests: &mut Vec<Tracked>, change: &QuestChange) {
-    match change {
-        QuestChange::Offered { giver, .. } => {
-            let same_giver = |q: &&mut Tracked| q.status == Status::Offered && &q.giver == giver;
-            for waiting in quests.iter_mut().filter(same_giver) {
-                waiting.status = Status::Declined;
-            }
-            quests.extend(Tracked::offered(change));
+impl QuestChange {
+    fn for_rules(&self) -> rules::Change {
+        match self {
+            QuestChange::Offered {
+                number,
+                giver,
+                steps,
+                any_order,
+                ..
+            } => rules::Change::Offered {
+                number: *number,
+                giver: giver.clone(),
+                steps: steps.iter().map(goal_of).collect(),
+                any_order: any_order.map(AnyOrder::for_rules),
+            },
+            QuestChange::Accepted { number, at } => rules::Change::Accepted {
+                number: *number,
+                at: at.0,
+            },
+            QuestChange::Declined { number, .. } => rules::Change::Declined { number: *number },
+            QuestChange::StepDone { number, step, at } => rules::Change::StepDone {
+                number: *number,
+                step: *step,
+                at: at.0,
+            },
+            QuestChange::Killed { number, step, .. } => rules::Change::Killed {
+                number: *number,
+                step: *step,
+            },
+            QuestChange::Abandoned { number, .. } => rules::Change::Abandoned { number: *number },
         }
-        QuestChange::Accepted { number, at } => {
-            if let Some(quest) = waiting_offer(quests, *number) {
-                quest.status = Status::Accepted;
-                quest.accepted_at = Some(*at);
-            }
+    }
+}
+
+fn goal_of(step: &Step) -> rules::Goal {
+    match step {
+        Step::Wait { days } => rules::Goal::Wait { days: *days },
+        Step::Kill { count, .. } => rules::Goal::Kill { count: *count },
+        _ => rules::Goal::Other,
+    }
+}
+
+impl AnyOrder {
+    fn for_rules(self) -> rules::Span {
+        rules::Span {
+            first: self.first,
+            last: self.last,
         }
-        QuestChange::Declined { number, .. } => {
-            if let Some(quest) = waiting_offer(quests, *number) {
-                quest.status = Status::Declined;
-            }
+    }
+
+    fn from_rules(span: rules::Span) -> Self {
+        AnyOrder {
+            first: span.first,
+            last: span.last,
         }
-        QuestChange::Abandoned { number, .. } => abandon(quests, *number),
-        QuestChange::Killed { number, step, .. } => count_kill(quests, *number, *step),
-        QuestChange::StepDone { number, step, at } => finish_step(quests, *number, *step, *at),
     }
 }
 
-fn find(quests: &mut [Tracked], number: u64) -> Option<&mut Tracked> {
-    quests.iter_mut().find(|quest| quest.number == number)
-}
-
-/// A step counts only while it is open, and a wait never ends early. The last step
-/// finishes the quest.
-fn finish_step(quests: &mut [Tracked], number: u64, step: usize, at: Tick) {
-    let Some(quest) = find(quests, number) else {
-        return;
-    };
-    let early = quest.ready_at(step).is_some_and(|ready| at < ready);
-    if !quest.is_open(step) || early {
-        return;
+impl Status {
+    fn for_rules(self) -> rules::Status {
+        match self {
+            Status::Offered => rules::Status::Offered,
+            Status::Accepted => rules::Status::Accepted,
+            Status::Declined => rules::Status::Declined,
+            Status::Done => rules::Status::Done,
+            Status::Abandoned => rules::Status::Abandoned,
+        }
     }
-    quest.done[step] = Some(at);
-    if quest.steps_done() == quest.steps.len() {
-        quest.status = Status::Done;
-        quest.done_at = Some(at);
-    }
-}
 
-/// A kill counts only for an open kill step, and only up to its count.
-fn count_kill(quests: &mut [Tracked], number: u64, step: usize) {
-    let Some(quest) = find(quests, number) else {
-        return;
-    };
-    let Some(Step::Kill { count, .. }) = quest.steps.get(step) else {
-        return;
-    };
-    if quest.is_open(step) && quest.kills[step] < *count {
-        quest.kills[step] += 1;
+    fn from_rules(status: rules::Status) -> Self {
+        match status {
+            rules::Status::Offered => Status::Offered,
+            rules::Status::Accepted => Status::Accepted,
+            rules::Status::Declined => Status::Declined,
+            rules::Status::Done => Status::Done,
+            rules::Status::Abandoned => Status::Abandoned,
+        }
     }
-}
-
-/// Only an open quest can be abandoned: one that waits, or one that you hold.
-fn abandon(quests: &mut [Tracked], number: u64) {
-    let open = |q: &&mut Tracked| {
-        q.number == number && matches!(q.status, Status::Offered | Status::Accepted)
-    };
-    if let Some(quest) = quests.iter_mut().find(open) {
-        quest.status = Status::Abandoned;
-    }
-}
-
-fn waiting_offer(quests: &mut [Tracked], number: u64) -> Option<&mut Tracked> {
-    quests
-        .iter_mut()
-        .find(|q| q.number == number && q.status == Status::Offered)
 }
 
 /// Numbers are never reused, so a line names one quest for good.
