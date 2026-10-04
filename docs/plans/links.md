@@ -1,6 +1,6 @@
 # Plan: links, proof, and one database
 
-Status: draft 2, 2026-10-03. Draft 2 takes in a review against the code. Steps 1 to 8 are built. Step 7 is built for trust only, and step 8 is a first version with no story in a prompt. Their rules are in `GAMEPLAY.md` 3.6, 4.8, 5.7, and 5.14. When a part is built, its rules move into `GAMEPLAY.md`, and this plan marks the part as done.
+Status: draft 3, 2026-10-04. Draft 3 makes the plan say what the code does. Steps 1 to 8 are built. Step 7 is built for trust only, and step 8 is a first version with no story in a prompt. The Deeds filter of section 7 is not built. Their rules are in `GAMEPLAY.md` 3.6, 4.8, 5.7, and 5.14. When a part is built, its rules move into `GAMEPLAY.md`, and this plan marks the part as done.
 
 Nothing is live, so there is no migration. A change of the tables deletes the test worlds.
 
@@ -54,35 +54,37 @@ Narrator lines, lore answers, talk answers, drafts, and the drafts and pick of a
 
 ## 4. Proof columns and the `reads` table
 
-Every row table (`events`, `chapters`, `flavor`, `hero`, `learned`, `quests`) gets two columns:
+Every row table (`events`, `chapters`, `flavor`, `hero`, `learned`, `quests`, `stories`) gets two columns:
 
 ```sql
-input INTEGER REFERENCES inputs (position) ON DELETE CASCADE,  -- the line that made the row
-call  INTEGER REFERENCES calls  (position) ON DELETE CASCADE   -- the model call that made the row
+input INTEGER REFERENCES inputs (position),  -- the line that made the row
+call  INTEGER REFERENCES calls  (position)   -- the model call that made the row
 ```
 
 - A row from a game event has `input` and no `call`. Example: "defeated Hogger".
 - A row from a model answer has `call`. The call has its own `input`: the line that asked for it. Example: a trust change from `/talk`.
 - SQLite checks both columns (`PRAGMA foreign_keys = ON`). A link to a row that does not exist is an error, not a bug that waits.
+- No link cascades. Only another program deletes a line or a call. The open then clears each link to it, so the row shows as Lost (section 8).
 
 One table holds what each call read. It is the only many-to-many link:
 
 ```sql
 CREATE TABLE reads (
-  call  INTEGER NOT NULL REFERENCES calls (position) ON DELETE CASCADE,
-  tab   TEXT    NOT NULL,   -- 'events', 'hero', 'flavor', 'learned', 'quests', or 'chapters'
+  call  INTEGER NOT NULL REFERENCES calls (position),
+  tab   TEXT    NOT NULL,   -- a row table, or 'calls'
   row   INTEGER NOT NULL
 );
-CREATE INDEX reads_row ON reads (tab, row);
+CREATE INDEX reads_of_a_row ON reads (tab, row);
+CREATE INDEX reads_of_a_call ON reads (call);
 ```
 
-- `reads` points into six tables, so SQLite cannot check it with one foreign key. A property test checks it instead (section 8).
+- `reads` points into the row tables and into `calls`, so SQLite cannot check it with one foreign key. A property test checks it instead (section 12).
 - **Links only point back in time.** A call reads rows that exist when it opens. A row names the call or input that came before it. So the graph has no cycles.
 
 ## 5. Addresses
 
 - **The address of an event is its `EventId`.** The store writes `position` explicitly for each event, from 0. So a cut and a new write never shift it.
-- Every other table takes the next position from SQLite.
+- Every other table gets an explicit position too. A row of a row table has its place in its table, from 0. `inputs` and `calls` take the next position after the largest one at open.
 - **A world fact has the address of its opening event** (`Fact.opened`).
 - A `read` of a fact is a `read` of that event.
 
@@ -90,15 +92,7 @@ CREATE INDEX reads_row ON reads (tab, row);
 
 The prompt builders read derived values, such as deeds, chapters, and moments, not rows. Threading ids through `Journal` and `Page` makes those types bigger, and the addon gets them under a size limit. So the plan does not do that.
 
-**The reads come from rules,** one function for each kind of call, in one module (`reads.rs`). Each rule takes the character and what the call was for. It returns rows. The rules read more than the prompt, never less. For "uses", reading too much is the safe side.
-
-| Call | Reads |
-|---|---|
-| Saga draft | every event, hero row, and flavor row in the tick range of its chapter |
-| Saga pick | the two drafts (calls) |
-| Quest offer | the opening event of each place, NPC, and creature that the prompt offered |
-| Talk | the trust fact of the NPC, the slaps of the NPC, and the hero rows that the prompt held |
-| Narrator | the events of its moment, or its flavor row |
+**The reads come from rules,** one function for each kind of call, in one module (`story/reads.rs`). Each rule takes the character and what the call was for. It returns rows. The rules read more than the prompt, never less. For "uses", reading too much is the safe side. The rules as built are in the table of `GAMEPLAY.md` 5.14.
 
 - The memory of a saga (earlier chapters) comes from facts, never from earlier sagas (`memory.rs`). So a saga reads events, not sagas.
 - A lore passage from the pack gets no `read` row. Its id changes with each pack. The call keeps the pack version.
@@ -118,16 +112,16 @@ The proof of a row is the set of its roots. To find them, follow `input` and `ca
 
 - **The weakest root wins** for display: Lost, then Shared, then Player, then Game.
 - **Model is not a proof.** It says how a row was made, and the `call` column already says that.
-- **The Deeds page shows only rows with Game proof alone.** Rule 4: the game is the truth.
+- **Not built: a Deeds page of Game proof alone.** Rule 4 says that the game is the truth, so the Deeds page was to show only rows with Game proof alone. Today it shows every deed. No test checks it yet.
 - Example: a trust change from `/talk` has the roots {Player, Game}. Player wins, so it shows as resting on your words.
 
 ## 8. Rules that keep the graph whole
 
 - **One transaction for each line.** The rows, the input, the call changes, and the reads of a line go in together. A failed save drops all of them, and the character opens again from the disk (5.7, built).
-- **A call writes only to the database of its character.** An answer for a character that is not active writes nothing, as today. A lore call gets the key of its character, like the other calls.
-- **The cut at open** runs in one transaction. `ON DELETE CASCADE` takes away the rows that rest on a cut input or call.
+- **A call writes only to the database of its character.** An answer for a character that is not active writes nothing, and its call stays `open`. A lore call gets no row, because a lore answer changes no world.
+- **The cut at open** runs in one transaction. It deletes a row that does not read, every row after it in its table, and every read of them. A link to a line or a call that is gone becomes NULL, so the row shows as Lost.
 - **A row is never deleted to withdraw it.** A withdraw is a new row, as `Removed` is for the hero. Tables only grow.
-- **The `CallId` of the bridge restarts at 1 in each run.** The store maps each open `CallId` to its row in `calls`, in memory.
+- **The `CallId` of the bridge restarts at 1 in each run.** Each open call keeps its row in `calls` in memory, next to the key of its character. So an answer after a change of character, or after a reopen, still rests on its call.
 
 ## 9. Player stories (later)
 
@@ -153,10 +147,10 @@ Each step is one commit or a few, with its tests and its rules in `GAMEPLAY.md`.
 1. **Done. The base.** In-memory SQLite for `Store::Memory`. Event position = `EventId`. Foreign keys on. The cut at open in one transaction.
 2. **Done. `inputs` and the `input` column.** Only the `character_entered` that founds a world is kept, because every batch starts with one. The stored input is the parsed line after the clock check, also for a refused line.
 3. **Done. `calls` and the `call` column.** Every call gets a row when it opens, and its answer and result when it ends. A lore call gets no row: it changes no world.
-4. **Done. `reads`**, with the rules of section 6, one kind of call at a time: saga, quest, talk, narrator, lore.
+4. **Done. `reads`**, with the rules of section 6, one kind of call at a time: saga, quest, talk, narrator. A lore call has no row, so it has no reads.
 5. **Done. The queries:** `proof_of(row)`, `source_of(row)`, and `uses_of(row)`.
 6. **Done. `timeways.sqlite`:** the budget and the pace first. The alias table comes with 5.11.
-7. **Done, for trust only. "Why?" in the journal.** The reads of a call hold far more than its cause, so only trust shows a why: one step back from its newest change. Quests, chapters, and deeds show none.
+7. **Done, for trust only. "Why?" in the journal.** The reads of a call hold far more than its cause, so only trust shows a why: one step back from its newest change. Quests, chapters, and deeds show none. The Deeds filter of section 7 is not built.
 8. **Done, first version. Player stories** (section 9, and `GAMEPLAY.md` 4.8). No story reaches a prompt, so the alias table and a party input wait for the next version.
 
 ## 12. Tests that the plan needs
@@ -165,19 +159,21 @@ Each step is one commit or a few, with its tests and its rules in `GAMEPLAY.md`.
 - `a_refused_line_keeps_its_input_row`
 - `a_failed_save_keeps_no_input_call_or_read`
 - `an_answer_for_another_character_writes_nothing_here`
-- `a_cut_input_takes_its_rows_away`
+- `a_row_whose_line_is_gone_is_lost`
 - `a_refused_call_uses_nothing`
-- `a_row_withdrawn_during_a_call_still_counts_as_read`
-- `a_restart_keeps_the_pace_of_the_narrator`
+- `a_hero_entry_removed_during_a_call_still_counts_as_read`
+- `the_pace_of_the_model_comes_back_after_a_restart`
 - `a_trust_change_from_talk_rests_on_the_words_of_the_player`
-- `the_deeds_page_shows_only_game_proof`
+- `an_answer_after_a_relog_rests_on_its_call`
+- Not built: `the_deeds_page_shows_only_game_proof`, with the filter of section 7.
 
 Property tests in `properties.rs`, for any play:
 
 - Every `reads` row points to a row that exists, and that was saved before its call.
 - A restart at any point leaves the same rows and links. This extends `a_restart_at_any_point_leaves_the_same_story`.
 - The proof of each row is the same before and after a reopen.
-- Every event has an `input` or a `call`.
+- Every event has an `input` or a `call`, also when an answer comes after a change of character.
+- No row rests on a Lost root after play.
 
 The fuzz target of the store also writes random `reads` rows and proof columns. The open never fails on them.
 
