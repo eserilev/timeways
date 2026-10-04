@@ -20,16 +20,42 @@ local MAX_SENDERS = 32
 -- The parts of one message come within seconds. A part older than this is dropped.
 local EXPIRE_SECONDS = 60
 
+local function IsContinuation(byte)
+	return byte ~= nil and byte >= 128 and byte < 192
+end
+
+-- The last byte of the piece that starts at `first`. The logged channel takes only whole
+-- UTF-8 letters, so a cut never falls inside one.
+local function PieceEnd(text, first)
+	local last = first + PIECE - 1
+	while last > first and IsContinuation(text:byte(last + 1)) do
+		last = last - 1
+	end
+	return last
+end
+
+local function Pieces(text)
+	local pieces, first = {}, 1
+	repeat
+		local last = PieceEnd(text, first)
+		pieces[#pieces + 1] = text:sub(first, last)
+		first = last + 1
+	until first > #text
+	return pieces
+end
+
 -- Returns the parts, or nil for a text too long for the parts.
 function TaskChunks.Split(text, number)
-	local count = math.max(1, math.ceil(#text / PIECE))
-	if count > TaskChunks.MAX_PARTS then
+	if #text > TaskChunks.MAX_PARTS * PIECE then
+		return nil
+	end
+	local pieces = Pieces(text)
+	if #pieces > TaskChunks.MAX_PARTS then
 		return nil
 	end
 	local parts = {}
-	for n = 1, count do
-		local piece = text:sub((n - 1) * PIECE + 1, n * PIECE)
-		parts[n] = string.format("%d:%d:%d:%s", number, n, count, piece)
+	for n, piece in ipairs(pieces) do
+		parts[n] = string.format("%d:%d:%d:%s", number, n, #pieces, piece)
 	end
 	return parts
 end

@@ -28,10 +28,10 @@ local VERDICTS = { done = true, notyet = true }
 -- A time past this is no time of this century.
 local MAX_TIME = 4294967295
 
--- `%` and the separator are the only bytes that need an escape: a text with `|` or a
--- control character is refused on both ends.
+-- `%` and the separator need an escape, and so does `\`, which the logged channel refuses.
+-- A text with `|` or a control character is refused on both ends.
 local function Escape(text)
-	return (text:gsub("[%%;]", function(c)
+	return (text:gsub("[%%;\\]", function(c)
 		return string.format("%%%02X", c:byte())
 	end))
 end
@@ -42,9 +42,41 @@ local function Unescape(field)
 	end))
 end
 
+-- The valid UTF-8 letters past ASCII, one pattern for each kind of first byte.
+local LETTERS = {
+	"[\194-\223][\128-\191]",
+	"\224[\160-\191][\128-\191]",
+	"[\225-\236\238\239][\128-\191][\128-\191]",
+	"\237[\128-\159][\128-\191]",
+	"\240[\144-\191][\128-\191][\128-\191]",
+	"[\241-\243][\128-\191][\128-\191][\128-\191]",
+	"\244[\128-\143][\128-\191][\128-\191]",
+}
+
+-- The logged channel refuses these: U+FFFE, U+FFFF, and two signs that Blizzard bans.
+local REFUSED = { "\239\191[\190\191]", "\229\141[\141\144]" }
+
+-- The first byte of each pattern says its kind, so a letter that one pattern takes out never
+-- joins the bytes around it into a letter of another pattern.
+local function IsUtf8(text)
+	for _, letter in ipairs(LETTERS) do
+		text = text:gsub(letter, "a")
+	end
+	return not text:find("[\128-\255]")
+end
+
+-- A typed text without the signs that the logged channel refuses.
+function TaskWire.WithoutRefused(text)
+	for _, refused in ipairs(REFUSED) do
+		text = text:gsub(refused, " ")
+	end
+	return text
+end
+
 -- A `|` starts a WoW escape, such as a color or a fake link, so no text of a peer holds one.
+-- The logged channel takes only valid UTF-8, with no refused sign.
 function TaskWire.IsCleanText(text)
-	return type(text) == "string" and not text:find("[%c|]")
+	return type(text) == "string" and not text:find("[%c|]") and IsUtf8(text) and TaskWire.WithoutRefused(text) == text
 end
 
 local function Text(limit, empty)

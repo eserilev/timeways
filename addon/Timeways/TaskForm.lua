@@ -65,7 +65,8 @@ end
 
 -- A `|` starts a WoW escape, and the wire refuses one, so a typed text loses it here.
 function TaskForm.Clean(text)
-	return (tostring(text):gsub("[%c|]", " "):gsub("^%s+", ""):gsub("%s+$", ""))
+	local plain = ns.TaskWire.WithoutRefused(tostring(text))
+	return (plain:gsub("[%c|]", " "):gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
 -- Opens an empty form, and asks who can get a task.

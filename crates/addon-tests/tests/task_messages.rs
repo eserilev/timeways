@@ -114,6 +114,49 @@ fn a_text_that_could_start_a_wow_escape_is_refused() {
 }
 
 #[test]
+fn a_text_that_the_logged_channel_refuses_is_refused() {
+    let game = Game::new();
+
+    let broken_letter = decode(&game, "1;offer;a1;Caf%C3;Text;;1;npc;Renee;1");
+    let lone_continuation = decode(&game, "1;offer;a1;Title;%A9t%C3%A9;;1;npc;Renee;1");
+    let banned_sign = decode(&game, "1;offer;a1;Title;Text;%E5%8D%8D;1;npc;Renee;1");
+    let not_a_letter = decode(&game, "1;story;a1;End%EF%BF%BF");
+
+    assert_eq!(
+        [broken_letter, lone_continuation, banned_sign, not_a_letter],
+        ["bad title", "bad text", "bad reward", "bad text"]
+    );
+}
+
+#[test]
+fn a_text_with_letters_past_ascii_is_taken() {
+    let game = Game::new();
+
+    let taken = decode(&game, "1;offer;a1;Café Tirisfal;Ça va? ✓ 🐺;;1;npc;Renée;1");
+
+    assert_eq!(taken, "ok");
+}
+
+#[test]
+fn a_backslash_goes_escaped() {
+    let game = Game::new();
+
+    let wire: String =
+        game.eval("return ns.TaskWire.Encode({ type = 'story', id = 'a1', text = [[C:\\Wow]] })");
+
+    assert_eq!(wire, "1;story;a1;C:%5CWow");
+}
+
+#[test]
+fn the_form_takes_out_a_sign_that_blizzard_bans() {
+    let game = Game::new();
+
+    let title: String = game.eval("return ns.TaskForm.Clean('Bad 卍 sign 卐')");
+
+    assert_eq!(title, "Bad   sign");
+}
+
+#[test]
 fn a_text_past_its_limit_is_refused() {
     let game = Game::new();
     let title = "a".repeat(61);
@@ -167,6 +210,18 @@ fn a_long_message_goes_in_parts_of_at_most_255_bytes() {
     let (parts, whole) = split_and_join(&game, &text, "{ 1, 2, 3, 4, 5 }");
 
     assert_eq!(parts.len(), 5);
+    assert!(parts.iter().all(|part| part.len() <= 255));
+    assert_eq!(whole.as_deref(), Some(text.as_str()));
+}
+
+#[test]
+fn a_cut_never_splits_a_letter() {
+    let game = Game::new();
+    let text = format!("a{}", "é".repeat(300));
+
+    let (parts, whole) = split_and_join(&game, &text, "{ 1, 2, 3 }");
+
+    assert_eq!(parts.len(), 3);
     assert!(parts.iter().all(|part| part.len() <= 255));
     assert_eq!(whole.as_deref(), Some(text.as_str()));
 }
