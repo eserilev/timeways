@@ -104,3 +104,10 @@ path = "fuzz_targets/shared.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "player_notes"
+path = "fuzz_targets/player_notes.rs"
+test = false
+doc = false
+bench = false

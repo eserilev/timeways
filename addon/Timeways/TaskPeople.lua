@@ -17,7 +17,7 @@ end
 
 -- "Ada" becomes "Ada-Stormrage". The realm loses its spaces, as in the name of the sender
 -- of an addon message: "Bram-Argent Dawn" becomes "Bram-ArgentDawn". A character name
--- with a space is no name.
+-- with a space or a dash is no name, so "-Stormrage" never becomes a name.
 function TaskPeople.Full(name)
 	if not Readable(name) or #name > MAX_NAME or name:find("[%c|;]") then
 		return nil
@@ -27,7 +27,7 @@ function TaskPeople.Full(name)
 		short, realm = name, GetNormalizedRealmName()
 	end
 	realm = realm:gsub("%s", "")
-	if short:find("%s") or realm == "" then
+	if short:find("[%s-]") or realm == "" then
 		return nil
 	end
 	return short .. "-" .. realm

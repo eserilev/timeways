@@ -165,6 +165,17 @@ fn your_own_menu_and_an_npc_get_no_remember() {
 }
 
 #[test]
+fn a_chat_name_with_no_character_part_gets_no_remember() {
+    let game = game();
+
+    let items: usize = game.eval(
+        "return #wow.OpenMenu('MENU_UNIT_FRIEND', { name = '', server = 'Stormrage' }).items",
+    );
+
+    assert_eq!(items, 0);
+}
+
+#[test]
 fn a_broken_saved_entry_is_dropped() {
     let game = game();
     game.run(
