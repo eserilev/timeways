@@ -18,6 +18,7 @@ pub mod lore_start;
 pub mod memory;
 pub mod moments;
 pub mod narrator;
+pub mod npc_memory;
 pub mod pace;
 pub mod pack;
 pub mod pack_sources;

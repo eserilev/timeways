@@ -704,7 +704,7 @@ fn the_first_meeting_keeps_its_event_and_its_time() {
 }
 
 #[test]
-fn an_npc_that_you_only_saw_has_no_first_meeting() {
+fn a_sighting_opens_no_first_meeting() {
     let mut character = Character::new();
 
     see(&mut character, "Keeper Tessa", Reaction::Friendly, None);
