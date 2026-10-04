@@ -3,6 +3,7 @@
 //! add at any time. It is the hero's own story, never canon: `/lore` never reads it.
 
 use crate::check::one_line;
+use crate::house::first_chars;
 use hourglass::Tick;
 use serde::{Deserialize, Serialize};
 
@@ -52,8 +53,9 @@ pub const FIELDS: [&str; 12] = [
 ];
 
 /// The name is the name in the game until the player sets one, and a title often holds it.
-/// No model sees the name of a real player (GAMEPLAY.md 5.11).
-const NOT_IN_PROMPTS: [&str; 2] = ["name", "title"];
+/// No model sees the name of a real player (GAMEPLAY.md 5.11). The rest of the roleplay
+/// profile stays out too: with it, a full sheet is over the budget of a chapter prompt.
+const NOT_IN_PROMPTS: [&str; 6] = ["name", "title", "currently", "appearance", "age", "motto"];
 
 /// None for a name that is no field.
 #[must_use]
@@ -81,9 +83,7 @@ pub fn newest_texts(entries: &[Entry], keep: impl Fn(&Entry) -> bool) -> Vec<&st
 /// The first `PROMPT_TEXT_CHARS` characters of a text.
 #[must_use]
 pub fn cut(text: &str) -> &str {
-    text.char_indices()
-        .nth(PROMPT_TEXT_CHARS)
-        .map_or(text, |(end, _)| &text[..end])
+    first_chars(text, PROMPT_TEXT_CHARS)
 }
 
 /// Every text of the hero, sheet and entries, one on each line. A check of a model answer
@@ -214,10 +214,10 @@ const TOO_LONG: &str = "Couldn't save that: it's too long. Try a shorter version
 pub const OWN_WORDS: &str =
     "Who our hero is, in the player's own words. It is the hero's own story, not canon:";
 
-/// "Who our hero is", for the prompts of the narrator: a line and a chapter. None for an empty
-/// story.
+/// "Who our hero is", for the prompt of a chapter: the sheet, and the `entries` that the
+/// chapter shows with it. None for an empty story.
 #[must_use]
-pub fn portrait(hero: &Hero) -> Option<String> {
+pub fn portrait(hero: &Hero, entries: &[&str]) -> Option<String> {
     let shown = hero
         .sheet
         .iter()
@@ -225,9 +225,8 @@ pub fn portrait(hero: &Hero) -> Option<String> {
     let mut lines: Vec<String> = shown
         .map(|field| format!("- {}: {}", field.field, cut(&field.text)))
         .collect();
-    let newest = newest_texts(&hero.entries, |_| true);
     lines.extend(
-        newest
+        entries
             .iter()
             .map(|text| format!("- Told by the player: {text}")),
     );

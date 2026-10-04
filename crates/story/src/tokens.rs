@@ -1,5 +1,6 @@
 //! The size of a prompt in tokens, so that each call fits a small local model (GAMEPLAY.md
-//! 3.2.1). The estimate is rough on purpose: a test measures, and no call is cut by it.
+//! 3.2.1). The estimate is rough on purpose. A prompt with a part of open length keeps as
+//! much of that part as fits its budget.
 
 use crate::{check, chronicle, narrator, quest, talk};
 
@@ -63,4 +64,17 @@ impl Call {
 #[must_use]
 pub fn estimated_tokens(text: &str) -> usize {
     text.chars().count().div_ceil(CHARS_PER_TOKEN)
+}
+
+/// The prompt `build(count)` with the largest count up to `most` that fits `budget`. When
+/// no count fits, the prompt of count 0.
+#[must_use]
+pub fn largest_fit(most: usize, budget: usize, build: impl Fn(usize) -> String) -> String {
+    for count in (1..=most).rev() {
+        let prompt = build(count);
+        if estimated_tokens(&prompt) <= budget {
+            return prompt;
+        }
+    }
+    build(0)
 }

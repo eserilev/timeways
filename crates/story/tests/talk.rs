@@ -2,6 +2,7 @@ use timeways_story::hero_hook::Hook;
 use timeways_story::narrator::PERSONA;
 use timeways_story::pack::{Link, Origin, Passage};
 use timeways_story::talk::{Answer, MAX_SAY_CHARS, QuestTalk, Scene, checked_answer, prompt};
+use timeways_story::tokens::{Call, estimated_tokens};
 
 fn farley() -> Scene<'static> {
     Scene {
@@ -303,4 +304,29 @@ fn a_talk_prompt_with_no_hook_is_as_before() {
         !prompt.contains("Something the player wrote about their hero"),
         "{prompt}"
     );
+}
+
+fn passage(text: &str) -> Passage {
+    Passage {
+        text: text.to_string(),
+        source: "https://example.test/1".to_string(),
+        links: Vec::new(),
+        origin: Origin::Pack,
+    }
+}
+
+#[test]
+fn a_talk_over_its_budget_drops_the_last_passages_first() {
+    let (second, third) = ("a".repeat(4000), "b".repeat(4000));
+    let lore = [
+        passage("The inn of Testvale is old."),
+        passage(&second),
+        passage(&third),
+    ];
+
+    let prompt = prompt(&farley(), &lore, "any news?", 0);
+
+    assert!(prompt.contains("The inn of Testvale is old."), "{prompt}");
+    assert!(!prompt.contains(&third), "{prompt}");
+    assert!(estimated_tokens(&prompt) <= Call::Talk.prompt_budget());
 }

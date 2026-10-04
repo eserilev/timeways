@@ -1,8 +1,9 @@
 //! The words of a lore prompt (GAMEPLAY.md 3.1 and 5.3). Timeways writes them, never
 //! Hourglass.
 
-use crate::house::{HOUSE_RULES, bulleted, fenced};
+use crate::house::{HOUSE_RULES, bulleted, fenced, first_chars};
 use crate::pack::{Origin, Passage};
+use crate::tokens::estimated_tokens;
 use std::fmt::Write;
 
 const RULES: &str = "\
@@ -81,10 +82,34 @@ pub enum Attempt {
     Retry,
 }
 
+/// A retry quotes at most this much of the last answer. The faults say what to fix, so the
+/// start of a long answer is enough.
+const RETRY_ANSWER_CHARS: usize = 400;
+
+/// A fault can quote a name of the answer, so a retry cuts each one to this length.
+const RETRY_FAULT_CHARS: usize = 100;
+
+/// A retry names at most this many faults.
+const RETRY_FAULTS: usize = 3;
+
+/// The most tokens that a retry adds to its first prompt. A first prompt that leaves this
+/// much room keeps its retry in the same budget.
+#[must_use]
+pub fn retry_tokens() -> usize {
+    let longest_fault = "w".repeat(RETRY_FAULT_CHARS);
+    let faults = vec![longest_fault; RETRY_FAULTS];
+    estimated_tokens(&retry("", &"w".repeat(RETRY_ANSWER_CHARS), &faults))
+}
+
 /// The model wrote the answer, and a reason can quote a word of it, so both are data.
 #[must_use]
 pub fn retry(prompt: &str, answer: &str, reasons: &[String]) -> String {
-    let faults: Vec<&str> = reasons.iter().map(String::as_str).collect();
+    let faults: Vec<&str> = reasons
+        .iter()
+        .take(RETRY_FAULTS)
+        .map(|reason| first_chars(reason, RETRY_FAULT_CHARS))
+        .collect();
+    let answer = first_chars(answer, RETRY_ANSWER_CHARS);
     format!(
         "{prompt}\n\nYour last answer was:\n{}\n\nIt broke these rules:\n{}\nWrite the answer again.",
         fenced(answer),

@@ -16,13 +16,14 @@ use timeways_story::moments::Moment;
 use timeways_story::narrator;
 use timeways_story::npc_memory::{self, Memory, QuestEnding, RUMOR_CHARS, Recall};
 use timeways_story::pack::{Link, Origin, Passage};
+use timeways_story::passage_limits::MAX_PASSAGE_BYTES;
 use timeways_story::places::InstanceKind;
 use timeways_story::prompt::{self, Context};
 use timeways_story::quest::variety::{Recent, Shape};
 use timeways_story::quest::{self, AnyOrder, Genre, Known, Step};
-use timeways_story::story::MAX_NAME_BYTES;
+use timeways_story::story::{MAX_NAME_BYTES, MAX_WORDS_BYTES};
 use timeways_story::talk::{self, QuestTalk, Scene};
-use timeways_story::tokens::{Call, estimated_tokens};
+use timeways_story::tokens::{Call, estimated_tokens, largest_fit};
 use timeways_story::{check, draft};
 
 /// One fixed moment, its prompt, and what the player sees of an answer.
@@ -62,7 +63,8 @@ fn hero() -> Hero {
 }
 
 fn portrait() -> Option<String> {
-    hero::portrait(&hero())
+    let hero = hero();
+    hero::portrait(&hero, &hero::newest_texts(&hero.entries, |_| true))
 }
 
 fn line(moment: &Moment) -> String {
@@ -289,6 +291,104 @@ fn quest_offer() -> String {
     quest::prompt(&quest_known(), Some("Goldshire"), Some(longest_hook()))
 }
 
+/// `count` names of 22 characters each, as long as most names of the game.
+fn names(kind: &str, count: usize) -> Vec<&'static str> {
+    (0..count)
+        .map(|number| {
+            let name = format!("{kind} of the Far {number:>6}");
+            &*Box::leak(format!("{name:<22}").into_boxed_str())
+        })
+        .collect()
+}
+
+/// Every list at full length, 3 recent offers, and a full hook: the longest quest prompt.
+fn full_quest_known() -> Known<'static> {
+    let full = |kind| names(kind, 40);
+    Known {
+        zones: full("Zone"),
+        subzones: full("Subzone"),
+        npcs: full("Person"),
+        foes: full("Creature"),
+        dungeons: full("Dungeon"),
+        bosses: full("Boss"),
+        game_quests: full("Quest"),
+        ..quest_known()
+    }
+}
+
+fn full_quest_offer() -> String {
+    quest::prompt(&full_quest_known(), Some("Goldshire"), Some(longest_hook()))
+}
+
+/// The longest first prompt, a long bad answer, and a fault that quotes a long name.
+fn quest_retry() -> String {
+    let fault = quest::QuestFault::UnknownPlace("W".repeat(MAX_NAME_BYTES * 3));
+    prompt::retry(&full_quest_offer(), &"w".repeat(2000), &[fault.to_string()])
+}
+
+/// Every field of the sheet at full length, and more entries than a prompt takes.
+fn full_hero() -> Hero {
+    let sheet = hero::FIELDS.map(|field| Field {
+        field: field.to_string(),
+        text: "w".repeat(hero::limit_of(field).unwrap().chars),
+    });
+    let entry = |number| Entry {
+        number,
+        at: Tick(number * 100),
+        text: "w".repeat(hero::LONG.chars),
+        place: None,
+        npc: None,
+    };
+    Hero {
+        sheet: sheet.into(),
+        entries: (1..=8).map(entry).collect(),
+    }
+}
+
+/// A quiet chapter with the full sheet, and the most entries that a chapter shows.
+fn quiet_chapter_of_a_full_hero() -> String {
+    let chapter = chapter(5, &["Redridge Mountains"], Vec::new());
+    let hero = full_hero();
+    let entries = hero::newest_texts(&hero.entries, |_| true);
+    // A portrait line is longer than a line of the chapter, and each block has a heading.
+    let (told, others) = entries.split_at(1);
+    let portrait = hero::portrait(&hero, others);
+    chronicle::prompt(
+        &[],
+        &chapter,
+        &earlier_chapters(),
+        &[],
+        portrait.as_deref(),
+        told,
+    )
+}
+
+/// Each part of a talk at its longest: entries, memories, a hook, 3 quests, 3 passages of
+/// the largest size, and the longest words.
+fn full_npc_talk() -> String {
+    let entry = "w".repeat(hero::PROMPT_TEXT_CHARS);
+    let quest = || QuestTalk {
+        giver: "Marshal Dughan",
+        title: "The Stranger in the Grey Cloak and the Letter Left Unread...",
+        about: Some("the stranger in the grey cloak who asked for my fathers name"),
+    };
+    let scene = Scene {
+        npc: "Innkeeper Farley",
+        place: Some("Goldshire"),
+        level: Some(12),
+        trust: Some(-20),
+        slapped: Some(2),
+        own_lore: vec![&entry; hero::PROMPT_ENTRIES],
+        memories: longest_memories(),
+        quests: vec![quest(), quest(), quest()],
+        hook: Some(longest_hook()),
+    };
+    let text = "w".repeat(MAX_PASSAGE_BYTES);
+    let lore = [passage(&text), passage(&text), passage(&text)];
+    let words = "w".repeat(MAX_WORDS_BYTES);
+    talk::prompt(&scene, &lore, &words, 0)
+}
+
 fn draft_known() -> draft::Known<'static> {
     draft::Known {
         zones: vec!["Elwynn Forest", "Westfall"],
@@ -421,6 +521,22 @@ fn every_prompt() -> Vec<(&'static str, Call, String)> {
     prompts.push(("a lore question", Call::Lore, lore_question()));
     prompts.push(("a judge of two drafts", Call::Judge, judge()));
     prompts.push(("a task draft", Call::Quest, task_draft()));
+    prompts.push((
+        "a quest offer with full lists",
+        Call::Quest,
+        full_quest_offer(),
+    ));
+    prompts.push((
+        "a quest retry after a long bad answer",
+        Call::Quest,
+        quest_retry(),
+    ));
+    prompts.push((
+        "a quiet chapter of a full hero",
+        Call::Chapter,
+        quiet_chapter_of_a_full_hero(),
+    ));
+    prompts.push(("an NPC talk with everything", Call::Talk, full_npc_talk()));
     prompts
 }
 
@@ -443,6 +559,15 @@ fn a_token_is_about_four_characters() {
     assert_eq!(estimated_tokens(""), 0);
     assert_eq!(estimated_tokens("abcd"), 1);
     assert_eq!(estimated_tokens("abcde"), 2);
+}
+
+#[test]
+fn the_largest_fit_takes_the_largest_count_that_fits_the_budget() {
+    let build = |count: usize| "abcd".repeat(count);
+
+    assert_eq!(largest_fit(9, 5, build), "abcd".repeat(5));
+    assert_eq!(largest_fit(3, 5, build), "abcd".repeat(3));
+    assert_eq!(largest_fit(9, 0, build), "");
 }
 
 #[test]

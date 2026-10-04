@@ -61,11 +61,17 @@ impl Story {
         let hero = hero::hero(active.hero.changes());
         let in_chapter = |entry: &Entry| entry.at >= chapter.began && entry.at < next.began;
         let written = hero::newest_texts(&hero.entries, in_chapter);
+        // The entries of the chapter and of the portrait share one limit, so a full story
+        // fits the budget of a chapter.
+        let mut others = hero::newest_texts(&hero.entries, |entry| !in_chapter(entry));
+        others.truncate(hero::PROMPT_ENTRIES - written.len());
         // The sheet is news only once, or when the player changed it, so chapters do not
         // all open with the same portrait.
         let sheet_is_news =
             index == 0 || hero::sheet_changed(active.hero.changes(), chapter.began, next.began);
-        let portrait = sheet_is_news.then(|| hero::portrait(&hero)).flatten();
+        let portrait = sheet_is_news
+            .then(|| hero::portrait(&hero, &others))
+            .flatten();
         let draft = |draft| {
             chronicle::draft_prompt(
                 &journal.places,

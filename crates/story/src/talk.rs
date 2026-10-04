@@ -6,6 +6,7 @@ use crate::hero_hook::{Hook, TALK_RULE, hook_block};
 use crate::house::{HOUSE_RULES, bulleted, fenced};
 use crate::pack::Passage;
 use crate::samples::{self, Voice};
+use crate::tokens::{Call, largest_fit};
 use serde::Deserialize;
 use std::fmt::Write;
 
@@ -64,9 +65,16 @@ pub fn persona(npc: &str, place: Option<&str>) -> String {
     )
 }
 
-/// `turn` picks the golden samples of the prompt.
+/// `turn` picks the golden samples of the prompt. The passages come most relevant first,
+/// so the last ones go first when the prompt is over its budget.
 #[must_use]
 pub fn prompt(scene: &Scene<'_>, passages: &[Passage], words: &str, turn: usize) -> String {
+    largest_fit(passages.len(), Call::Talk.prompt_budget(), |kept| {
+        prompt_with(scene, &passages[..kept], words, turn)
+    })
+}
+
+fn prompt_with(scene: &Scene<'_>, passages: &[Passage], words: &str, turn: usize) -> String {
     format!(
         "{}\n{HOUSE_RULES}\n\nAnswer the player, and say how this talk changes your trust. \
          Stay true to the lore below. When you do not know, say so as this person would.{}\n\n\

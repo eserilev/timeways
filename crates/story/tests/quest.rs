@@ -2,6 +2,7 @@
 
 use hourglass::Tick;
 use timeways_story::hero_hook::Hook;
+use timeways_story::prompt::retry_tokens;
 use timeways_story::quest::{
     AnyOrder, DAY_SECONDS, Encounter, Genre, Here, Known, MAX_CARRY, MAX_KILLS, MAX_OFFER_BYTES,
     MAX_TITLE_CHARS, MAX_TOPIC_CHARS, MAX_WAIT_DAYS, Quest, QuestChange, QuestFault, Status, Step,
@@ -9,6 +10,7 @@ use timeways_story::quest::{
     quest_emotes, quest_log, thing_name, title_of_thing,
 };
 use timeways_story::seen::{SeenText, TextKind};
+use timeways_story::tokens::{Call, estimated_tokens};
 
 const GIVER: &str = "Keeper Tessa";
 
@@ -1680,4 +1682,31 @@ fn a_mystery_shows_its_done_steps_and_its_open_set() {
     assert_eq!(shown, [StepState::Done, StepState::Open, StepState::Open]);
     assert_eq!(view.hidden_steps, 1);
     assert_eq!(view.any_order, Some(AnyOrder { first: 1, last: 2 }));
+}
+
+#[test]
+fn a_quest_prompt_with_long_lists_keeps_the_first_names_of_each() {
+    let places: Vec<String> = (0..40).map(|n| format!("Long Place Name {n:>6}")).collect();
+    let mut known = known(&[]);
+    known.zones = places.iter().map(String::as_str).collect();
+
+    let text = prompt(&known, Some("Testvale"), None);
+
+    assert!(text.contains(&format!("- {}\n", places[0])), "{text}");
+    assert!(!text.contains(&format!("- {}\n", places[20])), "{text}");
+}
+
+#[test]
+fn a_quest_prompt_leaves_room_for_its_retry() {
+    let names: Vec<String> = (0..40).map(|n| format!("Long Place Name {n:>6}")).collect();
+    let names: Vec<&str> = names.iter().map(String::as_str).collect();
+    let mut known = known(&[]);
+    known.zones.clone_from(&names);
+    known.subzones.clone_from(&names);
+    known.foes.clone_from(&names);
+
+    let text = prompt(&known, Some("Testvale"), None);
+
+    let room = Call::Quest.prompt_budget() - retry_tokens();
+    assert!(estimated_tokens(&text) <= room, "{text}");
 }

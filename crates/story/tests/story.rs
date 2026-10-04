@@ -2154,6 +2154,35 @@ fn the_saga_reads_the_entries_from_the_start_of_its_chapter_to_the_start_of_the_
 }
 
 #[test]
+fn a_saga_shows_at_most_five_entries_the_ones_of_its_chapter_first() {
+    let mut story = story_with("saga-entry-cap", &[]);
+    meet(&mut story, HOUR, "Gryan Stoutmantle");
+    for n in 1..=4 {
+        add_entry(&mut story, HOUR + n, &format!("In chapter one {n}."), None);
+    }
+    play_fifty_minutes(&mut story, HOUR + 60, "Westfall");
+    new_chapter(&mut story, 5 * HOUR, "Duskwood", 91);
+    meet(&mut story, 5 * HOUR, "Salma Saldean");
+    for n in 1..=3 {
+        add_entry(&mut story, 5 * HOUR + n, &format!("Later {n}."), None);
+    }
+
+    let prompt = saga_prompt(&mut story, 2);
+
+    for n in 1..=4 {
+        assert!(
+            prompt.contains(&format!("- In chapter one {n}.")),
+            "{prompt}"
+        );
+    }
+    assert!(
+        prompt.contains("- Told by the player: Later 3."),
+        "{prompt}"
+    );
+    assert!(!prompt.contains("Later 2."), "{prompt}");
+}
+
+#[test]
 fn a_talk_at_the_byte_limits_of_the_npc_name_and_the_words_asks_the_model() {
     let mut story = story_with("talk-limits", &[]);
     let npc = "N".repeat(64);

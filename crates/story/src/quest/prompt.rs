@@ -8,11 +8,13 @@ use super::{
 };
 use crate::hero_hook::{Hook, QUEST_RULE, hook_block};
 use crate::house::{HOUSE_RULES, bulleted, fenced};
+use crate::prompt;
 use crate::talk::persona;
+use crate::tokens::{Call, largest_fit};
 use crate::vocabulary::LEVELS;
 use std::fmt::Write;
 
-/// The names of one list in the prompt. A long list costs tokens and adds little.
+/// The most names of one list in the prompt. A long list costs tokens and adds little.
 const PROMPT_NAMES: usize = 20;
 
 const VISIT: &str = r#"{"goal": "visit", "place": "<a place above>"}: go there."#;
@@ -38,23 +40,42 @@ struct Lists<'a> {
 }
 
 impl<'a> Lists<'a> {
-    fn of(known: &'a Known<'a>) -> Self {
+    /// Each list keeps its first `names`: the most relevant ones (`story::quests::known`).
+    fn of(known: &'a Known<'a>, names: usize) -> Self {
+        let first = |mut list: Vec<&'a str>| {
+            list.truncate(names);
+            list
+        };
         Lists {
-            places: known.places(),
-            people: known.people(),
-            prey: known.prey(),
-            goods: known.goods.clone(),
-            dungeons: known.dungeons(),
-            bosses: known.bosses(),
-            game_quests: known.game_quest_titles(),
+            places: first(known.places()),
+            people: first(known.people()),
+            prey: first(known.prey()),
+            goods: first(known.goods.clone()),
+            dungeons: first(known.dungeons()),
+            bosses: first(known.bosses()),
+            game_quests: first(known.game_quest_titles()),
             level: known.level.filter(|_| known.can_level()),
         }
     }
 }
 
+/// The lists are as long as the budget of a quest call allows, with room for the retry.
 #[must_use]
 pub fn prompt(known: &Known<'_>, place: Option<&str>, hook: Option<Hook<'_>>) -> String {
-    let lists = Lists::of(known);
+    let budget = Call::Quest
+        .prompt_budget()
+        .saturating_sub(prompt::retry_tokens());
+    largest_fit(PROMPT_NAMES, budget, |names| {
+        prompt_of(&Lists::of(known, names), known, place, hook)
+    })
+}
+
+fn prompt_of(
+    lists: &Lists<'_>,
+    known: &Known<'_>,
+    place: Option<&str>,
+    hook: Option<Hook<'_>>,
+) -> String {
     let hook = hook.map_or_else(String::new, |hook| {
         format!("{}\n\n", hook_block(&hook, QUEST_RULE))
     });
@@ -88,15 +109,15 @@ pub fn prompt(known: &Known<'_>, place: Option<&str>, hook: Option<Hook<'_>>) ->
         list(&lists.people),
         list(&lists.prey),
         list(&lists.goods),
-        more_lists(&lists),
+        more_lists(lists),
         recent_block(&known.recent),
-        goals(&lists),
+        goals(lists),
         place.map_or_else(String::new, |place| format!(" in {place}"))
     )
 }
 
 fn list(names: &[&str]) -> String {
-    fenced(&bulleted(&names[..names.len().min(PROMPT_NAMES)]))
+    fenced(&bulleted(names))
 }
 
 /// The lists that most players have empty for a long time show only with a name, and the

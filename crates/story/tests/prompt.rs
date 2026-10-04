@@ -1,6 +1,7 @@
 use timeways_story::check::Fault;
 use timeways_story::pack::{Link, Origin, Passage};
-use timeways_story::prompt::{Context, lore, retry};
+use timeways_story::prompt::{Context, lore, retry, retry_tokens};
+use timeways_story::tokens::estimated_tokens;
 
 fn passage(text: &str) -> Passage {
     let links = vec![Link::Place("Testvale".to_string())];
@@ -121,6 +122,18 @@ fn a_retry_prompt_fences_the_answer_and_its_faults() {
     assert_eq!(after_first.matches(">>>").count(), 2, "{prompt}");
     assert_eq!(after_first.matches("<<<").count(), 2, "{prompt}");
     assert!(prompt.ends_with(">>>\nWrite the answer again."), "{prompt}");
+}
+
+#[test]
+fn a_retry_quotes_only_the_start_of_a_long_answer_and_of_a_long_fault() {
+    let answer = "a".repeat(5000);
+    let fault = "f".repeat(5000);
+
+    let prompt = retry("FIRST PROMPT", &answer, &[fault.clone(), fault]);
+
+    let added = estimated_tokens(&prompt) - estimated_tokens("FIRST PROMPT");
+    assert!(added <= retry_tokens(), "{prompt}");
+    assert!(prompt.contains(&"a".repeat(400)), "{prompt}");
 }
 
 #[test]

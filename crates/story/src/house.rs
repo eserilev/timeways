@@ -22,6 +22,14 @@ pub fn fenced(text: &str) -> String {
     format!("{OPEN}\n{}\n{CLOSE}", without_fence_marks(text))
 }
 
+/// The first `most` characters of a text.
+#[must_use]
+pub fn first_chars(text: &str, most: usize) -> &str {
+    text.char_indices()
+        .nth(most)
+        .map_or(text, |(end, _)| &text[..end])
+}
+
 /// Each entry on a line of its own, after a dash.
 #[must_use]
 pub fn bulleted(entries: &[&str]) -> String {

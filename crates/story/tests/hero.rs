@@ -147,16 +147,20 @@ fn the_sheet_keeps_the_roleplay_fields_after_the_questions() {
 }
 
 #[test]
-fn a_portrait_leaves_out_the_name_and_the_title() {
+fn a_portrait_leaves_out_the_roleplay_profile() {
     let changes = [
         set("name", "Ada Brightwater"),
         set("title", "Lady Ada"),
         set("age", "Thirty winters."),
+        set("currently", "Reading."),
+        set("appearance", "Tall."),
+        set("motto", "Light and steel."),
+        set("flaw", "Proud."),
     ];
 
-    let portrait = portrait(&hero(&changes)).unwrap();
+    let portrait = portrait(&hero(&changes), &[]).unwrap();
 
-    assert_eq!(portrait, "- age: Thirty winters.");
+    assert_eq!(portrait, "- flaw: Proud.");
 }
 
 #[test]
@@ -182,13 +186,16 @@ fn a_prompt_takes_the_start_of_a_long_text() {
     let changes = [set("goal", &long), added(1, &long)];
     let cut = "b".repeat(PROMPT_TEXT_CHARS);
 
-    let portrait = portrait(&hero(&changes)).unwrap();
+    let hero = hero(&changes);
+    let entries = newest_texts(&hero.entries, |_| true);
+
+    let portrait = portrait(&hero, &entries).unwrap();
 
     assert_eq!(
         portrait,
         format!("- goal: {cut}\n- Told by the player: {cut}")
     );
-    assert_eq!(newest_texts(&hero(&changes).entries, |_| true), [cut]);
+    assert_eq!(entries, [cut]);
 }
 
 #[test]
@@ -209,8 +216,9 @@ fn the_player_text_holds_the_sheet_and_every_entry() {
 fn a_portrait_holds_the_sheet_and_the_five_newest_entries() {
     let mut changes = vec![set("goal", "Find my brother.")];
     changes.extend((1..=7).map(|n| added(n, &format!("Entry {n}"))));
+    let hero = hero(&changes);
 
-    let portrait = portrait(&hero(&changes)).unwrap();
+    let portrait = portrait(&hero, &newest_texts(&hero.entries, |_| true)).unwrap();
 
     assert!(
         portrait.starts_with("- goal: Find my brother.\n- Told by the player: Entry 7"),
@@ -224,7 +232,7 @@ fn a_portrait_holds_the_sheet_and_the_five_newest_entries() {
 
 #[test]
 fn an_empty_story_has_no_portrait() {
-    assert_eq!(portrait(&hero(&[])), None);
+    assert_eq!(portrait(&hero(&[]), &[]), None);
 }
 
 #[test]
