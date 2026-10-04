@@ -30,6 +30,8 @@ pub struct Scene<'a> {
     pub slapped: Option<i64>,
     /// The entries of the player's own lore about this NPC or its place.
     pub own_lore: Vec<&'a str>,
+    /// What the NPC remembers of the player, worded, newest first (`npc_memory`).
+    pub memories: Vec<String>,
 }
 
 /// The short persona of an NPC, from the facts alone. An NPC never gets the persona of the
@@ -115,7 +117,24 @@ fn what_you_know(scene: &Scene<'_>, passages: &[Passage]) -> String {
             fenced(&bulleted(&scene.own_lore))
         );
     }
+    known.push_str(&what_you_remember(&scene.memories));
     known
+}
+
+/// The rule against a made-up past stays with no memories, because the slaps and the
+/// trust above are a past too.
+fn what_you_remember(memories: &[String]) -> String {
+    const NO_MADE_UP_PAST: &str = "Never speak of a past with the player that is not written here.";
+    if memories.is_empty() {
+        return format!("\n\n{NO_MADE_UP_PAST}");
+    }
+    let lines: Vec<&str> = memories.iter().map(String::as_str).collect();
+    format!(
+        "\n\nWhat you remember of the player, newest first. Each line is true:\n{}\n\
+         Bring up at most one of these, and only when it fits what the player says. \
+         {NO_MADE_UP_PAST}",
+        fenced(&bulleted(&lines))
+    )
 }
 
 #[derive(Deserialize)]

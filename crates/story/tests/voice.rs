@@ -13,10 +13,12 @@ use timeways_story::hero::{self, Entry, Field, Hero};
 use timeways_story::journal::{Chapter, Deed};
 use timeways_story::moments::Moment;
 use timeways_story::narrator;
+use timeways_story::npc_memory::{self, Memory, QuestEnding, RUMOR_CHARS, Recall};
 use timeways_story::pack::{Link, Origin, Passage};
 use timeways_story::places::InstanceKind;
 use timeways_story::prompt::{self, Context};
 use timeways_story::quest::{self, Known};
+use timeways_story::story::MAX_NAME_BYTES;
 use timeways_story::talk::{self, Scene};
 use timeways_story::tokens::{Call, estimated_tokens};
 use timeways_story::{check, draft};
@@ -159,6 +161,41 @@ fn passage(text: &str) -> Passage {
     }
 }
 
+/// Five memories at full length, so the budget test covers the longest block.
+fn longest_memories() -> Vec<String> {
+    let name = "W".repeat(MAX_NAME_BYTES);
+    let rumor = || Recall::Said {
+        text: format!("{}...", "word ".repeat(RUMOR_CHARS / 5).trim_end()),
+    };
+    let recalls = [
+        rumor(),
+        rumor(),
+        Recall::GaveQuest {
+            title: "T".repeat(quest::MAX_TITLE_CHARS),
+            ending: QuestEnding::Waiting,
+        },
+        Recall::DefeatedNear {
+            foe: name.clone(),
+            place: name.clone(),
+        },
+        Recall::DiedNear {
+            place: name.clone(),
+            killer: Some(name),
+        },
+    ];
+    recalls
+        .into_iter()
+        .map(|recall| {
+            let memory = Memory {
+                at: Tick(0),
+                recall,
+                sources: Vec::new(),
+            };
+            npc_memory::line(&memory, Tick(1))
+        })
+        .collect()
+}
+
 fn npc_talk() -> String {
     let scene = Scene {
         npc: "Innkeeper Farley",
@@ -167,6 +204,7 @@ fn npc_talk() -> String {
         trust: Some(-20),
         slapped: Some(2),
         own_lore: vec!["A stranger at the inn knew my father's name."],
+        memories: longest_memories(),
     };
     let lore = [passage(
         "The Lion's Pride Inn stands at the crossroads of Goldshire.",

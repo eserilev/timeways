@@ -1048,6 +1048,7 @@ impl Story {
             trust: character.trust_of(npc),
             slapped: character.slaps_of(npc),
             own_lore,
+            memories: Vec::new(),
         };
         let prompt = talk::prompt(&scene, &passages, words, self.turn());
         let pending = Pending::Talk {
