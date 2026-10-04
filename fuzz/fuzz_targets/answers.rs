@@ -46,6 +46,11 @@ fn known(seen: &[SeenText]) -> Known<'_> {
         seen,
         goods: vec!["Linen Cloth", "Light Leather"],
         recent: recent(),
+        level: Some(12),
+        dungeons: vec!["The Deadmines"],
+        bosses: vec!["Edwin VanCleef"],
+        game_quests: vec!["The Defias Brotherhood"],
+        game_quests_done: vec!["Report to Goldtooth"],
     }
 }
 
@@ -174,6 +179,10 @@ fn assert_step(step: &Step, before: &[Step]) {
             assert!((1..=quest::MAX_KILLS).contains(count));
         }
         Step::Wait { days } => assert!((1..=quest::MAX_WAIT_DAYS).contains(days)),
+        Step::Level { level } => assert!((13..=15).contains(level), "{level}"),
+        Step::Enter { dungeon } => assert_eq!(dungeon, "The Deadmines"),
+        Step::Defeat { boss } => assert_eq!(boss, "Edwin VanCleef"),
+        Step::GameQuest { title } => assert_eq!(title, "The Defias Brotherhood"),
         Step::Emote { emote, npc, place } => {
             assert!(quest::quest_emotes().contains(&emote.as_str()), "{emote}");
             assert!(npc.is_some() != place.is_some(), "{npc:?} {place:?}");

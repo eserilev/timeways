@@ -40,6 +40,9 @@ pub const MAX_OFFER_BYTES: usize = 1000;
 /// A kill step asks for 1 to this many kills.
 pub const MAX_KILLS: u8 = 10;
 
+/// A level step asks for 1 to this many levels above yours. More is a grind, not a quest.
+pub const MAX_LEVELS_AHEAD: i64 = 3;
+
 /// A wait step lasts 1 to this many days. More holds one of your 3 open quests too long.
 pub const MAX_WAIT_DAYS: u8 = 3;
 
@@ -99,6 +102,23 @@ pub enum Step {
     Slap {
         npc: String,
     },
+    /// Reach a level, 1 to 3 above yours.
+    Level {
+        #[serde(deserialize_with = "whole_number")]
+        level: u8,
+    },
+    /// Enter a dungeon or a raid that you entered before.
+    Enter {
+        dungeon: String,
+    },
+    /// Defeat a boss that you defeated before in a dungeon or a raid.
+    Defeat {
+        boss: String,
+    },
+    /// Turn in a quest of the game, by its exact title.
+    GameQuest {
+        title: String,
+    },
     /// Come back later: the steps after it open only after the wait.
     Wait {
         #[serde(deserialize_with = "whole_number")]
@@ -133,7 +153,10 @@ impl Step {
             | Step::Slap { npc } => Some(npc),
             Step::Emote { npc, place, .. } => npc.as_deref().or(place.as_deref()),
             Step::Kill { creature, .. } => Some(creature),
-            Step::Wait { .. } => None,
+            Step::Enter { dungeon } => Some(dungeon),
+            Step::Defeat { boss } => Some(boss),
+            Step::GameQuest { title } => Some(title),
+            Step::Wait { .. } | Step::Level { .. } => None,
         }
     }
 
@@ -150,6 +173,10 @@ impl Step {
             Step::Emote { .. } => "emote",
             Step::Slap { .. } => "slap",
             Step::Wait { .. } => "wait",
+            Step::Level { .. } => "level",
+            Step::Enter { .. } => "enter",
+            Step::Defeat { .. } => "defeat",
+            Step::GameQuest { .. } => "game_quest",
         }
     }
 
@@ -162,9 +189,14 @@ impl Step {
             | Step::Carry { npc, .. }
             | Step::Slap { npc } => Some(npc),
             Step::Emote { npc, .. } => npc.as_deref(),
-            Step::Visit { .. } | Step::VisitAt { .. } | Step::Kill { .. } | Step::Wait { .. } => {
-                None
-            }
+            Step::Visit { .. }
+            | Step::VisitAt { .. }
+            | Step::Kill { .. }
+            | Step::Wait { .. }
+            | Step::Level { .. }
+            | Step::Enter { .. }
+            | Step::Defeat { .. }
+            | Step::GameQuest { .. } => None,
         }
     }
 }
@@ -286,6 +318,16 @@ pub enum QuestFault {
     SlapGiver,
     #[error("no quest asks you to slap \"{0}\"")]
     CruelTarget(String),
+    #[error("a level step asks for 1 to {MAX_LEVELS_AHEAD} levels above yours, up to 60, not {0}")]
+    LevelOutOfReach(u8),
+    #[error("you never entered the dungeon or raid \"{0}\"")]
+    UnknownDungeon(String),
+    #[error("you never defeated \"{0}\" in a dungeon or a raid")]
+    UnknownBoss(String),
+    #[error("you neither hold nor read the quest of the game \"{0}\"")]
+    UnknownGameQuest(String),
+    #[error("you already turned in the quest of the game \"{0}\"")]
+    GameQuestDone(String),
     #[error("a step sends you back to the giver with no wait before it")]
     MeetGiver,
     #[error("a wait lasts 1 to {MAX_WAIT_DAYS} days, not {0}")]

@@ -268,6 +268,64 @@ impl Character {
             .collect()
     }
 
+    /// The dungeons and raids that you entered: the places that you visited with the mark of
+    /// an instance, the newest first (docs/plans/quest-variety.md 4.7).
+    #[must_use]
+    pub fn dungeons_entered(&self) -> Vec<&str> {
+        self.visited(is_instance)
+    }
+
+    /// The rares and bosses that you defeated in a dungeon or a raid: the place of the foe
+    /// is in a zone with the mark of an instance.
+    #[must_use]
+    pub fn bosses_defeated(&self) -> Vec<&str> {
+        let in_instance = |foe: &&Entity| {
+            let zone = self
+                .world
+                .location_of(foe.id)
+                .map(|place| self.world.ancestry(place).last().copied().unwrap_or(place));
+            zone.and_then(|zone| self.world.entity(zone))
+                .is_some_and(is_instance)
+        };
+        self.linked_by_you(&[DEFEATED])
+            .into_iter()
+            .filter(in_instance)
+            .map(|foe| foe.name.as_str())
+            .collect()
+    }
+
+    /// The titles of the quests of the game that you took and did not turn in.
+    #[must_use]
+    pub fn game_quests_open(&self) -> Vec<&str> {
+        let done = self.game_quests_done();
+        self.game_quest_titles(GAME_QUEST_TAKEN)
+            .into_iter()
+            .filter(|title| !done.contains(title))
+            .collect()
+    }
+
+    /// The titles of the quests of the game that you turned in.
+    #[must_use]
+    pub fn game_quests_done(&self) -> Vec<&str> {
+        self.game_quest_titles(GAME_QUEST_DONE)
+    }
+
+    fn game_quest_titles(&self, fact: &str) -> Vec<&str> {
+        self.linked_by_you(&[fact])
+            .into_iter()
+            .filter_map(|quest| title_of_game_quest(&quest.name))
+            .collect()
+    }
+
+    /// The event that opened your level fact, when you have one.
+    #[must_use]
+    pub fn level_event(&self) -> Option<EventId> {
+        self.world
+            .entity(self.you)?
+            .fact(LEVEL, None)
+            .map(|fact| fact.opened)
+    }
+
     #[must_use]
     pub fn has_seen(&self, npc: &str) -> bool {
         self.holds_about(SEEN, npc)
@@ -886,6 +944,11 @@ fn holds_flag(entity: &Entity, flag: &str) -> bool {
     entity.fact(flag, None).is_some()
 }
 
+/// A place with the mark of a dungeon or a raid.
+fn is_instance(place: &Entity) -> bool {
+    holds_flag(place, DUNGEON) || holds_flag(place, RAID)
+}
+
 /// The creature types of the game that are animals. The addon sends the English name, in
 /// lower case.
 fn is_animal(creature: &str) -> bool {
@@ -901,7 +964,8 @@ pub fn next_trust(held: Option<i64>, by: i64) -> i64 {
 const GAME_QUEST_PREFIX: &str = "game quest: ";
 
 /// A quest of the game lives as a thing apart from the side quests and the titles.
-fn game_quest_name(title: &str) -> String {
+#[must_use]
+pub fn game_quest_name(title: &str) -> String {
     format!("{GAME_QUEST_PREFIX}{title}")
 }
 

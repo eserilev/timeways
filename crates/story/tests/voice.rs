@@ -251,6 +251,15 @@ fn quest_known() -> Known<'static> {
         goods: quest::goods_for(Some(12)),
         // Three offers with titles of 60 characters and long shapes.
         recent: vec![longest_recent(); 3],
+        level: Some(12),
+        dungeons: vec!["The Deadmines", "The Wailing Caverns", "Ragefire Chasm"],
+        bosses: vec!["Edwin VanCleef", "Mutanus the Devourer"],
+        game_quests: vec![
+            "The Defias Brotherhood",
+            "Red Linen Goods",
+            "Wanted: Hogger",
+        ],
+        game_quests_done: vec!["Report to Goldtooth"],
     }
 }
 

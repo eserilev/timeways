@@ -711,3 +711,56 @@ fn a_sighting_opens_no_first_meeting() {
 
     assert_eq!(character.first_met("Keeper Tessa"), None);
 }
+
+/// You entered The Deadmines and defeated Edwin there, and defeated Hogger in Elwynn.
+fn dungeon_run() -> Character {
+    let mut character = Character::new();
+    character
+        .enter_zone(Tick(1), "Elwynn Forest", Some("Goldshire"))
+        .unwrap();
+    character.defeat_npc(Tick(2), "Hogger").unwrap();
+    character
+        .enter_zone(Tick(3), "The Deadmines", None)
+        .unwrap();
+    character
+        .mark_instance(
+            Tick(4),
+            "The Deadmines",
+            timeways_story::places::InstanceKind::Dungeon,
+        )
+        .unwrap();
+    character.defeat_npc(Tick(5), "Edwin VanCleef").unwrap();
+    character
+}
+
+#[test]
+fn an_outdoor_zone_is_no_dungeon() {
+    let character = dungeon_run();
+
+    assert_eq!(character.dungeons_entered(), ["The Deadmines"]);
+}
+
+#[test]
+fn a_rare_defeated_outside_a_dungeon_is_no_boss() {
+    let character = dungeon_run();
+
+    assert_eq!(character.bosses_defeated(), ["Edwin VanCleef"]);
+}
+
+#[test]
+fn a_game_quest_turned_in_is_no_longer_open() {
+    let mut character = Character::new();
+    character
+        .take_game_quest(Tick(1), "Wanted: Hogger", GameQuestKind::Normal)
+        .unwrap();
+    character
+        .take_game_quest(Tick(2), "Red Linen Goods", GameQuestKind::Normal)
+        .unwrap();
+
+    character
+        .finish_game_quest(Tick(3), "Wanted: Hogger", GameQuestKind::Normal)
+        .unwrap();
+
+    assert_eq!(character.game_quests_open(), ["Red Linen Goods"]);
+    assert_eq!(character.game_quests_done(), ["Wanted: Hogger"]);
+}

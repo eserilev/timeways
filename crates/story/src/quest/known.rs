@@ -3,9 +3,14 @@
 use super::emotes::{is_cruel_target, quest_emotes};
 use super::variety::Recent;
 use super::{
-    MAX_CARRY, MAX_KILLS, MAX_TOPIC_BYTES, MAX_TOPIC_CHARS, MAX_WAIT_DAYS, QuestFault, Step,
+    MAX_CARRY, MAX_KILLS, MAX_LEVELS_AHEAD, MAX_TOPIC_BYTES, MAX_TOPIC_CHARS, MAX_WAIT_DAYS,
+    QuestFault, Step,
 };
 use crate::check::{mentions, plain_text};
+use crate::vocabulary::LEVELS;
+
+/// The highest level of the game.
+const MAX_LEVEL: i64 = LEVELS.max;
 use crate::seen::{SeenText, TextKind};
 
 /// What the world of the player holds, as far as a quest can use it.
@@ -23,6 +28,16 @@ pub struct Known<'a> {
     /// The places, NPCs, and creatures of your newest task. The next task names none of
     /// them, so two tasks in a row never send you to the same target.
     pub last_targets: Vec<&'a str>,
+    /// Your level, when the world knows it.
+    pub level: Option<i64>,
+    /// The dungeons and raids that you entered (`Character::dungeons_entered`).
+    pub dungeons: Vec<&'a str>,
+    /// The bosses that you defeated in a dungeon or a raid.
+    pub bosses: Vec<&'a str>,
+    /// The quests of the game that you hold or read, by title.
+    pub game_quests: Vec<&'a str>,
+    /// The quests of the game that you turned in, by title.
+    pub game_quests_done: Vec<&'a str>,
     /// The newest offers, newest first (`variety::recent_quests`).
     pub recent: Vec<Recent>,
     /// The goods that a carry step can ask for, for your level.
@@ -65,6 +80,42 @@ impl Known<'_> {
         self.foes.iter().copied().filter(allowed).collect()
     }
 
+    /// The dungeons and raids that an enter step can name, as the check allows them.
+    #[must_use]
+    pub fn dungeons(&self) -> Vec<&str> {
+        let enter = |dungeon: &str| Step::Enter {
+            dungeon: dungeon.to_string(),
+        };
+        let allowed = |dungeon: &&str| self.step_fault(&enter(dungeon)).is_none();
+        self.dungeons.iter().copied().filter(allowed).collect()
+    }
+
+    /// The bosses that a defeat step can name, as the check allows them.
+    #[must_use]
+    pub fn bosses(&self) -> Vec<&str> {
+        let defeat = |boss: &str| Step::Defeat {
+            boss: boss.to_string(),
+        };
+        let allowed = |boss: &&str| self.step_fault(&defeat(boss)).is_none();
+        self.bosses.iter().copied().filter(allowed).collect()
+    }
+
+    /// The quests of the game that a game quest step can name, as the check allows them.
+    #[must_use]
+    pub fn game_quest_titles(&self) -> Vec<&str> {
+        let turn_in = |title: &str| Step::GameQuest {
+            title: title.to_string(),
+        };
+        let allowed = |title: &&str| self.step_fault(&turn_in(title)).is_none();
+        self.game_quests.iter().copied().filter(allowed).collect()
+    }
+
+    /// True when a level step can ask for a level: you have one, and it is below 60.
+    #[must_use]
+    pub fn can_level(&self) -> bool {
+        self.level.is_some_and(|level| level < MAX_LEVEL)
+    }
+
     /// The first rule of 3.4 that one step breaks. A zone never counts as a goal of a game
     /// quest: most quest texts name their zone, so the rule then bans every zone.
     pub(super) fn step_fault(&self, step: &Step) -> Option<QuestFault> {
@@ -84,6 +135,12 @@ impl Known<'_> {
                 self.emote_fault(emote, npc.as_deref(), place.as_deref())
             }
             Step::Slap { npc } => self.slap_fault(npc),
+            Step::Level { level } => self.level_fault(*level),
+            Step::Enter { dungeon } => {
+                self.named_fault(dungeon, &self.dungeons, QuestFault::UnknownDungeon)
+            }
+            Step::Defeat { boss } => self.named_fault(boss, &self.bosses, QuestFault::UnknownBoss),
+            Step::GameQuest { title } => self.game_quest_fault(title),
             Step::Wait { days } => {
                 (!(1..=MAX_WAIT_DAYS).contains(days)).then_some(QuestFault::WaitDays(*days))
             }
@@ -157,6 +214,39 @@ impl Known<'_> {
             return Some(QuestFault::CruelTarget(npc.to_string()));
         }
         self.person_fault(npc)
+    }
+
+    /// 1 to 3 levels above yours, and at most 60. With no level, no level step.
+    fn level_fault(&self, level: u8) -> Option<QuestFault> {
+        let wanted = i64::from(level);
+        let reachable = self.level.is_some_and(|now| {
+            wanted > now && wanted <= now + MAX_LEVELS_AHEAD && wanted <= MAX_LEVEL
+        });
+        (!reachable).then_some(QuestFault::LevelOutOfReach(level))
+    }
+
+    /// A dungeon or a boss of your world, and in no quest of the game that you read.
+    fn named_fault(
+        &self,
+        name: &str,
+        list: &[&str],
+        unknown: fn(String) -> QuestFault,
+    ) -> Option<QuestFault> {
+        if !list.contains(&name) {
+            return Some(unknown(name.to_string()));
+        }
+        in_game_quests(name, self.seen)
+    }
+
+    /// The step names a quest of the game by design, so the overlap rule skips its title.
+    fn game_quest_fault(&self, title: &str) -> Option<QuestFault> {
+        if self.game_quests_done.contains(&title) {
+            return Some(QuestFault::GameQuestDone(title.to_string()));
+        }
+        if !self.game_quests.contains(&title) {
+            return Some(QuestFault::UnknownGameQuest(title.to_string()));
+        }
+        None
     }
 
     fn kill_fault(&self, creature: &str, count: u8) -> Option<QuestFault> {

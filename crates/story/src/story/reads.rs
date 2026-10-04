@@ -2,9 +2,11 @@
 //! the prompt held. Reading too much only counts a row as used, which is the safe side.
 
 use super::Active;
+use crate::character::game_quest_name;
 use crate::hero::{Change, Entry};
 use crate::npc_memory::{Memory, Source};
 use crate::pack::{Origin, Passage};
+use crate::seen::{SeenText, TextKind};
 use crate::store::{Node, Table};
 use hourglass::Tick;
 
@@ -39,6 +41,33 @@ pub(super) fn passages_read(active: &Active, passages: &[Passage]) -> Vec<Node> 
         .read_with_rows()
         .filter(|(_, read)| sources.contains(&read.text.passage().source.as_str()))
         .map(|(row, _)| Node::Row(Table::Learned, row))
+        .collect()
+}
+
+/// The events behind each quest of the game that you hold, and the `learned` row of each
+/// one that you read.
+pub(super) fn game_quests_read(active: &Active, titles: &[&str]) -> Vec<Node> {
+    let things: Vec<String> = titles.iter().map(|title| game_quest_name(title)).collect();
+    let mut read = events_about(active, things.iter().map(String::as_str));
+    let quest_read = |text: &SeenText| {
+        text.kind == TextKind::Quest && text.title.as_deref().is_some_and(|t| titles.contains(&t))
+    };
+    read.extend(
+        active
+            .learned
+            .read_with_rows()
+            .filter(|(_, read)| quest_read(&read.text))
+            .map(|(row, _)| Node::Row(Table::Learned, row)),
+    );
+    read
+}
+
+/// The event that opened your level fact, when you have one.
+pub(super) fn level_read(active: &Active) -> Vec<Node> {
+    let event = active.character.level_event();
+    event
+        .map(|event| Node::Row(Table::Events, event.0))
+        .into_iter()
         .collect()
 }
 

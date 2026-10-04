@@ -795,3 +795,27 @@ fn a_time_step_names_its_hours() {
         "entry: Visit Old Mill at night (9 PM to 5 AM)."
     );
 }
+
+#[test]
+fn a_level_a_dungeon_a_boss_and_a_game_quest_show_their_lines() {
+    let enter = Step::Enter {
+        dungeon: "The Deadmines".to_string(),
+    };
+    let defeat = Step::Defeat {
+        boss: "Edwin VanCleef".to_string(),
+    };
+    let turn_in = Step::GameQuest {
+        title: "The Defias Brotherhood".to_string(),
+    };
+
+    assert_eq!(
+        second_step_line(Step::Level { level: 14 }),
+        "entry: Reach level 14."
+    );
+    assert_eq!(second_step_line(enter), "entry: Enter The Deadmines.");
+    assert_eq!(second_step_line(defeat), "entry: Edwin VanCleef slain: 0/1");
+    assert_eq!(
+        second_step_line(turn_in),
+        "entry: Complete \"The Defias Brotherhood\"."
+    );
+}

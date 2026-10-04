@@ -23,6 +23,11 @@ fn known(seen: &[SeenText]) -> Known<'_> {
         seen,
         goods: vec!["Linen Cloth", "Light Leather"],
         recent: Vec::new(),
+        level: Some(12),
+        dungeons: vec!["The Deadmines"],
+        bosses: vec!["Edwin VanCleef"],
+        game_quests: vec!["The Defias Brotherhood"],
+        game_quests_done: vec!["Report to Goldtooth"],
     }
 }
 
@@ -1479,4 +1484,153 @@ fn a_time_step_with_an_unknown_time_is_refused() {
         }
     );
     assert_eq!(teatime.unwrap_err(), QuestFault::NotJson);
+}
+
+fn level(level: u8) -> String {
+    format!(r#"{{"goal": "level", "level": {level}}}"#)
+}
+
+#[test]
+fn a_level_step_asks_for_one_to_three_levels_above_yours() {
+    let seen = [];
+
+    for wanted in [13, 15] {
+        let text = answer("Growing Up", &format!("{VISIT_TOWER}, {}", level(wanted)));
+        assert!(checked_quest(&text, &known(&seen)).is_ok(), "{wanted}");
+    }
+    let far = answer("Growing Up", &format!("{VISIT_TOWER}, {}", level(16)));
+    assert_eq!(
+        checked_quest(&far, &known(&seen)).unwrap_err(),
+        QuestFault::LevelOutOfReach(16)
+    );
+}
+
+#[test]
+fn a_level_step_never_asks_past_sixty() {
+    let seen = [];
+    let mut known = known(&seen);
+    known.level = Some(59);
+
+    let sixty = answer("Growing Up", &level(60));
+    let past = answer("Growing Up", &level(61));
+
+    assert!(checked_quest(&sixty, &known).is_ok());
+    assert_eq!(
+        checked_quest(&past, &known).unwrap_err(),
+        QuestFault::LevelOutOfReach(61)
+    );
+}
+
+#[test]
+fn a_level_that_you_already_have_is_refused() {
+    let seen = [];
+
+    let text = answer("Growing Up", &level(12));
+
+    assert_eq!(
+        checked_quest(&text, &known(&seen)).unwrap_err(),
+        QuestFault::LevelOutOfReach(12)
+    );
+}
+
+#[test]
+fn a_player_with_no_level_gets_no_level_goal() {
+    let seen = [];
+    let mut known = known(&seen);
+    known.level = None;
+
+    let text = answer("Growing Up", &level(2));
+
+    assert_eq!(
+        checked_quest(&text, &known).unwrap_err(),
+        QuestFault::LevelOutOfReach(2)
+    );
+    assert!(!prompt(&known, None, None).contains(r#""goal": "level""#));
+    assert!(prompt(&self::known(&seen), None, None).contains("The player is level 12."));
+}
+
+#[test]
+fn an_enter_step_names_a_dungeon_or_a_raid_that_you_entered() {
+    let seen = [];
+    let deadmines = answer(
+        "Into the Dark",
+        r#"{"goal": "enter", "dungeon": "The Deadmines"}"#,
+    );
+    let stockade = answer(
+        "Into the Dark",
+        r#"{"goal": "enter", "dungeon": "The Stockade"}"#,
+    );
+
+    assert!(checked_quest(&deadmines, &known(&seen)).is_ok());
+    assert_eq!(
+        checked_quest(&stockade, &known(&seen)).unwrap_err(),
+        QuestFault::UnknownDungeon("The Stockade".to_string())
+    );
+}
+
+#[test]
+fn a_defeat_step_names_a_boss_that_you_defeated_in_a_dungeon() {
+    let seen = [];
+    let vancleef = answer(
+        "Old Scores",
+        r#"{"goal": "defeat", "boss": "Edwin VanCleef"}"#,
+    );
+    let hogger = answer("Old Scores", r#"{"goal": "defeat", "boss": "Hogger"}"#);
+
+    assert!(checked_quest(&vancleef, &known(&seen)).is_ok());
+    assert_eq!(
+        checked_quest(&hogger, &known(&seen)).unwrap_err(),
+        QuestFault::UnknownBoss("Hogger".to_string())
+    );
+}
+
+fn turn_in(title: &str) -> String {
+    format!(r#"{{"goal": "game_quest", "title": "{title}"}}"#)
+}
+
+#[test]
+fn a_game_quest_step_names_a_quest_that_you_hold_or_read() {
+    let seen = [];
+
+    let held = answer("Help the Guard", &turn_in("The Defias Brotherhood"));
+    let unknown = answer("Help the Guard", &turn_in("Wanted: Hogger"));
+
+    assert!(checked_quest(&held, &known(&seen)).is_ok());
+    assert_eq!(
+        checked_quest(&unknown, &known(&seen)).unwrap_err(),
+        QuestFault::UnknownGameQuest("Wanted: Hogger".to_string())
+    );
+}
+
+#[test]
+fn a_game_quest_that_you_turned_in_is_refused() {
+    let seen = [];
+
+    let text = answer("Help the Guard", &turn_in("Report to Goldtooth"));
+
+    assert_eq!(
+        checked_quest(&text, &known(&seen)).unwrap_err(),
+        QuestFault::GameQuestDone("Report to Goldtooth".to_string())
+    );
+}
+
+#[test]
+fn a_game_quest_step_skips_the_overlap_rule_for_its_own_title() {
+    let seen = [game_quest("The Defias Brotherhood", "Find the Defias.")];
+
+    let text = answer("Help the Guard", &turn_in("The Defias Brotherhood"));
+
+    assert!(checked_quest(&text, &known(&seen)).is_ok());
+}
+
+#[test]
+fn the_title_of_a_quest_with_a_game_quest_step_keeps_the_overlap_rule() {
+    let seen = [game_quest("The Defias Brotherhood", "Find the Defias.")];
+
+    let text = answer("The Defias Brotherhood", &turn_in("The Defias Brotherhood"));
+
+    assert_eq!(
+        checked_quest(&text, &known(&seen)).unwrap_err(),
+        QuestFault::GameQuest("The Defias Brotherhood".to_string())
+    );
 }

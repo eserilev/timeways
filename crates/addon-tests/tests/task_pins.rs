@@ -10,7 +10,7 @@ use serde_json::json;
 use timeways_story::input::MessageId;
 use timeways_story::journal::{Journal, Person, Place, pages};
 use timeways_story::places::PlaceKind;
-use timeways_story::quest::{QuestView, Status, Step};
+use timeways_story::quest::{QuestView, Status, Step, TimeOfDay};
 use timeways_story::spot::Spot;
 use timeways_story::story::Output;
 
@@ -324,5 +324,37 @@ fn an_emote_in_a_place_gets_a_pin_at_the_place() {
     let game = tasks_page(journal(quest, Some(spot(TIRISFAL, 700, 200))));
 
     let expected = ["Active  1 500 500", "step 1 1 700 200", "step 2 1 300 400"];
+    assert_eq!(pins(&game), expected);
+}
+
+#[test]
+fn a_wait_a_level_and_a_game_quest_get_no_pin() {
+    for step in [
+        Step::Wait { days: 1 },
+        Step::Level { level: 14 },
+        Step::GameQuest {
+            title: "The Defias Brotherhood".to_string(),
+        },
+    ] {
+        let mut quest = lantern(Status::Accepted, 0);
+        quest.steps[1].step = step;
+
+        let game = tasks_page(journal(quest, Some(spot(TIRISFAL, 700, 200))));
+
+        assert_eq!(pins(&game), ["Active  1 500 500", "step 1 1 300 400"]);
+    }
+}
+
+#[test]
+fn a_time_step_gets_a_pin_at_its_place() {
+    let mut quest = lantern(Status::Accepted, 0);
+    quest.steps[0].step = Step::VisitAt {
+        place: "Mill Pond".to_string(),
+        time: TimeOfDay::Night,
+    };
+
+    let game = tasks_page(journal(quest, Some(spot(TIRISFAL, 700, 200))));
+
+    let expected = ["Active  1 500 500", "step 1 1 300 400", "step 2 1 700 200"];
     assert_eq!(pins(&game), expected);
 }

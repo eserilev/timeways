@@ -53,7 +53,8 @@ pub const TRUST: Band = Band {
     min: -100,
     max: 100,
 };
-const LEVELS: Band = Band { min: 1, max: 60 };
+/// The levels of the game.
+pub const LEVELS: Band = Band { min: 1, max: 60 };
 /// The band of the counts: deaths, kills, and slaps. Public, because a count stops at its
 /// top.
 pub const TALLY: Band = Band { min: 0, max: 1000 };

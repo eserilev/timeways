@@ -14,6 +14,7 @@ Built so far (section 17):
 - Step 8, the retry. `Attempt` moved to `prompt.rs`, next to `prompt::retry`, not to `story/calls.rs`: `lore.rs` is outside the story module and cannot see it there. `Pending::Quest` holds a `QuestCall`, which keeps the reads of the first call for the retry.
 - Step 9, emote and slap. An unknown emote token gets its own fault, `UnknownEmote`. The cruelty list of standing.md is not built, so this step adds `data/cruel_words.txt` with a first list that standing.md can grow. The town part of a slap (standing.md 6.1) waits for standing.md. A slap step that the book does not show yet makes the Rewards line say "Someone will like you less."
 - Step 10, time of day. `emote_done` and `died` with an hour do a `visit_at` step too, as 4.5 says. The ticker runs each 60 seconds from `Core.lua`.
+- Step 11, level, dungeon, and game quest. An enter or defeat step that names an unknown place or boss gets its own fault: `UnknownDungeon` and `UnknownBoss`. The dungeon, boss, and game quest lists and the level line show in the prompt only when they hold something. The rule "In a mystery, the text names only the first step." went into the prompt with this step.
 
 This plan builds on four plans and does not repeat them:
 

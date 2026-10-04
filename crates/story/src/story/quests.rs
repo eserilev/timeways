@@ -11,7 +11,7 @@ use crate::quest::{
     self, Encounter, Here, Known, MAX_OPEN_QUESTS, QuestChange, QuestFault, Status, Step, Tracked,
     next_number, quest_log, thing_name,
 };
-use crate::seen::SeenText;
+use crate::seen::{SeenText, TextKind};
 use crate::store::{CharacterKey, Node, Outcome};
 use crate::story::Output;
 use crate::talk::QuestTalk;
@@ -86,6 +86,8 @@ impl Story {
         reads.extend(hook_read);
         let recent: Vec<u64> = known.recent.iter().map(|recent| recent.number).collect();
         reads.extend(reads::quest_rows(active, &recent));
+        reads.extend(reads::game_quests_read(active, &known.game_quests));
+        reads.extend(reads::level_read(active));
         let pending = Pending::Quest(QuestCall {
             batch,
             key: active.key.clone(),
@@ -255,10 +257,13 @@ impl Story {
             let Some(active) = self.active.as_mut() else {
                 return Ok(());
             };
+            let character = &active.character;
             let here = Here {
                 at,
-                places: active.character.place_names(),
+                places: character.place_names(),
                 hour,
+                level: character.level(),
+                game_quests_done: character.game_quests_done(),
             };
             let quests = quest_log(active.quests.changes());
             let Some((quest, step)) = holding_step(&quests, &here, met) else {
@@ -331,6 +336,7 @@ pub(super) fn encounter(input: &Input) -> Encounter {
         Input::NpcMet { name, .. } => Encounter::Gossip(name.clone()),
         Input::TalkAsked { npc, .. } => Encounter::Talk(npc.clone()),
         Input::NpcSlapped { name, .. } => Encounter::Slap(name.clone()),
+        Input::NpcDefeated { name, .. } => Encounter::Defeat(name.clone()),
         Input::EmoteDone { emote, target, .. } => Encounter::Emote {
             emote: emote.clone(),
             target: target.clone(),
@@ -435,17 +441,41 @@ fn known<'a>(
         last_targets: last_targets(quests),
         goods: quest::goods_for(character.level()),
         recent: recent_quests(quests, RECENT_IN_PROMPT),
+        level: character.level(),
+        dungeons: character.dungeons_entered(),
+        bosses: character.bosses_defeated(),
+        game_quests: game_quests_known(character, seen),
+        game_quests_done: character.game_quests_done(),
         seen,
     }
 }
 
-/// The giver, and every place, NPC, and creature that the prompt can offer.
+/// The quests of the game that you hold, then the ones that you read, each once, and none
+/// that you turned in.
+fn game_quests_known<'a>(character: &'a Character, seen: &'a [SeenText]) -> Vec<&'a str> {
+    let done = character.game_quests_done();
+    let read = seen
+        .iter()
+        .filter(|text| text.kind == TextKind::Quest)
+        .filter_map(|text| text.title.as_deref());
+    let mut titles: Vec<&str> = Vec::new();
+    for title in character.game_quests_open().into_iter().chain(read) {
+        if !done.contains(&title) && !titles.contains(&title) {
+            titles.push(title);
+        }
+    }
+    titles
+}
+
+/// The giver, and every place, NPC, creature, dungeon, and boss that the prompt can offer.
 fn known_names<'a>(known: &Known<'a>) -> Vec<&'a str> {
     let mut names = vec![known.giver];
     names.extend(&known.zones);
     names.extend(&known.subzones);
     names.extend(&known.npcs);
     names.extend(&known.foes);
+    names.extend(&known.dungeons);
+    names.extend(&known.bosses);
     names
 }
 

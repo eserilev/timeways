@@ -1485,3 +1485,116 @@ fn an_hour_past_twenty_three_is_refused() {
 
     assert!(changed.is_err() && zone.is_err());
 }
+
+fn level(at: u64, level: u8) -> Input {
+    Input::LevelReached {
+        at: Tick(at),
+        level,
+    }
+}
+
+#[test]
+fn a_level_reached_before_the_step_opens_does_it_at_once() {
+    let mut story = story("level-early");
+    story.handle(level(5, 10)).unwrap();
+    let steps = format!(r#"{VISIT_POND}, {{"goal": "level", "level": 11}}"#);
+    quest_with(&mut story, 5, "Growing Up", &steps);
+    story.handle(level(7, 11)).unwrap();
+
+    story.handle(zone(8, "Mill Pond")).unwrap();
+
+    assert_eq!(quests(&mut story)[0].status, Status::Done);
+}
+
+/// You entered The Deadmines and defeated Edwin there, and stand in Old Tower again.
+fn after_a_dungeon(name: &str) -> Story {
+    let mut story = story(name);
+    story.handle(zone_in("The Deadmines", 5)).unwrap();
+    let mark = Input::InstanceEntered {
+        at: Tick(5),
+        zone: "The Deadmines".to_string(),
+        kind: timeways_story::places::InstanceKind::Dungeon,
+    };
+    story.handle(mark).unwrap();
+    let boss = Input::NpcDefeated {
+        at: Tick(6),
+        name: "Edwin VanCleef".to_string(),
+    };
+    story.handle(boss).unwrap();
+    story.handle(zone(7, "Old Tower")).unwrap();
+    story
+}
+
+fn zone_in(zone: &str, at: u64) -> Input {
+    Input::ZoneEntered {
+        at: Tick(at),
+        zone: zone.to_string(),
+        subzone: None,
+        spot: None,
+        hour: None,
+    }
+}
+
+fn quest_with(story: &mut Story, at: u64, title: &str, steps: &str) {
+    let (call, _) = call_of(ask(story, at));
+    let line = answer_with(story, call, title, steps);
+    assert!(line.unwrap().contains("has a quest for you"));
+    accept(story, at + 1, None);
+}
+
+#[test]
+fn standing_in_the_dungeon_when_the_step_opens_does_it_at_once() {
+    let mut story = after_a_dungeon("dungeon-at-once");
+    story.handle(zone_in("The Deadmines", 8)).unwrap();
+
+    quest_with(
+        &mut story,
+        9,
+        "Into the Dark",
+        r#"{"goal": "enter", "dungeon": "The Deadmines"}"#,
+    );
+
+    assert_eq!(quests(&mut story)[0].status, Status::Done);
+}
+
+#[test]
+fn a_boss_defeated_does_a_defeat_step() {
+    let mut story = after_a_dungeon("boss-again");
+    quest_with(
+        &mut story,
+        8,
+        "Old Scores",
+        r#"{"goal": "defeat", "boss": "Edwin VanCleef"}"#,
+    );
+
+    let boss = Input::NpcDefeated {
+        at: Tick(20),
+        name: "Edwin VanCleef".to_string(),
+    };
+    story.handle(boss).unwrap();
+
+    assert_eq!(quests(&mut story)[0].status, Status::Done);
+}
+
+#[test]
+fn a_game_quest_turned_in_before_the_step_opens_does_it_at_once() {
+    let mut story = story("game-quest-early");
+    let taken = Input::GameQuestAccepted {
+        at: Tick(5),
+        title: "Wanted: Hogger".to_string(),
+        kind: timeways_story::input::GameQuestKind::Normal,
+    };
+    story.handle(taken).unwrap();
+    let steps = format!(r#"{VISIT_POND}, {{"goal": "game_quest", "title": "Wanted: Hogger"}}"#);
+    quest_with(&mut story, 6, "Help the Guard", &steps);
+    let done = Input::GameQuestDone {
+        at: Tick(8),
+        title: "Wanted: Hogger".to_string(),
+        kind: timeways_story::input::GameQuestKind::Normal,
+    };
+    story.handle(done).unwrap();
+
+    story.handle(zone(9, "Mill Pond")).unwrap();
+
+    assert_eq!(quests(&mut story)[0].status, Status::Done);
+}

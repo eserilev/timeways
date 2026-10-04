@@ -374,6 +374,18 @@ local function StepText(step)
 	if step.goal == "emote" and type(step.emote) == "string" then
 		return EmoteText(step)
 	end
+	if step.goal == "level" and type(step.level) == "number" then
+		return string.format("Reach level %d.", step.level)
+	end
+	if step.goal == "enter" then
+		return "Enter " .. Name(step.dungeon) .. "."
+	end
+	if step.goal == "defeat" then
+		return string.format("%s slain: %d/1", Name(step.boss), step.state == "done" and 1 or 0)
+	end
+	if step.goal == "game_quest" then
+		return 'Complete "' .. Name(step.title) .. '".'
+	end
 	if step.goal == "slap" then
 		return "Use /slap on " .. Name(step.npc) .. "."
 	end

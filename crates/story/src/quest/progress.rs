@@ -11,6 +11,9 @@ pub struct Here<'a> {
     pub places: Vec<&'a str>,
     /// The local hour of this line, when it carries one.
     pub hour: Option<u8>,
+    pub level: Option<i64>,
+    /// The titles of the quests of the game that you turned in.
+    pub game_quests_done: Vec<&'a str>,
 }
 
 /// What one line of the addon did, as far as a step can see it. It owns its names, because
@@ -28,6 +31,8 @@ pub enum Encounter {
         emote: String,
         target: Option<String>,
     },
+    /// `npc_defeated`: a rare or a boss.
+    Defeat(String),
     /// `items_held`: the count of one item in your bags, at a meeting with the NPC.
     Carry {
         npc: String,
@@ -42,7 +47,10 @@ impl Encounter {
     pub fn meets(&self, npc: &str) -> bool {
         match self {
             Encounter::Gossip(name) | Encounter::Talk(name) | Encounter::Slap(name) => name == npc,
-            Encounter::None | Encounter::Emote { .. } | Encounter::Carry { .. } => false,
+            Encounter::None
+            | Encounter::Emote { .. }
+            | Encounter::Defeat(_)
+            | Encounter::Carry { .. } => false,
         }
     }
 
@@ -75,6 +83,10 @@ impl Tracked {
             Some(Step::Kill { count, .. }) => self.kills[step] >= *count,
             Some(Step::Carry { item, count, npc }) => met.carries(npc, item, *count),
             Some(Step::Slap { npc }) => matches!(met, Encounter::Slap(name) if name == npc),
+            Some(Step::Defeat { boss }) => matches!(met, Encounter::Defeat(name) if name == boss),
+            Some(Step::Enter { dungeon }) => here.places.contains(&dungeon.as_str()),
+            Some(Step::Level { level }) => here.level.is_some_and(|now| now >= i64::from(*level)),
+            Some(Step::GameQuest { title }) => here.game_quests_done.contains(&title.as_str()),
             Some(Step::Emote { emote, npc, place }) => {
                 emote_holds(here, met, emote, npc.as_deref(), place.as_deref())
             }
