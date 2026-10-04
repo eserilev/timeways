@@ -202,3 +202,33 @@ fn a_story_shown_to_its_reader_says_how_to_report_abuse() {
         format!("{PREFIX}To report abuse, open Support in the game menu.")
     );
 }
+
+#[test]
+fn a_story_accepted_after_its_author_left_still_goes_without_the_name() {
+    let (ada, corvin) = party();
+    tell(&ada, &corvin, "Ada and I held the bridge.");
+    corvin.leave_party();
+    corvin.run("wow.guild = {} wow.Fire('GUILD_ROSTER_UPDATE', false)");
+
+    corvin.run("wow.Slash('/story', 'accept')");
+
+    let inputs = sent_inputs(&corvin);
+    assert!(
+        inputs.iter().any(|input| matches!(
+            input,
+            Input::StoryAccepted { text, .. } if text == "my friend and I held the bridge."
+        )),
+        "{inputs:?}"
+    );
+}
+
+#[test]
+fn a_saved_story_with_a_broken_time_is_dropped() {
+    let (ada, corvin) = party();
+    ada.run("TimewaysStories = { told = { x = { to = 'Corvin-Stormrage', text = 'hi', at = 'soon' } } }");
+
+    tell(&ada, &corvin, "Corvin held the bridge alone.");
+
+    assert_eq!(waiting(&corvin), 1);
+    assert!(ada.eval::<bool>("return TimewaysStories.told.x == nil"));
+}

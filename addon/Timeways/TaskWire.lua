@@ -87,6 +87,10 @@ local function Id(field)
 	end
 end
 
+function TaskWire.IsId(value)
+	return type(value) == "string" and Id(value) ~= nil
+end
+
 local function Kind(field)
 	if KINDS[field] then
 		return field

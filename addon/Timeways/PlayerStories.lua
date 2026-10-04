@@ -31,10 +31,6 @@ local function Table(value)
 	return type(value) == "table" and value or {}
 end
 
-local function IsId(value)
-	return type(value) == "string" and #value <= 16 and value:match("^%w+$") ~= nil
-end
-
 local function IsName(value)
 	return type(value) == "string" and ns.TaskPeople.Full(value) == value
 end
@@ -50,18 +46,31 @@ local function IsCount(value)
 	return type(value) == "number" and value >= 0 and value % 1 == 0
 end
 
+local function IsWaitingStory(story)
+	return type(story) == "table" and ns.TaskWire.IsId(story.id) and IsName(story.author) and IsText(story.text)
+end
+
+-- Trim compares `at`, so a told story needs a number there.
+local function IsToldStory(id, story)
+	return ns.TaskWire.IsId(id)
+		and type(story) == "table"
+		and IsName(story.to)
+		and IsText(story.text)
+		and type(story.at) == "number"
+end
+
 -- Any addon can write saved variables, so each entry is checked once, and a broken one goes.
 local function Clean(data)
 	local waiting = {}
 	for _, story in ipairs(Table(data.waiting)) do
-		if type(story) == "table" and IsId(story.id) and IsName(story.author) and IsText(story.text) then
+		if IsWaitingStory(story) then
 			waiting[#waiting + 1] = story
 		end
 	end
 	data.waiting = waiting
 	local told = {}
 	for id, story in pairs(Table(data.told)) do
-		if IsId(id) and type(story) == "table" and IsName(story.to) and IsText(story.text) then
+		if IsToldStory(id, story) then
 			told[id] = story
 		end
 	end
@@ -100,7 +109,7 @@ local function Trim(map)
 	local count, oldest = 0, nil
 	for key, value in pairs(map) do
 		count = count + 1
-		if not oldest or (value.at or 0) < (map[oldest].at or 0) then
+		if not oldest or value.at < map[oldest].at then
 			oldest = key
 		end
 	end
@@ -197,6 +206,21 @@ function PlayerStories.AuthorOf(number)
 	return Data().authors[number]
 end
 
+-- The players of every story here: the authors, and the players you told stories about.
+function PlayerStories.Names()
+	local data, names = Data(), {}
+	for _, story in ipairs(data.waiting) do
+		names[#names + 1] = story.author
+	end
+	for _, author in pairs(data.authors) do
+		names[#names + 1] = author
+	end
+	for _, story in pairs(data.told) do
+		names[#names + 1] = story.to
+	end
+	return names
+end
+
 local function Take(index)
 	return table.remove(Data().waiting, index)
 end
@@ -266,7 +290,8 @@ function PlayerStories.Command(message)
 	elseif verb == "decline" then
 		PlayerStories.Decline()
 	elseif verb == "" then
-		local story = Data().waiting[#Data().waiting]
+		local waiting = Data().waiting
+		local story = waiting[#waiting]
 		if story then
 			Say(Short(story.author) .. " says: " .. ns.Plain(story.text))
 			Say("Type /story accept or /story decline.")

@@ -87,6 +87,8 @@ local function KnownNames()
 	AddAll(names, ns.TaskPeople.GuildNames())
 	AddAll(names, ns.TaskPeople.FriendNames())
 	AddTaskPlayers(names)
+	-- An author can leave your group long before you accept the story.
+	AddAll(names, ns.PlayerStories.Names())
 	return names
 end
 
