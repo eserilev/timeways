@@ -101,6 +101,7 @@ fn the_doer_sees_an_offer_with_its_steps_its_rewards_and_three_answers() {
             "section: Rewards",
             "text: A line about it in your journal, with Ada's name.",
             "text: 5 gold. Ada pays it in a trade.",
+            "help: To report abuse, open Support in the game menu.",
         ]
     );
     assert_eq!(buttons(&corvin), ["Block player", "Decline", "Accept"]);

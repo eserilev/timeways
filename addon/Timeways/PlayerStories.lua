@@ -270,8 +270,9 @@ function PlayerStories.Command(message)
 		if story then
 			Say(Short(story.author) .. " says: " .. ns.Plain(story.text))
 			Say("Type /story accept or /story decline.")
+			Say(ns.TaskPages.REPORT)
 		else
-			Say(USAGE)
+			Say(USAGE .. " " .. ns.TaskPages.LOGGED)
 		end
 	else
 		PlayerStories.Tell(ns.TaskPeople.OfUnit("target"), words)

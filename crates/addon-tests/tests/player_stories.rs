@@ -179,3 +179,26 @@ fn a_story_comes_through_the_wire_as_it_went_in() {
 
     assert_eq!(text, "We held; 100% of it.");
 }
+
+#[test]
+fn the_story_command_alone_says_that_blizzard_can_read_a_story() {
+    let (ada, _) = party();
+
+    ada.run("wow.Slash('/story', '')");
+
+    let last = ada.printed().pop().unwrap();
+    assert!(last.ends_with("Like chat, Blizzard can read what you send."));
+}
+
+#[test]
+fn a_story_shown_to_its_reader_says_how_to_report_abuse() {
+    let (ada, corvin) = party();
+    tell(&ada, &corvin, "We held the bridge.");
+
+    corvin.run("wow.Slash('/story', '')");
+
+    assert_eq!(
+        corvin.printed().pop().unwrap(),
+        format!("{PREFIX}To report abuse, open Support in the game menu.")
+    );
+}

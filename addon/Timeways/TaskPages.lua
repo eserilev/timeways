@@ -233,6 +233,10 @@ local function MarkDone(key, task, index)
 	end)
 end
 
+-- What a player writes for another player goes on the logged channel (GAMEPLAY.md 4.7).
+TaskPages.LOGGED = "Like chat, Blizzard can read what you send."
+TaskPages.REPORT = "To report abuse, open Support in the game menu."
+
 local function GotLines(key, task)
 	local giver = Short(task.giver)
 	local lines = { Line("heading", task.title), Line("note", GotStatus(task)), Line("text", From(task)) }
@@ -254,6 +258,7 @@ local function GotLines(key, task)
 	if task.reward ~= "" then
 		lines[#lines + 1] = Line("text", Sentence(task.reward) .. " " .. giver .. " pays it in a trade.")
 	end
+	lines[#lines + 1] = Line("help", TaskPages.REPORT)
 	return lines
 end
 
@@ -496,6 +501,7 @@ local function RecipientLines(lines, form)
 	if #recipients == 0 then
 		lines[#lines + 1] = Line("help", "Party, guild, and friends with Timeways show up here.")
 	end
+	lines[#lines + 1] = Line("help", TaskPages.LOGGED)
 end
 
 local HELP_STATES = {

@@ -166,6 +166,7 @@ fn the_form_asks_for_a_title_steps_a_reward_and_a_player() {
             "help: You trade it to them at turn-in.",
             "section: Send to",
             "text: Corvin (guild) [Pick]",
+            "help: Like chat, Blizzard can read what you send.",
         ]
     );
     assert_eq!(
