@@ -2236,3 +2236,52 @@ fn a_refusal_tells_its_reason() {
         "refused: level moves up, and 6 to 5 does not"
     );
 }
+
+/// A talk to Farley that the model answers with these words. The prompt comes back.
+fn talk_answered(story: &mut Story, words: &str) -> String {
+    let (call, prompt) =
+        model_call(one(talk(story, "Innkeeper Farley", "any news?").unwrap()).unwrap());
+    let text = serde_json::json!({ "say": words, "trust": 0 }).to_string();
+    story.handle(Input::ModelAnswered { call, text }).unwrap();
+    prompt
+}
+
+const RUMOR_LINE: &str = "you told the player \"The gnolls grow bold.\"";
+
+#[test]
+fn a_second_talk_remembers_what_the_npc_said_in_the_first() {
+    let mut story = story_with("talk-remembers", &[]);
+    let first = talk_answered(&mut story, "The gnolls grow bold.");
+
+    let second = talk_answered(&mut story, "Hm.");
+
+    assert!(!first.contains(RUMOR_LINE), "{first}");
+    assert!(second.contains(RUMOR_LINE), "{second}");
+}
+
+#[test]
+fn another_character_shares_no_memories_with_the_first() {
+    let mut story = story_with("talk-other-character", &[]);
+    talk_answered(&mut story, "The gnolls grow bold.");
+    let other = Input::CharacterEntered {
+        realm: "Testrealm".to_string(),
+        name: "Other".to_string(),
+    };
+    story.handle(other).unwrap();
+
+    let prompt = talk_answered(&mut story, "Hm.");
+
+    assert!(!prompt.contains("What you remember"), "{prompt}");
+}
+
+#[test]
+fn an_npc_of_the_same_name_in_another_zone_shares_the_memories_of_the_name() {
+    let mut story = story_with("talk-same-name", &[]);
+    enter(&mut story, 1, "Elwynn Forest", Some("Goldshire"));
+    talk_answered(&mut story, "The gnolls grow bold.");
+    enter(&mut story, 2, "Westfall", Some("Sentinel Hill"));
+
+    let prompt = talk_answered(&mut story, "Hm.");
+
+    assert!(prompt.contains(RUMOR_LINE), "{prompt}");
+}

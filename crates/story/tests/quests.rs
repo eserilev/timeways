@@ -890,3 +890,24 @@ fn asking_for_a_quest_moves_no_meet_step() {
 
     assert_eq!(steps_done(&quests(&mut story)[0]), 0);
 }
+
+#[test]
+fn a_talk_remembers_the_quest_that_the_npc_gave() {
+    let mut story = story("talk-remembers-quest");
+    offer(&mut story, 5);
+    let asked = Input::TalkAsked {
+        id: MessageId(8),
+        at: Tick(6),
+        npc: GIVER.to_string(),
+        text: "about that lantern".to_string(),
+    };
+
+    let (_, prompt) = call_of(story.handle(asked).unwrap().remove(0));
+
+    assert!(
+        prompt.contains(
+            "you gave the player your quest \"The Lost Lantern\". They have not answered yet."
+        ),
+        "{prompt}"
+    );
+}

@@ -582,6 +582,25 @@ fn a_saga_reads_its_chapter_and_rests_on_its_call() {
 }
 
 #[test]
+fn a_talk_reads_the_rows_behind_its_memories() {
+    let folder = fresh_folder("talk-reads-memories");
+    let mut story = story(&folder);
+    let first = talk(&mut story, "Innkeeper Farley");
+    answer(
+        &mut story,
+        first,
+        r#"{"say": "The gnolls grow bold.", "trust": 0}"#,
+    );
+
+    let second = talk(&mut story, "Innkeeper Farley");
+    answer(&mut story, second, r#"{"say": "Hm.", "trust": 0}"#);
+    drop(story);
+
+    let reads = database(&folder).reads_of(1).unwrap();
+    assert!(reads.contains(&Node::Row(Table::Learned, 0)), "{reads:?}");
+}
+
+#[test]
 fn a_quest_offer_reads_its_giver_and_rests_on_its_call() {
     let folder = fresh_folder("quest-reads");
     let mut story = story(&folder);

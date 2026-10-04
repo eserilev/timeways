@@ -12,12 +12,13 @@ use timeways_story::chapters::{
     MIN_CHAPTER_PLAY_SECONDS, SESSION_GAP_SECONDS, chapter_starts, sessions,
 };
 use timeways_story::character::Character;
-use timeways_story::check::{Fault, check, later_names, without_citations};
+use timeways_story::check::{Fault, check, later_names, mentions, without_citations};
 use timeways_story::chronicle::{Pick, Saga};
 use timeways_story::hero::{Field, LONG, checked_text, limit_of};
 use timeways_story::house::fenced;
 use timeways_story::input::{GameQuestKind, Input, MessageId, Reaction};
 use timeways_story::journal::{Journal, journal, pages};
+use timeways_story::npc_memory::{MAX_MEMORIES, MAX_MEMORY_CHARS, when};
 use timeways_story::pace::{Pace, WINDOW_SECONDS};
 use timeways_story::pack::Pack;
 use timeways_story::passage_limits::{MAX_PASSAGE_BYTES, pieces};
@@ -28,6 +29,7 @@ use timeways_story::seen::TextKind;
 use timeways_story::spot::{MAP_IDS, Spot, THOUSANDTHS, spot_of};
 use timeways_story::store::{CharacterKey, Node, Store, Table, safe_id};
 use timeways_story::story::{Output, Story};
+use timeways_story::vocabulary::{DEATHS, DEFEATED, MET};
 use timeways_story::wikitext::plain;
 
 /// One step of play, as the addon sends it.
@@ -1204,5 +1206,234 @@ proptest! {
     #[test]
     fn text_without_markup_stays_as_it_is(text in "[a-zA-Z0-9 .,;:?\n]{0,200}") {
         prop_assert_eq!(plain(&text), text);
+    }
+}
+
+/// `play()`, and also waits at each edge of the age words, talks to Farley that name the
+/// character one time in four, and quests of Farley that the check lets through.
+fn memory_play() -> impl Strategy<Value = Play> {
+    let edge_wait = prop::sample::select(vec![HOUR, DAY, 2 * DAY, 7 * DAY, 30 * DAY, 365 * DAY])
+        .prop_map(Play::Wait);
+    let farley_says = prop_oneof![
+        1 => Just("Well met, Ada.".to_string()),
+        3 => "[A-Za-z ]{1,60}",
+    ];
+    let farley_talk = farley_says.prop_map(|say| Play::Talk(FARLEY.to_string(), say));
+    let farley_quest = prop::sample::select(vec!["Goldshire", "Westfall"]).prop_map(|place| {
+        Play::Quest(FARLEY.to_string(), vec![TaskStep::Visit(place.to_string())])
+    });
+    prop_oneof![
+        6 => play(),
+        1 => edge_wait,
+        2 => farley_talk,
+        1 => farley_quest,
+    ]
+}
+
+const FARLEY: &str = "Innkeeper Farley";
+const HOUR: u64 = 3_600;
+const DAY: u64 = 24 * HOUR;
+
+/// A talk call as the database keeps it: its prompt, and the body of each row it read.
+struct TalkCall {
+    prompt: String,
+    reads: Vec<(String, String)>,
+}
+
+fn talk_calls(folder: &Path) -> Vec<TalkCall> {
+    let connection = rusqlite::Connection::open(world_file(folder)).unwrap();
+    let calls = rows_of(
+        &connection,
+        "SELECT position, prompt FROM calls WHERE kind = 'talk' AND prompt IS NOT NULL",
+    );
+    calls
+        .into_iter()
+        .map(|call| {
+            let position = call[0].clone().unwrap();
+            let select = format!("SELECT tab, row FROM reads WHERE call = {position}");
+            let reads = rows_of(&connection, &select)
+                .into_iter()
+                .filter_map(|read| {
+                    let (tab, row) = (read[0].clone()?, read[1].clone()?);
+                    let select = format!("SELECT body FROM {tab} WHERE position = {row}");
+                    let body = rows_of(&connection, &select).first()?[0].clone()?;
+                    Some((tab, body))
+                })
+                .collect();
+            TalkCall {
+                prompt: call[1].clone().unwrap(),
+                reads,
+            }
+        })
+        .collect()
+}
+
+/// The lines of the memory fence of a talk prompt, without their dashes.
+fn memory_lines(prompt: &str) -> Vec<&str> {
+    let Some((_, block)) = prompt.split_once("Each line is true:\n<<<\n") else {
+        return Vec::new();
+    };
+    let (block, _) = block.split_once("\n>>>").unwrap();
+    block
+        .lines()
+        .map(|line| line.strip_prefix("- ").unwrap())
+        .collect()
+}
+
+fn npc_of(prompt: &str) -> &str {
+    prompt
+        .lines()
+        .find_map(|line| line.strip_prefix("Name: "))
+        .unwrap()
+}
+
+fn read_values<'a>(
+    call: &'a TalkCall,
+    tab: &'a str,
+) -> impl Iterator<Item = serde_json::Value> + 'a {
+    call.reads
+        .iter()
+        .filter(move |(read_tab, _)| read_tab == tab)
+        .map(|(_, body)| serde_json::from_str(body).unwrap())
+}
+
+fn read_events(call: &TalkCall) -> impl Iterator<Item = hourglass::Event> + '_ {
+    call.reads
+        .iter()
+        .filter(|(tab, _)| tab == "events")
+        .map(|(_, body)| serde_json::from_str(body).unwrap())
+}
+
+/// Does a row that the call read say what the line says?
+fn rests_on_a_read(line: &str, npc: &str, call: &TalkCall, character: &Character) -> bool {
+    let words = |text: &str| text.split_whitespace().collect::<Vec<_>>().join(" ");
+    if let Some((_, quoted)) = line.split_once("you told the player \"") {
+        let said = quoted.strip_suffix('"').unwrap();
+        let said = said.strip_suffix("...").unwrap_or(said);
+        return read_values(call, "learned").any(|rumor| {
+            rumor["line"] == "rumor"
+                && rumor["npc"] == npc
+                && words(rumor["text"].as_str().unwrap()).starts_with(said)
+        });
+    }
+    if let Some((_, quoted)) = line.split_once("your quest \"") {
+        let (title, _) = quoted.rsplit_once("\". ").unwrap();
+        return read_values(call, "quests").any(|offer| {
+            offer["line"] == "offered" && offer["giver"] == npc && offer["title"] == title
+        });
+    }
+    if line.ends_with("for the first time.") {
+        return read_events(call).any(|event| match event.kind {
+            hourglass::EventKind::FactStart {
+                name,
+                linked_to: Some(npc_id),
+                ..
+            } => {
+                name == MET
+                    && character
+                        .world()
+                        .entity(npc_id)
+                        .is_some_and(|e| e.name == npc)
+            }
+            _ => false,
+        });
+    }
+    read_events(call).any(
+        |event| matches!(event.kind.fact_name(), Some(name) if name == DEFEATED || name == DEATHS),
+    )
+}
+
+/// A tick, with the ends of `u64` and the edges of each band of age words likely.
+fn memory_tick() -> impl Strategy<Value = u64> {
+    let edges: Vec<u64> = [
+        HOUR,
+        DAY,
+        2 * DAY,
+        7 * DAY,
+        14 * DAY,
+        30 * DAY,
+        60 * DAY,
+        365 * DAY,
+    ]
+    .into_iter()
+    .flat_map(|edge| [edge - 1, edge, edge + 1])
+    .chain([0, u64::MAX])
+    .collect();
+    prop_oneof![prop::sample::select(edges), any::<u64>(), 0..400 * DAY]
+}
+
+/// Every phrase of GAMEPLAY.md 3.5 for the age of a memory.
+fn age_words() -> Vec<String> {
+    let numbers = [
+        "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve",
+    ];
+    let mut words: Vec<String> = [
+        "Less than an hour ago",
+        "Hours ago",
+        "Yesterday",
+        "A week ago",
+        "A month ago",
+        "Over a year ago",
+    ]
+    .map(String::from)
+    .to_vec();
+    for number in numbers {
+        for unit in ["days", "weeks", "months"] {
+            words.push(format!("{number} {unit} ago"));
+        }
+    }
+    words
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(64))]
+
+    #[test]
+    fn every_memory_in_a_talk_prompt_rests_on_a_row_that_the_call_read(
+        plays in prop::collection::vec(memory_play(), 0..80),
+    ) {
+        let folder = fresh("memories-read");
+        let mut clock = 1_000;
+        let mut story = story(&folder, Store::Folder(folder.clone()));
+        run(&mut story, &plays, &mut clock);
+        drop(story);
+
+        let key = CharacterKey::new("Stormrage", "Ada").unwrap();
+        let character = Store::Folder(folder.clone()).open(&key).unwrap().character;
+        for call in talk_calls(&folder) {
+            let npc = npc_of(&call.prompt);
+            for line in memory_lines(&call.prompt) {
+                prop_assert!(rests_on_a_read(line, npc, &call, &character), "{} rests on no read", line);
+            }
+        }
+    }
+
+    #[test]
+    fn a_talk_prompt_holds_at_most_five_memories_and_never_the_name_of_the_character(
+        plays in prop::collection::vec(memory_play(), 0..80),
+    ) {
+        let folder = fresh("memories-limits");
+        let mut clock = 1_000;
+        let mut story = story(&folder, Store::Folder(folder.clone()));
+        run(&mut story, &plays, &mut clock);
+        drop(story);
+
+        for call in talk_calls(&folder) {
+            let lines = memory_lines(&call.prompt);
+            prop_assert!(lines.len() <= MAX_MEMORIES, "{:?}", lines);
+            for line in lines {
+                prop_assert!(line.chars().count() <= MAX_MEMORY_CHARS, "{}", line);
+                let said = line.contains("you told the player");
+                prop_assert!(!(said && mentions(line, "Ada")), "{}", line);
+            }
+        }
+    }
+
+    #[test]
+    fn the_age_of_a_memory_is_always_words(then in memory_tick(), now in memory_tick()) {
+        let words = when(Tick(then), Tick(now));
+
+        prop_assert!(!words.chars().any(|c| c.is_ascii_digit()), "{}", words);
+        prop_assert!(age_words().contains(&words), "{}", words);
     }
 }

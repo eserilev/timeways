@@ -12,6 +12,7 @@ use crate::learned::{Read, learned};
 use crate::lore::{Answer, LoreCall, Next};
 use crate::moments::{Moment, best, moments};
 use crate::narrator::{self, Budget};
+use crate::npc_memory::{self, Memory, Past};
 use crate::pace::Pace;
 use crate::pack::{Link, Pack, PackError, Passage};
 use crate::passage_limits;
@@ -1041,6 +1042,8 @@ impl Story {
         let mut read = reads::events_about(active, [npc]);
         read.extend(reads::entries_read(active, about));
         read.extend(reads::passages_read(active, &passages));
+        let memories = remembered(active, npc, at);
+        read.extend(reads::memories_read(&memories));
         let scene = Scene {
             npc,
             place,
@@ -1048,7 +1051,10 @@ impl Story {
             trust: character.trust_of(npc),
             slapped: character.slaps_of(npc),
             own_lore,
-            memories: Vec::new(),
+            memories: memories
+                .iter()
+                .map(|memory| npc_memory::line(memory, at))
+                .collect(),
         };
         let prompt = talk::prompt(&scene, &passages, words, self.turn());
         let pending = Pending::Talk {
@@ -1131,6 +1137,17 @@ impl Story {
             }
         }
     }
+}
+
+/// What the NPC remembers of the active character, as of the talk at `now`.
+fn remembered(active: &Active, npc: &str, now: Tick) -> Vec<Memory> {
+    let past = Past {
+        character: &active.character,
+        rumors: active.learned.rumors_with_rows().collect(),
+        quests: active.quests.changes(),
+        own_name: active.key.name(),
+    };
+    npc_memory::memories(&past, npc, now)
 }
 
 /// The question and where you stand pick the passages. The spoiler limit then drops each

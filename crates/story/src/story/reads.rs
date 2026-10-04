@@ -3,6 +3,7 @@
 
 use super::Active;
 use crate::hero::{Change, Entry};
+use crate::npc_memory::{Memory, Source};
 use crate::pack::{Origin, Passage};
 use crate::store::{Node, Table};
 use hourglass::Tick;
@@ -47,6 +48,18 @@ pub(super) fn entries_read(active: &Active, about: impl Fn(&Entry) -> bool) -> V
         .zip(active.hero.changes())
         .filter(|(_, change)| matches!(change, Change::Added(entry) if about(entry)))
         .map(|(row, _)| Node::Row(Table::Hero, row))
+        .collect()
+}
+
+/// The rows behind each memory of a talk (GAMEPLAY.md 3.5).
+pub(super) fn memories_read(memories: &[Memory]) -> Vec<Node> {
+    let sources = memories.iter().flat_map(|memory| &memory.sources);
+    sources
+        .map(|source| match *source {
+            Source::Event(event) => Node::Row(Table::Events, event.0),
+            Source::Learned(row) => Node::Row(Table::Learned, row),
+            Source::Quest(row) => Node::Row(Table::Quests, row),
+        })
         .collect()
 }
 
