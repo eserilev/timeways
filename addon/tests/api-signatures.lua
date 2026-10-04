@@ -458,6 +458,15 @@ return {
 				{ Name = "result", Type = "bool", Nilable = false },
 			},
 		},
+		UnitIsSameServer = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "unitName", Type = "cstring", Nilable = false },
+			},
+			Returns = {
+				{ Name = "result", Type = "bool", Nilable = false },
+			},
+		},
 		UnitLevel = {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {

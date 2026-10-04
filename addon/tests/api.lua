@@ -108,6 +108,7 @@ return {
 		"UnitGUID",
 		"UnitIsConnected",
 		"UnitIsPlayer",
+		"UnitIsSameServer",
 		"UnitLevel",
 		"UnitName",
 		"UnitPlayerControlled",

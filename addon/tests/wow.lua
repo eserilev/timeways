@@ -176,10 +176,22 @@ function UnitSex(unit)
 	end
 end
 
+-- Another player has `faction` in its table, or is of the Alliance, as the player is.
 function UnitFactionGroup(unit)
 	if unit == "player" then
 		return "Alliance", "Alliance"
 	end
+	local u = Unit(unit)
+	if u and u.player then
+		local faction = u.faction or "Alliance"
+		return faction, faction
+	end
+end
+
+-- A player of a realm that is not connected to yours has `farRealm` in its table.
+function UnitIsSameServer(unit)
+	local u = Unit(unit)
+	return u ~= nil and not u.farRealm
 end
 
 -- The quest log: each entry is a table of `C_QuestLog.GetInfo`, headers included.

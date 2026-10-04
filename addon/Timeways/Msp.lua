@@ -93,14 +93,27 @@ function Msp.Waiting()
 	return #waiting
 end
 
-local function Player(name)
+local function ForgetOldestPlayer()
+	local oldest
+	for name, player in pairs(players) do
+		if not oldest or player.at < players[oldest].at then
+			oldest = name
+		end
+	end
+	players[oldest] = nil
+	playerCount = playerCount - 1
+end
+
+-- A full list forgets only its oldest player, so the timers of the others hold.
+local function Player(name, now)
 	if not players[name] then
 		if playerCount >= MAX_PLAYERS then
-			players, playerCount = {}, 0
+			ForgetOldestPlayer()
 		end
 		players[name] = { fields = {}, versions = {}, asked = {}, answered = false, repeats = {} }
 		playerCount = playerCount + 1
 	end
+	players[name].at = now
 	return players[name]
 end
 
@@ -144,7 +157,7 @@ local function Repeated(player, field, now)
 end
 
 local function AnswerAll(sender, requests, now)
-	local player = Player(sender)
+	local player = Player(sender, now)
 	local fields = GameFields(ns.MspProfile.Fields())
 	local safe, plain = {}, {}
 	for _, request in ipairs(requests) do
@@ -192,7 +205,7 @@ local function Allowed(sender, now)
 end
 
 local function Handle(sender, message, logged, now)
-	local player = Player(sender)
+	local player = Player(sender, now)
 	local requests = {}
 	for _, command in ipairs(ns.MspWire.Commands(message)) do
 		player.answered = true
@@ -227,7 +240,7 @@ function Msp.Ask(name, fields)
 		return
 	end
 	local now = GetTime()
-	local player = Player(name)
+	local player = Player(name, now)
 	if not player.answered then
 		if player.probedAt and now < player.probedAt + PROBE_SECONDS then
 			return
@@ -272,6 +285,12 @@ function Msp.TooltipLine(name)
 	return #parts > 0 and table.concat(parts, ", ") or nil
 end
 
+-- A whisper to an offline player, to a realm that is not connected, or to the other faction
+-- fails with an error in the chat.
+local function CanWhisper(unit)
+	return UnitIsConnected(unit) and UnitIsSameServer(unit) and UnitFactionGroup(unit) == UnitFactionGroup("player")
+end
+
 -- The tooltip of another player shows the name and the title, and asks for them again.
 function Msp.OnTooltip(tooltip)
 	if tooltip ~= GameTooltip or not Active() then
@@ -285,7 +304,9 @@ function Msp.OnTooltip(tooltip)
 	if not name or name == ns.TaskPeople.Me() then
 		return
 	end
-	Msp.Ask(name, { "TT" })
+	if CanWhisper(unit) then
+		Msp.Ask(name, { "TT" })
+	end
 	local line = Msp.TooltipLine(name)
 	if line then
 		tooltip:AddLine(line, 1, 0.82, 0)

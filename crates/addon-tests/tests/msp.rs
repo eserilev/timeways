@@ -932,3 +932,53 @@ fn a_logged_reply_goes_out_whole_when_the_send_gives_nil() {
     assert_eq!(sent.len(), 1, "{sent:?}");
     assert!(sent[0].0 && sent[0].1.ends_with(&"a".repeat(1000)));
 }
+
+/// Corvin, sharing, hovers over Ada with these fields in her unit table.
+fn corvin_hovers_ada(unit_fields: &str) -> Player {
+    let corvin = Player::new("Corvin");
+    corvin.run("ns.MspProfile.SetSharing(true)");
+    corvin.run(&format!(
+        "wow.units.mouseover = {{ name = 'Ada', player = true, guid = 'Player-1-Ada', {unit_fields} }}"
+    ));
+    corvin
+        .game
+        .eval::<Vec<String>>("return wow.ShowTooltip('mouseover')");
+    corvin
+}
+
+#[test]
+fn the_tooltip_asks_a_player_of_your_faction_on_a_connected_realm() {
+    let corvin = corvin_hovers_ada("faction = 'Alliance'");
+
+    assert_eq!(msp_sent(&corvin), [(false, "?TT".to_string())]);
+}
+
+#[test]
+fn the_tooltip_never_whispers_a_player_who_cannot_get_the_whisper() {
+    for unit_fields in ["faction = 'Horde'", "farRealm = true", "offline = true"] {
+        let corvin = corvin_hovers_ada(unit_fields);
+
+        assert!(msp_sent(&corvin).is_empty(), "{unit_fields}");
+    }
+}
+
+#[test]
+fn a_full_list_of_players_forgets_only_the_oldest_one() {
+    let corvin = Player::new("Corvin");
+    corvin.run("ns.MspProfile.SetSharing(true)");
+    corvin.hear_logged("MSP2", "00A001001001NA1:Ann", "WHISPER", "Player1-Stormrage");
+    corvin.tick();
+    corvin.hear_logged("MSP2", "00A001001001NA1:Bee", "WHISPER", "Player2-Stormrage");
+
+    corvin.run(
+        "for n = 3, 201 do
+             wow.now = wow.now + 1
+             ns.Msp.Ask('Player' .. n, { 'DE' })
+         end",
+    );
+
+    let first: Option<String> = corvin.eval("ns.Msp.FieldsOf('Player1').NA");
+    let second: Option<String> = corvin.eval("ns.Msp.FieldsOf('Player2').NA");
+    assert_eq!(first, None);
+    assert_eq!(second.as_deref(), Some("Bee"));
+}

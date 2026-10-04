@@ -185,6 +185,8 @@ globals:
     any: true
   UnitIsConnected:
     args: [{type: string}]
+  UnitIsSameServer:
+    args: [{type: string}]
   CheckInteractDistance:
     args: [{type: string}, {type: number}]
   GetTradePlayerItemInfo:
