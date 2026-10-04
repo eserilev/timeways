@@ -1629,3 +1629,30 @@ fn the_journal_leaves_out_the_genre() {
 
     assert!(!line.contains("errand"), "{line}");
 }
+
+#[test]
+fn a_giver_that_turns_hostile_while_the_model_thinks_gives_no_offer() {
+    let mut story = story("hostile-while-thinking");
+    let (call, _) = call_of(ask(&mut story, 5));
+    sight(&mut story, 6, GIVER, Reaction::Hostile, "humanoid");
+
+    let line = answer_with(&mut story, call, "The Lost Lantern", VISIT_POND);
+
+    assert_eq!(
+        line.as_deref(),
+        Some("Keeper Tessa has no quest for you now.")
+    );
+    assert!(quests(&mut story).is_empty());
+}
+
+#[test]
+fn an_offer_of_a_giver_that_turned_hostile_cannot_be_accepted() {
+    let mut story = story("hostile-before-accept");
+    let (call, _) = call_of(ask(&mut story, 5));
+    answer_with(&mut story, call, "The Lost Lantern", VISIT_POND);
+    sight(&mut story, 6, GIVER, Reaction::Hostile, "humanoid");
+
+    accept(&mut story, 7, None);
+
+    assert_eq!(open_quests(&mut story), 0);
+}

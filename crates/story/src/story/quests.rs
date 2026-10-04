@@ -69,11 +69,7 @@ impl Story {
         };
         let quests = quest_log(active.quests.changes());
         let giver = request.giver.as_str();
-        if active.character.is_dead(giver) || active.character.is_hostile_or_animal(giver) {
-            let line = no_task(giver);
-            return self.deliver(batch, line);
-        }
-        if let Some(refusal) = refusal(&quests, giver) {
+        if let Some(refusal) = refusal(&active.character, &quests, giver) {
             return self.deliver(batch, refusal);
         }
         let seen = seen_texts(active);
@@ -167,7 +163,7 @@ impl Story {
             return Err(none());
         };
         let quests = quest_log(active.quests.changes());
-        if let Some(refusal) = refusal(&quests, giver) {
+        if let Some(refusal) = refusal(&active.character, &quests, giver) {
             return Err(NoOffer::Line(refusal));
         }
         let seen = seen_texts(active);
@@ -218,7 +214,7 @@ impl Story {
             active.quests.add(QuestChange::Declined { number, at })?;
             return Ok(Vec::new());
         }
-        if let Some(refusal) = refusal(&quests, &offer.giver) {
+        if let Some(refusal) = refusal(&active.character, &quests, &offer.giver) {
             self.notice = Some(refusal);
             return Ok(Vec::new());
         }
@@ -390,8 +386,12 @@ pub(super) fn no_task(giver: &str) -> String {
     format!("{giver} has no quest for you now.")
 }
 
-/// The reason in words when the giver cannot give you a quest now.
-fn refusal(quests: &[Tracked], giver: &str) -> Option<String> {
+/// The reason in words when the giver cannot give you a quest now. A dead or hostile giver
+/// and a beast have no quest.
+fn refusal(character: &Character, quests: &[Tracked], giver: &str) -> Option<String> {
+    if character.is_dead(giver) || character.is_hostile_or_animal(giver) {
+        return Some(no_task(giver));
+    }
     let open: Vec<&Tracked> = quests
         .iter()
         .filter(|quest| quest.status == Status::Accepted)
