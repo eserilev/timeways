@@ -48,11 +48,10 @@ local function OwnHas(now)
 	return own >= 1
 end
 
+-- The logged channel can answer nil. Nil gives no reason to wait, so it counts as Success.
 local function Send(part, entry)
-	if entry.logged then
-		return C_ChatInfo.SendAddonMessageLogged(ns.MspWire.PREFIX, part, "WHISPER", entry.to)
-	end
-	return C_ChatInfo.SendAddonMessage(ns.MspWire.PREFIX, part, "WHISPER", entry.to)
+	local send = entry.logged and C_ChatInfo.SendAddonMessageLogged or C_ChatInfo.SendAddonMessage
+	return send(ns.MspWire.PREFIX, part, "WHISPER", entry.to) or RESULT.Success
 end
 
 -- Sends while both budgets allow. MSP is best effort: a part that the game refuses drops

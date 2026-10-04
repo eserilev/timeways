@@ -897,3 +897,38 @@ fn a_profile_field_takes_its_own_limit_in_the_editor() {
     let limit: u32 = game.eval("return wow.EditBox().maxLetters");
     assert_eq!(limit, 100);
 }
+
+/// Ada shares a long profile, the logged channel gives nil, and Bo asks for two long fields.
+fn ada_answers_long_fields_with_nil_results() -> Player {
+    let ada = sharing_ada();
+    let long = "a".repeat(1000);
+    ada.game.reply(&sheet_reply(&[
+        ("appearance", &long),
+        ("background", &long),
+    ]));
+    ada.run("wow.loggedGivesNil = true");
+    bo_asks(&ada, "?DE`?HI");
+    ada
+}
+
+#[test]
+fn a_logged_send_that_gives_nil_still_spends_the_burst() {
+    let ada = ada_answers_long_fields_with_nil_results();
+
+    let parts = ada.take_sent().len();
+
+    assert_eq!(parts, 4);
+}
+
+#[test]
+fn a_logged_reply_goes_out_whole_when_the_send_gives_nil() {
+    let ada = ada_answers_long_fields_with_nil_results();
+
+    for _ in 0..20 {
+        ada.tick();
+    }
+
+    let sent = msp_sent(&ada);
+    assert_eq!(sent.len(), 1, "{sent:?}");
+    assert!(sent[0].0 && sent[0].1.ends_with(&"a".repeat(1000)));
+}

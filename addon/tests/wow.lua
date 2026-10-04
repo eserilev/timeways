@@ -266,6 +266,9 @@ wow.sendResult = 0
 wow.sendResults = {}
 -- The players who are offline, by full name: a whisper to one of them fails.
 wow.offline = {}
+-- The real client can give nil for a logged message that it took. With this true, the fake
+-- does that too.
+wow.loggedGivesNil = false
 
 local function SendResult(channel, target)
 	if channel == "WHISPER" and wow.offline[target] then
@@ -356,7 +359,11 @@ C_ChatInfo = {
 		if not IsLoggable(text) then
 			return Enum.SendAddonMessageResult.InvalidMessage
 		end
-		return Sent(prefix, text, channel, target, "CHAT_MSG_ADDON_LOGGED")
+		local result = Sent(prefix, text, channel, target, "CHAT_MSG_ADDON_LOGGED")
+		if result == 0 and wow.loggedGivesNil then
+			return nil
+		end
+		return result
 	end,
 }
 
