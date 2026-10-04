@@ -319,8 +319,9 @@ fn every_registered_event_has_a_handler() {
          return count",
     );
 
-    // 25 of Timeways, 26 of player tasks, and the 2 screenshot events of the shared Strip.lua.
-    assert_eq!(registered, 53);
+    // 25 of Timeways, 26 of player tasks, 2 of MSP, and the 2 screenshot events of the
+    // shared Strip.lua.
+    assert_eq!(registered, 55);
 }
 
 #[test]

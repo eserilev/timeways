@@ -117,6 +117,7 @@ end
 function Hero.Set(field, text)
 	text = Clean(text)
 	unsaved.fields[field] = text
+	ns.MspProfile.Edited(field, text)
 	Send(ns.Inputs.HeroSet(time(), field, text))
 end
 

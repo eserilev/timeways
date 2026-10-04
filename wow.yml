@@ -68,6 +68,15 @@ globals:
   UnitClassification:
     args:
       - type: string
+  UnitRace:
+    args:
+      - type: string
+  UnitSex:
+    args:
+      - type: string
+  UnitFactionGroup:
+    args:
+      - type: string
   UnitClass:
     args:
       - type: string

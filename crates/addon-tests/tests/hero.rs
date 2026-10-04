@@ -114,7 +114,7 @@ fn the_sheet_lists_each_question_with_its_answer() {
 
     let rows = sheet(&game);
     assert_eq!(rows[0], "group: About your hero");
-    assert_eq!(rows.len(), 2 + 6);
+    assert_eq!(rows.len(), 2 + 6 + 1);
     assert_eq!(
         rows[2..5],
         [

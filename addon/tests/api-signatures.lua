@@ -394,6 +394,17 @@ return {
 				{ Name = "result", Type = "bool", Nilable = false },
 			},
 		},
+		UnitFactionGroup = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "unitName", Type = "cstring", Nilable = false },
+				{ Name = "checkDisplayRace", Type = "bool", Nilable = false, Default = false },
+			},
+			Returns = {
+				{ Name = "factionGroupTag", Type = "cstring", Nilable = false },
+				{ Name = "localized", Type = "cstring", Nilable = false },
+			},
+		},
 		UnitFullName = {
 			SecretArguments = "AllowedWhenUntainted",
 			SecretWhenUnitIdentityRestricted = true,
@@ -461,6 +472,29 @@ return {
 			},
 			Returns = {
 				{ Name = "result", Type = "bool", Nilable = false },
+			},
+		},
+		UnitRace = {
+			MayReturnNothing = true,
+			SecretArguments = "AllowedWhenUntainted",
+			SecretWhenUnitIdentityRestricted = true,
+			Arguments = {
+				{ Name = "unit", Type = "UnitToken", Nilable = false },
+			},
+			Returns = {
+				{ Name = "localizedRaceName", Type = "cstring", Nilable = false },
+				{ Name = "englishRaceName", Type = "cstring", Nilable = false },
+				{ Name = "raceID", Type = "number", Nilable = false },
+			},
+		},
+		UnitSex = {
+			SecretArguments = "AllowedWhenUntainted",
+			SecretWhenUnitIdentityRestricted = true,
+			Arguments = {
+				{ Name = "unit", Type = "UnitToken", Nilable = false },
+			},
+			Returns = {
+				{ Name = "sex", Type = "number", Nilable = true },
 			},
 		},
 		issecretvalue = {

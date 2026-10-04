@@ -159,6 +159,27 @@ function UnitClass(unit)
 	end
 end
 
+wow.race = "Human"
+
+function UnitRace(unit)
+	if unit == "player" then
+		return wow.race, wow.race
+	end
+end
+
+-- 2 is male, 3 is female.
+function UnitSex(unit)
+	if unit == "player" then
+		return 3
+	end
+end
+
+function UnitFactionGroup(unit)
+	if unit == "player" then
+		return "Alliance", "Alliance"
+	end
+end
+
 -- The quest log: each entry is a table of `C_QuestLog.GetInfo`, headers included.
 wow.questLog = {}
 

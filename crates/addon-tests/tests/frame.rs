@@ -229,7 +229,8 @@ fn the_list_marks_the_open_item() {
          end
          return out",
     );
-    assert_eq!(marked, [false, false, true, false, false, false]);
+    // Six questions, then the Roleplay Profile.
+    assert_eq!(marked, [false, false, true, false, false, false, false]);
 }
 
 #[test]
