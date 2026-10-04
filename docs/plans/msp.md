@@ -1,6 +1,6 @@
 # Plan: MSP parity
 
-Status: draft 2, 2026-10-03. The user approved draft 1. This draft is the review of draft 1 against MSP and the code, and the final design. When a part is built, its rules move into `GAMEPLAY.md` (section 3.7.1), and this plan marks the part as done.
+Status: built, 2026-10-03. The user approved draft 1. This draft is the review of draft 1 against MSP and the code, and the final design. Every part of section 5 is built, and its rules are in `GAMEPLAY.md` 3.7 and 3.7.1.
 
 The Mary Sue Protocol (MSP) lets roleplay addons share character profiles: Total RP 3 (TRP3), MyRolePlay (MRP), and XRP. With this plan, the Hero sheet of Timeways speaks MSP. A player with only Timeways can share a profile with them, and read theirs.
 

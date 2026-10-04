@@ -43,7 +43,7 @@ These rules come before every feature.
 3. **Story after the action.** A round trip takes 5 to 10 seconds. So the story reacts after a fight, never during it.
 4. **The game is the truth.** A kill, a quest, a zone, and a death come from game events. The AI only proposes what these events mean for the story.
 5. **Private by default.** The story shows only on your screen. The real name of another player never leaves your computer unless you send it yourself. No model ever sees the name of a real player (5.11).
-6. **Only players with the addon take part.** Nobody else sees anything, and nobody else gets a message.
+6. **Only players with the addon take part.** Nobody else sees anything, and nobody else gets a message. One exception is your own choice: with the switch of your Roleplay Profile on, Timeways answers roleplay addons and asks them for profiles (3.7.1).
 7. **Talk less, and mean more.** The narrator speaks only at big moments. Each line refers to your own history.
 8. **Only WoW Forever lore.** The story never goes past where WoW Forever is in the storyline. Section 5.9 says how.
 
@@ -217,7 +217,7 @@ The desktop sends the pages each time the book opens, because the world lives th
 
 | Section | What it holds | State |
 |---|---|---|
-| **Hero** | Your sheet and your own lore (3.7). The list holds each question of the sheet with its answer. The open question has an Edit button, and under it come your notes with Add a note and Remove. Previous and Next step through the questions, and the bar counts the answered ones. The first time that the book shows an empty hero in a session, it opens here. | Built |
+| **Hero** | Your sheet and your own lore (3.7). The list holds each question of the sheet with its answer, then the Roleplay Profile (3.7.1). The open question has an Edit button, and under it come your notes with Add a note and Remove. Previous and Next step through the questions, and the bar counts the answered ones. The first time that the book shows an empty hero in a session, it opens here. | Built |
 | **Chronicle** | One chapter for each milestone (3.3), with the saga and the footnotes when a model wrote them. The list names each chapter by its first zone. A chapter shows its places, its people, and its deeds, with Previous chapter and Next chapter. The book opens on it, at the newest chapter. | Built |
 | **Deeds** | Level milestones, first kills of rares and bosses, repeat kills (echoes, 5.13), your deaths, and your joke titles (5.4.1) | Built |
 | **Knowledge** | What you read and heard (3.1.1): each book, each quest tale, and each story of an NPC, with the place and the date. A rumor from `/talk` shows as a rumor. | Built |
@@ -228,18 +228,33 @@ The desktop sends the pages each time the book opens, because the world lives th
 
 Who your hero is, in your own words, as a player of a tabletop game writes before the first session. It is your hero's own story, never canon: `/lore` never reads it.
 
-- **The sheet:** origin, background, goal, bond, flaw, and traits. Each field is optional, and holds at most 1000 characters. You change a field at any time, and an empty text clears it.
+- **The sheet:** six questions (origin, background, goal, bond, flaw, and traits), then the Roleplay Profile (name, title, currently, appearance, age, and motto, 3.7.1). Each field is optional. You change a field at any time, and an empty text clears it. A field holds at most this many characters: origin, currently, and motto 200; name, title, and age 100; every other field 1000.
 - **Your own lore:** entries that you add at any time, for example "A stranger at the inn knew my father's name." Each entry keeps its time and the place where you stood, and the NPC that you targeted when it is about one. You can remove your own entry.
 - **Nothing is lost.** Each change is a new row of the `hero` table (5.7). A removal and an old text of a field stay in the table.
-- **Your words are free.** No check reads the words of the player: a name from after the lore cutoff (5.9) is fine in your own story. A text has only these limits: an entry is not empty, no control character, at most 1000 characters, and at most 1200 bytes. The six fields go together on the first page of the journal, so a text also fits a sixth of a slot of the game: a text full of quotes is too long. An edit has no reply of its own, so a refused text leaves its reason for the next journal page, and the addon shows it once. The editor of the book stops at 1000 letters, and keeps a text over 1200 bytes open with the reason under it.
+- **Your words are free.** No check reads the words of the player: a name from after the lore cutoff (5.9) is fine in your own story. A text has only these limits: an entry is not empty, no control character, and at most the characters of its field, with 1.2 bytes for each character (an entry: 1000 characters and 1200 bytes). An edit has no reply of its own, so a refused text leaves its reason for the next journal page, and the addon shows it once. The editor of the book stops at 1000 letters, and keeps a text over 1200 bytes open with the reason under it.
 - **A later name in a model answer:** the narrator, a chapter, and an NPC can name something from after the cutoff when your own text names it first. The check of the cutoff reads your sheet and your entries as allowed words. It reads each text alone, so a name split across two texts ("Caverns" at the end of one, "of Time" at the start of the next) is not allowed.
 - **Who reads it:**
-  - The narrator (3.2) gets the sheet and the 5 newest entries, under the heading "the hero's own story, not canon", for a line and for a chapter (3.3). A prompt takes the first 300 characters of each text, so a long story keeps the prompt small.
+  - The narrator (3.2) gets the sheet, less the name and the title, and the 5 newest entries, under the heading "the hero's own story, not canon", for a line and for a chapter (3.3). A prompt takes the first 300 characters of each text, so a long story keeps the prompt small.
   - The prompt of a chapter also gets the entries written during the chapter.
   - An NPC in `/talk` (3.5) gets only the entries about it or about its place, at most 5.
-- **The journal** carries the sheet on its first page, and the entries as a list like the others.
+- **The journal** carries the fields of the sheet and the entries as lists like the others, so a long sheet spreads over two pages.
 - **In the game:** the Hero page of the book, or `/hero`, `/hero add <text>`, `/hero note <text about your target>`, and `/hero set <field> <text>`. Edit and Add open a writing page in the book: a box of several lines that scrolls, stops at 1000 characters, and counts them ("16 / 1000"), with Save and Cancel. Remove asks first in a dialog of the game.
 - **An edit shows at once.** The book shows the new text, marked "Saving...", until the next journal comes. Each edit goes out with a journal request, so that journal comes soon. It shows what the desktop saved, or leaves out a refused edit and shows the reason.
+
+### 3.7.1 The Roleplay Profile and roleplay addons
+
+Roleplay addons such as Total RP 3, MyRolePlay, and XRP share character profiles with the Mary Sue Protocol (MSP). Timeways speaks MSP, so a player with Timeways and a player with a roleplay addon see each other's profile. The plan is `docs/plans/msp.md`.
+
+- **The fields.** Eight fields of the sheet go out as MSP fields: name (NA), title (NT), currently (CU), appearance (DE), age (AG), motto (MO), origin (HB, the birthplace), and background (HI). Goal, bond, flaw, traits, your notes, and the stories about you never go out: MSP has no field for them. An empty name goes out as the name of the character in the game, as in every roleplay addon.
+- **The page.** The list of the Hero page ends with Roleplay Profile, folded. A click opens it: its six fields show under it, and the page shows the switch. A field of the profile opens like a question, with Edit.
+- **The switch.** Share, and Stop sharing. It is off for each new character. With it off, Timeways sends no MSP message and reads none. With it on and no other roleplay addon, Timeways answers MSP requests, and asks other players for their profiles.
+- **The copy.** While the switch is on, the saved variables of the character (`TimewaysProfile`) hold the eight shared fields, so Timeways answers while the desktop app is off. Each journal and each edit refreshes the copy. Stop sharing clears it. Other addons can read saved variables, so the copy holds only what MSP shares anyway. Any addon can also write them, so the addon checks each field when it reads them, and drops a field that is too long or holds a control character.
+- **Another roleplay addon** is present when the global `msp` of LibMSP exists. It owns MSP, and Timeways sends nothing. After each journal, Timeways imports the six fields of the profile from it (`msp.my`), and sends each one that changed to the desktop as a hero edit. The import takes out color codes, Total RP 3 tags, and line breaks, and cuts each text to the limit of its field. It sends each text at most once in a session, so a refused text never loops. The six questions stay your own. The page shows "From Total RP 3" (the name of that addon) under each field, with no Edit, and no switch.
+- **Other players.** The tooltip of another player asks for the tooltip fields of MSP, at most once each 30 seconds, and shows the name and the title on one line: "Ada Brightwater, Keeper of the Flame". The text loses every escape of the game, and each part stops at 60 bytes. The fields of other players stay in memory only, for at most 200 players. They never go to the desktop, to a file, or to a model.
+- **The wire** is the MSP of LibMSP v32 and Chomp (`MspWire.lua`, `MspParts.lua`): the prefix `MSP2`, whispers only, parts of at most 255 bytes with a header of 12 hex digits, commands separated by a backtick, and the CRC32C of each text as its version. A text goes on the logged addon channel (`SendAddonMessageLogged`), because LibMSP keeps a text only from that channel. A request and "not changed" go on the normal one. Timeways keeps a text only from the logged channel too. A part with no header, a broadcast, or more than 64 parts is dropped.
+- **Limits.** MSP shares the budget of addon messages with player quests (4.7), and takes at most half of it: 4 parts in a burst, and one each 2 seconds after it. As in LibMSP, a player is asked for a field again only after 30 seconds, a player who never answered only after 300 seconds, and the same request within 5 seconds gets no answer. A sender gets 24 parts in a burst and one each 2 seconds after it.
+- **Not yet:** a request through Battle.net gets no answer, and the fields that only one roleplay addon knows (eyes, height, pronouns) stay out.
+- **The check with MyRolePlay.** CI fetches MyRolePlay at a pinned release, and runs its own MSP code against Timeways in the test game, both ways (`scripts/fetch-mrp.sh`, `crates/addon-tests/tests/msp_mrp.rs`).
 
 ## 4. The social level
 

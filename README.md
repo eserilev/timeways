@@ -21,6 +21,7 @@ What works:
 - **`/talk`.** Talk to the NPC that you target. It answers from what it knows, and its trust in you changes. The tooltip of the NPC shows the trust.
 - **`/quest`.** An NPC offers a side quest made for you: visit a place, meet an NPC, or kill a creature that you saw. The giver and the steps show as pins on the map of the journal.
 - **Player quests.** Give a quest to a player in your party, guild, or friends list who has Timeways. The game checks the steps, and the giver decides at the end. You type each step in plain words, and "Help me write" drafts a whole quest.
+- **Roleplay profiles.** Share your character's name, title, looks, and story with players who use Total RP 3, MyRolePlay, or XRP, and see their names in the tooltip.
 - **Player stories.** Target someone in your group and type `/story <words>` to tell a story about them. They accept it into their own story, or decline it.
 - **`/journal`.** A book in the look of the classic quest frame, with 5 tabs: Hero (your hero in your own words), Chronicle (one chapter for each milestone, with a saga from the narrator), Deeds, Knowledge, and Quests. The map shows where you have been.
 - **The narrator.** One short line in the voice of the chronicle at a big moment, such as a first kill of a rare, a level up, or a third death to the same murloc. At most 3 lines each hour.
