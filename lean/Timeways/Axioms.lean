@@ -1,6 +1,7 @@
 -- The axiom check. Each law depends only on the three standard axioms
 -- of Lean. A `sorry` or a new axiom changes the output, and the build fails.
 import Timeways.QuestLog
+import Timeways.HeroHook
 
 open timeways_rules
 
@@ -31,3 +32,11 @@ open timeways_rules
 /-- info: 'timeways_rules.quest_log.an_offer_has_no_done_steps' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs (whitespace := lax) in
 #print axioms quest_log.an_offer_has_no_done_steps
+
+/-- info: 'timeways_rules.hero_hook.pick_is_never_out_of_range' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms hero_hook.pick_is_never_out_of_range
+
+/-- info: 'timeways_rules.hero_hook.every_filled_field_takes_its_turn' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms hero_hook.every_filled_field_takes_its_turn
