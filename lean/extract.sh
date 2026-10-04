@@ -31,7 +31,14 @@ args=(--preset=aeneas --duplicate-defaulted-methods --start-from-attribute)
   "$AENEAS/charon/bin/charon" cargo "${args[@]}" --dest-file "$work/rules.llbc")
 
 "$AENEAS/bin/aeneas" -backend lean -split-files -loops-to-rec \
-  -subdir Timeways -dest "$work/out" "$work/rules.llbc"
+  -subdir Timeways -dest "$work/out" "$work/rules.llbc" 2>&1 | tee "$work/aeneas.log"
+
+# Aeneas writes a partial file and exits 0 when it cannot translate a
+# function. A partial file holds an axiom where the code was, so fail.
+if grep -q "Generated the partial file" "$work/aeneas.log"; then
+  echo "Aeneas could not translate all of the crate: see the errors above" >&2
+  exit 1
+fi
 
 mkdir -p "$here/Timeways"
 cp "$work/out/Timeways/Types.lean" "$work/out/Timeways/Funs.lean" "$here/Timeways/"
