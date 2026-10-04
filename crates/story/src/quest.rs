@@ -247,6 +247,15 @@ pub enum Genre {
     Comic,
 }
 
+impl Genre {
+    /// A mystery shows its steps one stage at a time. The genre is the switch, so there is
+    /// no flag for the model to forget.
+    #[must_use]
+    pub fn hides_later_steps(self) -> bool {
+        self == Genre::Mystery
+    }
+}
+
 /// The steps from `first` to `last`, both in, can be done in any order. The quest keeps
 /// its steps in one flat list, so a line names a step by one index.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

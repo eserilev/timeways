@@ -150,6 +150,13 @@ impl Tracked {
         }
     }
 
+    /// Is the step in the first stage: the first step, or the set that the quest starts
+    /// with?
+    #[must_use]
+    pub fn in_first_stage(&self, step: usize) -> bool {
+        step < self.steps.len() && self.stage_start(step) == 0
+    }
+
     /// Can the player do this step now? The quest is accepted, the step is not done, and
     /// every step before its stage is done.
     #[must_use]

@@ -150,3 +150,17 @@ fn a_zone_line_carries_the_local_hour() {
         .collect();
     assert_eq!(hours, [Some(20)]);
 }
+
+#[test]
+fn a_hidden_step_makes_the_addon_ask_for_the_journal_after_a_batch() {
+    let game = Game::new();
+    let visit = r#"{"goal":"visit","place":"Mill Pond""#;
+    game.reply(&journal(&step(visit, "open")).replace(
+        r#""status":"accepted","#,
+        r#""status":"accepted","hidden_steps":1,"#,
+    ));
+
+    batch(&game);
+
+    assert_eq!(journal_asks(&game), 1);
+}

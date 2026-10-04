@@ -1598,3 +1598,34 @@ fn a_game_quest_turned_in_before_the_step_opens_does_it_at_once() {
 
     assert_eq!(quests(&mut story)[0].status, Status::Done);
 }
+
+#[test]
+fn a_mystery_shows_only_its_done_and_open_steps_in_the_journal() {
+    let steps = format!("{VISIT_POND}, {MEET_BRAM}, {VISIT_TOWER}");
+    let mut story = story("mystery");
+    let (call, _) = call_of(ask(&mut story, 5));
+    let text = answer_text("A Cask Gone Missing", &steps).replace("errand", "mystery");
+    story.handle(Input::ModelAnswered { call, text }).unwrap();
+    let offered = quests(&mut story).remove(0);
+    accept(&mut story, 6, None);
+
+    story.handle(zone(7, "Mill Pond")).unwrap();
+
+    let quest = quests(&mut story).remove(0);
+    assert_eq!(offered.steps.len(), 1);
+    assert_eq!(offered.hidden_steps, 2);
+    assert_eq!(quest.steps.len(), 2);
+    assert_eq!(quest.hidden_steps, 1);
+    let hidden = |step: &StepView| step.step.target() == Some("Old Tower");
+    assert!(!quest.steps.iter().any(hidden));
+}
+
+#[test]
+fn the_journal_leaves_out_the_genre() {
+    let mut story = story("no-genre-in-book");
+    offer(&mut story, 5);
+
+    let line = serde_json::to_string(&page(&mut story)).unwrap();
+
+    assert!(!line.contains("errand"), "{line}");
+}

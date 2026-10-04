@@ -47,6 +47,10 @@ function QuestSteps.Read(quests)
 	hunted, carries, watchesHour, watchedStepWaits = {}, {}, false, false
 	for _, quest in ipairs(type(quests) == "table" and quests or {}) do
 		if Accepted(quest) then
+			-- A hidden step can be a kill, a carry, or a time.
+			if type(quest.hidden_steps) == "number" and quest.hidden_steps > 0 then
+				watchedStepWaits = true
+			end
 			for _, step in ipairs(quest.steps) do
 				if type(step) == "table" then
 					Watch(step)

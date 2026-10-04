@@ -487,6 +487,11 @@ local function StepLine(quest, step)
 	return Line(waits and "later" or "entry", StepText(step))
 end
 
+-- A mystery keeps its later steps from the book. Only their count comes.
+local function HiddenSteps(quest)
+	return type(quest.hidden_steps) == "number" and quest.hidden_steps > 0
+end
+
 -- The place in the list of the first step of the any-order set, or nil. The desktop counts
 -- from 0.
 local function AnyOrderStart(quest)
@@ -520,6 +525,9 @@ local function QuestLines(quest, saving)
 			lines[#lines + 1] = Line("text", "In any order:")
 		end
 		lines[#lines + 1] = StepLine(quest, step)
+	end
+	if HiddenSteps(quest) then
+		lines[#lines + 1] = Line("later", "More to come.")
 	end
 	lines[#lines + 1] = Line("section", "Rewards")
 	lines[#lines + 1] = Line("text", Name(quest.giver) .. " trusts you more.")
@@ -576,6 +584,9 @@ local function QuestMark(quest, saving)
 	end
 	if quest.status == "done" then
 		return "Done"
+	end
+	if HiddenSteps(quest) then
+		return string.format("%d done", StepsDone(quest))
 	end
 	return string.format("%d of %d", StepsDone(quest), #Entries(quest.steps))
 end

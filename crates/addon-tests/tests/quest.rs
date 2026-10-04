@@ -36,6 +36,7 @@ fn lantern(status: Status, steps_done: usize) -> QuestView {
         done_at: (status == Status::Done).then_some(Tick(DAY)),
         any_order: None,
         has_slap: false,
+        hidden_steps: 0,
     }
 }
 
@@ -818,4 +819,18 @@ fn a_level_a_dungeon_a_boss_and_a_game_quest_show_their_lines() {
         second_step_line(turn_in),
         "entry: Complete \"The Defias Brotherhood\"."
     );
+}
+
+#[test]
+fn a_mystery_shows_more_to_come_and_counts_only_its_done_steps() {
+    let game = Game::new();
+    let mut quest = lantern(Status::Accepted, 1);
+    quest.hidden_steps = 2;
+
+    game.reply(&quest_reply(quest));
+
+    let shown = lines(&game);
+    assert_eq!(shown[6], "later: More to come.");
+    let mark: String = game.eval("ns.Journal.Page('quests').list[2].mark");
+    assert_eq!(mark, "1 done");
 }

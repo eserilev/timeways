@@ -68,6 +68,7 @@ fn lantern(status: Status, steps_done: usize) -> QuestView {
         done_at: None,
         any_order: None,
         has_slap: false,
+        hidden_steps: 0,
     }
 }
 

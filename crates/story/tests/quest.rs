@@ -5,8 +5,8 @@ use timeways_story::hero_hook::Hook;
 use timeways_story::quest::{
     AnyOrder, DAY_SECONDS, Encounter, Genre, Here, Known, MAX_CARRY, MAX_KILLS, MAX_OFFER_BYTES,
     MAX_TITLE_CHARS, MAX_TOPIC_CHARS, MAX_WAIT_DAYS, Quest, QuestChange, QuestFault, Status, Step,
-    TimeOfDay, checked_quest, goods_for, is_cruel_target, offer_line, prompt, quest_emotes,
-    quest_log, thing_name, title_of_thing,
+    StepState, TimeOfDay, checked_quest, goods_for, is_cruel_target, offer_line, prompt,
+    quest_emotes, quest_log, thing_name, title_of_thing,
 };
 use timeways_story::seen::{SeenText, TextKind};
 
@@ -1633,4 +1633,51 @@ fn the_title_of_a_quest_with_a_game_quest_step_keeps_the_overlap_rule() {
         checked_quest(&text, &known(&seen)).unwrap_err(),
         QuestFault::GameQuest("The Defias Brotherhood".to_string())
     );
+}
+
+#[test]
+fn a_mystery_hides_its_later_steps() {
+    assert!(Genre::Mystery.hides_later_steps());
+}
+
+#[test]
+fn no_other_genre_hides_a_step() {
+    let others = [
+        Genre::Errand,
+        Genre::Hunt,
+        Genre::Rescue,
+        Genre::Rivalry,
+        Genre::Comic,
+    ];
+
+    assert!(others.iter().all(|genre| !genre.hides_later_steps()));
+}
+
+/// The visit, set, and meeting quest of `set_quest` as a mystery, with this many changes.
+fn mystery(changes: usize) -> timeways_story::quest::QuestView {
+    let mut log = set_quest();
+    if let QuestChange::Offered { genre, .. } = &mut log[0] {
+        *genre = Some(Genre::Mystery);
+    }
+    log.truncate(changes);
+    timeways_story::quest::QuestView::of(&quest_log(&log)[0])
+}
+
+#[test]
+fn a_mystery_offer_shows_only_its_first_stage() {
+    let offer = mystery(1);
+
+    assert_eq!(offer.steps.len(), 1);
+    assert_eq!(offer.hidden_steps, 3);
+    assert_eq!(offer.any_order, None);
+}
+
+#[test]
+fn a_mystery_shows_its_done_steps_and_its_open_set() {
+    let view = mystery(3);
+
+    let shown: Vec<StepState> = view.steps.iter().map(|step| step.state).collect();
+    assert_eq!(shown, [StepState::Done, StepState::Open, StepState::Open]);
+    assert_eq!(view.hidden_steps, 1);
+    assert_eq!(view.any_order, Some(AnyOrder { first: 1, last: 2 }));
 }
