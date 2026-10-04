@@ -1,7 +1,7 @@
 //! The words of the quest prompt. The lists hold only the targets that the check allows,
 //! so the model has nothing else to pick (GAMEPLAY.md 3.4).
 
-use super::{Known, MAX_KILLS, MAX_STEPS, MAX_TITLE_CHARS};
+use super::{Known, MAX_KILLS, MAX_STEPS, MAX_TITLE_CHARS, MAX_WAIT_DAYS};
 use crate::house::{HOUSE_RULES, bulleted, fenced};
 use crate::talk::persona;
 
@@ -27,6 +27,7 @@ pub fn prompt(known: &Known<'_>, place: Option<&str>) -> String {
          - Copy each name exactly as the list writes it. Use no other place, person, or \
          creature. An empty list has nothing to use.\n\
          - Each step names a different place, person, or creature.\n\
+         - Only a step after a wait can send the player back to you.\n\
          - The task is not a quest of the game, and it does not continue one.\n\
          - The title has at most {MAX_TITLE_CHARS} characters. The text has at most 60 \
          words, in your own voice.\n\n\
@@ -49,6 +50,9 @@ fn goals(places: &[&str], people: &[&str], prey: &[&str]) -> String {
     let kill = format!(
         r#"{{"goal": "kill", "creature": "<a creature above>", "count": <1 to {MAX_KILLS}>}}: hunt them."#
     );
+    let wait = format!(
+        r#"{{"goal": "wait", "days": <1 to {MAX_WAIT_DAYS}>}}: the player comes back later. Never the first or the last step, and at most one."#
+    );
     let mut goals = Vec::new();
     if !places.is_empty() {
         goals.push(VISIT);
@@ -59,6 +63,7 @@ fn goals(places: &[&str], people: &[&str], prey: &[&str]) -> String {
     if !prey.is_empty() {
         goals.push(&kill);
     }
+    goals.push(&wait);
     let lines: Vec<String> = goals.iter().map(|goal| format!("  - {goal}")).collect();
     lines.join("\n")
 }

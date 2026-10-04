@@ -371,6 +371,6 @@ fn near_first(mut names: Vec<&str>, near: impl Fn(&str) -> bool) -> Vec<&str> {
 fn last_targets(quests: &[Tracked]) -> Vec<&str> {
     let newest = quests.iter().max_by_key(|quest| quest.number);
     newest.map_or_else(Vec::new, |quest| {
-        quest.steps.iter().map(quest::Step::target).collect()
+        quest.steps.iter().filter_map(quest::Step::target).collect()
     })
 }

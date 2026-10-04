@@ -23,7 +23,9 @@ use timeways_story::pace::{Pace, WINDOW_SECONDS};
 use timeways_story::pack::Pack;
 use timeways_story::passage_limits::{MAX_PASSAGE_BYTES, pieces};
 use timeways_story::places::InstanceKind;
-use timeways_story::quest::{MAX_KILLS, QuestChange, Status, Step, Tracked, quest_log};
+use timeways_story::quest::{
+    DAY_SECONDS, MAX_KILLS, MAX_WAIT_DAYS, QuestChange, Status, Step, Tracked, quest_log,
+};
 use timeways_story::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use timeways_story::seen::TextKind;
 use timeways_story::spot::{MAP_IDS, Spot, THOUSANDTHS, spot_of};
@@ -212,7 +214,7 @@ fn spot() -> impl Strategy<Value = Spot> {
     })
 }
 
-/// A meet step, or a kill step whose count sits often at the edges of its band.
+/// A meet step, a kill step whose count sits often at the edges of its band, or a wait.
 fn quest_step() -> impl Strategy<Value = Step> {
     let count = prop_oneof![Just(1u8), Just(MAX_KILLS), 1..=MAX_KILLS];
     prop_oneof![
@@ -223,14 +225,22 @@ fn quest_step() -> impl Strategy<Value = Step> {
             creature: "Duskbat".to_string(),
             count,
         }),
+        (1..=MAX_WAIT_DAYS).prop_map(|days| Step::Wait { days }),
     ]
+}
+
+/// A time near the end of a wait that opened at the accept (2) or at a step done at 3: a
+/// second before it, at it, or a second after it.
+fn quest_time() -> impl Strategy<Value = Tick> {
+    let edge = (2u64..=3, 0..=u64::from(MAX_WAIT_DAYS), 0u64..=2);
+    edge.prop_map(|(base, days, delta)| Tick(base + days * DAY_SECONDS + delta - 1))
 }
 
 /// Few numbers and short quests, so that most changes find their quest. Kills come often,
 /// so a kill step can fill up.
 fn quest_change() -> impl Strategy<Value = QuestChange> {
     let number = 1u64..4;
-    let steps = prop::collection::vec(quest_step(), 0..4);
+    let steps = prop::collection::vec(quest_step(), 0..5);
     prop_oneof![
         1 => (number.clone(), steps).prop_map(move |(number, steps)| QuestChange::Offered {
             number,
@@ -252,10 +262,8 @@ fn quest_change() -> impl Strategy<Value = QuestChange> {
             number,
             at: Tick(2)
         }),
-        1 => (number.clone(), 0usize..4).prop_map(|(number, step)| QuestChange::StepDone {
-            number,
-            step,
-            at: Tick(3),
+        2 => (number.clone(), 0usize..5, quest_time()).prop_map(|(number, step, at)| {
+            QuestChange::StepDone { number, step, at }
         }),
         3 => (number, 0usize..2).prop_map(|(number, step)| QuestChange::Killed {
             number,
@@ -1150,6 +1158,20 @@ proptest! {
         for quest in quest_log(&changes) {
             let first_gap = quest.done.iter().position(Option::is_none).unwrap_or(quest.done.len());
             prop_assert!(quest.done[first_gap..].iter().all(Option::is_none), "{:?}", quest);
+        }
+    }
+
+    #[test]
+    fn a_wait_never_ends_early(changes in prop::collection::vec(quest_change(), 0..40)) {
+        for quest in quest_log(&changes) {
+            for (step, done) in quest.done.iter().enumerate() {
+                let (Step::Wait { days }, Some(done)) = (&quest.steps[step], done) else {
+                    continue;
+                };
+                let opened = quest.done[..step].iter().flatten().max().copied().or(quest.accepted_at);
+                let ready = opened.unwrap().0 + u64::from(*days) * DAY_SECONDS;
+                prop_assert!(done.0 >= ready, "{:?}", quest);
+            }
         }
     }
 

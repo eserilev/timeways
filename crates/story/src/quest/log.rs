@@ -1,7 +1,7 @@
 //! The quest log: each change of a side quest, and the state of each quest and each of its
 //! steps (GAMEPLAY.md 3.4, docs/plans/quest-variety.md 6).
 
-use super::Step;
+use super::{DAY_SECONDS, Step};
 use hourglass::Tick;
 use serde::{Deserialize, Serialize};
 
@@ -151,6 +151,17 @@ impl Tracked {
         before.copied().or(self.accepted_at)
     }
 
+    /// When an open wait step is over. None for another step, or a wait that is not open.
+    #[must_use]
+    pub fn ready_at(&self, step: usize) -> Option<Tick> {
+        let Some(Step::Wait { days }) = self.steps.get(step) else {
+            return None;
+        };
+        let opened = self.opened_at(step)?;
+        let wait = u64::from(*days).saturating_mul(DAY_SECONDS);
+        Some(Tick(opened.0.saturating_add(wait)))
+    }
+
     /// The open kill step of this creature, by index.
     #[must_use]
     pub fn hunts(&self, name: &str) -> Option<usize> {
@@ -209,12 +220,14 @@ fn find(quests: &mut [Tracked], number: u64) -> Option<&mut Tracked> {
     quests.iter_mut().find(|quest| quest.number == number)
 }
 
-/// A step counts only while it is open. The last step finishes the quest.
+/// A step counts only while it is open, and a wait never ends early. The last step
+/// finishes the quest.
 fn finish_step(quests: &mut [Tracked], number: u64, step: usize, at: Tick) {
     let Some(quest) = find(quests, number) else {
         return;
     };
-    if !quest.is_open(step) {
+    let early = quest.ready_at(step).is_some_and(|ready| at < ready);
+    if !quest.is_open(step) || early {
         return;
     }
     quest.done[step] = Some(at);

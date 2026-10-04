@@ -10,7 +10,7 @@ use timeways_story::character::QUEST_TRUST;
 use timeways_story::input::{CallId, Input, MessageId, Reaction};
 use timeways_story::journal::{Deed, Page};
 use timeways_story::pack::Pack;
-use timeways_story::quest::{QuestView, Status, StepState, StepView};
+use timeways_story::quest::{DAY_SECONDS, QuestView, Status, StepState, StepView};
 use timeways_story::store::Store;
 use timeways_story::story::why::{TrustCause, TrustWhy};
 use timeways_story::story::{Output, Story};
@@ -22,15 +22,31 @@ const OFFER: &str = r#"{"title": "The Lost Lantern", "text": "Find the lantern."
     "steps": [{"goal": "visit", "place": "Mill Pond"}, {"goal": "meet", "npc": "Farmer Bram"}]}"#;
 
 fn story(name: &str) -> Story {
+    story_in(name, Store::Memory)
+}
+
+/// The story program with an empty pack and this store, and the character of the tests.
+fn opened(name: &str, store: Store) -> Story {
+    let path = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("quests-{name}.sqlite"));
+    if !path.exists() {
+        Pack::write(&path, &[]).unwrap();
+    }
+    let mut story = Story::new(Pack::open(&path).unwrap(), store);
+    let entered = Input::CharacterEntered {
+        realm: "Testrealm".to_string(),
+        name: "Tester".to_string(),
+    };
+    story.handle(entered).unwrap();
+    story
+}
+
+/// A world where you visited Mill Pond and Old Tower, met Farmer Bram and the giver, and
+/// stand in Old Tower.
+fn story_in(name: &str, store: Store) -> Story {
     let path = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("quests-{name}.sqlite"));
     let _ = std::fs::remove_file(&path);
-    Pack::write(&path, &[]).unwrap();
-    let mut story = Story::new(Pack::open(&path).unwrap(), Store::Memory);
+    let mut story = opened(name, store);
     let inputs = [
-        Input::CharacterEntered {
-            realm: "Testrealm".to_string(),
-            name: "Tester".to_string(),
-        },
         zone(1, "Mill Pond"),
         meet(2, "Farmer Bram"),
         zone(3, "Old Tower"),
@@ -1001,4 +1017,75 @@ fn a_talk_to_another_npc_hears_nothing_of_the_quest() {
     let prompt = talk_prompt(&mut story, 7, "Miller Oda");
 
     assert!(!prompt.contains("a quest of another person"), "{prompt}");
+}
+
+/// A quest of three steps: visit Mill Pond, come back after a day, and tell the giver
+/// with /talk. The visit is done at 7, so the wait ends at 7 plus a day.
+fn wait_quest(story: &mut Story) -> u64 {
+    let steps = format!(
+        r#"{VISIT_POND}, {{"goal": "wait", "days": 1}}, {{"goal": "talk", "npc": "{GIVER}"}}"#
+    );
+    let (call, _) = call_of(ask(story, 5));
+    answer_with(story, call, "Come Back Tomorrow", &steps);
+    accept(story, 6, None);
+    story.handle(zone(7, "Mill Pond")).unwrap();
+    7 + DAY_SECONDS
+}
+
+#[test]
+fn a_wait_ends_with_the_first_line_after_its_time() {
+    let mut story = story("wait-ends");
+    let ready = wait_quest(&mut story);
+
+    story.handle(zone(ready - 1, "Old Tower")).unwrap();
+    let before = steps_done(&quests(&mut story)[0]);
+    story.handle(zone(ready, "Mill Pond")).unwrap();
+
+    assert_eq!(before, 1);
+    assert_eq!(steps_done(&quests(&mut story)[0]), 2);
+}
+
+#[test]
+fn a_wait_and_the_talk_after_it_end_on_one_line() {
+    let mut story = story("wait-and-talk");
+    let ready = wait_quest(&mut story);
+
+    talk_prompt(&mut story, ready + 60, GIVER);
+
+    assert_eq!(quests(&mut story)[0].status, Status::Done);
+}
+
+#[test]
+fn a_wait_survives_a_restart_of_the_story_program() {
+    let folder = Path::new(env!("CARGO_TARGET_TMPDIR")).join("quests-wait-restart");
+    let _ = std::fs::remove_dir_all(&folder);
+    let mut story = story_in("wait-restart", Store::Folder(folder.clone()));
+    let ready = wait_quest(&mut story);
+    drop(story);
+
+    let mut story = opened("wait-restart", Store::Folder(folder));
+    story.handle(zone(ready, "Old Tower")).unwrap();
+
+    assert_eq!(steps_done(&quests(&mut story)[0]), 2);
+}
+
+#[test]
+fn a_wait_never_ends_on_a_clock_that_went_back() {
+    let mut story = story("wait-clock-back");
+    wait_quest(&mut story);
+
+    story.handle(zone(2, "Old Tower")).unwrap();
+
+    assert_eq!(steps_done(&quests(&mut story)[0]), 1);
+}
+
+#[test]
+fn the_journal_shows_when_an_open_wait_is_over() {
+    let mut story = story("wait-journal");
+    let ready = wait_quest(&mut story);
+
+    let wait = quests(&mut story).remove(0).steps.remove(1);
+
+    assert_eq!(wait.state, StepState::Open);
+    assert_eq!(wait.ready_at, Some(Tick(ready)));
 }

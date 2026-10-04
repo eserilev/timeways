@@ -8,7 +8,7 @@ use common::{Game, step_views};
 use hourglass::Tick;
 use timeways_story::input::{Input, MessageId};
 use timeways_story::journal::{Deed, Journal, pages};
-use timeways_story::quest::{QuestView, Status, Step};
+use timeways_story::quest::{QuestView, Status, Step, StepState};
 use timeways_story::story::Output;
 
 const DAY: u64 = 1_790_000_000;
@@ -627,4 +627,51 @@ fn a_talk_step_names_the_command_to_use() {
         second_step_line(topic),
         "entry: Ask Farmer Bram about the missing cask (/talk)."
     );
+}
+
+/// The lantern quest with a wait of 2 days as its second step, open while `left` seconds
+/// remain.
+fn wait_line(state: StepState, left: i64) -> String {
+    let game = Game::new();
+    let mut quest = lantern(Status::Accepted, 1);
+    quest.steps[1].step = Step::Wait { days: 2 };
+    quest.steps[1].state = state;
+    let now = i64::try_from(DAY).unwrap();
+    quest.steps[1].ready_at =
+        (state == StepState::Open).then(|| Tick(u64::try_from(now + left).unwrap()));
+    game.reply(&quest_reply(quest));
+    lines(&game).remove(5)
+}
+
+#[test]
+fn an_open_wait_shows_the_time_left_in_days_and_hours() {
+    assert_eq!(
+        wait_line(StepState::Open, 30 * 3600),
+        "entry: Wait 2 days: 1 day left."
+    );
+    assert_eq!(
+        wait_line(StepState::Open, 5 * 3600 + 59),
+        "entry: Wait 2 days: 5 hours left."
+    );
+    assert_eq!(
+        wait_line(StepState::Open, 3599),
+        "entry: Wait 2 days: less than an hour left."
+    );
+}
+
+#[test]
+fn a_wait_whose_time_passed_shows_complete() {
+    assert_eq!(
+        wait_line(StepState::Open, 0),
+        "entry: Wait 2 days. (Complete)"
+    );
+    assert_eq!(
+        wait_line(StepState::Done, 0),
+        "entry: Wait 2 days. (Complete)"
+    );
+}
+
+#[test]
+fn a_wait_that_is_not_open_yet_shows_faded() {
+    assert_eq!(wait_line(StepState::Later, 0), "later: Wait 2 days.");
 }

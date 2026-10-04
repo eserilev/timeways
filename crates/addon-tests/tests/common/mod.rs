@@ -183,6 +183,7 @@ pub fn step_views(steps: Vec<Step>, status: Status, steps_done: usize) -> Vec<St
         .enumerate()
         .map(|(n, step)| StepView {
             kills: kills(n, &step),
+            ready_at: None,
             state: state(n),
             step,
         })

@@ -10,6 +10,7 @@ mod known;
 mod log;
 mod progress;
 mod prompt;
+mod structure;
 mod view;
 
 pub use known::Known;
@@ -17,11 +18,12 @@ use known::game_quests;
 pub use log::{QuestChange, Status, Tracked, next_number, quest_log};
 pub use progress::{Encounter, Here};
 pub use prompt::prompt;
+use structure::structure_fault;
 pub use view::{QuestView, StepState, StepView};
 
 pub const MAX_TITLE_CHARS: usize = 60;
 pub const MAX_TEXT_CHARS: usize = 400;
-pub const MAX_STEPS: usize = 3;
+pub const MAX_STEPS: usize = 4;
 
 /// The offer goes out as a narrator line, so it has the limit of one (Gnomish Relay
 /// SPEC.md 9.8).
@@ -29,6 +31,12 @@ pub const MAX_OFFER_BYTES: usize = 1000;
 
 /// A kill step asks for 1 to this many kills.
 pub const MAX_KILLS: u8 = 10;
+
+/// A wait step lasts 1 to this many days. More holds one of your 3 open quests too long.
+pub const MAX_WAIT_DAYS: u8 = 3;
+
+/// A day of the clock of the lines from the addon, not a day of the calendar.
+pub const DAY_SECONDS: u64 = 24 * 3600;
 
 /// The topic of a talk step: one short phrase in a step line.
 pub const MAX_TOPIC_CHARS: usize = 60;
@@ -56,6 +64,11 @@ pub enum Step {
         #[serde(deserialize_with = "whole_number")]
         count: u8,
     },
+    /// Come back later: the steps after it open only after the wait.
+    Wait {
+        #[serde(deserialize_with = "whole_number")]
+        days: u8,
+    },
 }
 
 /// A small model often writes a count as text: "3" counts as 3. The step check still
@@ -74,13 +87,23 @@ fn whole_number<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<u8,
 }
 
 impl Step {
-    /// The place, NPC, or creature that the step names.
+    /// The place, NPC, or creature that the step names. A wait names none.
     #[must_use]
-    pub fn target(&self) -> &str {
+    pub fn target(&self) -> Option<&str> {
         match self {
-            Step::Visit { place } => place,
-            Step::Meet { npc } | Step::Talk { npc, .. } => npc,
-            Step::Kill { creature, .. } => creature,
+            Step::Visit { place } => Some(place),
+            Step::Meet { npc } | Step::Talk { npc, .. } => Some(npc),
+            Step::Kill { creature, .. } => Some(creature),
+            Step::Wait { .. } => None,
+        }
+    }
+
+    /// The NPC that the step sends you to, as a meet or a talk does.
+    #[must_use]
+    pub fn person(&self) -> Option<&str> {
+        match self {
+            Step::Meet { npc } | Step::Talk { npc, .. } => Some(npc),
+            Step::Visit { .. } | Step::Kill { .. } | Step::Wait { .. } => None,
         }
     }
 }
@@ -117,8 +140,12 @@ pub enum QuestFault {
          something after the cutoff"
     )]
     BadTopic,
-    #[error("a step sends you back to the giver")]
+    #[error("a step sends you back to the giver with no wait before it")]
     MeetGiver,
+    #[error("a wait lasts 1 to {MAX_WAIT_DAYS} days, not {0}")]
+    WaitDays(u8),
+    #[error("a quest has at most one wait, and a wait is never the first or the last step")]
+    WaitPlace,
     #[error("a step asks you to kill the giver")]
     KillGiver,
     #[error("two steps are the same")]
@@ -153,14 +180,11 @@ pub fn checked_quest(answer: &str, known: &Known<'_>) -> Result<Quest, QuestFaul
     if game_quests(known.seen).any(game_title) {
         return Err(QuestFault::GameQuest(title));
     }
-    for (n, step) in reply.steps.iter().enumerate() {
-        if let Some(fault) = known.step_fault(step) {
-            return Err(fault);
-        }
-        let same_target = |earlier: &Step| earlier.target() == step.target();
-        if reply.steps[..n].iter().any(same_target) {
-            return Err(QuestFault::RepeatedStep);
-        }
+    if let Some(fault) = reply.steps.iter().find_map(|step| known.step_fault(step)) {
+        return Err(fault);
+    }
+    if let Some(fault) = structure_fault(&reply.steps, known.giver) {
+        return Err(fault);
     }
     let quest = Quest {
         title,

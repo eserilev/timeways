@@ -67,28 +67,44 @@ fn assert_quest(text: &str) {
         offer.title
     );
     assert!(quest::offer_line(known.giver, &offer).len() <= quest::MAX_OFFER_BYTES);
-    for step in &offer.steps {
-        match step {
-            Step::Visit { place } => assert!(["Testvale", "Old Tower"].contains(&place.as_str())),
-            Step::Meet { npc } => assert_eq!(npc, "Farmer Bram"),
-            Step::Talk { npc, about } => {
-                assert_eq!(npc, "Farmer Bram");
-                if let Some(about) = about {
-                    assert!(about.chars().count() <= quest::MAX_TOPIC_CHARS, "{about:?}");
-                    assert!(!about.contains('|') && !about.chars().any(char::is_control));
-                }
-            }
-            Step::Kill { creature, count } => {
-                assert_eq!(creature, "Duskbat");
-                assert!((1..=quest::MAX_KILLS).contains(count));
-            }
-        }
+    for (n, step) in offer.steps.iter().enumerate() {
+        assert_step(step, &offer.steps[..n]);
     }
-    let targets: Vec<&str> = offer.steps.iter().map(Step::target).collect();
+    let waits: Vec<usize> = (0..offer.steps.len())
+        .filter(|n| matches!(offer.steps[*n], Step::Wait { .. }))
+        .collect();
+    assert!(waits.len() <= 1, "two waits: {:?}", offer.steps);
+    for wait in waits {
+        assert!(wait > 0 && wait + 1 < offer.steps.len(), "{:?}", offer.steps);
+    }
+    let targets: Vec<&str> = offer.steps.iter().filter_map(Step::target).collect();
     let mut distinct = targets.clone();
     distinct.sort_unstable();
     distinct.dedup();
     assert_eq!(distinct.len(), targets.len(), "a target twice: {targets:?}");
+}
+
+/// One step of a passed offer keeps its list and its range. `before` holds the steps
+/// before it: only a step after a wait names the giver.
+fn assert_step(step: &Step, before: &[Step]) {
+    let after_wait = before.iter().any(|step| matches!(step, Step::Wait { .. }));
+    let person = |npc: &str| npc == "Farmer Bram" || (after_wait && npc == "Keeper Tessa");
+    match step {
+        Step::Visit { place } => assert!(["Testvale", "Old Tower"].contains(&place.as_str())),
+        Step::Meet { npc } => assert!(person(npc), "{npc}"),
+        Step::Talk { npc, about } => {
+            assert!(person(npc), "{npc}");
+            if let Some(about) = about {
+                assert!(about.chars().count() <= quest::MAX_TOPIC_CHARS, "{about:?}");
+                assert!(!about.contains('|') && !about.chars().any(char::is_control));
+            }
+        }
+        Step::Kill { creature, count } => {
+            assert_eq!(creature, "Duskbat");
+            assert!((1..=quest::MAX_KILLS).contains(count));
+        }
+        Step::Wait { days } => assert!((1..=quest::MAX_WAIT_DAYS).contains(days)),
+    }
 }
 
 /// A draft that passes fits the addon messages of a player task, and a reply of the bridge.

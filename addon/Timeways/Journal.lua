@@ -284,6 +284,40 @@ local function Learned(entries)
 	return lines
 end
 
+local DAY_SECONDS, HOUR_SECONDS = 86400, 3600
+
+local function Days(days)
+	return days == 1 and "1 day" or string.format("%d days", days)
+end
+
+-- A person counts in days and hours, never in seconds.
+local function TimeLeft(seconds)
+	if seconds >= DAY_SECONDS then
+		return Days(math.floor(seconds / DAY_SECONDS)) .. " left"
+	end
+	local hours = math.floor(seconds / HOUR_SECONDS)
+	if hours == 1 then
+		return "1 hour left"
+	end
+	if hours > 1 then
+		return string.format("%d hours left", hours)
+	end
+	return "less than an hour left"
+end
+
+-- The desktop records the end of a wait with its next line, so the page shows it at once.
+local function WaitIsOver(step)
+	return step.goal == "wait" and step.state == "open" and type(step.ready_at) == "number" and time() >= step.ready_at
+end
+
+local function WaitText(step)
+	local text = "Wait " .. Days(math.floor(step.days))
+	if step.state == "open" and type(step.ready_at) == "number" and not WaitIsOver(step) then
+		return text .. ": " .. TimeLeft(step.ready_at - time()) .. "."
+	end
+	return text .. "."
+end
+
 -- The kills so far of a kill step, as the game shows a quest objective.
 local function StepKills(step)
 	return type(step.kills) == "number" and step.kills or 0
@@ -301,6 +335,9 @@ local function StepText(step)
 	end
 	if step.goal == "talk" then
 		return "Talk to " .. Name(step.npc) .. " (/talk)."
+	end
+	if step.goal == "wait" and type(step.days) == "number" then
+		return WaitText(step)
 	end
 	if step.goal == "kill" and type(step.count) == "number" then
 		return string.format("%s slain: %d/%d", Name(step.creature), StepKills(step), step.count)
@@ -387,7 +424,7 @@ end
 -- In a quest in progress, a step that waits for another step shows faded. An offer shows
 -- its steps plainly, as the game shows the goals of a quest that you read.
 local function StepLine(quest, step)
-	if step.state == "done" then
+	if step.state == "done" or WaitIsOver(step) then
 		return Line("entry", StepText(step) .. " (Complete)")
 	end
 	local waits = quest.status == "accepted" and step.state == "later"

@@ -1,6 +1,6 @@
 //! What the world of the player holds, and the rules of 3.4 for each step against it.
 
-use super::{MAX_KILLS, MAX_TOPIC_BYTES, MAX_TOPIC_CHARS, QuestFault, Step};
+use super::{MAX_KILLS, MAX_TOPIC_BYTES, MAX_TOPIC_CHARS, MAX_WAIT_DAYS, QuestFault, Step};
 use crate::check::{mentions, plain_text};
 use crate::seen::{SeenText, TextKind};
 
@@ -42,7 +42,7 @@ impl Known<'_> {
         let meet = |npc: &str| Step::Meet {
             npc: npc.to_string(),
         };
-        let allowed = |npc: &&str| self.step_fault(&meet(npc)).is_none();
+        let allowed = |npc: &&str| *npc != self.giver && self.step_fault(&meet(npc)).is_none();
         self.npcs.iter().copied().filter(allowed).collect()
     }
 
@@ -60,8 +60,10 @@ impl Known<'_> {
     /// The first rule of 3.4 that one step breaks. A zone never counts as a goal of a game
     /// quest: most quest texts name their zone, so the rule then bans every zone.
     pub(super) fn step_fault(&self, step: &Step) -> Option<QuestFault> {
-        let target = step.target();
-        if self.last_targets.contains(&target) {
+        if let Some(target) = step
+            .target()
+            .filter(|target| self.last_targets.contains(target))
+        {
             return Some(QuestFault::LastTask(target.to_string()));
         }
         match step {
@@ -69,6 +71,9 @@ impl Known<'_> {
             Step::Meet { npc } => self.person_fault(npc),
             Step::Talk { npc, about } => self.talk_fault(npc, about.as_deref()),
             Step::Kill { creature, count } => self.kill_fault(creature, *count),
+            Step::Wait { days } => {
+                (!(1..=MAX_WAIT_DAYS).contains(days)).then_some(QuestFault::WaitDays(*days))
+            }
         }
     }
 
@@ -82,10 +87,11 @@ impl Known<'_> {
         Some(QuestFault::UnknownPlace(place.to_string()))
     }
 
-    /// An NPC to meet or talk to.
+    /// An NPC to meet or talk to. The giver passes here: a step can name the giver after a
+    /// wait, and the check of the order decides (`structure`).
     fn person_fault(&self, npc: &str) -> Option<QuestFault> {
         if npc == self.giver {
-            return Some(QuestFault::MeetGiver);
+            return None;
         }
         if !self.npcs.contains(&npc) {
             return Some(QuestFault::UnknownNpc(npc.to_string()));

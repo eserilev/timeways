@@ -2,9 +2,9 @@
 
 use hourglass::Tick;
 use timeways_story::quest::{
-    Encounter, Here, Known, MAX_KILLS, MAX_OFFER_BYTES, MAX_TITLE_CHARS, MAX_TOPIC_CHARS, Quest,
-    QuestChange, QuestFault, Status, Step, checked_quest, offer_line, prompt, quest_log,
-    thing_name, title_of_thing,
+    DAY_SECONDS, Encounter, Here, Known, MAX_KILLS, MAX_OFFER_BYTES, MAX_TITLE_CHARS,
+    MAX_TOPIC_CHARS, MAX_WAIT_DAYS, Quest, QuestChange, QuestFault, Status, Step, checked_quest,
+    offer_line, prompt, quest_log, thing_name, title_of_thing,
 };
 use timeways_story::seen::{SeenText, TextKind};
 
@@ -38,6 +38,7 @@ fn answer(title: &str, steps: &str) -> String {
 
 const VISIT_TOWER: &str = r#"{"goal": "visit", "place": "Old Tower"}"#;
 const MEET_BRAM: &str = r#"{"goal": "meet", "npc": "Farmer Bram"}"#;
+const VISIT_POND: &str = r#"{"goal": "visit", "place": "Mill Pond"}"#;
 
 #[test]
 fn a_quest_with_known_places_and_people_passes() {
@@ -92,18 +93,20 @@ fn a_step_with_an_unknown_goal_is_refused() {
 }
 
 #[test]
-fn a_quest_has_one_to_three_steps() {
+fn a_quest_has_one_to_four_steps() {
     let seen = [];
     let none = answer("The Lost Lantern", "");
-    let four = answer("The Lost Lantern", &[VISIT_TOWER; 4].join(", "));
+    let four = [VISIT_TOWER, MEET_BRAM, KILL_BATS, VISIT_POND].join(", ");
+    let five = format!(r#"{four}, {{"goal": "meet", "npc": "Miller Oda"}}"#);
 
     assert_eq!(
         checked_quest(&none, &known(&seen)).unwrap_err(),
         QuestFault::StepCount(0)
     );
+    assert!(checked_quest(&answer("The Lost Lantern", &four), &known(&seen)).is_ok());
     assert_eq!(
-        checked_quest(&four, &known(&seen)).unwrap_err(),
-        QuestFault::StepCount(4)
+        checked_quest(&answer("The Lost Lantern", &five), &known(&seen)).unwrap_err(),
+        QuestFault::StepCount(5)
     );
 }
 
@@ -770,4 +773,177 @@ fn the_prompt_shows_a_goal_only_when_its_list_has_a_name() {
         let shown = format!(r#""goal": "{goal}""#);
         assert!(!text.contains(&shown), "{goal}: {text}");
     }
+}
+
+fn wait(days: u8) -> String {
+    format!(r#"{{"goal": "wait", "days": {days}}}"#)
+}
+
+#[test]
+fn a_wait_lasts_one_to_three_days() {
+    let seen = [];
+    let steps = |days| format!("{VISIT_TOWER}, {}, {MEET_BRAM}", wait(days));
+
+    for days in [1, MAX_WAIT_DAYS] {
+        assert!(checked_quest(&answer("Later", &steps(days)), &known(&seen)).is_ok());
+    }
+    for days in [0, MAX_WAIT_DAYS + 1] {
+        assert_eq!(
+            checked_quest(&answer("Later", &steps(days)), &known(&seen)).unwrap_err(),
+            QuestFault::WaitDays(days)
+        );
+    }
+}
+
+#[test]
+fn a_wait_is_never_the_first_or_the_last_step() {
+    let seen = [];
+    let first = answer("Later", &format!("{}, {MEET_BRAM}", wait(1)));
+    let last = answer("Later", &format!("{MEET_BRAM}, {}", wait(1)));
+
+    for text in [first, last] {
+        assert_eq!(
+            checked_quest(&text, &known(&seen)).unwrap_err(),
+            QuestFault::WaitPlace
+        );
+    }
+}
+
+#[test]
+fn a_quest_has_at_most_one_wait() {
+    let seen = [];
+    // Neither wait is first or last, so only the count breaks a rule.
+    let text = answer(
+        "Later",
+        &format!("{VISIT_TOWER}, {}, {}, {MEET_BRAM}", wait(1), wait(2)),
+    );
+
+    assert_eq!(
+        checked_quest(&text, &known(&seen)).unwrap_err(),
+        QuestFault::WaitPlace
+    );
+}
+
+#[test]
+fn a_step_after_a_wait_can_name_the_giver() {
+    let seen = [];
+    let back = talk_to(GIVER, Some("what you found"));
+    let text = answer(
+        "Come Back Later",
+        &format!("{VISIT_TOWER}, {}, {back}", wait(2)),
+    );
+
+    let quest = checked_quest(&text, &known(&seen)).unwrap();
+
+    assert_eq!(quest.steps[2].person(), Some(GIVER));
+}
+
+#[test]
+fn a_step_with_no_wait_before_it_never_names_the_giver() {
+    let seen = [];
+    let meet_giver = format!(r#"{{"goal": "meet", "npc": "{GIVER}"}}"#);
+    let text = answer(
+        "Come Back Later",
+        &format!("{meet_giver}, {}, {VISIT_TOWER}", wait(1)),
+    );
+
+    assert_eq!(
+        checked_quest(&text, &known(&seen)).unwrap_err(),
+        QuestFault::MeetGiver
+    );
+}
+
+#[test]
+fn the_prompt_never_lists_the_giver_as_a_person_to_meet() {
+    let seen = [];
+
+    let text = prompt(&known(&seen), Some("Testvale"));
+
+    assert!(!text.contains("- Keeper Tessa"), "{text}");
+    assert!(text.contains(r#""goal": "wait""#), "{text}");
+}
+
+/// A quest of three steps: visit the tower, wait 2 days, meet Bram. Accepted at 100.
+fn wait_quest() -> Vec<QuestChange> {
+    vec![
+        QuestChange::Offered {
+            number: 1,
+            at: Tick(1),
+            giver: GIVER.to_string(),
+            title: "Come Back Later".to_string(),
+            text: "Go.".to_string(),
+            steps: vec![
+                Step::Visit {
+                    place: "Old Tower".to_string(),
+                },
+                Step::Wait { days: 2 },
+                Step::Meet {
+                    npc: "Farmer Bram".to_string(),
+                },
+            ],
+        },
+        QuestChange::Accepted {
+            number: 1,
+            at: Tick(100),
+        },
+    ]
+}
+
+fn done(step: usize, at: u64) -> QuestChange {
+    QuestChange::StepDone {
+        number: 1,
+        step,
+        at: Tick(at),
+    }
+}
+
+#[test]
+fn a_wait_opens_when_the_step_before_it_is_done() {
+    let mut changes = wait_quest();
+    let before = quest_log(&changes).remove(0);
+    changes.push(done(0, 500));
+
+    let after = quest_log(&changes).remove(0);
+
+    assert_eq!(before.ready_at(1), None);
+    assert_eq!(after.opened_at(1), Some(Tick(500)));
+    assert_eq!(after.ready_at(1), Some(Tick(500 + 2 * DAY_SECONDS)));
+}
+
+#[test]
+fn a_wait_done_before_its_time_changes_nothing() {
+    let mut changes = wait_quest();
+    changes.push(done(0, 500));
+    changes.push(done(1, 500 + 2 * DAY_SECONDS - 1));
+
+    let quest = quest_log(&changes).remove(0);
+
+    assert!(!quest.is_done(1));
+    assert_eq!(quest.open_steps(), [1]);
+}
+
+#[test]
+fn a_wait_done_at_its_time_counts() {
+    let mut changes = wait_quest();
+    changes.push(done(0, 500));
+    changes.push(done(1, 500 + 2 * DAY_SECONDS));
+
+    let quest = quest_log(&changes).remove(0);
+
+    assert!(quest.is_done(1));
+    assert_eq!(quest.open_steps(), [2]);
+}
+
+#[test]
+fn a_wait_holds_from_its_time_on() {
+    let mut changes = wait_quest();
+    changes.push(done(0, 500));
+    let quest = quest_log(&changes).remove(0);
+    let at = |at: u64| Here {
+        at: Tick(at),
+        ..Here::default()
+    };
+
+    assert!(!quest.step_holds(1, &at(500 + 2 * DAY_SECONDS - 1), &Encounter::None));
+    assert!(quest.step_holds(1, &at(500 + 2 * DAY_SECONDS), &Encounter::None));
 }

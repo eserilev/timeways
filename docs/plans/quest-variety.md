@@ -7,6 +7,7 @@ Built so far (section 17):
 - Step 1, per-step state. Changed from this plan: an offer shows its steps plainly, not faded. Only a later step of a quest in progress shows faded, because a faded offer reads as a quest that you cannot take.
 - Step 2, one place moves the quests. `Here` and `Encounter` grow with the steps that need them.
 - Step 3, talk. The talk window of talk-window.md is not built, so "the later turns of the conversation" are the talks to the same NPC in the 10 minutes after the talk step. The talk calls `advance_quests` itself before its prompt, so the first talk already has the quest line.
+- Step 4, come back later. `MAX_STEPS` became 4 in this step. A choice quest is not built, so its rule (never the giver in a step) waits for standing.md.
 
 This plan builds on four plans and does not repeat them:
 

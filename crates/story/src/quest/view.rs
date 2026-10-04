@@ -25,6 +25,9 @@ pub struct StepView {
     /// The kills so far of a kill step.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kills: Option<u8>,
+    /// When an open wait is over.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ready_at: Option<Tick>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -73,5 +76,6 @@ fn step_view(quest: &Tracked, step: usize) -> StepView {
         step: quest.steps[step].clone(),
         state,
         kills,
+        ready_at: quest.ready_at(step),
     }
 }

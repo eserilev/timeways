@@ -44,6 +44,7 @@ impl Tracked {
             Some(Step::Meet { npc }) => met.meets(npc),
             Some(Step::Talk { npc, .. }) => matches!(met, Encounter::Talk(name) if name == npc),
             Some(Step::Kill { count, .. }) => self.kills[step] >= *count,
+            Some(Step::Wait { .. }) => self.ready_at(step).is_some_and(|ready| here.at >= ready),
             None => false,
         }
     }
