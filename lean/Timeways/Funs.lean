@@ -432,7 +432,7 @@ def quest_log.Progress.count_kill
     | quest_log.Goal.Other => ok self
 
 /-- [timeways_rules::quest_log::abandon]: loop 0:
-    Source: 'crates/rules/src/quest_log.rs', lines 377:4-386:1 -/
+    Source: 'crates/rules/src/quest_log.rs', lines 377:4-387:1 -/
 @[rust_loop]
 def quest_log.abandon_loop
   (quests : Slice quest_log.Quest) (number : Std.U64) (index : Std.Usize) :
@@ -442,13 +442,15 @@ def quest_log.abandon_loop
   if index < i
   then
     let (quest, index_mut_back) ← Slice.index_mut_usize quests index
-    let (s, «open») ←
-      match quest.progress.status with
-      | quest_log.Status.Offered => ok (quest_log.Status.Offered, true)
-      | quest_log.Status.Accepted => ok (quest_log.Status.Accepted, true)
-      | quest_log.Status.Declined => ok (quest_log.Status.Declined, false)
-      | quest_log.Status.Done => ok (quest_log.Status.Done, false)
-      | quest_log.Status.Abandoned => ok (quest_log.Status.Abandoned, false)
+    let b ←
+      quest_log.Status.Insts.CoreCmpPartialEqStatus.eq quest.progress.status
+        quest_log.Status.Offered
+    let «open» ←
+      if b
+      then ok true
+      else
+        quest_log.Status.Insts.CoreCmpPartialEqStatus.eq quest.progress.status
+          quest_log.Status.Accepted
     if quest.number = number
     then
       if «open»
@@ -462,21 +464,17 @@ def quest_log.abandon_loop
           })
       else
         let index1 ← index + 1#usize
-        let s1 :=
-          index_mut_back
-            { quest with progress := { quest.progress with status := s } }
-        quest_log.abandon_loop s1 number index1
+        let s := index_mut_back quest
+        quest_log.abandon_loop s number index1
     else
       let index1 ← index + 1#usize
-      let s1 :=
-        index_mut_back
-          { quest with progress := { quest.progress with status := s } }
-      quest_log.abandon_loop s1 number index1
+      let s := index_mut_back quest
+      quest_log.abandon_loop s number index1
   else ok quests
 partial_fixpoint
 
 /-- [timeways_rules::quest_log::abandon]:
-    Source: 'crates/rules/src/quest_log.rs', lines 375:0-386:1 -/
+    Source: 'crates/rules/src/quest_log.rs', lines 375:0-387:1 -/
 @[reducible]
 def quest_log.abandon
   (quests : Slice quest_log.Quest) (number : Std.U64) :

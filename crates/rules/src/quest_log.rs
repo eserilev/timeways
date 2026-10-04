@@ -376,7 +376,8 @@ fn abandon(quests: &mut [Quest], number: u64) {
     let mut index = 0;
     while index < quests.len() {
         let quest = &mut quests[index];
-        let open = matches!(quest.progress.status, Status::Offered | Status::Accepted);
+        let status = quest.progress.status;
+        let open = status == Status::Offered || status == Status::Accepted;
         if quest.number == number && open {
             quest.progress.status = Status::Abandoned;
             return;
