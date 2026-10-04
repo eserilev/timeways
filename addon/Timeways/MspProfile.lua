@@ -40,6 +40,15 @@ local function FieldOf(code)
 	end
 end
 
+-- The logged channel refuses a whole reply for one bad sign. A text with a control character
+-- or broken UTF-8 gives nil, and a refused sign becomes a space.
+local function Shareable(text)
+	if type(text) ~= "string" or text:find("%c") or not ns.Utf8.IsValid(text) then
+		return nil
+	end
+	return ns.TaskWire.WithoutRefused(text)
+end
+
 -- Any addon can write the saved variables, so each value is checked when the game loads them.
 local function Checked(value)
 	local data = type(value) == "table" and value or {}
@@ -47,9 +56,8 @@ local function Checked(value)
 	local clean = {}
 	for code, text in pairs(fields) do
 		local field = FieldOf(code)
-		local fits = field and type(text) == "string" and #text <= ns.Hero.LIMITS[field].bytes
-		if fits and not text:find("%c") then
-			clean[code] = text
+		if field and type(text) == "string" and #text <= ns.Hero.LIMITS[field].bytes then
+			clean[code] = Shareable(text)
 		end
 	end
 	return { share = data.share == true, fields = clean }
@@ -87,7 +95,7 @@ end
 local function CopySheet()
 	local fields = {}
 	for field, code in pairs(MspProfile.CODES) do
-		fields[code] = sheet[field]
+		fields[code] = Shareable(sheet[field])
 	end
 	Data().fields = fields
 end
@@ -131,26 +139,14 @@ local function Plain(text)
 	return (text:match("^%s*(.-)%s*$"))
 end
 
--- The start of a text that fits a limit, cut between letters.
-local function Cut(text, limit)
-	local letters, last = 0, 0
-	for start, letter in text:gmatch("()([%z\1-\127\194-\244][\128-\191]*)") do
-		local stop = start + #letter - 1
-		if letters >= limit.letters or stop > limit.bytes then
-			break
-		end
-		letters, last = letters + 1, stop
-	end
-	return text:sub(1, last)
-end
-
 -- Nil for a text that is not UTF-8: the desktop cannot read it.
 local function Imported(field, value)
 	if type(value) == "string" and not ns.Utf8.IsValid(value) then
 		return nil
 	end
 	local text = type(value) == "string" and Plain(value) or ""
-	return Cut(text, ns.Hero.LIMITS[field])
+	local limit = ns.Hero.LIMITS[field]
+	return ns.Utf8.Cut(text, limit.letters, limit.bytes)
 end
 
 -- The profile of the other roleplay addon goes to the desktop when it changed. The six

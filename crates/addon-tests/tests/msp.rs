@@ -966,9 +966,19 @@ fn the_tooltip_never_whispers_a_player_who_cannot_get_the_whisper() {
 fn a_full_list_of_players_forgets_only_the_oldest_one() {
     let corvin = Player::new("Corvin");
     corvin.run("ns.MspProfile.SetSharing(true)");
-    corvin.hear_logged("MSP2", "00A001001001NA1:Ann", "WHISPER", "Player1-Stormrage");
+    corvin.hear_logged(
+        "MSP2",
+        "00A001001001NA1:Ann",
+        "WHISPER",
+        "Player1-Stormrage",
+    );
     corvin.tick();
-    corvin.hear_logged("MSP2", "00A001001001NA1:Bee", "WHISPER", "Player2-Stormrage");
+    corvin.hear_logged(
+        "MSP2",
+        "00A001001001NA1:Bee",
+        "WHISPER",
+        "Player2-Stormrage",
+    );
 
     corvin.run(
         "for n = 3, 201 do
@@ -981,4 +991,60 @@ fn a_full_list_of_players_forgets_only_the_oldest_one() {
     let second: Option<String> = corvin.eval("ns.Msp.FieldsOf('Player2').NA");
     assert_eq!(first, None);
     assert_eq!(second.as_deref(), Some("Bee"));
+}
+
+#[test]
+fn a_refused_sign_in_the_sheet_becomes_a_space_and_the_reply_still_goes() {
+    let ada = Player::new("Ada");
+    ada.game.reply(&sheet_reply(&[
+        ("title", "Keeper\u{FFFE}of the Flame"),
+        ("age", "Thirty."),
+    ]));
+    ada.run("ns.MspProfile.SetSharing(true)");
+
+    bo_asks(&ada, "?NT`?AG");
+    ada.tick();
+
+    let sent = msp_sent(&ada);
+    assert_eq!(sent.len(), 1, "{sent:?}");
+    assert!(sent[0].1.contains("NT:Keeper of the Flame`"), "{sent:?}");
+}
+
+#[test]
+fn a_saved_field_with_a_refused_sign_or_broken_letters_never_breaks_the_reply() {
+    let ada = Player::new("Ada");
+    ada.run(
+        "TimewaysProfile = { share = true, fields = { AG = 'Thirty\\229\\141\\141years',
+             MO = '\\255Light' } }",
+    );
+
+    bo_asks(&ada, "?AG`?MO");
+    ada.tick();
+
+    let sent = msp_sent(&ada);
+    let version: String = ada.eval("ns.MspWire.Version('Thirty years')");
+    assert_eq!(
+        sent,
+        [
+            (true, format!("AG{version}:Thirty years")),
+            (false, "!MO".to_string())
+        ]
+    );
+}
+
+#[test]
+fn the_cut_of_a_long_name_keeps_a_whole_last_letter() {
+    let corvin = Player::new("Corvin");
+    corvin.run("ns.MspProfile.SetSharing(true)");
+    let name = format!("{}éB", "A".repeat(58));
+
+    corvin.hear_logged(
+        "MSP2",
+        &format!("00A001001001NA1:{name}"),
+        "WHISPER",
+        "Bo-Stormrage",
+    );
+    let line: String = corvin.eval("ns.Msp.TooltipLine('Bo-Stormrage')");
+
+    assert_eq!(line, format!("{}é", "A".repeat(58)));
 }

@@ -267,9 +267,7 @@ end
 -- Text from another player: no escape of the game, on one line, cut between letters.
 local function Shown(text)
 	text = text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("%c+", " ")
-	if #text > TOOLTIP_BYTES then
-		text = text:sub(1, TOOLTIP_BYTES):gsub("[\192-\255][\128-\191]*$", "")
-	end
+	text = ns.Utf8.Cut(text, TOOLTIP_BYTES, TOOLTIP_BYTES)
 	return (text:gsub("|", "||"))
 end
 

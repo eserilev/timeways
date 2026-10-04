@@ -24,3 +24,16 @@ function Utf8.IsValid(text)
 	end
 	return not text:find("[\128-\255]")
 end
+
+-- The start of a text with at most this many letters and bytes, cut between letters.
+function Utf8.Cut(text, maxLetters, maxBytes)
+	local letters, last = 0, 0
+	for start, letter in text:gmatch("()([%z\1-\127\194-\244][\128-\191]*)") do
+		local stop = start + #letter - 1
+		if letters >= maxLetters or stop > maxBytes then
+			break
+		end
+		letters, last = letters + 1, stop
+	end
+	return text:sub(1, last)
+end
