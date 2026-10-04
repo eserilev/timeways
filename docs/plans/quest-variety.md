@@ -10,6 +10,7 @@ Built so far (section 17):
 - Step 4, come back later. `MAX_STEPS` became 4 in this step. A choice quest is not built, so its rule (never the giver in a step) waits for standing.md.
 - Step 5, any order. `QuestSteps.lua` reads the open kill steps and asks for the journal while a watched step waits. `Foes.Hunt` takes the set of creatures from it.
 - Step 6, carry items. `items_held` waits for the next flush, as `npc_met` does. A done carry step shows its whole count on the page.
+- Step 7, genre and variety. `variety` is `quest::variety`. `Recent` also keeps the number of its quest, so the offer can read its rows. `ShapePart::Choice` exists as the hook for standing.md, and no shape holds it yet. The property `an_offered_task_only_names_allowed_targets` read the offer from the narrator line, where it no longer comes, so it checked nothing. It now reads the notice, and its model knows that a gossip window ends `hostile`.
 
 This plan builds on four plans and does not repeat them:
 

@@ -277,12 +277,16 @@ fn assert_memory_block(prompt: &str) {
     let Some((_, block)) = prompt.split_once("Each line is true:\n<<<\n") else {
         return;
     };
-    let (block, after) = block.split_once("\n>>>").expect("the fence of the memories closes");
+    let (block, after) = block
+        .split_once("\n>>>")
+        .expect("the fence of the memories closes");
     assert!(!after.contains("Each line is true:"), "two memory fences");
     let lines: Vec<&str> = block.lines().collect();
     assert!(lines.len() <= MAX_MEMORIES, "{lines:?}");
     for line in lines {
-        let memory = line.strip_prefix("- ").expect("a memory line starts with a dash");
+        let memory = line
+            .strip_prefix("- ")
+            .expect("a memory line starts with a dash");
         assert!(memory.chars().count() <= MAX_MEMORY_CHARS, "{line}");
     }
 }
@@ -296,7 +300,9 @@ fn assert_hook_block(prompt: &str) {
     };
     assert!(!block.contains(heading), "two hooks");
     let (_, fenced) = block.split_once("<<<\n").expect("the hook has a fence");
-    let (text, _) = fenced.split_once("\n>>>").expect("the fence of the hook closes");
+    let (text, _) = fenced
+        .split_once("\n>>>")
+        .expect("the fence of the hook closes");
     assert!(text.chars().count() <= PROMPT_TEXT_CHARS, "{text}");
 }
 

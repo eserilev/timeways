@@ -43,6 +43,7 @@ fn offered(number: u64, at: u64, giver: &str, title: &str) -> QuestChange {
             npc: "Marshal Dughan".to_string(),
         }],
         any_order: None,
+        genre: None,
     }
 }
 

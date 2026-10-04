@@ -18,7 +18,7 @@ use timeways_story::story::{Output, Story};
 const GIVER: &str = "Keeper Tessa";
 const BATCH: MessageId = MessageId(5);
 
-const OFFER: &str = r#"{"title": "The Lost Lantern", "text": "Find the lantern.",
+const OFFER: &str = r#"{"title": "The Lost Lantern", "genre": "errand", "text": "I lost my lantern. Find it.",
     "steps": [{"goal": "visit", "place": "Mill Pond"}, {"goal": "meet", "npc": "Farmer Bram"}]}"#;
 
 fn story(name: &str) -> Story {
@@ -180,7 +180,7 @@ fn a_checked_offer_comes_back_as_a_notice_of_timeways() {
     assert_eq!(
         line.as_deref(),
         Some(
-            "Keeper Tessa has a quest for you: The Lost Lantern. Find the lantern. Type /quest accept."
+            "Keeper Tessa has a quest for you: The Lost Lantern. I lost my lantern. Find it. Type /quest accept."
         )
     );
     let offered = quests(&mut story);
@@ -410,7 +410,9 @@ const VISIT_TOWER: &str = r#"{"goal": "visit", "place": "Old Tower"}"#;
 /// An offer of one step. Two tasks in a row never share a target, so the tests pick the
 /// step.
 fn answer_with(story: &mut Story, call: CallId, title: &str, step: &str) -> Option<String> {
-    let text = format!(r#"{{"title": "{title}", "text": "Go and look.", "steps": [{step}]}}"#);
+    let text = format!(
+        r#"{{"title": "{title}", "genre": "errand", "text": "I need you to go and look.", "steps": [{step}]}}"#
+    );
     notice(story.handle(Input::ModelAnswered { call, text }).unwrap())
 }
 
@@ -448,15 +450,24 @@ fn two_offers_of_one_giver_never_make_two_open_quests() {
     assert_eq!(open_quests(&mut story), 1);
 }
 
+/// The steps of four quests in a row: no two share a shape or a target with the quest before.
+fn four_shapes() -> [String; 4] {
+    [
+        VISIT_POND.to_string(),
+        MEET_BRAM.to_string(),
+        format!("{VISIT_TOWER}, {VISIT_POND}"),
+        TALK_BRAM.to_string(),
+    ]
+}
+
 #[test]
 fn an_accept_past_three_open_quests_is_refused_in_a_notice() {
     let mut story = story("full-log");
     let givers = ["Keeper Tessa", "Innkeeper Pell", "Guard Rolf", "Smith Hana"];
-    for (n, giver) in (0u64..).zip(givers) {
+    for ((n, giver), steps) in (0u64..).zip(givers).zip(four_shapes()) {
         story.handle(meet(10 + n, giver)).unwrap();
         let (call, _) = call_of(ask_from(&mut story, giver, 20 + n));
-        let step = if n % 2 == 0 { VISIT_POND } else { MEET_BRAM };
-        answer_with(&mut story, call, &format!("Task {n}"), step);
+        answer_with(&mut story, call, &format!("Task {n}"), &steps);
     }
 
     for n in 1..=4 {
@@ -494,7 +505,8 @@ fn a_new_offer_ends_only_the_waiting_offer_of_the_same_giver() {
     let (call, _) = call_of(ask_from(&mut story, "Innkeeper Pell", 12));
     answer_with(&mut story, call, "The Old Well", VISIT_TOWER);
 
-    offer(&mut story, 13);
+    let (call, _) = call_of(ask(&mut story, 13));
+    answer_with(&mut story, call, "A Broken Wheel", TALK_BRAM);
 
     let waiting: Vec<u64> = quests(&mut story)
         .iter()
@@ -860,7 +872,7 @@ fn an_offer_after_the_deadline_of_its_batch_comes_with_the_next_answer() {
     assert_eq!(
         notice(next).as_deref(),
         Some(
-            "Keeper Tessa has a quest for you: The Lost Lantern. Find the lantern. Type /quest accept."
+            "Keeper Tessa has a quest for you: The Lost Lantern. I lost my lantern. Find it. Type /quest accept."
         )
     );
     assert_eq!(quests(&mut story)[0].status, Status::Offered);

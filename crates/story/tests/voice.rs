@@ -18,7 +18,8 @@ use timeways_story::npc_memory::{self, Memory, QuestEnding, RUMOR_CHARS, Recall}
 use timeways_story::pack::{Link, Origin, Passage};
 use timeways_story::places::InstanceKind;
 use timeways_story::prompt::{self, Context};
-use timeways_story::quest::{self, Known};
+use timeways_story::quest::variety::{Recent, Shape};
+use timeways_story::quest::{self, AnyOrder, Genre, Known, Step};
 use timeways_story::story::MAX_NAME_BYTES;
 use timeways_story::talk::{self, QuestTalk, Scene};
 use timeways_story::tokens::{Call, estimated_tokens};
@@ -248,6 +249,30 @@ fn quest_known() -> Known<'static> {
         last_targets: Vec::new(),
         seen: &[],
         goods: quest::goods_for(Some(12)),
+        // Three offers with titles of 60 characters and long shapes.
+        recent: vec![longest_recent(); 3],
+    }
+}
+
+fn longest_recent() -> Recent {
+    let steps = [
+        Step::Visit {
+            place: "Goldshire".to_string(),
+        },
+        Step::Wait { days: 1 },
+        Step::Meet {
+            npc: "Marshal Dughan".to_string(),
+        },
+        Step::Kill {
+            creature: "Defias Thug".to_string(),
+            count: 6,
+        },
+    ];
+    Recent {
+        number: 1,
+        title: "The Stranger in the Grey Cloak and the Letter Left Unread...".to_string(),
+        shape: Shape::of(&steps, Some(AnyOrder { first: 2, last: 3 })),
+        genre: Some(Genre::Mystery),
     }
 }
 

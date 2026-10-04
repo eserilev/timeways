@@ -9,3 +9,4 @@ cc 2b2d62ed1cf3a18ef87b003fe1735f18cd583fa0b76d15700c838eedc2121616 # shrinks to
 cc 959b11a86678b560564de50ad9360ebb361c5ddea861a747160f63d2f0095c66 # shrinks to changes = [Offered { number: 3, at: Tick(1), giver: "Keeper Tessa", title: "A Task", text: "Go.", steps: [] }, Accepted { number: 3, at: Tick(2) }, StepDone { number: 3, step: 0, at: Tick(3) }]
 cc 2310fbc47257f9e2254e1bed9a6bfba948bacd7c7561ecc198a5e0627790d0b2 # shrinks to text = "[0[0]]"
 cc 86003fb7630283bf62acc187a99d28d4df1fc1a5db46b86408946046ea46d78c # shrinks to plays = [Zone("Goldshire", None, None), HeroAdd("a"), Talk("Goldshire", "a")]
+cc e9096a98b5cd1fa738e8f038f2d9f8a007427d43ad3b8b54cce7c528ade081f7 # shrinks to plays = [Zone("Mill Pond", None, None), See("Farmer Bram", Hostile, None), Quest("Mill Pond", [Visit("Keeper Tessa")]), Meet("Farmer Bram", None), Quest("Keeper Tessa", [Meet("Farmer Bram")])]

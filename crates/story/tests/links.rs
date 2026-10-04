@@ -671,7 +671,7 @@ fn a_quest_offer_reads_its_giver_and_rests_on_its_call() {
         .unwrap();
     let outputs = story.handle(Input::BatchEnd { id: MessageId(4) }).unwrap();
     let call = call_of(&outputs);
-    let text = r#"{"title": "A Walk", "text": "Go to Goldshire.", "steps": [{"goal": "visit", "place": "Goldshire"}]}"#;
+    let text = r#"{"title": "A Walk", "genre": "errand", "text": "I need you in Goldshire.", "steps": [{"goal": "visit", "place": "Goldshire"}]}"#;
 
     answer(&mut story, call, text);
     drop(story);
@@ -706,7 +706,7 @@ fn a_talk_to_the_npc_of_a_talk_step_reads_the_rows_of_its_quest() {
         })
         .unwrap();
     let outputs = story.handle(Input::BatchEnd { id: MessageId(5) }).unwrap();
-    let text = r#"{"title": "A Word", "text": "Ask Saldean.", "steps": [{"goal": "talk", "npc": "Farmer Saldean"}]}"#;
+    let text = r#"{"title": "A Word", "genre": "errand", "text": "I need word from Saldean.", "steps": [{"goal": "talk", "npc": "Farmer Saldean"}]}"#;
     answer(&mut story, call_of(&outputs), text);
     story
         .handle(Input::QuestAccepted {
@@ -725,6 +725,32 @@ fn a_talk_to_the_npc_of_a_talk_step_reads_the_rows_of_its_quest() {
             "{row}: {read:?}"
         );
     }
+}
+
+#[test]
+fn the_offer_prompt_reads_the_rows_of_the_recent_quests() {
+    let folder = fresh_folder("quest-recent-reads");
+    let mut story = story(&folder);
+    enter(&mut story, 1, "Elwynn Forest", Some("Goldshire"));
+    meet(&mut story, 2, "Marshal Dughan");
+    let ask = |story: &mut Story, at: u64| {
+        story
+            .handle(Input::QuestAsked {
+                at: Tick(at),
+                npc: "Marshal Dughan".to_string(),
+            })
+            .unwrap();
+        call_of(&story.handle(Input::BatchEnd { id: MessageId(4) }).unwrap())
+    };
+    let first = ask(&mut story, 3);
+    let text = r#"{"title": "A Walk", "genre": "errand", "text": "I need you in Goldshire.", "steps": [{"goal": "visit", "place": "Goldshire"}]}"#;
+    answer(&mut story, first, text);
+
+    ask(&mut story, 5);
+    drop(story);
+
+    let read = database(&folder).reads_of(1).unwrap();
+    assert!(read.contains(&Node::Row(Table::Quests, 0)), "{read:?}");
 }
 
 fn call_line(position: u64) -> Line {

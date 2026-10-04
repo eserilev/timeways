@@ -14,7 +14,8 @@ use timeways_story::check::{
 use timeways_story::draft;
 use timeways_story::house::without_fence_marks;
 use timeways_story::input::MessageId;
-use timeways_story::quest::{self, Known, Step};
+use timeways_story::quest::variety::{Recent, Shape, main_words};
+use timeways_story::quest::{self, Genre, Known, Step};
 use timeways_story::seen::{SeenText, TextKind};
 use timeways_story::story::Output;
 use timeways_story::{chronicle, hero, narrator, talk};
@@ -44,6 +45,56 @@ fn known(seen: &[SeenText]) -> Known<'_> {
         last_targets: vec!["Old Mill"],
         seen,
         goods: vec!["Linen Cloth", "Light Leather"],
+        recent: recent(),
+    }
+}
+
+/// Three offers, newest first: a visit, a meeting, and a kill.
+fn recent() -> Vec<Recent> {
+    let offer = |title: &str, step: Step| Recent {
+        number: 1,
+        title: title.to_string(),
+        shape: Shape::of(&[step], None),
+        genre: Some(Genre::Errand),
+    };
+    vec![
+        offer(
+            "The Lost Lantern",
+            Step::Visit {
+                place: "Old Mill".to_string(),
+            },
+        ),
+        offer(
+            "Old Debts",
+            Step::Meet {
+                npc: "Farmer Bram".to_string(),
+            },
+        ),
+        offer(
+            "Bats in the Belfry",
+            Step::Kill {
+                creature: "Duskbat".to_string(),
+                count: 2,
+            },
+        ),
+    ]
+}
+
+/// The shape differs from the first 2 recent shapes, and no main word of the title is in
+/// the first 3 recent titles.
+fn assert_variety(offer: &quest::Quest) {
+    let recent = recent();
+    let shape = Shape::of(&offer.steps, offer.any_order);
+    assert!(recent[..2].iter().all(|old| old.shape != shape), "{shape}");
+    let words = main_words(&offer.title);
+    for old in &recent {
+        assert!(
+            main_words(&old.title)
+                .iter()
+                .all(|word| !words.contains(word)),
+            "{}",
+            offer.title
+        );
     }
 }
 
@@ -76,7 +127,11 @@ fn assert_quest(text: &str) {
         .collect();
     assert!(waits.len() <= 1, "two waits: {:?}", offer.steps);
     for wait in waits {
-        assert!(wait > 0 && wait + 1 < offer.steps.len(), "{:?}", offer.steps);
+        assert!(
+            wait > 0 && wait + 1 < offer.steps.len(),
+            "{:?}",
+            offer.steps
+        );
     }
     if let Some(span) = offer.any_order {
         assert!((2..=3).contains(&(span.last + 1 - span.first)), "{span:?}");
@@ -84,6 +139,7 @@ fn assert_quest(text: &str) {
         let set = &offer.steps[span.first..=span.last];
         assert!(!set.iter().any(|step| matches!(step, Step::Wait { .. })));
     }
+    assert_variety(&offer);
     let targets: Vec<&str> = offer.steps.iter().filter_map(Step::target).collect();
     let mut distinct = targets.clone();
     distinct.sort_unstable();
@@ -112,7 +168,10 @@ fn assert_step(step: &Step, before: &[Step]) {
         }
         Step::Wait { days } => assert!((1..=quest::MAX_WAIT_DAYS).contains(days)),
         Step::Carry { item, count, npc } => {
-            assert!(["Linen Cloth", "Light Leather"].contains(&item.as_str()), "{item}");
+            assert!(
+                ["Linen Cloth", "Light Leather"].contains(&item.as_str()),
+                "{item}"
+            );
             assert!((1..=quest::MAX_CARRY).contains(count));
             assert!(person(npc), "{npc}");
         }
@@ -178,6 +237,10 @@ fuzz_target!(|data: &[u8]| {
         assert!(text.contains('2'), "a pick of draft 2 with no 2: {text:?}");
     }
     assert_quest(&text);
+    for word in main_words(&text) {
+        assert!(word.chars().count() > 1, "{word:?}");
+        assert_eq!(word, word.to_lowercase(), "{word:?}");
+    }
     assert_draft(&text);
     if let Some(line) = narrator::checked_line(&text, "") {
         assert_voice(&line, narrator::MAX_LINE_CHARS, narrator::MAX_LINE_BYTES);

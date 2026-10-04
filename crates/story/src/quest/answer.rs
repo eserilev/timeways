@@ -10,6 +10,8 @@ const SET_SIZES: std::ops::RangeInclusive<usize> = 2..=3;
 #[derive(Deserialize)]
 pub(super) struct Reply {
     pub(super) title: String,
+    #[serde(default)]
+    pub(super) genre: Option<String>,
     pub(super) text: String,
     pub(super) steps: Vec<Entry>,
 }

@@ -1,5 +1,6 @@
 //! What the world of the player holds, and the rules of 3.4 for each step against it.
 
+use super::variety::Recent;
 use super::{
     MAX_CARRY, MAX_KILLS, MAX_TOPIC_BYTES, MAX_TOPIC_CHARS, MAX_WAIT_DAYS, QuestFault, Step,
 };
@@ -21,6 +22,8 @@ pub struct Known<'a> {
     /// The places, NPCs, and creatures of your newest task. The next task names none of
     /// them, so two tasks in a row never send you to the same target.
     pub last_targets: Vec<&'a str>,
+    /// The newest offers, newest first (`variety::recent_quests`).
+    pub recent: Vec<Recent>,
     /// The goods that a carry step can ask for, for your level.
     pub goods: Vec<&'a str>,
     /// Every text that you read. Only the quests count.

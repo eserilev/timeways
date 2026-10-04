@@ -5,6 +5,7 @@ use super::{Active, EventsBatch, Pending, Story, StoryError, calls, checked_name
 use crate::character::Character;
 use crate::hero;
 use crate::input::{Input, MessageId};
+use crate::quest::variety::{RECENT_IN_PROMPT, recent_quests};
 use crate::quest::{
     self, Encounter, Here, Known, MAX_OPEN_QUESTS, QuestChange, Status, Step, Tracked, next_number,
     quest_log, thing_name,
@@ -62,6 +63,8 @@ impl Story {
         let prompt = quest::prompt(&known, active.character.place_of(giver), hook);
         let mut reads = reads::events_about(active, known_names(&known));
         reads.extend(hook_read);
+        let recent: Vec<u64> = known.recent.iter().map(|recent| recent.number).collect();
+        reads.extend(reads::quest_rows(active, &recent));
         let pending = Pending::Quest {
             batch,
             key: active.key.clone(),
@@ -119,6 +122,7 @@ impl Story {
             title: offer.title.clone(),
             text: offer.text,
             steps: offer.steps,
+            genre: Some(offer.genre),
             any_order: offer.any_order,
         };
         if active.quests.add(change).is_err() {
@@ -361,6 +365,7 @@ fn known<'a>(
         foes: near_first(character.foes_seen(), near_npc),
         last_targets: last_targets(quests),
         goods: quest::goods_for(character.level()),
+        recent: recent_quests(quests, RECENT_IN_PROMPT),
         seen,
     }
 }

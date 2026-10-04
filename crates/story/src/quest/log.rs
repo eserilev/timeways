@@ -1,7 +1,7 @@
 //! The quest log: each change of a side quest, and the state of each quest and each of its
 //! steps (GAMEPLAY.md 3.4, docs/plans/quest-variety.md 6).
 
-use super::{AnyOrder, DAY_SECONDS, Step};
+use super::{AnyOrder, DAY_SECONDS, Genre, Step};
 use hourglass::Tick;
 use serde::{Deserialize, Serialize};
 
@@ -17,6 +17,9 @@ pub enum QuestChange {
         title: String,
         text: String,
         steps: Vec<Step>,
+        /// None in an old quest file.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        genre: Option<Genre>,
         /// None in an old quest file.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         any_order: Option<AnyOrder>,
@@ -81,6 +84,7 @@ pub struct Tracked {
     pub title: String,
     pub text: String,
     pub steps: Vec<Step>,
+    pub genre: Option<Genre>,
     pub any_order: Option<AnyOrder>,
     pub status: Status,
     pub accepted_at: Option<Tick>,
@@ -103,6 +107,7 @@ impl Tracked {
             title,
             text,
             steps,
+            genre,
             any_order,
         } = change
         else {
@@ -116,6 +121,7 @@ impl Tracked {
             title: title.clone(),
             text: text.clone(),
             steps: steps.clone(),
+            genre: *genre,
             any_order: any_order.filter(fits),
             status: Status::Offered,
             accepted_at: None,

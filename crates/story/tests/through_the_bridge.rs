@@ -25,13 +25,13 @@ const MODEL_ANSWERS: [Option<&str>; 6] = [
     None,
     Some(r#"{"say": "Well met.", "trust": 3}"#),
     Some(
-        r#"{"title": "A Task", "text": "Go.", "steps": [{"goal": "visit", "place": "Goldshire"}, {"goal": "meet", "npc": "Hogger"}]}"#,
+        r#"{"title": "A Task", "genre": "errand", "text": "I need you to go.", "steps": [{"goal": "visit", "place": "Goldshire"}, {"goal": "meet", "npc": "Hogger"}]}"#,
     ),
     Some(
-        r#"{"title": "Hogger Twice", "text": "Go.", "steps": [{"goal": "meet", "npc": "Hogger"}, {"goal": "meet", "npc": "Hogger"}]}"#,
+        r#"{"title": "Hogger Twice", "genre": "errand", "text": "I need you to go.", "steps": [{"goal": "meet", "npc": "Hogger"}, {"goal": "meet", "npc": "Hogger"}]}"#,
     ),
     Some(
-        r#"{"title": "The Hunt", "text": "Go.", "steps": [{"goal": "kill", "creature": "Hogger", "count": 2}]}"#,
+        r#"{"title": "The Hunt", "genre": "errand", "text": "I need you to go.", "steps": [{"goal": "kill", "creature": "Hogger", "count": 2}]}"#,
     ),
     Some("Our hero walks on."),
 ];
@@ -305,7 +305,7 @@ fn quest_answer(n: usize) -> String {
         r#"[{"goal": "meet", "npc": "Guard Rolf"}, {"goal": "meet", "npc": "Smith Hana"}]"#,
     ];
     format!(
-        r#"{{"title": "Task {n}", "text": "Go.", "steps": {}}}"#,
+        r#"{{"title": "Task {n}", "genre": "errand", "text": "I need you to go.", "steps": {}}}"#,
         steps[n % steps.len()]
     )
 }
@@ -472,13 +472,15 @@ fn a_refused_accept_in_a_batch_with_a_journal_request_shows_on_the_journal() {
     let mut next = 0;
     let model = Box::new(move |_: &str| {
         next += 1;
-        let step = if next % 2 == 1 {
-            r#"{"goal": "visit", "place": "Mill Pond"}"#
-        } else {
-            r#"{"goal": "meet", "npc": "Farmer Bram"}"#
-        };
+        // Four quests in a row, each with its own shape and new targets.
+        let step = [
+            r#"{"goal": "visit", "place": "Mill Pond"}"#,
+            r#"{"goal": "meet", "npc": "Farmer Bram"}"#,
+            r#"{"goal": "visit", "place": "Old Tower"}, {"goal": "visit", "place": "Mill Pond"}"#,
+            r#"{"goal": "talk", "npc": "Farmer Bram"}"#,
+        ][(next - 1) % 4];
         Some(format!(
-            r#"{{"title": "Task {next}", "text": "Go.", "steps": [{step}]}}"#
+            r#"{{"title": "Task {next}", "genre": "errand", "text": "I need you to go.", "steps": [{step}]}}"#
         ))
     });
     let mut bridge = FakeBridge::new(story()).with_model(model);
@@ -525,7 +527,7 @@ fn a_refused_accept_in_a_batch_with_a_journal_request_shows_on_the_journal() {
 #[test]
 fn a_task_asked_in_a_batch_with_a_journal_request_comes_with_the_next_answer() {
     let model = Box::new(|_: &str| {
-        Some(r#"{"title": "The Lost Lantern", "text": "Find it.", "steps": [{"goal": "visit", "place": "Mill Pond"}]}"#.to_string())
+        Some(r#"{"title": "The Lost Lantern", "genre": "errand", "text": "I lost it. Find it.", "steps": [{"goal": "visit", "place": "Mill Pond"}]}"#.to_string())
     });
     let mut bridge = FakeBridge::new(story()).with_model(model);
     let pond =
@@ -547,7 +549,7 @@ fn a_task_asked_in_a_batch_with_a_journal_request_comes_with_the_next_answer() {
     let page: Value = serde_json::from_str(text).unwrap();
     assert_eq!(
         page["notice"],
-        "Keeper Tessa has a quest for you: The Lost Lantern. Find it. Type /quest accept."
+        "Keeper Tessa has a quest for you: The Lost Lantern. I lost it. Find it. Type /quest accept."
     );
     assert_eq!(givers(&list(&next, "quests"), "offered"), ["Keeper Tessa"]);
 }

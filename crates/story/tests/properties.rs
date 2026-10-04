@@ -24,8 +24,10 @@ use timeways_story::pace::{Pace, WINDOW_SECONDS};
 use timeways_story::pack::Pack;
 use timeways_story::passage_limits::{MAX_PASSAGE_BYTES, pieces};
 use timeways_story::places::InstanceKind;
+use timeways_story::quest::variety::{Recent, SHAPES_TO_AVOID, Shape, TITLES_TO_AVOID, main_words};
 use timeways_story::quest::{
-    AnyOrder, DAY_SECONDS, MAX_KILLS, MAX_WAIT_DAYS, QuestChange, Status, Step, Tracked, quest_log,
+    AnyOrder, DAY_SECONDS, Known, MAX_KILLS, MAX_WAIT_DAYS, QuestChange, Status, Step, Tracked,
+    checked_quest, quest_log,
 };
 use timeways_story::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use timeways_story::seen::TextKind;
@@ -249,6 +251,35 @@ fn any_order_span() -> impl Strategy<Value = Option<AnyOrder>> {
     ]
 }
 
+/// A step for the variety check: few targets, so shapes and targets repeat often.
+fn variety_step() -> impl Strategy<Value = serde_json::Value> {
+    prop::sample::select(vec![
+        serde_json::json!({"goal": "visit", "place": "Old Tower"}),
+        serde_json::json!({"goal": "visit", "place": "Testvale"}),
+        serde_json::json!({"goal": "meet", "npc": "Farmer Bram"}),
+        serde_json::json!({"goal": "talk", "npc": "Farmer Bram"}),
+    ])
+}
+
+/// An offer of the log, with a shape of one or two visits and meetings.
+fn recent_offer() -> impl Strategy<Value = Recent> {
+    let step = prop::sample::select(vec![
+        Step::Visit {
+            place: "Old Tower".to_string(),
+        },
+        Step::Meet {
+            npc: "Farmer Bram".to_string(),
+        },
+    ]);
+    let title = prop::sample::select(vec!["Old Debts", "The Tower", "Rats", "A Task"]);
+    (prop::collection::vec(step, 1..3), title).prop_map(|(steps, title)| Recent {
+        number: 1,
+        title: title.to_string(),
+        shape: Shape::of(&steps, None),
+        genre: None,
+    })
+}
+
 /// Few numbers and short quests, so that most changes find their quest. Kills come often,
 /// so a kill step can fill up.
 fn quest_change() -> impl Strategy<Value = QuestChange> {
@@ -264,6 +295,7 @@ fn quest_change() -> impl Strategy<Value = QuestChange> {
                 text: "Go.".to_string(),
                 steps,
                 any_order,
+                genre: None,
             }
         }),
         1 => number.clone().prop_map(|number| QuestChange::Accepted {
@@ -405,7 +437,7 @@ fn quest_answer(steps: &[TaskStep]) -> String {
             }
         })
         .collect();
-    serde_json::json!({ "title": "A Task", "text": "Go.", "steps": steps }).to_string()
+    serde_json::json!({ "title": "A Task", "genre": "errand", "text": "I need you to go.", "steps": steps }).to_string()
 }
 
 fn fresh(name: &str) -> PathBuf {
@@ -520,7 +552,14 @@ impl Targets {
                 self.places.push(zone.clone());
                 self.places.extend(subzone.clone());
             }
-            Play::Meet(npc, _) | Play::Slap(npc) | Play::Talk(npc, _) | Play::Quest(npc, _) => {
+            // An NPC that talks to you in the game is a friend now (`befriend`).
+            Play::Meet(npc, _) => {
+                self.met.push(npc.clone());
+                if let Some((reaction, _)) = self.seen.get_mut(npc) {
+                    *reaction = Reaction::Friendly;
+                }
+            }
+            Play::Slap(npc) | Play::Talk(npc, _) | Play::Quest(npc, _) => {
                 self.met.push(npc.clone());
             }
             Play::See(name, reaction, creature) => {
@@ -561,11 +600,10 @@ fn target(step: &TaskStep) -> &str {
     }
 }
 
-/// The giver of an offer that came back as the narrator line, or None.
+/// The giver of an offer that came back as the notice of its batch, or None.
 fn offer_giver(outputs: &[Output]) -> Option<&str> {
     let Some(Output::EventsSeen {
-        narrator: Some(line),
-        ..
+        notice: Some(line), ..
     }) = outputs.first()
     else {
         return None;
@@ -1057,6 +1095,58 @@ proptest! {
                 prop_assert!(targets.allows(giver, step), "{step:?} from {giver}");
             }
             targets.last = steps.iter().map(|step| target(step).to_string()).collect();
+        }
+    }
+
+    #[test]
+    fn no_offer_repeats_the_shape_of_the_last_two(
+        recent in prop::collection::vec(recent_offer(), 0..4),
+        steps in prop::collection::vec(variety_step(), 1..4),
+        title in prop::sample::select(vec!["Old Debts", "The Tower", "Rats", "A Task"]),
+    ) {
+        let known = Known {
+            giver: "Keeper Tessa",
+            zones: vec!["Testvale"],
+            subzones: vec!["Old Tower"],
+            npcs: vec!["Farmer Bram"],
+            recent: recent.clone(),
+            ..Known::default()
+        };
+        let text = serde_json::json!({
+            "title": title, "genre": "errand", "text": "I need you.", "steps": steps,
+        });
+
+        let Ok(quest) = checked_quest(&text.to_string(), &known) else {
+            return Ok(());
+        };
+
+        let shape = Shape::of(&quest.steps, quest.any_order);
+        prop_assert!(recent.iter().take(SHAPES_TO_AVOID).all(|old| old.shape != shape));
+        let words = main_words(&quest.title);
+        for old in recent.iter().take(TITLES_TO_AVOID) {
+            prop_assert!(main_words(&old.title).iter().all(|word| !words.contains(word)));
+        }
+    }
+
+    #[test]
+    fn every_offer_in_play_differs_in_shape_from_the_two_before_it(
+        plays in prop::collection::vec(target_play(), 0..150)
+    ) {
+        let folder = fresh("variety");
+        let mut clock = 1_000;
+        let mut story = story(&folder, Store::Folder(folder.clone()));
+        run(&mut story, &plays, &mut clock);
+        drop(story);
+
+        let key = CharacterKey::new("Stormrage", "Ada").unwrap();
+        let opened = Store::Folder(folder).open(&key).unwrap();
+        let shapes: Vec<Shape> = quest_log(opened.quests.changes())
+            .iter()
+            .map(|quest| Shape::of(&quest.steps, quest.any_order))
+            .collect();
+        for (n, shape) in shapes.iter().enumerate() {
+            let before = &shapes[n.saturating_sub(SHAPES_TO_AVOID)..n];
+            prop_assert!(!before.contains(shape), "{:?}", shapes);
         }
     }
 

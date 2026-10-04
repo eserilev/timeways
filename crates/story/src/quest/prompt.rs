@@ -1,6 +1,7 @@
 //! The words of the quest prompt. The lists hold only the targets that the check allows,
 //! so the model has nothing else to pick (GAMEPLAY.md 3.4).
 
+use super::variety::{Recent, recent_line};
 use super::{Known, MAX_CARRY, MAX_KILLS, MAX_STEPS, MAX_TITLE_CHARS, MAX_WAIT_DAYS};
 use crate::hero_hook::{Hook, QUEST_RULE, hook_block};
 use crate::house::{HOUSE_RULES, bulleted, fenced};
@@ -28,7 +29,7 @@ pub fn prompt(known: &Known<'_>, place: Option<&str>, hook: Option<Hook<'_>>) ->
          People that the player can meet:\n{}\n\n\
          Creatures that the player can hunt:\n{}\n\n\
          Goods that the player can bring:\n{}\n\n\
-         {hook}Rules:\n\
+         {hook}{}Rules:\n\
          - 1 to {MAX_STEPS} steps. Each step is one of these goals:\n{}\n\
          - Copy each name exactly as the list writes it. Use no other place, person, or \
          creature. An empty list has nothing to use.\n\
@@ -37,16 +38,23 @@ pub fn prompt(known: &Known<'_>, place: Option<&str>, hook: Option<Hook<'_>>) ->
          - To let the player do 2 or 3 steps in any order, put them in one entry of the \
          steps: {{\"goal\": \"any_order\", \"steps\": [...]}}. At most one such entry, and \
          no wait in it.\n\
+         - Give the quest a genre: \"errand\" (a favor or a delivery), \"hunt\" (a creature \
+         or a boss), \"mystery\" (a question with clues), \"rescue\" (a person who is lost or \
+         in trouble), \"rivalry\" (a feud between two people), or \"comic\" (a joke).\n\
+         - Start the text with why you need this: who you are, and what it means for you{}.\n\
          - The task is not a quest of the game, and it does not continue one.\n\
          - The title has at most {MAX_TITLE_CHARS} characters. The text has at most 60 \
          words, in your own voice.\n\n\
-         Reply with JSON only: {{\"title\": \"...\", \"text\": \"...\", \"steps\": [...]}}",
+         Reply with JSON only: {{\"title\": \"...\", \"genre\": \"...\", \"text\": \"...\", \
+         \"steps\": [...]}}",
         persona(known.giver, place),
         list(&places),
         list(&people),
         list(&prey),
         list(goods),
-        goals(&places, &people, &prey, goods)
+        recent_block(&known.recent),
+        goals(&places, &people, &prey, goods),
+        place.map_or_else(String::new, |place| format!(" in {place}"))
     )
 }
 
@@ -82,4 +90,19 @@ fn goals(places: &[&str], people: &[&str], prey: &[&str], goods: &[&str]) -> Str
     goals.push(&wait);
     let lines: Vec<String> = goals.iter().map(|goal| format!("  - {goal}")).collect();
     lines.join("\n")
+}
+
+/// The newest offers, so the model makes a different one. The titles are model text, so
+/// they go in a fence. With no earlier quest, the block is left out.
+fn recent_block(recent: &[Recent]) -> String {
+    if recent.is_empty() {
+        return String::new();
+    }
+    let lines: Vec<String> = recent.iter().map(recent_line).collect();
+    let lines: Vec<&str> = lines.iter().map(String::as_str).collect();
+    format!(
+        "The player's last quests, newest first:\n{}\nMake this quest different from these: \
+         other kinds of steps or another order, another genre, and no word of their titles.\n\n",
+        fenced(&bulleted(&lines))
+    )
 }

@@ -249,7 +249,9 @@ fn contains_phrase(words: &[String], name: &str) -> bool {
             .any(|window| window == phrase.as_slice())
 }
 
-fn words_of(text: &str) -> Vec<String> {
+/// The words of a text in lower case: runs of letters and digits.
+#[must_use]
+pub fn words_of(text: &str) -> Vec<String> {
     words(text).map(str::to_lowercase).collect()
 }
 

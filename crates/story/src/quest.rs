@@ -1,7 +1,7 @@
 //! Personal side quests (GAMEPLAY.md 3.4). The model proposes a quest, and the code checks
 //! each step against the world before the offer shows (5.2).
 
-use crate::check::{json_object, plain_text, same_words};
+use crate::check::{json_object, plain_text, same_words, words_of};
 use crate::seen::SeenText;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -13,6 +13,7 @@ mod log;
 mod progress;
 mod prompt;
 mod structure;
+pub mod variety;
 mod view;
 
 use answer::{Reply, flattened};
@@ -23,6 +24,7 @@ pub use log::{QuestChange, Status, Tracked, next_number, quest_log};
 pub use progress::{Encounter, Here};
 pub use prompt::prompt;
 use structure::structure_fault;
+use variety::variety_fault;
 pub use view::{QuestView, StepState, StepView};
 
 pub const MAX_TITLE_CHARS: usize = 60;
@@ -112,6 +114,19 @@ impl Step {
         }
     }
 
+    /// The goal word of the step, as the JSON writes it.
+    #[must_use]
+    pub fn goal(&self) -> &'static str {
+        match self {
+            Step::Visit { .. } => "visit",
+            Step::Meet { .. } => "meet",
+            Step::Talk { .. } => "talk",
+            Step::Kill { .. } => "kill",
+            Step::Carry { .. } => "carry",
+            Step::Wait { .. } => "wait",
+        }
+    }
+
     /// The NPC that the step sends you to, as a meet, a talk, or a carry does.
     #[must_use]
     pub fn person(&self) -> Option<&str> {
@@ -120,6 +135,24 @@ impl Step {
             Step::Visit { .. } | Step::Kill { .. } | Step::Wait { .. } => None,
         }
     }
+}
+
+/// The kind of story of a side quest. The player never sees it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Genre {
+    /// A favor or a delivery.
+    Errand,
+    /// A creature or a boss.
+    Hunt,
+    /// A question with clues.
+    Mystery,
+    /// A person who is lost or in trouble.
+    Rescue,
+    /// A feud between two people.
+    Rivalry,
+    /// A joke.
+    Comic,
 }
 
 /// The steps from `first` to `last`, both in, can be done in any order. The quest keeps
@@ -140,6 +173,7 @@ impl AnyOrder {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Quest {
     pub title: String,
+    pub genre: Genre,
     pub text: String,
     pub steps: Vec<Step>,
     pub any_order: Option<AnyOrder>,
@@ -151,8 +185,16 @@ pub enum QuestFault {
     NotJson,
     #[error("the title is empty, too long, or names something after the cutoff")]
     BadTitle,
+    #[error("the answer has no genre")]
+    NoGenre,
+    #[error("\"{0}\" is no genre")]
+    UnknownGenre(String),
     #[error("the text is empty, too long, or names something after the cutoff")]
     BadText,
+    #[error(
+        "the text never speaks for the giver: it has no \"I\", \"me\", \"my\", \"we\", \"us\", or \"our\""
+    )]
+    NotFromGiver,
     #[error("the offer does not fit in one narrator line")]
     TooLong,
     #[error("a quest has 1 to {MAX_STEPS} steps, not {0}")]
@@ -194,6 +236,10 @@ pub enum QuestFault {
     GameQuest(String),
     #[error("\"{0}\" is a target of your last quest")]
     LastTask(String),
+    #[error("the steps ({0}) are those of one of your last two quests")]
+    SameShape(String),
+    #[error("the word \"{0}\" is in the title of one of your last three quests")]
+    SameTitleWord(String),
 }
 
 /// # Errors
@@ -204,8 +250,12 @@ pub fn checked_quest(answer: &str, known: &Known<'_>) -> Result<Quest, QuestFaul
     let reply: Reply = serde_json::from_str(json).map_err(|_| QuestFault::NotJson)?;
     let title =
         plain_text(&reply.title, MAX_TITLE_CHARS, MAX_OFFER_BYTES).ok_or(QuestFault::BadTitle)?;
+    let genre = checked_genre(reply.genre.as_deref())?;
     let text =
         plain_text(&reply.text, MAX_TEXT_CHARS, MAX_OFFER_BYTES).ok_or(QuestFault::BadText)?;
+    if !speaks_for_giver(&text) {
+        return Err(QuestFault::NotFromGiver);
+    }
     let (steps, any_order) = flattened(reply.steps)?;
     if !(1..=MAX_STEPS).contains(&steps.len()) {
         return Err(QuestFault::StepCount(steps.len()));
@@ -222,14 +272,34 @@ pub fn checked_quest(answer: &str, known: &Known<'_>) -> Result<Quest, QuestFaul
     }
     let quest = Quest {
         title,
+        genre,
         text,
         steps,
         any_order,
     };
+    if let Some(fault) = variety_fault(&quest, &known.recent) {
+        return Err(fault);
+    }
     if offer_line(known.giver, &quest).len() > MAX_OFFER_BYTES {
         return Err(QuestFault::TooLong);
     }
     Ok(quest)
+}
+
+/// The answer carries the genre as a string, so the retry can name an unknown one.
+fn checked_genre(genre: Option<&str>) -> Result<Genre, QuestFault> {
+    let genre = genre.ok_or(QuestFault::NoGenre)?;
+    serde_json::from_value(serde_json::Value::String(genre.to_string()))
+        .map_err(|_| QuestFault::UnknownGenre(genre.to_string()))
+}
+
+/// The text says why the giver needs the quest, so it speaks in the first person. The check
+/// cannot judge a reason. It only refuses a text such as "Visit the mill and kill 6 bats."
+fn speaks_for_giver(text: &str) -> bool {
+    const FIRST_PERSON: [&str; 6] = ["i", "me", "my", "we", "us", "our"];
+    words_of(text)
+        .iter()
+        .any(|word| FIRST_PERSON.contains(&word.as_str()))
 }
 
 /// The words that the player sees in the chat.

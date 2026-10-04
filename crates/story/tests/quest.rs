@@ -3,7 +3,7 @@
 use hourglass::Tick;
 use timeways_story::hero_hook::Hook;
 use timeways_story::quest::{
-    AnyOrder, DAY_SECONDS, Encounter, Here, Known, MAX_CARRY, MAX_KILLS, MAX_OFFER_BYTES,
+    AnyOrder, DAY_SECONDS, Encounter, Genre, Here, Known, MAX_CARRY, MAX_KILLS, MAX_OFFER_BYTES,
     MAX_TITLE_CHARS, MAX_TOPIC_CHARS, MAX_WAIT_DAYS, Quest, QuestChange, QuestFault, Status, Step,
     checked_quest, goods_for, offer_line, prompt, quest_log, thing_name, title_of_thing,
 };
@@ -21,6 +21,7 @@ fn known(seen: &[SeenText]) -> Known<'_> {
         last_targets: Vec::new(),
         seen,
         goods: vec!["Linen Cloth", "Light Leather"],
+        recent: Vec::new(),
     }
 }
 
@@ -35,7 +36,9 @@ fn game_quest(title: &str, text: &str) -> SeenText {
 }
 
 fn answer(title: &str, steps: &str) -> String {
-    format!(r#"{{"title": "{title}", "text": "Bring word to the tower.", "steps": [{steps}]}}"#)
+    format!(
+        r#"{{"title": "{title}", "genre": "errand", "text": "I need you to bring word to the tower.", "steps": [{steps}]}}"#
+    )
 }
 
 const VISIT_TOWER: &str = r#"{"goal": "visit", "place": "Old Tower"}"#;
@@ -276,8 +279,9 @@ fn a_title_with_a_name_after_the_cutoff_is_refused() {
 fn a_text_that_is_too_long_is_refused() {
     let seen = [];
     let long = "word ".repeat(100);
-    let text =
-        format!(r#"{{"title": "The Lost Lantern", "text": "{long}", "steps": [{MEET_BRAM}]}}"#);
+    let text = format!(
+        r#"{{"title": "The Lost Lantern", "genre": "errand", "text": "{long}", "steps": [{MEET_BRAM}]}}"#
+    );
 
     assert_eq!(
         checked_quest(&text, &known(&seen)).unwrap_err(),
@@ -289,9 +293,9 @@ fn a_text_that_is_too_long_is_refused() {
 fn an_offer_longer_than_one_narrator_line_is_refused() {
     let seen = [];
     let text = format!(
-        r#"{{"title": "{}", "text": "{}", "steps": [{MEET_BRAM}]}}"#,
+        r#"{{"title": "{}", "genre": "errand", "text": "I {}", "steps": [{MEET_BRAM}]}}"#,
         "€".repeat(60),
-        "€".repeat(280),
+        "€".repeat(278),
     );
 
     let result = checked_quest(&text, &known(&seen));
@@ -306,6 +310,7 @@ fn the_offer_line_names_the_giver_the_title_and_the_command() {
         text: "Bring word to the tower.".to_string(),
         steps: Vec::new(),
         any_order: None,
+        genre: Genre::Errand,
     };
 
     let line = offer_line(GIVER, &quest);
@@ -371,6 +376,7 @@ fn a_step_done_out_of_order_changes_nothing() {
             },
         ],
         any_order: None,
+        genre: None,
     };
     let accepted = QuestChange::Accepted {
         number: 1,
@@ -398,14 +404,17 @@ fn an_offer_of_exactly_one_narrator_line_passes() {
             text: String::new(),
             steps: Vec::new(),
             any_order: None,
+            genre: Genre::Errand,
         },
     )
     .len();
     // A text has at most 400 characters, so it reaches the byte limit with 3-byte ones.
     let title = "T".repeat(MAX_TITLE_CHARS);
-    let rest = MAX_OFFER_BYTES - frame - MAX_TITLE_CHARS;
-    let text = "€".repeat(rest / 3) + &"w".repeat(rest % 3);
-    let answer = format!(r#"{{"title": "{title}", "text": "{text}", "steps": [{MEET_BRAM}]}}"#);
+    let rest = MAX_OFFER_BYTES - frame - MAX_TITLE_CHARS - "I ".len();
+    let text = "I ".to_string() + &"€".repeat(rest / 3) + &"w".repeat(rest % 3);
+    let answer = format!(
+        r#"{{"title": "{title}", "genre": "errand", "text": "{text}", "steps": [{MEET_BRAM}]}}"#
+    );
 
     let offer = checked_quest(&answer, &known(&seen));
 
@@ -436,6 +445,7 @@ fn an_accept_by_number_takes_that_offer_when_another_one_waits_first() {
             npc: "Farmer Bram".to_string(),
         }],
         any_order: None,
+        genre: None,
     };
     let accepted = QuestChange::Accepted {
         number: 2,
@@ -598,6 +608,7 @@ fn bat_hunt(status: Status) -> Vec<QuestChange> {
             },
         ],
         any_order: None,
+        genre: None,
     }];
     if status == Status::Accepted {
         changes.push(QuestChange::Accepted {
@@ -653,8 +664,8 @@ fn only_an_open_kill_step_hunts() {
 #[test]
 fn a_kill_count_written_as_text_counts_and_other_text_is_refused() {
     let known = known(&[]);
-    let as_text = r#"{"title": "Wolves", "text": "Thin them out.", "steps": [{"goal": "kill", "creature": "Duskbat", "count": "3"}]}"#;
-    let not_a_number = r#"{"title": "Wolves", "text": "Thin them out.", "steps": [{"goal": "kill", "creature": "Duskbat", "count": "many"}]}"#;
+    let as_text = r#"{"title": "Wolves", "genre": "errand", "text": "I need you to thin them out.", "steps": [{"goal": "kill", "creature": "Duskbat", "count": "3"}]}"#;
+    let not_a_number = r#"{"title": "Wolves", "genre": "errand", "text": "I need you to thin them out.", "steps": [{"goal": "kill", "creature": "Duskbat", "count": "many"}]}"#;
 
     let offer = checked_quest(as_text, &known).unwrap();
 
@@ -889,6 +900,7 @@ fn wait_quest() -> Vec<QuestChange> {
                 },
             ],
             any_order: None,
+            genre: None,
         },
         QuestChange::Accepted {
             number: 1,
@@ -1091,6 +1103,7 @@ fn set_quest() -> Vec<QuestChange> {
                 },
             ],
             any_order: Some(AnyOrder { first: 1, last: 2 }),
+            genre: None,
         },
         QuestChange::Accepted {
             number: 1,
@@ -1252,6 +1265,7 @@ fn cloth_quest() -> timeways_story::quest::Tracked {
                 npc: "Farmer Bram".to_string(),
             }],
             any_order: None,
+            genre: None,
         },
         QuestChange::Accepted {
             number: 1,

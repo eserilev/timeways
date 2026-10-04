@@ -18,7 +18,7 @@ fn model(prompt: &str) -> String {
     if prompt.contains("Write chapter") {
         r#"{"saga": "Our hero came to Goldshire.", "footnotes": []}"#.to_string()
     } else if prompt.contains("small task of your own") {
-        r#"{"title": "The Lost Lantern", "text": "Find it.", "steps": [{"goal": "visit", "place": "Goldshire"}]}"#.to_string()
+        r#"{"title": "The Lost Lantern", "genre": "errand", "text": "I lost it. Find it.", "steps": [{"goal": "visit", "place": "Goldshire"}]}"#.to_string()
     } else if prompt.contains("A player speaks to you") {
         r#"{"say": "Well met.", "trust": 2}"#.to_string()
     } else if prompt.contains("Tell the moment") {
