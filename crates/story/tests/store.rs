@@ -6,6 +6,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use timeways_story::input::{Input, MessageId};
 use timeways_story::journal::Page;
+use timeways_story::narrator::Budget;
 use timeways_story::pace::Pace;
 use timeways_story::pack::Pack;
 use timeways_story::store::{CharacterKey, Line, Store, StoreError, Table, safe_id};
@@ -687,4 +688,28 @@ fn a_shared_value_that_does_not_read_comes_back_as_its_default() {
     let pace: Pace = store.open_shared().unwrap().load("pace").unwrap();
 
     assert!(!pace.is_tight(Tick(1_000)));
+}
+
+#[test]
+fn a_shared_value_that_is_not_text_comes_back_as_its_default() {
+    let folder = fresh_folder("shared-blob");
+    let store = Store::Folder(folder.clone());
+    drop(store.open_shared().unwrap());
+    let connection = Connection::open(folder.join("timeways.sqlite")).unwrap();
+    connection
+        .execute(
+            "INSERT INTO state (name, body) VALUES ('pace', x'7b7d'), ('budget', CAST(x'ff' AS TEXT))",
+            [],
+        )
+        .unwrap();
+
+    let mut shared = store.open_shared().unwrap();
+    let pace: Pace = shared.load("pace").unwrap();
+    let budget: Budget = shared.load("budget").unwrap();
+
+    assert!(!pace.is_tight(Tick(1_000)));
+    assert_eq!(
+        serde_json::to_string(&budget).unwrap(),
+        serde_json::to_string(&Budget::default()).unwrap()
+    );
 }

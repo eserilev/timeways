@@ -660,6 +660,7 @@ dependencies = [
  "mlua",
  "rusqlite",
  "rusty-hourglass",
+ "serde",
  "serde_json",
  "timeways-story",
 ]

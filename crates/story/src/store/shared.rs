@@ -84,16 +84,17 @@ impl Shared {
         &mut self,
         name: &'static str,
     ) -> Result<T, StoreError> {
-        let body: Option<String> = self
+        // Another program can write a blob, or text that is not UTF-8, so the bytes come first.
+        let bytes: Option<Vec<u8>> = self
             .connection
             .query_row(
-                "SELECT body FROM state WHERE name = ?1",
+                "SELECT CAST(body AS BLOB) FROM state WHERE name = ?1",
                 params![name],
                 |row| row.get(0),
             )
             .optional()
             .map_err(|source| self.error(source))?;
-        let Some(body) = body else {
+        let Some(body) = bytes.and_then(|bytes| String::from_utf8(bytes).ok()) else {
             return Ok(T::default());
         };
         let value = serde_json::from_str(&body).unwrap_or_default();
