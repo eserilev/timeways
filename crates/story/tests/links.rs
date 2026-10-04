@@ -461,6 +461,39 @@ fn an_answer_for_another_character_writes_nothing_here() {
 }
 
 #[test]
+fn an_answer_after_a_relog_rests_on_its_call() {
+    let folder = fresh_folder("answer-after-relog");
+    let mut story = story(&folder);
+    meet(&mut story, 2, "Innkeeper Farley");
+    let call = talk(&mut story, "Innkeeper Farley");
+    for name in ["Bren", "Ada"] {
+        story
+            .handle(Input::CharacterEntered {
+                realm: "Stormrage".to_string(),
+                name: name.to_string(),
+            })
+            .unwrap();
+    }
+
+    answer(
+        &mut story,
+        call,
+        r#"{"say": "Nothing but rain.", "trust": 3}"#,
+    );
+    drop(story);
+
+    let made_by_calls = positions(
+        &folder,
+        "SELECT position FROM events WHERE call IS NOT NULL",
+    );
+    assert_eq!(made_by_calls.len(), 1);
+    assert_eq!(
+        database(&folder).call(0).unwrap().unwrap().result,
+        "accepted"
+    );
+}
+
+#[test]
 fn a_game_event_has_game_proof_alone() {
     let folder = fresh_folder("game-proof");
     let mut story = story(&folder);

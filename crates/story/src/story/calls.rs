@@ -83,6 +83,16 @@ pub(super) struct CallsBefore {
     queued: VecDeque<CallId>,
 }
 
+/// A call that the bridge runs or that waits for a slot.
+pub(super) struct OpenCall {
+    pub(super) pending: Pending,
+    /// For the name check of the answer.
+    prompt: String,
+    /// The position of the call in `calls`, in the world of its character. It stays the
+    /// same after a change of character or a reopen. A lore call has none.
+    row: Option<u64>,
+}
+
 /// The kinds of the `calls` table that a hook counts.
 const TALK: &str = "talk";
 const QUEST: &str = "quest";
@@ -107,11 +117,13 @@ pub(super) fn hook_for<'h>(
 impl Story {
     /// The call ends in its row, and the rows of the line rest on it.
     pub(super) fn answered(&mut self, call: CallId, text: &str) -> Result<Vec<Output>, StoryError> {
-        let (pending, prompt) = self.take_call(call)?;
+        let OpenCall {
+            pending,
+            prompt,
+            row,
+        } = self.take_call(call)?;
         self.note_names_in_no_fact(call, text, &prompt);
-        if let Some(active) = self.active.as_mut() {
-            active.answer_with(call);
-        }
+        let row = self.answer_with(&pending, row);
         let (outputs, outcome) = match pending {
             Pending::Lore { question, lore } => {
                 let next = lore.answered(text);
@@ -142,7 +154,7 @@ impl Story {
                     accepted_if(matches!(&answer, Output::TalkAnswer { text: Some(_), .. }));
                 (vec![answer], outcome)
             }
-            Pending::Quest(quest) => self.quest_answered(call, quest, &prompt, text),
+            Pending::Quest(quest) => self.quest_answered(row, quest, &prompt, text),
             Pending::Draft { question, key } => {
                 let answer = self.draft_answered(question, &key, text);
                 let outcome = accepted_if(matches!(
@@ -152,10 +164,22 @@ impl Story {
                 (vec![answer], outcome)
             }
         };
-        if let Some(active) = self.active.as_mut() {
-            active.end_call_row(call, Some(text), outcome);
+        if let (Some(active), Some(row)) = (self.active.as_mut(), row) {
+            active.end_call_row(row, Some(text), outcome);
         }
         Ok(outputs)
+    }
+
+    /// The rows of the line rest on the call, and its row ends. A call of another
+    /// character has no row here, so the rows of its line rest on nothing. Returns the
+    /// row of the call here.
+    fn answer_with(&mut self, pending: &Pending, row: Option<u64>) -> Option<u64> {
+        let active = self
+            .active
+            .as_mut()
+            .filter(|active| pending.has_row_in(&active.key))?;
+        active.answering = row;
+        row
     }
 
     /// The words always show. The change of trust lands only for the character that
@@ -211,11 +235,11 @@ impl Story {
     /// The bridge answers a call over its budget with a failure, so each failure slows the
     /// saga (`Pace`).
     pub(super) fn failed(&mut self, call: CallId) -> Result<Vec<Output>, StoryError> {
-        let (pending, _) = self.take_call(call)?;
+        let OpenCall { pending, row, .. } = self.take_call(call)?;
         self.pace.failed(self.newest);
-        if let Some(active) = self.active.as_mut() {
-            active.answer_with(call);
-            active.end_call_row(call, None, Outcome::Failed);
+        let row = self.answer_with(&pending, row);
+        if let (Some(active), Some(row)) = (self.active.as_mut(), row) {
+            active.end_call_row(row, None, Outcome::Failed);
         }
         Ok(match pending {
             Pending::Lore { question, lore } => vec![Output::LoreAnswer {
@@ -257,19 +281,21 @@ impl Story {
     ) -> Option<Output> {
         let call = self.next_call;
         self.next_call = CallId(call.0 + 1);
-        if let Some(active) = self
+        let pack = self.pack.label().to_string();
+        let row = self
             .active
             .as_mut()
             .filter(|active| pending.has_row_in(&active.key))
-        {
-            let pack = self.pack.label().to_string();
-            active.open_call_row(call, pending.kind(), pack, prompt.clone(), reads);
-            if let (Pending::Chronicle { .. }, Some(row)) = (&pending, active.call_row(call)) {
-                self.round_calls.push(row);
-            }
+            .map(|active| active.open_call_row(pending.kind(), pack, prompt.clone(), reads));
+        if let (Pending::Chronicle { .. }, Some(row)) = (&pending, row) {
+            self.round_calls.push(row);
         }
-        self.calls.insert(call, pending);
-        self.prompts.insert(call, prompt);
+        let open = OpenCall {
+            pending,
+            prompt,
+            row,
+        };
+        self.calls.insert(call, open);
         if !self.has_free_slot() {
             self.queued.push_back(call);
             return None;
@@ -283,7 +309,7 @@ impl Story {
     }
 
     pub(super) fn send_call(&mut self, call: CallId) -> Option<Output> {
-        let prompt = self.prompts.get(&call)?.clone();
+        let prompt = self.calls.get(&call)?.prompt.clone();
         self.open.insert(call);
         self.pace.opened(self.newest);
         Some(Output::ModelCall { call, prompt })
@@ -313,23 +339,19 @@ impl Story {
     pub(super) fn take_back_calls(&mut self, before: CallsBefore) {
         let opened_here = |call: &CallId| call.0 >= before.next.0;
         self.calls.retain(|call, _| !opened_here(call));
-        self.prompts.retain(|call, _| !opened_here(call));
         self.open
             .retain(|call| !opened_here(call) && !before.queued.contains(call));
         self.queued = before.queued;
     }
 
-    /// The open call and its prompt. The bridge never saw a call that waits for a slot.
-    pub(super) fn take_call(&mut self, call: CallId) -> Result<(Pending, String), StoryError> {
+    /// The bridge never saw a call that waits for a slot.
+    pub(super) fn take_call(&mut self, call: CallId) -> Result<OpenCall, StoryError> {
         if !self.open.remove(&call) {
             return Err(StoryError::UnknownCall(call));
         }
-        let pending = self
-            .calls
+        self.calls
             .remove(&call)
-            .ok_or(StoryError::UnknownCall(call))?;
-        let prompt = self.prompts.remove(&call).unwrap_or_default();
-        Ok((pending, prompt))
+            .ok_or(StoryError::UnknownCall(call))
     }
 
     /// Log only: the check refuses nothing yet (GAMEPLAY.md 3.2.1).

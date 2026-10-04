@@ -42,7 +42,7 @@ mod stories;
 pub mod why;
 
 use active::{Active, Kept};
-use calls::Pending;
+use calls::{OpenCall, Pending};
 use quests::QuestRequest;
 
 const DAY_SECONDS: u64 = 24 * 3600;
@@ -229,9 +229,7 @@ pub struct Story {
     store: Store,
     active: Option<Active>,
     /// Each call that the bridge runs or that waits for a slot.
-    calls: BTreeMap<CallId, Pending>,
-    /// The prompt of each call, for the name check of its answer.
-    prompts: BTreeMap<CallId, String>,
+    calls: BTreeMap<CallId, OpenCall>,
     /// The calls that the bridge runs now.
     open: BTreeSet<CallId>,
     /// The calls of the player that wait for a slot, oldest first.
@@ -285,7 +283,6 @@ impl Story {
             store,
             active: None,
             calls: BTreeMap::new(),
-            prompts: BTreeMap::new(),
             open: BTreeSet::new(),
             queued: VecDeque::new(),
             notes: Vec::new(),
@@ -749,7 +746,6 @@ impl Story {
             database,
             saved_events,
             next,
-            call_rows: BTreeMap::new(),
             new_calls: Vec::new(),
             ended: Vec::new(),
             answering: None,
@@ -925,7 +921,7 @@ impl Story {
         let chronicle_writes = self
             .calls
             .values()
-            .any(|pending| matches!(pending, Pending::Chronicle { .. }));
+            .any(|call| matches!(call.pending, Pending::Chronicle { .. }));
         if chronicle_writes || !self.has_free_slot() {
             return quiet;
         }

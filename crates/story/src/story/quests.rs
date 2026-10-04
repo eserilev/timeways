@@ -4,7 +4,7 @@
 use super::{Active, EventsBatch, Pending, Story, StoryError, calls, checked_name, reads};
 use crate::character::Character;
 use crate::hero;
-use crate::input::{CallId, Input, MessageId};
+use crate::input::{Input, MessageId};
 use crate::prompt::{self, Attempt};
 use crate::quest::variety::{RECENT_IN_PROMPT, recent_quests};
 use crate::quest::{
@@ -101,7 +101,7 @@ impl Story {
     /// player sees nothing of it.
     pub(super) fn quest_answered(
         &mut self,
-        call: CallId,
+        row: Option<u64>,
         quest: QuestCall,
         prompt: &str,
         text: &str,
@@ -113,7 +113,7 @@ impl Story {
         let line = match no_offer {
             NoOffer::Fault(fault) if quest.attempt == Attempt::First => {
                 return (
-                    self.retry_quest(call, quest, prompt, text, &fault),
+                    self.retry_quest(row, quest, prompt, text, &fault),
                     Outcome::Refused,
                 );
             }
@@ -124,19 +124,15 @@ impl Story {
     }
 
     /// The second call: the first prompt, the first answer, and the reason. It reads what
-    /// the first call read, and the first call.
+    /// the first call read, and the first call (its row).
     fn retry_quest(
         &mut self,
-        first: CallId,
+        first_row: Option<u64>,
         quest: QuestCall,
         prompt: &str,
         text: &str,
         fault: &QuestFault,
     ) -> Vec<Output> {
-        let first_row = self
-            .active
-            .as_ref()
-            .and_then(|active| active.call_row(first));
         let mut reads = quest.reads;
         reads.extend(first_row.map(Node::Call));
         let retry = QuestCall {

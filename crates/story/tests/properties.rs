@@ -32,7 +32,7 @@ use timeways_story::quest::{
 use timeways_story::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use timeways_story::seen::TextKind;
 use timeways_story::spot::{MAP_IDS, Spot, THOUSANDTHS, spot_of};
-use timeways_story::store::{CharacterKey, Node, Store, Table, safe_id};
+use timeways_story::store::{CharacterKey, Database, Node, Root, Store, Table, safe_id};
 use timeways_story::story::{Output, Story};
 use timeways_story::vocabulary::{DEATHS, DEFEATED, MET};
 use timeways_story::wikitext::plain;
@@ -53,6 +53,8 @@ enum Play {
     Read(TextKind, Option<String>, String),
     /// A talk, with the words of the model: a rumor.
     Talk(String, String),
+    /// A talk whose answer comes after a switch to another character and back.
+    TalkAcrossRelog(String, String),
     /// `/quest` to an NPC, and the steps that the model proposes.
     Quest(String, Vec<TaskStep>),
     /// A hover or a target: the NPC, whether you can attack it, and its creature type.
@@ -225,6 +227,15 @@ fn play() -> impl Strategy<Value = Play> {
             prop_oneof![Just(0u16), Just(1), Just(20), any::<u16>()]
         )
             .prop_map(|(npc, count)| Play::ItemsHeld(npc, count)),
+    ]
+}
+
+/// Play, and now and then a talk whose answer comes after a relog. Only a store on disk
+/// keeps the world of a character across a relog.
+fn play_with_relogs() -> impl Strategy<Value = Play> {
+    prop_oneof![
+        9 => play(),
+        1 => (name(), "[A-Za-z ]{1,60}").prop_map(|(npc, say)| Play::TalkAcrossRelog(npc, say)),
     ]
 }
 
@@ -433,7 +444,7 @@ fn input(play: &Play, at: Tick) -> Option<Input> {
             zone: Some("Goldshire".to_string()),
             text,
         },
-        Play::Talk(npc, _) => Input::TalkAsked {
+        Play::Talk(npc, _) | Play::TalkAcrossRelog(npc, _) => Input::TalkAsked {
             id: MessageId(2),
             at,
             npc,
@@ -523,6 +534,9 @@ fn play_once(story: &mut Story, play: &Play, clock: &mut u64) -> Vec<Output> {
         return Vec::new();
     };
     let mut outputs = story.handle(input).unwrap_or_default();
+    if let Play::TalkAcrossRelog(..) = play {
+        relog(story);
+    }
     if let Play::EndBatch(text) = play {
         return answer_every_call(story, outputs, text);
     }
@@ -535,7 +549,9 @@ fn play_once(story: &mut Story, play: &Play, clock: &mut u64) -> Vec<Output> {
         return Vec::new();
     };
     let text = match play {
-        Play::Talk(_, say) => serde_json::json!({ "say": say, "trust": 1 }).to_string(),
+        Play::Talk(_, say) | Play::TalkAcrossRelog(_, say) => {
+            serde_json::json!({ "say": say, "trust": 1 }).to_string()
+        }
         // A refused answer gets a retry, and the model answers it the same way.
         Play::Quest(_, steps) => return answer_every_call(story, outputs, &quest_answer(steps)),
         _ => return Vec::new(),
@@ -544,6 +560,17 @@ fn play_once(story: &mut Story, play: &Play, clock: &mut u64) -> Vec<Output> {
     story
         .handle(Input::ModelAnswered { call, text })
         .unwrap_or_default()
+}
+
+fn relog(story: &mut Story) {
+    for name in ["Bren", "Ada"] {
+        story
+            .handle(Input::CharacterEntered {
+                realm: "Stormrage".to_string(),
+                name: name.to_string(),
+            })
+            .unwrap();
+    }
 }
 
 /// Answers each call of the outputs, and each call that the answers open, so no call stays
@@ -949,7 +976,7 @@ proptest! {
     }
 
     #[test]
-    fn every_event_rests_on_a_line_or_a_call(plays in prop::collection::vec(play(), 0..80)) {
+    fn every_event_rests_on_a_line_or_a_call(plays in prop::collection::vec(play_with_relogs(), 0..80)) {
         let folder = fresh("events-rest");
         let mut clock = 1_000;
         let mut story = story(&folder, Store::Folder(folder.clone()));
@@ -964,19 +991,36 @@ proptest! {
     }
 
     #[test]
+    fn no_row_rests_on_a_lost_root_after_play(plays in prop::collection::vec(play_with_relogs(), 0..80)) {
+        let folder = fresh("nothing-lost");
+        let mut clock = 1_000;
+        let mut story = story(&folder, Store::Folder(folder.clone()));
+        run(&mut story, &plays, &mut clock);
+        drop(story);
+
+        let database = Database::open(&world_file(&folder)).unwrap();
+        for node in nodes_of(&folder) {
+            let proof = database.proof_of(node).unwrap();
+            prop_assert!(!proof.contains(&Root::Lost), "{:?} rests on {:?}", node, proof);
+        }
+    }
+
+    /// The proofs before come from the file as the live story left it, with no repair of
+    /// an open.
+    #[test]
     fn the_proof_of_each_row_is_the_same_after_a_reopen(plays in prop::collection::vec(play(), 0..60)) {
         let folder = fresh("proof-reopen");
         let mut clock = 1_000;
         let mut story = story(&folder, Store::Folder(folder.clone()));
         run(&mut story, &plays, &mut clock);
-        drop(story);
-        let key = CharacterKey::new("Stormrage", "Ada").unwrap();
         let nodes = nodes_of(&folder);
-        let proofs = |database: &timeways_story::store::Database| -> Vec<_> {
+        let proofs = |database: &Database| -> Vec<_> {
             nodes.iter().map(|node| database.proof_of(*node).unwrap()).collect()
         };
-        let before = proofs(&Store::Folder(folder.clone()).open(&key).unwrap().database);
+        let before = proofs(&Database::open(&world_file(&folder)).unwrap());
+        drop(story);
 
+        let key = CharacterKey::new("Stormrage", "Ada").unwrap();
         let after = proofs(&Store::Folder(folder.clone()).open(&key).unwrap().database);
 
         prop_assert_eq!(before, after);
