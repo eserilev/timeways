@@ -687,3 +687,27 @@ fn the_same_sighting_twice_adds_no_events() {
 
     assert_eq!(character.world().history().len(), events);
 }
+
+#[test]
+fn the_first_meeting_keeps_its_event_and_its_time() {
+    let mut character = Character::new();
+    character.meet_npc(Tick(5), "Innkeeper Farley").unwrap();
+
+    character.meet_npc(Tick(9), "Innkeeper Farley").unwrap();
+
+    let (event, at) = character.first_met("Innkeeper Farley").unwrap();
+    assert_eq!(at, Tick(5));
+    assert_eq!(
+        character.world().history().get(event).unwrap().tick,
+        Tick(5)
+    );
+}
+
+#[test]
+fn an_npc_that_you_only_saw_has_no_first_meeting() {
+    let mut character = Character::new();
+
+    see(&mut character, "Keeper Tessa", Reaction::Friendly, None);
+
+    assert_eq!(character.first_met("Keeper Tessa"), None);
+}

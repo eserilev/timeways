@@ -15,7 +15,7 @@ use crate::vocabulary::{
     CLASS_QUEST, DEATHS, DEFEATED, GAME_QUEST_DONE, LEVEL, MARK_OF, MARKED_BY, MET, QUEST_DONE,
     SLAPPED, TITLE, TRUSTS, VISITED,
 };
-use hourglass::{EntityId, EventKind, LOCATED_IN, Tick, World};
+use hourglass::{EntityId, EventId, EventKind, LOCATED_IN, Tick, World};
 use serde::Serialize;
 
 /// The bridge takes at most 200 items in one list (Gnomish Relay SPEC.md 9.8).
@@ -298,7 +298,10 @@ pub fn journal(character: &Character) -> Journal {
             trust_why: None,
         })
         .collect();
-    let deeds = deeds(world, you);
+    let deeds: Vec<Deed> = deeds_with_events(world, you)
+        .into_iter()
+        .map(|row| row.deed)
+        .collect();
     let chapters = chapters(world, &places, &people, &deeds);
     Journal {
         chapters,
@@ -428,13 +431,22 @@ fn first_links(world: &World, holder: EntityId, fact: &str) -> Vec<(EntityId, Ti
         .collect()
 }
 
+/// A deed and the events behind it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DeedRow {
+    pub deed: Deed,
+    /// One event, or two for a death with a killer: the kill of the killer, then the death.
+    pub events: Vec<EventId>,
+}
+
 /// A walk of the history, because the state holds only the current level, place, and
 /// count of kills.
-fn deeds(world: &World, you: EntityId) -> Vec<Deed> {
+pub(crate) fn deeds_with_events(world: &World, you: EntityId) -> Vec<DeedRow> {
     let mut deeds = Vec::new();
     let mut here = None;
     // `die` writes the kill of the killer just before the count of deaths.
-    let mut killer = None;
+    let mut killer: Option<(String, EventId)> = None;
+    let row = |deed: Deed, events: Vec<EventId>| DeedRow { deed, events };
     for event in world.history() {
         match &event.kind {
             EventKind::FactStart {
@@ -451,7 +463,10 @@ fn deeds(world: &World, you: EntityId) -> Vec<Deed> {
                 value: Some(to),
                 ..
             } if *entity == you && name == LEVEL => {
-                deeds.push(level_deed(world, None, *to, event.tick, here));
+                deeds.push(row(
+                    level_deed(world, None, *to, event.tick, here),
+                    vec![event.id],
+                ));
             }
             EventKind::FactUpdate {
                 entity,
@@ -460,7 +475,10 @@ fn deeds(world: &World, you: EntityId) -> Vec<Deed> {
                 to,
                 ..
             } if *entity == you && name == LEVEL => {
-                deeds.push(level_deed(world, Some(*from), *to, event.tick, here));
+                deeds.push(row(
+                    level_deed(world, Some(*from), *to, event.tick, here),
+                    vec![event.id],
+                ));
             }
             EventKind::FactStart {
                 entity,
@@ -477,12 +495,13 @@ fn deeds(world: &World, you: EntityId) -> Vec<Deed> {
             } if *entity == you && name == DEFEATED => {
                 let place = here.map(|place| name_of(world, place));
                 let foe = name_of(world, *foe);
-                deeds.push(Deed::Defeated {
+                let deed = Deed::Defeated {
                     foe,
                     times: *times,
                     at: event.tick,
                     place,
-                });
+                };
+                deeds.push(row(deed, vec![event.id]));
             }
             EventKind::FactStart {
                 entity: foe,
@@ -496,7 +515,7 @@ fn deeds(world: &World, you: EntityId) -> Vec<Deed> {
                 linked_to: Some(target),
                 ..
             } if *target == you && name == DEFEATED => {
-                killer = Some(name_of(world, *foe));
+                killer = Some((name_of(world, *foe), event.id));
             }
             EventKind::FactStart {
                 entity,
@@ -505,23 +524,38 @@ fn deeds(world: &World, you: EntityId) -> Vec<Deed> {
                 ..
             } if *entity == you && THING_DEEDS.contains(&name.as_str()) => {
                 let place = here.map(|place| name_of(world, place));
-                deeds.extend(thing_deed(world, name, *thing, event.tick, place));
+                let deed = thing_deed(world, name, *thing, event.tick, place);
+                deeds.extend(deed.map(|deed| row(deed, vec![event.id])));
             }
             EventKind::FactStart { entity, name, .. }
             | EventKind::FactUpdate { entity, name, .. }
                 if *entity == you && name == DEATHS =>
             {
                 let place = here.map(|place| name_of(world, place));
-                deeds.push(Deed::Died {
-                    killer: killer.take(),
-                    at: event.tick,
-                    place,
-                });
+                deeds.push(death_row(killer.take(), event.id, event.tick, place));
             }
             _ => {}
         }
     }
     deeds
+}
+
+/// A death holds the kill of its killer, when the world knows one.
+fn death_row(
+    killer: Option<(String, EventId)>,
+    death: EventId,
+    at: Tick,
+    place: Option<String>,
+) -> DeedRow {
+    let (killer, mut events) = match killer {
+        Some((name, kill)) => (Some(name), vec![kill]),
+        None => (None, Vec::new()),
+    };
+    events.push(death);
+    DeedRow {
+        deed: Deed::Died { killer, at, place },
+        events,
+    }
 }
 
 /// A title that you earned, or a quest that you finished: both are things that you hold.

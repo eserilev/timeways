@@ -73,6 +73,11 @@ impl CharacterKey {
         })
     }
 
+    #[must_use]
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
     /// The prefixes keep a name such as "Con" or "Aux" from naming a Windows device.
     fn relative_path(&self) -> PathBuf {
         let file = format!("c_{}.sqlite", safe_id(&self.name));

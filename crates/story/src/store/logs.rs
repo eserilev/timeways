@@ -249,6 +249,8 @@ pub struct LearnedLog {
     /// The row of each text, in the order of `read`.
     read_rows: Vec<u64>,
     rumors: Vec<Rumor>,
+    /// The row of each rumor, in the order of `rumors`.
+    rumor_rows: Vec<u64>,
     unsaved: Unsaved,
 }
 
@@ -264,7 +266,10 @@ impl LearnedLog {
                     learned.read.push(read);
                     learned.read_rows.push(row);
                 }
-                LearnedLine::Rumor(rumor) => learned.rumors.push(rumor),
+                LearnedLine::Rumor(rumor) => {
+                    learned.rumors.push(rumor);
+                    learned.rumor_rows.push(row);
+                }
             }
         }
         learned
@@ -285,6 +290,11 @@ impl LearnedLog {
         &self.rumors
     }
 
+    /// Each rumor with its row.
+    pub fn rumors_with_rows(&self) -> impl Iterator<Item = (u64, &Rumor)> {
+        self.rumor_rows.iter().copied().zip(&self.rumors)
+    }
+
     /// # Errors
     ///
     /// Returns `Json` for a text that does not serialize, and then keeps nothing.
@@ -299,8 +309,9 @@ impl LearnedLog {
     ///
     /// Returns `Json` for a rumor that does not serialize, and then keeps nothing.
     pub fn add_rumor(&mut self, rumor: Rumor) -> Result<(), StoreError> {
-        self.unsaved.push(&LearnedLine::Rumor(rumor.clone()))?;
+        let row = self.unsaved.push(&LearnedLine::Rumor(rumor.clone()))?;
         self.rumors.push(rumor);
+        self.rumor_rows.push(row);
         Ok(())
     }
 

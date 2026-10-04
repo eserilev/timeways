@@ -100,6 +100,15 @@ impl Character {
         self.holds_about(MET, npc)
     }
 
+    /// The event that opened the `met` fact of this NPC, and its time. Seeing is not
+    /// meeting, so a sighting gives None.
+    #[must_use]
+    pub fn first_met(&self, npc: &str) -> Option<(EventId, Tick)> {
+        let id = self.find(EntityType::Person, npc)?;
+        let met = self.world.entity(self.you)?.fact(MET, Some(id))?;
+        Some((met.opened, self.world.history().get(met.opened)?.tick))
+    }
+
     /// The events behind what the world holds about each thing of this name: the event
     /// that made it, and the event that opened each fact that it holds or that points to
     /// it.

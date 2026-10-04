@@ -82,11 +82,18 @@ fn from_rumor(rumor: &Rumor) -> Learned {
 /// The text on one line, cut at a whole word when it is longer than `EXCERPT_CHARS`.
 #[must_use]
 pub fn excerpt(text: &str) -> String {
+    cut_at_word(text, EXCERPT_CHARS)
+}
+
+/// The text on one line, cut at a whole word when it is longer than `max_chars`. A cut
+/// text ends with "...".
+#[must_use]
+pub fn cut_at_word(text: &str, max_chars: usize) -> String {
     let line = text.split_whitespace().collect::<Vec<_>>().join(" ");
-    if line.chars().count() <= EXCERPT_CHARS {
+    if line.chars().count() <= max_chars {
         return line;
     }
-    let cut: String = line.chars().take(EXCERPT_CHARS).collect();
+    let cut: String = line.chars().take(max_chars).collect();
     let whole = cut
         .rsplit_once(' ')
         .map_or(cut.as_str(), |(words, _)| words);
@@ -171,5 +178,10 @@ mod tests {
         let cut = excerpt(&"é".repeat(EXCERPT_CHARS + 10));
 
         assert_eq!(cut.chars().count(), EXCERPT_CHARS + 3);
+    }
+
+    #[test]
+    fn a_text_is_cut_at_a_whole_word_before_any_limit() {
+        assert_eq!(cut_at_word("The gnolls grow bold", 12), "The gnolls...");
     }
 }
