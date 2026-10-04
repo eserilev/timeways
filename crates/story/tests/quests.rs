@@ -241,6 +241,26 @@ fn a_quest_ends_when_its_steps_happen_in_order_and_the_giver_trusts_you_more() {
 }
 
 #[test]
+fn a_quest_that_a_slap_finishes_names_the_quest_as_the_why() {
+    let mut story = story("slap-finishes");
+    offer(&mut story, 5);
+    accept(&mut story, 6, None);
+    story.handle(zone(7, "Mill Pond")).unwrap();
+
+    story
+        .handle(Input::NpcSlapped {
+            at: Tick(8),
+            name: "Farmer Bram".to_string(),
+        })
+        .unwrap();
+
+    let people = page(&mut story).journal.people;
+    let giver = people.into_iter().find(|person| person.name == GIVER);
+    let why = giver.and_then(|giver| giver.trust_why);
+    assert_eq!(why.map(|why| why.by), Some(TrustCause::Quest));
+}
+
+#[test]
 fn the_journal_shows_each_step_as_done_open_or_later() {
     let mut story = story("states");
     offer(&mut story, 5);

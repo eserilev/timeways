@@ -3,8 +3,10 @@
 //! change, never the reads of a call, which hold far more than the cause.
 
 use super::Active;
+use crate::character::Character;
 use crate::store::{Database, Node, StoreError, Table};
-use hourglass::Tick;
+use crate::vocabulary::QUEST_DONE;
+use hourglass::{EventId, EventKind, Tick};
 use serde::{Deserialize, Serialize};
 
 /// The three things that change trust (`Character`): a talk, a slap, and a finished quest.
@@ -38,6 +40,10 @@ pub(super) fn trust_why(active: &Active, npc: &str) -> Result<Option<TrustWhy>, 
         return Ok(None);
     };
     let cause = cause_of(&active.database, Node::Row(Table::Events, event.0))?;
+    let cause = cause.map(|cause| match cause {
+        TrustCause::Slap if finishes_a_quest(character, event) => TrustCause::Quest,
+        cause => cause,
+    });
     Ok(cause.map(|by| TrustWhy { by, up, at }))
 }
 
@@ -56,4 +62,16 @@ fn cause_of(database: &Database, event: Node) -> Result<Option<TrustCause>, Stor
         }),
         _ => Ok(None),
     }
+}
+
+/// A slap can do the last step of a quest in the same line. `finish_quest` writes
+/// `quest_done` just before the change of trust.
+fn finishes_a_quest(character: &Character, trust_change: EventId) -> bool {
+    let Some(before) = trust_change.0.checked_sub(1) else {
+        return false;
+    };
+    let history = character.world().history();
+    history.get(EventId(before)).is_some_and(
+        |event| matches!(&event.kind, EventKind::FactStart { name, .. } if name == QUEST_DONE),
+    )
 }
