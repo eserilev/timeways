@@ -89,3 +89,10 @@ path = "fuzz_targets/task_play.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "msp_wire"
+path = "fuzz_targets/msp_wire.rs"
+test = false
+doc = false
+bench = false
