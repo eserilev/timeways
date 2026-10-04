@@ -783,6 +783,7 @@ local function WaitingStory(index, story)
 	return {
 		Line("entry", ns.Plain(story.text), accept),
 		Line("text", ns.TaskPeople.Short(story.author) .. " told this story about you.", decline),
+		Line("help", ns.TaskPages.REPORT),
 	}
 end
 

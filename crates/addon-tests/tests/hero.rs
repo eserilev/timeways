@@ -706,11 +706,27 @@ fn the_hero_page_shows_the_stories_about_you_with_their_authors() {
         [
             "entry: Bram saw it all. [Accept]".to_string(),
             "text: Bram told this story about you. [Decline]".to_string(),
+            "help: To report abuse, open Support in the game menu.".to_string(),
             format!("entry: {me} held the bridge. [Remove]"),
             format!("text: Told by Ada, {day}."),
             "entry: A tale that stays.".to_string(),
             format!("text: Told by a friend, {day}."),
         ]
+    );
+}
+
+#[test]
+fn only_a_story_that_waits_for_an_answer_shows_how_to_report_abuse() {
+    let game = Game::new();
+    game.run("wow.units.player = { name = 'Corvin', player = true, guid = 'Player-1-Corvin' }");
+    game.run("wow.Slash('/hero', '')");
+    game.reply(STORIES);
+
+    let lines = lines(&game);
+
+    assert!(
+        !lines.iter().any(|line| line.contains("report abuse")),
+        "{lines:?}"
     );
 }
 
