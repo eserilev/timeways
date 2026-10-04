@@ -91,6 +91,8 @@ globals:
       - type: any
   C_ChatInfo:
     any: true
+  Menu:
+    any: true
   C_Map:
     any: true
   C_MapExplorationInfo:

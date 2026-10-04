@@ -84,6 +84,7 @@ return {
 		"ItemTextGetCreator",
 		"ItemTextGetItem",
 		"ItemTextGetText",
+		"Menu",
 		"PlaySound",
 		"ReloadUI",
 		"SOUNDKIT",

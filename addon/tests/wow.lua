@@ -371,6 +371,52 @@ function wow.AcceptPopup()
 	StaticPopupDialogs[popup.which].OnAccept(nil, popup.data)
 end
 
+-- The right-click menus of the game. A test opens one with wow.OpenMenu, and reads or
+-- clicks its items.
+wow.menus = {}
+Menu = {
+	ModifyMenu = function(tag, callback)
+		wow.menus[tag] = wow.menus[tag] or {}
+		table.insert(wow.menus[tag], callback)
+	end,
+}
+
+local MenuItem = {}
+MenuItem.__index = MenuItem
+
+local function NewMenuItem(parent, kind, text)
+	local item = setmetatable({ kind = kind, text = text, items = {} }, MenuItem)
+	if parent then
+		table.insert(parent.items, item)
+	end
+	return item
+end
+
+function MenuItem:CreateButton(text, callback)
+	local item = NewMenuItem(self, "button", text)
+	item.callback = callback
+	return item
+end
+
+function MenuItem:CreateRadio(text, isSelected, setSelected)
+	local item = NewMenuItem(self, "radio", text)
+	item.isSelected, item.callback = isSelected, setSelected
+	return item
+end
+
+function MenuItem:CreateDivider()
+	return NewMenuItem(self, "divider")
+end
+
+-- The menu with this tag, as the game builds it for `contextData`.
+function wow.OpenMenu(tag, contextData)
+	local root = NewMenuItem(nil, "root")
+	for _, callback in ipairs(wow.menus[tag] or {}) do
+		callback(nil, root, contextData)
+	end
+	return root
+end
+
 -- The recap of the last death: a list of events, the killing blow first.
 wow.recap = nil
 C_DeathRecap = {
