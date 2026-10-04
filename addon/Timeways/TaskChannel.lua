@@ -1,5 +1,6 @@
 -- Sends and takes the addon messages of player tasks (GAMEPLAY.md 4.7), under the rate
--- limits of the game and of Timeways. A message to a player who is offline waits.
+-- limits of the game and of Timeways. A message to a player who is offline waits. A message
+-- with text that a player wrote goes on the logged channel, so Blizzard support can read it.
 
 local _, ns = ...
 
@@ -30,12 +31,16 @@ local PERMANENT = {
 
 -- A random start: after a reload, a counter from 1 joins old parts of a peer to new ones.
 local number = math.random(0, 9998)
-local collector = ns.TaskChunks.NewCollector()
+-- One collector for each channel, so the parts of one message never come from both.
+local collectors = {
+	[ns.TaskWire.LOGGED] = ns.TaskChunks.NewCollector(),
+	[ns.TaskWire.UNLOGGED] = ns.TaskChunks.NewCollector(),
+}
 local allowance = {}
 local allowanceCount = 0
 
--- The messages that wait, oldest first: { to, channel, parts, retryAt }. `parts` holds the
--- parts that the game has not taken yet.
+-- The messages that wait, oldest first: { to, channel, log, parts, retryAt }. `parts` holds
+-- the parts that the game has not taken yet.
 local waiting = {}
 
 C_ChatInfo.RegisterAddonMessagePrefix(TaskChannel.PREFIX)
@@ -54,11 +59,20 @@ local function Ready(entry, now)
 	return true
 end
 
+-- The logged channel can answer nil. Nil gives no reason to wait, so it counts as Success.
+local function SendPart(entry)
+	local target = entry.channel == "WHISPER" and entry.to or nil
+	local send = C_ChatInfo.SendAddonMessage
+	if entry.log == ns.TaskWire.LOGGED then
+		send = C_ChatInfo.SendAddonMessageLogged
+	end
+	return send(TaskChannel.PREFIX, entry.parts[1], entry.channel, target) or RESULT.Success
+end
+
 -- Sends the parts while the rate limit allows. Returns "sent", "wait", or "drop".
 local function SendParts(entry, now)
-	local target = entry.channel == "WHISPER" and entry.to or nil
 	while #entry.parts > 0 and ns.AddonBudget.Has() do
-		local result = C_ChatInfo.SendAddonMessage(TaskChannel.PREFIX, entry.parts[1], entry.channel, target)
+		local result = SendPart(entry)
 		if PERMANENT[result] then
 			return "drop"
 		end
@@ -93,7 +107,7 @@ local function Queue(to, channel, message)
 	if not parts then
 		return
 	end
-	waiting[#waiting + 1] = { to = to, channel = channel, parts = parts }
+	waiting[#waiting + 1] = { to = to, channel = channel, log = ns.TaskWire.Log(message.type), parts = parts }
 	while #waiting > MAX_WAITING do
 		table.remove(waiting, 1)
 	end
@@ -148,8 +162,9 @@ local function Allowed(sender, now)
 	return true
 end
 
--- The payload of CHAT_MSG_ADDON. The game names the sender, so the sender is known.
-function TaskChannel.Received(prefix, text, channel, sender)
+-- `log` is the channel that the part came on. The rest is the payload of CHAT_MSG_ADDON. The
+-- game names the sender, so the sender is known.
+function TaskChannel.Received(log, prefix, text, channel, sender)
 	if prefix ~= TaskChannel.PREFIX or type(text) ~= "string" or issecretvalue(text) then
 		return
 	end
@@ -159,17 +174,23 @@ function TaskChannel.Received(prefix, text, channel, sender)
 		return
 	end
 	ns.TaskPeople.Heard(sender)
-	local whole = ns.TaskChunks.Add(collector, sender, text, now)
+	local whole = ns.TaskChunks.Add(collectors[log], sender, text, now)
 	local message = whole and ns.TaskWire.Decode(whole)
-	if message then
+	if message and ns.TaskWire.CameOnItsChannel(message.type, log) then
 		ns.PlayerTasks.Receive(sender, message, channel)
 	end
 end
 
+local LOG_OF_EVENT = {
+	CHAT_MSG_ADDON = ns.TaskWire.UNLOGGED,
+	CHAT_MSG_ADDON_LOGGED = ns.TaskWire.LOGGED,
+}
+
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("CHAT_MSG_ADDON")
-frame:SetScript("OnEvent", function(_, _, ...)
-	TaskChannel.Received(...)
+frame:RegisterEvent("CHAT_MSG_ADDON_LOGGED")
+frame:SetScript("OnEvent", function(_, event, ...)
+	TaskChannel.Received(LOG_OF_EVENT[event], ...)
 end)
 
 -- A message waits for its player to come online, and for room under the rate limit.

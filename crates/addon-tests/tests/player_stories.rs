@@ -69,7 +69,12 @@ fn a_story_needs_a_target_in_your_group() {
 fn a_story_from_outside_the_group_is_dropped() {
     let (_, corvin) = ada_and_corvin();
 
-    corvin.hear("Timeways", "1;story;a1;A tale.", "WHISPER", "Ada-Stormrage");
+    corvin.hear_logged(
+        "Timeways",
+        "1:1:1:1;story;a1;A tale.",
+        "WHISPER",
+        "Ada-Stormrage",
+    );
 
     assert_eq!(waiting(&corvin), 0);
 }

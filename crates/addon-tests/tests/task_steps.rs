@@ -332,7 +332,7 @@ fn in_party_close(ada: &Player, corvin: &Player) {
 
 /// Ada hears a step message of Corvin with the time and the zone that Corvin gives.
 fn hear_step(ada: &Player, corvin: &Player, id: &str, index: u32, at: u64, zone: &str) {
-    ada.hear(
+    ada.hear_logged(
         "Timeways",
         &format!("1:1:1:1;step;{id};{index};{at};{zone}"),
         "WHISPER",
@@ -394,7 +394,7 @@ fn a_place_that_the_doer_reached_while_the_giver_was_offline_is_never_witnessed(
     );
 
     let at: u64 = ada.eval("wow.now - 300");
-    ada.hear(
+    ada.hear_logged(
         "Timeways",
         &format!("1:1:1:1;turnin;{id};1;1;{at};Tirisfal Glades"),
         "WHISPER",

@@ -13,6 +13,7 @@ return {
 		"C_ChatInfo",
 		"C_ChatInfo.RegisterAddonMessagePrefix",
 		"C_ChatInfo.SendAddonMessage",
+		"C_ChatInfo.SendAddonMessageLogged",
 		"C_Cursor",
 		"C_Cursor.GetCursorItem",
 		"C_DeathRecap",

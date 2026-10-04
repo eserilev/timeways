@@ -154,6 +154,22 @@ local SCHEMAS = {
 	story_decline = { "id" },
 }
 
+TaskWire.LOGGED, TaskWire.UNLOGGED = "logged", "unlogged"
+
+-- The types with text that a player wrote, or a zone that is the doer's word. Blizzard
+-- support can read a reported message only on the logged channel.
+local LOGGED_TYPES = { offer = true, story = true, step = true, turnin = true }
+
+-- The channel that a type goes on: LOGGED or UNLOGGED.
+function TaskWire.Log(type)
+	return LOGGED_TYPES[type] and TaskWire.LOGGED or TaskWire.UNLOGGED
+end
+
+-- A logged type that came unlogged skipped the log, so the receiver drops it.
+function TaskWire.CameOnItsChannel(type, log)
+	return log == TaskWire.LOGGED or TaskWire.Log(type) == TaskWire.UNLOGGED
+end
+
 local function EncodeValue(value)
 	return type(value) == "number" and string.format("%d", value) or Escape(value)
 end

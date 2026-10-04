@@ -203,7 +203,7 @@ fn a_step_that_the_doer_claims_reaches_the_giver() {
 fn a_claim_of_a_step_that_the_task_lacks_is_dropped() {
     let (ada, corvin, id) = accepted();
 
-    ada.hear(
+    ada.hear_logged(
         "Timeways",
         &format!("1:1:1:1;step;{id};5;1790000000;Brill"),
         "WHISPER",
@@ -221,7 +221,7 @@ fn a_step_from_the_doer_counts_as_an_accept_that_got_lost() {
     let (ada, corvin) = ada_and_corvin();
     let id = give(&ada, &corvin);
 
-    ada.hear(
+    ada.hear_logged(
         "Timeways",
         &format!("1:1:1:1;step;{id};1;1790000000;Tirisfal Glades"),
         "WHISPER",

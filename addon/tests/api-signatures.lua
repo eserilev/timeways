@@ -63,6 +63,18 @@ return {
 				{ Name = "result", Type = "SendAddonMessageResult", Nilable = false },
 			},
 		},
+		["C_ChatInfo.SendAddonMessageLogged"] = {
+			SecretArguments = "NotAllowed",
+			Arguments = {
+				{ Name = "prefix", Type = "cstring", Nilable = false },
+				{ Name = "message", Type = "cstring", Nilable = false },
+				{ Name = "chatType", Type = "cstring", Nilable = true },
+				{ Name = "target", Type = "cstring", Nilable = true },
+			},
+			Returns = {
+				{ Name = "result", Type = "SendAddonMessageResult", Nilable = true },
+			},
+		},
 		["C_Cursor.GetCursorItem"] = {
 			MayReturnNothing = true,
 			Returns = {
@@ -1293,6 +1305,20 @@ return {
 			},
 		},
 		CHAT_MSG_ADDON = {
+			SynchronousEvent = true,
+			Payload = {
+				{ Name = "prefix", Type = "cstring", Nilable = false },
+				{ Name = "text", Type = "cstring", Nilable = false },
+				{ Name = "channel", Type = "cstring", Nilable = false },
+				{ Name = "sender", Type = "cstring", Nilable = false },
+				{ Name = "target", Type = "cstring", Nilable = false },
+				{ Name = "zoneChannelID", Type = "number", Nilable = false },
+				{ Name = "localID", Type = "number", Nilable = false },
+				{ Name = "name", Type = "cstring", Nilable = false },
+				{ Name = "instanceID", Type = "number", Nilable = false },
+			},
+		},
+		CHAT_MSG_ADDON_LOGGED = {
 			SynchronousEvent = true,
 			Payload = {
 				{ Name = "prefix", Type = "cstring", Nilable = false },

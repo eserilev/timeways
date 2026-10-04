@@ -463,7 +463,7 @@ fn the_parts_that_the_game_refuses_wait_and_go_later() {
 fn a_task_message_outside_a_whisper_is_ignored() {
     let (ada, corvin) = ada_and_corvin();
 
-    corvin.hear(
+    corvin.hear_logged(
         "Timeways",
         "1:1:1:1;offer;k1;Hi;Go.;;1;npc;Renee;1",
         "GUILD",
