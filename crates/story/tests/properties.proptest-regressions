@@ -10,3 +10,4 @@ cc 959b11a86678b560564de50ad9360ebb361c5ddea861a747160f63d2f0095c66 # shrinks to
 cc 2310fbc47257f9e2254e1bed9a6bfba948bacd7c7561ecc198a5e0627790d0b2 # shrinks to text = "[0[0]]"
 cc 86003fb7630283bf62acc187a99d28d4df1fc1a5db46b86408946046ea46d78c # shrinks to plays = [Zone("Goldshire", None, None), HeroAdd("a"), Talk("Goldshire", "a")]
 cc e9096a98b5cd1fa738e8f038f2d9f8a007427d43ad3b8b54cce7c528ade081f7 # shrinks to plays = [Zone("Mill Pond", None, None), See("Farmer Bram", Hostile, None), Quest("Mill Pond", [Visit("Keeper Tessa")]), Meet("Farmer Bram", None), Quest("Keeper Tessa", [Meet("Farmer Bram")])]
+cc e3a0b83d3c03cb9f3cb5da1555d371ac088c6b9503c63596c67f80626dd6eaf2 # shrinks to plays = [Quest("Goldshire", []), Quest("Goldshire", []), Talk("Goldshire", "A")], restarts = [Index(4611686018427387904)]

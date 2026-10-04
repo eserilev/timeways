@@ -753,6 +753,52 @@ fn the_offer_prompt_reads_the_rows_of_the_recent_quests() {
     assert!(read.contains(&Node::Row(Table::Quests, 0)), "{read:?}");
 }
 
+#[test]
+fn the_retry_call_rests_on_the_first_call() {
+    let folder = fresh_folder("quest-retry");
+    let mut story = story(&folder);
+    enter(&mut story, 1, "Elwynn Forest", Some("Goldshire"));
+    meet(&mut story, 2, "Marshal Dughan");
+    story
+        .handle(Input::QuestAsked {
+            at: Tick(3),
+            npc: "Marshal Dughan".to_string(),
+        })
+        .unwrap();
+    let outputs = story.handle(Input::BatchEnd { id: MessageId(4) }).unwrap();
+    let first = call_of(&outputs);
+
+    let retry = call_of(&answer(&mut story, first, "no quest here"));
+    let text = r#"{"title": "A Walk", "genre": "errand", "text": "I need you in Goldshire.", "steps": [{"goal": "visit", "place": "Goldshire"}]}"#;
+    answer(&mut story, retry, text);
+    drop(story);
+
+    let database = database(&folder);
+    let (first, retry) = (
+        database.call(0).unwrap().unwrap(),
+        database.call(1).unwrap().unwrap(),
+    );
+    assert_eq!(
+        (first.kind.as_str(), first.result.as_str()),
+        ("quest", "refused")
+    );
+    assert_eq!(
+        (retry.kind.as_str(), retry.result.as_str()),
+        ("quest_retry", "accepted")
+    );
+    let read = database.reads_of(1).unwrap();
+    assert!(read.contains(&Node::Call(0)), "{read:?}");
+    assert!(
+        database
+            .reads_of(0)
+            .unwrap()
+            .iter()
+            .all(|node| read.contains(node))
+    );
+    let source = database.source_of(Node::Call(1)).unwrap();
+    assert_eq!(source.map(|source| source.call), Some(0));
+}
+
 fn call_line(position: u64) -> Line {
     Line {
         calls: vec![NewCall {

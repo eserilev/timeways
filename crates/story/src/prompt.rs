@@ -1,7 +1,6 @@
 //! The words of a lore prompt (GAMEPLAY.md 3.1 and 5.3). Timeways writes them, never
 //! Hourglass.
 
-use crate::check::Fault;
 use crate::house::{HOUSE_RULES, bulleted, fenced};
 use crate::pack::{Origin, Passage};
 use std::fmt::Write;
@@ -75,11 +74,17 @@ fn numbered(passages: &[Passage]) -> String {
     lines.trim_end().to_string()
 }
 
-/// The model wrote the answer, and a fault can quote a word of it, so both are data.
+/// A call that a check refuses gets one retry. A second refusal is final.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Attempt {
+    First,
+    Retry,
+}
+
+/// The model wrote the answer, and a reason can quote a word of it, so both are data.
 #[must_use]
-pub fn retry(prompt: &str, answer: &str, faults: &[Fault]) -> String {
-    let faults: Vec<String> = faults.iter().map(ToString::to_string).collect();
-    let faults: Vec<&str> = faults.iter().map(String::as_str).collect();
+pub fn retry(prompt: &str, answer: &str, reasons: &[String]) -> String {
+    let faults: Vec<&str> = reasons.iter().map(String::as_str).collect();
     format!(
         "{prompt}\n\nYour last answer was:\n{}\n\nIt broke these rules:\n{}\nWrite the answer again.",
         fenced(answer),

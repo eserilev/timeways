@@ -1,14 +1,14 @@
 //! The model calls of the story program: each one opens with its row and its reads, waits
 //! for a free slot, and ends with its answer or its failure (GAMEPLAY.md 5.6 and 5.14).
 
-use super::{
-    Active, EventsBatch, MAX_OPEN_CALLS, Output, Story, StoryError, drafts, narrator, quests, reads,
-};
+use super::quests::QuestCall;
+use super::{Active, MAX_OPEN_CALLS, Output, Story, StoryError, drafts, narrator, quests, reads};
 use crate::hero::Hero;
 use crate::hero_hook::{self, Hook};
 use crate::input::{CallId, MessageId};
 use crate::learned::Rumor;
 use crate::lore::{LoreCall, Next};
+use crate::prompt::Attempt;
 use crate::store::{CharacterKey, Node, Outcome, StoreError};
 use crate::{check, talk};
 use hourglass::Tick;
@@ -32,14 +32,8 @@ pub(super) enum Pending {
         key: CharacterKey,
         began: Tick,
     },
-    /// A side quest from `giver`, asked at `at`, for this character only. Its offer is the
-    /// notice of `batch`, or of the next answer when no batch waits for it.
-    Quest {
-        batch: Option<EventsBatch>,
-        key: CharacterKey,
-        giver: String,
-        at: Tick,
-    },
+    /// A side quest for this character only (`QuestCall`).
+    Quest(QuestCall),
     /// A draft of a player task, for this character only.
     Draft {
         question: MessageId,
@@ -61,7 +55,8 @@ impl Pending {
             Pending::Lore { .. } => "lore",
             Pending::Narrator { .. } => "narrator",
             Pending::Chronicle { .. } => "saga",
-            Pending::Quest { .. } => QUEST,
+            Pending::Quest(quest) if quest.attempt == Attempt::Retry => QUEST_RETRY,
+            Pending::Quest(_) => QUEST,
             Pending::Draft { .. } => "draft",
             Pending::Talk { .. } => TALK,
         }
@@ -74,7 +69,7 @@ impl Pending {
             Pending::Lore { .. } => false,
             Pending::Narrator { key, .. }
             | Pending::Chronicle { key, .. }
-            | Pending::Quest { key, .. }
+            | Pending::Quest(QuestCall { key, .. })
             | Pending::Draft { key, .. }
             | Pending::Talk { key, .. } => key == active,
         }
@@ -84,6 +79,8 @@ impl Pending {
 /// The kinds of the `calls` table that a hook counts.
 const TALK: &str = "talk";
 const QUEST: &str = "quest";
+/// A retry is no new offer, so the hook does not count it (docs/plans/quest-variety.md 3.6).
+const QUEST_RETRY: &str = "quest_retry";
 
 /// The kinds of call that share the count of the hook (GAMEPLAY.md 3.7).
 const HOOK_KINDS: [&str; 2] = [TALK, QUEST];
@@ -138,12 +135,7 @@ impl Story {
                     accepted_if(matches!(&answer, Output::TalkAnswer { text: Some(_), .. }));
                 (vec![answer], outcome)
             }
-            Pending::Quest {
-                batch,
-                key,
-                giver,
-                at,
-            } => self.quest_answered(batch, &key, &giver, at, text),
+            Pending::Quest(quest) => self.quest_answered(call, quest, &prompt, text),
             Pending::Draft { question, key } => {
                 let answer = self.draft_answered(question, &key, text);
                 let outcome = accepted_if(matches!(
@@ -236,7 +228,7 @@ impl Story {
                 text: None,
                 notice: None,
             }],
-            Pending::Quest { batch, giver, .. } => self.deliver(batch, quests::no_task(&giver)),
+            Pending::Quest(quest) => self.deliver(quest.batch, quests::no_task(&quest.giver)),
             Pending::Draft { question, .. } => vec![drafts::draft_answer(question, None)],
         })
     }

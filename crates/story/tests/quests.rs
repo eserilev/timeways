@@ -208,7 +208,7 @@ fn an_offer_that_breaks_a_rule_shows_no_task_and_stays_out_of_the_log() {
     let (call, _) = call_of(ask(&mut story, 5));
     let text = OFFER.replace("Farmer Bram", "Captain Vorn");
 
-    let line = notice(story.handle(Input::ModelAnswered { call, text }).unwrap());
+    let line = refused_twice(&mut story, call, &text);
 
     assert_eq!(
         line.as_deref(),
@@ -410,10 +410,15 @@ const VISIT_TOWER: &str = r#"{"goal": "visit", "place": "Old Tower"}"#;
 /// An offer of one step. Two tasks in a row never share a target, so the tests pick the
 /// step.
 fn answer_with(story: &mut Story, call: CallId, title: &str, step: &str) -> Option<String> {
-    let text = format!(
-        r#"{{"title": "{title}", "genre": "errand", "text": "I need you to go and look.", "steps": [{step}]}}"#
-    );
+    let text = answer_text(title, step);
     notice(story.handle(Input::ModelAnswered { call, text }).unwrap())
+}
+
+/// A model answer of an offer with these steps.
+fn answer_text(title: &str, step: &str) -> String {
+    format!(
+        r#"{{"title": "{title}", "genre": "errand", "text": "I need you to go and look.", "steps": [{step}]}}"#
+    )
 }
 
 fn accept(story: &mut Story, at: u64, number: Option<u64>) -> Vec<Output> {
@@ -545,7 +550,8 @@ fn an_offer_that_sends_you_to_the_npc_of_a_game_quest_that_you_read_shows_no_tas
     };
     story.handle(read).unwrap();
 
-    let line = offer(&mut story, 6);
+    let (call, _) = call_of(ask(&mut story, 6));
+    let line = refused_twice(&mut story, call, OFFER);
 
     assert_eq!(
         line.as_deref(),
@@ -693,7 +699,8 @@ fn the_next_task_never_names_a_target_of_the_last_one() {
     story.handle(meet(10, "Innkeeper Pell")).unwrap();
 
     let (call, prompt) = call_of(ask_from(&mut story, "Innkeeper Pell", 11));
-    let line = answer_with(&mut story, call, "More Bats", KILL_BATS);
+    let text = answer_text("More Bats", KILL_BATS);
+    let line = refused_twice(&mut story, call, &text);
 
     assert!(!prompt.contains("- Duskbat"), "{prompt}");
     assert_eq!(
@@ -1206,4 +1213,107 @@ fn the_prompt_lists_the_goods_of_your_level() {
     assert!(goods.contains(&"Linen Cloth"), "{prompt}");
     assert!(!goods.contains(&"Runecloth"), "{prompt}");
     assert!(prompt.contains(r#""goal": "carry""#), "{prompt}");
+}
+
+/// The model gives the same bad answer to the first call and to its retry: the line of
+/// Timeways for the batch.
+fn refused_twice(story: &mut Story, call: CallId, text: &str) -> Option<String> {
+    let first = story
+        .handle(Input::ModelAnswered {
+            call,
+            text: text.to_string(),
+        })
+        .unwrap();
+    let (retry, _) = call_of(first.into_iter().next().unwrap());
+    notice(
+        story
+            .handle(Input::ModelAnswered {
+                call: retry,
+                text: text.to_string(),
+            })
+            .unwrap(),
+    )
+}
+
+#[test]
+fn a_refused_first_answer_asks_once_more_with_the_reason() {
+    let mut story = story("retry");
+    let (call, first_prompt) = call_of(ask(&mut story, 5));
+    let bad = OFFER.replace("Farmer Bram", "Captain Vorn");
+
+    let outputs = story
+        .handle(Input::ModelAnswered {
+            call,
+            text: bad.clone(),
+        })
+        .unwrap();
+
+    let (retry, prompt) = call_of(outputs.into_iter().next().unwrap());
+    assert!(prompt.starts_with(&first_prompt), "{prompt}");
+    assert!(prompt.contains("Your last answer was:"), "{prompt}");
+    assert!(prompt.contains("Captain Vorn"), "{prompt}");
+    assert!(prompt.contains("you never met or saw"), "{prompt}");
+    let good = story
+        .handle(Input::ModelAnswered {
+            call: retry,
+            text: OFFER.to_string(),
+        })
+        .unwrap();
+    assert!(notice(good).unwrap().contains("has a quest for you"));
+}
+
+#[test]
+fn a_second_refused_answer_gives_no_quest() {
+    let mut story = story("retry-twice");
+    let (call, _) = call_of(ask(&mut story, 5));
+
+    let line = refused_twice(&mut story, call, "no quest here");
+
+    assert_eq!(
+        line.as_deref(),
+        Some("Keeper Tessa has no quest for you now.")
+    );
+    assert!(quests(&mut story).is_empty());
+}
+
+#[test]
+fn a_failed_first_call_asks_no_retry() {
+    let mut story = story("retry-failed");
+    let (call, _) = call_of(ask(&mut story, 5));
+
+    let outputs = story.handle(Input::ModelFailed { call }).unwrap();
+
+    assert_eq!(
+        notice(outputs).as_deref(),
+        Some("Keeper Tessa has no quest for you now.")
+    );
+}
+
+#[test]
+fn a_refusal_of_the_limits_asks_no_model() {
+    let mut story = story("limits-no-model");
+    offer(&mut story, 5);
+    accept(&mut story, 6, None);
+
+    let output = ask(&mut story, 7);
+
+    assert!(!matches!(output, Output::ModelCall { .. }), "{output:?}");
+}
+
+#[test]
+fn a_retry_does_not_count_for_the_hero_hook() {
+    let mut story = story("retry-hook");
+    let goal = Input::HeroSet {
+        at: Tick(5),
+        field: "goal".to_string(),
+        text: "Find my father.".to_string(),
+    };
+    story.handle(goal).unwrap();
+    let (call, _) = call_of(ask(&mut story, 6));
+    refused_twice(&mut story, call, "no quest here");
+    talk_prompt(&mut story, 7, "Farmer Bram");
+
+    let (_, prompt) = call_of(ask(&mut story, 8));
+
+    assert!(prompt.contains("<<<\nFind my father.\n>>>"), "{prompt}");
 }

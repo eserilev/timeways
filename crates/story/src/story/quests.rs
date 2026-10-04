@@ -4,17 +4,38 @@
 use super::{Active, EventsBatch, Pending, Story, StoryError, calls, checked_name, reads};
 use crate::character::Character;
 use crate::hero;
-use crate::input::{Input, MessageId};
+use crate::input::{CallId, Input, MessageId};
+use crate::prompt::{self, Attempt};
 use crate::quest::variety::{RECENT_IN_PROMPT, recent_quests};
 use crate::quest::{
-    self, Encounter, Here, Known, MAX_OPEN_QUESTS, QuestChange, Status, Step, Tracked, next_number,
-    quest_log, thing_name,
+    self, Encounter, Here, Known, MAX_OPEN_QUESTS, QuestChange, QuestFault, Status, Step, Tracked,
+    next_number, quest_log, thing_name,
 };
 use crate::seen::SeenText;
-use crate::store::{CharacterKey, Outcome};
+use crate::store::{CharacterKey, Node, Outcome};
 use crate::story::Output;
 use crate::talk::QuestTalk;
 use hourglass::Tick;
+
+/// A quest call: whose, from which giver, for which batch, and what it read. A retry
+/// keeps all of it, so it keeps the batch and the reads of its first call.
+pub(super) struct QuestCall {
+    /// The offer is the notice of this batch, or of the next answer when none waits.
+    pub(super) batch: Option<EventsBatch>,
+    pub(super) key: CharacterKey,
+    pub(super) giver: String,
+    pub(super) at: Tick,
+    pub(super) attempt: Attempt,
+    pub(super) reads: Vec<Node>,
+}
+
+/// Why an answer gives no offer.
+enum NoOffer {
+    /// A line of the code, such as a limit: no model can fix it.
+    Line(String),
+    /// The answer broke a rule of the check. A retry can fix it.
+    Fault(QuestFault),
+}
 
 /// A `/quest` of this batch. It waits for the end of the batch, because the offer comes
 /// back as a notice of the batch answer.
@@ -65,30 +86,70 @@ impl Story {
         reads.extend(hook_read);
         let recent: Vec<u64> = known.recent.iter().map(|recent| recent.number).collect();
         reads.extend(reads::quest_rows(active, &recent));
-        let pending = Pending::Quest {
+        let pending = Pending::Quest(QuestCall {
             batch,
             key: active.key.clone(),
             giver: request.giver,
             at: request.at,
-        };
+            attempt: Attempt::First,
+            reads: reads.clone(),
+        });
         self.open_call(pending, prompt, reads).into_iter().collect()
     }
 
     /// An offer for another character, or one that breaks a rule, shows no task. The limits
-    /// hold again here, because the world can move on while the model thinks.
+    /// hold again here, because the world can move on while the model thinks. A first
+    /// answer that breaks a rule of the check gets one more call with the reason, and the
+    /// player sees nothing of it.
     pub(super) fn quest_answered(
         &mut self,
-        batch: Option<EventsBatch>,
-        key: &CharacterKey,
-        giver: &str,
-        asked_at: Tick,
+        call: CallId,
+        quest: QuestCall,
+        prompt: &str,
         text: &str,
     ) -> (Vec<Output>, Outcome) {
-        let (line, outcome) = match self.offer(key, giver, asked_at, text) {
-            Ok(line) => (line, Outcome::Accepted),
-            Err(line) => (line, Outcome::Refused),
+        let no_offer = match self.offer(&quest.key, &quest.giver, quest.at, text) {
+            Ok(line) => return (self.deliver(quest.batch, line), Outcome::Accepted),
+            Err(no_offer) => no_offer,
         };
-        (self.deliver(batch, line), outcome)
+        let line = match no_offer {
+            NoOffer::Fault(fault) if quest.attempt == Attempt::First => {
+                return (
+                    self.retry_quest(call, quest, prompt, text, &fault),
+                    Outcome::Refused,
+                );
+            }
+            NoOffer::Fault(_) => no_task(&quest.giver),
+            NoOffer::Line(line) => line,
+        };
+        (self.deliver(quest.batch, line), Outcome::Refused)
+    }
+
+    /// The second call: the first prompt, the first answer, and the reason. It reads what
+    /// the first call read, and the first call.
+    fn retry_quest(
+        &mut self,
+        first: CallId,
+        quest: QuestCall,
+        prompt: &str,
+        text: &str,
+        fault: &QuestFault,
+    ) -> Vec<Output> {
+        let first_row = self
+            .active
+            .as_ref()
+            .and_then(|active| active.call_row(first));
+        let mut reads = quest.reads;
+        reads.extend(first_row.map(Node::Call));
+        let retry = QuestCall {
+            attempt: Attempt::Retry,
+            reads: reads.clone(),
+            ..quest
+        };
+        let prompt = prompt::retry(prompt, text, &[fault.to_string()]);
+        self.open_call(Pending::Quest(retry), prompt, reads)
+            .into_iter()
+            .collect()
     }
 
     /// The offer line, or why there is none.
@@ -98,20 +159,18 @@ impl Story {
         giver: &str,
         asked_at: Tick,
         text: &str,
-    ) -> Result<String, String> {
-        let none = no_task(giver);
+    ) -> Result<String, NoOffer> {
+        let none = || NoOffer::Line(no_task(giver));
         let Some(active) = self.active.as_mut().filter(|active| &active.key == key) else {
-            return Err(none);
+            return Err(none());
         };
         let quests = quest_log(active.quests.changes());
         if let Some(refusal) = refusal(&quests, giver) {
-            return Err(refusal);
+            return Err(NoOffer::Line(refusal));
         }
         let seen = seen_texts(active);
         let known = known(&active.character, giver, &seen, &quests);
-        let Ok(offer) = quest::checked_quest(text, &known) else {
-            return Err(none);
-        };
+        let offer = quest::checked_quest(text, &known).map_err(NoOffer::Fault)?;
         let at = asked_at.max(active.character.world().tick);
         let number = next_number(active.quests.changes());
         let line = quest::offer_line(giver, &offer);
@@ -126,7 +185,7 @@ impl Story {
             any_order: offer.any_order,
         };
         if active.quests.add(change).is_err() {
-            return Err(none);
+            return Err(none());
         }
         // The log holds the offer, so a refusal of the world loses only the fact.
         let _ = self.change(|character| {

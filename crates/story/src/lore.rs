@@ -2,9 +2,9 @@
 //! passages alone (GAMEPLAY.md 3.1, 5.6, and 5.9). No I/O: the caller carries each prompt
 //! to the model, and each answer back.
 
-use crate::check::{check, without_citations};
+use crate::check::{Fault, check, without_citations};
 use crate::pack::Passage;
-use crate::prompt::{self, Context};
+use crate::prompt::{self, Attempt, Context};
 use serde::Serialize;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
@@ -19,12 +19,6 @@ pub struct LoreCall {
     prompt: String,
     passages: Vec<Passage>,
     attempt: Attempt,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Attempt {
-    First,
-    Retry,
 }
 
 #[derive(Debug)]
@@ -62,7 +56,7 @@ impl LoreCall {
         }
         match self.attempt {
             Attempt::First => Next::Ask(LoreCall {
-                prompt: prompt::retry(&self.prompt, text, &faults),
+                prompt: prompt::retry(&self.prompt, text, &reasons(&faults)),
                 passages: self.passages,
                 attempt: Attempt::Retry,
             }),
@@ -77,4 +71,8 @@ impl LoreCall {
             passages: self.passages,
         }
     }
+}
+
+fn reasons(faults: &[Fault]) -> Vec<String> {
+    faults.iter().map(ToString::to_string).collect()
 }

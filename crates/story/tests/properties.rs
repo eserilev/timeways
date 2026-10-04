@@ -496,7 +496,8 @@ fn play_once(story: &mut Story, play: &Play, clock: &mut u64) -> Vec<Output> {
     };
     let text = match play {
         Play::Talk(_, say) => serde_json::json!({ "say": say, "trust": 1 }).to_string(),
-        Play::Quest(_, steps) => quest_answer(steps),
+        // A refused answer gets a retry, and the model answers it the same way.
+        Play::Quest(_, steps) => return answer_every_call(story, outputs, &quest_answer(steps)),
         _ => return Vec::new(),
     };
     let call = *call;
