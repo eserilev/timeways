@@ -25,6 +25,7 @@ ignore:
   - deny.toml
   - docs
   - fuzz
+  - lean
   - GAMEPLAY.md
   - README.md
   - rustfmt.toml
