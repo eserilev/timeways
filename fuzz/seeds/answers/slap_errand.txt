@@ -1,0 +1,1 @@
+{"title": "A Lesson", "genre": "errand", "text": "I need your help.", "steps": [{"goal": "slap", "npc": "Farmer Bram"}]}

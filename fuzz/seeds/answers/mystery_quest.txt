@@ -1,0 +1,1 @@
+{"title": "A Cask Gone Missing", "genre": "mystery", "text": "My best cask vanished. Ask Bram.", "steps": [{"goal": "talk", "npc": "Farmer Bram", "about": "the cask"}, {"goal": "wait", "days": 1}, {"goal": "visit_at", "place": "Old Tower", "time": "night"}]}

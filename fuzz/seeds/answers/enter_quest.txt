@@ -1,0 +1,1 @@
+{"title": "Into the Dark", "genre": "errand", "text": "I need your help.", "steps": [{"goal": "enter", "dungeon": "The Deadmines"}]}

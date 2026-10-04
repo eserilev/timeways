@@ -74,6 +74,10 @@ enum Play {
     /// A story that a player of the party told, accepted, with its number in the addon.
     StoryAccept(u64, String),
     StoryRemove(u64),
+    /// The local hour changed.
+    HourChanged(u8),
+    /// The count of linen in the bags, at a meeting with an NPC.
+    ItemsHeld(String, u16),
 }
 
 /// A step as a model proposes it. The count of a kill sits often at its edges.
@@ -81,7 +85,10 @@ enum Play {
 enum TaskStep {
     Visit(String),
     Meet(String),
+    Talk(String),
     Kill(String, u8),
+    /// A wait of days, often at the edges of 1 to 3.
+    Wait(u8),
 }
 
 fn task_step(names: impl Strategy<Value = String> + Clone) -> impl Strategy<Value = TaskStep> {
@@ -95,7 +102,15 @@ fn task_step(names: impl Strategy<Value = String> + Clone) -> impl Strategy<Valu
     prop_oneof![
         names.clone().prop_map(TaskStep::Visit),
         names.clone().prop_map(TaskStep::Meet),
+        names.clone().prop_map(TaskStep::Talk),
         (names, count).prop_map(|(creature, count)| TaskStep::Kill(creature, count)),
+        prop_oneof![
+            Just(0u8),
+            Just(1),
+            Just(MAX_WAIT_DAYS),
+            Just(MAX_WAIT_DAYS + 1)
+        ]
+        .prop_map(TaskStep::Wait),
     ]
 }
 
@@ -204,6 +219,20 @@ fn play() -> impl Strategy<Value = Play> {
         (0u64..4, "Zqstory [A-Za-z ]{1,60}")
             .prop_map(|(number, text)| Play::StoryAccept(number, text)),
         (0u64..4).prop_map(Play::StoryRemove),
+        hour().prop_map(Play::HourChanged),
+        (
+            name(),
+            prop_oneof![Just(0u16), Just(1), Just(20), any::<u16>()]
+        )
+            .prop_map(|(npc, count)| Play::ItemsHeld(npc, count)),
+    ]
+}
+
+/// An hour at the edges of a time of day, and one past 23.
+fn hour() -> impl Strategy<Value = u8> {
+    prop_oneof![
+        prop::sample::select(vec![4u8, 5, 7, 8, 20, 21, 23, 0]),
+        0u8..=24,
     ]
 }
 
@@ -423,6 +452,13 @@ fn input(play: &Play, at: Tick) -> Option<Input> {
         Play::EndBatch(_) => Input::BatchEnd { id: MessageId(4) },
         Play::StoryAccept(number, text) => Input::StoryAccepted { at, number, text },
         Play::StoryRemove(number) => Input::StoryRemoved { at, number },
+        Play::HourChanged(hour) => Input::HourChanged { at, hour },
+        Play::ItemsHeld(npc, count) => Input::ItemsHeld {
+            at,
+            npc,
+            item: "Linen Cloth".to_string(),
+            count,
+        },
     })
 }
 
@@ -433,6 +469,8 @@ fn quest_answer(steps: &[TaskStep]) -> String {
         .map(|step| match step {
             TaskStep::Visit(place) => serde_json::json!({ "goal": "visit", "place": place }),
             TaskStep::Meet(npc) => serde_json::json!({ "goal": "meet", "npc": npc }),
+            TaskStep::Talk(npc) => serde_json::json!({ "goal": "talk", "npc": npc }),
+            TaskStep::Wait(days) => serde_json::json!({ "goal": "wait", "days": days }),
             TaskStep::Kill(creature, count) => {
                 serde_json::json!({ "goal": "kill", "creature": creature, "count": count })
             }
@@ -574,31 +612,39 @@ impl Targets {
         }
     }
 
-    fn allows(&self, giver: &str, step: &TaskStep) -> bool {
-        if self.last.contains(&target(step).to_string()) {
+    /// `before` holds the steps before `step` in its quest: a step names the giver only
+    /// after a wait.
+    fn allows(&self, giver: &str, step: &TaskStep, before: &[TaskStep]) -> bool {
+        if target(step).is_some_and(|target| self.last.iter().any(|last| last == target)) {
             return false;
         }
+        let after_wait = before.iter().any(|step| matches!(step, TaskStep::Wait(_)));
         match step {
             TaskStep::Visit(place) => self.places.contains(place),
-            TaskStep::Meet(npc) => {
+            TaskStep::Meet(npc) | TaskStep::Talk(npc) => {
                 let sighting = self.seen.get(npc);
                 let known = self.met.contains(npc) || sighting.is_some();
                 let friendly = sighting
                     .is_none_or(|(reaction, animal)| *reaction == Reaction::Friendly && !animal);
-                npc != giver && known && friendly
+                (npc != giver || after_wait) && known && friendly
             }
             TaskStep::Kill(creature, count) => {
                 let seen = self.seen.get(creature);
                 let hostile = seen.is_some_and(|(reaction, _)| *reaction == Reaction::Hostile);
                 hostile && (1..=MAX_KILLS).contains(count)
             }
+            TaskStep::Wait(days) => (1..=MAX_WAIT_DAYS).contains(days),
         }
     }
 }
 
-fn target(step: &TaskStep) -> &str {
+fn target(step: &TaskStep) -> Option<&str> {
     match step {
-        TaskStep::Visit(name) | TaskStep::Meet(name) | TaskStep::Kill(name, _) => name,
+        TaskStep::Visit(name)
+        | TaskStep::Meet(name)
+        | TaskStep::Talk(name)
+        | TaskStep::Kill(name, _) => Some(name),
+        TaskStep::Wait(_) => None,
     }
 }
 
@@ -1093,10 +1139,10 @@ proptest! {
             let (Some(giver), Play::Quest(_, steps)) = (offer_giver(&outputs), play) else {
                 continue;
             };
-            for step in steps {
-                prop_assert!(targets.allows(giver, step), "{step:?} from {giver}");
+            for (n, step) in steps.iter().enumerate() {
+                prop_assert!(targets.allows(giver, step, &steps[..n]), "{step:?} from {giver}");
             }
-            targets.last = steps.iter().map(|step| target(step).to_string()).collect();
+            targets.last = steps.iter().filter_map(target).map(str::to_string).collect();
         }
     }
 

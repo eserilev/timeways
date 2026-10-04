@@ -1,0 +1,1 @@
+{"title": "Odd Jobs", "genre": "errand", "text": "I need your help.", "steps": [{"goal": "any_order", "steps": [{"goal": "any_order", "steps": [{"goal": "visit", "place": "Old Tower"}]}, {"goal": "meet", "npc": "Farmer Bram"}]}]}

@@ -1,0 +1,1 @@
+{"title": "Old Scores", "genre": "errand", "text": "I need your help.", "steps": [{"goal": "defeat", "boss": "Edwin VanCleef"}]}

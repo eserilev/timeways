@@ -1,0 +1,1 @@
+{"title": "Come Back Later", "genre": "errand", "text": "I need your help.", "steps": [{"goal": "visit", "place": "Old Tower"}, {"goal": "wait", "days": 2}, {"goal": "talk", "npc": "Keeper Tessa"}]}

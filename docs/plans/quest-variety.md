@@ -1,8 +1,8 @@
 # Plan: quest variety
 
-Status: in build, 2026-10-03. The user approved the design. When a part is built, its rules move into `GAMEPLAY.md` (section 19 of this plan), and this plan marks the part as done.
+Status: built, 2026-10-03, except step 13 (the choice link), which waits for standing.md. The rules of the built steps are in `GAMEPLAY.md` 3.4, 3.5, 5.4, and 5.14 (step 14).
 
-Built so far (section 17):
+Changes from this plan, by step of section 17:
 
 - Step 1, per-step state. Changed from this plan: an offer shows its steps plainly, not faded. Only a later step of a quest in progress shows faded, because a faded offer reads as a quest that you cannot take.
 - Step 2, one place moves the quests. `Here` and `Encounter` grow with the steps that need them.
@@ -16,6 +16,9 @@ Built so far (section 17):
 - Step 10, time of day. `emote_done` and `died` with an hour do a `visit_at` step too, as 4.5 says. The ticker runs each 60 seconds from `Core.lua`.
 - Step 11, level, dungeon, and game quest. An enter or defeat step that names an unknown place or boss gets its own fault: `UnknownDungeon` and `UnknownBoss`. The dungeon, boss, and game quest lists and the level line show in the prompt only when they hold something. The rule "In a mystery, the text names only the first step." went into the prompt with this step.
 - Step 12, hidden steps. "More to come." shows faded, as a later step does.
+- Step 13, the choice link: not built. standing.md is not built, so there is no choice quest. The hooks stay: `ShapePart::Choice`, and `Genre::Rivalry` for the rule "a choice only in a rivalry".
+- Tests. The tests of 13 are built, with these changes. The tests that need standing.md are left out: `a_choice_quest_never_names_the_giver_in_a_step`, `a_choice_adds_its_part_to_the_shape`, `a_choice_comes_only_in_a_rivalry`, and `a_slap_step_counts_in_the_slaps_of_the_town`. The variety tests are in `tests/variety.rs`. The play property `every_offer_in_play_differs_in_shape_from_the_two_before_it` reads the quest file of a world on disk. The fuzz model of `play.rs` gives quests a genre, an any-order set, and the steps talk, wait, visit_at, carry, and slap. `pages.rs` checks that no hidden step reaches the book. The `replies` and `store` targets did not change: `replies` reads the journal of the story program, which now holds the new fields.
+- The quest prompt of `tests/voice.rs`, with every list, goal, and recent offer at full length, is 1305 tokens of a budget of 1708. The talk prompt with a quest line and 5 memories is 978 tokens of 1823.
 
 This plan builds on four plans and does not repeat them:
 

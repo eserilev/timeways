@@ -1,0 +1,1 @@
+{"title": "A Proper Greeting", "genre": "errand", "text": "I need your help.", "steps": [{"goal": "emote", "emote": "bow", "npc": "Farmer Bram", "place": "Old Tower"}]}

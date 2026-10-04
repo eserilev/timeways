@@ -29,7 +29,24 @@ fuzz_target!(|run: Run| {
         "an event after the play did not land"
     );
     assert_quest_limits(&journal["quests"]);
+    assert_no_hidden_step(&journal["quests"]);
 });
+
+/// A mystery in progress shows only its done and open steps: a later step is a hidden
+/// step, and the book never gets one.
+fn assert_no_hidden_step(quests: &Value) {
+    for quest in quests.as_array().cloned().unwrap_or_default() {
+        let hides = quest["hidden_steps"].as_u64().unwrap_or(0) > 0;
+        if !hides || quest["status"] == "offered" {
+            continue;
+        }
+        let steps = quest["steps"].as_array().cloned().unwrap_or_default();
+        assert!(
+            steps.iter().all(|step| step["state"] != "later"),
+            "a hidden step in the book: {quest}"
+        );
+    }
+}
 
 fn now() -> u64 {
     let since_epoch = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH);

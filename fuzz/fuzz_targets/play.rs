@@ -21,6 +21,13 @@ pub const KINDS: [&str; 3] = ["quest", "gossip", "book"];
 const CREATURES: [&str; 4] = ["beast", "critter", "humanoid", "Not A Token"];
 pub const EMOTES: [&str; 5] = ["dance", "kiss", "wave", "cheer", "flex"];
 pub const CAUSES: [&str; 4] = ["falling", "drowning", "lava", "fire"];
+/// The genres of a quest, and one that the check refuses.
+const GENRES: [&str; 7] = [
+    "errand", "hunt", "mystery", "rescue", "rivalry", "comic", "romance",
+];
+const TIMES: [&str; 5] = ["dawn", "noon", "dusk", "night", "teatime"];
+/// Goods of the list of carry steps, and one that is not on it.
+const GOODS: [&str; 3] = ["Linen Cloth", "Wool Cloth", "Gold Bar"];
 
 /// Plain words that pass the checks of a model answer.
 pub const PROSE: [&str; 4] = [
@@ -118,6 +125,14 @@ pub enum Play {
     Wait(u16),
     /// The clock of the computer jumps: back, far ahead, or to its end.
     Clock(i64),
+    /// The local hour changed, while a time step is open or not.
+    Hour(u8),
+    /// The count of a good in the bags, at a meeting with the NPC.
+    Items {
+        npc: Name,
+        good: u8,
+        count: u32,
+    },
 }
 
 /// The words of the model for one call. A call takes the next one, and the list repeats.
@@ -134,6 +149,10 @@ pub struct Words {
     steps: Vec<(u8, u8, u8)>,
     /// A name that the prompt does not list, for a step that the check refuses.
     stranger: Option<Name>,
+    /// The genre of a quest, by index.
+    genre: u8,
+    /// The first two steps of a quest go in an any-order set.
+    set: bool,
 }
 
 /// The plays come last, so they take every byte that is left: a long input is a long play.
@@ -209,6 +228,11 @@ fn input(play: &Play, at: u64) -> Option<Value> {
         }
         Play::Accept(number) => json!({"type": "quest_accepted", "at": at, "number": number}),
         Play::Decline(number) => json!({"type": "quest_declined", "at": at, "number": number}),
+        Play::Hour(hour) => json!({"type": "hour_changed", "at": at, "hour": hour}),
+        Play::Items { npc, good, count } => {
+            let item = GOODS[usize::from(*good) % GOODS.len()];
+            json!({"type": "items_held", "at": at, "npc": npc.0, "item": item, "count": count})
+        }
         Play::Wait(_) | Play::Switch | Play::Clock(_) | Play::Settle => return None,
     })
 }
@@ -230,20 +254,43 @@ fn quest(prompt: &str, words: &Words) -> Value {
     let prey = listed(prompt, "Creatures that the player can hunt:");
     let mut steps: Vec<Value> = Vec::new();
     for (goal, index, count) in &words.steps {
-        let names = [&places, &people, &prey][usize::from(*goal % 3)];
-        let Some(name) = names.get(usize::from(*index) % names.len().max(1)) else {
-            continue;
-        };
-        steps.push(match goal % 3 {
-            0 => json!({"goal": "visit", "place": name}),
-            1 => json!({"goal": "meet", "npc": name}),
-            _ => json!({"goal": "kill", "creature": name, "count": count % 12}),
-        });
+        if let Some(step) = step(*goal, *index, *count, [&places, &people, &prey]) {
+            steps.push(step);
+        }
     }
     if let Some(stranger) = &words.stranger {
         steps.push(json!({"goal": "meet", "npc": stranger.0}));
     }
-    json!({"title": words.title.0, "text": words.text.0, "steps": steps})
+    if words.set && steps.len() >= 2 {
+        let set: Vec<Value> = steps.drain(..2).collect();
+        steps.insert(0, json!({"goal": "any_order", "steps": set}));
+    }
+    let genre = GENRES[usize::from(words.genre) % GENRES.len()];
+    json!({"title": words.title.0, "genre": genre, "text": words.text.0, "steps": steps})
+}
+
+/// One step of a goal, by its number, on a name of its list.
+fn step(goal: u8, index: u8, count: u8, [places, people, prey]: [&[&str]; 3]) -> Option<Value> {
+    let pick = |names: &[&str]| -> Option<String> {
+        let name = names.get(usize::from(index) % names.len().max(1))?;
+        Some((*name).to_string())
+    };
+    Some(match goal % 8 {
+        0 => json!({"goal": "visit", "place": pick(places)?}),
+        1 => json!({"goal": "meet", "npc": pick(people)?}),
+        2 => json!({"goal": "kill", "creature": pick(prey)?, "count": count % 12}),
+        3 => json!({"goal": "talk", "npc": pick(people)?}),
+        4 => json!({"goal": "wait", "days": count % 5}),
+        5 => {
+            let time = TIMES[usize::from(count) % TIMES.len()];
+            json!({"goal": "visit_at", "place": pick(places)?, "time": time})
+        }
+        6 => {
+            let item = GOODS[usize::from(count) % GOODS.len()];
+            json!({"goal": "carry", "item": item, "count": count % 22, "npc": pick(people)?})
+        }
+        _ => json!({"goal": "slap", "npc": pick(people)?}),
+    })
 }
 
 /// The answer of a model that knows which call it answers.

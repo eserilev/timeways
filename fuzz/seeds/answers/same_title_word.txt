@@ -1,0 +1,1 @@
+{"title": "The Lantern Again", "genre": "errand", "text": "I need your help.", "steps": [{"goal": "meet", "npc": "Farmer Bram"}, {"goal": "visit", "place": "Old Tower"}]}

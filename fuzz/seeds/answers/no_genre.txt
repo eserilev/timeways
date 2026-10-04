@@ -1,0 +1,1 @@
+{"title": "Fresh Bread", "text": "I need bread.", "steps": [{"goal": "meet", "npc": "Farmer Bram"}]}

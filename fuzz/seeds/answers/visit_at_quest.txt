@@ -1,0 +1,1 @@
+{"title": "Night Watch", "genre": "errand", "text": "I need your help.", "steps": [{"goal": "visit_at", "place": "Old Tower", "time": "night"}]}
