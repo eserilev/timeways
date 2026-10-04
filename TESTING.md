@@ -6,9 +6,17 @@ The steps to test Timeways in WoW: Forever, and what to send back.
 
 The game runs a stable copy of the code, so work in the repo does not change the game in the middle of a test.
 
-- **The addon:** the `Timeways` link in the AddOns folder points to `../timeways-test/addon/Timeways`. That folder is a git worktree of one commit. To see which one, run `git -C ../timeways-test log -1 --oneline`. To move it, run `git -C ../timeways-test checkout --detach <commit>`, and build the story program again.
+- **The addon:** the `Timeways` link in the AddOns folder points to `../timeways-test/addon/Timeways`. That folder is a git worktree of one commit. To see which one, run `git -C ../timeways-test log -1 --oneline`. To move it, run `git -C ../timeways-test checkout --detach <commit>`, and build the story program again:
+
+  ```sh
+  cargo build --release -p timeways-story --manifest-path ../timeways-test/Cargo.toml
+  cp ~/.local/bin/timeways-story ~/.local/bin/timeways-story.old
+  cp ../timeways-test/target/release/timeways-story ~/.local/bin/
+  ```
+
 - **The story program:** `~/.local/bin/timeways-story`, built from the same commit. The old program is `~/.local/bin/timeways-story.old`.
-- **The world files:** `~/.local/share/gnomish-relay/timeways/story/worlds/r_<realm>/c_<name>.sqlite`.
+- **The world files:** `~/.local/share/gnomish-relay/timeways/story/worlds/r_<realm>/c_<name>.sqlite`. A world of an older build (a `.jsonl` file, or a `.sqlite` of another version) is not read: the character starts a new world, and the old file stays.
+- **What all characters share:** `timeways.sqlite` in the same data folder, with the narrator's budget and pace.
 
 ## Before the first test
 
@@ -61,33 +69,33 @@ The answer uses that text, and says where you learned it. Open `/journal` on the
 
 ### 5. A side quest
 
-This test needs a model. Without one, the NPC "has no task for you now", and the rest of the test does not apply.
+This test needs a model. Without one, the NPC has no quest for you, and the rest of the test does not apply.
 
 1. Visit two subzones, and talk to two NPCs there.
 2. Hover your mouse over two hostile creatures, for example two kinds of wolves.
 3. Target one of those NPCs, and type `/quest`.
-4. Wait a minute. A chat line with the "Timeways:" prefix shows the offer. A task never sends you to talk to a creature that you can attack.
-5. Type `/quest accept`. Open `/journal` on the Tasks tab.
-6. Check the map of the Tasks tab. The giver has a yellow "?". A step to visit a place or to meet an NPC has a pin with its number, when the journal knows where it is.
+4. Wait a minute. A chat line with the "Timeways:" prefix shows the offer. A quest never sends you to talk to a creature that you can attack.
+5. Type `/quest accept`. Open `/journal` on the Quests tab.
+6. Check the map of the Quests tab. The giver has a yellow "?". A step to visit a place or to meet an NPC has a pin with its number, when the journal knows where it is.
 7. Do the steps of the quest. For a kill step, hover or target each creature before you kill it. Check the page after each step: a kill step shows "<creature> slain: 1/<count>". The pin of a done step fades.
-8. Type `/quest` to another NPC. The new task names no place, NPC, or creature of the last one.
+8. Type `/quest` to another NPC. The new quest names no place, NPC, or creature of the last one.
 
 The quest shows "Done on" with the day. Hover the giver: the tooltip has a "Timeways:" line with its trust in you.
 
-### 6. Player tasks
+### 6. Player quests
 
 This test needs two characters with Timeways in one party, for example on two computers.
 
-1. On the first character (the giver), open `/journal` on the Tasks tab, and click New task.
+1. On the first character (the giver), open `/journal` on the Quests tab, and click New quest.
 2. Type a title. Type a step such as "talk to the innkeeper", and click Add. "Checking..." shows, then the step that the game checks.
 3. Type a step that the game can't check, such as "wave at me". It stays as you wrote it.
 4. Type 1 in the gold box. Drag a stack from your bags onto a reward slot. Right-click it to take it out, and drag it back.
-5. Click Save. The task shows in the list as "Not sent yet". Click it, pick the second character (the doer) under "Send to", and click Send.
-6. Click "Help me write" on a new task, and type a short idea. Check the draft, then click "Use this" or "Keep mine". Click Cancel.
-7. On the doer, the offer shows on the Tasks tab. Click Accept.
+5. Click Save. The quest shows in the list as "Not sent yet". Click it, pick the second character (the doer) under "Send to", and click Send.
+6. Click "Help me write" on a new quest, and type a short idea. Check the draft, then click "Use this" or "Keep mine". Click Cancel.
+7. On the doer, the offer shows on the Quests tab. Click Accept.
 8. Do the steps on the doer. Each step shows as done. Click Done on the step that you wrote.
 9. Stand next to the giver, and click Turn in on the doer.
-10. On the giver, the turn-in card shows each step with its proof: Witnessed, Seen, or Not confirmed. The written step says "They say it's done. You decide." Click Complete task.
+10. On the giver, the turn-in card shows each step with its proof: Witnessed, Seen, or Not confirmed. The written step says "They say it's done. You decide." Click Complete quest.
 11. Give the doer the gold and the item in a trade. The line of the reward changes to "Reward: paid in trade".
 
 ### 7. Your name stays private
@@ -100,15 +108,96 @@ In the world folder, run `sqlite3 c_<name>.sqlite "SELECT body FROM learned"`. Y
 2. Kill a rare, and die to a mob. Open `/journal` and check the Deeds tab.
 3. Check the Hero and Chronicle tabs. The Chronicle tab shows the newest chapter.
 
+### 9. NPCs remember you
+
+This test needs a model.
+
+1. Target an innkeeper and type `/talk any news?`. Then `/talk` again with another question. The second answer can bring up what the NPC told you the first time. It brings up at most one memory.
+2. `/quest` the same NPC, accept or decline the offer, then `/talk` about the quest. The NPC knows the quest and your answer, such as "you turned it down" or "still on it".
+3. More than an hour after you first met an NPC, `/talk` it again. It can recall that it met you ("a while back"), never with a date.
+4. Kill a rare, or die to one, in a zone. Then `/talk` an NPC of a town in that zone. It can mention the kill or the death. An NPC that killed you speaks of the fight instead.
+
+### 10. Your Hero sheet shapes some talks and quests
+
+This test needs a model.
+
+1. On the Hero page, answer the Goal question, for example "Find my father's killer".
+2. Use `/talk` or `/quest` three times in all. The third answer or quest ties in your goal. The first two do not. Every third call works the same way (the 6th, the 9th).
+3. Also answer Flaw, then talk three more times. The next hook uses your flaw. The order is goal, bond, flaw, then traits. Origin and background never show up as a hook.
+
+### 11. New kinds of quests
+
+This test needs a model.
+
+1. `/quest` an NPC a few times, and accept or decline each offer. Each offer differs from the last two in its steps and in its title words.
+2. Accept a quest with a talk step. Target its NPC and `/talk`. The step shows "(Complete)", and the NPC plays along with the quest.
+3. Accept a quest with "Wait 1 day". The Quests page shows the time left. After the day, any event finishes the wait, and the next step opens.
+4. Accept a quest with "In any order". Do its steps in the reverse order. Both complete, and only then does the next step open.
+5. Accept a quest that asks you to bring goods, such as "Bring Linen Cloth to X: 0/10". The count follows your bags. Open the gossip window of X with enough cloth: the step completes within the next batch. You keep the cloth.
+6. If an offer has a step such as "Visit ... at night", stand in the place as the hour turns. The step completes without you leaving.
+7. A mystery quest shows only the steps that you reached.
+
+### 12. Why an NPC trusts you
+
+1. Slap an NPC (`/slap` on your target). Hover it. Under "Timeways: ...", a second line says "Went down when you slapped them."
+2. `/talk` an NPC until its trust changes. The second line says "Went up after you talked." or "Went down after you talked."
+3. Finish a side quest. Hover its giver: "Went up when you finished their quest."
+
+### 13. Stories about each other
+
+This test needs two characters with Timeways in one party.
+
+1. On the first character, target the second and type `/story Corvin held the bridge alone.` (use the real name). The chat says "You told ... a story about them."
+2. On the second character, the chat says "... told a story about you. Type /story to read it." Type `/story`. The story shows, with "Type /story accept or /story decline."
+3. Open `/hero`. Under "Stories About You", the story shows with Accept, and the author with Decline, and the line "To report abuse, open Support in the game menu."
+4. Click Accept. The first character's chat says "... accepted your story." On the second character, the story shows with "Told by ..." and Remove. The name of the second character shows in place of `$N`.
+5. Tell a second story, and click Decline. The first character's chat says "... declined your story."
+6. Tell a story that names the first character. Leave the party. Accept it the next day. In the world file, run `sqlite3 c_<name>.sqlite "SELECT body FROM stories"`: the name shows as "my friend", never the real name.
+7. Click Remove on an accepted story, then Remove in the dialog. The story leaves the page.
+8. A character who is not in your group can't tell you a story: nothing arrives.
+
+### 14. Messages that Blizzard can read
+
+1. Open the game menu (Escape). Check that it has a button named "Support". If the name differs, write it down: the line "To report abuse, open Support in the game menu." needs the real name.
+2. In the quest form, under "Send to", check the line "Like chat, Blizzard can read what you send."
+3. Send a quest and a story by whisper, in a party, and in a guild. Each one arrives as before.
+
+### 15. Roleplay profiles (MSP)
+
+This test needs a second player who uses Total RP 3 or MyRolePlay, and is of your faction.
+
+1. Open `/hero`. Click "Roleplay Profile". Fill in a name and a title, and click Share.
+2. On the other player, mouse over your character. Their roleplay addon shows your name and title. Open your profile there: the history shows your answer to the background question.
+3. On your character, mouse over the other player. Your tooltip shows their roleplay name and title.
+4. Click "Stop sharing". After a minute, the other player no longer gets updates from you.
+5. Mouse over a player of the other faction. No error line shows in the chat.
+6. If you use Total RP 3 yourself: the Roleplay Profile section shows your Total RP 3 fields, read only, with "From Total RP 3".
+
+### 16. Remembered players
+
+1. Right-click a player (a party frame, a target, or a name in chat). Click Remember, then Friendly.
+2. Click Remember, then "Add a note". Type a note and save it. Paste a tab into the note too: the tab becomes a space, and the note stays.
+3. Mouse over the player. The tooltip has a line such as "Friendly: Great healer."
+4. Click Remember, then Forget. The line leaves the tooltip.
+
+### 17. The welcome window
+
+1. Type `/timeways help`. Check the install line in the window: it shows one `|`, as in `curl -fsSL ... | sh`, not `||` and not a gap.
+2. Copy the line from the window, and paste it in a terminal. It is the exact command.
+
 ## What to send back
 
 - Each Lua error, as text.
 - The chat lines of `/timeways test`.
 - What the lore book showed for each `/lore` question.
-- The offer line of `/quest`, and the Tasks tab at the end, with its map.
-- What each character saw in the test of player tasks.
+- The offer line of `/quest`, and the Quests tab at the end, with its map.
+- What each character saw in the test of player quests.
 - The first 3 rows of `sqlite3 c_<name>.sqlite "SELECT body FROM learned LIMIT 3"`.
 - The result of each open question.
+- For tests 9 to 11: each `/talk` answer and each quest offer, as text.
+- For test 13: the result of the `sqlite3` command of step 6.
+- For test 14: the name of the Support button.
+- For tests 15 to 17: a screenshot of each tooltip line and of the install line.
 
 ## After the test
 
