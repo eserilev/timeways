@@ -419,7 +419,11 @@ fn a_peer_that_floods_loses_its_parts_and_nobody_elses() {
     corvin.hear("Timeways", "1:1:1:1;hello", "GUILD", &bram.full_name());
 
     assert_eq!(answers_to_ada, 24);
-    let answers: Vec<Option<String>> = corvin.take_sent().into_iter().map(|sent| sent.3).collect();
+    let answers: Vec<Option<String>> = corvin
+        .take_sent()
+        .into_iter()
+        .map(|sent| sent.target)
+        .collect();
     assert_eq!(answers, [Some(bram.full_name())]);
 }
 
@@ -478,7 +482,11 @@ fn a_call_in_a_group_finder_group_goes_to_the_instance_channel() {
 
     ada.run("ns.PlayerTasks.Call()");
 
-    let channels: Vec<String> = ada.take_sent().into_iter().map(|sent| sent.2).collect();
+    let channels: Vec<String> = ada
+        .take_sent()
+        .into_iter()
+        .map(|sent| sent.channel)
+        .collect();
     assert_eq!(channels, ["INSTANCE_CHAT", "GUILD"]);
 }
 
@@ -543,4 +551,20 @@ fn a_player_of_a_realm_with_a_space_in_its_name_is_found_in_the_group() {
     let unit: Option<String> = ada.eval("ns.TaskPeople.GroupUnit('Bram-ArgentDawn')");
 
     assert_eq!(unit.as_deref(), Some("party1"));
+}
+
+#[test]
+fn the_logged_channel_of_the_test_game_refuses_what_the_game_refuses() {
+    let game = Game::new();
+
+    let results: Vec<u32> = game.eval(
+        r"local results = {}
+         for _, text in ipairs({ 'Plain café ✓', 'a|b', 'a\\b', 'a\nb', 'a\127b', 'Caf\195',
+                 '\169t\195\169', '\229\141\141', '\239\191\191', '\237\160\128' }) do
+             results[#results + 1] = C_ChatInfo.SendAddonMessageLogged('Timeways', text, 'GUILD')
+         end
+         return results",
+    );
+
+    assert_eq!(results, [0, 2, 2, 2, 2, 2, 2, 2, 2, 2]);
 }

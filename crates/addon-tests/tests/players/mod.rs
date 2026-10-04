@@ -11,6 +11,20 @@ use crate::common::Game;
 
 pub const REALM: &str = "Stormrage";
 
+/// The event of the normal addon channel.
+pub const NORMAL: &str = "CHAT_MSG_ADDON";
+/// The event of the logged addon channel, which Blizzard support can read.
+pub const LOGGED: &str = "CHAT_MSG_ADDON_LOGGED";
+
+/// An addon message that a game sent. `event` is the event that the receiver gets.
+pub struct Sent {
+    pub prefix: String,
+    pub text: String,
+    pub channel: String,
+    pub target: Option<String>,
+    pub event: String,
+}
+
 pub struct Player {
     pub game: Game,
     pub name: &'static str,
@@ -70,31 +84,40 @@ impl Player {
         self.run("wow.units.party1 = nil");
     }
 
-    /// The addon messages that this game sent since the last delivery, as
-    /// (prefix, text, channel, target).
-    pub fn take_sent(&self) -> Vec<(String, String, String, Option<String>)> {
+    /// The addon messages that this game sent since the last delivery.
+    pub fn take_sent(&self) -> Vec<Sent> {
         let sent: Vec<mlua::Table> = self.eval("wow.addonSent");
         self.run("wow.addonSent = {}");
         sent.into_iter()
-            .map(|message| {
-                (
-                    message.get("prefix").unwrap(),
-                    message.get("text").unwrap(),
-                    message.get("channel").unwrap(),
-                    message.get("target").unwrap(),
-                )
+            .map(|message| Sent {
+                prefix: message.get("prefix").unwrap(),
+                text: message.get("text").unwrap(),
+                channel: message.get("channel").unwrap(),
+                target: message.get("target").unwrap(),
+                event: message.get("event").unwrap(),
             })
             .collect()
     }
 
     /// Fires `CHAT_MSG_ADDON` as the game does for a message of `sender`.
     pub fn hear(&self, prefix: &str, text: &str, channel: &str, sender: &str) {
+        self.hear_on(NORMAL, prefix, text, channel, sender);
+    }
+
+    /// Fires `CHAT_MSG_ADDON_LOGGED` as the game does for a logged message of `sender`.
+    pub fn hear_logged(&self, prefix: &str, text: &str, channel: &str, sender: &str) {
+        self.hear_on(LOGGED, prefix, text, channel, sender);
+    }
+
+    /// Fires `event`, the event of one of the two addon channels.
+    pub fn hear_on(&self, event: &str, prefix: &str, text: &str, channel: &str, sender: &str) {
         let fire: mlua::Function = self.eval(
-            "return function(prefix, text, channel, sender)
-                 wow.Fire('CHAT_MSG_ADDON', prefix, text, channel, sender, '', 0, 0, '', 0)
+            "return function(event, prefix, text, channel, sender)
+                 wow.Fire(event, prefix, text, channel, sender, '', 0, 0, '', 0)
              end",
         );
-        fire.call::<()>((prefix, text, channel, sender)).unwrap();
+        fire.call::<()>((event, prefix, text, channel, sender))
+            .unwrap();
     }
 
     /// Runs the timers of the game, as a second of play does.
@@ -111,14 +134,20 @@ fn is_for(target: Option<&str>, player: &Player) -> bool {
     target.is_none_or(|target| target == player.full_name() || target == player.name)
 }
 
-/// Carries every message that `from` sent to `to`: a whisper to `to`, and each message to the
-/// group or the guild. Returns how many it carried.
+/// Carries every message that `from` sent to `to`, on the channel that it went on: a whisper
+/// to `to`, and each message to the group or the guild. Returns how many it carried.
 pub fn deliver(from: &Player, to: &Player) -> usize {
     let sent = from.take_sent();
     let mut count = 0;
-    for (prefix, text, channel, target) in sent {
-        if is_for(target.as_deref(), to) {
-            to.hear(&prefix, &text, &channel, &from.full_name());
+    for message in sent {
+        if is_for(message.target.as_deref(), to) {
+            to.hear_on(
+                &message.event,
+                &message.prefix,
+                &message.text,
+                &message.channel,
+                &from.full_name(),
+            );
             count += 1;
         }
     }

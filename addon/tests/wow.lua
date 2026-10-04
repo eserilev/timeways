@@ -233,7 +233,8 @@ function hooksecurefunc(owner, name, hook)
 end
 
 -- Each addon message that the addon sent waits in `wow.addonSent`, as { prefix, text,
--- channel, target }, until a test delivers it.
+-- channel, target, event }, until a test delivers it. `event` is the event that the
+-- receiver gets: CHAT_MSG_ADDON, or CHAT_MSG_ADDON_LOGGED for a logged message.
 wow.addonSent = {}
 wow.prefixes = {}
 -- The game refuses a message with this result, for a test of the throttle.
@@ -253,6 +254,71 @@ local function SendResult(channel, target)
 	return wow.sendResult
 end
 
+-- The length of the UTF-8 letter that starts with `byte`, or nil for a byte that starts none.
+local function LetterLength(byte)
+	if byte < 128 then
+		return 1
+	end
+	if byte >= 194 and byte <= 223 then
+		return 2
+	end
+	if byte >= 224 and byte <= 239 then
+		return 3
+	end
+	if byte >= 240 and byte <= 244 then
+		return 4
+	end
+end
+
+-- The code point of the letter at `at`, or nil for a broken letter.
+local function CodePoint(text, at)
+	local first = text:byte(at)
+	local length = LetterLength(first)
+	if not length then
+		return nil
+	end
+	local point = length == 1 and first or first % (2 ^ (7 - length))
+	for n = 1, length - 1 do
+		local byte = text:byte(at + n)
+		if not byte or byte < 128 or byte > 191 then
+			return nil
+		end
+		point = point * 64 + byte % 64
+	end
+	local least = ({ 0, 128, 2048, 65536 })[length]
+	if point < least or (point >= 0xD800 and point <= 0xDFFF) or point > 0x10FFFF then
+		return nil
+	end
+	return point, length
+end
+
+-- The code points that the logged channel refuses: control characters, `|`, `\`, two
+-- non-letters, and two signs that Blizzard bans (rules of the Chomp library).
+local REFUSED_POINTS = { [124] = true, [92] = true, [127] = true, [0xFFFE] = true, [0xFFFF] = true }
+REFUSED_POINTS[0x534D], REFUSED_POINTS[0x5350] = true, true
+
+local function IsLoggable(text)
+	local at = 1
+	while at <= #text do
+		local point, length = CodePoint(text, at)
+		if not point or point < 32 or REFUSED_POINTS[point] then
+			return false
+		end
+		at = at + length
+	end
+	return true
+end
+
+local function Sent(prefix, text, channel, target, event)
+	assert(#text <= 255, "an addon message holds at most 255 bytes")
+	local result = SendResult(channel, target)
+	if result == 0 then
+		local message = { prefix = prefix, text = text, channel = channel, target = target, event = event }
+		wow.addonSent[#wow.addonSent + 1] = message
+	end
+	return result
+end
+
 C_ChatInfo = {
 	PerformEmote = function() end,
 	RegisterAddonMessagePrefix = function(prefix)
@@ -260,12 +326,14 @@ C_ChatInfo = {
 		return 0
 	end,
 	SendAddonMessage = function(prefix, text, channel, target)
-		assert(#text <= 255, "an addon message holds at most 255 bytes")
-		local result = SendResult(channel, target)
-		if result == 0 then
-			wow.addonSent[#wow.addonSent + 1] = { prefix = prefix, text = text, channel = channel, target = target }
+		return Sent(prefix, text, channel, target, "CHAT_MSG_ADDON")
+	end,
+	-- The game refuses a text that is not plain, with InvalidMessage.
+	SendAddonMessageLogged = function(prefix, text, channel, target)
+		if not IsLoggable(text) then
+			return Enum.SendAddonMessageResult.InvalidMessage
 		end
-		return result
+		return Sent(prefix, text, channel, target, "CHAT_MSG_ADDON_LOGGED")
 	end,
 }
 
