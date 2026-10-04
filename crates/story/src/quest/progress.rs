@@ -42,6 +42,7 @@ impl Tracked {
         match self.steps.get(step) {
             Some(Step::Visit { place }) => here.places.contains(&place.as_str()),
             Some(Step::Meet { npc }) => met.meets(npc),
+            Some(Step::Talk { npc, .. }) => matches!(met, Encounter::Talk(name) if name == npc),
             Some(Step::Kill { count, .. }) => self.kills[step] >= *count,
             None => false,
         }

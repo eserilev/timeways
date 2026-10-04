@@ -5,12 +5,13 @@ use super::{Active, EventsBatch, Pending, Story, StoryError, checked_name, reads
 use crate::character::Character;
 use crate::input::{Input, MessageId};
 use crate::quest::{
-    self, Encounter, Here, Known, MAX_OPEN_QUESTS, QuestChange, Status, Tracked, next_number,
+    self, Encounter, Here, Known, MAX_OPEN_QUESTS, QuestChange, Status, Step, Tracked, next_number,
     quest_log, thing_name,
 };
 use crate::seen::SeenText;
 use crate::store::{CharacterKey, Outcome};
 use crate::story::Output;
+use crate::talk::QuestTalk;
 use hourglass::Tick;
 
 /// A `/quest` of this batch. It waits for the end of the batch, because the offer comes
@@ -213,6 +214,39 @@ impl Story {
         }
         Ok(Vec::new())
     }
+}
+
+/// The NPC of a talk step keeps the quest in mind for one conversation: the time after
+/// which a conversation of `/talk` ends.
+const QUEST_TALK_SECONDS: u64 = 10 * 60;
+
+/// The quests whose talk step to this NPC was done in the last 10 minutes, with their
+/// numbers.
+pub(super) fn quest_talks<'q>(
+    quests: &'q [Tracked],
+    npc: &str,
+    at: Tick,
+) -> Vec<(u64, QuestTalk<'q>)> {
+    let recent = |done: &Option<Tick>| {
+        done.is_some_and(|done| at.0.saturating_sub(done.0) < QUEST_TALK_SECONDS)
+    };
+    let mut talks = Vec::new();
+    for quest in quests {
+        for (step, done) in quest.steps.iter().zip(&quest.done) {
+            let Step::Talk { npc: wanted, about } = step else {
+                continue;
+            };
+            if wanted == npc && recent(done) {
+                let talk = QuestTalk {
+                    giver: &quest.giver,
+                    title: &quest.title,
+                    about: about.as_deref(),
+                };
+                talks.push((quest.number, talk));
+            }
+        }
+    }
+    talks
 }
 
 /// What the line did, as far as a step can see it. Asking for a quest meets the NPC, but it

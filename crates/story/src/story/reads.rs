@@ -42,6 +42,15 @@ pub(super) fn passages_read(active: &Active, passages: &[Passage]) -> Vec<Node> 
         .collect()
 }
 
+/// Every `quests` row of these quests.
+pub(super) fn quest_rows(active: &Active, numbers: &[u64]) -> Vec<Node> {
+    (0..)
+        .zip(active.quests.changes())
+        .filter(|(_, change)| numbers.contains(&change.number()))
+        .map(|(row, _)| Node::Row(Table::Quests, row))
+        .collect()
+}
+
 /// The hero rows that add an entry that `about` picks.
 pub(super) fn entries_read(active: &Active, about: impl Fn(&Entry) -> bool) -> Vec<Node> {
     (0..)

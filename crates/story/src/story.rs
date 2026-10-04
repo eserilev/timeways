@@ -18,13 +18,13 @@ use crate::pack::{Link, Pack, PackError, Passage};
 use crate::passage_limits;
 use crate::places::InstanceKind;
 use crate::prompt::Context;
-use crate::quest::{QuestView, Status, quest_log};
+use crate::quest::{Encounter, QuestView, Status, quest_log};
 use crate::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use crate::seen::{MAX_SEEN_BYTES, SeenIndex, SeenText, TextKind};
 use crate::spot::Spot;
 use crate::store::{CharacterKey, Node, Opened, Shared, Store, StoreError, Table};
 use crate::stories::MAX_STORY_BYTES;
-use crate::talk::{self, Scene};
+use crate::talk::{self, QuestTalk, Scene};
 use crate::titles;
 use hourglass::Tick;
 use serde::Serialize;
@@ -1027,8 +1027,13 @@ impl Story {
         }
         checked_words(words)?;
         self.change(|character| character.meet_npc(at, npc))?;
+        // The talk step is done before the prompt, so the NPC hears of the quest at once.
+        self.advance_quests(at, &Encounter::Talk(npc.to_string()))?;
         let active = self.active.as_ref().ok_or(StoryError::NoCharacter)?;
         let character = &active.character;
+        let quest_log = quest_log(active.quests.changes());
+        let (numbers, quests): (Vec<u64>, Vec<QuestTalk>) =
+            quests::quest_talks(&quest_log, npc, at).into_iter().unzip();
         let mut passages =
             passages_for(&self.pack, &active.seen_index, character, words, Some(npc))?;
         passages.truncate(TALK_PASSAGES);
@@ -1044,6 +1049,7 @@ impl Story {
         read.extend(reads::passages_read(active, &passages));
         let memories = remembered(active, npc, at);
         read.extend(reads::memories_read(&memories));
+        read.extend(reads::quest_rows(active, &numbers));
         let scene = Scene {
             npc,
             place,
@@ -1055,6 +1061,7 @@ impl Story {
                 .iter()
                 .map(|memory| npc_memory::line(memory, at))
                 .collect(),
+            quests,
         };
         let prompt = talk::prompt(&scene, &passages, words, self.turn());
         let pending = Pending::Talk {

@@ -36,7 +36,7 @@ local function StepSpot(journal, step)
 	if step.goal == "visit" then
 		return Spot(Named(journal.places, step.place))
 	end
-	if step.goal == "meet" then
+	if step.goal == "meet" or step.goal == "talk" then
 		return Spot(Named(journal.people, step.npc))
 	end
 end

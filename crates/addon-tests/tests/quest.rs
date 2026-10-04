@@ -598,3 +598,33 @@ fn the_steps_of_an_offer_show_as_plain_steps() {
 
     assert_eq!(lines(&game)[4], "entry: Visit Mill Pond.");
 }
+
+/// The line of the second step of the lantern quest, with this step in its place.
+fn second_step_line(step: Step) -> String {
+    let game = Game::new();
+    let mut quest = lantern(Status::Accepted, 1);
+    quest.steps[1].step = step;
+    game.reply(&quest_reply(quest));
+    lines(&game).remove(5)
+}
+
+#[test]
+fn a_talk_step_names_the_command_to_use() {
+    let plain = Step::Talk {
+        npc: "Farmer Bram".to_string(),
+        about: None,
+    };
+    let topic = Step::Talk {
+        npc: "Farmer Bram".to_string(),
+        about: Some("the missing cask".to_string()),
+    };
+
+    assert_eq!(
+        second_step_line(plain),
+        "entry: Talk to Farmer Bram (/talk)."
+    );
+    assert_eq!(
+        second_step_line(topic),
+        "entry: Ask Farmer Bram about the missing cask (/talk)."
+    );
+}

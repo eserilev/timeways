@@ -2,9 +2,9 @@
 
 use hourglass::Tick;
 use timeways_story::quest::{
-    Encounter, Here, Known, MAX_KILLS, MAX_OFFER_BYTES, MAX_TITLE_CHARS, Quest, QuestChange,
-    QuestFault, Status, Step, checked_quest, offer_line, prompt, quest_log, thing_name,
-    title_of_thing,
+    Encounter, Here, Known, MAX_KILLS, MAX_OFFER_BYTES, MAX_TITLE_CHARS, MAX_TOPIC_CHARS, Quest,
+    QuestChange, QuestFault, Status, Step, checked_quest, offer_line, prompt, quest_log,
+    thing_name, title_of_thing,
 };
 use timeways_story::seen::{SeenText, TextKind};
 
@@ -675,4 +675,99 @@ fn a_step_opens_when_the_step_before_it_is_done() {
     assert_eq!(before.opened_at(1), None);
     assert_eq!(after.open_steps(), [1]);
     assert_eq!(after.opened_at(1), Some(Tick(5)));
+}
+
+fn talk_to(npc: &str, about: Option<&str>) -> String {
+    match about {
+        Some(about) => format!(r#"{{"goal": "talk", "npc": "{npc}", "about": "{about}"}}"#),
+        None => format!(r#"{{"goal": "talk", "npc": "{npc}"}}"#),
+    }
+}
+
+#[test]
+fn a_talk_step_names_an_npc_that_you_can_meet() {
+    let seen = [];
+    let text = answer(
+        "A Word with Bram",
+        &talk_to("Farmer Bram", Some("the missing cask")),
+    );
+
+    let quest = checked_quest(&text, &known(&seen)).unwrap();
+
+    assert_eq!(
+        quest.steps,
+        [Step::Talk {
+            npc: "Farmer Bram".to_string(),
+            about: Some("the missing cask".to_string()),
+        }]
+    );
+}
+
+#[test]
+fn a_talk_step_never_names_a_foe_or_an_animal() {
+    let seen = [];
+    let text = answer("A Word with a Bat", &talk_to("Duskbat", None));
+
+    assert_eq!(
+        checked_quest(&text, &known(&seen)).unwrap_err(),
+        QuestFault::UnknownNpc("Duskbat".to_string())
+    );
+}
+
+#[test]
+fn a_talk_topic_over_sixty_characters_is_refused() {
+    let seen = [];
+    let sixty = "a".repeat(MAX_TOPIC_CHARS);
+    let long = answer(
+        "A Long Word",
+        &talk_to("Farmer Bram", Some(&format!("{sixty}a"))),
+    );
+    let fits = answer("A Long Word", &talk_to("Farmer Bram", Some(&sixty)));
+
+    assert_eq!(
+        checked_quest(&long, &known(&seen)).unwrap_err(),
+        QuestFault::BadTopic
+    );
+    assert!(checked_quest(&fits, &known(&seen)).is_ok());
+}
+
+#[test]
+fn a_talk_topic_with_a_name_after_the_cutoff_is_refused() {
+    let seen = [];
+    let text = answer(
+        "A Word with Bram",
+        &talk_to("Farmer Bram", Some("the road to Pandaria")),
+    );
+
+    assert_eq!(
+        checked_quest(&text, &known(&seen)).unwrap_err(),
+        QuestFault::BadTopic
+    );
+}
+
+#[test]
+fn a_talk_step_never_sends_you_back_to_the_giver() {
+    let seen = [];
+    let text = answer("A Word with Me", &talk_to(GIVER, None));
+
+    assert_eq!(
+        checked_quest(&text, &known(&seen)).unwrap_err(),
+        QuestFault::MeetGiver
+    );
+}
+
+#[test]
+fn the_prompt_shows_a_goal_only_when_its_list_has_a_name() {
+    let seen = [];
+    let mut known = known(&seen);
+    known.foes = Vec::new();
+    known.npcs = vec![GIVER];
+
+    let text = prompt(&known, Some("Testvale"));
+
+    assert!(text.contains(r#""goal": "visit""#), "{text}");
+    for goal in ["meet", "talk", "kill"] {
+        let shown = format!(r#""goal": "{goal}""#);
+        assert!(!text.contains(&shown), "{goal}: {text}");
+    }
 }

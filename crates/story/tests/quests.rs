@@ -911,3 +911,94 @@ fn a_talk_remembers_the_quest_that_the_npc_gave() {
         "{prompt}"
     );
 }
+
+const TALK_BRAM: &str = r#"{"goal": "talk", "npc": "Farmer Bram", "about": "the missing cask"}"#;
+
+/// An accepted quest with one step: ask Farmer Bram about the missing cask.
+fn talk_quest(name: &str) -> Story {
+    let mut story = story(name);
+    let (call, _) = call_of(ask(&mut story, 5));
+    answer_with(&mut story, call, "A Word with Bram", TALK_BRAM);
+    accept(&mut story, 6, None);
+    story
+}
+
+/// `/talk` to the NPC: the prompt of the call. The call then fails, so its slot is free.
+fn talk_prompt(story: &mut Story, at: u64, npc: &str) -> String {
+    let talk = Input::TalkAsked {
+        id: MessageId(8),
+        at: Tick(at),
+        npc: npc.to_string(),
+        text: "Hello there.".to_string(),
+    };
+    let (call, prompt) = call_of(story.handle(talk).unwrap().remove(0));
+    story.handle(Input::ModelFailed { call }).unwrap();
+    prompt
+}
+
+#[test]
+fn a_talk_does_a_talk_step() {
+    let mut story = talk_quest("talk-step");
+
+    talk_prompt(&mut story, 7, "Farmer Bram");
+
+    assert_eq!(quests(&mut story)[0].status, Status::Done);
+}
+
+#[test]
+fn a_gossip_window_never_does_a_talk_step() {
+    let mut story = talk_quest("gossip-no-talk");
+
+    story.handle(meet(7, "Farmer Bram")).unwrap();
+
+    assert_eq!(steps_done(&quests(&mut story)[0]), 0);
+}
+
+#[test]
+fn a_slap_never_does_a_talk_step() {
+    let mut story = talk_quest("slap-no-talk");
+    let slap = Input::NpcSlapped {
+        at: Tick(7),
+        name: "Farmer Bram".to_string(),
+    };
+
+    story.handle(slap).unwrap();
+
+    assert_eq!(steps_done(&quests(&mut story)[0]), 0);
+}
+
+#[test]
+fn a_talk_to_the_npc_of_a_talk_step_tells_the_npc_about_the_quest() {
+    let mut story = talk_quest("talk-line");
+
+    let prompt = talk_prompt(&mut story, 7, "Farmer Bram");
+
+    assert!(prompt.contains("a quest of another person"), "{prompt}");
+    assert!(prompt.contains("Giver: Keeper Tessa"), "{prompt}");
+    assert!(prompt.contains("Quest: A Word with Bram"), "{prompt}");
+    assert!(prompt.contains("Topic: the missing cask"), "{prompt}");
+}
+
+#[test]
+fn the_quest_line_stays_in_the_later_turns_of_the_conversation() {
+    let mut story = talk_quest("talk-line-stays");
+    talk_prompt(&mut story, 7, "Farmer Bram");
+
+    let later = talk_prompt(&mut story, 7 + 9 * 60, "Farmer Bram");
+    let after_ten_minutes = talk_prompt(&mut story, 7 + 10 * 60, "Farmer Bram");
+
+    assert!(later.contains("Quest: A Word with Bram"), "{later}");
+    assert!(
+        !after_ten_minutes.contains("Quest: A Word with Bram"),
+        "{after_ten_minutes}"
+    );
+}
+
+#[test]
+fn a_talk_to_another_npc_hears_nothing_of_the_quest() {
+    let mut story = talk_quest("talk-other");
+
+    let prompt = talk_prompt(&mut story, 7, "Miller Oda");
+
+    assert!(!prompt.contains("a quest of another person"), "{prompt}");
+}

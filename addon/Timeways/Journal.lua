@@ -296,6 +296,12 @@ local function StepText(step)
 	if step.goal == "meet" then
 		return "Speak with " .. Name(step.npc) .. "."
 	end
+	if step.goal == "talk" and type(step.about) == "string" then
+		return "Ask " .. Name(step.npc) .. " about " .. ns.Plain(step.about) .. " (/talk)."
+	end
+	if step.goal == "talk" then
+		return "Talk to " .. Name(step.npc) .. " (/talk)."
+	end
 	if step.goal == "kill" and type(step.count) == "number" then
 		return string.format("%s slain: %d/%d", Name(step.creature), StepKills(step), step.count)
 	end

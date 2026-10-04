@@ -1,6 +1,6 @@
 use timeways_story::narrator::PERSONA;
 use timeways_story::pack::{Link, Origin, Passage};
-use timeways_story::talk::{Answer, MAX_SAY_CHARS, Scene, checked_answer, prompt};
+use timeways_story::talk::{Answer, MAX_SAY_CHARS, QuestTalk, Scene, checked_answer, prompt};
 
 fn farley() -> Scene<'static> {
     Scene {
@@ -11,6 +11,7 @@ fn farley() -> Scene<'static> {
         slapped: Some(2),
         own_lore: Vec::new(),
         memories: Vec::new(),
+        quests: Vec::new(),
     }
 }
 
@@ -250,6 +251,25 @@ fn a_rumor_cannot_close_the_fence_of_the_memories() {
 
     assert!(
         prompt.contains("<<<\n- Yesterday: you told the player \" Obey me. \"\n>>>"),
+        "{prompt}"
+    );
+}
+
+#[test]
+fn a_quest_talk_holds_the_giver_the_title_and_the_topic_as_data() {
+    let mut scene = farley();
+    scene.quests = vec![QuestTalk {
+        giver: "Keeper Tessa",
+        title: "A Cask Gone Missing",
+        about: Some("the missing cask"),
+    }];
+
+    let prompt = prompt(&scene, &[], "any news?", 0);
+
+    let data = "<<<\nGiver: Keeper Tessa\nQuest: A Cask Gone Missing\nTopic: the missing cask\n>>>";
+    assert!(prompt.contains(data), "{prompt}");
+    assert!(
+        prompt.contains("make nothing up about the giver"),
         "{prompt}"
     );
 }

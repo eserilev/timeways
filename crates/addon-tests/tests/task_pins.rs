@@ -292,3 +292,17 @@ fn every_pin_draws_over_the_band_of_visited_places() {
 
     assert!(under.is_empty(), "{under:?}");
 }
+
+#[test]
+fn a_talk_step_gets_a_pin_at_its_person() {
+    let mut quest = lantern(Status::Accepted, 0);
+    quest.steps[1].step = Step::Talk {
+        npc: "Farmer Bram".to_string(),
+        about: None,
+    };
+
+    let game = tasks_page(journal(quest, Some(spot(TIRISFAL, 700, 200))));
+
+    let expected = ["Active  1 500 500", "step 1 1 300 400", "step 2 1 700 200"];
+    assert_eq!(pins(&game), expected);
+}

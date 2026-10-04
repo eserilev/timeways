@@ -32,6 +32,16 @@ pub struct Scene<'a> {
     pub own_lore: Vec<&'a str>,
     /// What the NPC remembers of the player, worded, newest first (`npc_memory`).
     pub memories: Vec<String>,
+    /// The quests of other NPCs that send the player to talk to this one.
+    pub quests: Vec<QuestTalk<'a>>,
+}
+
+/// A quest whose talk step sends the player to this NPC (docs/plans/quest-variety.md 4.2).
+#[derive(Debug)]
+pub struct QuestTalk<'a> {
+    pub giver: &'a str,
+    pub title: &'a str,
+    pub about: Option<&'a str>,
 }
 
 /// The short persona of an NPC, from the facts alone. An NPC never gets the persona of the
@@ -118,6 +128,9 @@ fn what_you_know(scene: &Scene<'_>, passages: &[Passage]) -> String {
         );
     }
     known.push_str(&what_you_remember(&scene.memories));
+    for quest in &scene.quests {
+        let _ = write!(known, "\n\n{}", quest_line(quest));
+    }
     known
 }
 
@@ -134,6 +147,19 @@ fn what_you_remember(memories: &[String]) -> String {
          Bring up at most one of these, and only when it fits what the player says. \
          {NO_MADE_UP_PAST}",
         fenced(&bulleted(&lines))
+    )
+}
+
+/// The title and the topic are model text that passed a check, so they are data.
+fn quest_line(quest: &QuestTalk<'_>) -> String {
+    let mut data = format!("Giver: {}\nQuest: {}", quest.giver, quest.title);
+    if let Some(about) = quest.about {
+        let _ = write!(data, "\nTopic: {about}");
+    }
+    format!(
+        "The player comes to you for a quest of another person:\n{}\nPlay along with it. Say \
+         what you know, and make nothing up about the giver.",
+        fenced(&data)
     )
 }
 

@@ -30,6 +30,10 @@ pub const MAX_OFFER_BYTES: usize = 1000;
 /// A kill step asks for 1 to this many kills.
 pub const MAX_KILLS: u8 = 10;
 
+/// The topic of a talk step: one short phrase in a step line.
+pub const MAX_TOPIC_CHARS: usize = 60;
+pub const MAX_TOPIC_BYTES: usize = 240;
+
 /// A goal that the addon sees in game events (GAMEPLAY.md 3.4). Each name is a string of
 /// the game, so progress matches the event byte for byte.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -40,6 +44,12 @@ pub enum Step {
     },
     Meet {
         npc: String,
+    },
+    /// `/talk` to the NPC. `about` is a topic in a few words.
+    Talk {
+        npc: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        about: Option<String>,
     },
     Kill {
         creature: String,
@@ -69,7 +79,7 @@ impl Step {
     pub fn target(&self) -> &str {
         match self {
             Step::Visit { place } => place,
-            Step::Meet { npc } => npc,
+            Step::Meet { npc } | Step::Talk { npc, .. } => npc,
             Step::Kill { creature, .. } => creature,
         }
     }
@@ -102,6 +112,11 @@ pub enum QuestFault {
     UnknownFoe(String),
     #[error("a kill step asks for 1 to {MAX_KILLS} kills, not {0}")]
     KillCount(u8),
+    #[error(
+        "a talk topic is empty, longer than {MAX_TOPIC_CHARS} characters, holds a |, or names \
+         something after the cutoff"
+    )]
+    BadTopic,
     #[error("a step sends you back to the giver")]
     MeetGiver,
     #[error("a step asks you to kill the giver")]

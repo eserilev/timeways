@@ -19,7 +19,7 @@ use timeways_story::places::InstanceKind;
 use timeways_story::prompt::{self, Context};
 use timeways_story::quest::{self, Known};
 use timeways_story::story::MAX_NAME_BYTES;
-use timeways_story::talk::{self, Scene};
+use timeways_story::talk::{self, QuestTalk, Scene};
 use timeways_story::tokens::{Call, estimated_tokens};
 use timeways_story::{check, draft};
 
@@ -205,6 +205,12 @@ fn npc_talk() -> String {
         slapped: Some(2),
         own_lore: vec!["A stranger at the inn knew my father's name."],
         memories: longest_memories(),
+        // A title and a topic at their longest: 60 characters each.
+        quests: vec![QuestTalk {
+            giver: "Marshal Dughan",
+            title: "The Stranger in the Grey Cloak and the Letter Left Unread...",
+            about: Some("the stranger in the grey cloak who asked for my fathers name"),
+        }],
     };
     let lore = [passage(
         "The Lion's Pride Inn stands at the crossroads of Goldshire.",

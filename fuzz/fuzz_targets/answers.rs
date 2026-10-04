@@ -71,6 +71,13 @@ fn assert_quest(text: &str) {
         match step {
             Step::Visit { place } => assert!(["Testvale", "Old Tower"].contains(&place.as_str())),
             Step::Meet { npc } => assert_eq!(npc, "Farmer Bram"),
+            Step::Talk { npc, about } => {
+                assert_eq!(npc, "Farmer Bram");
+                if let Some(about) = about {
+                    assert!(about.chars().count() <= quest::MAX_TOPIC_CHARS, "{about:?}");
+                    assert!(!about.contains('|') && !about.chars().any(char::is_control));
+                }
+            }
             Step::Kill { creature, count } => {
                 assert_eq!(creature, "Duskbat");
                 assert!((1..=quest::MAX_KILLS).contains(count));

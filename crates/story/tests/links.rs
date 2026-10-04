@@ -635,6 +635,41 @@ fn a_quest_offer_reads_its_giver_and_rests_on_its_call() {
     assert_eq!(source.map(|source| source.call), Some(0));
 }
 
+#[test]
+fn a_talk_to_the_npc_of_a_talk_step_reads_the_rows_of_its_quest() {
+    let folder = fresh_folder("talk-quest-reads");
+    let mut story = story(&folder);
+    enter(&mut story, 1, "Elwynn Forest", Some("Goldshire"));
+    meet(&mut story, 2, "Marshal Dughan");
+    meet(&mut story, 3, "Farmer Saldean");
+    story
+        .handle(Input::QuestAsked {
+            at: Tick(4),
+            npc: "Marshal Dughan".to_string(),
+        })
+        .unwrap();
+    let outputs = story.handle(Input::BatchEnd { id: MessageId(5) }).unwrap();
+    let text = r#"{"title": "A Word", "text": "Ask Saldean.", "steps": [{"goal": "talk", "npc": "Farmer Saldean"}]}"#;
+    answer(&mut story, call_of(&outputs), text);
+    story
+        .handle(Input::QuestAccepted {
+            at: Tick(6),
+            number: None,
+        })
+        .unwrap();
+
+    talk(&mut story, "Farmer Saldean");
+    drop(story);
+
+    let read = database(&folder).reads_of(1).unwrap();
+    for row in 0..3 {
+        assert!(
+            read.contains(&Node::Row(Table::Quests, row)),
+            "{row}: {read:?}"
+        );
+    }
+}
+
 fn call_line(position: u64) -> Line {
     Line {
         calls: vec![NewCall {

@@ -1,7 +1,7 @@
 //! What the world of the player holds, and the rules of 3.4 for each step against it.
 
-use super::{MAX_KILLS, QuestFault, Step};
-use crate::check::mentions;
+use super::{MAX_KILLS, MAX_TOPIC_BYTES, MAX_TOPIC_CHARS, QuestFault, Step};
+use crate::check::{mentions, plain_text};
 use crate::seen::{SeenText, TextKind};
 
 /// What the world of the player holds, as far as a quest can use it.
@@ -36,7 +36,7 @@ impl Known<'_> {
             .collect()
     }
 
-    /// The NPCs that a meet step can name, as the check allows them.
+    /// The NPCs that a meet or a talk step can name, as the check allows them.
     #[must_use]
     pub fn people(&self) -> Vec<&str> {
         let meet = |npc: &str| Step::Meet {
@@ -65,26 +65,59 @@ impl Known<'_> {
             return Some(QuestFault::LastTask(target.to_string()));
         }
         match step {
-            Step::Visit { place } if self.zones.contains(&place.as_str()) => None,
-            Step::Visit { place } if self.subzones.contains(&place.as_str()) => {
-                in_game_quests(place, self.seen)
-            }
-            Step::Visit { place } => Some(QuestFault::UnknownPlace(place.clone())),
-            Step::Meet { npc } if npc == self.giver => Some(QuestFault::MeetGiver),
-            Step::Meet { npc } if self.npcs.contains(&npc.as_str()) => {
-                in_game_quests(npc, self.seen)
-            }
-            Step::Meet { npc } => Some(QuestFault::UnknownNpc(npc.clone())),
-            Step::Kill { creature, .. } if creature == self.giver => Some(QuestFault::KillGiver),
-            Step::Kill { count, .. } if !(1..=MAX_KILLS).contains(count) => {
-                Some(QuestFault::KillCount(*count))
-            }
-            Step::Kill { creature, .. } if self.foes.contains(&creature.as_str()) => {
-                in_game_quests(creature, self.seen)
-            }
-            Step::Kill { creature, .. } => Some(QuestFault::UnknownFoe(creature.clone())),
+            Step::Visit { place } => self.visit_fault(place),
+            Step::Meet { npc } => self.person_fault(npc),
+            Step::Talk { npc, about } => self.talk_fault(npc, about.as_deref()),
+            Step::Kill { creature, count } => self.kill_fault(creature, *count),
         }
     }
+
+    fn visit_fault(&self, place: &str) -> Option<QuestFault> {
+        if self.zones.contains(&place) {
+            return None;
+        }
+        if self.subzones.contains(&place) {
+            return in_game_quests(place, self.seen);
+        }
+        Some(QuestFault::UnknownPlace(place.to_string()))
+    }
+
+    /// An NPC to meet or talk to.
+    fn person_fault(&self, npc: &str) -> Option<QuestFault> {
+        if npc == self.giver {
+            return Some(QuestFault::MeetGiver);
+        }
+        if !self.npcs.contains(&npc) {
+            return Some(QuestFault::UnknownNpc(npc.to_string()));
+        }
+        in_game_quests(npc, self.seen)
+    }
+
+    fn talk_fault(&self, npc: &str, about: Option<&str>) -> Option<QuestFault> {
+        if about.is_some_and(|about| !is_topic(about)) {
+            return Some(QuestFault::BadTopic);
+        }
+        self.person_fault(npc)
+    }
+
+    fn kill_fault(&self, creature: &str, count: u8) -> Option<QuestFault> {
+        if creature == self.giver {
+            return Some(QuestFault::KillGiver);
+        }
+        if !(1..=MAX_KILLS).contains(&count) {
+            return Some(QuestFault::KillCount(count));
+        }
+        if !self.foes.contains(&creature) {
+            return Some(QuestFault::UnknownFoe(creature.to_string()));
+        }
+        in_game_quests(creature, self.seen)
+    }
+}
+
+/// The topic shows in a step line of the book, so it is short plain text with no `|`, the
+/// escape mark of the game.
+fn is_topic(about: &str) -> bool {
+    plain_text(about, MAX_TOPIC_CHARS, MAX_TOPIC_BYTES).is_some() && !about.contains('|')
 }
 
 /// Only the quests that you read count. A quest of the game that you never saw can still

@@ -43,6 +43,21 @@ pub enum QuestChange {
     },
 }
 
+impl QuestChange {
+    /// The number of the quest that the change belongs to.
+    #[must_use]
+    pub fn number(&self) -> u64 {
+        match self {
+            QuestChange::Offered { number, .. }
+            | QuestChange::Accepted { number, .. }
+            | QuestChange::Declined { number, .. }
+            | QuestChange::StepDone { number, .. }
+            | QuestChange::Killed { number, .. }
+            | QuestChange::Abandoned { number, .. } => *number,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Status {

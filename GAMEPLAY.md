@@ -163,7 +163,14 @@ An innkeeper tells you a rumor, and the rumor becomes a small quest line made fo
 - The rewards are story: a title in your journal, a line in your chronicle, and an NPC who trusts you more and tells you more lore later.
 - Hourglass keeps the quests consistent. A quest cannot send you to an NPC who died in your story, or to a place that you never heard of.
 
-**The first slice.** The combat log is closed and no loot event comes yet, so a step has one of three goals: `visit` a place, `meet` an NPC, or `kill` a count of one creature ("Kill 6 Duskbats").
+**Steps.** A step has one of these goals. Each one completes only from an event of the addon, or from a fact of the world that an event made:
+
+| Goal | You | The addon sees it from |
+|---|---|---|
+| `visit` | go to a place | `zone_entered` |
+| `meet` | speak with an NPC | `npc_met`, `talk_asked`, or `npc_slapped` |
+| `talk` | use `/talk` with an NPC | `talk_asked` |
+| `kill` | kill 1 to 10 of a creature | `npc_killed` |
 
 - **Seen and met** (built). The addon sends each NPC that you hover or target once in a session (`npc_seen`): its name, `hostile` when you can attack it (`UnitCanAttack`) or `friendly`, and its creature type in English (`UnitCreatureType`, by its id: "beast", "humanoid"). The addon keys a session by the NPC id of `UnitGUID`, and never sends the GUID. It never sends a player or a pet, and it checks the name, the GUID, the reaction, and the type with `issecretvalue`. The world keeps `seen`, apart from `met`: seeing is not talking. The last sighting says whether the NPC is `hostile`, and a beast or a critter is an `animal` for good (5.1). A talk in the game (`npc_met`) also ends `hostile`: an NPC that talks to you is a friend now.
 
@@ -173,6 +180,7 @@ An innkeeper tells you a rumor, and the rumor becomes a small quest line made fo
   - Each name is a string of the game, copied exactly, because progress matches it byte for byte.
   - A place is a zone or subzone that you visited. The addon names the zone of a text that you read by where you read it, so it adds no place.
   - An NPC to meet is one that you met or saw. It is not hostile, not an animal, not dead in your story, and not the giver. So a task never sends you to talk to a bat.
+  - A `talk` step names an NPC that a meet step can name. Its optional topic has at most 60 characters.
   - A creature to kill is one that you saw hostile, not dead in your story, and not the giver. A kill step asks for 1 to 10 kills.
   - Each step names a different target, so one event never does two steps.
   - **No target twice in a row:** no place, NPC, or creature of your newest task comes again in the next one, from the same giver or any other. The newest task is the last offer in the log, in any state.
@@ -207,6 +215,7 @@ Built:
   - A valid change goes through Hourglass, inside the band of -100 to 100.
 - **No retry.** With no model, or with an answer that breaks a rule, the NPC "looks at you and says nothing".
 - The target counts only when it is an NPC: never a player, and never a pet (5.11).
+- **A quest talk** (built). When a `talk` step of a quest names the NPC, the NPC gets one line: the giver, the title of the quest, and the topic. The talk step is done before the prompt, so the first talk has the line. The line stays for 10 minutes, so the later talks of the same conversation keep it. The talk reads the `quests` rows of the quest (5.14).
 - **Trust shows on the NPC, not in the book** (built). The tooltip of an NPC that you dealt with gets one line: "Timeways: Likes you. Slapped 2 times." An NPC that you only met gets none. When the feeling of an NPC changes band, the chat says so once: "Keeper Tessa now likes you." The bands: 50 and up trusts you, 10 and up likes you, -9 to 9 is neutral, -10 to -49 is wary of you, and below that distrusts you. The addon asks for the journal at login and after each talk, so the tooltips know the people before the book opens.
 - **Why the trust changed** (built). A second line of the tooltip names the cause of the newest change: "Went up after you talked.", "Went down after you talked.", "Went down when you slapped them.", or "Went up when you finished their quest." The journal carries it as `trust_why` for each person: `by` (`talk`, `slap`, or `quest`), `up`, and `at`. The desktop finds it in one step back from the trust event (5.14), never in the reads of a call. A cause that is lost shows no line.
 - **No People or Places page.** The chronicle names the people and places of each chapter, the map shows where you went, and the tooltip shows trust. The journal still carries the people and the places, for the map and the tooltips.
@@ -866,7 +875,7 @@ Each row of a world answers three questions: what proves it, which model call wr
   | Saga draft | every event, flavor moment, and hero row of its chapter, and the hero rows before it |
   | Saga pick, second draft | the same, and the earlier calls of its round |
   | Quest offer, task draft | the events behind the giver and every place, NPC, and creature that the prompt can offer |
-  | Talk | the events behind the NPC, the hero entries about it, the `learned` rows of its passages, and the rows behind each memory (3.5): the `learned` row of each answer, every `quests` row of each quest, and the events of each deed and of the first meeting |
+  | Talk | the events behind the NPC, the hero entries about it, the `learned` rows of its passages, and the rows behind each memory (3.5): the `learned` row of each answer, every `quests` row of each quest, and the events of each deed and of the first meeting; and every `quests` row of each quest whose talk step names the NPC (3.4) |
 
   The events behind a name are the event that made the thing, and the event that opened each fact that it holds or that points to it.
 - **Proof** is the set of roots that a row rests on: follow the input or the call that made it, and for a call, also what it read, down to the inputs. The weakest root shows:
