@@ -7,11 +7,11 @@ use super::{
     QuestFault, Step,
 };
 use crate::check::{mentions, plain_text};
+use crate::seen::{SeenText, TextKind};
 use crate::vocabulary::LEVELS;
 
 /// The highest level of the game.
 const MAX_LEVEL: i64 = LEVELS.max;
-use crate::seen::{SeenText, TextKind};
 
 /// What the world of the player holds, as far as a quest can use it.
 #[derive(Debug, Default)]

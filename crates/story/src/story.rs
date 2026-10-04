@@ -455,7 +455,10 @@ impl Story {
                 reaction,
                 creature,
             } => self.see_npc(at, &name, reaction, creature.as_deref()),
-            Input::NpcKilled { at, name } => self.count_kill(at, checked_name(&name)?),
+            Input::NpcKilled { at, name } => {
+                self.count_kill(at, checked_name(&name)?)?;
+                Ok(Vec::new())
+            }
             Input::NpcDefeated { at, name } => self.defeat_npc(at, &name),
             Input::GameQuestAccepted { at, title, kind } => self.take_game_quest(at, &title, kind),
             Input::GameQuestDone { at, title, kind } => self.finish_game_quest(at, &title, kind),
@@ -1075,6 +1078,24 @@ impl Story {
         self.change(|character| character.meet_npc(at, npc))?;
         // The talk step is done before the prompt, so the NPC hears of the quest at once.
         self.advance_quests(at, None, &Encounter::Talk(npc.to_string()))?;
+        let (prompt, read) = self.talk_prompt(at, npc, words)?;
+        let active = self.active.as_ref().ok_or(StoryError::NoCharacter)?;
+        let pending = Pending::Talk {
+            question: id,
+            key: active.key.clone(),
+            npc: npc.to_string(),
+            at,
+        };
+        Ok(self.open_call(pending, prompt, read).into_iter().collect())
+    }
+
+    /// The prompt of a talk, and every row that it reads (GAMEPLAY.md 5.14).
+    fn talk_prompt(
+        &self,
+        at: Tick,
+        npc: &str,
+        words: &str,
+    ) -> Result<(String, Vec<Node>), StoryError> {
         let active = self.active.as_ref().ok_or(StoryError::NoCharacter)?;
         let character = &active.character;
         let quest_log = quest_log(active.quests.changes());
@@ -1089,14 +1110,14 @@ impl Story {
             entry.npc.as_deref() == Some(npc)
                 || (place.is_some() && entry.place.as_deref() == place)
         };
-        let own_lore = hero::newest_texts(&hero.entries, about);
+        let memories = remembered(active, npc, at);
+        // A failed count gives no hook, and the talk still goes out.
+        let (hook, hook_read) = calls::hook_for(active, &hero).unwrap_or_default();
         let mut read = reads::events_about(active, [npc]);
         read.extend(reads::entries_read(active, about));
         read.extend(reads::passages_read(active, &passages));
-        let memories = remembered(active, npc, at);
         read.extend(reads::memories_read(&memories));
         read.extend(reads::quest_rows(active, &numbers));
-        let (hook, hook_read) = calls::hook_for(active, &hero)?;
         read.extend(hook_read);
         let scene = Scene {
             npc,
@@ -1104,7 +1125,7 @@ impl Story {
             level: character.level(),
             trust: character.trust_of(npc),
             slapped: character.slaps_of(npc),
-            own_lore,
+            own_lore: hero::newest_texts(&hero.entries, about),
             memories: memories
                 .iter()
                 .map(|memory| npc_memory::line(memory, at))
@@ -1113,13 +1134,7 @@ impl Story {
             hook,
         };
         let prompt = talk::prompt(&scene, &passages, words, self.turn());
-        let pending = Pending::Talk {
-            question: id,
-            key: active.key.clone(),
-            npc: npc.to_string(),
-            at,
-        };
-        Ok(self.open_call(pending, prompt, read).into_iter().collect())
+        Ok((prompt, read))
     }
 
     /// With no passage, a model has nothing to cite, so no call goes out.

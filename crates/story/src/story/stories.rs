@@ -46,7 +46,8 @@ impl Story {
     }
 }
 
-/// A row of this line is not in the database yet, so no call read it.
+/// True when a call read the row. A row that this line added is not saved yet, so the
+/// database has no use of it: correct, because no call read it yet.
 fn is_used(active: &Active, row: u64) -> Result<bool, StoreError> {
     let uses = active.database.uses_of(Node::Row(Table::Stories, row))?;
     Ok(!uses.is_empty())

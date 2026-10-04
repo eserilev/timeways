@@ -139,7 +139,7 @@ fn quests_given(changes: &[QuestChange], npc: &str) -> Vec<Memory> {
         .filter_map(|quest| {
             let answered = changes
                 .iter()
-                .any(|change| number_of(change) == quest.number && is_answer(change));
+                .any(|change| change.number() == quest.number && is_answer(change));
             let rows = rows_of_quest(changes, quest.number);
             let ending = quest_ending(quest, answered)?;
             Some(Memory {
@@ -158,20 +158,9 @@ fn quests_given(changes: &[QuestChange], npc: &str) -> Vec<Memory> {
 fn rows_of_quest(changes: &[QuestChange], number: u64) -> Vec<u64> {
     (0..)
         .zip(changes)
-        .filter(|(_, change)| number_of(change) == number)
+        .filter(|(_, change)| change.number() == number)
         .map(|(row, _)| row)
         .collect()
-}
-
-fn number_of(change: &QuestChange) -> u64 {
-    match change {
-        QuestChange::Offered { number, .. }
-        | QuestChange::Accepted { number, .. }
-        | QuestChange::Declined { number, .. }
-        | QuestChange::StepDone { number, .. }
-        | QuestChange::Killed { number, .. }
-        | QuestChange::Abandoned { number, .. } => *number,
-    }
 }
 
 fn is_answer(change: &QuestChange) -> bool {

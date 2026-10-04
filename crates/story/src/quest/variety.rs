@@ -24,9 +24,6 @@ pub enum ShapePart {
     One(&'static str),
     /// The kinds of an any-order set, sorted.
     AnyOrder(Vec<&'static str>),
-    /// The last part of a choice quest (docs/plans/standing.md). Choice quests are not built
-    /// yet, so no shape holds it today.
-    Choice,
 }
 
 impl Shape {
@@ -64,7 +61,6 @@ impl fmt::Display for Shape {
             .map(|part| match part {
                 ShapePart::One(goal) => (*goal).to_string(),
                 ShapePart::AnyOrder(goals) => format!("any order ({})", goals.join(", ")),
-                ShapePart::Choice => "choice".to_string(),
             })
             .collect();
         f.write_str(&parts.join(", "))
@@ -99,7 +95,8 @@ pub fn recent_quests(quests: &[Tracked], count: usize) -> Vec<Recent> {
 }
 
 /// The words of a title that make it what it is: every word in lower case, except a stop
-/// word and a word of one letter. The name of the giver counts too.
+/// word and a word of one letter. A name in the title, such as the name of the giver, is a
+/// main word too.
 #[must_use]
 pub fn main_words(title: &str) -> Vec<String> {
     let stop: Vec<&str> = data_lines(STOP_WORDS).collect();

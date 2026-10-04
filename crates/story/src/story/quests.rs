@@ -273,7 +273,7 @@ impl Story {
     }
 
     /// A kill counts for each accepted quest with an open kill step of this creature.
-    pub(super) fn count_kill(&mut self, at: Tick, name: &str) -> Result<Vec<Output>, StoryError> {
+    pub(super) fn count_kill(&mut self, at: Tick, name: &str) -> Result<(), StoryError> {
         let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
         let quests = quest_log(active.quests.changes());
         for quest in &quests {
@@ -284,7 +284,7 @@ impl Story {
                     .add(QuestChange::Killed { number, step, at })?;
             }
         }
-        Ok(Vec::new())
+        Ok(())
     }
 }
 
