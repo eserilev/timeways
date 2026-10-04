@@ -13,11 +13,11 @@ const VERSION: i64 = 3;
 
 /// WAL syncs the disk once for each line, and a reader such as `sqlite3` never blocks a
 /// save.
-const PRAGMAS: &str =
+pub(super) const PRAGMAS: &str =
     "PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL";
 
 /// Only another program that writes holds the lock, so a save gives up soon.
-const BUSY_WAIT: Duration = Duration::from_millis(500);
+pub(super) const BUSY_WAIT: Duration = Duration::from_millis(500);
 
 /// Each row table keeps one JSON value for each row, and the line or call that made it.
 const ROW_TABLE: &str = "position INTEGER PRIMARY KEY, body TEXT NOT NULL,

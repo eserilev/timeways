@@ -1,7 +1,7 @@
 //! A `timeways.sqlite` that another program damaged: rows of any type and body, other
-//! versions, extra tables, and no `state` table. Opening it is Ok, or it refuses another
-//! version, or it gives the error of SQLite. A value that does not read loads as its
-//! default, and a value saved after a load reads back the same.
+//! versions, extra tables, and no `state` table. A file of this version always opens, and
+//! gets its `state` table again. Another version is refused. A value that does not read
+//! loads as its default, and a value saved after a load reads back the same.
 
 #![no_main]
 
@@ -14,6 +14,9 @@ use std::path::PathBuf;
 use timeways_story::narrator::Budget;
 use timeways_story::pace::Pace;
 use timeways_story::store::{Shared, StoreError};
+
+/// The version of `timeways.sqlite` in this build.
+const VERSION: i64 = 1;
 
 const BUDGET: &str = "budget";
 const PACE: &str = "pace";
@@ -114,18 +117,6 @@ fn damage(file: &File) {
     }
 }
 
-fn has_state() -> bool {
-    let connection = Connection::open(path()).unwrap();
-    let tables: i64 = connection
-        .query_row(
-            "SELECT count(*) FROM sqlite_schema WHERE name = 'state'",
-            [],
-            |row| row.get(0),
-        )
-        .unwrap();
-    tables == 1
-}
-
 /// The value that a body of the file gives: the default for a body that does not read.
 fn expected<T: DeserializeOwned + Default + Serialize>(name: &str) -> String {
     let connection = Connection::open(path()).unwrap();
@@ -161,16 +152,11 @@ fuzz_target!(|file: File| {
     drop(Shared::open(&path()).unwrap());
     damage(&file);
 
+    let ours = file.version.is_none_or(|version| version == VERSION);
     match Shared::open(&path()) {
         Ok(_) => {}
-        Err(StoreError::OtherVersion { .. } | StoreError::Sqlite { .. }) => return,
-        Err(error) => panic!("an odd error: {error}"),
-    }
-    if !has_state() {
-        let mut shared = Shared::open(&path()).unwrap();
-        let load = shared.load::<Budget>(BUDGET);
-        assert!(matches!(load, Err(StoreError::Sqlite { .. })), "{load:?}");
-        return;
+        Err(StoreError::OtherVersion { .. }) if !ours => return,
+        Err(error) => panic!("a file that should open: {error}"),
     }
     check_round_trip::<Budget>(BUDGET);
     check_round_trip::<Pace>(PACE);

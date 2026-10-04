@@ -3,7 +3,7 @@
 //! 3 times at once.
 
 use super::StoreError;
-use super::database::sqlite_error;
+use super::database::{BUSY_WAIT, PRAGMAS, sqlite_error};
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -13,7 +13,8 @@ use std::path::{Path, PathBuf};
 /// A file of another version is refused, never changed.
 const VERSION: i64 = 1;
 
-const SCHEMA: &str = "CREATE TABLE state (name TEXT PRIMARY KEY, body TEXT NOT NULL)";
+/// Another program can drop the table, so each open makes it again when it is gone.
+const SCHEMA: &str = "CREATE TABLE IF NOT EXISTS state (name TEXT PRIMARY KEY, body TEXT NOT NULL)";
 
 /// Each value as one JSON row, by its name.
 pub struct Shared {
@@ -50,11 +51,23 @@ impl Shared {
             path: path.to_path_buf(),
             saved: BTreeMap::new(),
         };
+        shared
+            .connection
+            .execute_batch(PRAGMAS)
+            .map_err(|source| shared.error(source))?;
+        shared
+            .connection
+            .busy_timeout(BUSY_WAIT)
+            .map_err(|source| shared.error(source))?;
         let version: i64 = shared
             .connection
             .query_row("PRAGMA user_version", [], |row| row.get(0))
             .map_err(|source| shared.error(source))?;
         if version == VERSION {
+            shared
+                .connection
+                .execute_batch(SCHEMA)
+                .map_err(|source| shared.error(source))?;
             return Ok(shared);
         }
         let tables: i64 = shared
@@ -84,8 +97,9 @@ impl Shared {
         &mut self,
         name: &'static str,
     ) -> Result<T, StoreError> {
-        // Another program can write a blob, or text that is not UTF-8, so the bytes come first.
-        let bytes: Option<Vec<u8>> = self
+        // Another program can write a blob, text that is not UTF-8, or no body at all, so
+        // the bytes come first.
+        let bytes: Option<Option<Vec<u8>>> = self
             .connection
             .query_row(
                 "SELECT CAST(body AS BLOB) FROM state WHERE name = ?1",
@@ -94,7 +108,10 @@ impl Shared {
             )
             .optional()
             .map_err(|source| self.error(source))?;
-        let Some(body) = bytes.and_then(|bytes| String::from_utf8(bytes).ok()) else {
+        let Some(body) = bytes
+            .flatten()
+            .and_then(|bytes| String::from_utf8(bytes).ok())
+        else {
             return Ok(T::default());
         };
         let value = serde_json::from_str(&body).unwrap_or_default();

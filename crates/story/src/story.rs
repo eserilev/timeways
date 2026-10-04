@@ -340,28 +340,50 @@ impl Story {
         let kept = Kept::of(&input)?;
         let outputs = self.handle_unsaved(input, time);
         self.save_active(kept)?;
-        self.save_shared()?;
+        self.save_shared();
         outputs
     }
 
-    fn save_shared(&mut self) -> Result<(), StoryError> {
+    /// The world of the line is on the disk already, so a failed save of a shared value
+    /// is only a note. The next line tries it again.
+    fn save_shared(&mut self) {
         let Some(shared) = self.shared.as_mut() else {
-            return Ok(());
+            return;
         };
-        shared.save(BUDGET, &self.budget)?;
-        shared.save(PACE, &self.pace)?;
-        Ok(())
+        let saved = shared
+            .save(BUDGET, &self.budget)
+            .and_then(|()| shared.save(PACE, &self.pace));
+        if let Err(error) = saved {
+            self.notes.push(format!("shared values not saved: {error}"));
+        }
     }
 
+    /// A shared file that does not open or read never locks a character out: the budget
+    /// and the pace start from their defaults, and stay in memory in this run (GAMEPLAY.md
+    /// 5.7).
     fn open_shared(&mut self) -> Result<(), StoryError> {
         if self.shared.is_some() {
             return Ok(());
         }
+        let shared = match self.load_shared() {
+            Ok(shared) => shared,
+            Err(error) => {
+                let note = format!("{error}: the budget and the pace stay in memory in this run");
+                self.notes.push(note);
+                self.budget = Budget::default();
+                self.pace = Pace::default();
+                Shared::in_memory()?
+            }
+        };
+        self.shared = Some(shared);
+        Ok(())
+    }
+
+    fn load_shared(&mut self) -> Result<Shared, StoreError> {
         let mut shared = self.store.open_shared()?;
         self.budget = shared.load(BUDGET)?;
         self.pace = shared.load(PACE)?;
-        self.shared = Some(shared);
-        Ok(())
+        Ok(shared)
     }
 
     /// The rows of a refused input stay too, because the events before a refusal landed.

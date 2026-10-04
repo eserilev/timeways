@@ -713,3 +713,110 @@ fn a_shared_value_that_is_not_text_comes_back_as_its_default() {
         serde_json::to_string(&Budget::default()).unwrap()
     );
 }
+
+fn shared_file(folder: &Path) -> PathBuf {
+    fs::create_dir_all(folder).unwrap();
+    folder.join("timeways.sqlite")
+}
+
+fn entered(story: &mut Story, name: &str) -> Result<Vec<Output>, StoryError> {
+    story.handle(Input::CharacterEntered {
+        realm: "Stormrage".to_string(),
+        name: name.to_string(),
+    })
+}
+
+#[test]
+fn a_shared_file_with_no_state_table_gets_one() {
+    let folder = fresh_folder("shared-no-state");
+    Connection::open(shared_file(&folder))
+        .unwrap()
+        .execute_batch("PRAGMA user_version = 1")
+        .unwrap();
+    let mut story = Story::new(empty_pack(&folder), Store::Folder(folder.clone()));
+
+    let entered = entered(&mut story, "Ada");
+
+    assert!(entered.is_ok(), "{entered:?}");
+    assert!(story.take_notes().is_empty());
+}
+
+#[test]
+fn a_shared_file_of_another_version_locks_no_character_out() {
+    let folder = fresh_folder("shared-other-version");
+    Connection::open(shared_file(&folder))
+        .unwrap()
+        .execute_batch("CREATE TABLE later (x); PRAGMA user_version = 99")
+        .unwrap();
+    let mut story = Story::new(empty_pack(&folder), Store::Folder(folder.clone()));
+
+    let entered = entered(&mut story, "Ada");
+
+    assert!(entered.is_ok(), "{entered:?}");
+    assert_eq!(story.take_notes().len(), 1);
+}
+
+#[test]
+fn a_shared_file_that_is_no_database_locks_no_character_out() {
+    let folder = fresh_folder("shared-not-sqlite");
+    fs::write(shared_file(&folder), "not a database, only text").unwrap();
+    let mut story = Story::new(empty_pack(&folder), Store::Folder(folder.clone()));
+
+    let entered = entered(&mut story, "Ada");
+
+    assert!(entered.is_ok(), "{entered:?}");
+    assert_eq!(story.take_notes().len(), 1);
+}
+
+#[test]
+fn a_shared_value_with_no_body_comes_back_as_its_default() {
+    let folder = fresh_folder("shared-null-body");
+    Connection::open(shared_file(&folder))
+        .unwrap()
+        .execute_batch(
+            "CREATE TABLE state (name TEXT PRIMARY KEY, body TEXT);
+             INSERT INTO state (name, body) VALUES ('pace', NULL);
+             PRAGMA user_version = 1",
+        )
+        .unwrap();
+
+    let pace = Store::Folder(folder)
+        .open_shared()
+        .unwrap()
+        .load::<Pace>("pace");
+
+    assert!(pace.is_ok_and(|pace| !pace.is_tight(Tick(1_000))));
+}
+
+#[test]
+fn the_shared_file_keeps_a_wal_journal() {
+    let folder = fresh_folder("shared-wal");
+    let shared = Store::Folder(folder.clone()).open_shared().unwrap();
+
+    let mode: String = Connection::open(shared_file(&folder))
+        .unwrap()
+        .query_row("PRAGMA journal_mode", [], |row| row.get(0))
+        .unwrap();
+
+    drop(shared);
+    assert_eq!(mode, "wal");
+}
+
+#[test]
+fn a_failed_save_of_the_shared_values_keeps_the_line() {
+    let folder = fresh_folder("shared-save-fails");
+    let mut story = story(&folder, "Ada");
+    enter(&mut story, 60, "Elwynn Forest");
+    let other = Connection::open(shared_file(&folder)).unwrap();
+    other.execute_batch("BEGIN IMMEDIATE").unwrap();
+
+    let outputs = story.handle(Input::BatchEnd { id: MessageId(1) });
+
+    other.execute_batch("ROLLBACK").unwrap();
+    assert!(outputs.is_ok_and(|outputs| {
+        outputs
+            .iter()
+            .any(|output| matches!(output, Output::ModelCall { .. }))
+    }));
+    assert_eq!(story.take_notes().len(), 1);
+}

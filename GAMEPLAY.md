@@ -662,10 +662,10 @@ Timeways uses the transport of Gnomish Relay, with its own key and its own slots
   | `quests` | change of a side quest (3.4) |
 
 - **The tables of proof** (5.14): `inputs` (the lines from the addon), `calls` (the model calls), and `reads` (what each call read).
-- **What all characters share** lives in `timeways.sqlite` in the data folder: the budget of the narrator (3.2) and the pace of the model (3.3). So a restart never lets the narrator speak 3 times at once. The file opens with the first `character_entered`, and a value that does not read comes back as its default.
+- **What all characters share** lives in `timeways.sqlite` in the data folder: the budget of the narrator (3.2) and the pace of the model (3.3). So a restart never lets the narrator speak 3 times at once. The file opens with the first `character_entered`, and a value that does not read comes back as its default. A file that does not open, such as a file of another version, never locks a character out: the values start from their defaults and stay in memory for the run. A failed save of a shared value goes to the log, and the next line tries it again.
 - **One transaction for each line.** The story program keeps the new rows of a line from the bridge in memory. At the end of the line, it writes them all in one transaction, with the input, the calls, and the reads, also after a refusal, because the events before a refusal landed. So a quest and the facts of its world never disagree.
 - **A failed write keeps nothing of its line.** The transaction rolls back, and the story program opens the character again from the disk. The memory then holds what the disk holds, and the next line works as before. The model calls of the line never go out, and they free their slots. A saga that was in progress starts again.
-- **WAL.** SQLite syncs the disk once for each line, and a reader such as `sqlite3` never blocks a save. A save waits at most half a second for another program that writes, and then fails.
+- **WAL**, for the worlds and for `timeways.sqlite`. SQLite syncs the disk once for each line, and a reader such as `sqlite3` never blocks a save. A save waits at most half a second for another program that writes, and then fails.
 - A failed `character_entered` leaves no character active, so the events of one character never land in the world of another.
 - The state is not stored. `World::replay` builds it from the `events` table when a character enters.
 - **A crash** loses at most the line in progress, because SQLite keeps a journal for each transaction.
