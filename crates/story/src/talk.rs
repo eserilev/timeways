@@ -79,16 +79,24 @@ fn prompt_with(scene: &Scene<'_>, passages: &[Passage], words: &str, turn: usize
         "{}\n{HOUSE_RULES}\n\nAnswer the player, and say how this talk changes your trust. \
          Stay true to the lore below. When you do not know, say so as this person would.{}\n\n\
          {}\n\nThe player says:\n{}\n\n\
+         {WORK_RULE}\n\n\
          Remember: you are the person of the name above. Speak plainly, in your own voice, in at most 60 words.\n\
          Reply with JSON only: {{\"say\": \"<your answer>\", \"trust\": <a whole number from \
          -{MAX_TRUST_CHANGE} to {MAX_TRUST_CHANGE}: how this talk changes your trust in the \
-         player>}}",
+         player>, \"work\": <true when you offer the player work, else false>}}",
         who_you_are(scene),
         what_you_know(scene, passages),
         samples::section(Voice::NpcReply, turn),
         fenced(words)
     )
 }
+
+/// Work that the NPC mentions becomes a real quest, written and checked after the talk
+/// (GAMEPLAY.md 3.5). So the NPC names only the trouble, never a detail that the quest
+/// can lack.
+const WORK_RULE: &str = "When you offer the player work, or the player asks for work and you \
+     have some, set \"work\" to true. The work becomes a real quest that the player reads \
+     next. So say only what troubles you, and name no place, creature, count, or reward.";
 
 fn who_you_are(scene: &Scene<'_>) -> String {
     let mut who = persona(scene.npc, scene.place);
@@ -181,13 +189,25 @@ fn quest_line(quest: &QuestTalk<'_>) -> String {
 struct Reply {
     say: String,
     trust: i64,
+    /// Only a JSON `true` offers work. A missing field, or any other value, offers none,
+    /// and the words still show.
+    #[serde(default)]
+    work: serde_json::Value,
 }
 
-/// The words of the NPC, and the change of trust that passed the check.
+/// Whether the NPC offers the player work. Work becomes a real quest (GAMEPLAY.md 3.5).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Work {
+    Offered,
+    NotOffered,
+}
+
+/// The words of the NPC, the change of trust that passed the check, and the work.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Answer {
     pub say: String,
     pub trust_change: i64,
+    pub work: Work,
 }
 
 /// None when the words break a rule. A change of trust outside the band is dropped, and
@@ -197,8 +217,14 @@ pub fn checked_answer(text: &str, player_text: &str) -> Option<Answer> {
     let reply: Reply = serde_json::from_str(json_object(text)?).ok()?;
     let say = voice_text(&reply.say, MAX_SAY_CHARS, MAX_SAY_BYTES, player_text)?;
     let in_band = (-MAX_TRUST_CHANGE..=MAX_TRUST_CHANGE).contains(&reply.trust);
+    let work = if reply.work == serde_json::Value::Bool(true) {
+        Work::Offered
+    } else {
+        Work::NotOffered
+    };
     Some(Answer {
         say,
         trust_change: if in_band { reply.trust } else { 0 },
+        work,
     })
 }

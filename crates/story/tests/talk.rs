@@ -1,7 +1,7 @@
 use timeways_story::hero_hook::Hook;
 use timeways_story::narrator::PERSONA;
 use timeways_story::pack::{Link, Origin, Passage};
-use timeways_story::talk::{Answer, MAX_SAY_CHARS, QuestTalk, Scene, checked_answer, prompt};
+use timeways_story::talk::{Answer, MAX_SAY_CHARS, QuestTalk, Scene, Work, checked_answer, prompt};
 use timeways_story::tokens::{Call, estimated_tokens};
 
 fn farley() -> Scene<'static> {
@@ -128,6 +128,7 @@ fn an_answer_reads_from_plain_or_fenced_json() {
     let expected = Some(Answer {
         say: "Welcome, traveler.".to_string(),
         trust_change: 2,
+        work: Work::NotOffered,
     });
     assert_eq!(checked_answer(plain, ""), expected);
     assert_eq!(checked_answer(fenced, ""), expected);
@@ -141,9 +142,66 @@ fn a_change_of_trust_outside_the_band_is_dropped_and_the_words_stay() {
         answer,
         Some(Answer {
             say: "I love you!".to_string(),
-            trust_change: 0
+            trust_change: 0,
+            work: Work::NotOffered,
         })
     );
+}
+
+#[test]
+fn an_answer_with_work_set_to_true_offers_work() {
+    let answer = checked_answer(
+        r#"{"say": "The mill has trouble.", "trust": 1, "work": true}"#,
+        "",
+    );
+
+    assert_eq!(answer.map(|answer| answer.work), Some(Work::Offered));
+}
+
+#[test]
+fn an_answer_with_no_work_field_offers_no_work() {
+    let answer = checked_answer(r#"{"say": "Nothing but rain.", "trust": 0}"#, "");
+
+    assert_eq!(answer.map(|answer| answer.work), Some(Work::NotOffered));
+}
+
+#[test]
+fn work_that_is_not_the_json_true_offers_no_work_and_keeps_the_words() {
+    for work in [
+        r#""true""#,
+        "1",
+        "null",
+        "false",
+        "[true]",
+        r#"{"yes": true}"#,
+    ] {
+        let text = format!(r#"{{"say": "The mill has trouble.", "trust": 1, "work": {work}}}"#);
+
+        let answer = checked_answer(&text, "");
+
+        assert_eq!(
+            answer,
+            Some(Answer {
+                say: "The mill has trouble.".to_string(),
+                trust_change: 1,
+                work: Work::NotOffered,
+            }),
+            "{work}"
+        );
+    }
+}
+
+#[test]
+fn the_prompt_tells_the_npc_that_work_becomes_a_real_quest() {
+    let prompt = prompt(&farley(), &[], "any work for me?", 0);
+
+    let note = prompt.rsplit(">>>").next().unwrap();
+    assert!(note.contains("The work becomes a real quest"), "{note}");
+    assert!(
+        note.contains("name no place, creature, count, or reward"),
+        "{note}"
+    );
+    assert!(note.contains(r#""work": <true when you offer"#), "{note}");
 }
 
 #[test]
@@ -189,7 +247,8 @@ fn a_change_of_trust_at_the_ends_of_i64_is_dropped() {
             answer,
             Some(Answer {
                 say: "Hmm.".to_string(),
-                trust_change: 0
+                trust_change: 0,
+                work: Work::NotOffered,
             }),
             "{trust}"
         );

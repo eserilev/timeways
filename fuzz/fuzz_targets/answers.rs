@@ -259,6 +259,10 @@ fuzz_target!(|data: &[u8]| {
     if let Some(answer) = talk::checked_answer(&text, "") {
         assert_voice(&answer.say, talk::MAX_SAY_CHARS, talk::MAX_SAY_BYTES);
         assert!((-talk::MAX_TRUST_CHANGE..=talk::MAX_TRUST_CHANGE).contains(&answer.trust_change));
+        // Only the JSON `true` offers work, so a text with no "true" never does.
+        if answer.work == talk::Work::Offered {
+            assert!(text.contains("true"), "work with no true: {text:?}");
+        }
     }
     if chronicle::checked_pick(&text) == chronicle::Pick::Second {
         assert!(text.contains('2'), "a pick of draft 2 with no 2: {text:?}");
