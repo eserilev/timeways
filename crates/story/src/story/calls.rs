@@ -12,6 +12,7 @@ use crate::prompt::Attempt;
 use crate::store::{CharacterKey, Node, Outcome, StoreError};
 use crate::{check, talk};
 use hourglass::Tick;
+use std::collections::VecDeque;
 
 /// An open model call, and what its answer is for.
 pub(super) enum Pending {
@@ -74,6 +75,12 @@ impl Pending {
             | Pending::Talk { key, .. } => key == active,
         }
     }
+}
+
+/// The calls of the story before a line from the bridge.
+pub(super) struct CallsBefore {
+    next: CallId,
+    queued: VecDeque<CallId>,
 }
 
 /// The kinds of the `calls` table that a hook counts.
@@ -292,6 +299,24 @@ impl Story {
             outputs.extend(self.send_call(call));
         }
         outputs
+    }
+
+    pub(super) fn calls_before(&self) -> CallsBefore {
+        CallsBefore {
+            next: self.next_call,
+            queued: self.queued.clone(),
+        }
+    }
+
+    /// The bridge gets no output of a line that fails, so it runs no call of the line. A
+    /// call that the line opened goes, and a call that it sent from the queue waits again.
+    pub(super) fn take_back_calls(&mut self, before: CallsBefore) {
+        let opened_here = |call: &CallId| call.0 >= before.next.0;
+        self.calls.retain(|call, _| !opened_here(call));
+        self.prompts.retain(|call, _| !opened_here(call));
+        self.open
+            .retain(|call| !opened_here(call) && !before.queued.contains(call));
+        self.queued = before.queued;
     }
 
     /// The open call and its prompt. The bridge never saw a call that waits for a slot.

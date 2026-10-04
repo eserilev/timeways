@@ -324,7 +324,16 @@ impl Story {
     /// Returns the refusal of the world for a game event, the error of the pack for a
     /// question, `UnknownCall` for the answer to a call that is not open, `NoCharacter`
     /// before the first `character_entered`, and the error of the store.
-    pub fn handle(&mut self, mut input: Input) -> Result<Vec<Output>, StoryError> {
+    pub fn handle(&mut self, input: Input) -> Result<Vec<Output>, StoryError> {
+        let before = self.calls_before();
+        let handled = self.handle_and_save(input);
+        if handled.is_err() {
+            self.take_back_calls(before);
+        }
+        handled
+    }
+
+    fn handle_and_save(&mut self, mut input: Input) -> Result<Vec<Output>, StoryError> {
         let mut time = None;
         if let Some(at) = input.at_mut() {
             *at = self.checked_time(*at)?;
