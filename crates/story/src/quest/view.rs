@@ -1,6 +1,6 @@
 //! A side quest as the book shows it (docs/plans/quest-variety.md 8).
 
-use super::{Status, Step, Tracked};
+use super::{AnyOrder, Status, Step, Tracked};
 use hourglass::Tick;
 use serde::Serialize;
 
@@ -15,6 +15,9 @@ pub struct QuestView {
     pub done_at: Option<Tick>,
     /// The steps that the player can see, in order.
     pub steps: Vec<StepView>,
+    /// The span of the steps that can be done in any order.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub any_order: Option<AnyOrder>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -55,6 +58,7 @@ impl QuestView {
             status: quest.status,
             done_at: quest.done_at,
             steps,
+            any_order: quest.any_order,
         }
     }
 }

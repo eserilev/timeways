@@ -119,6 +119,7 @@ impl Story {
             title: offer.title.clone(),
             text: offer.text,
             steps: offer.steps,
+            any_order: offer.any_order,
         };
         if active.quests.add(change).is_err() {
             return Err(none);

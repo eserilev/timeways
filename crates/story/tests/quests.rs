@@ -10,7 +10,7 @@ use timeways_story::character::QUEST_TRUST;
 use timeways_story::input::{CallId, Input, MessageId, Reaction};
 use timeways_story::journal::{Deed, Page};
 use timeways_story::pack::Pack;
-use timeways_story::quest::{DAY_SECONDS, QuestView, Status, StepState, StepView};
+use timeways_story::quest::{AnyOrder, DAY_SECONDS, QuestView, Status, StepState, StepView};
 use timeways_story::store::Store;
 use timeways_story::story::why::{TrustCause, TrustWhy};
 use timeways_story::story::{Output, Story};
@@ -1114,4 +1114,22 @@ fn talks_and_quest_offers_share_one_count_of_calls() {
     let (_, prompt) = call_of(ask(&mut story, 7));
 
     assert!(prompt.contains("<<<\nFind my father.\n>>>"), "{prompt}");
+}
+
+#[test]
+fn the_steps_of_a_set_end_in_the_order_that_you_do_them() {
+    let mut story = story("set-order");
+    let steps = format!(r#"{{"goal": "any_order", "steps": [{VISIT_POND}, {MEET_BRAM}]}}"#);
+    let (call, _) = call_of(ask(&mut story, 5));
+    answer_with(&mut story, call, "Odd Jobs", &steps);
+    accept(&mut story, 6, None);
+
+    story.handle(meet(7, "Farmer Bram")).unwrap();
+    let half = quests(&mut story).remove(0);
+    story.handle(zone(8, "Mill Pond")).unwrap();
+
+    let states: Vec<StepState> = half.steps.iter().map(|step| step.state).collect();
+    assert_eq!(states, [StepState::Open, StepState::Done]);
+    assert_eq!(half.any_order, Some(AnyOrder { first: 0, last: 1 }));
+    assert_eq!(quests(&mut story)[0].status, Status::Done);
 }

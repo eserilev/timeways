@@ -3,7 +3,7 @@
 use hourglass::Tick;
 use timeways_story::hero_hook::Hook;
 use timeways_story::quest::{
-    DAY_SECONDS, Encounter, Here, Known, MAX_KILLS, MAX_OFFER_BYTES, MAX_TITLE_CHARS,
+    AnyOrder, DAY_SECONDS, Encounter, Here, Known, MAX_KILLS, MAX_OFFER_BYTES, MAX_TITLE_CHARS,
     MAX_TOPIC_CHARS, MAX_WAIT_DAYS, Quest, QuestChange, QuestFault, Status, Step, checked_quest,
     offer_line, prompt, quest_log, thing_name, title_of_thing,
 };
@@ -304,6 +304,7 @@ fn the_offer_line_names_the_giver_the_title_and_the_command() {
         title: "The Lost Lantern".to_string(),
         text: "Bring word to the tower.".to_string(),
         steps: Vec::new(),
+        any_order: None,
     };
 
     let line = offer_line(GIVER, &quest);
@@ -368,6 +369,7 @@ fn a_step_done_out_of_order_changes_nothing() {
                 npc: "Farmer Bram".to_string(),
             },
         ],
+        any_order: None,
     };
     let accepted = QuestChange::Accepted {
         number: 1,
@@ -394,6 +396,7 @@ fn an_offer_of_exactly_one_narrator_line_passes() {
             title: String::new(),
             text: String::new(),
             steps: Vec::new(),
+            any_order: None,
         },
     )
     .len();
@@ -431,6 +434,7 @@ fn an_accept_by_number_takes_that_offer_when_another_one_waits_first() {
         steps: vec![Step::Meet {
             npc: "Farmer Bram".to_string(),
         }],
+        any_order: None,
     };
     let accepted = QuestChange::Accepted {
         number: 2,
@@ -592,6 +596,7 @@ fn bat_hunt(status: Status) -> Vec<QuestChange> {
                 count: 2,
             },
         ],
+        any_order: None,
     }];
     if status == Status::Accepted {
         changes.push(QuestChange::Accepted {
@@ -882,6 +887,7 @@ fn wait_quest() -> Vec<QuestChange> {
                     npc: "Farmer Bram".to_string(),
                 },
             ],
+            any_order: None,
         },
         QuestChange::Accepted {
             number: 1,
@@ -978,4 +984,183 @@ fn a_step_that_names_only_the_hook_fails_the_check() {
     let checked = checked_quest(&answer("Justice", hunt), &known(&seen));
 
     assert_eq!(checked, Err(QuestFault::UnknownFoe("Hogger".to_string())));
+}
+
+fn any_order(steps: &[&str]) -> String {
+    format!(
+        r#"{{"goal": "any_order", "steps": [{}]}}"#,
+        steps.join(", ")
+    )
+}
+
+#[test]
+fn an_any_order_set_holds_two_or_three_steps() {
+    let seen = [];
+    let one = answer("Odd Jobs", &any_order(&[VISIT_TOWER]));
+    let four = answer(
+        "Odd Jobs",
+        &any_order(&[VISIT_TOWER, MEET_BRAM, KILL_BATS, VISIT_POND]),
+    );
+    let three = answer("Odd Jobs", &any_order(&[VISIT_TOWER, MEET_BRAM, KILL_BATS]));
+
+    assert_eq!(
+        checked_quest(&one, &known(&seen)).unwrap_err(),
+        QuestFault::AnyOrderSize(1)
+    );
+    assert_eq!(
+        checked_quest(&four, &known(&seen)).unwrap_err(),
+        QuestFault::AnyOrderSize(4)
+    );
+    assert!(checked_quest(&three, &known(&seen)).is_ok());
+}
+
+#[test]
+fn a_quest_has_at_most_one_any_order_set() {
+    let seen = [];
+    let sets = format!(
+        "{}, {}",
+        any_order(&[VISIT_TOWER, MEET_BRAM]),
+        any_order(&[KILL_BATS, VISIT_POND])
+    );
+
+    assert_eq!(
+        checked_quest(&answer("Odd Jobs", &sets), &known(&seen)).unwrap_err(),
+        QuestFault::AnyOrderTwice
+    );
+}
+
+#[test]
+fn an_any_order_set_holds_no_wait() {
+    let seen = [];
+    let steps = format!("{VISIT_POND}, {}", any_order(&[VISIT_TOWER, &wait(1)]));
+
+    assert_eq!(
+        checked_quest(&answer("Odd Jobs", &steps), &known(&seen)).unwrap_err(),
+        QuestFault::AnyOrderWait
+    );
+}
+
+#[test]
+fn a_set_inside_a_set_is_refused() {
+    let seen = [];
+    let inner = any_order(&[VISIT_TOWER, MEET_BRAM]);
+    let steps = any_order(&[&inner, KILL_BATS]);
+
+    assert_eq!(
+        checked_quest(&answer("Odd Jobs", &steps), &known(&seen)).unwrap_err(),
+        QuestFault::NotJson
+    );
+}
+
+#[test]
+fn an_any_order_set_is_flattened_with_its_span() {
+    let seen = [];
+    let steps = format!("{VISIT_POND}, {}", any_order(&[VISIT_TOWER, MEET_BRAM]));
+
+    let quest = checked_quest(&answer("Odd Jobs", &steps), &known(&seen)).unwrap();
+
+    assert_eq!(quest.steps.len(), 3);
+    assert_eq!(quest.steps[1].target(), Some("Old Tower"));
+    assert_eq!(quest.any_order, Some(AnyOrder { first: 1, last: 2 }));
+}
+
+/// A quest of a visit, then a set of two kills, then a meeting. Accepted at 2.
+fn set_quest() -> Vec<QuestChange> {
+    vec![
+        QuestChange::Offered {
+            number: 1,
+            at: Tick(1),
+            giver: GIVER.to_string(),
+            title: "Odd Jobs".to_string(),
+            text: "Go.".to_string(),
+            steps: vec![
+                Step::Visit {
+                    place: "Old Tower".to_string(),
+                },
+                Step::Kill {
+                    creature: "Duskbat".to_string(),
+                    count: 2,
+                },
+                Step::Kill {
+                    creature: "Mill Rat".to_string(),
+                    count: 2,
+                },
+                Step::Meet {
+                    npc: "Farmer Bram".to_string(),
+                },
+            ],
+            any_order: Some(AnyOrder { first: 1, last: 2 }),
+        },
+        QuestChange::Accepted {
+            number: 1,
+            at: Tick(2),
+        },
+        done(0, 3),
+    ]
+}
+
+#[test]
+fn each_step_of_an_open_set_can_be_done_in_any_order() {
+    let mut changes = set_quest();
+    let open = quest_log(&changes).remove(0).open_steps();
+    changes.push(done(2, 4));
+
+    let quest = quest_log(&changes).remove(0);
+
+    assert_eq!(open, [1, 2]);
+    assert!(quest.is_done(2));
+    assert_eq!(quest.open_steps(), [1]);
+}
+
+#[test]
+fn the_step_after_a_set_opens_only_when_the_whole_set_is_done() {
+    let mut changes = set_quest();
+    changes.push(done(3, 4));
+    changes.push(done(1, 5));
+    let half = quest_log(&changes).remove(0);
+    changes.push(done(2, 6));
+
+    let whole = quest_log(&changes).remove(0);
+
+    assert!(!half.is_done(3));
+    assert_eq!(half.open_steps(), [2]);
+    assert_eq!(whole.open_steps(), [3]);
+    assert_eq!(whole.opened_at(3), Some(Tick(6)));
+}
+
+#[test]
+fn two_kill_steps_in_a_set_count_their_kills_apart() {
+    let mut changes = set_quest();
+    changes.extend([killed(1), killed(2), killed(2)]);
+
+    let quest = quest_log(&changes).remove(0);
+
+    assert_eq!(quest.kills, [0, 1, 2, 0]);
+    assert_eq!(quest.hunts("Duskbat"), Some(1));
+    assert_eq!(quest.hunts("Mill Rat"), Some(2));
+}
+
+#[test]
+fn a_span_past_the_steps_counts_as_no_span() {
+    let mut changes = set_quest();
+    if let QuestChange::Offered { any_order, .. } = &mut changes[0] {
+        *any_order = Some(AnyOrder { first: 2, last: 9 });
+    }
+
+    let quest = quest_log(&changes).remove(0);
+
+    assert_eq!(quest.any_order, None);
+    assert_eq!(quest.open_steps(), [1]);
+}
+
+#[test]
+fn the_prompt_shows_how_to_ask_for_steps_in_any_order() {
+    let seen = [];
+
+    let text = prompt(&known(&seen), Some("Testvale"), None);
+
+    assert!(
+        text.contains(r#"{"goal": "any_order", "steps": [...]}"#),
+        "{text}"
+    );
 }

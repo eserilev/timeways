@@ -110,7 +110,7 @@ local REPLIES = {
 	talk_answer = ns.Talk.Show,
 	journal = ns.Journal.Receive,
 	draft_answer = ns.TaskDraftHelp.Receive,
-	events_seen = ns.Foes.EventsSeen,
+	events_seen = ns.QuestSteps.EventsSeen,
 }
 
 -- A notice is a line of Timeways itself, such as why a task was refused. It never takes

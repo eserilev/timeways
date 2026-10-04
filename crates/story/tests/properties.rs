@@ -25,7 +25,7 @@ use timeways_story::pack::Pack;
 use timeways_story::passage_limits::{MAX_PASSAGE_BYTES, pieces};
 use timeways_story::places::InstanceKind;
 use timeways_story::quest::{
-    DAY_SECONDS, MAX_KILLS, MAX_WAIT_DAYS, QuestChange, Status, Step, Tracked, quest_log,
+    AnyOrder, DAY_SECONDS, MAX_KILLS, MAX_WAIT_DAYS, QuestChange, Status, Step, Tracked, quest_log,
 };
 use timeways_story::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use timeways_story::seen::TextKind;
@@ -237,19 +237,34 @@ fn quest_time() -> impl Strategy<Value = Tick> {
     edge.prop_map(|(base, days, delta)| Tick(base + days * DAY_SECONDS + delta - 1))
 }
 
+/// No span, or a span at the start, in the middle, or at the end of a quest of 4 steps.
+/// A span past the steps of a shorter quest comes too, as in a damaged file.
+fn any_order_span() -> impl Strategy<Value = Option<AnyOrder>> {
+    prop_oneof![
+        Just(None),
+        Just(Some(AnyOrder { first: 0, last: 1 })),
+        Just(Some(AnyOrder { first: 1, last: 2 })),
+        Just(Some(AnyOrder { first: 2, last: 3 })),
+        Just(Some(AnyOrder { first: 1, last: 3 })),
+    ]
+}
+
 /// Few numbers and short quests, so that most changes find their quest. Kills come often,
 /// so a kill step can fill up.
 fn quest_change() -> impl Strategy<Value = QuestChange> {
     let number = 1u64..4;
     let steps = prop::collection::vec(quest_step(), 0..5);
     prop_oneof![
-        1 => (number.clone(), steps).prop_map(move |(number, steps)| QuestChange::Offered {
-            number,
-            at: Tick(1),
-            giver: "Keeper Tessa".to_string(),
-            title: "A Task".to_string(),
-            text: "Go.".to_string(),
-            steps,
+        1 => (number.clone(), steps, any_order_span()).prop_map(move |(number, steps, any_order)| {
+            QuestChange::Offered {
+                number,
+                at: Tick(1),
+                giver: "Keeper Tessa".to_string(),
+                title: "A Task".to_string(),
+                text: "Go.".to_string(),
+                steps,
+                any_order,
+            }
         }),
         1 => number.clone().prop_map(|number| QuestChange::Accepted {
             number,
@@ -1156,9 +1171,26 @@ proptest! {
     fn in_an_ordered_quest_no_step_is_done_before_the_step_before_it(
         changes in prop::collection::vec(quest_change(), 0..40),
     ) {
-        for quest in quest_log(&changes) {
+        for quest in quest_log(&changes).into_iter().filter(|quest| quest.any_order.is_none()) {
             let first_gap = quest.done.iter().position(Option::is_none).unwrap_or(quest.done.len());
             prop_assert!(quest.done[first_gap..].iter().all(Option::is_none), "{:?}", quest);
+        }
+    }
+
+    #[test]
+    fn an_any_order_set_is_done_only_when_all_its_steps_are_done(
+        changes in prop::collection::vec(quest_change(), 0..40),
+    ) {
+        for quest in quest_log(&changes) {
+            let Some(span) = quest.any_order else {
+                continue;
+            };
+            let set_done = (span.first..=span.last).all(|step| quest.is_done(step));
+            let later_done = (span.last + 1..quest.steps.len()).any(|step| quest.is_done(step));
+            prop_assert!(set_done || !later_done, "{:?}", quest);
+            let before_done = (0..span.first).all(|step| quest.is_done(step));
+            let set_started = (span.first..=span.last).any(|step| quest.is_done(step));
+            prop_assert!(before_done || !set_started, "{:?}", quest);
         }
     }
 

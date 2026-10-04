@@ -26,6 +26,7 @@ Outbox.lua
 Watch.lua
 Seen.lua
 Foes.lua
+QuestSteps.lua
 Sightings.lua
 GameQuests.lua
 QuestAuras.lua

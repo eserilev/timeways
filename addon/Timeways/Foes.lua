@@ -20,11 +20,6 @@ local lastKill = {}
 -- The creatures of the open kill steps of each task in progress, and the units of them that
 -- you saw and can attack, by GUID. A common mob counts only when a task hunts it.
 local hunted, prey = {}, {}
--- True while a task has a kill step that is not open yet.
-local killStepWaits = false
--- A batch of events goes out about once a minute, so this asks at most once for each batch.
-local JOURNAL_SECONDS = 60
-local journalAskedAt
 
 -- The client can hide a value from addons. A hidden value is never compared or stored.
 local function Readable(...)
@@ -75,52 +70,10 @@ local function Defeated(name)
 	ns.Outbox.Add(ns.Inputs.Defeated(now, name))
 end
 
-local function Accepted(quest)
-	return type(quest) == "table" and quest.status == "accepted" and type(quest.steps) == "table"
-end
-
-local function IsKill(step)
-	return type(step) == "table" and step.goal == "kill" and type(step.creature) == "string"
-end
-
--- The creatures of the open kill steps of a task in progress.
-local function OpenKills(quest)
-	local creatures = {}
-	if not Accepted(quest) then
-		return creatures
-	end
-	for _, step in ipairs(quest.steps) do
-		if IsKill(step) and step.state == "open" then
-			creatures[#creatures + 1] = step.creature
-		end
-	end
-	return creatures
-end
-
--- A later kill step opens when the desktop counts a visit or a meeting. Only a new journal
--- tells the addon so.
-local function KillsLater(quest)
-	if not Accepted(quest) then
-		return false
-	end
-	for _, step in ipairs(quest.steps) do
-		if IsKill(step) and step.state == "later" then
-			return true
-		end
-	end
-	return false
-end
-
--- The tasks of the journal say what to hunt. A unit of a creature that no task hunts now
--- is forgotten, and the unit that you target or hover now counts at once.
-function Foes.Hunt(quests)
-	hunted, killStepWaits = {}, false
-	for _, quest in ipairs(type(quests) == "table" and quests or {}) do
-		for _, creature in ipairs(OpenKills(quest)) do
-			hunted[creature] = true
-		end
-		killStepWaits = killStepWaits or KillsLater(quest)
-	end
+-- The creatures of the open kill steps (`QuestSteps`). A unit of a creature that no task
+-- hunts now is forgotten, and the unit that you target or hover now counts at once.
+function Foes.Hunt(creatures)
+	hunted = creatures
 	for guid, name in pairs(prey) do
 		if not hunted[name] then
 			prey[guid] = nil
@@ -128,16 +81,6 @@ function Foes.Hunt(quests)
 	end
 	Foes.See("target")
 	Foes.See("mouseover")
-end
-
--- The reply `events_seen`: the desktop read a batch of events, so a step can be done.
-function Foes.EventsSeen()
-	local now = time()
-	if not killStepWaits or (journalAskedAt and now - journalAskedAt < JOURNAL_SECONDS) then
-		return
-	end
-	journalAskedAt = now
-	ns.Journal.Request(0)
 end
 
 local function CountKill(guid)

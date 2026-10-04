@@ -32,6 +32,9 @@ pub fn prompt(known: &Known<'_>, place: Option<&str>, hook: Option<Hook<'_>>) ->
          creature. An empty list has nothing to use.\n\
          - Each step names a different place, person, or creature.\n\
          - Only a step after a wait can send the player back to you.\n\
+         - To let the player do 2 or 3 steps in any order, put them in one entry of the \
+         steps: {{\"goal\": \"any_order\", \"steps\": [...]}}. At most one such entry, and \
+         no wait in it.\n\
          - The task is not a quest of the game, and it does not continue one.\n\
          - The title has at most {MAX_TITLE_CHARS} characters. The text has at most 60 \
          words, in your own voice.\n\n\

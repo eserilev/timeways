@@ -103,7 +103,7 @@ function Journal.Receive(value)
 	ns.MspProfile.JournalCame(pages.hero.sheet)
 	ns.Quest.JournalCame()
 	ns.Trust.Update(pages.people)
-	ns.Foes.Hunt(pages.quests)
+	ns.QuestSteps.Read(pages.quests)
 	ns.JournalFrame.Refresh()
 	ns.Hero.AskOnce(pages.hero)
 end
@@ -431,6 +431,15 @@ local function StepLine(quest, step)
 	return Line(waits and "later" or "entry", StepText(step))
 end
 
+-- The place in the list of the first step of the any-order set, or nil. The desktop counts
+-- from 0.
+local function AnyOrderStart(quest)
+	local span = quest.any_order
+	if type(span) == "table" and type(span.first) == "number" then
+		return span.first + 1
+	end
+end
+
 -- The rewards are story, never loot (3.4): the giver trusts you more, and the deed goes into
 -- your chronicle.
 local function QuestLines(quest, saving)
@@ -439,7 +448,11 @@ local function QuestLines(quest, saving)
 	if type(quest.text) == "string" then
 		lines[#lines + 1] = Line("prose", ns.Plain(quest.text))
 	end
-	for _, step in ipairs(Entries(quest.steps)) do
+	local setStart = AnyOrderStart(quest)
+	for n, step in ipairs(Entries(quest.steps)) do
+		if n == setStart then
+			lines[#lines + 1] = Line("text", "In any order:")
+		end
 		lines[#lines + 1] = StepLine(quest, step)
 	end
 	lines[#lines + 1] = Line("section", "Rewards")

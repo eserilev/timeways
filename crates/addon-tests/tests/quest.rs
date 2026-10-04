@@ -8,7 +8,7 @@ use common::{Game, step_views};
 use hourglass::Tick;
 use timeways_story::input::{Input, MessageId};
 use timeways_story::journal::{Deed, Journal, pages};
-use timeways_story::quest::{QuestView, Status, Step, StepState};
+use timeways_story::quest::{AnyOrder, QuestView, Status, Step, StepState};
 use timeways_story::story::Output;
 
 const DAY: u64 = 1_790_000_000;
@@ -34,6 +34,7 @@ fn lantern(status: Status, steps_done: usize) -> QuestView {
         ),
         status,
         done_at: (status == Status::Done).then_some(Tick(DAY)),
+        any_order: None,
     }
 }
 
@@ -674,4 +675,19 @@ fn a_wait_whose_time_passed_shows_complete() {
 #[test]
 fn a_wait_that_is_not_open_yet_shows_faded() {
     assert_eq!(wait_line(StepState::Later, 0), "later: Wait 2 days.");
+}
+
+#[test]
+fn an_any_order_set_shows_under_in_any_order() {
+    let game = Game::new();
+    let mut quest = lantern(Status::Accepted, 0);
+    quest.steps[1].state = StepState::Open;
+    quest.any_order = Some(AnyOrder { first: 0, last: 1 });
+
+    game.reply(&quest_reply(quest));
+
+    let shown = lines(&game);
+    assert_eq!(shown[4], "text: In any order:");
+    assert_eq!(shown[5], "entry: Visit Mill Pond.");
+    assert_eq!(shown[6], "entry: Speak with Farmer Bram.");
 }

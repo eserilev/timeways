@@ -1,7 +1,7 @@
 //! The quest log: each change of a side quest, and the state of each quest and each of its
 //! steps (GAMEPLAY.md 3.4, docs/plans/quest-variety.md 6).
 
-use super::{DAY_SECONDS, Step};
+use super::{AnyOrder, DAY_SECONDS, Step};
 use hourglass::Tick;
 use serde::{Deserialize, Serialize};
 
@@ -17,6 +17,9 @@ pub enum QuestChange {
         title: String,
         text: String,
         steps: Vec<Step>,
+        /// None in an old quest file.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        any_order: Option<AnyOrder>,
     },
     Accepted {
         number: u64,
@@ -78,6 +81,7 @@ pub struct Tracked {
     pub title: String,
     pub text: String,
     pub steps: Vec<Step>,
+    pub any_order: Option<AnyOrder>,
     pub status: Status,
     pub accepted_at: Option<Tick>,
     /// When each step was done, by index.
@@ -89,27 +93,36 @@ pub struct Tracked {
 }
 
 impl Tracked {
-    fn offered(
-        number: u64,
-        at: Tick,
-        giver: &str,
-        title: &str,
-        text: &str,
-        steps: &[Step],
-    ) -> Self {
-        Tracked {
+    /// A new offer, from its line. A span that does not fit the steps, from a damaged
+    /// file, counts as no span.
+    fn offered(change: &QuestChange) -> Option<Self> {
+        let QuestChange::Offered {
             number,
-            offered_at: at,
-            giver: giver.to_string(),
-            title: title.to_string(),
-            text: text.to_string(),
-            steps: steps.to_vec(),
+            at,
+            giver,
+            title,
+            text,
+            steps,
+            any_order,
+        } = change
+        else {
+            return None;
+        };
+        let fits = |span: &AnyOrder| span.first < span.last && span.last < steps.len();
+        Some(Tracked {
+            number: *number,
+            offered_at: *at,
+            giver: giver.clone(),
+            title: title.clone(),
+            text: text.clone(),
+            steps: steps.clone(),
+            any_order: any_order.filter(fits),
             status: Status::Offered,
             accepted_at: None,
             done: vec![None; steps.len()],
             kills: vec![0; steps.len()],
             done_at: None,
-        }
+        })
     }
 
     #[must_use]
@@ -122,14 +135,23 @@ impl Tracked {
         self.done.get(step).is_some_and(Option::is_some)
     }
 
+    /// The first step of the stage of this step. A stage is one step, or the whole
+    /// any-order set.
+    fn stage_start(&self, step: usize) -> usize {
+        match self.any_order {
+            Some(span) if span.contains(step) => span.first,
+            _ => step,
+        }
+    }
+
     /// Can the player do this step now? The quest is accepted, the step is not done, and
-    /// every step before it is done.
+    /// every step before its stage is done.
     #[must_use]
     pub fn is_open(&self, step: usize) -> bool {
         self.status == Status::Accepted
             && step < self.steps.len()
             && !self.is_done(step)
-            && (0..step).all(|before| self.is_done(before))
+            && (0..self.stage_start(step)).all(|before| self.is_done(before))
     }
 
     /// The steps that the player can do now, by index.
@@ -140,14 +162,14 @@ impl Tracked {
             .collect()
     }
 
-    /// When the step became open: the accept, or the time of the last step done before it.
-    /// None while it is not open.
+    /// When the step became open: the accept, or the time of the last step done before its
+    /// stage. None while it is not open.
     #[must_use]
     pub fn opened_at(&self, step: usize) -> Option<Tick> {
         if !self.is_open(step) {
             return None;
         }
-        let before = self.done[..step].iter().flatten().max();
+        let before = self.done[..self.stage_start(step)].iter().flatten().max();
         before.copied().or(self.accepted_at)
     }
 
@@ -185,19 +207,12 @@ pub fn quest_log(changes: &[QuestChange]) -> Vec<Tracked> {
 
 fn apply(quests: &mut Vec<Tracked>, change: &QuestChange) {
     match change {
-        QuestChange::Offered {
-            number,
-            at,
-            giver,
-            title,
-            text,
-            steps,
-        } => {
+        QuestChange::Offered { giver, .. } => {
             let same_giver = |q: &&mut Tracked| q.status == Status::Offered && &q.giver == giver;
             for waiting in quests.iter_mut().filter(same_giver) {
                 waiting.status = Status::Declined;
             }
-            quests.push(Tracked::offered(*number, *at, giver, title, text, steps));
+            quests.extend(Tracked::offered(change));
         }
         QuestChange::Accepted { number, at } => {
             if let Some(quest) = waiting_offer(quests, *number) {

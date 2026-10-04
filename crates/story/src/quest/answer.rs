@@ -1,0 +1,70 @@
+//! The JSON of a quest answer, and the flat list of its steps (docs/plans/quest-variety.md
+//! 5.1).
+
+use super::{AnyOrder, QuestFault, Step};
+use serde::Deserialize;
+
+/// The steps of an any-order set: 2 or 3.
+const SET_SIZES: std::ops::RangeInclusive<usize> = 2..=3;
+
+#[derive(Deserialize)]
+pub(super) struct Reply {
+    pub(super) title: String,
+    pub(super) text: String,
+    pub(super) steps: Vec<Entry>,
+}
+
+/// One entry of `steps`: a step, or `{"goal": "any_order", "steps": [...]}`. A set inside a
+/// set is no step, so it fails the parse.
+#[derive(Deserialize)]
+#[serde(untagged)]
+pub(super) enum Entry {
+    Set(Set),
+    One(Step),
+}
+
+#[derive(Deserialize)]
+pub(super) struct Set {
+    #[serde(rename = "goal")]
+    _goal: SetGoal,
+    steps: Vec<Step>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "snake_case")]
+enum SetGoal {
+    AnyOrder,
+}
+
+/// The steps in order, and the span of the set. The steps of a set join the list in their
+/// order.
+pub(super) fn flattened(entries: Vec<Entry>) -> Result<(Vec<Step>, Option<AnyOrder>), QuestFault> {
+    let mut steps = Vec::new();
+    let mut any_order = None;
+    for entry in entries {
+        match entry {
+            Entry::One(step) => steps.push(step),
+            Entry::Set(set) => {
+                if any_order.is_some() {
+                    return Err(QuestFault::AnyOrderTwice);
+                }
+                any_order = Some(checked_set(steps.len(), &set.steps)?);
+                steps.extend(set.steps);
+            }
+        }
+    }
+    Ok((steps, any_order))
+}
+
+fn checked_set(first: usize, steps: &[Step]) -> Result<AnyOrder, QuestFault> {
+    if !SET_SIZES.contains(&steps.len()) {
+        return Err(QuestFault::AnyOrderSize(steps.len()));
+    }
+    if steps.iter().any(|step| matches!(step, Step::Wait { .. })) {
+        return Err(QuestFault::AnyOrderWait);
+    }
+    Ok(AnyOrder {
+        first,
+        last: first + steps.len() - 1,
+    })
+}

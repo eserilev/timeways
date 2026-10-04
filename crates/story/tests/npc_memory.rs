@@ -42,6 +42,7 @@ fn offered(number: u64, at: u64, giver: &str, title: &str) -> QuestChange {
         steps: vec![Step::Meet {
             npc: "Marshal Dughan".to_string(),
         }],
+        any_order: None,
     }
 }
 

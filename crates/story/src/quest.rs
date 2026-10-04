@@ -6,6 +6,7 @@ use crate::seen::SeenText;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+mod answer;
 mod known;
 mod log;
 mod progress;
@@ -13,6 +14,7 @@ mod prompt;
 mod structure;
 mod view;
 
+use answer::{Reply, flattened};
 pub use known::Known;
 use known::game_quests;
 pub use log::{QuestChange, Status, Tracked, next_number, quest_log};
@@ -108,11 +110,27 @@ impl Step {
     }
 }
 
+/// The steps from `first` to `last`, both in, can be done in any order. The quest keeps
+/// its steps in one flat list, so a line names a step by one index.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AnyOrder {
+    pub first: usize,
+    pub last: usize,
+}
+
+impl AnyOrder {
+    #[must_use]
+    pub fn contains(self, step: usize) -> bool {
+        (self.first..=self.last).contains(&step)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Quest {
     pub title: String,
     pub text: String,
     pub steps: Vec<Step>,
+    pub any_order: Option<AnyOrder>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Error)]
@@ -146,6 +164,12 @@ pub enum QuestFault {
     WaitDays(u8),
     #[error("a quest has at most one wait, and a wait is never the first or the last step")]
     WaitPlace,
+    #[error("an any-order set holds 2 or 3 steps, not {0}")]
+    AnyOrderSize(usize),
+    #[error("an any-order set holds no wait")]
+    AnyOrderWait,
+    #[error("a quest has at most one any-order set")]
+    AnyOrderTwice,
     #[error("a step asks you to kill the giver")]
     KillGiver,
     #[error("two steps are the same")]
@@ -154,13 +178,6 @@ pub enum QuestFault {
     GameQuest(String),
     #[error("\"{0}\" is a target of your last quest")]
     LastTask(String),
-}
-
-#[derive(Deserialize)]
-struct Reply {
-    title: String,
-    text: String,
-    steps: Vec<Step>,
 }
 
 /// # Errors
@@ -173,23 +190,25 @@ pub fn checked_quest(answer: &str, known: &Known<'_>) -> Result<Quest, QuestFaul
         plain_text(&reply.title, MAX_TITLE_CHARS, MAX_OFFER_BYTES).ok_or(QuestFault::BadTitle)?;
     let text =
         plain_text(&reply.text, MAX_TEXT_CHARS, MAX_OFFER_BYTES).ok_or(QuestFault::BadText)?;
-    if !(1..=MAX_STEPS).contains(&reply.steps.len()) {
-        return Err(QuestFault::StepCount(reply.steps.len()));
+    let (steps, any_order) = flattened(reply.steps)?;
+    if !(1..=MAX_STEPS).contains(&steps.len()) {
+        return Err(QuestFault::StepCount(steps.len()));
     }
     let game_title = |seen: &SeenText| seen.title.as_deref().is_some_and(|t| same_words(t, &title));
     if game_quests(known.seen).any(game_title) {
         return Err(QuestFault::GameQuest(title));
     }
-    if let Some(fault) = reply.steps.iter().find_map(|step| known.step_fault(step)) {
+    if let Some(fault) = steps.iter().find_map(|step| known.step_fault(step)) {
         return Err(fault);
     }
-    if let Some(fault) = structure_fault(&reply.steps, known.giver) {
+    if let Some(fault) = structure_fault(&steps, known.giver) {
         return Err(fault);
     }
     let quest = Quest {
         title,
         text,
-        steps: reply.steps,
+        steps,
+        any_order,
     };
     if offer_line(known.giver, &quest).len() > MAX_OFFER_BYTES {
         return Err(QuestFault::TooLong);

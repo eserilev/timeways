@@ -77,6 +77,12 @@ fn assert_quest(text: &str) {
     for wait in waits {
         assert!(wait > 0 && wait + 1 < offer.steps.len(), "{:?}", offer.steps);
     }
+    if let Some(span) = offer.any_order {
+        assert!((2..=3).contains(&(span.last + 1 - span.first)), "{span:?}");
+        assert!(span.last < offer.steps.len(), "{span:?}");
+        let set = &offer.steps[span.first..=span.last];
+        assert!(!set.iter().any(|step| matches!(step, Step::Wait { .. })));
+    }
     let targets: Vec<&str> = offer.steps.iter().filter_map(Step::target).collect();
     let mut distinct = targets.clone();
     distinct.sort_unstable();
