@@ -1,6 +1,6 @@
 # Plan: reportable player text
 
-Status: draft 1, 2026-10-03. When a part is built, its rules move into `GAMEPLAY.md` 4.7 and 4.8, and this plan marks the part as done.
+Status: built, 2026-10-03. The rules are in `GAMEPLAY.md` 4.7 and 4.8. The steps in the game (section 5) are open.
 
 ## 1. Goal
 
