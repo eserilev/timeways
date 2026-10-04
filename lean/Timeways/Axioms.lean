@@ -2,6 +2,7 @@
 -- of Lean. A `sorry` or a new axiom changes the output, and the build fails.
 import Timeways.QuestLog
 import Timeways.HeroHook
+import Timeways.Budget
 
 open timeways_rules
 
@@ -40,3 +41,7 @@ open timeways_rules
 /-- info: 'timeways_rules.hero_hook.every_filled_field_takes_its_turn' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs (whitespace := lax) in
 #print axioms hero_hook.every_filled_field_takes_its_turn
+
+/-- info: 'timeways_rules.budget.the_narrator_never_speaks_four_times_in_one_hour' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms budget.the_narrator_never_speaks_four_times_in_one_hour
