@@ -14,7 +14,8 @@ use timeways_story::chapters::{
 use timeways_story::character::Character;
 use timeways_story::check::{Fault, check, later_names, mentions, without_citations};
 use timeways_story::chronicle::{Pick, Saga};
-use timeways_story::hero::{Field, LONG, checked_text, limit_of};
+use timeways_story::hero::{Field, LONG, checked_text, cut, limit_of};
+use timeways_story::hero_hook::HOOK_FIELDS;
 use timeways_story::house::fenced;
 use timeways_story::input::{GameQuestKind, Input, MessageId, Reaction};
 use timeways_story::journal::{Journal, journal, pages};
@@ -1232,7 +1233,8 @@ proptest! {
 }
 
 /// `play()`, and also waits at each edge of the age words, talks to Farley that name the
-/// character one time in four, and quests of Farley that the check lets through.
+/// character one time in four, quests of Farley that the check lets through, and answers
+/// of the sheet that a hook takes.
 fn memory_play() -> impl Strategy<Value = Play> {
     let edge_wait = prop::sample::select(vec![HOUR, DAY, 2 * DAY, 7 * DAY, 30 * DAY, 365 * DAY])
         .prop_map(Play::Wait);
@@ -1244,11 +1246,15 @@ fn memory_play() -> impl Strategy<Value = Play> {
     let farley_quest = prop::sample::select(vec!["Goldshire", "Westfall"]).prop_map(|place| {
         Play::Quest(FARLEY.to_string(), vec![TaskStep::Visit(place.to_string())])
     });
+    let hook_field = prop::sample::select(vec!["goal", "flaw"])
+        .prop_map(|field| FIELDS.iter().position(|name| *name == field).unwrap());
+    let hook_set = (hook_field, hero_text()).prop_map(|(field, text)| Play::HeroSet(field, text));
     prop_oneof![
         6 => play(),
         1 => edge_wait,
         2 => farley_talk,
         1 => farley_quest,
+        3 => hook_set,
     ]
 }
 
@@ -1365,6 +1371,52 @@ fn rests_on_a_read(line: &str, npc: &str, call: &TalkCall, character: &Character
     )
 }
 
+const HOOK_HEADING: &str = "Something the player wrote about their hero, as ";
+
+/// The talk and quest calls, oldest first: the position and the prompt of each.
+fn hook_calls(connection: &rusqlite::Connection) -> Vec<(String, String)> {
+    let select = "SELECT position, prompt FROM calls WHERE kind IN ('talk', 'quest') \
+                  ORDER BY position";
+    rows_of(connection, select)
+        .into_iter()
+        .map(|call| (call[0].clone().unwrap(), call[1].clone().unwrap()))
+        .collect()
+}
+
+/// The fenced words of the hook block of a prompt.
+fn hook_text(prompt: &str) -> Option<&str> {
+    let (_, block) = prompt.split_once(HOOK_HEADING)?;
+    let (_, fenced) = block.split_once("<<<\n")?;
+    Some(fenced.split_once("\n>>>")?.0)
+}
+
+/// The input line that opened a call, through the call that opened it when it has none.
+fn input_of_call(connection: &rusqlite::Connection, call: &str) -> String {
+    let select = format!("SELECT input, call FROM calls WHERE position = {call}");
+    let row = rows_of(connection, &select).remove(0);
+    match (&row[0], &row[1]) {
+        (Some(input), _) => input.clone(),
+        (None, Some(parent)) => input_of_call(connection, parent),
+        (None, None) => panic!("call {call} rests on nothing"),
+    }
+}
+
+/// The newest `Set` row of each hook field that the lines before `input` wrote.
+fn newest_sets_before(connection: &rusqlite::Connection, input: &str) -> HashMap<String, String> {
+    let select = format!("SELECT position, body FROM hero WHERE input < {input} ORDER BY position");
+    let mut newest = HashMap::new();
+    for row in rows_of(connection, &select) {
+        let change: serde_json::Value = serde_json::from_str(row[1].as_deref().unwrap()).unwrap();
+        if change["line"] == "set" && HOOK_FIELDS.contains(&change["field"].as_str().unwrap()) {
+            newest.insert(
+                change["field"].as_str().unwrap().to_string(),
+                row[0].clone().unwrap(),
+            );
+        }
+    }
+    newest
+}
+
 /// A tick, with the ends of `u64` and the edges of each band of age words likely.
 fn memory_tick() -> impl Strategy<Value = u64> {
     let edges: Vec<u64> = [
@@ -1448,6 +1500,56 @@ proptest! {
                 let said = line.contains("you told the player");
                 prop_assert!(!(said && mentions(line, "Ada")), "{}", line);
             }
+        }
+    }
+
+    #[test]
+    fn at_most_one_talk_or_quest_call_in_three_has_a_hook(
+        plays in prop::collection::vec(memory_play(), 0..80),
+    ) {
+        let folder = fresh("hook-rhythm");
+        let mut clock = 1_000;
+        let mut story = story(&folder, Store::Folder(folder.clone()));
+        run(&mut story, &plays, &mut clock);
+        drop(story);
+
+        let connection = rusqlite::Connection::open(world_file(&folder)).unwrap();
+        for (index, (_, prompt)) in hook_calls(&connection).iter().enumerate() {
+            let hooked = prompt.contains(HOOK_HEADING);
+            prop_assert!(!hooked || index % 3 == 2, "call {} of the count has a hook", index + 1);
+        }
+    }
+
+    #[test]
+    fn every_hook_is_the_words_of_the_player_and_its_row_is_read(
+        plays in prop::collection::vec(memory_play(), 0..80),
+    ) {
+        let folder = fresh("hook-read");
+        let mut clock = 1_000;
+        let mut story = story(&folder, Store::Folder(folder.clone()));
+        run(&mut story, &plays, &mut clock);
+        drop(story);
+
+        let connection = rusqlite::Connection::open(world_file(&folder)).unwrap();
+        for (call, prompt) in hook_calls(&connection) {
+            let Some(text) = hook_text(&prompt) else {
+                continue;
+            };
+            let select = format!(
+                "SELECT hero.position, hero.body FROM reads JOIN hero ON hero.position = reads.row \
+                 WHERE reads.call = {call} AND reads.tab = 'hero'"
+            );
+            let newest = newest_sets_before(&connection, &input_of_call(&connection, &call));
+            let read_sets = rows_of(&connection, &select).into_iter().filter_map(|row| {
+                let change: serde_json::Value = serde_json::from_str(row[1].as_deref()?).ok()?;
+                let field = change["field"].as_str()?.to_string();
+                let words = change["line"] == "set" && cut(change["text"].as_str()?) == text;
+                words.then(|| (field, row[0].clone()))
+            });
+            let source: Vec<(String, Option<String>)> = read_sets.collect();
+            prop_assert!(!source.is_empty(), "call {} reads no row with its hook {:?}", call, text);
+            let newest_read = source.iter().any(|(field, row)| newest.get(field) == row.as_ref());
+            prop_assert!(newest_read, "call {} reads an old answer", call);
         }
     }
 

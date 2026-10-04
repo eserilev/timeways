@@ -146,6 +146,16 @@ impl Active {
         });
     }
 
+    /// The calls of these kinds: the saved ones, and the ones that this line opened.
+    pub(super) fn count_calls(&self, kinds: &[&str]) -> Result<u64, StoreError> {
+        let saved = self.database.count_calls(kinds)?;
+        let opened = self
+            .new_calls
+            .iter()
+            .filter(|call| kinds.contains(&call.kind));
+        Ok(saved + u64::try_from(opened.count()).unwrap_or_default())
+    }
+
     /// The row of an open call, for a call that reads an earlier one.
     pub(super) fn call_row(&self, call: CallId) -> Option<u64> {
         self.call_rows.get(&call).copied()

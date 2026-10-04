@@ -2,6 +2,7 @@
 //! so the model has nothing else to pick (GAMEPLAY.md 3.4).
 
 use super::{Known, MAX_KILLS, MAX_STEPS, MAX_TITLE_CHARS, MAX_WAIT_DAYS};
+use crate::hero_hook::{Hook, QUEST_RULE, hook_block};
 use crate::house::{HOUSE_RULES, bulleted, fenced};
 use crate::talk::persona;
 
@@ -13,16 +14,19 @@ const MEET: &str = r#"{"goal": "meet", "npc": "<a person above>"}: speak with th
 const TALK: &str = r#"{"goal": "talk", "npc": "<a person above>", "about": "<a topic in a few words>"}: ask them about something with /talk. The topic is optional."#;
 
 #[must_use]
-pub fn prompt(known: &Known<'_>, place: Option<&str>) -> String {
+pub fn prompt(known: &Known<'_>, place: Option<&str>, hook: Option<Hook<'_>>) -> String {
     let places = known.places();
     let people = known.people();
     let prey = known.prey();
+    let hook = hook.map_or_else(String::new, |hook| {
+        format!("{}\n\n", hook_block(&hook, QUEST_RULE))
+    });
     format!(
         "{}\n{HOUSE_RULES}\n\nGive the player a small task of your own: a rumor, a favor, or \
          an errand.\n\nPlaces that the player can visit:\n{}\n\n\
          People that the player can meet:\n{}\n\n\
          Creatures that the player can hunt:\n{}\n\n\
-         Rules:\n\
+         {hook}Rules:\n\
          - 1 to {MAX_STEPS} steps. Each step is one of these goals:\n{}\n\
          - Copy each name exactly as the list writes it. Use no other place, person, or \
          creature. An empty list has nothing to use.\n\

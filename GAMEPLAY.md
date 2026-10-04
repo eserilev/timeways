@@ -260,6 +260,7 @@ Who your hero is, in your own words, as a player of a tabletop game writes befor
   - The narrator (3.2) gets the sheet, less the name and the title, and the 5 newest entries, under the heading "the hero's own story, not canon", for a line and for a chapter (3.3). A prompt takes the first 300 characters of each text, so a long story keeps the prompt small.
   - The prompt of a chapter also gets the entries written during the chapter.
   - An NPC in `/talk` (3.5) gets only the entries about it or about its place, at most 5.
+  - **A hook, now and then** (built). One talk (3.5) or side-quest offer (3.4) in three gets one answer of your sheet as a hook: your goal, a bond, a flaw, or your traits. The NPC uses it only when it fits. Your origin and background stay with the narrator. The calls of a character count together, talks and offers, and the third, sixth, and ninth call each get a hook. Each hook takes the next answer that you filled, in the order of the sheet, and starts again after the last one. A failed call counts too, and a task draft (4.7) does not. The hook is your own words, the first 300 characters, fenced as data, with the rule that the model claims nothing more about it. A quest still names only real targets that the check allows.
 - **The journal** carries the fields of the sheet and the entries as lists like the others, so a long sheet spreads over two pages.
 - **In the game:** the Hero page of the book, or `/hero`, `/hero add <text>`, `/hero note <text about your target>`, and `/hero set <field> <text>`. Edit and Add open a writing page in the book: a box of several lines that scrolls, stops at 1000 characters, and counts them ("16 / 1000"), with Save and Cancel. Remove asks first in a dialog of the game.
 - **An edit shows at once.** The book shows the new text, marked "Saving...", until the next journal comes. Each edit goes out with a journal request, so that journal comes soon. It shows what the desktop saved, or leaves out a refused edit and shows the reason.
@@ -878,8 +879,8 @@ Each row of a world answers three questions: what proves it, which model call wr
   | Narrator | the events and the flavor moments of its batch |
   | Saga draft | every event, flavor moment, and hero row of its chapter, and the hero rows before it |
   | Saga pick, second draft | the same, and the earlier calls of its round |
-  | Quest offer, task draft | the events behind the giver and every place, NPC, and creature that the prompt can offer |
-  | Talk | the events behind the NPC, the hero entries about it, the `learned` rows of its passages, and the rows behind each memory (3.5): the `learned` row of each answer, every `quests` row of each quest, and the events of each deed and of the first meeting; and every `quests` row of each quest whose talk step names the NPC (3.4) |
+  | Quest offer, task draft | the events behind the giver and every place, NPC, and creature that the prompt can offer, and for a quest offer the hero row of the hook, when the call has one (3.7) |
+  | Talk | the events behind the NPC, the hero entries about it, the `learned` rows of its passages, and the rows behind each memory (3.5): the `learned` row of each answer, every `quests` row of each quest, and the events of each deed and of the first meeting; every `quests` row of each quest whose talk step names the NPC (3.4); and the hero row of the hook, when the call has one (3.7) |
 
   The events behind a name are the event that made the thing, and the event that opened each fact that it holds or that points to it.
 - **Proof** is the set of roots that a row rests on: follow the input or the call that made it, and for a call, also what it read, down to the inputs. The weakest root shows:

@@ -1,11 +1,15 @@
 //! The model calls of the story program: each one opens with its row and its reads, waits
 //! for a free slot, and ends with its answer or its failure (GAMEPLAY.md 5.6 and 5.14).
 
-use super::{EventsBatch, MAX_OPEN_CALLS, Output, Story, StoryError, drafts, narrator, quests};
+use super::{
+    Active, EventsBatch, MAX_OPEN_CALLS, Output, Story, StoryError, drafts, narrator, quests, reads,
+};
+use crate::hero::Hero;
+use crate::hero_hook::{self, Hook};
 use crate::input::{CallId, MessageId};
 use crate::learned::Rumor;
 use crate::lore::{LoreCall, Next};
-use crate::store::{CharacterKey, Node, Outcome};
+use crate::store::{CharacterKey, Node, Outcome, StoreError};
 use crate::{check, talk};
 use hourglass::Tick;
 
@@ -57,9 +61,9 @@ impl Pending {
             Pending::Lore { .. } => "lore",
             Pending::Narrator { .. } => "narrator",
             Pending::Chronicle { .. } => "saga",
-            Pending::Quest { .. } => "quest",
+            Pending::Quest { .. } => QUEST,
             Pending::Draft { .. } => "draft",
-            Pending::Talk { .. } => "talk",
+            Pending::Talk { .. } => TALK,
         }
     }
 
@@ -75,6 +79,25 @@ impl Pending {
             | Pending::Talk { key, .. } => key == active,
         }
     }
+}
+
+/// The kinds of the `calls` table that a hook counts.
+const TALK: &str = "talk";
+const QUEST: &str = "quest";
+
+/// The kinds of call that share the count of the hook (GAMEPLAY.md 3.7).
+const HOOK_KINDS: [&str; 2] = [TALK, QUEST];
+
+/// The hook of the next talk or quest call, and the hero row that it reads. The count
+/// holds every earlier call of these kinds, so call it before the call opens.
+pub(super) fn hook_for<'h>(
+    active: &Active,
+    hero: &'h Hero,
+) -> Result<(Option<Hook<'h>>, Vec<Node>), StoreError> {
+    let count = active.count_calls(&HOOK_KINDS)?;
+    let hook = hero_hook::hook(hero, count);
+    let read = hook.map_or_else(Vec::new, |hook| reads::hook_read(active, hook.field));
+    Ok((hook, read))
 }
 
 impl Story {

@@ -1,6 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use hourglass::Tick;
+use timeways_story::hero_hook::Hook;
 use timeways_story::quest::{
     DAY_SECONDS, Encounter, Here, Known, MAX_KILLS, MAX_OFFER_BYTES, MAX_TITLE_CHARS,
     MAX_TOPIC_CHARS, MAX_WAIT_DAYS, Quest, QuestChange, QuestFault, Status, Step, checked_quest,
@@ -318,7 +319,7 @@ fn the_offer_line_names_the_giver_the_title_and_the_command() {
 fn the_prompt_lists_the_names_that_a_quest_can_use() {
     let seen = [];
 
-    let text = prompt(&known(&seen), Some("Testvale"));
+    let text = prompt(&known(&seen), Some("Testvale"), None);
 
     assert!(text.contains("Name: Keeper Tessa"), "{text}");
     for name in ["- Testvale", "- Old Tower", "- Mill Pond", "- Farmer Bram"] {
@@ -559,7 +560,7 @@ fn the_prompt_lists_only_the_targets_that_the_check_allows() {
     let mut known = known(&seen);
     known.last_targets = vec!["Mill Rat"];
 
-    let text = prompt(&known, Some("Testvale"));
+    let text = prompt(&known, Some("Testvale"), None);
 
     for name in ["- Testvale", "- Old Tower", "- Farmer Bram", "- Duskbat"] {
         assert!(text.contains(name), "{name}: {text}");
@@ -766,7 +767,7 @@ fn the_prompt_shows_a_goal_only_when_its_list_has_a_name() {
     known.foes = Vec::new();
     known.npcs = vec![GIVER];
 
-    let text = prompt(&known, Some("Testvale"));
+    let text = prompt(&known, Some("Testvale"), None);
 
     assert!(text.contains(r#""goal": "visit""#), "{text}");
     for goal in ["meet", "talk", "kill"] {
@@ -857,7 +858,7 @@ fn a_step_with_no_wait_before_it_never_names_the_giver() {
 fn the_prompt_never_lists_the_giver_as_a_person_to_meet() {
     let seen = [];
 
-    let text = prompt(&known(&seen), Some("Testvale"));
+    let text = prompt(&known(&seen), Some("Testvale"), None);
 
     assert!(!text.contains("- Keeper Tessa"), "{text}");
     assert!(text.contains(r#""goal": "wait""#), "{text}");
@@ -946,4 +947,35 @@ fn a_wait_holds_from_its_time_on() {
 
     assert!(!quest.step_holds(1, &at(500 + 2 * DAY_SECONDS - 1), &Encounter::None));
     assert!(quest.step_holds(1, &at(500 + 2 * DAY_SECONDS), &Encounter::None));
+}
+
+const HOGGER_HOOK: Hook<'static> = Hook {
+    field: "goal",
+    text: "To bring Hogger to justice.",
+};
+
+#[test]
+fn a_quest_prompt_with_a_hook_keeps_its_lists_and_its_rules() {
+    let seen = [];
+
+    let text = prompt(&known(&seen), Some("Testvale"), Some(HOGGER_HOOK));
+
+    let block = "Something the player wrote about their hero, as their goal. It is their story, \
+                 not canon:\n<<<\nTo bring Hogger to justice.\n>>>\nLet it shape the reason for \
+                 the task, if it fits. The steps still use only the lists above. Never claim more \
+                 about it than these words say.\n\nRules:";
+    assert!(text.contains(block), "{text}");
+    let lists = text.find("Creatures that the player can hunt:").unwrap();
+    assert!(lists < text.find(block).unwrap(), "{text}");
+    assert!(text.contains("- Farmer Bram"), "{text}");
+}
+
+#[test]
+fn a_step_that_names_only_the_hook_fails_the_check() {
+    let seen = [];
+    let hunt = r#"{"goal": "kill", "creature": "Hogger", "count": 1}"#;
+
+    let checked = checked_quest(&answer("Justice", hunt), &known(&seen));
+
+    assert_eq!(checked, Err(QuestFault::UnknownFoe("Hogger".to_string())));
 }

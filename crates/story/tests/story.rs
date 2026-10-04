@@ -2285,3 +2285,70 @@ fn an_npc_of_the_same_name_in_another_zone_shares_the_memories_of_the_name() {
 
     assert!(prompt.contains(RUMOR_LINE), "{prompt}");
 }
+
+const HOOK_LINE: &str = "Something the player wrote about their hero";
+
+fn set_goal(story: &mut Story, text: &str) {
+    let input = Input::HeroSet {
+        at: Tick(40),
+        field: "goal".to_string(),
+        text: text.to_string(),
+    };
+    story.handle(input).unwrap();
+}
+
+/// A talk to Farley that no model answers. The prompt comes back.
+fn talk_failed(story: &mut Story) -> String {
+    let (call, prompt) =
+        model_call(one(talk(story, "Innkeeper Farley", "any news?").unwrap()).unwrap());
+    story.handle(Input::ModelFailed { call }).unwrap();
+    prompt
+}
+
+#[test]
+fn a_failed_call_still_counts_toward_the_next_hook() {
+    let mut story = story_with("hook-failed", &[]);
+    set_goal(&mut story, "Find my father.");
+    let first = talk_failed(&mut story);
+    let second = talk_failed(&mut story);
+
+    let third = talk_failed(&mut story);
+
+    assert!(!first.contains(HOOK_LINE), "{first}");
+    assert!(!second.contains(HOOK_LINE), "{second}");
+    assert!(third.contains("<<<\nFind my father.\n>>>"), "{third}");
+}
+
+#[test]
+fn a_changed_answer_goes_out_with_its_new_text() {
+    let mut story = story_with("hook-changed", &[]);
+    set_goal(&mut story, "Find my father.");
+    talk_answered(&mut story, "Hm.");
+    talk_answered(&mut story, "Hm.");
+    set_goal(&mut story, "Avenge my father.");
+
+    let prompt = talk_answered(&mut story, "Hm.");
+
+    assert!(prompt.contains("<<<\nAvenge my father.\n>>>"), "{prompt}");
+    assert!(!prompt.contains("Find my father."), "{prompt}");
+}
+
+#[test]
+fn a_task_draft_does_not_count_toward_a_hook() {
+    let mut story = story_with("hook-draft", &[]);
+    set_goal(&mut story, "Find my father.");
+    talk_failed(&mut story);
+    let draft = Input::DraftAsked {
+        id: MessageId(9),
+        at: Tick(50),
+        idea: "help bram".to_string(),
+    };
+    let (call, _) = model_call(one(story.handle(draft).unwrap()).unwrap());
+    story.handle(Input::ModelFailed { call }).unwrap();
+
+    let second = talk_failed(&mut story);
+    let third = talk_failed(&mut story);
+
+    assert!(!second.contains(HOOK_LINE), "{second}");
+    assert!(third.contains(HOOK_LINE), "{third}");
+}

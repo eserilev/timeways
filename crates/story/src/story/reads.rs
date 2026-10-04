@@ -72,6 +72,17 @@ pub(super) fn memories_read(memories: &[Memory]) -> Vec<Node> {
         .collect()
 }
 
+/// The hero row that wrote the text of a hook: the newest `Set` of its field.
+pub(super) fn hook_read(active: &Active, field: &str) -> Vec<Node> {
+    let sets = (0..)
+        .zip(active.hero.changes())
+        .filter(|(_, change)| matches!(change, Change::Set { field: set, .. } if set == field));
+    sets.last()
+        .map(|(row, _)| Node::Row(Table::Hero, row))
+        .into_iter()
+        .collect()
+}
+
 /// Every event, hero row, and flavor moment of a chapter. The hero rows before it count
 /// too, because the portrait shows the sheet as it stands.
 pub(super) fn chapter_read(active: &Active, began: Tick, next: Tick) -> Vec<Node> {

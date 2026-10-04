@@ -600,6 +600,63 @@ fn a_talk_reads_the_rows_behind_its_memories() {
     assert!(reads.contains(&Node::Row(Table::Learned, 0)), "{reads:?}");
 }
 
+fn set_goal(story: &mut Story, text: &str) {
+    story
+        .handle(Input::HeroSet {
+            at: Tick(40),
+            field: "goal".to_string(),
+            text: text.to_string(),
+        })
+        .unwrap();
+}
+
+#[test]
+fn a_hook_reads_the_hero_row_that_wrote_its_text() {
+    let folder = fresh_folder("hook-reads");
+    let mut story = story(&folder);
+    set_goal(&mut story, "Find my father.");
+    set_goal(&mut story, "Avenge my father.");
+    for _ in 0..3 {
+        let call = talk(&mut story, "Innkeeper Farley");
+        answer(&mut story, call, r#"{"say": "Hm.", "trust": 0}"#);
+    }
+    drop(story);
+
+    let database = database(&folder);
+    let hooked = database.reads_of(2).unwrap();
+    assert!(hooked.contains(&Node::Row(Table::Hero, 1)), "{hooked:?}");
+    assert!(!hooked.contains(&Node::Row(Table::Hero, 0)), "{hooked:?}");
+    let before = database.reads_of(1).unwrap();
+    assert!(!before.contains(&Node::Row(Table::Hero, 1)), "{before:?}");
+}
+
+#[test]
+fn the_count_of_calls_survives_a_restart() {
+    let folder = fresh_folder("hook-restart");
+    let mut before = story(&folder);
+    set_goal(&mut before, "Find my father.");
+    for _ in 0..2 {
+        let call = talk(&mut before, "Innkeeper Farley");
+        answer(&mut before, call, r#"{"say": "Hm.", "trust": 0}"#);
+    }
+    drop(before);
+    let mut after = story(&folder);
+
+    let outputs = after
+        .handle(Input::TalkAsked {
+            id: MessageId(8),
+            at: Tick(60),
+            npc: "Innkeeper Farley".to_string(),
+            text: "any news?".to_string(),
+        })
+        .unwrap();
+
+    let Some(Output::ModelCall { prompt, .. }) = outputs.first() else {
+        panic!("expected a model call, got {outputs:?}");
+    };
+    assert!(prompt.contains("<<<\nFind my father.\n>>>"), "{prompt}");
+}
+
 #[test]
 fn a_quest_offer_reads_its_giver_and_rests_on_its_call() {
     let folder = fresh_folder("quest-reads");

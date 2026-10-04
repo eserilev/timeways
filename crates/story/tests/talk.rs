@@ -1,3 +1,4 @@
+use timeways_story::hero_hook::Hook;
 use timeways_story::narrator::PERSONA;
 use timeways_story::pack::{Link, Origin, Passage};
 use timeways_story::talk::{Answer, MAX_SAY_CHARS, QuestTalk, Scene, checked_answer, prompt};
@@ -12,6 +13,7 @@ fn farley() -> Scene<'static> {
         own_lore: Vec::new(),
         memories: Vec::new(),
         quests: Vec::new(),
+        hook: None,
     }
 }
 
@@ -270,6 +272,35 @@ fn a_quest_talk_holds_the_giver_the_title_and_the_topic_as_data() {
     assert!(prompt.contains(data), "{prompt}");
     assert!(
         prompt.contains("make nothing up about the giver"),
+        "{prompt}"
+    );
+}
+
+#[test]
+fn a_talk_prompt_with_a_hook_fences_it_with_its_rule() {
+    let scene = Scene {
+        hook: Some(Hook {
+            field: "flaw",
+            text: "I never forgive a debt.",
+        }),
+        ..farley()
+    };
+
+    let prompt = prompt(&scene, &[], "any news?", 0);
+
+    let block = "Something the player wrote about their hero, as a flaw of theirs. It is their \
+                 story, not canon:\n<<<\nI never forgive a debt.\n>>>\nLet it shape your answer \
+                 only when it fits what the player says. Never claim more about it than these \
+                 words say.";
+    assert!(prompt.contains(block), "{prompt}");
+}
+
+#[test]
+fn a_talk_prompt_with_no_hook_is_as_before() {
+    let prompt = prompt(&farley(), &[], "any news?", 0);
+
+    assert!(
+        !prompt.contains("Something the player wrote about their hero"),
         "{prompt}"
     );
 }

@@ -533,6 +533,27 @@ impl Database {
         Ok(calls.into_iter().filter_map(from_sql).collect())
     }
 
+    /// The rows of `calls` with one of these kinds, whatever their result.
+    ///
+    /// # Errors
+    ///
+    /// Returns the error of SQLite.
+    pub fn count_calls(&self, kinds: &[&str]) -> Result<u64, StoreError> {
+        let mut count = 0;
+        for kind in kinds {
+            let found: i64 = self
+                .connection
+                .query_row(
+                    "SELECT count(*) FROM calls WHERE kind = ?1",
+                    params![kind],
+                    |row| row.get(0),
+                )
+                .map_err(|source| self.error(source))?;
+            count += u64::try_from(found).unwrap_or_default();
+        }
+        Ok(count)
+    }
+
     /// The prompt, the answer, and how a call ended.
     ///
     /// # Errors

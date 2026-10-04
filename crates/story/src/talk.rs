@@ -2,6 +2,7 @@
 //! trust. The code checks both before anything shows or lands in the world (5.2).
 
 use crate::check::{json_object, voice_text};
+use crate::hero_hook::{Hook, TALK_RULE, hook_block};
 use crate::house::{HOUSE_RULES, bulleted, fenced};
 use crate::pack::Passage;
 use crate::samples::{self, Voice};
@@ -34,6 +35,8 @@ pub struct Scene<'a> {
     pub memories: Vec<String>,
     /// The quests of other NPCs that send the player to talk to this one.
     pub quests: Vec<QuestTalk<'a>>,
+    /// One answer of the hero sheet, one talk in three (`hero_hook`).
+    pub hook: Option<Hook<'a>>,
 }
 
 /// A quest whose talk step sends the player to this NPC (docs/plans/quest-variety.md 4.2).
@@ -126,6 +129,9 @@ fn what_you_know(scene: &Scene<'_>, passages: &[Passage]) -> String {
              story, not canon:\n{}",
             fenced(&bulleted(&scene.own_lore))
         );
+    }
+    if let Some(hook) = &scene.hook {
+        let _ = write!(known, "\n\n{}", hook_block(hook, TALK_RULE));
     }
     known.push_str(&what_you_remember(&scene.memories));
     for quest in &scene.quests {

@@ -5,6 +5,7 @@ use arbitrary::{Arbitrary, Unstructured};
 use fake_bridge::edges::{NAMES, WORDS};
 use fake_bridge::{FakeBridge, Model, Reply};
 use serde_json::{Value, json};
+use timeways_story::hero::PROMPT_TEXT_CHARS;
 use timeways_story::npc_memory::{MAX_MEMORIES, MAX_MEMORY_CHARS};
 use timeways_story::store::Store;
 use timeways_story::story::Story;
@@ -257,9 +258,11 @@ fn answer(prompt: &str, words: &Words) -> Option<String> {
     } else if prompt.contains("Tell the moment") {
         words.line.0.clone()
     } else if prompt.contains("small task of your own") {
+        assert_hook_block(prompt);
         quest(prompt, words).to_string()
     } else if prompt.contains("A player speaks to you") {
         assert_memory_block(prompt);
+        assert_hook_block(prompt);
         json!({"say": words.text.0, "trust": words.trust}).to_string()
     } else {
         format!("{} [1]", words.text.0)
@@ -282,6 +285,19 @@ fn assert_memory_block(prompt: &str) {
         let memory = line.strip_prefix("- ").expect("a memory line starts with a dash");
         assert!(memory.chars().count() <= MAX_MEMORY_CHARS, "{line}");
     }
+}
+
+/// The hook of the hero sheet (GAMEPLAY.md 3.7): at most one, with at most
+/// `PROMPT_TEXT_CHARS` characters in one fence.
+fn assert_hook_block(prompt: &str) {
+    let heading = "Something the player wrote about their hero, as ";
+    let Some((_, block)) = prompt.split_once(heading) else {
+        return;
+    };
+    assert!(!block.contains(heading), "two hooks");
+    let (_, fenced) = block.split_once("<<<\n").expect("the hook has a fence");
+    let (text, _) = fenced.split_once("\n>>>").expect("the fence of the hook closes");
+    assert!(text.chars().count() <= PROMPT_TEXT_CHARS, "{text}");
 }
 
 /// A session after its plays: the bridge, the character that played last, and the done

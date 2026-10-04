@@ -1,8 +1,9 @@
 //! Side quests in the story program (GAMEPLAY.md 3.4): the offer at the end of a batch,
 //! the answer of the player, and the progress from game events.
 
-use super::{Active, EventsBatch, Pending, Story, StoryError, checked_name, reads};
+use super::{Active, EventsBatch, Pending, Story, StoryError, calls, checked_name, reads};
 use crate::character::Character;
+use crate::hero;
 use crate::input::{Input, MessageId};
 use crate::quest::{
     self, Encounter, Here, Known, MAX_OPEN_QUESTS, QuestChange, Status, Step, Tracked, next_number,
@@ -55,8 +56,12 @@ impl Story {
         }
         let seen = seen_texts(active);
         let known = known(&active.character, giver, &seen, &quests);
-        let prompt = quest::prompt(&known, active.character.place_of(giver));
-        let reads = reads::events_about(active, known_names(&known));
+        let hero = hero::hero(active.hero.changes());
+        // A failed count gives no hook, and the offer still goes out.
+        let (hook, hook_read) = calls::hook_for(active, &hero).unwrap_or_default();
+        let prompt = quest::prompt(&known, active.character.place_of(giver), hook);
+        let mut reads = reads::events_about(active, known_names(&known));
+        reads.extend(hook_read);
         let pending = Pending::Quest {
             batch,
             key: active.key.clone(),

@@ -9,7 +9,8 @@ use std::fmt::Write as _;
 use std::io::Write as _;
 use std::process::{Command, Stdio};
 use timeways_story::chronicle::{self, Draft, Pick};
-use timeways_story::hero::{self, Entry, Field, Hero};
+use timeways_story::hero::{self, Entry, Field, Hero, PROMPT_TEXT_CHARS};
+use timeways_story::hero_hook::Hook;
 use timeways_story::journal::{Chapter, Deed};
 use timeways_story::moments::Moment;
 use timeways_story::narrator;
@@ -161,6 +162,19 @@ fn passage(text: &str) -> Passage {
     }
 }
 
+/// A hook at full length, so the budget test covers it.
+fn longest_hook() -> Hook<'static> {
+    const LONGEST: &str = "I swore to find the stranger in the grey cloak who knew my father, \
+        and to learn why he left Goldshire on the night of the fire. I ask every innkeeper and \
+        each guard. I keep his letter in my boot, and I read it each night by the fire of the \
+        inn, though I know each word of it by heart now. Every word.";
+    assert_eq!(LONGEST.chars().count(), PROMPT_TEXT_CHARS);
+    Hook {
+        field: "goal",
+        text: LONGEST,
+    }
+}
+
 /// Five memories at full length, so the budget test covers the longest block.
 fn longest_memories() -> Vec<String> {
     let name = "W".repeat(MAX_NAME_BYTES);
@@ -211,6 +225,7 @@ fn npc_talk() -> String {
             title: "The Stranger in the Grey Cloak and the Letter Left Unread...",
             about: Some("the stranger in the grey cloak who asked for my fathers name"),
         }],
+        hook: Some(longest_hook()),
     };
     let lore = [passage(
         "The Lion's Pride Inn stands at the crossroads of Goldshire.",
@@ -236,7 +251,7 @@ fn quest_known() -> Known<'static> {
 }
 
 fn quest_offer() -> String {
-    quest::prompt(&quest_known(), Some("Goldshire"))
+    quest::prompt(&quest_known(), Some("Goldshire"), Some(longest_hook()))
 }
 
 fn draft_known() -> draft::Known<'static> {

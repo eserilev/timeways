@@ -1,6 +1,6 @@
 # Plan: NPCs remember you in /talk
 
-Status: 2026-10-03. The user approved the design. Steps 1 to 5 of section 11 are done: NPC memory is built, and its rules are in `GAMEPLAY.md` 3.5, 5.11, and 5.14. Step 6 (the hook, section 10) is open.
+Status: done, 2026-10-03. The user approved the design. All 6 steps of section 11 are built. NPC memory is in `GAMEPLAY.md` 3.5, 5.11, and 5.14. The hook (section 10) is in `GAMEPLAY.md` 3.7 and 5.14.
 
 Changes from this plan, in the build:
 
@@ -9,7 +9,11 @@ Changes from this plan, in the build:
 - The property `a_talk_prompt_holds_at_most_five_memories_and_never_the_name_of_the_character` checks the name only in the lines of a rumor ("you told the player"). The code drops a rumor that names the character. A random foe or place can have the name "Ada" in a property run. That name comes from the game, and the code does not filter it.
 - In `fuzz/fuzz_targets/play.rs`, `assert_memory_block` checks the fence, the count, and the length of each line, but no name. The model of the fuzz target does not know which character plays, and a rumor that names the other character is allowed. The property checks the name.
 - `memory_play()` gives the quests of Farley one visit step to "Goldshire" or "Westfall", so the check lets most of them through.
-- The talk prompt of `tests/voice.rs` with 5 memories at full length is 776 tokens of 1823.
+- The talk prompt of `tests/voice.rs` with 5 memories at full length is 776 tokens of 1823, and 904 with the hook of 300 characters too. The quest offer with a hook is 541 tokens of 1733.
+- The quest prompt moved to `quest/prompt.rs` (quest variety) before the hook landed. `quest::prompt` takes the hook there.
+- The words of both hook blocks come from one function, `hero_hook::hook_block`, with the rule of the call: `TALK_RULE` or `QUEST_RULE`.
+- `hook_for` counts the saved calls and the calls that the line opened but did not save yet (`Active::count_calls`). In a quest offer, a failed count gives no hook, and the offer still goes out.
+- `a_hook_reads_the_hero_row_that_wrote_its_text` and `the_count_of_calls_survives_a_restart` are in `tests/links.rs`, because both need a world on disk. `talks_and_quest_offers_share_one_count_of_calls` is in `tests/quests.rs`, for the quest helpers.
 
 No table changes. All the data exists today, so there is no migration.
 

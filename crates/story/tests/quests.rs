@@ -1089,3 +1089,29 @@ fn the_journal_shows_when_an_open_wait_is_over() {
     assert_eq!(wait.state, StepState::Open);
     assert_eq!(wait.ready_at, Some(Tick(ready)));
 }
+
+#[test]
+fn talks_and_quest_offers_share_one_count_of_calls() {
+    let mut story = story("hook-count");
+    let goal = Input::HeroSet {
+        at: Tick(5),
+        field: "goal".to_string(),
+        text: "Find my father.".to_string(),
+    };
+    story.handle(goal).unwrap();
+    for _ in 0..2 {
+        let asked = Input::TalkAsked {
+            id: MessageId(8),
+            at: Tick(6),
+            npc: GIVER.to_string(),
+            text: "hello".to_string(),
+        };
+        let (call, prompt) = call_of(story.handle(asked).unwrap().remove(0));
+        story.handle(Input::ModelFailed { call }).unwrap();
+        assert!(!prompt.contains("Find my father."), "{prompt}");
+    }
+
+    let (_, prompt) = call_of(ask(&mut story, 7));
+
+    assert!(prompt.contains("<<<\nFind my father.\n>>>"), "{prompt}");
+}

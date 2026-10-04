@@ -1050,6 +1050,8 @@ impl Story {
         let memories = remembered(active, npc, at);
         read.extend(reads::memories_read(&memories));
         read.extend(reads::quest_rows(active, &numbers));
+        let (hook, hook_read) = calls::hook_for(active, &hero)?;
+        read.extend(hook_read);
         let scene = Scene {
             npc,
             place,
@@ -1062,6 +1064,7 @@ impl Story {
                 .map(|memory| npc_memory::line(memory, at))
                 .collect(),
             quests,
+            hook,
         };
         let prompt = talk::prompt(&scene, &passages, words, self.turn());
         let pending = Pending::Talk {

@@ -9,6 +9,7 @@ pub mod draft;
 pub mod dump;
 pub mod flavor;
 pub mod hero;
+pub mod hero_hook;
 pub mod house;
 pub mod input;
 pub mod journal;
