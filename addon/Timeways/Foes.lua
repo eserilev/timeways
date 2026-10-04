@@ -17,10 +17,10 @@ local SAME_KILL_SECONDS = 120
 -- and the rares and bosses by GUID.
 local players, notable, levels = {}, {}, {}
 local lastKill = {}
--- The creatures of the next kill step of each task in progress, and the units of them that
+-- The creatures of the open kill steps of each task in progress, and the units of them that
 -- you saw and can attack, by GUID. A common mob counts only when a task hunts it.
 local hunted, prey = {}, {}
--- True while a task has a kill step after its next step.
+-- True while a task has a kill step that is not open yet.
 local killStepWaits = false
 -- A batch of events goes out about once a minute, so this asks at most once for each batch.
 local JOURNAL_SECONDS = 60
@@ -79,33 +79,32 @@ local function Accepted(quest)
 	return type(quest) == "table" and quest.status == "accepted" and type(quest.steps) == "table"
 end
 
-local function StepsDone(quest)
-	return type(quest.steps_done) == "number" and quest.steps_done or 0
-end
-
 local function IsKill(step)
-	return type(step) == "table" and step.goal == "kill"
+	return type(step) == "table" and step.goal == "kill" and type(step.creature) == "string"
 end
 
--- The creature of the next step of a task in progress, when it is a kill step.
-local function NextKill(quest)
+-- The creatures of the open kill steps of a task in progress.
+local function OpenKills(quest)
+	local creatures = {}
 	if not Accepted(quest) then
-		return nil
+		return creatures
 	end
-	local step = quest.steps[StepsDone(quest) + 1]
-	if IsKill(step) and type(step.creature) == "string" then
-		return step.creature
+	for _, step in ipairs(quest.steps) do
+		if IsKill(step) and step.state == "open" then
+			creatures[#creatures + 1] = step.creature
+		end
 	end
+	return creatures
 end
 
--- A kill step after the next step becomes the next one when the desktop counts a visit or
--- a meeting. Only a new journal tells the addon so.
+-- A later kill step opens when the desktop counts a visit or a meeting. Only a new journal
+-- tells the addon so.
 local function KillsLater(quest)
 	if not Accepted(quest) then
 		return false
 	end
-	for n = StepsDone(quest) + 2, #quest.steps do
-		if IsKill(quest.steps[n]) then
+	for _, step in ipairs(quest.steps) do
+		if IsKill(step) and step.state == "later" then
 			return true
 		end
 	end
@@ -117,8 +116,7 @@ end
 function Foes.Hunt(quests)
 	hunted, killStepWaits = {}, false
 	for _, quest in ipairs(type(quests) == "table" and quests or {}) do
-		local creature = NextKill(quest)
-		if creature then
+		for _, creature in ipairs(OpenKills(quest)) do
 			hunted[creature] = true
 		end
 		killStepWaits = killStepWaits or KillsLater(quest)

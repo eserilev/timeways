@@ -6,7 +6,7 @@ use crate::character::{Character, title_of_game_quest, title_of_mark};
 use crate::hero::{Entry, Field, Hero};
 use crate::learned::Learned;
 use crate::places::{self, PlaceKind};
-use crate::quest::{Tracked, title_of_thing};
+use crate::quest::{QuestView, title_of_thing};
 use crate::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use crate::spot::{Spot, spot_of};
 use crate::stories::PlayerStory;
@@ -45,7 +45,7 @@ pub struct Journal {
     /// What you read and heard (GAMEPLAY.md 3.1.1).
     pub learned: Vec<Learned>,
     /// The side quests that you did not decline (3.4).
-    pub quests: Vec<Tracked>,
+    pub quests: Vec<QuestView>,
     /// The stories that players told about you, and that you accepted (4.8).
     pub stories: Vec<PlayerStory>,
 }
@@ -222,7 +222,7 @@ enum Item {
     Person(Person),
     Deed(Deed),
     Learned(Learned),
-    Quest(Tracked),
+    Quest(QuestView),
     Story(PlayerStory),
 }
 

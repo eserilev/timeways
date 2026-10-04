@@ -313,8 +313,20 @@ fn a_known_killer_goes_out_with_its_level() {
 
 const BAT: &str = "Creature-0-4372-0-17-1554-0000ABCDEF";
 
-/// A journal with one task in progress. Its next step kills 2 Duskbats.
-const HUNT: &str = r#"{"type":"journal","page":0,"pages":1,"quests":[{"number":1,"status":"accepted","steps_done":1,"kills":0,"steps":[{"goal":"visit","place":"Mill Pond"},{"goal":"kill","creature":"Duskbat","count":2}]}]}"#;
+/// A journal with one task in progress. Its open step kills 2 Duskbats.
+const HUNT: &str = r#"{"type":"journal","page":0,"pages":1,"quests":[{"number":1,"status":"accepted","steps":[{"goal":"visit","place":"Mill Pond","state":"done"},{"goal":"kill","creature":"Duskbat","count":2,"state":"open","kills":0}]}]}"#;
+
+/// The same task one step earlier: the visit is open, and the kill step waits.
+const VISIT_FIRST: [(&str, &str); 2] = [
+    (r#""state":"done""#, r#""state":"open""#),
+    (r#""state":"open","kills""#, r#""state":"later","kills""#),
+];
+
+fn hunt_with(changes: &[(&str, &str)]) -> String {
+    changes
+        .iter()
+        .fold(HUNT.to_string(), |hunt, (from, to)| hunt.replace(from, to))
+}
 
 fn killed(name: &str) -> Input {
     Input::NpcKilled {
@@ -376,7 +388,7 @@ fn a_kill_that_no_task_hunts_stays_home() {
 #[test]
 fn a_kill_step_that_is_not_next_hunts_nothing() {
     let game = Game::new();
-    game.reply(&HUNT.replace(r#""steps_done":1"#, r#""steps_done":0"#));
+    game.reply(&hunt_after_a_visit());
     hunted_bat(&game, BAT);
 
     game.run(&format!("wow.Fire('PARTY_KILL', 'Player-1', '{BAT}')"));
@@ -390,7 +402,7 @@ fn a_finished_hunt_forgets_the_units_that_it_saw() {
     game.reply(HUNT);
     hunted_bat(&game, BAT);
 
-    game.reply(&HUNT.replace(r#""steps_done":1"#, r#""steps_done":2"#));
+    game.reply(&hunt_with(&[(r#""state":"open""#, r#""state":"done""#)]));
     game.run(&format!("wow.Fire('PARTY_KILL', 'Player-1', '{BAT}')"));
 
     assert!(kills_after_flush(&game).is_empty());
@@ -411,7 +423,7 @@ fn a_friendly_unit_of_a_hunted_name_never_counts() {
 
 /// The same task one step earlier: a visit comes before the kill step.
 fn hunt_after_a_visit() -> String {
-    HUNT.replace(r#""steps_done":1"#, r#""steps_done":0"#)
+    hunt_with(&VISIT_FIRST)
 }
 
 fn journal_asks(game: &Game) -> usize {

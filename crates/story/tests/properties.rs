@@ -1134,32 +1134,44 @@ proptest! {
         let offers = quests.iter().filter(|quest| quest.status == Status::Offered).count();
         prop_assert!(offers <= 1);
         for quest in &quests {
-            prop_assert!(quest.steps_done <= quest.steps.len());
-            let finished = !quest.steps.is_empty() && quest.steps_done == quest.steps.len();
+            prop_assert!(quest.steps_done() <= quest.steps.len());
+            let finished = !quest.steps.is_empty() && quest.steps_done() == quest.steps.len();
             prop_assert_eq!(quest.status == Status::Done, finished);
             prop_assert_eq!(quest.done_at.is_some(), finished);
         }
     }
 
     #[test]
-    fn kills_count_only_for_the_next_kill_step_of_an_accepted_quest_and_never_past_its_count(
+    fn in_an_ordered_quest_no_step_is_done_before_the_step_before_it(
+        changes in prop::collection::vec(quest_change(), 0..40),
+    ) {
+        for quest in quest_log(&changes) {
+            let first_gap = quest.done.iter().position(Option::is_none).unwrap_or(quest.done.len());
+            prop_assert!(quest.done[first_gap..].iter().all(Option::is_none), "{:?}", quest);
+        }
+    }
+
+    #[test]
+    fn kills_count_only_for_an_open_kill_step_and_never_past_its_count(
         changes in prop::collection::vec(quest_change(), 0..60),
     ) {
-        let mut before = Vec::new();
+        let mut before: Vec<Tracked> = Vec::new();
         for end in 0..=changes.len() {
             let quests = quest_log(&changes[..end]);
 
             for (index, quest) in quests.iter().enumerate() {
                 let never_accepted = matches!(quest.status, Status::Offered | Status::Declined);
-                let limit = match quest.steps.get(quest.steps_done) {
-                    Some(Step::Kill { count, .. }) if !never_accepted => *count,
-                    _ => 0,
-                };
-                prop_assert!(quest.kills <= limit, "{:?}", quest);
-                let stepped = before
-                    .get(index)
-                    .is_some_and(|old: &Tracked| old.steps_done < quest.steps_done);
-                prop_assert!(!stepped || quest.kills == 0, "{:?}", quest);
+                for (step, kills) in quest.kills.iter().enumerate() {
+                    let limit = match &quest.steps[step] {
+                        Step::Kill { count, .. } if !never_accepted => *count,
+                        _ => 0,
+                    };
+                    prop_assert!(*kills <= limit, "{:?}", quest);
+                    let old = before.get(index).map_or(0, |old| old.kills[step]);
+                    let counted = *kills > old;
+                    let was_open = before.get(index).is_some_and(|old| old.is_open(step));
+                    prop_assert!(!counted || was_open, "{:?}", quest);
+                }
             }
             before = quests;
         }

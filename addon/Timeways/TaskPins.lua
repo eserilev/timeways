@@ -46,10 +46,6 @@ local function Pin(spot, fields)
 	return fields
 end
 
-local function StepsDone(quest)
-	return type(quest.steps_done) == "number" and quest.steps_done or 0
-end
-
 -- Each pin is { kind = "giver" or "step", map, x, y }, with x and y from 0 to 1. A step pin
 -- has its number and `done`. A giver pin has `offered` while the task is an offer.
 function TaskPins.For(journal, quest)
@@ -61,7 +57,7 @@ function TaskPins.For(journal, quest)
 	for n, step in ipairs(type(quest.steps) == "table" and quest.steps or {}) do
 		local spot = type(step) == "table" and StepSpot(journal, step)
 		if spot then
-			pins[#pins + 1] = Pin(spot, { kind = "step", number = n, done = n <= StepsDone(quest) })
+			pins[#pins + 1] = Pin(spot, { kind = "step", number = n, done = step.state == "done" })
 		end
 	end
 	return pins

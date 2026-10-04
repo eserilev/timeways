@@ -17,7 +17,7 @@ use crate::pack::{Link, Pack, PackError, Passage};
 use crate::passage_limits;
 use crate::places::InstanceKind;
 use crate::prompt::Context;
-use crate::quest::{Status, quest_log};
+use crate::quest::{QuestView, Status, quest_log};
 use crate::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use crate::seen::{MAX_SEEN_BYTES, SeenIndex, SeenText, TextKind};
 use crate::spot::Spot;
@@ -991,6 +991,7 @@ impl Story {
             journal.quests = quest_log(active.quests.changes())
                 .into_iter()
                 .filter(|quest| !matches!(quest.status, Status::Declined | Status::Abandoned))
+                .map(|quest| QuestView::of(&quest))
                 .collect();
             self.journal = pages(journal);
         }

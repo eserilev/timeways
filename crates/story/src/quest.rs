@@ -6,9 +6,15 @@ use crate::check::{json_object, mentions, plain_text, same_words};
 use crate::house::{HOUSE_RULES, bulleted, fenced};
 use crate::seen::{SeenText, TextKind};
 use crate::talk::persona;
-use hourglass::Tick;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+
+mod log;
+mod progress;
+mod view;
+
+pub use log::{QuestChange, Status, Tracked, next_number, quest_log};
+pub use view::{QuestView, StepState, StepView};
 
 pub const MAX_TITLE_CHARS: usize = 60;
 pub const MAX_TEXT_CHARS: usize = 400;
@@ -291,202 +297,6 @@ fn list(names: &[&str]) -> String {
 
 /// Past this, a new quest waits until you finish one.
 pub const MAX_OPEN_QUESTS: usize = 3;
-
-/// One change of the quest log. The quest file holds these lines, oldest first. The words
-/// of a quest are not facts, so they live next to the history, as the hero does.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "line", rename_all = "snake_case")]
-pub enum QuestChange {
-    Offered {
-        number: u64,
-        at: Tick,
-        giver: String,
-        title: String,
-        text: String,
-        steps: Vec<Step>,
-    },
-    Accepted {
-        number: u64,
-        at: Tick,
-    },
-    Declined {
-        number: u64,
-        at: Tick,
-    },
-    StepDone {
-        number: u64,
-        step: usize,
-        at: Tick,
-    },
-    /// One kill for the kill step with this index.
-    Killed {
-        number: u64,
-        step: usize,
-        at: Tick,
-    },
-    Abandoned {
-        number: u64,
-        at: Tick,
-    },
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Status {
-    Offered,
-    Accepted,
-    Declined,
-    Done,
-    /// Given up after it was accepted, or before.
-    Abandoned,
-}
-
-/// A quest as the log stands now.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct Tracked {
-    pub number: u64,
-    pub offered_at: Tick,
-    pub giver: String,
-    pub title: String,
-    pub text: String,
-    pub steps: Vec<Step>,
-    /// The steps done, from the first. The next step has this index.
-    pub steps_done: usize,
-    /// The kills for the next step, when it is a kill step.
-    pub kills: u8,
-    pub status: Status,
-    /// When the last step was done.
-    pub done_at: Option<Tick>,
-}
-
-impl Tracked {
-    #[must_use]
-    pub fn next_step(&self) -> Option<&Step> {
-        (self.status == Status::Accepted)
-            .then(|| self.steps.get(self.steps_done))
-            .flatten()
-    }
-
-    /// Does the next step hold at this moment: you stand in its place, you meet its NPC,
-    /// or you made its kills?
-    #[must_use]
-    pub fn next_step_holds(&self, places_here: &[&str], npc: Option<&str>) -> bool {
-        match self.next_step() {
-            Some(Step::Visit { place }) => places_here.contains(&place.as_str()),
-            Some(Step::Meet { npc: wanted }) => npc == Some(wanted.as_str()),
-            Some(Step::Kill { count, .. }) => self.kills >= *count,
-            None => false,
-        }
-    }
-
-    /// Is the next step a kill of this creature?
-    #[must_use]
-    pub fn hunts(&self, name: &str) -> bool {
-        matches!(self.next_step(), Some(Step::Kill { creature, .. }) if creature == name)
-    }
-}
-
-/// The quests of a log, oldest first. At most one offer of each giver waits: a new offer
-/// ends the old one of the same giver. A change that does not fit the state of its quest
-/// changes nothing.
-#[must_use]
-pub fn quest_log(changes: &[QuestChange]) -> Vec<Tracked> {
-    let mut quests: Vec<Tracked> = Vec::new();
-    for change in changes {
-        apply(&mut quests, change);
-    }
-    quests
-}
-
-fn apply(quests: &mut Vec<Tracked>, change: &QuestChange) {
-    match change {
-        QuestChange::Offered {
-            number,
-            at,
-            giver,
-            title,
-            text,
-            steps,
-        } => {
-            let same_giver = |q: &&mut Tracked| q.status == Status::Offered && &q.giver == giver;
-            for waiting in quests.iter_mut().filter(same_giver) {
-                waiting.status = Status::Declined;
-            }
-            quests.push(Tracked {
-                number: *number,
-                offered_at: *at,
-                giver: giver.clone(),
-                title: title.clone(),
-                text: text.clone(),
-                steps: steps.clone(),
-                steps_done: 0,
-                kills: 0,
-                status: Status::Offered,
-                done_at: None,
-            });
-        }
-        QuestChange::Accepted { number, .. } => answer_offer(quests, *number, Status::Accepted),
-        QuestChange::Declined { number, .. } => answer_offer(quests, *number, Status::Declined),
-        QuestChange::Abandoned { number, .. } => abandon(quests, *number),
-        QuestChange::Killed { number, step, .. } => count_kill(quests, *number, *step),
-        QuestChange::StepDone { number, step, at } => {
-            let Some(quest) = quests.iter_mut().find(|q| q.number == *number) else {
-                return;
-            };
-            let next = quest.status == Status::Accepted && quest.steps_done == *step;
-            if !next || *step >= quest.steps.len() {
-                return;
-            }
-            quest.steps_done += 1;
-            quest.kills = 0;
-            if quest.steps_done == quest.steps.len() {
-                quest.status = Status::Done;
-                quest.done_at = Some(*at);
-            }
-        }
-    }
-}
-
-/// A kill counts only for the next step, and only up to its count.
-fn count_kill(quests: &mut [Tracked], number: u64, step: usize) {
-    let Some(quest) = quests.iter_mut().find(|q| q.number == number) else {
-        return;
-    };
-    let Some(Step::Kill { count, .. }) = quest.next_step() else {
-        return;
-    };
-    if quest.steps_done == step && quest.kills < *count {
-        quest.kills += 1;
-    }
-}
-
-/// Only an open quest can be abandoned: one that waits, or one that you hold.
-fn abandon(quests: &mut [Tracked], number: u64) {
-    let open = |q: &&mut Tracked| {
-        q.number == number && matches!(q.status, Status::Offered | Status::Accepted)
-    };
-    if let Some(quest) = quests.iter_mut().find(open) {
-        quest.status = Status::Abandoned;
-    }
-}
-
-fn answer_offer(quests: &mut [Tracked], number: u64, status: Status) {
-    if let Some(quest) = quests
-        .iter_mut()
-        .find(|q| q.number == number && q.status == Status::Offered)
-    {
-        quest.status = status;
-    }
-}
-
-/// Numbers are never reused, so a line names one quest for good.
-#[must_use]
-pub fn next_number(changes: &[QuestChange]) -> u64 {
-    let offers = changes
-        .iter()
-        .filter(|change| matches!(change, QuestChange::Offered { .. }));
-    u64::try_from(offers.count()).map_or(u64::MAX, |count| count.saturating_add(1))
-}
 
 /// The name of the quest thing in the world. The number keeps it apart from a title or
 /// another quest with the same words.

@@ -34,6 +34,8 @@ local STYLES = {
 	section = { font = "QuestTitleFont", indent = 0, gap = 16, ink = "title" },
 	prose = { font = "QuestFont", indent = 0, gap = 6, ink = "text" },
 	entry = { font = "QuestFont", indent = BULLET + 2, gap = 10, ink = "text", bullet = true },
+	-- A step of a quest that waits for another step.
+	later = { font = "QuestFont", indent = BULLET + 2, gap = 10, ink = "faded", bullet = true },
 	text = { font = "QuestFont", indent = BULLET + 2, gap = 2, ink = "text" },
 	note = { font = "QuestFontNormalSmall", indent = 0, gap = 0, ink = "faded" },
 	hint = { font = "QuestFontNormalSmall", indent = BULLET + 2, gap = 2, ink = "faded" },

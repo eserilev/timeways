@@ -9,6 +9,7 @@
 use mlua::{Lua, Table};
 use std::path::PathBuf;
 use timeways_story::input::Input;
+use timeways_story::quest::{Status, Step, StepState, StepView};
 
 pub const ADDON: &str = "Timeways";
 
@@ -162,4 +163,28 @@ impl Game {
         let on_reply: mlua::Function = self.eval("ns.OnReply");
         on_reply.call::<()>(text).unwrap();
     }
+}
+
+/// The steps of a quest in the book: the first `steps_done` are done, and the next one is
+/// open while the quest is accepted.
+pub fn step_views(steps: Vec<Step>, status: Status, steps_done: usize) -> Vec<StepView> {
+    let state = |n: usize| match n.cmp(&steps_done) {
+        std::cmp::Ordering::Less => StepState::Done,
+        std::cmp::Ordering::Equal if status == Status::Accepted => StepState::Open,
+        _ => StepState::Later,
+    };
+    let kills = |n: usize, step: &Step| match step {
+        Step::Kill { count, .. } if n < steps_done => Some(*count),
+        Step::Kill { .. } => Some(0),
+        _ => None,
+    };
+    steps
+        .into_iter()
+        .enumerate()
+        .map(|(n, step)| StepView {
+            kills: kills(n, &step),
+            state: state(n),
+            step,
+        })
+        .collect()
 }

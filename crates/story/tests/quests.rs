@@ -10,7 +10,7 @@ use timeways_story::character::QUEST_TRUST;
 use timeways_story::input::{CallId, Input, MessageId, Reaction};
 use timeways_story::journal::{Deed, Page};
 use timeways_story::pack::Pack;
-use timeways_story::quest::{Status, Tracked};
+use timeways_story::quest::{QuestView, Status, StepState, StepView};
 use timeways_story::store::Store;
 use timeways_story::story::why::{TrustCause, TrustWhy};
 use timeways_story::story::{Output, Story};
@@ -122,8 +122,18 @@ fn page(story: &mut Story) -> Page {
     }
 }
 
-fn quests(story: &mut Story) -> Vec<Tracked> {
+fn quests(story: &mut Story) -> Vec<QuestView> {
     page(story).journal.quests
+}
+
+fn steps_done(quest: &QuestView) -> usize {
+    let done = |step: &&StepView| step.state == StepState::Done;
+    quest.steps.iter().filter(done).count()
+}
+
+/// The kills so far of the first kill step of the first quest.
+fn kills(story: &mut Story) -> Option<u8> {
+    quests(story)[0].steps.iter().find_map(|step| step.kills)
 }
 
 fn trust_of_giver(story: &mut Story) -> Option<i64> {
@@ -203,7 +213,7 @@ fn a_quest_ends_when_its_steps_happen_in_order_and_the_giver_trusts_you_more() {
         .unwrap();
 
     story.handle(meet(7, "Farmer Bram")).unwrap();
-    assert_eq!(quests(&mut story)[0].steps_done, 0);
+    assert_eq!(steps_done(&quests(&mut story)[0]), 0);
     story.handle(zone(8, "Mill Pond")).unwrap();
     story.handle(meet(9, "Farmer Bram")).unwrap();
 
@@ -211,6 +221,37 @@ fn a_quest_ends_when_its_steps_happen_in_order_and_the_giver_trusts_you_more() {
     assert_eq!(done.status, Status::Done);
     assert_eq!(done.done_at, Some(Tick(9)));
     assert_eq!(trust_of_giver(&mut story), Some(QUEST_TRUST));
+}
+
+#[test]
+fn the_journal_shows_each_step_as_done_open_or_later() {
+    let mut story = story("states");
+    offer(&mut story, 5);
+    accept(&mut story, 6, None);
+
+    story.handle(zone(7, "Mill Pond")).unwrap();
+
+    let states: Vec<StepState> = quests(&mut story)[0]
+        .steps
+        .iter()
+        .map(|step| step.state)
+        .collect();
+    assert_eq!(states, [StepState::Done, StepState::Open]);
+}
+
+#[test]
+fn an_offer_shows_its_steps_as_later() {
+    let mut story = story("offer-states");
+
+    offer(&mut story, 5);
+
+    let quest = quests(&mut story).remove(0);
+    assert!(
+        quest
+            .steps
+            .iter()
+            .all(|step| step.state == StepState::Later)
+    );
 }
 
 #[test]
@@ -251,7 +292,7 @@ fn a_step_that_holds_at_accept_is_done_at_once() {
         })
         .unwrap();
 
-    assert_eq!(quests(&mut story)[0].steps_done, 1);
+    assert_eq!(steps_done(&quests(&mut story)[0]), 1);
 }
 
 #[test]
@@ -586,7 +627,7 @@ fn a_hunt_ends_after_its_kills_and_the_giver_trusts_you_more() {
     let mut story = bat_hunt("hunt");
 
     kill(&mut story, 8, "Duskbat");
-    assert_eq!(quests(&mut story)[0].kills, 1);
+    assert_eq!(kills(&mut story), Some(1));
     kill(&mut story, 9, "Duskbat");
 
     let done = quests(&mut story).remove(0);
@@ -600,7 +641,7 @@ fn a_kill_of_another_creature_counts_nothing() {
 
     kill(&mut story, 8, "Mill Rat");
 
-    assert_eq!(quests(&mut story)[0].kills, 0);
+    assert_eq!(kills(&mut story), Some(0));
 }
 
 #[test]
@@ -613,7 +654,7 @@ fn a_kill_before_the_hunt_is_accepted_counts_nothing() {
     kill(&mut story, 7, "Duskbat");
     accept(&mut story, 8, None);
 
-    assert_eq!(quests(&mut story)[0].kills, 0);
+    assert_eq!(kills(&mut story), Some(0));
 }
 
 #[test]

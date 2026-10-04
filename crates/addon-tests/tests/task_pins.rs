@@ -4,13 +4,13 @@
 
 mod common;
 
-use common::Game;
+use common::{Game, step_views};
 use hourglass::Tick;
 use serde_json::json;
 use timeways_story::input::MessageId;
 use timeways_story::journal::{Journal, Person, Place, pages};
 use timeways_story::places::PlaceKind;
-use timeways_story::quest::{Status, Step, Tracked};
+use timeways_story::quest::{QuestView, Status, Step};
 use timeways_story::spot::Spot;
 use timeways_story::story::Output;
 
@@ -45,30 +45,32 @@ fn person(name: &str, place: &str, spot: Option<Spot>) -> Person {
 }
 
 /// Keeper Tessa asks you to visit Mill Pond, then to meet Farmer Bram.
-fn lantern(status: Status, steps_done: usize) -> Tracked {
-    Tracked {
+fn lantern(status: Status, steps_done: usize) -> QuestView {
+    QuestView {
         number: 1,
         offered_at: Tick(DAY),
         giver: "Keeper Tessa".to_string(),
         title: "The Lost Lantern".to_string(),
         text: "Find the lantern.".to_string(),
-        steps: vec![
-            Step::Visit {
-                place: "Mill Pond".to_string(),
-            },
-            Step::Meet {
-                npc: "Farmer Bram".to_string(),
-            },
-        ],
-        steps_done,
-        kills: 0,
+        steps: step_views(
+            vec![
+                Step::Visit {
+                    place: "Mill Pond".to_string(),
+                },
+                Step::Meet {
+                    npc: "Farmer Bram".to_string(),
+                },
+            ],
+            status,
+            steps_done,
+        ),
         status,
         done_at: None,
     }
 }
 
 /// Everyone and every place of the task in Tirisfal Glades, where the journal knows them.
-fn journal(quest: Tracked, bram: Option<Spot>) -> Journal {
+fn journal(quest: QuestView, bram: Option<Spot>) -> Journal {
     Journal {
         places: vec![
             place("Tirisfal Glades", None, Some(spot(TIRISFAL, 100, 100))),

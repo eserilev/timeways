@@ -376,7 +376,7 @@ fn a_step_done_out_of_order_changes_nothing() {
 
     let quests = quest_log(&[offered, accepted, second_first]);
 
-    assert_eq!(quests[0].steps_done, 0);
+    assert_eq!(quests[0].steps_done(), 0);
     assert_eq!(quests[0].status, Status::Accepted);
 }
 
@@ -606,7 +606,7 @@ fn killed(step: usize) -> QuestChange {
 }
 
 #[test]
-fn a_kill_counts_only_for_the_next_step_and_only_up_to_its_count() {
+fn a_kill_counts_only_for_an_open_step_and_only_up_to_its_count() {
     let mut changes = bat_hunt(Status::Accepted);
     changes.push(killed(1));
     changes.push(QuestChange::StepDone {
@@ -618,8 +618,8 @@ fn a_kill_counts_only_for_the_next_step_and_only_up_to_its_count() {
 
     let quest = &quest_log(&changes)[0];
 
-    assert_eq!(quest.kills, 2);
-    assert!(quest.next_step_holds(&[], None));
+    assert_eq!(quest.kills[1], 2);
+    assert!(quest.step_holds(1, &[], None));
 }
 
 #[test]
@@ -627,16 +627,16 @@ fn a_kill_for_an_offer_counts_nothing() {
     let mut changes = bat_hunt(Status::Offered);
     changes.push(killed(0));
 
-    assert_eq!(quest_log(&changes)[0].kills, 0);
+    assert_eq!(quest_log(&changes)[0].kills, [0, 0]);
 }
 
 #[test]
-fn only_the_next_kill_step_hunts() {
+fn only_an_open_kill_step_hunts() {
     let changes = bat_hunt(Status::Accepted);
 
     let quest = &quest_log(&changes)[0];
 
-    assert!(!quest.hunts("Duskbat"));
+    assert_eq!(quest.hunts("Duskbat"), None);
 }
 
 #[test]
@@ -655,4 +655,23 @@ fn a_kill_count_written_as_text_counts_and_other_text_is_refused() {
         }]
     );
     assert!(checked_quest(not_a_number, &known).is_err());
+}
+
+#[test]
+fn a_step_opens_when_the_step_before_it_is_done() {
+    let mut changes = bat_hunt(Status::Accepted);
+    let before = quest_log(&changes).remove(0);
+    changes.push(QuestChange::StepDone {
+        number: 1,
+        step: 0,
+        at: Tick(5),
+    });
+
+    let after = quest_log(&changes).remove(0);
+
+    assert_eq!(before.open_steps(), [0]);
+    assert_eq!(before.opened_at(0), Some(Tick(2)));
+    assert_eq!(before.opened_at(1), None);
+    assert_eq!(after.open_steps(), [1]);
+    assert_eq!(after.opened_at(1), Some(Tick(5)));
 }

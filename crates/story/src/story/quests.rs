@@ -172,8 +172,8 @@ impl Story {
         Ok(Vec::new())
     }
 
-    /// Each accepted quest whose next step holds now moves on, one step at a time, while
-    /// the steps hold. The last step finishes the quest.
+    /// Each open step that holds now is done, one at a time, while steps hold. The last
+    /// step finishes the quest.
     pub(super) fn advance_quests(
         &mut self,
         at: Tick,
@@ -183,36 +183,50 @@ impl Story {
             let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
             let places = active.character.place_names();
             let quests = quest_log(active.quests.changes());
-            let Some(quest) = quests
-                .iter()
-                .find(|quest| quest.next_step_holds(&places, npc))
-            else {
+            let Some((quest, step)) = holding_step(&quests, &places, npc) else {
                 return Ok(Vec::new());
             };
-            let (number, step) = (quest.number, quest.steps_done);
+            let number = quest.number;
             active
                 .quests
                 .add(QuestChange::StepDone { number, step, at })?;
-            if step + 1 == quest.steps.len() {
+            if quest.steps_done() + 1 == quest.steps.len() {
                 let (giver, name) = (quest.giver.clone(), thing_name(number, &quest.title));
                 self.change(|character| character.finish_quest(at, &giver, &name))?;
             }
         }
     }
 
-    /// A kill counts for each accepted quest whose next step hunts this creature. The last
-    /// kill of a step finishes it.
+    /// A kill counts for each accepted quest with an open kill step of this creature. The
+    /// last kill of a step finishes it.
     pub(super) fn count_kill(&mut self, at: Tick, name: &str) -> Result<Vec<Output>, StoryError> {
         let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
         let quests = quest_log(active.quests.changes());
-        for quest in quests.iter().filter(|quest| quest.hunts(name)) {
-            let (number, step) = (quest.number, quest.steps_done);
-            active
-                .quests
-                .add(QuestChange::Killed { number, step, at })?;
+        for quest in &quests {
+            if let Some(step) = quest.hunts(name) {
+                let number = quest.number;
+                active
+                    .quests
+                    .add(QuestChange::Killed { number, step, at })?;
+            }
         }
         self.advance_quests(at, None)
     }
+}
+
+/// The first open step that holds now, with its quest.
+fn holding_step<'q>(
+    quests: &'q [Tracked],
+    places: &[&str],
+    npc: Option<&str>,
+) -> Option<(&'q Tracked, usize)> {
+    for quest in quests {
+        let holds = |step: &usize| quest.step_holds(*step, places, npc);
+        if let Some(step) = quest.open_steps().into_iter().find(holds) {
+            return Some((quest, step));
+        }
+    }
+    None
 }
 
 /// A batch with nothing to say.

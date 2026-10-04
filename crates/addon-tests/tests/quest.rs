@@ -4,39 +4,41 @@
 
 mod common;
 
-use common::Game;
+use common::{Game, step_views};
 use hourglass::Tick;
 use timeways_story::input::{Input, MessageId};
 use timeways_story::journal::{Deed, Journal, pages};
-use timeways_story::quest::{Status, Step, Tracked};
+use timeways_story::quest::{QuestView, Status, Step};
 use timeways_story::story::Output;
 
 const DAY: u64 = 1_790_000_000;
 
-fn lantern(status: Status, steps_done: usize) -> Tracked {
-    Tracked {
+fn lantern(status: Status, steps_done: usize) -> QuestView {
+    QuestView {
         number: 1,
         offered_at: Tick(DAY),
         giver: "Keeper Tessa".to_string(),
         title: "The Lost Lantern".to_string(),
         text: "Find the lantern.".to_string(),
-        steps: vec![
-            Step::Visit {
-                place: "Mill Pond".to_string(),
-            },
-            Step::Meet {
-                npc: "Farmer Bram".to_string(),
-            },
-        ],
-        steps_done,
-        kills: 0,
+        steps: step_views(
+            vec![
+                Step::Visit {
+                    place: "Mill Pond".to_string(),
+                },
+                Step::Meet {
+                    npc: "Farmer Bram".to_string(),
+                },
+            ],
+            status,
+            steps_done,
+        ),
         status,
         done_at: (status == Status::Done).then_some(Tick(DAY)),
     }
 }
 
 /// The reply line of the first page of a journal with only this quest.
-fn quest_reply(quest: Tracked) -> String {
+fn quest_reply(quest: QuestView) -> String {
     let journal = Journal {
         quests: vec![quest],
         ..Journal::default()
@@ -434,8 +436,9 @@ fn an_open_task_asks_first_and_then_abandons() {
 const THREE_TASKS: &str = concat!(
     r#"{"type":"journal","page":0,"pages":1,"quests":["#,
     r#"{"number":1,"giver":"Keeper Tessa","title":"Old Bones","status":"done","steps":[]},"#,
-    r#"{"number":2,"giver":"Farmer Bram","title":"The Mill","status":"accepted","steps_done":1,"#,
-    r#""steps":[{"goal":"visit","place":"Mill Pond"},{"goal":"meet","npc":"Keeper Tessa"}]},"#,
+    r#"{"number":2,"giver":"Farmer Bram","title":"The Mill","status":"accepted","#,
+    r#""steps":[{"goal":"visit","place":"Mill Pond","state":"done"},"#,
+    r#"{"goal":"meet","npc":"Keeper Tessa","state":"open"}]},"#,
     r#"{"number":3,"giver":"Executor Arren","title":"Old Names","status":"offered","steps":[]}]}"#,
 );
 
@@ -542,13 +545,19 @@ fn a_task_belongs_to_the_zone_of_its_giver() {
     assert_eq!(zone, "Tirisfal Glades");
 }
 
-fn bat_hunt(steps_done: usize, kills: u8) -> Tracked {
+fn bat_hunt(steps_done: usize, kills: u8) -> QuestView {
     let mut quest = lantern(Status::Accepted, steps_done);
-    quest.steps[1] = Step::Kill {
-        creature: "Duskbat".to_string(),
-        count: 6,
-    };
-    quest.kills = kills;
+    let steps = vec![
+        quest.steps[0].step.clone(),
+        Step::Kill {
+            creature: "Duskbat".to_string(),
+            count: 6,
+        },
+    ];
+    quest.steps = step_views(steps, Status::Accepted, steps_done);
+    if steps_done < 2 {
+        quest.steps[1].kills = Some(kills);
+    }
     quest
 }
 
@@ -573,10 +582,19 @@ fn a_done_kill_step_shows_all_its_kills() {
 }
 
 #[test]
-fn a_kill_step_after_the_next_step_shows_no_kills_yet() {
+fn a_kill_step_that_waits_shows_no_kills_yet_and_shows_faded() {
     let game = Game::new();
 
     game.reply(&quest_reply(bat_hunt(0, 0)));
 
-    assert_eq!(lines(&game)[5], "entry: Duskbat slain: 0/6");
+    assert_eq!(lines(&game)[5], "later: Duskbat slain: 0/6");
+}
+
+#[test]
+fn the_steps_of_an_offer_show_as_plain_steps() {
+    let game = Game::new();
+
+    game.reply(&quest_reply(lantern(Status::Offered, 0)));
+
+    assert_eq!(lines(&game)[4], "entry: Visit Mill Pond.");
 }

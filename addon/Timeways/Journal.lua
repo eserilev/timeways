@@ -284,8 +284,12 @@ local function Learned(entries)
 	return lines
 end
 
--- `kills` is the count so far of a kill step, as the game shows a quest objective.
-local function StepText(step, kills)
+-- The kills so far of a kill step, as the game shows a quest objective.
+local function StepKills(step)
+	return type(step.kills) == "number" and step.kills or 0
+end
+
+local function StepText(step)
 	if step.goal == "visit" then
 		return "Visit " .. Name(step.place) .. "."
 	end
@@ -293,7 +297,7 @@ local function StepText(step, kills)
 		return "Speak with " .. Name(step.npc) .. "."
 	end
 	if step.goal == "kill" and type(step.count) == "number" then
-		return string.format("%s slain: %d/%d", Name(step.creature), kills, step.count)
+		return string.format("%s slain: %d/%d", Name(step.creature), StepKills(step), step.count)
 	end
 	return "?"
 end
@@ -367,18 +371,21 @@ local function QuestStatus(quest, saving)
 end
 
 local function StepsDone(quest)
-	return type(quest.steps_done) == "number" and quest.steps_done or 0
+	local done = 0
+	for _, step in ipairs(Entries(quest.steps)) do
+		done = done + (step.state == "done" and 1 or 0)
+	end
+	return done
 end
 
--- A done step has all its kills, and only the next step has kills so far.
-local function StepKills(quest, n, step)
-	if n <= StepsDone(quest) then
-		return type(step.count) == "number" and step.count or 0
+-- In a quest in progress, a step that waits for another step shows faded. An offer shows
+-- its steps plainly, as the game shows the goals of a quest that you read.
+local function StepLine(quest, step)
+	if step.state == "done" then
+		return Line("entry", StepText(step) .. " (Complete)")
 	end
-	if n == StepsDone(quest) + 1 and type(quest.kills) == "number" then
-		return quest.kills
-	end
-	return 0
+	local waits = quest.status == "accepted" and step.state == "later"
+	return Line(waits and "later" or "entry", StepText(step))
 end
 
 -- The rewards are story, never loot (3.4): the giver trusts you more, and the deed goes into
@@ -389,9 +396,8 @@ local function QuestLines(quest, saving)
 	if type(quest.text) == "string" then
 		lines[#lines + 1] = Line("prose", ns.Plain(quest.text))
 	end
-	for n, step in ipairs(Entries(quest.steps)) do
-		local mark = n <= StepsDone(quest) and " (Complete)" or ""
-		lines[#lines + 1] = Line("entry", StepText(step, StepKills(quest, n, step)) .. mark)
+	for _, step in ipairs(Entries(quest.steps)) do
+		lines[#lines + 1] = StepLine(quest, step)
 	end
 	lines[#lines + 1] = Line("section", "Rewards")
 	lines[#lines + 1] = Line("text", Name(quest.giver) .. " trusts you more.")

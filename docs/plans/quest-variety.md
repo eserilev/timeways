@@ -1,6 +1,10 @@
 # Plan: quest variety
 
-Status: draft 1, 2026-10-03. The user approved the design. Nothing is built. When a part is built, its rules move into `GAMEPLAY.md` (section 19 of this plan), and this plan marks the part as done.
+Status: in build, 2026-10-03. The user approved the design. When a part is built, its rules move into `GAMEPLAY.md` (section 19 of this plan), and this plan marks the part as done.
+
+Built so far (section 17):
+
+- Step 1, per-step state. Changed from this plan: an offer shows its steps plainly, not faded. Only a later step of a quest in progress shows faded, because a faded offer reads as a quest that you cannot take.
 
 This plan builds on four plans and does not repeat them:
 
