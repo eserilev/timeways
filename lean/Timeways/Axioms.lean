@@ -3,6 +3,7 @@
 import Timeways.QuestLog
 import Timeways.HeroHook
 import Timeways.Budget
+import Timeways.TrustBand
 
 open timeways_rules
 
@@ -45,3 +46,11 @@ open timeways_rules
 /-- info: 'timeways_rules.budget.the_narrator_never_speaks_four_times_in_one_hour' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs (whitespace := lax) in
 #print axioms budget.the_narrator_never_speaks_four_times_in_one_hour
+
+/-- info: 'timeways_rules.trust.next_trust.spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms trust.next_trust.spec
+
+/-- info: 'timeways_rules.trust.trust_stays_between_minus_one_hundred_and_one_hundred' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms trust.trust_stays_between_minus_one_hundred_and_one_hundred

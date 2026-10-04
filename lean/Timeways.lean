@@ -4,4 +4,5 @@ import Timeways.QuestQueries
 import Timeways.QuestLog
 import Timeways.HeroHook
 import Timeways.Budget
+import Timeways.TrustBand
 import Timeways.Axioms
