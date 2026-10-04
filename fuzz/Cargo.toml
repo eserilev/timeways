@@ -111,3 +111,10 @@ path = "fuzz_targets/player_notes.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "msp_import"
+path = "fuzz_targets/msp_import.rs"
+test = false
+doc = false
+bench = false

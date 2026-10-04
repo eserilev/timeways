@@ -20,6 +20,7 @@ thread_local! {
         let lua = Lua::new();
         let ns = lua.create_table().unwrap();
         for (name, source) in [
+            ("Utf8.lua", include_str!("../../addon/Timeways/Utf8.lua")),
             ("TaskWire.lua", include_str!("../../addon/Timeways/TaskWire.lua")),
             ("TaskChunks.lua", include_str!("../../addon/Timeways/TaskChunks.lua")),
         ] {

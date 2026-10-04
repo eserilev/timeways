@@ -17,6 +17,7 @@ Strip.lua
 Slots.lua
 Messages.lua
 Text.lua
+Utf8.lua
 Units.lua
 Position.lua
 Json.lua

@@ -717,6 +717,34 @@ fn an_imported_text_goes_once_even_when_the_desktop_keeps_the_old_one() {
 }
 
 #[test]
+fn an_imported_text_that_is_not_utf8_stays_out() {
+    let game = with_trp3();
+    game.run("msp.my = { NT = '\\255Keeper', MO = 'Light' }");
+
+    game.reply(&sheet_reply(&[]));
+    game.run("wow.now = wow.now + 1; wow.RunTickers()");
+
+    assert_eq!(
+        hero_sets(&game),
+        [("motto".to_string(), "Light".to_string())]
+    );
+}
+
+#[test]
+fn an_imported_text_loses_its_unicode_control_characters() {
+    let game = with_trp3();
+    game.run("msp.my = { NT = 'Keeper\\194\\128of\\194\\159keys' }");
+
+    game.reply(&sheet_reply(&[]));
+    game.run("wow.now = wow.now + 1; wow.RunTickers()");
+
+    assert_eq!(
+        hero_sets(&game),
+        [("title".to_string(), "Keeper of keys".to_string())]
+    );
+}
+
+#[test]
 fn an_unchanged_import_sends_nothing() {
     let game = with_trp3();
     game.run("msp.my = { NT = 'Keeper' }");

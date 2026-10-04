@@ -122,10 +122,12 @@ function MspProfile.Fields()
 	return fields
 end
 
--- Color codes, TRP3 tags such as "{h1}", and line breaks make no sense on the sheet.
+-- Color codes, TRP3 tags such as "{h1}", and line breaks make no sense on the sheet. The
+-- desktop refuses the control characters of Unicode too, U+0080 to U+009F, and `%c` never
+-- finds them.
 local function Plain(text)
 	text = text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("{.-}", "")
-	text = text:gsub("[%c%s]+", " ")
+	text = text:gsub("\194[\128-\159]", " "):gsub("[%c%s]+", " ")
 	return (text:match("^%s*(.-)%s*$"))
 end
 
@@ -142,7 +144,11 @@ local function Cut(text, limit)
 	return text:sub(1, last)
 end
 
+-- Nil for a text that is not UTF-8: the desktop cannot read it.
 local function Imported(field, value)
+	if type(value) == "string" and not ns.Utf8.IsValid(value) then
+		return nil
+	end
 	local text = type(value) == "string" and Plain(value) or ""
 	return Cut(text, ns.Hero.LIMITS[field])
 end
@@ -153,7 +159,7 @@ local function Import()
 	local my = type(_G.msp.my) == "table" and _G.msp.my or {}
 	for _, field in ipairs(ns.Hero.PROFILE) do
 		local text = Imported(field, my[MspProfile.CODES[field]])
-		if text ~= (sheet[field] or "") and text ~= imported[field] then
+		if text and text ~= (sheet[field] or "") and text ~= imported[field] then
 			imported[field] = text
 			ns.Hero.Set(field, text)
 		end
