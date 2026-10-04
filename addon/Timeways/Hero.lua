@@ -7,7 +7,10 @@ local _, ns = ...
 local Hero = {}
 ns.Hero = Hero
 
+-- The questions of the sheet, then the roleplay profile that roleplay addons share
+-- (GAMEPLAY.md 3.7.1).
 Hero.FIELDS = { "origin", "background", "goal", "bond", "flaw", "traits" }
+Hero.PROFILE = { "name", "title", "currently", "appearance", "age", "motto" }
 Hero.LABELS = {
 	origin = "Origin",
 	background = "Background",
@@ -15,6 +18,12 @@ Hero.LABELS = {
 	bond = "Bond",
 	flaw = "Flaw",
 	traits = "Traits",
+	name = "Name",
+	title = "Title",
+	currently = "Currently",
+	appearance = "Appearance",
+	age = "Age",
+	motto = "Motto",
 }
 Hero.HINTS = {
 	origin = "Where is your character from?",
@@ -23,12 +32,36 @@ Hero.HINTS = {
 	bond = "Who or what does your character care about most?",
 	flaw = "What is your character's biggest flaw?",
 	traits = "How would you describe your character's personality?",
+	name = "What's your character's name?",
+	title = "What title does your character go by?",
+	currently = "What is your character doing right now?",
+	appearance = "What does your character look like?",
+	age = "How old is your character?",
+	motto = "What's your character's motto?",
 }
 
--- The desktop refuses a longer text, so the editor stops at the same length.
-Hero.MAX_LETTERS = 1000
--- A letter outside ASCII takes up to 4 bytes, and the desktop also limits the bytes.
-Hero.MAX_BYTES = 1200
+-- The desktop refuses a longer text, so the editor stops at the same length. A letter
+-- outside ASCII takes up to 4 bytes, and the desktop also limits the bytes.
+local LONG = { letters = 1000, bytes = 1200 }
+local LINE = { letters = 200, bytes = 240 }
+local SHORT = { letters = 100, bytes = 120 }
+Hero.LIMITS = {
+	origin = LINE,
+	background = LONG,
+	goal = LONG,
+	bond = LONG,
+	flaw = LONG,
+	traits = LONG,
+	name = SHORT,
+	title = SHORT,
+	currently = LINE,
+	appearance = LONG,
+	age = SHORT,
+	motto = LINE,
+}
+-- A note of your own lore.
+Hero.MAX_LETTERS = LONG.letters
+Hero.MAX_BYTES = LONG.bytes
 local TOO_LONG = "Too long to save. Try a shorter version."
 
 local asked = false
@@ -53,12 +86,7 @@ local function Send(input)
 end
 
 local function IsField(field)
-	for _, name in ipairs(Hero.FIELDS) do
-		if name == field then
-			return true
-		end
-	end
-	return false
+	return Hero.LIMITS[field] ~= nil
 end
 
 -- The desktop refuses a control character, so a line break becomes a space.
@@ -67,11 +95,15 @@ local function Clean(text)
 	return (flat:match("^%s*(.-)%s*$"))
 end
 
-function Hero.Problem(text)
-	if #Clean(text) > Hero.MAX_BYTES then
-		return TOO_LONG
+local function ProblemPast(bytes)
+	return function(text)
+		if #Clean(text) > bytes then
+			return TOO_LONG
+		end
 	end
 end
+
+local NoteProblem = ProblemPast(Hero.MAX_BYTES)
 
 function Hero.Unsaved()
 	return unsaved
@@ -112,13 +144,14 @@ StaticPopupDialogs.TIMEWAYS_HERO_REMOVE = {
 
 -- `current` is the text that the book shows now, so an unchanged text sends nothing.
 function Hero.Edit(field, current)
+	local limit = Hero.LIMITS[field]
 	ns.JournalFrame.Edit({
 		title = Hero.LABELS[field],
 		hint = Hero.HINTS[field],
 		text = current,
-		limit = Hero.MAX_LETTERS,
-		bytes = Hero.MAX_BYTES,
-		problem = Hero.Problem,
+		limit = limit.letters,
+		bytes = limit.bytes,
+		problem = ProblemPast(limit.bytes),
 		save = function(text)
 			if Clean(text) ~= (current or "") then
 				Hero.Set(field, text)
@@ -134,7 +167,7 @@ function Hero.Write()
 		text = "",
 		limit = Hero.MAX_LETTERS,
 		bytes = Hero.MAX_BYTES,
-		problem = Hero.Problem,
+		problem = NoteProblem,
 		save = Hero.Add,
 	})
 end
@@ -187,7 +220,8 @@ function Hero.Command(message)
 	elseif verb == "set" then
 		local field, text = rest:match("^(%S+)%s*(.-)$")
 		if not IsField(field) then
-			Say("Pick one of these fields: " .. table.concat(Hero.FIELDS, ", ") .. ".")
+			local fields = table.concat(Hero.FIELDS, ", ") .. ", " .. table.concat(Hero.PROFILE, ", ")
+			Say("Pick one of these fields: " .. fields .. ".")
 			return
 		end
 		Hero.Set(field, text)
