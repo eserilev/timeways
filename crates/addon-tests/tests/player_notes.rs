@@ -113,6 +113,18 @@ fn the_editor_starts_with_the_note_and_an_empty_note_clears_it() {
 }
 
 #[test]
+fn a_pasted_tab_becomes_a_space_and_keeps_the_note() {
+    let game = game();
+    click(&game, "Add a note");
+    write(&game, "Good healer.");
+
+    click(&game, "Edit note");
+    write(&game, "Great\\thealer.");
+
+    assert_eq!(tooltip(&game), ["Great healer."]);
+}
+
+#[test]
 fn a_note_with_a_pipe_stays_in_the_editor_with_the_reason() {
     let game = game();
 

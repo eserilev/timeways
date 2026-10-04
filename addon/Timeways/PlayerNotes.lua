@@ -141,8 +141,9 @@ end
 local NO_PIPE = "Notes can't hold the | sign. Take it out to save."
 local TOO_LONG = "Too long to save. Try a shorter version."
 
+-- A pasted note can hold line breaks and tabs. A saved note holds no control character.
 local function Clean(text)
-	local flat = tostring(text or ""):gsub("%s*[\r\n]+%s*", " ")
+	local flat = tostring(text or ""):gsub("%s*%c[%c%s]*", " ")
 	return (flat:match("^%s*(.-)%s*$"))
 end
 
