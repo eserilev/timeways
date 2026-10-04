@@ -368,6 +368,16 @@ A player tells a short story about another player in the party, and that player 
 - **No proof level yet.** Witnessed and Seen of player quests check a step that the game sees. A story is free text, so its proof is the word of its author: the root Shared. Being in the group is the gate.
 - **Later:** stories in the saga and the narrator, after the alias table; a party input from the addon, so a story about shared play can rest on what the reader's game saw; stories from guild members and friends.
 
+### 4.9 Remembered players
+
+You keep a private mark and a note on another player, as a memory of your own. Built, in the addon only.
+
+- **The menu.** A right click on another player (a unit frame, a member of the group, or a name in the chat) shows Remember. It holds three marks, Friendly, Neutral, and Avoid, then Add a note (Edit note when there is one), and Forget. A mark that you pick again stays. Your own menu gets no Remember. The addon adds the items with `Menu.ModifyMenu` of the game, so it never touches a protected action.
+- **The note** is one line: at most 100 letters and 120 bytes, with no control character and no `|`, because a `|` starts an escape of the game. It opens in the editor of the book, with Save and Cancel. A note with a `|` stays in the editor with the reason under it. An empty note clears it.
+- **The tooltip** of the player shows the mark and the note on one line, "Avoid: Took the chest and left.", under the roleplay name when there is one (3.7.1).
+- **Private.** A mark and a note hold the real name of a player. So they never go to the desktop, to a model, or to another player (rule 5, 5.11). They live only in the saved variables of the account, `TimewaysPlayers`. Other addons can read saved variables, so a note is private from other players, not from your other addons.
+- **Storage.** Each entry holds the name with its realm, the mark, the note, and the time of the last change. The newest 300 players stay. Any addon can write saved variables, so the addon checks each entry when it reads them, and drops an entry with a broken name or time. A mark or a note that breaks a rule goes, and an entry left with neither goes too.
+
 ## 5. Technical design
 
 ### 5.1 The world of a character
