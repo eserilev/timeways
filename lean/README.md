@@ -28,6 +28,10 @@ A damaged quest file is such a list too.
 | `a_wait_never_ends_early` | A done wait step was done at its opening time plus its days, or later. | `a_wait_never_ends_early` |
 | `kills_never_pass_the_count` | A kill step counts no more kills than its count. Every other step counts none. | `kills_count_only_for_an_open_kill_step_and_never_past_its_count` |
 | `an_offer_has_no_done_steps` | An offer that waits for an answer has no done step and no kill. | none |
+| `a_quest_is_done_exactly_when_every_step_is_done` | A quest is done exactly when it has a step and every step is done. | `a_quest_log_never_skips_a_step_and_each_giver_holds_at_most_one_offer` |
+| `each_giver_holds_at_most_one_waiting_offer` | Two waiting offers of one giver are the same quest. | `a_quest_log_never_skips_a_step_and_each_giver_holds_at_most_one_offer` |
+| `a_kill_counts_only_for_an_open_step` | After any log, one more line adds a kill to a step only when the step was open before the line. | `kills_count_only_for_an_open_kill_step_and_never_past_its_count` |
+| `every_quest_points_at_its_offer` | The `line` of each quest is an offer line, with the number and the giver of the quest. | `every_offer_of_a_log_becomes_one_quest_with_its_number_and_giver` |
 
 Each theorem is a Hoare triple `quest_log cs ⦃ qs => ... ⦄`. The triple
 also says that `quest_log` gives a result: it never panics and never
@@ -44,11 +48,26 @@ start of the set. A step of the set that is done later does not move
 that time, so the wait can end early. The invariant
 `NoWaitInSet` holds the rule, so the proof needs it.
 
-All seven laws come from one invariant, `Good`, in
+A quest with no step comes only from a damaged quest file. It is never
+done, so `a_quest_is_done_exactly_when_every_step_is_done` needs a step.
+
+`a_kill_counts_only_for_an_open_step` is a law of two logs: a log, and
+the same log with one more line. The property test compares the same
+two logs. The log has fewer than `usize::MAX` lines, so the new line
+fits.
+
+`every_quest_points_at_its_offer` is the fact that `Tracked::from_rules`
+in the story program reads. It finds the words of each quest at its
+`line`, so it drops no quest.
+
+The laws of one quest come from one invariant, `Good`, in
 `Timeways/QuestLog.lean`. Each kind of line keeps it:
 `Progress.offered.spec`, `Progress.finish_step.spec`,
 `Progress.count_kill.spec`, `good_accept`, `good_status`, and
-`apply.spec`.
+`apply.spec`. The laws of the list come from `apply.spec` too. A line
+keeps each quest that was there (`Kept`), and adds at most its own
+offer at the end (`Grown`). `quest_log_inv` holds the two invariants of
+the list: `OneOfferEach` and `LinesOk`.
 
 ## What is proved: the hero hook
 

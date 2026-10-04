@@ -226,14 +226,33 @@ theorem Progress.ready_at.spec (p : Progress) (j : Usize) :
     rw [← g_post, ‹g = Goal.Other›] at hd
     cases hd
 
+/-- The number of done steps in a list of done times. -/
+def doneCount (l : List (Option U64)) : Nat := l.countP (·.isSome)
+
+theorem doneCount_drop (l : List (Option U64)) (i : Nat) (h : i < l.length) :
+    doneCount (l.drop i) = (if l[i].isSome then 1 else 0) + doneCount (l.drop (i + 1)) := by
+  unfold doneCount
+  rw [List.drop_eq_getElem_cons h, List.countP_cons, Nat.add_comm]
+
 @[step]
 theorem Progress.steps_done_loop.spec (p : Progress) (count i : Usize) (h : count.val ≤ i.val) :
-    p.steps_done_loop count i ⦃ _ => True ⦄ := by
+    p.steps_done_loop count i ⦃ r =>
+      r.val = count.val + doneCount (p.done_times.val.drop i.val) ⦄ := by
   unfold Progress.steps_done_loop
   step*
-  split
-  · step*
-  · step*
+  · split
+    · step as ⟨c1, hc1⟩
+      step as ⟨i1, hi1⟩
+      step as ⟨r, hr⟩
+      rw [hr, hc1, hi1, doneCount_drop _ i.val (by scalar_tac), ← o_post]
+      simp only [‹o.isSome = true›, if_true]
+      omega
+    · step as ⟨i1, hi1⟩
+      step as ⟨r, hr⟩
+      rw [hr, hi1, doneCount_drop _ i.val (by scalar_tac), ← o_post]
+      simp [‹¬ o.isSome = true›]
+  · have : p.done_times.val.length ≤ i.val := by scalar_tac
+    simp [List.drop_eq_nil_of_le this, doneCount]
 termination_by p.done_times.length - i.val
 decreasing_by all_goals scalar_decr_tac
 

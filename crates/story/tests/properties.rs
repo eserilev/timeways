@@ -1453,6 +1453,25 @@ proptest! {
     }
 
     #[test]
+    fn every_offer_of_a_log_becomes_one_quest_with_its_number_and_giver(
+        changes in prop::collection::vec(quest_change(), 0..40),
+    ) {
+        let offers: Vec<(u64, &str)> = changes
+            .iter()
+            .filter_map(|change| match change {
+                QuestChange::Offered { number, giver, .. } => Some((*number, giver.as_str())),
+                _ => None,
+            })
+            .collect();
+
+        let quests = quest_log(&changes);
+
+        let kept: Vec<(u64, &str)> =
+            quests.iter().map(|quest| (quest.number, quest.giver.as_str())).collect();
+        prop_assert_eq!(kept, offers);
+    }
+
+    #[test]
     fn kills_count_only_for_an_open_kill_step_and_never_past_its_count(
         changes in prop::collection::vec(quest_change(), 0..60),
     ) {

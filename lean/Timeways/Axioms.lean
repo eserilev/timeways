@@ -35,6 +35,22 @@ open timeways_rules
 #guard_msgs (whitespace := lax) in
 #print axioms quest_log.an_offer_has_no_done_steps
 
+/-- info: 'timeways_rules.quest_log.a_quest_is_done_exactly_when_every_step_is_done' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms quest_log.a_quest_is_done_exactly_when_every_step_is_done
+
+/-- info: 'timeways_rules.quest_log.each_giver_holds_at_most_one_waiting_offer' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms quest_log.each_giver_holds_at_most_one_waiting_offer
+
+/-- info: 'timeways_rules.quest_log.a_kill_counts_only_for_an_open_step' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms quest_log.a_kill_counts_only_for_an_open_step
+
+/-- info: 'timeways_rules.quest_log.every_quest_points_at_its_offer' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms quest_log.every_quest_points_at_its_offer
+
 /-- info: 'timeways_rules.hero_hook.pick_is_never_out_of_range' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs (whitespace := lax) in
 #print axioms hero_hook.pick_is_never_out_of_range
