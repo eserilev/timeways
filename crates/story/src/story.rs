@@ -378,6 +378,7 @@ impl Story {
             return Ok(());
         };
         let key = active.key.clone();
+        self.forget_run_state();
         self.active = self.opened(key).ok();
         Err(error.into())
     }
@@ -703,16 +704,24 @@ impl Story {
             return Ok(());
         }
         self.active = None;
+        self.forget_run_state();
+        self.active = Some(self.opened(key?)?);
+        Ok(())
+    }
+
+    /// The run state points to rows and calls of the world in memory. After a change of
+    /// character or a reopen, those rows are gone or belong to another world.
+    fn forget_run_state(&mut self) {
         self.journal.clear();
         self.moments.clear();
         self.batch_rows.clear();
         self.candidates.clear();
         self.chronicle_asked.clear();
         self.saga_round = None;
+        self.round_read.clear();
+        self.round_calls.clear();
         self.quest_request = None;
         self.notice = None;
-        self.active = Some(self.opened(key?)?);
-        Ok(())
     }
 
     fn opened(&self, key: CharacterKey) -> Result<Active, StoryError> {

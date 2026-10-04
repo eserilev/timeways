@@ -113,3 +113,87 @@ fn a_call_that_waits_still_goes_out_after_a_failed_answer() {
 
     assert!(call_of(&outputs).is_some(), "{outputs:?}");
 }
+
+const HOUR: u64 = 3600;
+
+fn handled(story: &mut Story, input: Input) -> Vec<Output> {
+    story.handle(input).unwrap()
+}
+
+fn enter(story: &mut Story, at: u64, zone: &str, subzone: Option<&str>) {
+    handled(
+        story,
+        Input::ZoneEntered {
+            at: Tick(at),
+            zone: zone.to_string(),
+            subzone: subzone.map(str::to_string),
+            spot: None,
+            hour: None,
+        },
+    );
+}
+
+fn meet(story: &mut Story, at: u64, name: &str) {
+    handled(
+        story,
+        Input::NpcMet {
+            at: Tick(at),
+            name: name.to_string(),
+            spot: None,
+        },
+    );
+}
+
+/// Two chapters: the first one is finished. Its narrator line fails long before the
+/// saga, so the pace leaves room for two drafts.
+fn two_sessions(story: &mut Story) {
+    meet(story, HOUR, "Gryan Stoutmantle");
+    enter(story, HOUR, "Westfall", None);
+    enter(story, HOUR + 25 * 60, "Westfall", Some("Camp One"));
+    enter(story, HOUR + 50 * 60, "Westfall", Some("Camp Two"));
+    enter(story, 5 * HOUR, "Duskwood", None);
+    for output in handled(story, Input::BatchEnd { id: MessageId(91) }) {
+        if let Output::ModelCall { call, .. } = output {
+            handled(story, Input::ModelFailed { call });
+        }
+    }
+    meet(story, 6 * HOUR, "Salma Saldean");
+}
+
+/// The reads of each call that read a call, as (call, read call).
+fn calls_read(folder: &Path) -> Vec<(i64, i64)> {
+    let connection = Connection::open(world_file(folder)).unwrap();
+    let mut statement = connection
+        .prepare("SELECT call, row FROM reads WHERE tab = 'calls'")
+        .unwrap();
+    statement
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+        .unwrap()
+        .map(Result::unwrap)
+        .collect()
+}
+
+#[test]
+fn a_saga_after_a_failed_save_reads_only_earlier_calls() {
+    let folder = fresh_folder("saga-after-failed-save");
+    let mut story = story(&folder);
+    two_sessions(&mut story);
+    let outputs = handled(&mut story, Input::BatchEnd { id: MessageId(3) });
+    let draft = call_of(&outputs).expect("a saga draft");
+    let other = locked(&folder);
+    let text = r#"{"saga": "Our hero rode into the golden fields of Westfall."}"#;
+    let failed = story.handle(Input::ModelAnswered {
+        call: draft,
+        text: text.to_string(),
+    });
+    assert!(failed.is_err());
+    unlock(&other);
+
+    let outputs = handled(&mut story, Input::BatchEnd { id: MessageId(4) });
+    drop(story);
+
+    assert!(call_of(&outputs).is_some(), "{outputs:?}");
+    for (call, read) in calls_read(&folder) {
+        assert!(read < call, "call {call} reads call {read}");
+    }
+}
