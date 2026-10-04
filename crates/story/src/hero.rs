@@ -3,24 +3,68 @@
 //! add at any time. It is the hero's own story, never canon: `/lore` never reads it.
 
 use crate::check::one_line;
-use crate::reply_size::Size;
 use hourglass::Tick;
 use serde::{Deserialize, Serialize};
 
-/// About 170 words for a field or an entry.
-pub const MAX_TEXT_CHARS: usize = 1000;
-pub const MAX_TEXT_BYTES: usize = 1200;
+/// The most that a text holds, in characters and in bytes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Limit {
+    pub chars: usize,
+    pub bytes: usize,
+}
 
-/// The sheet goes on the first page of the journal, so its 6 fields fit one slot together.
-/// A byte outside ASCII takes 4 bytes in the slot, and a quote takes 8 with its escape, so a
-/// text outside ASCII fits and a text full of quotes does not.
-const MAX_TEXT_SLOT: usize = 4 * MAX_TEXT_BYTES + 8;
+/// About 170 words: an entry, or a field that tells a story.
+pub const LONG: Limit = Limit {
+    chars: 1000,
+    bytes: 1200,
+};
+
+/// One line, as roleplay addons show a birthplace, a motto, or what you do now.
+pub const LINE: Limit = Limit {
+    chars: 200,
+    bytes: 240,
+};
+
+/// A few words, such as a name or an age.
+pub const SHORT: Limit = Limit {
+    chars: 100,
+    bytes: 120,
+};
 
 /// A prompt takes this much of each text of the hero, so a long story keeps it short.
 pub const PROMPT_TEXT_CHARS: usize = 300;
 
-/// The fields of the sheet, in the order of the page.
-pub const FIELDS: [&str; 6] = ["origin", "background", "goal", "bond", "flaw", "traits"];
+/// The fields of the sheet, in the order of the page: the six questions, then the roleplay
+/// profile that roleplay addons share (GAMEPLAY.md 3.7.1).
+pub const FIELDS: [&str; 12] = [
+    "origin",
+    "background",
+    "goal",
+    "bond",
+    "flaw",
+    "traits",
+    "name",
+    "title",
+    "currently",
+    "appearance",
+    "age",
+    "motto",
+];
+
+/// The name is the name in the game until the player sets one, and a title often holds it.
+/// No model sees the name of a real player (GAMEPLAY.md 5.11).
+const NOT_IN_PROMPTS: [&str; 2] = ["name", "title"];
+
+/// None for a name that is no field.
+#[must_use]
+pub fn limit_of(field: &str) -> Option<Limit> {
+    match field {
+        "background" | "goal" | "bond" | "flaw" | "traits" | "appearance" => Some(LONG),
+        "origin" | "currently" | "motto" => Some(LINE),
+        "name" | "title" | "age" => Some(SHORT),
+        _ => None,
+    }
+}
 
 /// The entries that one prompt carries, newest first, so a long story keeps the prompt short.
 pub const PROMPT_ENTRIES: usize = 5;
@@ -150,16 +194,14 @@ pub fn next_number(changes: &[Change]) -> u64 {
 /// # Errors
 ///
 /// Returns the reason for a text that is empty, too long, or holds a control character.
-pub fn checked_text(text: &str) -> Result<String, String> {
+pub fn checked_text(text: &str, limit: Limit) -> Result<String, String> {
     if text.trim().is_empty() {
         return Err(EMPTY.to_string());
     }
     if text.chars().any(|c| c.is_control() && !c.is_whitespace()) {
         return Err(ODD_CHARACTERS.to_string());
     }
-    one_line(text, MAX_TEXT_CHARS, MAX_TEXT_BYTES)
-        .filter(|line| Size::of(line).slot <= MAX_TEXT_SLOT)
-        .ok_or_else(|| TOO_LONG.to_string())
+    one_line(text, limit.chars, limit.bytes).ok_or_else(|| TOO_LONG.to_string())
 }
 
 const EMPTY: &str = "Couldn't save an empty note.";
@@ -176,9 +218,11 @@ pub const OWN_WORDS: &str =
 /// story.
 #[must_use]
 pub fn portrait(hero: &Hero) -> Option<String> {
-    let mut lines: Vec<String> = hero
+    let shown = hero
         .sheet
         .iter()
+        .filter(|field| !NOT_IN_PROMPTS.contains(&field.field.as_str()));
+    let mut lines: Vec<String> = shown
         .map(|field| format!("- {}: {}", field.field, cut(&field.text)))
         .collect();
     let newest = newest_texts(&hero.entries, |_| true);

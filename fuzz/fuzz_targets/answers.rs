@@ -150,9 +150,9 @@ fuzz_target!(|data: &[u8]| {
     if let Some(line) = plain_text(&text, 50, 200) {
         assert_plain(&line, 50, 200);
     }
-    if let Ok(own) = hero::checked_text(&text) {
-        assert!(own.chars().count() <= hero::MAX_TEXT_CHARS, "{own:?}");
-        assert!(own.len() <= hero::MAX_TEXT_BYTES, "{own:?}");
+    if let Ok(own) = hero::checked_text(&text, hero::LONG) {
+        assert!(own.chars().count() <= hero::LONG.chars, "{own:?}");
+        assert!(own.len() <= hero::LONG.bytes, "{own:?}");
         assert!(!own.chars().any(char::is_control), "{own:?}");
     }
     assert!(

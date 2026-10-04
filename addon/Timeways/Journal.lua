@@ -17,7 +17,7 @@ Journal.TITLES = {
 	quests = "Quests",
 }
 
--- The lists that come in pages. The sheet of the hero comes on the first page only.
+-- The lists that come in pages, with the sheet and the entries of the hero.
 -- Places and people have no page: the map and the tooltips read them.
 local LISTS = { "chapters", "places", "people", "deeds", "learned", "quests", "stories" }
 
@@ -50,11 +50,10 @@ function Journal.Request(page)
 	ns.Outbox.Flush()
 end
 
-local function Started(value)
-	local hero = type(value.hero) == "table" and value.hero or {}
+local function Started()
 	local journal = { chapters = {}, places = {}, people = {}, deeds = {}, learned = {}, quests = {}, stories = {} }
 	journal.next = 0
-	journal.hero = { sheet = Entries(hero.sheet), entries = {} }
+	journal.hero = { sheet = {}, entries = {} }
 	return journal
 end
 
@@ -65,14 +64,16 @@ local function Append(journal, value)
 		end
 	end
 	local hero = type(value.hero) == "table" and value.hero or {}
-	for _, entry in ipairs(Entries(hero.entries)) do
-		table.insert(journal.hero.entries, entry)
+	for _, list in ipairs({ "sheet", "entries" }) do
+		for _, entry in ipairs(Entries(hero[list])) do
+			table.insert(journal.hero[list], entry)
+		end
 	end
 end
 
 -- The journal of the first page alone, for the self-test.
 function Journal.FirstPage(value)
-	local journal = Started(value)
+	local journal = Started()
 	Append(journal, value)
 	return journal
 end
@@ -85,7 +86,7 @@ function Journal.Receive(value)
 		return
 	end
 	if page == 0 then
-		collecting = Started(value)
+		collecting = Started()
 		ns.Hero.ShowRefused(value.hero_refused)
 	end
 	if not collecting or page ~= collecting.next then
@@ -817,7 +818,7 @@ function Journal.Page(section)
 	if section ~= "quests" then
 		return { lines = { loading }, buttons = {}, footer = Journal.USAGE[section], side = "map" }
 	end
-	local page = Journal.Render(Started({}), section)
+	local page = Journal.Render(Started(), section)
 	if not ns.TaskPages.Owns(page.selected) then
 		page.lines = { loading }
 	end

@@ -228,7 +228,7 @@ fn the_editor_stops_at_the_limit_of_the_desktop_and_counts_the_letters() {
     click(&game, GOAL);
 
     let limit: usize = game.eval("wow.EditBox().maxLetters");
-    assert_eq!(limit, timeways_story::hero::MAX_TEXT_CHARS);
+    assert_eq!(limit, timeways_story::hero::LONG.chars);
     let count = format!("16 / {limit}");
     let shown: Vec<String> = game.eval("wow.ShownTexts(wow.EditBox().parent.parent)");
     assert!(shown.contains(&count), "{shown:?}");
@@ -240,7 +240,7 @@ fn the_editor_stops_at_the_byte_limit_of_the_desktop() {
 
     let limit: usize = game.eval("return ns.Hero.MAX_BYTES");
 
-    assert_eq!(limit, timeways_story::hero::MAX_TEXT_BYTES);
+    assert_eq!(limit, timeways_story::hero::LONG.bytes);
 }
 
 #[test]
@@ -727,4 +727,23 @@ fn a_broken_saved_story_is_dropped() {
     let waiting: usize = game.eval("return #ns.PlayerStories.Waiting()");
 
     assert_eq!(waiting, 1);
+}
+
+#[test]
+fn a_sheet_that_spreads_over_two_pages_shows_whole() {
+    let game = Game::new();
+
+    game.reply(
+        r#"{"type":"journal","page":0,"pages":2,"hero":{"sheet":[{"field":"origin","text":"A farm."}],"entries":[]},"hero_refused":null}"#,
+    );
+    game.reply(
+        r#"{"type":"journal","page":1,"pages":2,"hero":{"sheet":[{"field":"goal","text":"Find my brother."}],"entries":[]}}"#,
+    );
+
+    let rows = sheet(&game);
+    assert_eq!(rows[2], "item: Where is your character from? (A farm.)");
+    assert_eq!(
+        rows[4],
+        "item: What does your character want? (Find my brother.)"
+    );
 }

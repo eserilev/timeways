@@ -728,3 +728,24 @@ fn a_quest_mark_is_a_deed_with_its_quest_once_and_no_milestone() {
     assert_eq!(marks, [&expected]);
     assert_eq!(journal.chapters.len(), 1);
 }
+
+#[test]
+fn a_sheet_full_of_quotes_spreads_over_pages_in_its_order() {
+    let mut whole = Journal::default();
+    whole.hero.sheet = timeways_story::hero::FIELDS
+        .iter()
+        .map(|field| timeways_story::hero::Field {
+            field: (*field).to_string(),
+            text: "\"".repeat(1000),
+        })
+        .collect();
+
+    let pages = pages(whole.clone());
+
+    assert!(pages.len() > 1, "{}", pages.len());
+    let joined: Vec<_> = pages
+        .iter()
+        .flat_map(|page| page.journal.hero.sheet.clone())
+        .collect();
+    assert_eq!(joined, whole.hero.sheet);
+}

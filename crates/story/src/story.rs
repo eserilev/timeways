@@ -762,13 +762,11 @@ impl Story {
         field: String,
         text: &str,
     ) -> Result<Vec<Output>, StoryError> {
-        if !hero::FIELDS.contains(&field.as_str()) {
-            return Err(StoryError::BadName);
-        }
+        let limit = hero::limit_of(&field).ok_or(StoryError::BadName)?;
         let text = if text.trim().is_empty() {
             String::new()
         } else {
-            match hero::checked_text(text) {
+            match hero::checked_text(text, limit) {
                 Ok(text) => text,
                 Err(reason) => return self.refuse_hero(reason),
             }
@@ -784,7 +782,7 @@ impl Story {
         text: &str,
         npc: Option<String>,
     ) -> Result<Vec<Output>, StoryError> {
-        let text = match hero::checked_text(text) {
+        let text = match hero::checked_text(text, hero::LONG) {
             Ok(text) => text,
             Err(reason) => return self.refuse_hero(reason),
         };

@@ -14,7 +14,7 @@ use timeways_story::chapters::{
 use timeways_story::character::Character;
 use timeways_story::check::{Fault, check, later_names, without_citations};
 use timeways_story::chronicle::{Pick, Saga};
-use timeways_story::hero::{MAX_TEXT_BYTES, MAX_TEXT_CHARS, checked_text};
+use timeways_story::hero::{Field, LONG, checked_text, limit_of};
 use timeways_story::house::fenced;
 use timeways_story::input::{GameQuestKind, Input, MessageId, Reaction};
 use timeways_story::journal::{Journal, journal, pages};
@@ -159,7 +159,7 @@ fn play() -> impl Strategy<Value = Play> {
         prop::option::of(name()).prop_map(Play::Die),
         (1u8..=60).prop_map(Play::Level),
         ("[a-z]{1,8}", 0u8..24).prop_map(|(emote, hour)| Play::Emote(emote, hour)),
-        (0usize..6, hero_text()).prop_map(|(field, text)| Play::HeroSet(field, text)),
+        (0usize..FIELDS.len(), hero_text()).prop_map(|(field, text)| Play::HeroSet(field, text)),
         "[A-Za-z ]{1,40}".prop_map(Play::HeroAdd),
         (1u64..6).prop_map(Play::HeroRemove),
         (
@@ -294,7 +294,7 @@ fn change_of_trust() -> impl Strategy<Value = i64> {
     prop_oneof![Just(i64::MAX), Just(i64::MIN), -10i64..=10, any::<i64>()]
 }
 
-const FIELDS: [&str; 6] = ["origin", "background", "goal", "bond", "flaw", "traits"];
+use timeways_story::hero::FIELDS;
 
 fn input(play: &Play, at: Tick) -> Option<Input> {
     Some(match play.clone() {
@@ -976,6 +976,27 @@ proptest! {
     }
 
     #[test]
+    fn the_pages_joined_hold_the_whole_sheet_and_each_page_fits(
+        texts in prop::collection::vec(hero_text(), FIELDS.len())
+    ) {
+        let mut whole = Journal::default();
+        for (field, text) in FIELDS.iter().zip(texts) {
+            let limit = limit_of(field).unwrap();
+            let Ok(text) = checked_text(&text, limit) else { continue };
+            whole.hero.sheet.push(Field { field: (*field).to_string(), text });
+        }
+
+        let pages = pages(whole.clone());
+
+        let budget = Size { line: MAX_LINE, slot: MAX_SLOT };
+        let joined: Vec<Field> = pages.iter().flat_map(|page| page.journal.hero.sheet.clone()).collect();
+        prop_assert_eq!(joined, whole.hero.sheet);
+        for page in &pages {
+            prop_assert!(Size::of(page).fits(budget));
+        }
+    }
+
+    #[test]
     fn the_player_may_write_any_words_in_their_own_text(
         words in prop::collection::vec(
             prop_oneof![
@@ -986,9 +1007,9 @@ proptest! {
         )
     ) {
         let text = words.join(" ");
-        prop_assume!(text.chars().count() <= MAX_TEXT_CHARS && text.len() <= MAX_TEXT_BYTES);
+        prop_assume!(text.chars().count() <= LONG.chars && text.len() <= LONG.bytes);
 
-        prop_assert_eq!(checked_text(&text), Ok(text.clone()));
+        prop_assert_eq!(checked_text(&text, LONG), Ok(text.clone()));
     }
 
     #[test]

@@ -3,7 +3,7 @@
 
 use crate::chapters::{chapter_starts, is_level_milestone, sessions};
 use crate::character::{Character, title_of_game_quest, title_of_mark};
-use crate::hero::{Entry, Hero};
+use crate::hero::{Entry, Field, Hero};
 use crate::learned::Learned;
 use crate::places::{self, PlaceKind};
 use crate::quest::{Tracked, title_of_thing};
@@ -34,7 +34,7 @@ const CHAPTER_LIST: usize = 20;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
 pub struct Journal {
-    /// The sheet of the hero goes on the first page. Its entries are a list like the others.
+    /// The sheet and the entries of the hero are lists like the others.
     pub hero: Hero,
     /// Why the last edit of the hero did not stand. It shows once.
     pub hero_refused: Option<String>,
@@ -170,20 +170,17 @@ pub struct Page {
 pub fn pages(journal: Journal) -> Vec<Page> {
     let mut pages = Vec::new();
     let mut current = Journal {
-        hero: Hero {
-            sheet: journal.hero.sheet,
-            entries: Vec::new(),
-        },
         hero_refused: journal.hero_refused,
         ..Journal::default()
     };
-    let mut used = Size::of(&current.hero.sheet).plus(Size::of(&current.hero_refused));
+    let mut used = Size::of(&current.hero_refused);
     let budget = Size {
         line: MAX_LINE - FRAME.line,
         slot: MAX_SLOT - FRAME.slot,
     };
     // In the order of the lists, so each list stays in order across the pages.
-    let mut items: Vec<Item> = journal.hero.entries.into_iter().map(Item::Entry).collect();
+    let mut items: Vec<Item> = journal.hero.sheet.into_iter().map(Item::Field).collect();
+    items.extend(journal.hero.entries.into_iter().map(Item::Entry));
     items.extend(journal.chapters.into_iter().map(Item::Chapter));
     items.extend(journal.places.into_iter().map(Item::Place));
     items.extend(journal.people.into_iter().map(Item::Person));
@@ -218,6 +215,7 @@ pub fn pages(journal: Journal) -> Vec<Page> {
 }
 
 enum Item {
+    Field(Field),
     Entry(Entry),
     Chapter(Chapter),
     Place(Place),
@@ -231,6 +229,7 @@ enum Item {
 impl Item {
     fn size(&self) -> Size {
         match self {
+            Item::Field(field) => Size::of(field),
             Item::Entry(entry) => Size::of(entry),
             Item::Chapter(chapter) => Size::of(chapter),
             Item::Place(place) => Size::of(place),
@@ -245,6 +244,7 @@ impl Item {
     /// The length of the list of `journal` that this item goes into.
     fn list_len(&self, journal: &Journal) -> usize {
         match self {
+            Item::Field(_) => journal.hero.sheet.len(),
             Item::Entry(_) => journal.hero.entries.len(),
             Item::Chapter(_) => journal.chapters.len(),
             Item::Place(_) => journal.places.len(),
@@ -258,6 +258,7 @@ impl Item {
 
     fn add_to(self, journal: &mut Journal) {
         match self {
+            Item::Field(field) => journal.hero.sheet.push(field),
             Item::Entry(entry) => journal.hero.entries.push(entry),
             Item::Chapter(chapter) => journal.chapters.push(chapter),
             Item::Place(place) => journal.places.push(place),

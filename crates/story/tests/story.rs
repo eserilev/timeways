@@ -2,7 +2,7 @@
 
 use hourglass::Tick;
 use std::path::Path;
-use timeways_story::hero::MAX_TEXT_CHARS;
+use timeways_story::hero::LONG;
 use timeways_story::input::{CallId, GameQuestKind, Input, MessageId};
 use timeways_story::lore::Answer;
 use timeways_story::pack::{Link, Origin, Pack, Passage};
@@ -1743,7 +1743,7 @@ fn a_refused_edit_shows_its_reason_once_on_the_next_journal_page() {
     let mut story = story_with("hero-refused", &[]);
 
     assert!(
-        set_field(&mut story, "goal", &"a".repeat(MAX_TEXT_CHARS + 1))
+        set_field(&mut story, "goal", &"a".repeat(LONG.chars + 1))
             .unwrap()
             .is_empty()
     );

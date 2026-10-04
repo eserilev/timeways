@@ -1,8 +1,8 @@
 use hourglass::Tick;
 use timeways_story::check::names_after_cutoff_except;
 use timeways_story::hero::{
-    Change, Entry, Field, MAX_TEXT_BYTES, MAX_TEXT_CHARS, PROMPT_TEXT_CHARS, checked_text, hero,
-    newest_texts, next_number, player_text, portrait,
+    Change, Entry, FIELDS, Field, LINE, LONG, PROMPT_TEXT_CHARS, SHORT, checked_text, hero,
+    limit_of, newest_texts, next_number, player_text, portrait,
 };
 
 fn set(field: &str, text: &str) -> Change {
@@ -84,7 +84,7 @@ fn a_removed_entry_is_gone_and_its_number_is_never_used_again() {
 #[test]
 fn a_text_goes_on_one_line() {
     assert_eq!(
-        checked_text("  A farm\n near Goldshire. "),
+        checked_text("  A farm\n near Goldshire. ", LONG),
         Ok("A farm near Goldshire.".to_string())
     );
 }
@@ -92,16 +92,16 @@ fn a_text_goes_on_one_line() {
 #[test]
 fn the_players_own_text_is_never_checked_for_its_words() {
     assert_eq!(
-        checked_text("My father sailed to Pandaria."),
+        checked_text("My father sailed to Pandaria.", LONG),
         Ok("My father sailed to Pandaria.".to_string())
     );
 }
 
 #[test]
 fn a_text_holds_up_to_a_thousand_characters() {
-    assert!(checked_text(&"a".repeat(MAX_TEXT_CHARS)).is_ok());
+    assert!(checked_text(&"a".repeat(LONG.chars), LONG).is_ok());
 
-    let reason = checked_text(&"a".repeat(MAX_TEXT_CHARS + 1)).unwrap_err();
+    let reason = checked_text(&"a".repeat(LONG.chars + 1), LONG).unwrap_err();
 
     assert_eq!(
         reason,
@@ -111,23 +111,58 @@ fn a_text_holds_up_to_a_thousand_characters() {
 
 #[test]
 fn a_text_outside_ascii_stops_at_the_byte_limit() {
-    let widest = "\u{10348}".repeat(MAX_TEXT_BYTES / 4);
+    let widest = "\u{10348}".repeat(LONG.bytes / 4);
 
-    assert!(checked_text(&widest).is_ok());
-    assert!(checked_text(&format!("{widest}a")).is_err());
+    assert!(checked_text(&widest, LONG).is_ok());
+    assert!(checked_text(&format!("{widest}a"), LONG).is_err());
 }
 
 #[test]
-fn a_text_full_of_quotes_is_too_long_for_the_first_journal_page() {
-    let quotes = "\"".repeat(700);
+fn a_text_full_of_quotes_fits_up_to_the_limit() {
+    let quotes = "\"".repeat(LONG.chars);
 
-    assert!(checked_text(&quotes).is_err());
+    assert!(checked_text(&quotes, LONG).is_ok());
+}
+
+#[test]
+fn each_field_has_a_limit_and_a_short_field_stops_sooner() {
+    assert!(FIELDS.iter().all(|field| limit_of(field).is_some()));
+    assert_eq!(limit_of("origin"), Some(LINE));
+    assert_eq!(limit_of("name"), Some(SHORT));
+    assert_eq!(limit_of("appearance"), Some(LONG));
+    assert_eq!(limit_of("notes"), None);
+
+    assert!(checked_text(&"a".repeat(SHORT.chars), SHORT).is_ok());
+    assert!(checked_text(&"a".repeat(SHORT.chars + 1), SHORT).is_err());
+}
+
+#[test]
+fn the_sheet_keeps_the_roleplay_fields_after_the_questions() {
+    let changes = [set("motto", "Light and steel."), set("traits", "Loud.")];
+
+    assert_eq!(
+        hero(&changes).sheet,
+        [field("traits", "Loud."), field("motto", "Light and steel.")]
+    );
+}
+
+#[test]
+fn a_portrait_leaves_out_the_name_and_the_title() {
+    let changes = [
+        set("name", "Ada Brightwater"),
+        set("title", "Lady Ada"),
+        set("age", "Thirty winters."),
+    ];
+
+    let portrait = portrait(&hero(&changes)).unwrap();
+
+    assert_eq!(portrait, "- age: Thirty winters.");
 }
 
 #[test]
 fn an_empty_note_gets_its_own_reason() {
     assert_eq!(
-        checked_text("  \n "),
+        checked_text("  \n ", LONG),
         Err("Couldn't save an empty note.".to_string())
     );
 }
@@ -135,7 +170,7 @@ fn an_empty_note_gets_its_own_reason() {
 #[test]
 fn a_control_character_is_refused() {
     assert!(
-        checked_text("A farm\u{7}.")
+        checked_text("A farm\u{7}.", LONG)
             .unwrap_err()
             .contains("special characters")
     );
@@ -143,7 +178,7 @@ fn a_control_character_is_refused() {
 
 #[test]
 fn a_prompt_takes_the_start_of_a_long_text() {
-    let long = "b".repeat(MAX_TEXT_CHARS);
+    let long = "b".repeat(LONG.chars);
     let changes = [set("goal", &long), added(1, &long)];
     let cut = "b".repeat(PROMPT_TEXT_CHARS);
 
