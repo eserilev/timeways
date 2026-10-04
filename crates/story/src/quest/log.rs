@@ -1,6 +1,7 @@
 //! The quest log: each change of a side quest, and the state of each quest and each of its
 //! steps (GAMEPLAY.md 3.4, docs/plans/quest-variety.md 6).
 
+use super::answer::set_fault;
 use super::{AnyOrder, DAY_SECONDS, Genre, Step};
 use hourglass::Tick;
 use serde::{Deserialize, Serialize};
@@ -97,8 +98,8 @@ pub struct Tracked {
 }
 
 impl Tracked {
-    /// A new offer, from its line. A span that does not fit the steps, from a damaged
-    /// file, counts as no span.
+    /// A new offer, from its line. A span from a damaged file that does not fit the steps,
+    /// or that breaks the rule of a set, counts as no span. A wait in a set could end early.
     fn offered(change: &QuestChange) -> Option<Self> {
         let QuestChange::Offered {
             number,
@@ -113,7 +114,11 @@ impl Tracked {
         else {
             return None;
         };
-        let fits = |span: &AnyOrder| span.first < span.last && span.last < steps.len();
+        let fits = |span: &AnyOrder| {
+            span.first < span.last
+                && span.last < steps.len()
+                && set_fault(&steps[span.first..=span.last]).is_none()
+        };
         Some(Tracked {
             number: *number,
             offered_at: *at,

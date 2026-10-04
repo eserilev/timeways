@@ -59,14 +59,21 @@ pub(super) fn flattened(entries: Vec<Entry>) -> Result<(Vec<Step>, Option<AnyOrd
 }
 
 fn checked_set(first: usize, steps: &[Step]) -> Result<AnyOrder, QuestFault> {
-    if !SET_SIZES.contains(&steps.len()) {
-        return Err(QuestFault::AnyOrderSize(steps.len()));
-    }
-    if steps.iter().any(|step| matches!(step, Step::Wait { .. })) {
-        return Err(QuestFault::AnyOrderWait);
+    if let Some(fault) = set_fault(steps) {
+        return Err(fault);
     }
     Ok(AnyOrder {
         first,
         last: first + steps.len() - 1,
     })
+}
+
+/// The fault of a set that breaks the rule: 2 or 3 steps, and no wait. An answer and a line
+/// of the quest file both keep the rule.
+pub(super) fn set_fault(steps: &[Step]) -> Option<QuestFault> {
+    if !SET_SIZES.contains(&steps.len()) {
+        return Some(QuestFault::AnyOrderSize(steps.len()));
+    }
+    let has_wait = steps.iter().any(|step| matches!(step, Step::Wait { .. }));
+    has_wait.then_some(QuestFault::AnyOrderWait)
 }

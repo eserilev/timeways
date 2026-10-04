@@ -310,16 +310,17 @@ fn recent_offer() -> impl Strategy<Value = Recent> {
 }
 
 /// Few numbers and short quests, so that most changes find their quest. Kills come often,
-/// so a kill step can fill up.
+/// so a kill step can fill up. Two givers, so the limit of one offer for each giver counts.
 fn quest_change() -> impl Strategy<Value = QuestChange> {
     let number = 1u64..4;
     let steps = prop::collection::vec(quest_step(), 0..5);
+    let giver = prop_oneof![Just("Keeper Tessa"), Just("Farmer Bram")];
     prop_oneof![
-        1 => (number.clone(), steps, any_order_span()).prop_map(move |(number, steps, any_order)| {
+        1 => (number.clone(), giver, steps, any_order_span()).prop_map(move |(number, giver, steps, any_order)| {
             QuestChange::Offered {
                 number,
                 at: Tick(1),
-                giver: "Keeper Tessa".to_string(),
+                giver: giver.to_string(),
                 title: "A Task".to_string(),
                 text: "Go.".to_string(),
                 steps,
@@ -1295,8 +1296,13 @@ proptest! {
     ) {
         let quests = quest_log(&changes);
 
-        let offers = quests.iter().filter(|quest| quest.status == Status::Offered).count();
-        prop_assert!(offers <= 1);
+        for giver in ["Keeper Tessa", "Farmer Bram"] {
+            let offers = quests
+                .iter()
+                .filter(|quest| quest.status == Status::Offered && quest.giver == giver)
+                .count();
+            prop_assert!(offers <= 1, "{giver}: {quests:?}");
+        }
         for quest in &quests {
             prop_assert!(quest.steps_done() <= quest.steps.len());
             let finished = !quest.steps.is_empty() && quest.steps_done() == quest.steps.len();

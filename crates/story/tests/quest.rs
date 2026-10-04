@@ -1710,3 +1710,73 @@ fn a_quest_prompt_leaves_room_for_its_retry() {
     let room = Call::Quest.prompt_budget() - retry_tokens();
     assert!(estimated_tokens(&text) <= room, "{text}");
 }
+
+fn damaged_offer(steps: Vec<Step>, any_order: AnyOrder) -> QuestChange {
+    QuestChange::Offered {
+        number: 1,
+        at: Tick(1),
+        giver: GIVER.to_string(),
+        title: "A Damaged Line".to_string(),
+        text: "I need help.".to_string(),
+        steps,
+        genre: None,
+        any_order: Some(any_order),
+    }
+}
+
+fn step_done(step: usize, at: u64) -> QuestChange {
+    QuestChange::StepDone {
+        number: 1,
+        step,
+        at: Tick(at),
+    }
+}
+
+/// The counter-example of the property `a_wait_never_ends_early`.
+#[test]
+fn a_damaged_any_order_set_with_a_wait_counts_as_no_set() {
+    let meet = |npc: &str| Step::Meet {
+        npc: npc.to_string(),
+    };
+    let steps = vec![
+        meet("Farmer Bram"),
+        Step::Kill {
+            creature: "Duskbat".to_string(),
+            count: 1,
+        },
+        Step::Wait { days: 1 },
+        meet("Miller Oda"),
+    ];
+    let changes = [
+        damaged_offer(steps, AnyOrder { first: 1, last: 3 }),
+        QuestChange::Accepted {
+            number: 1,
+            at: Tick(1),
+        },
+        step_done(0, 2),
+        step_done(2, 2 + DAY_SECONDS),
+        step_done(1, 4 + 3 * DAY_SECONDS),
+    ];
+
+    let quest = &quest_log(&changes)[0];
+
+    assert_eq!(quest.any_order, None);
+    assert!(!quest.is_done(2), "{quest:?}");
+}
+
+#[test]
+fn a_damaged_any_order_set_of_four_steps_counts_as_no_set() {
+    let visit = |place: &str| Step::Visit {
+        place: place.to_string(),
+    };
+    let steps = vec![
+        visit("Old Tower"),
+        visit("Mill Pond"),
+        visit("Testvale"),
+        visit("Goldshire"),
+    ];
+
+    let quest = &quest_log(&[damaged_offer(steps, AnyOrder { first: 0, last: 3 })])[0];
+
+    assert_eq!(quest.any_order, None);
+}
