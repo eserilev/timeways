@@ -65,6 +65,8 @@ TaskForm.lua
 TaskNames.lua
 TaskDraftHelp.lua
 TaskPages.lua
+JournalRows.lua
+JournalQuests.lua
 Journal.lua
 Ink.lua
 MapPane.lua

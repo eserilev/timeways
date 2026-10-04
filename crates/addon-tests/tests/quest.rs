@@ -834,3 +834,20 @@ fn a_mystery_shows_more_to_come_and_counts_only_its_done_steps() {
     let mark: String = game.eval("ns.Journal.Page('quests').list[2].mark");
     assert_eq!(mark, "1 done");
 }
+
+#[test]
+fn a_step_with_an_unknown_goal_or_a_missing_count_shows_a_question_mark() {
+    let game = Game::new();
+
+    let lines: Vec<String> = game.eval(
+        "local quest = { number = 1, status = 'accepted', title = 'A', giver = 'Bram',
+             steps = { { goal = 'fly', state = 'open' }, { goal = 'kill', creature = 'Bat', state = 'open' } } }
+         local out = {}
+         for _, line in ipairs(ns.Journal.Render({ quests = { quest } }, 'quests').lines) do
+             if line.style == 'entry' then table.insert(out, line.text) end
+         end
+         return out",
+    );
+
+    assert_eq!(lines, ["?", "?"]);
+}
