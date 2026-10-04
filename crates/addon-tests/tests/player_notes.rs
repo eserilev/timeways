@@ -134,7 +134,7 @@ fn a_note_with_a_pipe_stays_in_the_editor_with_the_reason() {
     assert!(game.eval::<bool>("return ns.Editor.IsShown()"));
     let shown: Vec<String> = game.eval("wow.ShownTexts(wow.EditBox().parent.parent)");
     assert!(
-        shown.contains(&"Notes can't hold the | sign. Take it out to save.".to_string()),
+        shown.contains(&"Notes can't hold the || sign. Take it out to save.".to_string()),
         "{shown:?}"
     );
     assert!(tooltip(&game).is_empty());

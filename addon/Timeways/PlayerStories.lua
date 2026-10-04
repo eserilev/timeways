@@ -120,6 +120,20 @@ end
 
 -- Telling ------------------------------------------------------------------------------------
 
+-- The limit counts bytes, and a letter such as "é" takes two, so the line names no number.
+-- The game shows "||" as one "|".
+local function TellProblem(text)
+	if text:find("|", 1, true) then
+		return "Stories can't hold the || sign. Take it out and try again."
+	end
+	if #text > ns.TaskWire.LIMITS.text then
+		return "Too long to send. Try a shorter version."
+	end
+	if not IsText(text) then
+		return "Some of these characters can't be sent. Take them out and try again."
+	end
+end
+
 -- Only a player of your group hears your story, and only one who has not blocked you.
 function PlayerStories.Tell(to, text)
 	text = tostring(text or ""):gsub("%s+", " "):match("^%s*(.-)%s*$")
@@ -127,8 +141,9 @@ function PlayerStories.Tell(to, text)
 		Say("Target a player in your group first.")
 		return nil
 	end
-	if not IsText(text) then
-		Say(string.format("A story is one line of up to %d letters, with no |.", ns.TaskWire.LIMITS.text))
+	local problem = TellProblem(text)
+	if problem then
+		Say(problem)
 		return nil
 	end
 	if ns.TaskStore.Data().refusedBy[to] then

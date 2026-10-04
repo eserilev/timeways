@@ -823,7 +823,9 @@ local function ProfileLines()
 	local lines = { Line("heading", "Roleplay Profile") }
 	local owner = ns.MspProfile.Owner()
 	if owner then
-		lines[#lines + 1] = Line("help", owner .. " shares your profile. Change it there.")
+		-- The owner can be "your roleplay addon", which starts in lower case.
+		local subject = owner:gsub("^%l", string.upper)
+		lines[#lines + 1] = Line("help", subject .. " shares your profile. Change it there.")
 		return lines
 	end
 	local help = ns.MspProfile.IsSharing() and SHARE_HELP.on or SHARE_HELP.off

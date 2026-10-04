@@ -1048,3 +1048,18 @@ fn the_cut_of_a_long_name_keeps_a_whole_last_letter() {
 
     assert_eq!(line, format!("{}é", "A".repeat(58)));
 }
+
+#[test]
+fn a_roleplay_addon_with_no_name_starts_the_line_with_a_capital() {
+    let game = Game::new();
+    game.run("msp = { my = {} }");
+    game.reply(&sheet_reply(&[]));
+    game.run("wow.Slash('/hero', '')");
+
+    let overview = page(&game, "roleplay");
+
+    assert_eq!(
+        overview[1],
+        "help: Your roleplay addon shares your profile. Change it there."
+    );
+}

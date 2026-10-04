@@ -232,3 +232,29 @@ fn a_saved_story_with_a_broken_time_is_dropped() {
     assert_eq!(waiting(&corvin), 1);
     assert!(ada.eval::<bool>("return TimewaysStories.told.x == nil"));
 }
+
+#[test]
+fn a_story_with_the_pipe_sign_says_so_in_a_line_that_shows_the_sign() {
+    let (ada, corvin) = party();
+
+    tell(&ada, &corvin, "a | b");
+
+    assert_eq!(waiting(&corvin), 0);
+    assert_eq!(
+        ada.printed().pop().unwrap(),
+        format!("{PREFIX}Stories can't hold the || sign. Take it out and try again.")
+    );
+}
+
+#[test]
+fn a_story_too_long_to_send_asks_for_a_shorter_one() {
+    let (ada, corvin) = party();
+
+    tell(&ada, &corvin, &"é".repeat(300));
+
+    assert_eq!(waiting(&corvin), 0);
+    assert_eq!(
+        ada.printed().pop().unwrap(),
+        format!("{PREFIX}Too long to send. Try a shorter version.")
+    );
+}

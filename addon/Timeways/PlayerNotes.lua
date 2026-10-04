@@ -138,7 +138,8 @@ function PlayerNotes.Line(name)
 	return mark or entry.note
 end
 
-local NO_PIPE = "Notes can't hold the | sign. Take it out to save."
+-- The game shows "||" as one "|". A lone "|" starts an escape.
+local NO_PIPE = "Notes can't hold the || sign. Take it out to save."
 local TOO_LONG = "Too long to save. Try a shorter version."
 
 -- A pasted note can hold line breaks and tabs. A saved note holds no control character.
