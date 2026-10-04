@@ -1,7 +1,7 @@
 //! Personal side quests (GAMEPLAY.md 3.4). The model proposes a quest, and the code checks
 //! each step against the world before the offer shows (5.2).
 
-use crate::check::{json_object, plain_text, same_words, words_of};
+use crate::check::{json_object, mentions, plain_text, same_words, words_of};
 use crate::seen::SeenText;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -361,6 +361,8 @@ pub enum QuestFault {
     SameShape(String),
     #[error("the word \"{0}\" is in the title of one of your last three quests")]
     SameTitleWord(String),
+    #[error("the text of a mystery names \"{0}\" of a later step: name only the first step")]
+    HiddenStep(String),
 }
 
 /// # Errors
@@ -398,6 +400,9 @@ pub fn checked_quest(answer: &str, known: &Known<'_>) -> Result<Quest, QuestFaul
         steps,
         any_order,
     };
+    if let Some(fault) = hidden_step_named(&quest, known.giver) {
+        return Err(fault);
+    }
     if let Some(fault) = variety_fault(&quest, &known.recent) {
         return Err(fault);
     }
@@ -405,6 +410,27 @@ pub fn checked_quest(answer: &str, known: &Known<'_>) -> Result<Quest, QuestFaul
         return Err(QuestFault::TooLong);
     }
     Ok(quest)
+}
+
+/// A mystery shows only its first stage, in the chat and in the book, so its text names no
+/// target of a later step. The giver of a step back after a wait is no secret.
+fn hidden_step_named(quest: &Quest, giver: &str) -> Option<QuestFault> {
+    if quest.genre != Genre::Mystery {
+        return None;
+    }
+    let first_stage = quest
+        .any_order
+        .filter(|span| span.first == 0)
+        .map_or(1, |span| span.last + 1);
+    let hidden = quest
+        .steps
+        .iter()
+        .skip(first_stage)
+        .filter_map(Step::target);
+    let named = hidden
+        .filter(|target| *target != giver)
+        .find(|target| mentions(&quest.text, target))?;
+    Some(QuestFault::HiddenStep(named.to_string()))
 }
 
 /// The answer carries the genre as a string, so the retry can name an unknown one.

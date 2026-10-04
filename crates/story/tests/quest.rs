@@ -1780,3 +1780,38 @@ fn a_damaged_any_order_set_of_four_steps_counts_as_no_set() {
 
     assert_eq!(quest.any_order, None);
 }
+
+fn mystery_answer(text: &str) -> String {
+    format!(
+        r#"{{"title": "Lights on the Pond", "genre": "mystery", "text": "{text}", "steps": [{VISIT_TOWER}, {MEET_BRAM}]}}"#
+    )
+}
+
+#[test]
+fn a_mystery_whose_text_names_a_hidden_step_is_refused() {
+    let answer = mystery_answer("I saw lights by the tower. Start there, then ask Farmer Bram.");
+
+    let fault = checked_quest(&answer, &known(&[]));
+
+    assert_eq!(
+        fault,
+        Err(QuestFault::HiddenStep("Farmer Bram".to_string()))
+    );
+}
+
+#[test]
+fn a_mystery_whose_text_names_only_its_first_step_passes() {
+    let answer = mystery_answer("I saw lights by the Old Tower. Find out what they are.");
+
+    assert!(checked_quest(&answer, &known(&[])).is_ok());
+}
+
+#[test]
+fn an_errand_can_name_every_step_in_its_text() {
+    let answer = answer("Word for Bram", &format!("{VISIT_TOWER}, {MEET_BRAM}")).replace(
+        "I need you to bring word to the tower.",
+        "I need you to see the tower, then tell Farmer Bram.",
+    );
+
+    assert!(checked_quest(&answer, &known(&[])).is_ok());
+}

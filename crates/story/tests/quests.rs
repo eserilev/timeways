@@ -1656,3 +1656,20 @@ fn an_offer_of_a_giver_that_turned_hostile_cannot_be_accepted() {
 
     assert_eq!(open_quests(&mut story), 0);
 }
+
+#[test]
+fn a_mystery_that_names_a_hidden_step_gets_a_retry_with_the_reason() {
+    let mut story = story("mystery-retry");
+    let (call, _) = call_of(ask(&mut story, 5));
+    let text = answer_text("Lights on the Pond", &format!("{VISIT_POND}, {MEET_BRAM}"))
+        .replace("errand", "mystery")
+        .replace("go and look", "go to the pond, then ask Farmer Bram");
+
+    let outputs = story.handle(Input::ModelAnswered { call, text }).unwrap();
+
+    let (_, prompt) = call_of(outputs.into_iter().next().unwrap());
+    assert!(
+        prompt.contains("the text of a mystery names \"Farmer Bram\""),
+        "{prompt}"
+    );
+}
