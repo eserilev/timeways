@@ -1,6 +1,15 @@
 # Plan: NPCs remember you in /talk
 
-Status: draft 1, 2026-10-03. The user approved the design. Nothing is built. When a part is built, its rules move into `GAMEPLAY.md` (section 9 of this plan), and this plan marks the part as done.
+Status: 2026-10-03. The user approved the design. Steps 1 to 5 of section 11 are done: NPC memory is built, and its rules are in `GAMEPLAY.md` 3.5, 5.11, and 5.14. Step 6 (the hook, section 10) is open.
+
+Changes from this plan, in the build:
+
+- `a_talk_remembers_the_quest_that_the_npc_gave` is in `tests/quests.rs`, because the quest helpers are there. `a_talk_reads_the_rows_behind_its_memories` is in `tests/links.rs`, because it reads the `reads` table of a world on disk.
+- More tests than 12.1 lists: `a_finished_quest_is_remembered_as_finished` and `a_rare_that_you_defeated_is_remembered_by_the_rare_as_a_fight`. `tests/character.rs` tests `Character::first_met`.
+- The property `a_talk_prompt_holds_at_most_five_memories_and_never_the_name_of_the_character` checks the name only in the lines of a rumor ("you told the player"). The code drops a rumor that names the character. A random foe or place can have the name "Ada" in a property run. That name comes from the game, and the code does not filter it.
+- In `fuzz/fuzz_targets/play.rs`, `assert_memory_block` checks the fence, the count, and the length of each line, but no name. The model of the fuzz target does not know which character plays, and a rumor that names the other character is allowed. The property checks the name.
+- `memory_play()` gives the quests of Farley one visit step to "Goldshire" or "Westfall", so the check lets most of them through.
+- The talk prompt of `tests/voice.rs` with 5 memories at full length is 776 tokens of 1823.
 
 No table changes. All the data exists today, so there is no migration.
 

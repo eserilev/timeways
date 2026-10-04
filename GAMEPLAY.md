@@ -191,6 +191,16 @@ Built:
 
 - **Talking is meeting.** The NPC enters your world with `met` before the model answers.
 - **What the NPC knows:** its place, your level, your slaps (5.4.1), its trust in you, and up to 3 lore passages about it, under the spoiler limit (3.1).
+- **What the NPC remembers** (built). The prompt holds up to 5 memories of the NPC about you. Each memory is a row of your world, so the model cannot invent a past. The kinds:
+  - its last 2 answers to you in `/talk`;
+  - each side quest that it gave you, with its state: not answered, in progress, finished, given up, or turned down;
+  - your first meeting, when it is an hour old or more;
+  - a fight between you: it killed you, or you defeated it;
+  - near it: a rare or a boss that you defeated, or your death, in its zone.
+
+  What is between you and the NPC comes first, then the first meeting, then the deeds nearby. Inside each group, the newest comes first. At most 2 quests and at most 2 deeds nearby count, the newest ones. The NPC brings up at most one memory in an answer, and only when it fits. Each memory says when, in words: "Three weeks ago", never a date. The clock is the time of the talk.
+
+  An offer that a newer offer replaced is no memory, because you did nothing. A death that the NPC caused counts as a fight, never also as a death nearby. Seeing an NPC is no memory: it never noticed you. The world keeps one person for each name, so two NPCs with one name share their memories, as they share trust. With no memory, the prompt still tells the NPC to speak of no past with you that is not written there.
 - **The NPC proposes, and the code decides** (5.2). The model answers in JSON: `{"say": "...", "trust": n}`.
   - The words follow the rules of a narrator line, with at most 400 characters.
   - A change of trust outside -5 to 5 is dropped, and the words still show.
@@ -731,6 +741,8 @@ The name of a real player never goes to a model, local or cloud. The model does 
    - In anything shared with the guild, the real name only for a member who has the addon and allows it. Every other player shows as their card: "the Undead Rogue", "a brave Dwarf Priest".
    - A member can turn on "keep me out of the saga", and then shows as their card too.
 
+A memory of an NPC (3.5) calls you "the player", never by name. A rumor that holds the name of your character is no memory.
+
 **In Hourglass**, each player is a `Person` entity with the ID as its name. So the history holds `P7`, never the real name. When a guild world syncs its history between members, no real names travel with it. Each member swaps the IDs with their own table.
 
 Canon NPCs, such as Thrall or the innkeeper of Goldshire, keep their real names. They are part of the lore, not people.
@@ -854,7 +866,7 @@ Each row of a world answers three questions: what proves it, which model call wr
   | Saga draft | every event, flavor moment, and hero row of its chapter, and the hero rows before it |
   | Saga pick, second draft | the same, and the earlier calls of its round |
   | Quest offer, task draft | the events behind the giver and every place, NPC, and creature that the prompt can offer |
-  | Talk | the events behind the NPC, the hero entries about it, and the `learned` rows of its passages |
+  | Talk | the events behind the NPC, the hero entries about it, the `learned` rows of its passages, and the rows behind each memory (3.5): the `learned` row of each answer, every `quests` row of each quest, and the events of each deed and of the first meeting |
 
   The events behind a name are the event that made the thing, and the event that opened each fact that it holds or that points to it.
 - **Proof** is the set of roots that a row rests on: follow the input or the call that made it, and for a call, also what it read, down to the inputs. The weakest root shows:
