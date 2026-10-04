@@ -1,5 +1,6 @@
 //! What the world of the player holds, and the rules of 3.4 for each step against it.
 
+use super::emotes::{is_cruel_target, quest_emotes};
 use super::variety::Recent;
 use super::{
     MAX_CARRY, MAX_KILLS, MAX_TOPIC_BYTES, MAX_TOPIC_CHARS, MAX_WAIT_DAYS, QuestFault, Step,
@@ -79,6 +80,10 @@ impl Known<'_> {
             Step::Talk { npc, about } => self.talk_fault(npc, about.as_deref()),
             Step::Kill { creature, count } => self.kill_fault(creature, *count),
             Step::Carry { item, count, npc } => self.carry_fault(item, *count, npc),
+            Step::Emote { emote, npc, place } => {
+                self.emote_fault(emote, npc.as_deref(), place.as_deref())
+            }
+            Step::Slap { npc } => self.slap_fault(npc),
             Step::Wait { days } => {
                 (!(1..=MAX_WAIT_DAYS).contains(days)).then_some(QuestFault::WaitDays(*days))
             }
@@ -122,6 +127,34 @@ impl Known<'_> {
         }
         if !(1..=MAX_CARRY).contains(&count) {
             return Some(QuestFault::CarryCount(count));
+        }
+        self.person_fault(npc)
+    }
+
+    fn emote_fault(
+        &self,
+        emote: &str,
+        npc: Option<&str>,
+        place: Option<&str>,
+    ) -> Option<QuestFault> {
+        if !quest_emotes().contains(&emote) {
+            return Some(QuestFault::UnknownEmote(emote.to_string()));
+        }
+        match (npc, place) {
+            (Some(npc), None) => self.person_fault(npc),
+            (None, Some(place)) => self.visit_fault(place),
+            _ => Some(QuestFault::EmoteTarget),
+        }
+    }
+
+    /// A slap is a slap: it costs trust as any slap does. So it never names the giver, or
+    /// an NPC whose name holds a word of the cruelty list.
+    fn slap_fault(&self, npc: &str) -> Option<QuestFault> {
+        if npc == self.giver {
+            return Some(QuestFault::SlapGiver);
+        }
+        if is_cruel_target(npc) {
+            return Some(QuestFault::CruelTarget(npc.to_string()));
         }
         self.person_fault(npc)
     }

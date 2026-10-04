@@ -1,0 +1,16 @@
+# Emotes that a quest step can ask for (docs/plans/quest-variety.md 4.3). The tokens of
+# the game, in lower case, as Emotes.lua sends them. No rude emote: a quest never asks you
+# to insult an NPC. A slap has its own step (4.10).
+applaud
+bow
+cheer
+dance
+flex
+greet
+hug
+kneel
+pray
+salute
+sing
+thank
+wave

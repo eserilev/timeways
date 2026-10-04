@@ -35,6 +35,7 @@ fn lantern(status: Status, steps_done: usize) -> QuestView {
         status,
         done_at: (status == Status::Done).then_some(Tick(DAY)),
         any_order: None,
+        has_slap: false,
     }
 }
 
@@ -740,4 +741,44 @@ fn the_page_draws_again_when_the_bags_change() {
             .any(|text| text == "Bring Linen Cloth to Farmer Bram: 10/10"),
         "{shown:?}"
     );
+}
+
+#[test]
+fn an_emote_or_a_slap_step_names_the_command_to_type() {
+    let bow = Step::Emote {
+        emote: "bow".to_string(),
+        npc: Some("Sister Ada".to_string()),
+        place: None,
+    };
+    let dance = Step::Emote {
+        emote: "dance".to_string(),
+        npc: None,
+        place: Some("Goldshire".to_string()),
+    };
+    let slap = Step::Slap {
+        npc: "Farmer Bram".to_string(),
+    };
+
+    assert_eq!(second_step_line(bow), "entry: Use /bow on Sister Ada.");
+    assert_eq!(second_step_line(dance), "entry: Use /dance in Goldshire.");
+    assert_eq!(second_step_line(slap), "entry: Use /slap on Farmer Bram.");
+}
+
+#[test]
+fn a_quest_with_a_slap_says_the_npc_will_like_you_less() {
+    let game = Game::new();
+    let mut quest = lantern(Status::Offered, 0);
+    quest.steps[1].step = Step::Slap {
+        npc: "Farmer Bram".to_string(),
+    };
+    quest.has_slap = true;
+
+    game.reply(&quest_reply(quest));
+
+    let shown = lines(&game);
+    let rewards = shown
+        .iter()
+        .position(|line| line == "section: Rewards")
+        .unwrap();
+    assert_eq!(shown[rewards + 2], "text: Farmer Bram will like you less.");
 }

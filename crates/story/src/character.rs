@@ -19,7 +19,7 @@ pub type Refusal = Vec<Rejection>;
 const YOU: &str = "you";
 
 /// The trust that one slap costs.
-const SLAP_TRUST: i64 = 10;
+pub const SLAP_TRUST: i64 = 10;
 
 /// The trust that a finished side quest earns with its giver. The model never picks it.
 pub const QUEST_TRUST: i64 = 10;

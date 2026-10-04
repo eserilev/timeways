@@ -170,6 +170,8 @@ An innkeeper tells you a rumor, and the rumor becomes a small quest line made fo
 | `visit` | go to a place | `zone_entered` |
 | `meet` | speak with an NPC | `npc_met`, `talk_asked`, or `npc_slapped` |
 | `talk` | use `/talk` with an NPC | `talk_asked` |
+| `emote` | use an emote on an NPC, or in a place | `emote_done` |
+| `slap` | use `/slap` on an NPC. Only in a comic quest. | `npc_slapped` |
 | `kill` | kill 1 to 10 of a creature | `npc_killed` |
 | `carry` | have 1 to 20 of a common good in your bags when you meet an NPC. You keep them. | `items_held` |
 | `wait` | come back after 1 to 3 days | any line after the time |
@@ -185,6 +187,8 @@ A quest has 1 to 4 steps. A set of 2 or 3 steps can come in any order: the answe
   - A place is a zone or subzone that you visited. The addon names the zone of a text that you read by where you read it, so it adds no place.
   - An NPC to meet is one that you met or saw. It is not hostile, not an animal, and not dead in your story. So a task never sends you to talk to a bat.
   - A `talk` step names an NPC that a meet step can name. Its optional topic has at most 60 characters.
+  - An `emote` step takes an emote of a fixed list (`data/quest_emotes.txt`), with no rude emote, at an NPC or in a place, never both.
+  - A `slap` step comes only in a comic quest. It never names the giver, or an NPC whose name holds a word of the cruelty list (`data/cruel_words.txt`). A slap step is a slap: the NPC trusts you 10 less, as for any slap (5.4.1). The Tasks page says so under Rewards before you accept: "Farmer Bram will like you less."
   - A `carry` step names a good of a fixed list for your level (`data/carry_items.txt`), and an NPC that a meet step can name. A good is the goal of many quests of the game, so it is exempt from the overlap rule. Its NPC keeps the rule.
   - A step can name the giver only after a wait: "Come back in two days and tell me what you found." The giver stands next to you at the accept, so a step before any wait never names the giver.
   - A creature to kill is one that you saw hostile, not dead in your story, and not the giver. A kill step asks for 1 to 10 kills.

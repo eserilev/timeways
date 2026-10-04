@@ -1,0 +1,19 @@
+# Words in the name of an NPC that no slap step may name (docs/plans/quest-variety.md
+# 4.10): no quest asks you to slap a child, an orphan, or someone who is already hurt.
+# Whole words, lower case. docs/plans/standing.md 4.6 grows this list for its reward check.
+child
+children
+kid
+orphan
+baby
+infant
+boy
+girl
+youngling
+widow
+beggar
+sick
+wounded
+injured
+refugee
+prisoner

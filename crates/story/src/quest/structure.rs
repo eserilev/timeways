@@ -1,15 +1,19 @@
 //! The rules of a quest for its steps together: their order, and what each one names
 //! (docs/plans/quest-variety.md 7.3, part 5).
 
-use super::{QuestFault, Step};
+use super::{Genre, QuestFault, Step};
 
 /// The first rule of the order of the steps that the quest breaks.
-pub(super) fn structure_fault(steps: &[Step], giver: &str) -> Option<QuestFault> {
+pub(super) fn structure_fault(steps: &[Step], giver: &str, genre: Genre) -> Option<QuestFault> {
     if !waits_in_place(steps) {
         return Some(QuestFault::WaitPlace);
     }
     if names_giver_too_soon(steps, giver) {
         return Some(QuestFault::MeetGiver);
+    }
+    let slaps = steps.iter().any(|step| matches!(step, Step::Slap { .. }));
+    if slaps && genre != Genre::Comic {
+        return Some(QuestFault::SlapOutsideComic);
     }
     if repeats_a_target(steps) {
         return Some(QuestFault::RepeatedStep);

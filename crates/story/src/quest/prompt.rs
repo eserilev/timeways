@@ -1,6 +1,7 @@
 //! The words of the quest prompt. The lists hold only the targets that the check allows,
 //! so the model has nothing else to pick (GAMEPLAY.md 3.4).
 
+use super::emotes::quest_emotes;
 use super::variety::{Recent, recent_line};
 use super::{Known, MAX_CARRY, MAX_KILLS, MAX_STEPS, MAX_TITLE_CHARS, MAX_WAIT_DAYS};
 use crate::hero_hook::{Hook, QUEST_RULE, hook_block};
@@ -12,6 +13,7 @@ const PROMPT_NAMES: usize = 20;
 
 const VISIT: &str = r#"{"goal": "visit", "place": "<a place above>"}: go there."#;
 const MEET: &str = r#"{"goal": "meet", "npc": "<a person above>"}: speak with them."#;
+const SLAP: &str = r#"{"goal": "slap", "npc": "<a person above>"}: slap them. Only in a comic quest, and never you."#;
 const TALK: &str = r#"{"goal": "talk", "npc": "<a person above>", "about": "<a topic in a few words>"}: ask them about something with /talk. The topic is optional."#;
 
 #[must_use]
@@ -65,31 +67,47 @@ fn list(names: &[&str]) -> String {
 /// A goal shows only when its list has a name, so the model never picks a goal that the
 /// check refuses.
 fn goals(places: &[&str], people: &[&str], prey: &[&str], goods: &[&str]) -> String {
-    let kill = format!(
-        r#"{{"goal": "kill", "creature": "<a creature above>", "count": <1 to {MAX_KILLS}>}}: hunt them."#
-    );
-    let wait = format!(
-        r#"{{"goal": "wait", "days": <1 to {MAX_WAIT_DAYS}>}}: the player comes back later. Never the first or the last step, and at most one."#
-    );
-    let mut goals = Vec::new();
-    if !places.is_empty() {
-        goals.push(VISIT);
-    }
-    if !people.is_empty() {
-        goals.extend([MEET, TALK]);
-    }
-    if !prey.is_empty() {
-        goals.push(&kill);
-    }
-    let carry = format!(
-        r#"{{"goal": "carry", "item": "<a good above>", "count": <1 to {MAX_CARRY}>, "npc": "<a person above>"}}: have the goods in the bags when meeting the person. The player keeps them."#
-    );
-    if !goods.is_empty() && !people.is_empty() {
-        goals.push(&carry);
-    }
-    goals.push(&wait);
-    let lines: Vec<String> = goals.iter().map(|goal| format!("  - {goal}")).collect();
+    let goals = [
+        (!places.is_empty(), VISIT.to_string()),
+        (!people.is_empty(), MEET.to_string()),
+        (!people.is_empty(), TALK.to_string()),
+        (!places.is_empty() || !people.is_empty(), emote_goal()),
+        (!people.is_empty(), SLAP.to_string()),
+        (!prey.is_empty(), kill_goal()),
+        (!goods.is_empty() && !people.is_empty(), carry_goal()),
+        (true, wait_goal()),
+    ];
+    let lines: Vec<String> = goals
+        .iter()
+        .filter(|(shown, _)| *shown)
+        .map(|(_, goal)| format!("  - {goal}"))
+        .collect();
     lines.join("\n")
+}
+
+fn kill_goal() -> String {
+    format!(
+        r#"{{"goal": "kill", "creature": "<a creature above>", "count": <1 to {MAX_KILLS}>}}: hunt them."#
+    )
+}
+
+fn carry_goal() -> String {
+    format!(
+        r#"{{"goal": "carry", "item": "<a good above>", "count": <1 to {MAX_CARRY}>, "npc": "<a person above>"}}: have the goods in the bags when meeting the person. The player keeps them."#
+    )
+}
+
+fn emote_goal() -> String {
+    format!(
+        r#"{{"goal": "emote", "emote": "<one of: {}>", "npc": "<a person above>"}}: use the emote on the person. Or give "place": "<a place above>" in place of "npc": use it in the place."#,
+        quest_emotes().join(", ")
+    )
+}
+
+fn wait_goal() -> String {
+    format!(
+        r#"{{"goal": "wait", "days": <1 to {MAX_WAIT_DAYS}>}}: the player comes back later. Never the first or the last step, and at most one."#
+    )
 }
 
 /// The newest offers, so the model makes a different one. The titles are model text, so

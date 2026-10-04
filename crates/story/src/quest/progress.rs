@@ -21,6 +21,11 @@ pub enum Encounter {
     /// `/talk`: `talk_asked`.
     Talk(String),
     Slap(String),
+    /// `emote_done`, with its NPC target when it has one.
+    Emote {
+        emote: String,
+        target: Option<String>,
+    },
     /// `items_held`: the count of one item in your bags, at a meeting with the NPC.
     Carry {
         npc: String,
@@ -35,8 +40,14 @@ impl Encounter {
     pub fn meets(&self, npc: &str) -> bool {
         match self {
             Encounter::Gossip(name) | Encounter::Talk(name) | Encounter::Slap(name) => name == npc,
-            Encounter::None | Encounter::Carry { .. } => false,
+            Encounter::None | Encounter::Emote { .. } | Encounter::Carry { .. } => false,
         }
+    }
+
+    /// Was the line this emote, at this NPC or with no NPC?
+    fn emotes(&self, wanted: &str, npc: Option<&str>) -> bool {
+        matches!(self, Encounter::Emote { emote, target }
+            if emote == wanted && (npc.is_none() || target.as_deref() == npc))
     }
 
     /// Did the line show at least `count` of the item in your bags, at this NPC?
@@ -57,8 +68,27 @@ impl Tracked {
             Some(Step::Talk { npc, .. }) => matches!(met, Encounter::Talk(name) if name == npc),
             Some(Step::Kill { count, .. }) => self.kills[step] >= *count,
             Some(Step::Carry { item, count, npc }) => met.carries(npc, item, *count),
+            Some(Step::Slap { npc }) => matches!(met, Encounter::Slap(name) if name == npc),
+            Some(Step::Emote { emote, npc, place }) => {
+                emote_holds(here, met, emote, npc.as_deref(), place.as_deref())
+            }
             Some(Step::Wait { .. }) => self.ready_at(step).is_some_and(|ready| here.at >= ready),
             None => false,
         }
+    }
+}
+
+/// An emote at the NPC of the step, or anywhere in its place.
+fn emote_holds(
+    here: &Here<'_>,
+    met: &Encounter,
+    emote: &str,
+    npc: Option<&str>,
+    place: Option<&str>,
+) -> bool {
+    match (npc, place) {
+        (Some(npc), _) => met.emotes(emote, Some(npc)),
+        (None, Some(place)) => met.emotes(emote, None) && here.places.contains(&place),
+        (None, None) => false,
     }
 }

@@ -15,6 +15,9 @@ pub struct QuestView {
     pub done_at: Option<Tick>,
     /// The steps that the player can see, in order.
     pub steps: Vec<StepView>,
+    /// True when a step asks you to slap someone: the page says so before you accept.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub has_slap: bool,
     /// The span of the steps that can be done in any order.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub any_order: Option<AnyOrder>,
@@ -58,6 +61,10 @@ impl QuestView {
             status: quest.status,
             done_at: quest.done_at,
             steps,
+            has_slap: quest
+                .steps
+                .iter()
+                .any(|step| matches!(step, Step::Slap { .. })),
             any_order: quest.any_order,
         }
     }

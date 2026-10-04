@@ -6,7 +6,7 @@
 use hourglass::Tick;
 use std::path::Path;
 use std::time::Duration;
-use timeways_story::character::QUEST_TRUST;
+use timeways_story::character::{QUEST_TRUST, SLAP_TRUST};
 use timeways_story::input::{CallId, Input, MessageId, Reaction};
 use timeways_story::journal::{Deed, Page};
 use timeways_story::pack::Pack;
@@ -1316,4 +1316,92 @@ fn a_retry_does_not_count_for_the_hero_hook() {
     let (_, prompt) = call_of(ask(&mut story, 8));
 
     assert!(prompt.contains("<<<\nFind my father.\n>>>"), "{prompt}");
+}
+
+/// An accepted quest of one step, of this genre.
+fn one_step_quest(name: &str, genre: &str, step: &str) -> Story {
+    let mut story = story(name);
+    let (call, _) = call_of(ask(&mut story, 5));
+    let text = answer_text("Odd Manners", step).replace("errand", genre);
+    let line = notice(story.handle(Input::ModelAnswered { call, text }).unwrap());
+    assert!(line.unwrap().contains("has a quest for you"));
+    accept(&mut story, 6, None);
+    story
+}
+
+fn emote_at(at: u64, emote: &str, target: Option<&str>) -> Input {
+    Input::EmoteDone {
+        at: Tick(at),
+        emote: emote.to_string(),
+        target: target.map(str::to_string),
+        hour: Some(12),
+    }
+}
+
+const BOW_TO_BRAM: &str = r#"{"goal": "emote", "emote": "bow", "npc": "Farmer Bram"}"#;
+
+#[test]
+fn an_emote_at_the_npc_of_the_step_does_it() {
+    let mut story = one_step_quest("emote-npc", "errand", BOW_TO_BRAM);
+
+    story
+        .handle(emote_at(7, "bow", Some("Farmer Bram")))
+        .unwrap();
+
+    assert_eq!(quests(&mut story)[0].status, Status::Done);
+}
+
+#[test]
+fn an_emote_at_another_npc_does_nothing() {
+    let mut story = one_step_quest("emote-other", "errand", BOW_TO_BRAM);
+
+    story
+        .handle(emote_at(7, "bow", Some("Miller Oda")))
+        .unwrap();
+    story
+        .handle(emote_at(8, "wave", Some("Farmer Bram")))
+        .unwrap();
+    story.handle(emote_at(9, "bow", None)).unwrap();
+
+    assert_eq!(steps_done(&quests(&mut story)[0]), 0);
+}
+
+#[test]
+fn an_emote_in_the_place_of_the_step_does_it() {
+    let step = r#"{"goal": "emote", "emote": "dance", "place": "Mill Pond"}"#;
+    let mut story = one_step_quest("emote-place", "comic", step);
+
+    story.handle(emote_at(7, "dance", None)).unwrap();
+    let elsewhere = steps_done(&quests(&mut story)[0]);
+    story.handle(zone(8, "Mill Pond")).unwrap();
+    story
+        .handle(emote_at(9, "dance", Some("Farmer Bram")))
+        .unwrap();
+
+    assert_eq!(elsewhere, 0);
+    assert_eq!(quests(&mut story)[0].status, Status::Done);
+}
+
+#[test]
+fn a_slap_step_costs_trust_as_any_slap() {
+    let step = r#"{"goal": "slap", "npc": "Farmer Bram"}"#;
+    let mut story = one_step_quest("slap-step", "comic", step);
+    let slap = Input::NpcSlapped {
+        at: Tick(7),
+        name: "Farmer Bram".to_string(),
+    };
+
+    story.handle(slap).unwrap();
+
+    let quest = quests(&mut story).remove(0);
+    assert_eq!(quest.status, Status::Done);
+    assert!(quest.has_slap);
+    let bram = page(&mut story)
+        .journal
+        .people
+        .into_iter()
+        .find(|person| person.name == "Farmer Bram")
+        .unwrap();
+    assert_eq!(bram.trust, Some(-SLAP_TRUST));
+    assert_eq!(bram.slapped, Some(1));
 }

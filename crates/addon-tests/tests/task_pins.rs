@@ -67,6 +67,7 @@ fn lantern(status: Status, steps_done: usize) -> QuestView {
         status,
         done_at: None,
         any_order: None,
+        has_slap: false,
     }
 }
 
@@ -305,5 +306,23 @@ fn a_talk_step_gets_a_pin_at_its_person() {
     let game = tasks_page(journal(quest, Some(spot(TIRISFAL, 700, 200))));
 
     let expected = ["Active  1 500 500", "step 1 1 300 400", "step 2 1 700 200"];
+    assert_eq!(pins(&game), expected);
+}
+
+#[test]
+fn an_emote_in_a_place_gets_a_pin_at_the_place() {
+    let mut quest = lantern(Status::Accepted, 0);
+    quest.steps[1].step = Step::Emote {
+        emote: "dance".to_string(),
+        npc: None,
+        place: Some("Mill Pond".to_string()),
+    };
+    quest.steps[0].step = Step::Slap {
+        npc: "Farmer Bram".to_string(),
+    };
+
+    let game = tasks_page(journal(quest, Some(spot(TIRISFAL, 700, 200))));
+
+    let expected = ["Active  1 500 500", "step 1 1 700 200", "step 2 1 300 400"];
     assert_eq!(pins(&game), expected);
 }

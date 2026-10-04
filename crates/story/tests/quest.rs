@@ -5,7 +5,8 @@ use timeways_story::hero_hook::Hook;
 use timeways_story::quest::{
     AnyOrder, DAY_SECONDS, Encounter, Genre, Here, Known, MAX_CARRY, MAX_KILLS, MAX_OFFER_BYTES,
     MAX_TITLE_CHARS, MAX_TOPIC_CHARS, MAX_WAIT_DAYS, Quest, QuestChange, QuestFault, Status, Step,
-    checked_quest, goods_for, offer_line, prompt, quest_log, thing_name, title_of_thing,
+    checked_quest, goods_for, is_cruel_target, offer_line, prompt, quest_emotes, quest_log,
+    thing_name, title_of_thing,
 };
 use timeways_story::seen::{SeenText, TextKind};
 
@@ -1310,4 +1311,128 @@ fn a_count_for_another_npc_or_item_leaves_the_carry_step_open() {
     assert!(!quest.step_holds(0, &here, &held("Miller Oda", "Linen Cloth", 10)));
     assert!(!quest.step_holds(0, &here, &held("Farmer Bram", "Wool Cloth", 10)));
     assert!(!quest.step_holds(0, &here, &Encounter::Gossip("Farmer Bram".to_string())));
+}
+
+fn emote(emote: &str, target: &str) -> String {
+    format!(r#"{{"goal": "emote", "emote": "{emote}", {target}}}"#)
+}
+
+const AT_BRAM: &str = r#""npc": "Farmer Bram""#;
+const IN_TOWER: &str = r#""place": "Old Tower""#;
+
+#[test]
+fn an_emote_step_takes_a_token_of_the_quest_emote_list() {
+    let seen = [];
+    let bow = answer("A Proper Greeting", &emote("bow", AT_BRAM));
+
+    let quest = checked_quest(&bow, &known(&seen)).unwrap();
+
+    assert_eq!(
+        quest.steps,
+        [Step::Emote {
+            emote: "bow".to_string(),
+            npc: Some("Farmer Bram".to_string()),
+            place: None,
+        }]
+    );
+    assert!(quest_emotes().contains(&"dance"));
+}
+
+#[test]
+fn a_rude_emote_is_no_quest_emote() {
+    let seen = [];
+
+    for rude in ["rude", "spit", "slap", "Bow"] {
+        let text = answer("A Proper Greeting", &emote(rude, AT_BRAM));
+        assert_eq!(
+            checked_quest(&text, &known(&seen)).unwrap_err(),
+            QuestFault::UnknownEmote(rude.to_string())
+        );
+    }
+}
+
+#[test]
+fn an_emote_step_names_an_npc_or_a_place_and_never_both() {
+    let seen = [];
+    let both = answer(
+        "A Proper Greeting",
+        &emote("dance", &format!("{AT_BRAM}, {IN_TOWER}")),
+    );
+    let none = answer(
+        "A Proper Greeting",
+        r#"{"goal": "emote", "emote": "dance"}"#,
+    );
+    let place = answer("A Proper Greeting", &emote("dance", IN_TOWER));
+
+    for text in [both, none] {
+        assert_eq!(
+            checked_quest(&text, &known(&seen)).unwrap_err(),
+            QuestFault::EmoteTarget
+        );
+    }
+    assert!(checked_quest(&place, &known(&seen)).is_ok());
+}
+
+fn slap(npc: &str) -> String {
+    format!(r#"{{"goal": "slap", "npc": "{npc}"}}"#)
+}
+
+#[test]
+fn a_slap_step_comes_only_in_a_comic_quest() {
+    let seen = [];
+    let errand = answer("A Lesson", &slap("Farmer Bram"));
+    let comic = errand.replace("errand", "comic");
+
+    assert_eq!(
+        checked_quest(&errand, &known(&seen)).unwrap_err(),
+        QuestFault::SlapOutsideComic
+    );
+    assert!(checked_quest(&comic, &known(&seen)).is_ok());
+}
+
+#[test]
+fn a_slap_step_never_names_the_giver() {
+    let seen = [];
+    let steps = format!("{VISIT_TOWER}, {}, {}", wait(1), slap(GIVER));
+    let text = answer("A Lesson", &steps).replace("errand", "comic");
+
+    assert_eq!(
+        checked_quest(&text, &known(&seen)).unwrap_err(),
+        QuestFault::SlapGiver
+    );
+}
+
+#[test]
+fn a_slap_step_never_names_an_npc_with_a_cruel_word() {
+    let seen = [];
+    let mut known = known(&seen);
+    known.npcs.push("Orphan Timmy");
+    let text = answer("A Lesson", &slap("Orphan Timmy")).replace("errand", "comic");
+
+    assert_eq!(
+        checked_quest(&text, &known).unwrap_err(),
+        QuestFault::CruelTarget("Orphan Timmy".to_string())
+    );
+    assert!(is_cruel_target("little ORPHAN annie"));
+    assert!(!is_cruel_target("Farmer Bram"));
+}
+
+#[test]
+fn the_prompt_offers_emotes_and_slaps_only_with_people_or_places() {
+    let seen = [];
+    let mut empty = known(&seen);
+    empty.zones = Vec::new();
+    empty.subzones = Vec::new();
+    empty.npcs = Vec::new();
+
+    let full = prompt(&known(&seen), Some("Testvale"), None);
+    let bare = prompt(&empty, Some("Testvale"), None);
+
+    assert!(
+        full.contains(r#""goal": "emote", "emote": "<one of: applaud, bow"#),
+        "{full}"
+    );
+    assert!(full.contains(r#""goal": "slap""#), "{full}");
+    assert!(!bare.contains(r#""goal": "emote""#), "{bare}");
+    assert!(!bare.contains(r#""goal": "slap""#), "{bare}");
 }

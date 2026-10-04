@@ -325,6 +325,10 @@ pub(super) fn encounter(input: &Input) -> Encounter {
         Input::NpcMet { name, .. } => Encounter::Gossip(name.clone()),
         Input::TalkAsked { npc, .. } => Encounter::Talk(npc.clone()),
         Input::NpcSlapped { name, .. } => Encounter::Slap(name.clone()),
+        Input::EmoteDone { emote, target, .. } => Encounter::Emote {
+            emote: emote.clone(),
+            target: target.clone(),
+        },
         Input::ItemsHeld {
             npc, item, count, ..
         } => Encounter::Carry {

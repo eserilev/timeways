@@ -325,6 +325,15 @@ local function WaitText(step)
 	return text .. "."
 end
 
+-- The command that the player types, as WoW writes an emote objective.
+local function EmoteText(step)
+	local command = "Use /" .. ns.Plain(step.emote)
+	if type(step.npc) == "string" then
+		return command .. " on " .. Name(step.npc) .. "."
+	end
+	return command .. " in " .. Name(step.place) .. "."
+end
+
 -- The count in your bags now, as the game shows a collect objective. A done step shows
 -- its whole count: you had the items when you met the NPC.
 local function CarryText(step)
@@ -350,6 +359,12 @@ local function StepText(step)
 	end
 	if step.goal == "talk" then
 		return "Talk to " .. Name(step.npc) .. " (/talk)."
+	end
+	if step.goal == "emote" and type(step.emote) == "string" then
+		return EmoteText(step)
+	end
+	if step.goal == "slap" then
+		return "Use /slap on " .. Name(step.npc) .. "."
 	end
 	if step.goal == "carry" and type(step.count) == "number" then
 		return CarryText(step)
@@ -458,6 +473,16 @@ local function AnyOrderStart(quest)
 	end
 end
 
+-- The NPC of the slap step. A step that the book does not show yet names no one.
+local function SlappedName(quest)
+	for _, step in ipairs(Entries(quest.steps)) do
+		if step.goal == "slap" and type(step.npc) == "string" then
+			return Name(step.npc)
+		end
+	end
+	return "Someone"
+end
+
 -- The rewards are story, never loot (3.4): the giver trusts you more, and the deed goes into
 -- your chronicle.
 local function QuestLines(quest, saving)
@@ -475,6 +500,9 @@ local function QuestLines(quest, saving)
 	end
 	lines[#lines + 1] = Line("section", "Rewards")
 	lines[#lines + 1] = Line("text", Name(quest.giver) .. " trusts you more.")
+	if quest.has_slap == true then
+		lines[#lines + 1] = Line("text", SlappedName(quest) .. " will like you less.")
+	end
 	lines[#lines + 1] = Line("text", "An entry in your chronicle.")
 	return lines
 end

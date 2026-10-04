@@ -139,6 +139,11 @@ fn assert_quest(text: &str) {
         let set = &offer.steps[span.first..=span.last];
         assert!(!set.iter().any(|step| matches!(step, Step::Wait { .. })));
     }
+    let slaps = offer
+        .steps
+        .iter()
+        .any(|step| matches!(step, Step::Slap { .. }));
+    assert!(!slaps || offer.genre == Genre::Comic, "{:?}", offer.genre);
     assert_variety(&offer);
     let targets: Vec<&str> = offer.steps.iter().filter_map(Step::target).collect();
     let mut distinct = targets.clone();
@@ -167,6 +172,17 @@ fn assert_step(step: &Step, before: &[Step]) {
             assert!((1..=quest::MAX_KILLS).contains(count));
         }
         Step::Wait { days } => assert!((1..=quest::MAX_WAIT_DAYS).contains(days)),
+        Step::Emote { emote, npc, place } => {
+            assert!(quest::quest_emotes().contains(&emote.as_str()), "{emote}");
+            assert!(npc.is_some() != place.is_some(), "{npc:?} {place:?}");
+            assert!(npc.as_deref().is_none_or(person));
+            assert!(
+                place
+                    .as_deref()
+                    .is_none_or(|place| ["Testvale", "Old Tower"].contains(&place))
+            );
+        }
+        Step::Slap { npc } => assert_eq!(npc, "Farmer Bram"),
         Step::Carry { item, count, npc } => {
             assert!(
                 ["Linen Cloth", "Light Leather"].contains(&item.as_str()),

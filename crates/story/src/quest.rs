@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 mod answer;
+mod emotes;
 mod goods;
 mod known;
 mod log;
@@ -17,6 +18,7 @@ pub mod variety;
 mod view;
 
 use answer::{Reply, flattened};
+pub use emotes::{is_cruel_target, quest_emotes};
 pub use goods::goods_for;
 pub use known::Known;
 use known::game_quests;
@@ -80,6 +82,18 @@ pub enum Step {
         count: u8,
         npc: String,
     },
+    /// An emote at an NPC, or in a place. Exactly one of the two.
+    Emote {
+        emote: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        npc: Option<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        place: Option<String>,
+    },
+    /// `/slap` the NPC. Only in a comic quest.
+    Slap {
+        npc: String,
+    },
     /// Come back later: the steps after it open only after the wait.
     Wait {
         #[serde(deserialize_with = "whole_number")]
@@ -108,7 +122,11 @@ impl Step {
     pub fn target(&self) -> Option<&str> {
         match self {
             Step::Visit { place } => Some(place),
-            Step::Meet { npc } | Step::Talk { npc, .. } | Step::Carry { npc, .. } => Some(npc),
+            Step::Meet { npc }
+            | Step::Talk { npc, .. }
+            | Step::Carry { npc, .. }
+            | Step::Slap { npc } => Some(npc),
+            Step::Emote { npc, place, .. } => npc.as_deref().or(place.as_deref()),
             Step::Kill { creature, .. } => Some(creature),
             Step::Wait { .. } => None,
         }
@@ -123,6 +141,8 @@ impl Step {
             Step::Talk { .. } => "talk",
             Step::Kill { .. } => "kill",
             Step::Carry { .. } => "carry",
+            Step::Emote { .. } => "emote",
+            Step::Slap { .. } => "slap",
             Step::Wait { .. } => "wait",
         }
     }
@@ -131,7 +151,11 @@ impl Step {
     #[must_use]
     pub fn person(&self) -> Option<&str> {
         match self {
-            Step::Meet { npc } | Step::Talk { npc, .. } | Step::Carry { npc, .. } => Some(npc),
+            Step::Meet { npc }
+            | Step::Talk { npc, .. }
+            | Step::Carry { npc, .. }
+            | Step::Slap { npc } => Some(npc),
+            Step::Emote { npc, .. } => npc.as_deref(),
             Step::Visit { .. } | Step::Kill { .. } | Step::Wait { .. } => None,
         }
     }
@@ -216,6 +240,16 @@ pub enum QuestFault {
     UnknownGood(String),
     #[error("a carry step asks for 1 to {MAX_CARRY} items, not {0}")]
     CarryCount(u8),
+    #[error("\"{0}\" is no emote that a quest asks for")]
+    UnknownEmote(String),
+    #[error("an emote step names an NPC or a place, and never both")]
+    EmoteTarget,
+    #[error("a slap step comes only in a comic quest")]
+    SlapOutsideComic,
+    #[error("a slap step never names the giver")]
+    SlapGiver,
+    #[error("no quest asks you to slap \"{0}\"")]
+    CruelTarget(String),
     #[error("a step sends you back to the giver with no wait before it")]
     MeetGiver,
     #[error("a wait lasts 1 to {MAX_WAIT_DAYS} days, not {0}")]
@@ -267,7 +301,7 @@ pub fn checked_quest(answer: &str, known: &Known<'_>) -> Result<Quest, QuestFaul
     if let Some(fault) = steps.iter().find_map(|step| known.step_fault(step)) {
         return Err(fault);
     }
-    if let Some(fault) = structure_fault(&steps, known.giver) {
+    if let Some(fault) = structure_fault(&steps, known.giver, genre) {
         return Err(fault);
     }
     let quest = Quest {
