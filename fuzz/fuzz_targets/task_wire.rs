@@ -21,6 +21,7 @@ thread_local! {
         let ns = lua.create_table().unwrap();
         for (name, source) in [
             ("Utf8.lua", include_str!("../../addon/Timeways/Utf8.lua")),
+            ("StoryText.lua", include_str!("../../addon/Timeways/StoryText.lua")),
             ("TaskWire.lua", include_str!("../../addon/Timeways/TaskWire.lua")),
             ("PartCollector.lua", include_str!("../../addon/Timeways/PartCollector.lua")),
             ("TaskChunks.lua", include_str!("../../addon/Timeways/TaskChunks.lua")),
@@ -42,13 +43,26 @@ thread_local! {
                         end
                     end
                 end
+                -- A story body is the one text with breaks, and only between paragraphs.
+                local function CleanBody(message)
+                    local body = message.body
+                    message.body = nil
+                    if body then
+                        assert(#body <= 1200 and not body:find("\n\n") and not body:find("^\n")
+                            and not body:find("\n$"), "unclean body")
+                        assert(not body:find("[%z\1-\9\11-\31\127|]"), "unclean body")
+                    end
+                    return body
+                end
                 return function(sender, at, part)
                     local whole = ns.TaskChunks.Add(collector, sender, part, at)
                     local message = whole and ns.TaskWire.Decode(whole)
                     if not message then
                         return
                     end
+                    local body = CleanBody(message)
                     Clean(message)
+                    message.body = body
                     local text = ns.TaskWire.Encode(message)
                     local again = assert(ns.TaskWire.Decode(text), "refused its own text")
                     assert(ns.TaskWire.Encode(again) == text, "not the same text")

@@ -46,7 +46,7 @@ impl Saved {
     }
 }
 
-const TYPES: [&str; 13] = [
+const TYPES: [&str; 15] = [
     "hello",
     "here",
     "offer",
@@ -60,6 +60,8 @@ const TYPES: [&str; 13] = [
     "story",
     "story_accept",
     "story_decline",
+    "story_ask",
+    "story_room",
 ];
 const IDS: [&str; 3] = ["a1", "b2", "zz9"];
 const SENDERS: [&str; 3] = ["Ada-Stormrage", "Bram-Stormrage", "Mallory-Elsewhere"];
@@ -113,15 +115,26 @@ enum Action {
     },
     /// Corvin targets Ada and types `/story` with these words.
     Tell(String),
+    /// Corvin sends a story with a title and a body that can hold breaks, after the question
+    /// or not, and saves or deletes a draft.
+    Write {
+        title: String,
+        body: String,
+        ask: bool,
+        draft: bool,
+    },
+    /// The one-shot timers run, as the wait for an answer ends.
+    Timers,
     Party(bool),
     Tick,
 }
 
-/// A story in the saved file that Corvin told Ada, with any value as its time.
+/// A story in the saved file that Corvin told Ada, with any value as its time and status.
 #[derive(Arbitrary, Debug)]
 struct ToldStory {
     id: String,
-    text: String,
+    title: String,
+    status: String,
     at: Saved,
 }
 
@@ -137,9 +150,10 @@ fn told_stories(told: &[ToldStory]) -> String {
         .iter()
         .map(|story| {
             format!(
-                "[{:?}] = {{ to = 'Ada-Stormrage', text = {:?}, at = {} }}",
+                "[{:?}] = {{ to = 'Ada-Stormrage', title = {:?}, status = {:?}, at = {} }}",
                 story.id,
-                story.text,
+                story.title,
+                story.status,
                 story.at.lua(1)
             )
         })
@@ -155,6 +169,7 @@ fn escape(field: &str) -> String {
         .replace('%', "%25")
         .replace(';', "%3B")
         .replace('\\', "%5C")
+        .replace('\n', "%0A")
 }
 
 /// Fires the event of `log`, and tells the check of `watch_the_log` which event it is.
@@ -248,6 +263,37 @@ fn act(corvin: &players::Player, action: &Action) {
             );
             tell.call::<()>(words.as_str()).unwrap();
         }
+        Action::Write {
+            title,
+            body,
+            ask,
+            draft,
+        } => {
+            let write: mlua::Function = corvin.eval(
+                "return function(title, body, ask, draft)
+                     local cleanBody = ns.StoryText.Body(body)
+                     if draft then
+                         ns.StoryDrafts.Save('Ada-Stormrage', title, body)
+                     elseif ns.StoryText.Problem(title, cleanBody) then
+                         ns.StoryDrafts.Delete('Ada-Stormrage')
+                     elseif ask then
+                         ns.PlayerStories.Ask('Ada-Stormrage', function(room)
+                             if room == 'open' then ns.PlayerStories.Send('Ada-Stormrage', title, cleanBody) end
+                         end)
+                     else
+                         ns.PlayerStories.Send('Ada-Stormrage', title, cleanBody)
+                     end
+                 end",
+            );
+            write
+                .call::<()>((title.as_str(), body.as_str(), *ask, *draft))
+                .unwrap();
+        }
+        Action::Timers => corvin.run(
+            "local timers = wow.after
+             wow.after = {}
+             for _, timer in ipairs(timers) do timer.callback() end",
+        ),
         Action::Party(on) => {
             corvin.run(if *on {
                 "wow.units.party1 = { name = 'Ada', player = true, guid = 'Player-1-Ada' }"
@@ -275,7 +321,9 @@ fn check_pages(corvin: &players::Player) {
              end
          for _, line in ipairs(ns.Journal.Lines('hero')) do
              assert(not (line.text or ''):find('|', 1, true), line.text)
-         end",
+         end
+         assert(#ns.PlayerStories.Waiting() <= 20)
+         assert(#ns.StoryDrafts.All() <= 10)",
     );
 }
 

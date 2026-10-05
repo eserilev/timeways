@@ -46,6 +46,7 @@ MspWire.lua
 MspParts.lua
 Trust.lua
 TaskPins.lua
+StoryText.lua
 TaskWire.lua
 TaskReward.lua
 TaskChunks.lua
@@ -59,6 +60,8 @@ MspProfile.lua
 Msp.lua
 PlayerNotes.lua
 PlayerTasks.lua
+StorySaved.lua
+StoryDrafts.lua
 PlayerStories.lua
 TaskTrade.lua
 TaskTracker.lua

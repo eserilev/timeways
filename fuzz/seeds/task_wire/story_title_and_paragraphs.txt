@@ -1,0 +1,1 @@
+1:1:1:1;story;a1;The Bridge;We held it.%0AThen we ran.%0AThe end.

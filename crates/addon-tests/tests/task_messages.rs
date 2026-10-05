@@ -120,11 +120,11 @@ fn a_text_that_the_logged_channel_refuses_is_refused() {
     let broken_letter = decode(&game, "1;offer;a1;Caf%C3;Text;;1;npc;Renee;1");
     let lone_continuation = decode(&game, "1;offer;a1;Title;%A9t%C3%A9;;1;npc;Renee;1");
     let banned_sign = decode(&game, "1;offer;a1;Title;Text;%E5%8D%8D;1;npc;Renee;1");
-    let not_a_letter = decode(&game, "1;story;a1;End%EF%BF%BF");
+    let not_a_letter = decode(&game, "1;story;a1;;End%EF%BF%BF");
 
     assert_eq!(
         [broken_letter, lone_continuation, banned_sign, not_a_letter],
-        ["bad title", "bad text", "bad reward", "bad text"]
+        ["bad title", "bad text", "bad reward", "bad body"]
     );
 }
 
@@ -142,9 +142,9 @@ fn a_backslash_goes_escaped() {
     let game = Game::new();
 
     let wire: String =
-        game.eval("return ns.TaskWire.Encode({ type = 'story', id = 'a1', text = [[C:\\Wow]] })");
+        game.eval("return ns.TaskWire.Encode({ type = 'story', id = 'a1', story_title = '', body = [[C:\\Wow]] })");
 
-    assert_eq!(wire, "1;story;a1;C:%5CWow");
+    assert_eq!(wire, "1;story;a1;;C:%5CWow");
 }
 
 #[test]

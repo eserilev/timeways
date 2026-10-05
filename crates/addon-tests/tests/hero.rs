@@ -703,7 +703,7 @@ fn the_hero_page_shows_the_stories_about_you_with_their_authors() {
     game.run("wow.units.player = { name = 'Corvin', player = true, guid = 'Player-1-Corvin' }");
     game.run(
         "TimewaysStories = { authors = { [1] = 'Ada-Stormrage' }, nextNumber = 3,
-             waiting = { { id = 'a1', author = 'Bram-Stormrage', text = 'Bram saw it all.', at = 1 } } }",
+             waiting = { { id = 'a1', author = 'Bram-Stormrage', title = '', text = 'Bram saw it all.', at = 1 } } }",
     );
     game.run("wow.Slash('/hero', '')");
     game.reply(STORIES);
@@ -750,9 +750,9 @@ fn a_broken_saved_story_is_dropped() {
     let game = Game::new();
     game.run(
         "TimewaysStories = { waiting = {
-             { id = 'a1', author = 'Bram-Stormrage', text = 'Fine.', at = 1 },
-             { id = 'a2', author = 'no realm', text = 'Broken.', at = 1 },
-             { id = 'a3', author = 'Bram-Stormrage', text = 'A |Hlink|h.', at = 1 } } }",
+             { id = 'a1', author = 'Bram-Stormrage', title = '', text = 'Fine.', at = 1 },
+             { id = 'a2', author = 'no realm', title = '', text = 'Broken.', at = 1 },
+             { id = 'a3', author = 'Bram-Stormrage', title = '', text = 'A |Hlink|h.', at = 1 } } }",
     );
 
     let waiting: usize = game.eval("return #ns.PlayerStories.Waiting()");

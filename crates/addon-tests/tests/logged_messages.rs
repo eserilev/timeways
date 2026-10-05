@@ -65,9 +65,21 @@ fn an_offer_goes_on_the_logged_channel() {
 fn a_story_goes_on_the_logged_channel() {
     let (ada, _corvin) = party();
 
-    ada.run("ns.PlayerStories.Tell('Corvin-Stormrage', 'We held the bridge.')");
+    ada.run("ns.PlayerStories.Send('Corvin-Stormrage', '', 'We held the bridge.')");
 
     assert_eq!(sent_types(&ada), [pair("story", LOGGED)]);
+}
+
+#[test]
+fn the_question_of_a_story_and_its_room_go_on_the_normal_channel() {
+    let (ada, corvin) = party();
+
+    ada.run("ns.PlayerStories.Ask('Corvin-Stormrage', function() end)");
+    let asked = sent_types(&ada);
+    corvin.hear("Timeways", "1:1:1:1;story_ask", "WHISPER", &ada.full_name());
+
+    assert_eq!(asked, [pair("story_ask", NORMAL)]);
+    assert_eq!(sent_types(&corvin), [pair("story_room", NORMAL)]);
 }
 
 #[test]
@@ -115,7 +127,7 @@ fn an_offer_that_arrives_on_the_normal_channel_is_dropped() {
 #[test]
 fn a_story_that_arrives_on_the_normal_channel_is_dropped() {
     let (ada, corvin) = party();
-    let story = "1:1:1:1;story;a1;A tale.";
+    let story = "1:1:1:1;story;a1;;A tale.";
 
     corvin.hear("Timeways", story, "WHISPER", &ada.full_name());
     let unlogged = waiting_stories(&corvin);

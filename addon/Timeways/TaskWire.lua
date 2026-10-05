@@ -29,9 +29,10 @@ local VERDICTS = { done = true, notyet = true }
 local MAX_TIME = 4294967295
 
 -- `%` and the separator need an escape, and so does `\`, which the logged channel refuses.
--- A text with `|` or a control character is refused on both ends.
+-- So does the break between two paragraphs of a story, because the logged channel takes no
+-- control character. A text with `|` or another control character is refused on both ends.
 local function Escape(text)
-	return (text:gsub("[%%;\\]", function(c)
+	return (text:gsub("[%%;\\\n]", function(c)
 		return string.format("%%%02X", c:byte())
 	end))
 end
@@ -108,6 +109,30 @@ local function Verdict(field)
 	end
 end
 
+-- The rooms of a story box (GAMEPLAY.md 4.8): why a story can or can't come in.
+TaskWire.ROOMS = { open = true, full = true, waiting = true, blocked = true }
+
+local function Room(field)
+	if TaskWire.ROOMS[field] then
+		return field
+	end
+end
+
+-- Only a story body holds a break, and only between two paragraphs.
+local function Body(field)
+	local body = Unescape(field)
+	if ns.StoryText.IsBody(body) then
+		return body
+	end
+end
+
+local function StoryTitle(field)
+	local title = Unescape(field)
+	if ns.StoryText.IsTitle(title) then
+		return title
+	end
+end
+
 local READERS = {
 	id = Id,
 	title = Text(TaskWire.LIMITS.title),
@@ -120,6 +145,9 @@ local READERS = {
 	at = Whole(0, MAX_TIME),
 	zone = Text(TaskWire.LIMITS.zone, true),
 	verdict = Verdict,
+	story_title = StoryTitle,
+	body = Body,
+	room = Room,
 }
 
 -- A group is a list of items with the same fields, sent as its length and then the items.
@@ -140,10 +168,14 @@ local SCHEMAS = {
 	step = { "id", "index", "at", "zone" },
 	turnin = { "id", "claims" },
 	result = { "id", "verdict" },
-	-- A story about the player who gets it (4.8), and its answer.
-	story = { "id", "text" },
+	-- A story about the player who gets it (4.8), and its answer. The title can be empty.
+	story = { "id", "story_title", "body" },
 	story_accept = { "id" },
 	story_decline = { "id" },
+	-- "Can I send you a story?", and the room of the box: the answer to it, and to a story
+	-- that the box did not take.
+	story_ask = {},
+	story_room = { "room" },
 }
 
 TaskWire.LOGGED, TaskWire.UNLOGGED = "logged", "unlogged"
