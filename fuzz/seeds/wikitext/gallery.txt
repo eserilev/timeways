@@ -1,0 +1,6 @@
+Lead.
+<gallery widths=120>
+Testvale-Tower.png|The old tower.
+</gallery>
+<gallery>
+Open.png|never closed

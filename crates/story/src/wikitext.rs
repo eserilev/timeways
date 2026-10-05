@@ -222,6 +222,9 @@ fn book_title(block: &str) -> &str {
 pub fn plain(text: &str) -> String {
     let text = remove_spans(text, "<ref", reference_end);
     let text = remove_spans(&text, "<!--", |span| span_end(span, "<!--", "-->"));
+    let text = remove_spans(&text, "<gallery", |span| {
+        span_end(span, "<gallery", "</gallery>")
+    });
     let text = remove_spans(&text, "<", tag_end);
     let text = replace_innermost(&text, "{{", "}}", |inside| Some(template_text(inside)));
     let text = remove_spans(&text, "{|", |span| span_end(span, "{|", "|}"));

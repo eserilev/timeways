@@ -30,6 +30,14 @@ fn a_template_that_names_a_thing_keeps_the_name() {
 }
 
 #[test]
+fn a_gallery_goes_with_its_pictures_and_captions() {
+    let text =
+        "Before.\n<gallery>\nTestvale-Tower.png|The old tower of Testvale.\n</gallery>\nAfter.";
+
+    assert_eq!(plain(text), "Before.\n\nAfter.");
+}
+
+#[test]
 fn a_named_html_entity_becomes_its_character() {
     let text = "Testvale&nbsp;&mdash; the tower &amp;mdash; &#91;&#91;";
 
