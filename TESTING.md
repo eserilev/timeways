@@ -185,6 +185,19 @@ This test needs a second player who uses Total RP 3 or MyRolePlay, and is of you
 1. Type `/timeways help`. Check the install line in the window: it shows one `|`, as in `curl -fsSL ... | sh`, not `||` and not a gap.
 2. Copy the line from the window, and paste it in a terminal. It is the exact command.
 
+### 18. The talk window
+
+This test needs a model.
+
+1. Target an innkeeper and type `/talk`. A window opens with the name of the NPC at the top. "Thinking..." shows, then the answer. Nothing goes to the chat.
+2. Type a reply in the box under the answer and press Enter. The answer comes in the same window. Target someone else and reply again: the words still go to the innkeeper.
+3. Ask "Any work for me?". The NPC answers, then the window says "Thinking of a quest...". A quest card comes: a title, the NPC's text, "Quest Objectives", and Accept and Decline. Click Accept. The Quests tab of `/journal` shows the quest in progress.
+4. Ask an NPC for work while you have 3 quests in progress. Its words show, then "You already have 3 quests. Finish one first."
+5. Pull a mob while the window is open. The window hides, and comes back after the fight.
+6. Press Escape. The window closes. `/talk` the same NPC again: the earlier talk shows lighter at the top, under "Today".
+7. `/reload`, then `/talk` the NPC again. The earlier talk is still there.
+8. Open the Knowledge tab of `/journal`. It shows no "A rumor from ..." lines.
+
 ## What to send back
 
 - Each Lua error, as text.
@@ -198,6 +211,7 @@ This test needs a second player who uses Total RP 3 or MyRolePlay, and is of you
 - For test 13: the result of the `sqlite3` command of step 6.
 - For test 14: the name of the Support button.
 - For tests 15 to 17: a screenshot of each tooltip line and of the install line.
+- For test 18: a screenshot of the window with a quest card, and of a window with an earlier talk.
 
 ## After the test
 

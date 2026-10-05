@@ -66,6 +66,9 @@ local HANDLERS = {
 	BAG_UPDATE_DELAYED = ns.Journal.BagsChanged,
 	-- The game still draws while the player camps or quits, so the waiting events go now.
 	-- At PLAYER_LOGOUT no screenshot can go.
+	-- The talk window steps aside in a fight, and comes back after it (GAMEPLAY.md 3.5).
+	PLAYER_REGEN_DISABLED = ns.TalkWindow.CombatStarted,
+	PLAYER_REGEN_ENABLED = ns.TalkWindow.CombatEnded,
 	PLAYER_CAMPING = ns.Outbox.Flush,
 	PLAYER_QUITING = ns.Outbox.Flush,
 }
@@ -97,6 +100,8 @@ frame:RegisterEvent("PLAYER_QUITING")
 frame:RegisterEvent("QUEST_ACCEPTED")
 frame:RegisterEvent("QUEST_TURNED_IN")
 frame:RegisterEvent("QUEST_WATCH_UPDATE")
+frame:RegisterEvent("PLAYER_REGEN_DISABLED")
+frame:RegisterEvent("PLAYER_REGEN_ENABLED")
 -- Only the player: the auras of every unit around would fire this all the time.
 frame:RegisterUnitEvent("UNIT_AURA", "player")
 frame:SetScript("OnEvent", function(_, event, ...)

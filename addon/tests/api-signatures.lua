@@ -771,6 +771,12 @@ return {
 				{ Name = "justifyH", Type = "JustifyHorizontal", Nilable = false },
 			},
 		},
+		["SimpleEditBoxAPI:SetMaxBytes"] = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "maxBytes", Type = "number", Nilable = false },
+			},
+		},
 		["SimpleEditBoxAPI:SetMaxLetters"] = {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {
@@ -1474,6 +1480,9 @@ return {
 			SynchronousEvent = true,
 		},
 		PLAYER_QUITING = {
+			SynchronousEvent = true,
+		},
+		PLAYER_REGEN_DISABLED = {
 			SynchronousEvent = true,
 		},
 		PLAYER_REGEN_ENABLED = {

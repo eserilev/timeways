@@ -16,7 +16,7 @@ use libfuzzer_sys::fuzz_target;
 use serde_json::{Map, Value, json};
 
 /// Field names of the journal and its entries, so random objects look like real pages.
-const KEYS: [&str; 24] = [
+const KEYS: [&str; 29] = [
     "hero",
     "sheet",
     "entries",
@@ -41,9 +41,14 @@ const KEYS: [&str; 24] = [
     "goal",
     "giver",
     "hero_refused",
+    "talk_quest",
+    "npc",
+    "at",
+    "state",
+    "line",
 ];
 
-const WORDS: [&str; 8] = [
+const WORDS: [&str; 11] = [
     "|cffff0000red|r",
     "|Hitem:19019|h[Thunderfury]|h|r",
     "||",
@@ -52,6 +57,9 @@ const WORDS: [&str; 8] = [
     "visit",
     "meet",
     "",
+    "writing",
+    "refused",
+    "Innkeeper Farley",
 ];
 
 fn text(u: &mut Unstructured) -> Result<String> {
@@ -169,6 +177,8 @@ fuzz_target!(|input: Input| {
         return;
     }
     let game = game::Game::new();
+    // An open talk window shows the answers and the quest of a talk too.
+    game.run("wow.units.target = { name = 'Innkeeper Farley' }; wow.Slash('/talk', 'hi')");
     let receive: mlua::Function = game.eval("ns.Link.Receive");
     for (id, reply) in (1..).zip(&replies) {
         receive.call::<()>((id, "done", reply.as_str())).unwrap();
@@ -191,6 +201,10 @@ fuzz_target!(|input: Input| {
              table.insert(out, page.crumb or '')
              for _, button in ipairs(page.buttons) do button.run() end
          end
+         for _, text in ipairs(wow.ShownTexts(TimewaysTalkFrameScroll:GetScrollChild())) do
+             table.insert(out, text)
+         end
+         table.insert(out, TimewaysTalkFrame.title.text or '')
          return out",
     );
     for text in shown {

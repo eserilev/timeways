@@ -205,14 +205,10 @@ local function SlappedName(quest)
 	return "Someone"
 end
 
--- The rewards are story, never loot (3.4): the giver trusts you more, and the deed goes into
--- your chronicle.
-local function QuestLines(quest, saving)
-	local lines = { Line("heading", Name(quest.title)), QuestStatus(quest, saving) }
-	lines[#lines + 1] = Line("text", "From " .. Name(quest.giver) .. ", on " .. Day(quest.offered_at) .. ".")
-	if type(quest.text) == "string" then
-		lines[#lines + 1] = Line("prose", ns.Plain(quest.text))
-	end
+-- The lines of the steps, with the mark of an any-order set and of hidden steps. The talk
+-- window shows them too.
+function JournalQuests.StepLines(quest)
+	local lines = {}
 	local setStart = AnyOrderStart(quest)
 	for n, step in ipairs(Entries(quest.steps)) do
 		if n == setStart then
@@ -222,6 +218,20 @@ local function QuestLines(quest, saving)
 	end
 	if HiddenSteps(quest) then
 		lines[#lines + 1] = Line("later", "More to come.")
+	end
+	return lines
+end
+
+-- The rewards are story, never loot (3.4): the giver trusts you more, and the deed goes into
+-- your chronicle.
+local function QuestLines(quest, saving)
+	local lines = { Line("heading", Name(quest.title)), QuestStatus(quest, saving) }
+	lines[#lines + 1] = Line("text", "From " .. Name(quest.giver) .. ", on " .. Day(quest.offered_at) .. ".")
+	if type(quest.text) == "string" then
+		lines[#lines + 1] = Line("prose", ns.Plain(quest.text))
+	end
+	for _, line in ipairs(JournalQuests.StepLines(quest)) do
+		lines[#lines + 1] = line
 	end
 	lines[#lines + 1] = Line("section", "Rewards")
 	lines[#lines + 1] = Line("text", Name(quest.giver) .. " trusts you more.")

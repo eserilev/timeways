@@ -1,6 +1,8 @@
 # Plan: the talk window
 
-Status: draft 1, 2026-10-03. The user approved the design. Nothing is built. When a part is built, its rules move into `GAMEPLAY.md` (section 11 of this plan), and this plan marks the part as done.
+Status: draft 1, 2026-10-03. The user approved the design. When a part is built, its rules move into `GAMEPLAY.md` (section 11 of this plan), and this plan marks the part as done.
+
+A smaller first version is built (2026-10-04, `GAMEPLAY.md` 3.5): the window with the name of the NPC, "Thinking...", a text box after the first answer, Goodbye and Escape, and the hide in combat (`TalkWindow.lua`). Past talks live in the saved variables (`TalkHistory.lua`). Work in a talk becomes a real quest with a quest card. The protocol does not change: each reply is a normal `talk_asked`, and the NPC memory of the prompt stays as it was. Not built yet: the conversation in memory (4.1 to 4.3), the options and their keys, the portrait, the daily cap of talk trust, and the two pools (7).
 
 This plan builds on `docs/plans/npc-memory.md` (NPCs remember you in `/talk`). That plan owns the memory block of the prompt. This plan owns the conversation: the window, the turns, the options, and the limits.
 

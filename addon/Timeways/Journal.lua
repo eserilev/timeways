@@ -90,6 +90,7 @@ function Journal.Receive(value)
 	end
 	if page == 0 then
 		collecting = Started()
+		collecting.talk_quest = value.talk_quest
 		ns.Hero.ShowRefused(value.hero_refused)
 	end
 	if not collecting or page ~= collecting.next then
@@ -108,7 +109,33 @@ function Journal.Receive(value)
 	ns.Trust.Update(pages.people)
 	ns.QuestSteps.Read(pages.quests)
 	ns.JournalFrame.Refresh()
+	ns.TalkWindow.JournalCame()
 	ns.Hero.AskOnce(pages.hero)
+end
+
+-- The quest that the newest talk with work asked for (GAMEPLAY.md 3.5), or nil when the
+-- journal has none or a broken one. Each is { npc, at, state, number or line }.
+function Journal.TalkQuest()
+	local quest = pages and pages.talk_quest
+	if type(quest) ~= "table" or type(quest.npc) ~= "string" or type(quest.at) ~= "number" then
+		return nil
+	end
+	local offered = quest.state == "offered" and type(quest.number) == "number"
+	local refused = quest.state == "refused" and type(quest.line) == "string"
+	if quest.state == "writing" or offered or refused then
+		return quest
+	end
+	return nil
+end
+
+-- The side quest with this number, or nil.
+function Journal.Quest(number)
+	for _, quest in ipairs(pages and Entries(pages.quests) or {}) do
+		if quest.number == number then
+			return quest
+		end
+	end
+	return nil
 end
 
 local function Where(deed)

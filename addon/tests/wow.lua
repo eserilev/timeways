@@ -600,7 +600,11 @@ function Widget:Show()
 end
 
 function Widget:Hide()
+	local was = self.shown
 	self.shown = false
+	if was and self.scripts.OnHide then
+		self.scripts.OnHide(self)
+	end
 end
 
 function Widget:IsShown()
@@ -667,6 +671,10 @@ end
 
 function Widget:SetMaxLetters(letters)
 	self.maxLetters = letters
+end
+
+function Widget:SetMaxBytes(bytes)
+	self.maxBytes = bytes
 end
 
 function Widget:GetNumLetters()

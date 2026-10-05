@@ -118,3 +118,10 @@ path = "fuzz_targets/msp_import.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "talk_history"
+path = "fuzz_targets/talk_history.rs"
+test = false
+doc = false
+bench = false

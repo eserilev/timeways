@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [input, store, answers, json_lua, pages, replies, seen, wikitext, task_wire, task_play]
+        target: [input, store, answers, json_lua, pages, replies, seen, wikitext, task_wire, task_play, talk_history]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5

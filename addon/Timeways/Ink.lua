@@ -7,6 +7,8 @@ ns.Ink = {
 	text = { 0.18, 0.12, 0.06 },
 	-- Hints and marks fade, so they never read like a text that the player wrote.
 	faded = { 0.42, 0.33, 0.22 },
+	-- Talks of an earlier day, lighter than the talk of now.
+	past = { 0.55, 0.47, 0.36 },
 	title = { 0.36, 0.2, 0.07 },
 	gold = { 0.94, 0.81, 0.48 },
 	cream = { 0.95, 0.89, 0.71 },
