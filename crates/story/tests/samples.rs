@@ -14,8 +14,8 @@ const VOICES: [(Voice, usize, usize); 3] = [
 ];
 
 #[test]
-fn each_narrator_call_has_five_samples_and_an_npc_reply_has_three() {
-    assert_eq!(Voice::NarratorLine.samples().len(), 5);
+fn the_narrator_has_four_samples_a_chapter_five_and_an_npc_reply_three() {
+    assert_eq!(Voice::NarratorLine.samples().len(), 4);
     assert_eq!(Voice::Chapter.samples().len(), 5);
     assert_eq!(Voice::NpcReply.samples().len(), 3);
 }
@@ -54,7 +54,7 @@ fn the_samples_turn_from_one_prompt_to_the_next() {
 
     assert_eq!(first, all[0..3]);
     assert_eq!(second, all[1..4]);
-    assert_eq!(rotated(Voice::NarratorLine, 4), [all[4], all[0], all[1]]);
+    assert_eq!(rotated(Voice::NarratorLine, 3), [all[3], all[0], all[1]]);
 }
 
 #[test]
