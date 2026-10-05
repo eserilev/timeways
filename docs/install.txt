@@ -1,5 +1,5 @@
 # Installs Timeways on Windows: the Gnomish Relay installer with --timeways.
-#   powershell -c "irm https://eserilev.github.io/timeways/install.txt | iex"
+#   powershell -c "iex (irm https://eserilev.github.io/timeways/install.txt)"
 # The name ends in .txt because GitHub Pages serves only that as text. It serves .ps1 as bytes.
 try {
     & ([scriptblock]::Create((irm https://raw.githubusercontent.com/eserilev/gnomish-relay/main/scripts/install.ps1))) --timeways

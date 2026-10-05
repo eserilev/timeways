@@ -19,8 +19,8 @@ local WAIT_SECONDS = 60
 -- The scripts in `docs/` on GitHub Pages run the relay installer with `--timeways`. The
 -- Windows line starts PowerShell itself, so it works from Windows+R.
 Welcome.COMMANDS = {
-	windows = 'powershell -c "irm https://eserilev.github.io/timeways/install.txt | iex"',
-	unix = "curl -fsSL https://eserilev.github.io/timeways/install.sh | sh",
+	windows = 'powershell -c "iex (irm https://eserilev.github.io/timeways/install.txt)"',
+	unix = 'sh -c "$(curl -fsSL https://eserilev.github.io/timeways/install.sh)"',
 }
 
 -- The chat line of a later session, after the window showed once for the same reason.
@@ -60,11 +60,10 @@ local function Text(parent, font, ink, top)
 	return text
 end
 
--- WoW can't write to the clipboard, so the box selects its whole line for Ctrl+C. An edit
--- box keeps a typed "|" as "||", shows it as one "|", and copies it as one. A lone "|"
--- starts an escape, so the box gets the line as if the player typed it.
-local function CommandBox(parent, line, top)
-	local command = line:gsub("|", "||")
+-- WoW can't write to the clipboard, so the box selects its whole line for Ctrl+C. The lines
+-- hold no "|": an edit box can copy an escaped "||" as two, and "|| iex" in PowerShell 7 runs
+-- only on failure.
+local function CommandBox(parent, command, top)
 	local box = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
 	box:SetAutoFocus(false)
 	box:SetFontObject("ChatFontNormal")

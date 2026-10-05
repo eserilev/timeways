@@ -51,8 +51,8 @@ Timeways has two parts: the addon in the game, and a desktop app on your compute
 
 The lines, for reference:
 
-- Windows: `powershell -c "irm https://eserilev.github.io/timeways/install.txt | iex"`
-- Mac or Linux: `curl -fsSL https://eserilev.github.io/timeways/install.sh | sh`
+- Windows: `powershell -c "iex (irm https://eserilev.github.io/timeways/install.txt)"`
+- Mac or Linux: `sh -c "$(curl -fsSL https://eserilev.github.io/timeways/install.sh)"`
 
 Setup finds WoW and the Timeways addon, writes the key, installs the story program, and picks the model that it finds. It then builds the lore on your computer. Timeways checks its desktop app at each login, and opens the setup window again only when something is wrong.
 

@@ -109,11 +109,11 @@ fn the_window_gives_the_install_line_for_windows_and_for_macos_and_linux() {
     let windows: String = game.eval("ns.Welcome.COMMANDS.windows");
     let unix: String = game.eval("ns.Welcome.COMMANDS.unix");
     assert!(
-        windows.contains("eserilev.github.io/timeways/install.txt |"),
+        windows.contains("eserilev.github.io/timeways/install.txt"),
         "{windows}"
     );
     assert!(
-        unix.contains("eserilev.github.io/timeways/install.sh |"),
+        unix.contains("eserilev.github.io/timeways/install.sh"),
         "{unix}"
     );
     assert!(texts.contains(&windows), "{texts:?}");
@@ -250,20 +250,19 @@ fn boxes(game: &Game, get: &str) -> Vec<String> {
 }
 
 #[test]
-fn an_install_line_shows_and_copies_its_pipe_as_one_pipe() {
+fn no_install_line_holds_a_pipe() {
     let game = game_with_no_key();
 
     game.run("ns.Welcome.Open('setup')");
 
     let windows: String = game.eval("ns.Welcome.COMMANDS.windows");
     let unix: String = game.eval("ns.Welcome.COMMANDS.unix");
-    assert_eq!(boxes(&game, "GetDisplayText"), [windows, unix]);
-    for kept in boxes(&game, "GetText") {
-        assert!(
-            !kept.replace("||", "").contains('|'),
-            "a lone | in {kept:?}"
-        );
-    }
+    assert!(!windows.contains('|') && !unix.contains('|'));
+    assert_eq!(
+        boxes(&game, "GetDisplayText"),
+        [windows.clone(), unix.clone()]
+    );
+    assert_eq!(boxes(&game, "GetText"), [windows, unix]);
 }
 
 #[test]
