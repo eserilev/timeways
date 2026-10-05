@@ -2575,3 +2575,498 @@ proptest! {
         prop_assert_eq!(keys.len(), all);
     }
 }
+
+// The chapters, tales, and visits of the fold (docs/plans/chapters.md 8 and 12). Lean proves
+// these laws of `timeways_rules::chapters`. The properties check the same laws on random
+// steps, and the walk of the story program, which Lean does not see.
+
+use timeways_rules::chapters::{
+    AWAY_SECONDS, Break as Cut, Close, Fold as ChapterFold, Key as FoldKey, Play as FoldPlay,
+    RUN_GAP_SECONDS, Step as FoldStep, Track,
+};
+use timeways_rules::weights::{CAP_MAX, KeyKind, limits};
+use timeways_story::chapters::Book;
+use timeways_story::walk::{NO_ZONE, Walk};
+
+/// The gaps between two steps sit at the edges of a run and of time away most often: a
+/// uniform draw almost never lands on them.
+fn fold_gap() -> impl Strategy<Value = u64> {
+    prop_oneof![
+        Just(0),
+        Just(60),
+        Just(RUN_GAP_SECONDS - 1),
+        Just(RUN_GAP_SECONDS),
+        Just(AWAY_SECONDS - 1),
+        Just(AWAY_SECONDS),
+        0..2 * RUN_GAP_SECONDS,
+    ]
+}
+
+fn key_kind() -> impl Strategy<Value = KeyKind> {
+    prop::sample::select(vec![
+        KeyKind::GameQuest,
+        KeyKind::SideQuest,
+        KeyKind::ClassQuest,
+        KeyKind::Subzone,
+        KeyKind::Level,
+        KeyKind::Talk,
+        KeyKind::Kill,
+        KeyKind::RaidKill,
+        KeyKind::Death,
+        KeyKind::Death,
+        KeyKind::Mark,
+        KeyKind::Mount,
+        KeyKind::EpicMount,
+        KeyKind::Upgrade,
+        KeyKind::Dungeon,
+        KeyKind::Raid,
+    ])
+}
+
+/// Few ids, so keys and foes come again often, and an id past the end now and then.
+fn fold_key() -> impl Strategy<Value = Option<FoldKey>> {
+    let foe = prop_oneof![
+        Just(None),
+        (0usize..3).prop_map(Some),
+        Just(Some(usize::MAX))
+    ];
+    let id = prop_oneof![0usize..12, 0usize..40, Just(usize::MAX)];
+    prop_oneof![
+        1 => Just(None),
+        3 => (id, key_kind(), foe).prop_map(|(id, kind, foe)| Some(FoldKey { id, kind, foe })),
+    ]
+}
+
+fn fold_track() -> impl Strategy<Value = Track> {
+    prop_oneof![
+        3 => Just(Track::World),
+        1 => (0usize..3).prop_map(Track::Instance),
+    ]
+}
+
+fn fold_mark() -> impl Strategy<Value = Option<Cut>> {
+    prop_oneof![
+        6 => Just(None),
+        1 => prop::sample::select(vec![Cut::Level, Cut::Capital, Cut::Inn]).prop_map(Some),
+    ]
+}
+
+/// A step of the fold with its gap after the step before it.
+fn fold_step() -> impl Strategy<Value = (FoldStep, u64)> {
+    let play =
+        (fold_key(), 0usize..5, fold_track(), fold_mark()).prop_map(|(key, zone, track, mark)| {
+            FoldStep::Play(FoldPlay {
+                key,
+                zone,
+                track,
+                mark,
+                at: 0,
+            })
+        });
+    let step = prop_oneof![
+        30 => play,
+        1 => (1u8..4).prop_map(FoldStep::Rule),
+    ];
+    (step, fold_gap())
+}
+
+/// The steps with their times: each gap after the time before it.
+fn timed(steps: &[(FoldStep, u64)]) -> Vec<FoldStep> {
+    let mut at = 1_790_000_000u64;
+    steps
+        .iter()
+        .map(|(step, gap)| {
+            at += gap;
+            match *step {
+                FoldStep::Play(play) => FoldStep::Play(FoldPlay { at, ..play }),
+                rule @ FoldStep::Rule(_) => rule,
+            }
+        })
+        .collect()
+}
+
+fn folded(steps: &[FoldStep]) -> ChapterFold {
+    timeways_rules::chapters::chapters(steps)
+}
+
+/// The track of each instance step, and the steps that the visits hold.
+fn instance_steps(steps: &[FoldStep]) -> Vec<(usize, usize)> {
+    steps
+        .iter()
+        .enumerate()
+        .filter_map(|(n, step)| match step {
+            FoldStep::Play(FoldPlay {
+                track: Track::Instance(instance),
+                ..
+            }) => Some((n, *instance)),
+            _ => None,
+        })
+        .collect()
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(256))]
+
+    /// Theorems 1, 6, 8, and 9: the chapters cover the steps in order with no gap and none
+    /// empty, a closed chapter weighs the least weight unless a rule step closed it, none
+    /// weighs past the most weight and one step, and a chapter weighs the gains of its
+    /// steps in the open world.
+    #[test]
+    fn the_chapters_cover_every_step_and_weigh_their_gains(
+        steps in prop::collection::vec(fold_step(), 0..300),
+    ) {
+        let steps = timed(&steps);
+        let fold = folded(&steps);
+
+        let mut next = 0;
+        for closed in &fold.closed {
+            let bounds = limits(closed.chapter.rule);
+            prop_assert_eq!(closed.chapter.first, next);
+            prop_assert!(closed.chapter.first <= closed.last);
+            prop_assert!(closed.close == Close::Rule || closed.chapter.weight >= bounds.min);
+            prop_assert!(closed.chapter.weight <= bounds.max - 1 + CAP_MAX);
+            let gains: u16 = fold.gains[closed.chapter.first..=closed.last]
+                .iter()
+                .filter(|gain| gain.track == Track::World)
+                .map(|gain| gain.amount)
+                .sum();
+            prop_assert_eq!(gains, closed.chapter.weight);
+            next = closed.last + 1;
+        }
+        prop_assert_eq!(fold.open.first, next);
+        prop_assert!(fold.open.first <= steps.len());
+        prop_assert_eq!(fold.gains.len(), steps.len());
+    }
+
+    /// Theorems 2 and 15: each step in an instance is in exactly one visit, of the tale of
+    /// its instance, and no two tales share an instance.
+    #[test]
+    fn every_instance_step_is_in_one_visit_of_its_tale(
+        steps in prop::collection::vec(fold_step(), 0..300),
+    ) {
+        let steps = timed(&steps);
+        let fold = folded(&steps);
+        let visits: Vec<_> = fold.visits.iter().chain(fold.visit.iter()).collect();
+
+        for (step, instance) in instance_steps(&steps) {
+            let holding: Vec<_> = visits
+                .iter()
+                .filter(|visit| visit.first <= step && step <= visit.last)
+                .collect();
+            prop_assert_eq!(holding.len(), 1, "step {}", step);
+            prop_assert_eq!(fold.tales[holding[0].tale].instance, instance);
+        }
+        let mut instances: Vec<usize> = fold.tales.iter().map(|tale| tale.instance).collect();
+        let all = instances.len();
+        instances.sort_unstable();
+        instances.dedup();
+        prop_assert_eq!(instances.len(), all);
+    }
+
+    /// Theorems 3, 4, and 5, and folding one line at a time: a closed chapter and a closed
+    /// visit never change when play goes on, and a tale only grows.
+    #[test]
+    fn a_closed_entry_never_changes_when_play_goes_on(
+        steps in prop::collection::vec(fold_step(), 0..300),
+        cut in any::<prop::sample::Index>(),
+    ) {
+        let steps = timed(&steps);
+        let cut = if steps.is_empty() { 0 } else { cut.index(steps.len() + 1) };
+        let before = folded(&steps[..cut]);
+
+        let mut later = before.clone();
+        for step in &steps[cut..] {
+            timeways_rules::chapters::advance(&mut later, std::slice::from_ref(step));
+        }
+
+        prop_assert_eq!(&later, &folded(&steps));
+        prop_assert_eq!(&later.closed[..before.closed.len()], &before.closed[..]);
+        prop_assert_eq!(&later.visits[..before.visits.len()], &before.visits[..]);
+        for (old, new) in before.tales.iter().zip(&later.tales) {
+            prop_assert_eq!(old.instance, new.instance);
+            prop_assert!(new.weight >= old.weight && new.runs >= old.runs);
+        }
+    }
+
+    /// Theorems 16, 17, and 18: deaths to one foe weigh at most 2 + 1, nothing once you beat
+    /// it, and only the first kill of a foe that killed you adds revenge.
+    #[test]
+    fn deaths_to_one_foe_weigh_at_most_three_and_revenge_counts_once(
+        steps in prop::collection::vec(fold_step(), 0..300),
+    ) {
+        let steps = timed(&steps);
+        let fold = folded(&steps);
+
+        for foe in 0..3 {
+            let of_foe = |step: &FoldStep, kinds: &[KeyKind]| matches!(
+                step,
+                FoldStep::Play(FoldPlay { key: Some(FoldKey { kind, foe: Some(f), .. }), .. })
+                    if *f == foe && kinds.contains(kind)
+            );
+            let deaths: u16 = steps
+                .iter()
+                .zip(&fold.gains)
+                .filter(|(step, _)| of_foe(step, &[KeyKind::Death]))
+                .map(|(_, gain)| gain.amount)
+                .sum();
+            prop_assert!(deaths <= 3, "foe {} deaths {}", foe, deaths);
+            let revenges = steps
+                .iter()
+                .zip(&fold.gains)
+                .filter(|(step, gain)| gain.revenge && of_foe(step, &[KeyKind::Kill, KeyKind::RaidKill]))
+                .count();
+            prop_assert!(revenges <= 1);
+        }
+    }
+
+    /// Theorem 13, the bound of section 7: entries grow with what is new, never with time
+    /// played. The gain of all steps is at most the cap of each key seen.
+    #[test]
+    fn entries_grow_only_with_what_is_new(
+        steps in prop::collection::vec(fold_step(), 0..300),
+    ) {
+        let steps = timed(&steps);
+        let fold = folded(&steps);
+
+        let gain: u64 = fold.gains.iter().map(|gain| u64::from(gain.amount)).sum();
+        prop_assert!(gain <= fold.keys.len() as u64 * u64::from(CAP_MAX));
+        let by_breaks = fold
+            .closed
+            .iter()
+            .filter(|closed| closed.close != Close::Rule)
+            .map(|closed| u64::from(limits(closed.chapter.rule).min))
+            .sum::<u64>();
+        prop_assert!(by_breaks <= gain);
+        let rules = steps.iter().filter(|step| matches!(step, FoldStep::Rule(_))).count();
+        let by_rules = fold.closed.iter().filter(|closed| closed.close == Close::Rule).count();
+        prop_assert!(by_rules <= rules);
+        let with_gain = fold.visits.iter().filter(|visit| visit.gain > 0).count() as u64;
+        let instance_gain: u64 = fold.visits.iter().map(|visit| u64::from(visit.gain)).sum();
+        prop_assert!(with_gain <= instance_gain);
+    }
+
+    /// 1000 weekly raid clears give the same chapters, the same visits with gain, and the
+    /// same weight of the tale as one clear.
+    #[test]
+    fn a_thousand_weekly_raid_clears_change_only_the_count_of_runs(
+        bosses in 1usize..10,
+        clears in prop_oneof![Just(2usize), Just(1000usize), 2usize..50],
+    ) {
+        let raid = |weeks: usize| {
+            let mut steps = Vec::new();
+            let mut at = 1_790_000_000u64;
+            let entry = FoldKey { id: 0, kind: KeyKind::Raid, foe: None };
+            for _ in 0..weeks {
+                at += 7 * 24 * 3600;
+                steps.push(FoldStep::Play(FoldPlay { key: Some(entry), zone: 0, track: Track::Instance(0), mark: None, at }));
+                for boss in 0..bosses {
+                    at += 600;
+                    let key = FoldKey { id: boss + 1, kind: KeyKind::RaidKill, foe: Some(boss) };
+                    steps.push(FoldStep::Play(FoldPlay { key: Some(key), zone: 0, track: Track::Instance(0), mark: None, at }));
+                }
+            }
+            folded(&steps)
+        };
+
+        let once = raid(1);
+        let often = raid(clears);
+
+        prop_assert_eq!(&once.closed, &often.closed);
+        prop_assert_eq!(once.tales[0].weight + once.visit.map_or(0, |visit| visit.gain), often.tales[0].weight);
+        prop_assert_eq!(often.tales[0].runs as usize, clears - 1);
+        prop_assert_eq!(often.visits.iter().filter(|visit| visit.gain > 0).count(), 1);
+    }
+
+    /// 100 deaths to one mob weigh at most 3, so they never make a chapter. Neither does a
+    /// long run of steps with no weight, nor a log of breaks alone.
+    #[test]
+    fn repeats_and_breaks_alone_never_make_an_entry(
+        deaths in prop_oneof![Just(100usize), Just(10_000usize), 0usize..200],
+        gap in fold_gap(),
+    ) {
+        let mut at = 1_790_000_000u64;
+        let mut steps = Vec::new();
+        for n in 0..deaths {
+            at += gap;
+            let key = (n % 2 == 0).then_some(FoldKey { id: 0, kind: KeyKind::Death, foe: Some(0) });
+            let mark = (n % 3 == 0).then_some(Cut::Capital);
+            steps.push(FoldStep::Play(FoldPlay { key, zone: n % 4, track: Track::World, mark, at }));
+        }
+
+        let fold = folded(&steps);
+
+        prop_assert!(fold.closed.is_empty());
+        prop_assert!(fold.open.weight <= 3);
+        prop_assert!(fold.tales.is_empty());
+    }
+}
+
+/// One action of a character, for the walk.
+#[derive(Clone, Debug)]
+enum Act {
+    Zone(usize, Option<usize>),
+    Meet(usize),
+    Defeat(usize),
+    Die(Option<usize>),
+    Level(u8),
+    Quest(usize, GameQuestKind),
+    Instance(usize, InstanceKind),
+    Mount(bool),
+}
+
+const ZONES: [&str; 4] = ["Westfall", "Duskwood", "The Deadmines", "Stormwind City"];
+
+fn act() -> impl Strategy<Value = Act> {
+    prop_oneof![
+        (0usize..4, prop::option::of(0usize..4)).prop_map(|(zone, sub)| Act::Zone(zone, sub)),
+        (0usize..6).prop_map(Act::Meet),
+        (0usize..4).prop_map(Act::Defeat),
+        prop::option::of(0usize..4).prop_map(Act::Die),
+        (1u8..=60).prop_map(Act::Level),
+        (
+            0usize..8,
+            prop_oneof![Just(GameQuestKind::Normal), Just(GameQuestKind::Class)]
+        )
+            .prop_map(|(quest, kind)| Act::Quest(quest, kind)),
+        (
+            0usize..4,
+            prop_oneof![Just(InstanceKind::Dungeon), Just(InstanceKind::Raid)]
+        )
+            .prop_map(|(zone, kind)| Act::Instance(zone, kind)),
+        any::<bool>().prop_map(Act::Mount),
+    ]
+}
+
+/// The world of a character after the acts, one minute or a gap apart.
+fn acted(acts: &[(Act, u64)]) -> Character {
+    let mut character = Character::new();
+    let mut at = 1_790_000_000u64;
+    for (act, gap) in acts {
+        at += gap;
+        let tick = Tick(at);
+        // A refusal of Hourglass keeps the events before it, as in the story program.
+        let _ = match act {
+            Act::Zone(zone, sub) => {
+                let subzone = sub.map(|n| format!("Spot {n}"));
+                character.enter_zone(tick, ZONES[*zone], subzone.as_deref())
+            }
+            Act::Meet(n) => character.meet_npc(tick, &format!("Farmer {n}")),
+            Act::Defeat(n) => character.defeat_npc(tick, &format!("Rare {n}")),
+            Act::Die(killer) => {
+                let killer = killer.map(|n| format!("Rare {n}"));
+                character.die(tick, killer.as_deref())
+            }
+            Act::Level(level) => character.reach_level(tick, *level),
+            Act::Quest(n, kind) => character.finish_game_quest(tick, &format!("Quest {n}"), *kind),
+            Act::Instance(zone, kind) => character.mark_instance(tick, ZONES[*zone], *kind),
+            Act::Mount(epic) => character.ride_mount(tick, "Swift Palomino", *epic),
+        };
+    }
+    character
+}
+
+fn walked(character: &Character, events: usize) -> Vec<FoldStep> {
+    let mut walk = Walk::new(character.you(), Vec::new());
+    let history = character.world().history();
+    history
+        .iter()
+        .take(events)
+        .flat_map(|event| walk.step(event))
+        .map(|(step, _)| step)
+        .collect()
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(128))]
+
+    /// docs/plans/chapters.md 8: the walk reads only the events up to a step, so the steps
+    /// of a prefix are a prefix of the steps. Its ids are dense, in the order of first use.
+    #[test]
+    fn the_walk_gives_dense_ids_and_the_steps_of_a_prefix_are_a_prefix(
+        acts in prop::collection::vec((act(), fold_gap()), 0..80),
+        cut in any::<prop::sample::Index>(),
+    ) {
+        let character = acted(&acts);
+        let events = character.world().history().len();
+        let cut = cut.index(events + 1);
+
+        let whole = walked(&character, events);
+        let prefix = walked(&character, cut);
+
+        prop_assert_eq!(&whole[..prefix.len()], &prefix[..]);
+        let (mut keys, mut zones) = (0, 0);
+        for step in &whole {
+            let FoldStep::Play(play) = step else { continue };
+            if let Some(key) = play.key {
+                prop_assert!(key.id <= keys, "key {} after {}", key.id, keys);
+                keys = keys.max(key.id + 1);
+            }
+            if play.zone != NO_ZONE {
+                prop_assert!(play.zone <= zones, "zone {} after {}", play.zone, zones);
+                zones = zones.max(play.zone + 1);
+            }
+        }
+    }
+
+    /// Folding one event at a time, as the story program does, gives the same book as the
+    /// whole history.
+    #[test]
+    fn folding_one_event_at_a_time_gives_the_same_book(
+        acts in prop::collection::vec((act(), fold_gap()), 0..80),
+    ) {
+        let character = acted(&acts);
+        let mut book = Book::new(character.you(), Vec::new());
+        let history = character.world().history();
+        let mut partial = hourglass::EventHistory::new();
+        for event in history {
+            partial.push(event.tick, event.kind.clone());
+            book.catch_up(&partial);
+        }
+
+        let whole = Book::of(&character);
+
+        prop_assert_eq!(book.fold(), whole.fold());
+        prop_assert_eq!(book.chapters(), whole.chapters());
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(64))]
+
+    /// docs/plans/chapters.md 6 and 10: the prompts of a tale and of a zone history fit the
+    /// context of a small model with their longest reply, also with the longest names.
+    #[test]
+    fn the_tale_and_history_prompts_fit_their_budget(
+        deeds in prop_oneof![Just(0usize), Just(1), Just(12), Just(500)],
+        long in prop_oneof![Just(0usize), Just(600)],
+        turn in prop_oneof![Just(0usize), Just(1), Just(usize::MAX)],
+    ) {
+        let deed = format!("Defeated {}, a first kill", "N".repeat(96));
+        let text = |length: usize| (length > 0).then(|| "w".repeat(length));
+        let tale = timeways_story::tale::Facts {
+            instance: format!("{} (a raid)", "R".repeat(96)),
+            runs: u32::MAX,
+            deeds: vec![deed.clone(); deeds],
+            new_run: vec![deed.clone(); deeds.min(20)],
+            before: text(long),
+            telling: text(long),
+            sample_turn: turn,
+        };
+        let history = timeways_story::zone_history::Facts {
+            zone: "Z".repeat(96),
+            deeds: vec![deed; deeds],
+            before: text(long),
+            sample_turn: turn,
+        };
+
+        let tale_prompt = timeways_story::tale::prompt(&tale);
+        let history_prompt = timeways_story::zone_history::prompt(&history);
+
+        let tale_tokens = timeways_story::tokens::estimated_tokens(&tale_prompt);
+        let history_tokens = timeways_story::tokens::estimated_tokens(&history_prompt);
+        let tale_budget = timeways_story::tokens::Call::Tale.prompt_budget();
+        let history_budget = timeways_story::tokens::Call::ZoneHistory.prompt_budget();
+        prop_assert!(tale_tokens <= tale_budget, "{} of {}", tale_tokens, tale_budget);
+        prop_assert!(history_tokens <= history_budget, "{} of {}", history_tokens, history_budget);
+    }
+}

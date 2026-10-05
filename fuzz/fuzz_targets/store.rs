@@ -15,7 +15,7 @@ fn folder() -> PathBuf {
 }
 
 /// The counts of what each table gave.
-fn counts(opened: &Opened) -> [usize; 9] {
+fn counts(opened: &Opened) -> [usize; 10] {
     [
         opened.saved_events,
         opened.prose.len(),
@@ -26,6 +26,7 @@ fn counts(opened: &Opened) -> [usize; 9] {
         opened.learned.rumors().len(),
         opened.quests.changes().len(),
         opened.stories.changes().len(),
+        opened.rules.rows().len(),
     ]
 }
 
