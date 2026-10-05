@@ -251,12 +251,10 @@ local LEARNED_TITLES = {
 	gossip = function(entry)
 		return "Heard from " .. Name(entry.npc)
 	end,
-	rumor = function(entry)
-		return "A rumor from " .. Name(entry.npc)
-	end,
 }
 
--- A rumor is the word of a model, never canon (3.1.1), and the page says so.
+-- Only what you read. The words of a talk live in the talk window (3.5), so an older
+-- desktop's "rumor" entry shows nothing.
 local function Learned(entries)
 	local lines = {}
 	for _, entry in ipairs(entries) do
@@ -267,8 +265,7 @@ local function Learned(entries)
 				lines[#lines + 1] = Line("prose", WithName(entry.excerpt))
 			end
 			local place = type(entry.place) == "string" and (Name(entry.place) .. ", ") or ""
-			local rumor = entry.kind == "rumor" and "Only a rumor. " or ""
-			lines[#lines + 1] = Line("text", rumor .. place .. Day(entry.at) .. ".")
+			lines[#lines + 1] = Line("text", place .. Day(entry.at) .. ".")
 		end
 	end
 	return lines

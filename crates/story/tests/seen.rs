@@ -314,7 +314,7 @@ fn the_learned_page_lists_what_you_read() {
 }
 
 #[test]
-fn the_words_of_an_npc_go_into_the_journal_as_a_rumor() {
+fn the_words_of_an_npc_stay_out_of_the_knowledge_page() {
     let mut story = story_with("rumor", &[]);
 
     talk(
@@ -323,10 +323,50 @@ fn the_words_of_an_npc_go_into_the_journal_as_a_rumor() {
         r#"{"say": "The gnolls grow bold.", "trust": 0}"#,
     );
 
-    let learned = learned_page(&mut story);
-    assert_eq!(learned.len(), 1);
-    assert_eq!(learned[0]["kind"], "rumor");
-    assert_eq!(learned[0]["npc"], "Innkeeper Farley");
+    assert!(learned_page(&mut story).is_empty());
+}
+
+/// The prompt of a second talk to Innkeeper Farley.
+fn second_talk_prompt(story: &mut Story) -> String {
+    let outputs = story
+        .handle(Input::TalkAsked {
+            id: MessageId(4),
+            at: Tick(30),
+            npc: "Innkeeper Farley".to_string(),
+            text: "anything else?".to_string(),
+        })
+        .unwrap();
+    let Some(Output::ModelCall { prompt, .. }) = outputs.first() else {
+        panic!("expected a model call, got {outputs:?}");
+    };
+    prompt.clone()
+}
+
+#[test]
+fn the_npc_still_remembers_what_it_told_you() {
+    let mut story = story_with("rumor-remembered", &[]);
+    talk(
+        &mut story,
+        "Innkeeper Farley",
+        r#"{"say": "The gnolls grow bold.", "trust": 0}"#,
+    );
+
+    let prompt = second_talk_prompt(&mut story);
+
+    assert!(prompt.contains("The gnolls grow bold."), "{prompt}");
+}
+
+#[test]
+fn an_answer_that_breaks_a_rule_is_no_memory() {
+    let mut story = story_with("no-rumor", &[]);
+    talk(&mut story, "Innkeeper Farley", "not json");
+
+    let prompt = second_talk_prompt(&mut story);
+
+    assert!(
+        !prompt.contains("What you remember of the player"),
+        "{prompt}"
+    );
 }
 
 #[test]
@@ -341,15 +381,6 @@ fn a_rumor_is_never_a_source_of_lore() {
     let found = sources(&mut story, "dragons mountain");
 
     assert!(found.is_empty(), "{found:?}");
-}
-
-#[test]
-fn an_answer_that_breaks_a_rule_leaves_no_rumor() {
-    let mut story = story_with("no-rumor", &[]);
-
-    talk(&mut story, "Innkeeper Farley", "not json");
-
-    assert!(learned_page(&mut story).is_empty());
 }
 
 #[test]
@@ -372,7 +403,7 @@ fn what_you_learned_stays_after_a_restart() {
         .iter()
         .map(|entry| entry["kind"].as_str().unwrap().to_string())
         .collect();
-    assert_eq!(kinds, ["book", "rumor"]);
+    assert_eq!(kinds, ["book"]);
 }
 
 #[test]

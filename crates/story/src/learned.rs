@@ -1,5 +1,6 @@
 //! What the player learned (GAMEPLAY.md 3.1.1): the game text that they read, which is
-//! canon, and the words of NPCs in `/talk`, which a model wrote, so they are rumors.
+//! canon, and the words of NPCs in `/talk`, which a model wrote, so they are rumors. The
+//! NPC remembers its rumors (3.5), and the Knowledge page shows only what you read.
 
 use crate::seen::{SeenText, TextKind};
 use hourglass::Tick;
@@ -29,7 +30,6 @@ pub enum LearnedKind {
     Quest,
     Gossip,
     Book,
-    Rumor,
 }
 
 /// One entry of the Learned page. `$N` stays in the excerpt, and the addon shows the name.
@@ -43,11 +43,10 @@ pub struct Learned {
     pub excerpt: String,
 }
 
-/// Oldest first. Of two entries at the same time, the read text comes first.
+/// Oldest first.
 #[must_use]
-pub fn learned(read: &[Read], rumors: &[Rumor]) -> Vec<Learned> {
+pub fn learned(read: &[Read]) -> Vec<Learned> {
     let mut entries: Vec<Learned> = read.iter().map(from_read).collect();
-    entries.extend(rumors.iter().map(from_rumor));
     entries.sort_by_key(|entry| entry.at);
     entries
 }
@@ -65,17 +64,6 @@ fn from_read(read: &Read) -> Learned {
         place: read.text.zone.clone(),
         at: read.at,
         excerpt: excerpt(&read.text.text),
-    }
-}
-
-fn from_rumor(rumor: &Rumor) -> Learned {
-    Learned {
-        kind: LearnedKind::Rumor,
-        title: None,
-        npc: Some(rumor.npc.clone()),
-        place: None,
-        at: rumor.at,
-        excerpt: excerpt(&rumor.text),
     }
 }
 
@@ -117,39 +105,17 @@ mod tests {
         }
     }
 
-    fn rumor(at: u64, text: &str) -> Rumor {
-        Rumor {
-            at: Tick(at),
-            npc: "Innkeeper Farley".to_string(),
-            text: text.to_string(),
-        }
-    }
-
     #[test]
-    fn read_text_and_rumors_come_in_the_order_of_time() {
-        let entries = learned(
-            &[read(1, TextKind::Book, "a"), read(3, TextKind::Quest, "c")],
-            &[rumor(2, "b")],
-        );
+    fn read_texts_come_in_the_order_of_time() {
+        let entries = learned(&[read(3, TextKind::Quest, "c"), read(1, TextKind::Book, "a")]);
 
         let kinds: Vec<LearnedKind> = entries.iter().map(|entry| entry.kind).collect();
-        assert_eq!(
-            kinds,
-            [LearnedKind::Book, LearnedKind::Rumor, LearnedKind::Quest]
-        );
-    }
-
-    #[test]
-    fn a_rumor_names_its_npc_and_is_marked_as_a_rumor() {
-        let entries = learned(&[], &[rumor(2, "The gnolls grow bold.")]);
-
-        assert_eq!(entries[0].kind, LearnedKind::Rumor);
-        assert_eq!(entries[0].npc.as_deref(), Some("Innkeeper Farley"));
+        assert_eq!(kinds, [LearnedKind::Book, LearnedKind::Quest]);
     }
 
     #[test]
     fn a_book_keeps_its_title_and_its_place() {
-        let entries = learned(&[read(1, TextKind::Book, "Long ago.")], &[]);
+        let entries = learned(&[read(1, TextKind::Book, "Long ago.")]);
 
         assert_eq!(
             entries[0].title.as_deref(),

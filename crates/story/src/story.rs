@@ -1048,7 +1048,7 @@ impl Story {
             journal.hero = hero::hero(active.hero.changes());
             journal.hero_refused = active.hero_refused.take();
             journal.talk_quest.clone_from(&active.talk_quest);
-            journal.learned = learned(active.learned.read(), active.learned.rumors());
+            journal.learned = learned(active.learned.read());
             journal.quests = quest_log(active.quests.changes())
                 .into_iter()
                 .filter(|quest| !matches!(quest.status, Status::Declined | Status::Abandoned))

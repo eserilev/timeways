@@ -72,7 +72,7 @@ Most lore comes from play. You learn what your character read or heard: quests, 
 - **The answer says where you learned it:** "You read in *The Kingdom of Stormwind* that…". (Built)
 - **The Knowledge page** of the journal lists what you read and heard (3.6).
 - **The narrator notices** a first book about a place, or a first story from an NPC, as a small moment.
-- **Only game text is canon.** The words of an NPC in `/talk` come from a model. They go into your journal as a rumor, never as a fact, and `/lore` never cites them.
+- **Only game text is canon.** The words of an NPC in `/talk` come from a model. They go into your world as a rumor, never as a fact, and `/lore` never cites them. The NPC remembers its rumors (3.5). The Knowledge page does not list them: the talk window keeps the conversation (3.5).
 
 **The seed is the floor.** Some lore is common knowledge in 25 ADP: the kingdoms, the factions, the big names, and the zones. The seed holds it, so `/lore` is not empty on the first day. It stays small and general. The deep lore of the pack stays behind the spoiler limit (3.1), and opens as you visit places and meet people. The zones come from the game files (5.10), and the rest is a short list that a person checks (open question 6).
 
@@ -270,7 +270,7 @@ The desktop sends the pages each time the book opens, because the world lives th
 | **Hero** | Your sheet and your own lore (3.7). The list holds each question of the sheet with its answer, then the Roleplay Profile (3.7.1). The open question has an Edit button, and under it come your notes with Add a note and Remove. Previous and Next step through the questions, and the bar counts the answered ones. The first time that the book shows an empty hero in a session, it opens here. | Built |
 | **Chronicle** | One chapter for each milestone (3.3), with the saga and the footnotes when a model wrote them. The list names each chapter by its first zone. A chapter shows its places, its people, and its deeds, with Previous chapter and Next chapter. The book opens on it, at the newest chapter. | Built |
 | **Deeds** | Level milestones, first kills of rares and bosses, repeat kills (echoes, 5.13), your deaths, and your joke titles (5.4.1) | Built |
-| **Knowledge** | What you read and heard (3.1.1): each book, each quest tale, and each story of an NPC, with the place and the date. A rumor from `/talk` shows as a rumor. | Built |
+| **Knowledge** | What you read and heard in the game (3.1.1): each book, each quest tale, and each story of an NPC, with the place and the date. The words of a talk are not here: the talk window keeps them (3.5). | Built |
 | **Nemesis** | Real players from world PvP only: the kill count on each side, the places, and the last time seen (4.1). Aliases only (5.11). | Later |
 | **Quests** | The personal side quests (3.4). The list groups the offers, the tasks in progress, and the done ones. The open task shows its steps, its state, and its rewards, with Accept and Decline for an offer, and Abandon for a task in progress. Then the tasks of players (4.7): the ones from players, New quest, the saved ones not sent yet, and the ones that you gave. They need no desktop, so they show while the journal loads. | Built |
 

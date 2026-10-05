@@ -302,6 +302,8 @@ This order assumes a mix of A and B. It changes with the design.
 
 Status: spec only, like the rest of this plan. The user approved the direction on 2026-10-03. It needs mockups and rounds with the user before any build.
 
+The user, after play on 2026-10-04: "knowledge needs to be more tangible". They want cards of facts for each place or person in place of a list of texts. Since then, talk answers are no rumors on the Knowledge page: they live in the talk window (GAMEPLAY.md 3.5).
+
 ### 12.1 Goal
 
 - **A place on the map shows everything you know about it.** A click on a place of the journal map lists the texts you read there (books, quest texts, gossip), the rumors you heard there, the people you met there, and the chapters set there. This is the map-to-chapters link of section 1, with more in it.

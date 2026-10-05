@@ -562,20 +562,25 @@ fn the_learned_page_shows_a_book_with_the_name_of_your_character() {
 }
 
 #[test]
-fn the_learned_page_marks_a_rumor_as_only_a_rumor() {
+fn the_learned_page_leaves_out_a_rumor_from_an_older_desktop() {
     let game = Game::new();
-    let rumor = learned_entry(
-        LearnedKind::Rumor,
+    let gossip = learned_entry(
+        LearnedKind::Gossip,
         None,
         Some("Innkeeper Farley"),
         "The gnolls grow bold.",
     );
+    let reply = learned_reply(vec![gossip]).replace(r#""kind":"gossip""#, r#""kind":"rumor""#);
 
-    game.reply(&learned_reply(vec![rumor]));
+    game.reply(&reply);
 
     let shown = lines(&game, "learned");
-    assert_eq!(shown[0], "entry: A rumor from Innkeeper Farley");
-    assert!(shown[2].starts_with("text: Only a rumor."), "{shown:?}");
+    assert!(
+        shown
+            .iter()
+            .all(|line| !line.contains("gnolls") && !line.contains("rumor")),
+        "{shown:?}"
+    );
 }
 
 #[test]

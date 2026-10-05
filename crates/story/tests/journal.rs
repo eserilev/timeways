@@ -503,7 +503,7 @@ fn a_long_list_of_what_you_learned_fits_on_pages_and_keeps_its_order() {
         })
         .collect();
     let whole = Journal {
-        learned: learned(&read, &[]),
+        learned: learned(&read),
         ..Journal::default()
     };
 
