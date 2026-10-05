@@ -1,15 +1,17 @@
 //! The world of one character, fed by game events (GAMEPLAY.md 5.1 and 5.2).
 
+use crate::gear::{Quality, item_name};
 use crate::input::{GameQuestKind, Reaction};
+use crate::mounts::mount_name;
 use crate::pack::Link;
 use crate::places::InstanceKind;
 use crate::race_class::{Class, Race};
 use crate::spot::{self, Spot};
 use crate::vocabulary::{
-    self, ANIMAL, CLASS, CLASS_QUEST, DEAD, DEATHS, DEFEATED, DUNGEON, GAME_QUEST_DONE,
-    GAME_QUEST_TAKEN, HOSTILE, LEVEL, MAP_X, MAP_Y, MARK_OF, MARKED_BY, MET, ON_MAP,
-    QUEST_ACCEPTED, QUEST_DONE, QUEST_OFFERED, RACE, RAID, SEEN, SLAPPED, TALLY, TITLE, TRUSTS,
-    VISITED,
+    self, ANIMAL, CLASS, CLASS_QUEST, DEAD, DEATHS, DEFEATED, DUNGEON, FIRST_EPIC_ITEM,
+    FIRST_EPIC_MOUNT, FIRST_MOUNT, GAME_QUEST_DONE, GAME_QUEST_TAKEN, HOSTILE, LEVEL, MAP_X, MAP_Y,
+    MARK_OF, MARKED_BY, MET, ON_MAP, QUALITY, QUEST_ACCEPTED, QUEST_DONE, QUEST_OFFERED, RACE,
+    RAID, SEEN, SLAPPED, TALLY, TITLE, TRUSTS, UPGRADED, VISITED,
 };
 use hourglass::{
     Entity, EntityId, EntityType, Event, EventHistory, EventId, EventKind, Fact, LOCATED_IN,
@@ -26,6 +28,15 @@ pub const SLAP_TRUST: i64 = 10;
 
 /// The trust that a finished side quest earns with its giver. The model never picks it.
 pub const QUEST_TRUST: i64 = 10;
+
+/// An item that the hero put on, after the checks of the story program.
+#[derive(Clone, Copy, Debug)]
+pub struct Item<'a> {
+    pub name: &'a str,
+    /// The inventory slot of the game, from 1 to 19.
+    pub slot: u8,
+    pub quality: Quality,
+}
 
 pub struct Character {
     world: World,
@@ -485,6 +496,99 @@ impl Character {
         let mark = self.find_or_create(at, EntityType::Thing, &mark_name(mark))?;
         self.start_once(at, mark, MARK_OF, quest)?;
         self.start_once(at, self.you, MARKED_BY, mark)
+    }
+
+    /// The first mount and the first epic mount count once in a life. Any other ride adds
+    /// nothing, so a mount that is no first never becomes a thing of the world.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first refusal of Hourglass.
+    pub fn ride_mount(&mut self, at: Tick, mount: &str, epic: bool) -> Result<(), Refusal> {
+        let first = !self.you_hold(FIRST_MOUNT);
+        let first_epic = epic && !self.you_hold(FIRST_EPIC_MOUNT);
+        if !first && !first_epic {
+            return Ok(());
+        }
+        let mount = self.find_or_create(at, EntityType::Thing, &mount_name(mount))?;
+        if first {
+            self.start(at, self.you, FIRST_MOUNT, mount)?;
+        }
+        if first_epic {
+            self.start(at, self.you, FIRST_EPIC_MOUNT, mount)?;
+        }
+        Ok(())
+    }
+
+    /// The first epic item counts once in a life, and a big upgrade once for each slot
+    /// and quality. The item keeps its quality, so a later upgrade can compare.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first refusal of Hourglass.
+    pub fn put_on(&mut self, at: Tick, item: &Item<'_>, upgrade: bool) -> Result<(), Refusal> {
+        let first_epic = item.quality.is_epic() && !self.you_hold(FIRST_EPIC_ITEM);
+        let new_upgrade = upgrade && !self.has_upgraded(item.slot, self.quality_of(item));
+        if !first_epic && !new_upgrade {
+            return Ok(());
+        }
+        let thing = self.find_or_create(at, EntityType::Thing, &item_name(item.name))?;
+        self.set_quality(at, thing, item.quality)?;
+        if first_epic {
+            self.start(at, self.you, FIRST_EPIC_ITEM, thing)?;
+        }
+        let held = self
+            .world
+            .entity(self.you)
+            .and_then(|you| you.fact(UPGRADED, Some(thing)));
+        if new_upgrade && held.is_none() {
+            let slot = EventKind::FactStart {
+                entity: self.you,
+                name: UPGRADED.to_string(),
+                value: Some(i64::from(item.slot)),
+                linked_to: Some(thing),
+            };
+            self.propose(at, slot)?;
+        }
+        Ok(())
+    }
+
+    /// The quality that the world keeps for the item: the first one that came. An item
+    /// of the game never changes its quality, so only a damaged line differs.
+    fn quality_of(&self, item: &Item<'_>) -> i64 {
+        self.world
+            .find(EntityType::Thing, &item_name(item.name))
+            .and_then(|thing| self.world.entity(thing)?.value(QUALITY))
+            .unwrap_or_else(|| i64::from(item.quality.number()))
+    }
+
+    /// An earlier big upgrade of this slot with an item of this quality number.
+    fn has_upgraded(&self, slot: u8, quality: i64) -> bool {
+        let Some(you) = self.world.entity(self.you) else {
+            return false;
+        };
+        you.facts_named(UPGRADED)
+            .filter(|fact| fact.value == Some(i64::from(slot)))
+            .filter_map(|fact| self.world.entity(fact.linked_to?))
+            .any(|item| item.value(QUALITY) == Some(quality))
+    }
+
+    fn set_quality(&mut self, at: Tick, item: EntityId, quality: Quality) -> Result<(), Refusal> {
+        let held = self.world.entity(item).and_then(|item| item.value(QUALITY));
+        if held.is_some() {
+            return Ok(());
+        }
+        let kind = EventKind::FactStart {
+            entity: item,
+            name: QUALITY.to_string(),
+            value: Some(i64::from(quality.number())),
+            linked_to: None,
+        };
+        self.propose(at, kind)
+    }
+
+    fn you_hold(&self, fact: &str) -> bool {
+        self.world.entity(self.you).is_some_and(|you| you.has(fact))
     }
 
     /// The class mark comes before any fact about the quest, so a moment of the same batch

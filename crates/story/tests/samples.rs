@@ -27,6 +27,7 @@ fn grounds_of(sample: &LineSample) -> Grounds {
         lore: sample.lore.map(str::to_string),
         naming: Naming::Name,
         hero_words: Vec::new(),
+        outside: Vec::new(),
     }
 }
 
@@ -39,8 +40,8 @@ fn shares_a_run(text: &str, other: &str, length: usize) -> bool {
 }
 
 #[test]
-fn the_narrator_has_twenty_two_samples_a_chapter_five_an_npc_reply_three_and_a_summary_six() {
-    assert_eq!(Voice::NarratorLine.samples().len(), 22);
+fn the_narrator_has_twenty_six_samples_a_chapter_five_an_npc_reply_three_and_a_summary_six() {
+    assert_eq!(Voice::NarratorLine.samples().len(), 26);
     assert_eq!(Voice::Chapter.samples().len(), 5);
     assert_eq!(Voice::NpcReply.samples().len(), 3);
     assert_eq!(Voice::Summary.samples().len(), 6);
@@ -277,7 +278,11 @@ fn the_samples_turn_from_one_prompt_to_the_next() {
 
     assert_eq!(first, all[0..3]);
     assert_eq!(second, all[1..4]);
-    assert_eq!(rotated(Voice::NarratorLine, 21), [all[21], all[0], all[1]]);
+    let last = all.len() - 1;
+    assert_eq!(
+        rotated(Voice::NarratorLine, last),
+        [all[last], all[0], all[1]]
+    );
 }
 
 #[test]

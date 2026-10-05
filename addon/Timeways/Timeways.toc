@@ -32,6 +32,8 @@ Carry.lua
 Sightings.lua
 GameQuests.lua
 QuestAuras.lua
+Mounts.lua
+Gear.lua
 Emotes.lua
 Lore.lua
 LoreBook.lua

@@ -273,6 +273,7 @@ The user decided on 2026-10-04: from now on, each change of the schema says what
 | (none, step 6c) | The field `name` of the hero leaves the sheet. | Nothing. A row `{"field":"name",...}` of the `hero` table still reads, and the sheet leaves it out. A migration can keep it. |
 | 6 (step 3) | A row of `stories` holds `title` and `paragraphs` in place of `text`. | Read each `accepted` row of version 5, and write it again as `{"line":"accepted","number":...,"at":...,"title":null,"paragraphs":[<text>]}`. The text keeps its IDs. A text of version 5 holds no line break, so it is one paragraph. A `removed` row stays as it is. The positions stay, so the reads of a call still point at the same story. Then set `user_version` to 6. |
 | 7 (step 10) | A new row table `summaries`, one row `{"after": <tick>, "text": "..."}` for each summary. | Create the table `summaries` with the columns of a row table, empty, and set `user_version` to 7. No other row changes. The first summary comes after the next saga round. |
+| Vocabulary 9 (database still 7) | Five new fact names: `first_mount`, `first_epic_mount`, `first_epic_item`, `upgraded` (a number: the slot), and `quality` (a number on the item). Two new input lines: `mount_ridden` and `item_equipped`. | Nothing. No event of vocabulary 8 uses a new name, and no declared name changed, so a world of version 8 replays as it is. The mounts and items from before the version are not in the world. A migration cannot make them, because no line of the `inputs` table holds them. |
 
 ## 4. The UI, page by page
 

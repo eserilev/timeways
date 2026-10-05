@@ -1,5 +1,5 @@
 use hourglass::Tick;
-use timeways_story::input::{CallId, GameQuestKind, Input, MessageId, Reaction};
+use timeways_story::input::{CallId, GameQuestKind, Input, MessageId, Reaction, SlotWas};
 use timeways_story::places::InstanceKind;
 use timeways_story::race_class::{Class, Race};
 
@@ -352,6 +352,61 @@ fn a_quest_mark_reads_with_its_quest() {
             mark: "Touched by the Light".to_string(),
         }
     );
+}
+
+#[test]
+fn a_mount_reads_with_its_speed_or_none() {
+    let fast = r#"{"type":"mount_ridden","at":5,"mount":"Swift Gray Ram","speed":200}"#;
+    let hidden = r#"{"type":"mount_ridden","at":5,"mount":"Gray Ram"}"#;
+
+    assert_eq!(
+        parse(fast).unwrap(),
+        Input::MountRidden {
+            at: Tick(5),
+            mount: "Swift Gray Ram".to_string(),
+            speed: Some(200),
+        }
+    );
+    assert!(matches!(
+        parse(hidden).unwrap(),
+        Input::MountRidden { speed: None, .. }
+    ));
+}
+
+#[test]
+fn an_item_reads_with_what_its_slot_held() {
+    let line = r#"{"type":"item_equipped","at":5,"slot":16,"item":"Cruel Barb","quality":3,"level":24,"replaced":12,"was":"worn"}"#;
+    let first =
+        r#"{"type":"item_equipped","at":5,"slot":2,"item":"Cruel Barb","quality":3,"was":"empty"}"#;
+
+    assert_eq!(
+        parse(line).unwrap(),
+        Input::ItemEquipped {
+            at: Tick(5),
+            slot: 16,
+            item: "Cruel Barb".to_string(),
+            quality: 3,
+            level: Some(24),
+            replaced: Some(12),
+            was: SlotWas::Worn,
+        }
+    );
+    assert!(matches!(
+        parse(first).unwrap(),
+        Input::ItemEquipped {
+            level: None,
+            replaced: None,
+            was: SlotWas::Empty,
+            ..
+        }
+    ));
+}
+
+#[test]
+fn an_item_level_that_is_no_whole_number_is_refused() {
+    let line = r#"{"type":"item_equipped","at":5,"slot":16,"item":"X","quality":3,"level":24.5}"#;
+
+    assert!(parse(line).is_err());
 }
 
 #[test]

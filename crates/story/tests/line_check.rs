@@ -381,3 +381,51 @@ fn each_fault_tells_the_model_what_to_fix() {
     assert!(reasons[4].contains("only tells that the hero came"));
     assert!(reasons[5].contains("Leave the hero out"));
 }
+
+#[test]
+fn an_item_name_allows_no_slop_word_that_the_lore_lacks() {
+    let moment = Moment::FirstEpicItem {
+        item: "Destiny".to_string(),
+        zone: Some("Westfall".to_string()),
+    };
+    let lore = "The Defias hold Westfall.";
+    let line = "The Defias hold Westfall, and the paladin now carries Destiny.";
+
+    let refused = faults(line, &grounds_of(&moment, Some(lore)));
+
+    assert!(
+        refused.contains(&LineFault::Banned("destiny".to_string())),
+        "{refused:?}"
+    );
+}
+
+#[test]
+fn an_item_name_that_the_lore_holds_is_allowed() {
+    let moment = Moment::FirstEpicItem {
+        item: "Destiny".to_string(),
+        zone: None,
+    };
+    let lore = "The sword Destiny was forged for the guards of Stormwind.";
+    let line = "Stormwind forged Destiny for its guards. $N carries it now.";
+
+    assert_eq!(
+        checked_line(line, &grounds_of(&moment, Some(lore)), ""),
+        Checked::Line(line.to_string())
+    );
+}
+
+#[test]
+fn an_item_name_never_allows_a_name_after_the_cutoff() {
+    let moment = Moment::BigUpgrade {
+        item: "Blade of Shattrath".to_string(),
+        zone: None,
+    };
+    let line = "Shattrath made this blade. $N wears it now.";
+
+    let refused = faults(line, &grounds_of(&moment, None));
+
+    assert!(
+        refused.contains(&LineFault::LaterName("Shattrath".to_string())),
+        "{refused:?}"
+    );
+}

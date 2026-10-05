@@ -3,8 +3,10 @@
 
 use crate::chapters::{chapter_starts, is_level_milestone, sessions};
 use crate::character::{Character, title_of_game_quest, title_of_mark};
+use crate::gear::title_of_item;
 use crate::hero::{Entry, Field, Hero};
 use crate::learned::Learned;
+use crate::mounts::title_of_mount;
 use crate::places::{self, PlaceKind};
 use crate::quest::{QuestView, title_of_thing};
 use crate::reply_size::{MAX_LINE, MAX_SLOT, Size};
@@ -12,8 +14,8 @@ use crate::spot::{Spot, spot_of};
 use crate::stories::PlayerStory;
 use crate::story::why::TrustWhy;
 use crate::vocabulary::{
-    CLASS_QUEST, DEATHS, DEFEATED, GAME_QUEST_DONE, LEVEL, MARK_OF, MARKED_BY, MET, QUEST_DONE,
-    SLAPPED, TITLE, TRUSTS, VISITED,
+    CLASS_QUEST, DEATHS, DEFEATED, FIRST_EPIC_ITEM, FIRST_EPIC_MOUNT, FIRST_MOUNT, GAME_QUEST_DONE,
+    LEVEL, MARK_OF, MARKED_BY, MET, QUEST_DONE, SLAPPED, TITLE, TRUSTS, UPGRADED, VISITED,
 };
 use hourglass::{EntityId, EventId, EventKind, LOCATED_IN, Tick, World};
 use serde::Serialize;
@@ -172,6 +174,25 @@ pub enum Deed {
     QuestMarked {
         mark: String,
         quest: String,
+        at: Tick,
+        place: Option<String>,
+    },
+    /// The first mount that you rode, or with `epic`, the first epic mount.
+    Mounted {
+        mount: String,
+        epic: bool,
+        at: Tick,
+        place: Option<String>,
+    },
+    /// The first item of epic quality that you put on.
+    EpicItem {
+        item: String,
+        at: Tick,
+        place: Option<String>,
+    },
+    /// An item far better than what its slot held.
+    Upgraded {
+        item: String,
         at: Tick,
         place: Option<String>,
     },
@@ -414,6 +435,9 @@ fn is_milestone(deed: &Deed) -> bool {
         | Deed::QuestDone { .. }
         | Deed::GameQuestDone { .. }
         | Deed::QuestMarked { .. }
+        | Deed::Mounted { .. }
+        | Deed::EpicItem { .. }
+        | Deed::Upgraded { .. }
         | Deed::Died { .. } => false,
     }
 }
@@ -441,6 +465,9 @@ impl Deed {
             | Deed::GameQuestDone { at, .. }
             | Deed::ClassQuestDone { at, .. }
             | Deed::QuestMarked { at, .. }
+            | Deed::Mounted { at, .. }
+            | Deed::EpicItem { at, .. }
+            | Deed::Upgraded { at, .. }
             | Deed::Died { at, .. } => *at,
         }
     }
@@ -592,7 +619,16 @@ fn death_row(
 
 /// A title that you earned, or a quest that you finished: both are things that you hold.
 /// The facts of yours that point at a thing and make a deed.
-const THING_DEEDS: [&str; 4] = [TITLE, QUEST_DONE, GAME_QUEST_DONE, MARKED_BY];
+const THING_DEEDS: [&str; 8] = [
+    TITLE,
+    QUEST_DONE,
+    GAME_QUEST_DONE,
+    MARKED_BY,
+    FIRST_MOUNT,
+    FIRST_EPIC_MOUNT,
+    FIRST_EPIC_ITEM,
+    UPGRADED,
+];
 
 fn thing_deed(
     world: &World,
@@ -604,6 +640,23 @@ fn thing_deed(
     match fact {
         GAME_QUEST_DONE => game_quest_deed(world, thing, at, place),
         MARKED_BY => mark_deed(world, thing, at, place),
+        FIRST_MOUNT | FIRST_EPIC_MOUNT => {
+            let name = name_of(world, thing);
+            Some(Deed::Mounted {
+                mount: title_of_mount(&name)?.to_string(),
+                epic: fact == FIRST_EPIC_MOUNT,
+                at,
+                place,
+            })
+        }
+        FIRST_EPIC_ITEM | UPGRADED => {
+            let name = name_of(world, thing);
+            let item = title_of_item(&name)?.to_string();
+            if fact == UPGRADED {
+                return Some(Deed::Upgraded { item, at, place });
+            }
+            Some(Deed::EpicItem { item, at, place })
+        }
         QUEST_DONE => {
             let name = name_of(world, thing);
             let title = title_of_thing(&name).map_or_else(|| name.clone(), str::to_string);

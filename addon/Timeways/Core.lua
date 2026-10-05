@@ -21,11 +21,17 @@ local HANDLERS = {
 		ns.Welcome.Login()
 		ns.Watch.Login()
 		ns.GameQuests.Scan()
+		ns.Gear.Login()
 	end,
 	QUEST_ACCEPTED = ns.GameQuests.Accepted,
 	QUEST_TURNED_IN = ns.GameQuests.TurnedIn,
 	QUEST_WATCH_UPDATE = ns.GameQuests.Progress,
-	UNIT_AURA = ns.QuestAuras.Changed,
+	UNIT_AURA = function(unit, info)
+		ns.QuestAuras.Changed(unit, info)
+		ns.Mounts.AuraChanged(unit, info)
+	end,
+	PLAYER_MOUNT_DISPLAY_CHANGED = ns.Mounts.DisplayChanged,
+	PLAYER_EQUIPMENT_CHANGED = ns.Gear.Changed,
 	ZONE_CHANGED_NEW_AREA = ns.Watch.Zone,
 	ZONE_CHANGED = ns.Watch.Zone,
 	ZONE_CHANGED_INDOORS = ns.Watch.Zone,
@@ -102,6 +108,8 @@ frame:RegisterEvent("QUEST_TURNED_IN")
 frame:RegisterEvent("QUEST_WATCH_UPDATE")
 frame:RegisterEvent("PLAYER_REGEN_DISABLED")
 frame:RegisterEvent("PLAYER_REGEN_ENABLED")
+frame:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
+frame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 -- Only the player: the auras of every unit around would fire this all the time.
 frame:RegisterUnitEvent("UNIT_AURA", "player")
 frame:SetScript("OnEvent", function(_, event, ...)

@@ -3,7 +3,7 @@
 use hourglass::Tick;
 use std::path::Path;
 use timeways_story::hero::LONG;
-use timeways_story::input::{CallId, GameQuestKind, Input, MessageId};
+use timeways_story::input::{CallId, GameQuestKind, Input, MessageId, SlotWas};
 use timeways_story::lore::Answer;
 use timeways_story::pack::{Link, Origin, Pack, Passage};
 use timeways_story::places::InstanceKind;
@@ -2101,6 +2101,46 @@ fn an_npc_knows_at_most_three_lore_passages() {
         .filter(|line| line.contains("story "))
         .count();
     assert_eq!(known, 3, "{prompt}");
+}
+
+#[test]
+fn an_item_outside_the_slots_or_the_qualities_of_classic_is_refused() {
+    let mut story = story_with("bad-item", &[]);
+    let item = |slot, quality| Input::ItemEquipped {
+        at: Tick(1),
+        slot,
+        item: "Cruel Barb".to_string(),
+        quality,
+        level: Some(24),
+        replaced: None,
+        was: SlotWas::Empty,
+    };
+
+    let no_slot = story.handle(item(0, 3));
+    let past_slots = story.handle(item(20, 3));
+    let heirloom = story.handle(item(16, 7));
+    let fine = story.handle(item(16, 3));
+
+    assert!(matches!(no_slot, Err(StoryError::BadItem)), "{no_slot:?}");
+    assert!(
+        matches!(past_slots, Err(StoryError::BadItem)),
+        "{past_slots:?}"
+    );
+    assert!(matches!(heirloom, Err(StoryError::BadItem)), "{heirloom:?}");
+    assert!(fine.is_ok(), "{fine:?}");
+}
+
+#[test]
+fn a_mount_with_no_name_is_refused() {
+    let mut story = story_with("bad-mount", &[]);
+
+    let nameless = story.handle(Input::MountRidden {
+        at: Tick(1),
+        mount: String::new(),
+        speed: Some(200),
+    });
+
+    assert!(matches!(nameless, Err(StoryError::BadName)), "{nameless:?}");
 }
 
 #[test]

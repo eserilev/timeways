@@ -4,6 +4,7 @@
 
 use crate::character::Character;
 use crate::check::mentions;
+use crate::moments::Moment;
 use crate::pack::{Link, Pack, PackError, Passage};
 use crate::passage_limits;
 use crate::seen::SeenIndex;
@@ -18,6 +19,25 @@ pub enum LoreError {
     Pack(#[from] PackError),
     #[error("seen text: {0}")]
     Seen(#[from] rusqlite::Error),
+}
+
+/// The lore of the first subject of the moment that has some (`Moment::subjects`).
+///
+/// # Errors
+///
+/// Returns the error of the pack or of the index of seen text.
+pub fn lore_of_moment(
+    pack: &Pack,
+    seen: &SeenIndex,
+    character: &Character,
+    moment: &Moment,
+) -> Result<Option<Passage>, LoreError> {
+    for subject in moment.subjects() {
+        if let Some(passage) = lore_about(pack, seen, character, subject)? {
+            return Ok(Some(passage));
+        }
+    }
+    Ok(None)
 }
 
 /// The own page of `subject` comes first, in page order, so the history of the Deadmines

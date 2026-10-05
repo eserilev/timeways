@@ -2,16 +2,18 @@
 
 use crate::aliases::AliasRow;
 use crate::best_of_two::Round;
-use crate::character::{Character, Refusal};
+use crate::character::{Character, Item, Refusal};
 use crate::check;
 use crate::draft::Draft;
 use crate::flavor::{self, Flavor, HUMBLING_GAP, Kind, Teller, Told};
+use crate::gear::{self, Before, Quality};
 use crate::hero::{self, Change, Entry};
-use crate::input::{CallId, GameQuestKind, Input, MessageId, Reaction};
+use crate::input::{CallId, GameQuestKind, Input, MessageId, Reaction, SlotWas};
 use crate::journal::{Page, journal, pages};
 use crate::learned::{Read, learned};
 use crate::lore::{Answer, LoreCall, Next};
 use crate::moments::{Moment, best, moments};
+use crate::mounts;
 use crate::narrator::Budget;
 use crate::npc_memory::{self, Memory, Past};
 use crate::pace::Pace;
@@ -212,6 +214,8 @@ pub enum StoryError {
     BadToken,
     #[error("an hour is past 23")]
     BadHour,
+    #[error("an item has a slot outside 1 to 19, or a quality that Classic does not have")]
+    BadItem,
 }
 
 /// A flavor moment of the batch, scored when it came in.
@@ -474,6 +478,23 @@ impl Story {
             Input::GameQuestAccepted { at, title, kind } => self.take_game_quest(at, &title, kind),
             Input::GameQuestDone { at, title, kind } => self.finish_game_quest(at, &title, kind),
             Input::QuestMarked { at, quest, mark } => self.take_quest_mark(at, &quest, &mark),
+            Input::MountRidden { at, mount, speed } => self.ride_mount(at, &mount, speed),
+            Input::ItemEquipped {
+                at,
+                slot,
+                item,
+                quality,
+                level,
+                replaced,
+                was,
+            } => {
+                let before = if was == SlotWas::Empty {
+                    Before::Empty
+                } else {
+                    Before::Worn { level: replaced }
+                };
+                self.put_on(at, slot, &item, quality, level, before)
+            }
             Input::NpcSlapped { at, name } => self.slap_npc(at, &name),
             Input::Died {
                 at,
@@ -625,6 +646,39 @@ impl Story {
         checked_name(quest)?;
         checked_name(mark)?;
         self.change(|character| character.take_quest_mark(at, quest, mark))
+    }
+
+    fn ride_mount(
+        &mut self,
+        at: Tick,
+        mount: &str,
+        speed: Option<u16>,
+    ) -> Result<Vec<Output>, StoryError> {
+        checked_name(mount)?;
+        self.change(|character| character.ride_mount(at, mount, mounts::is_epic(speed)))
+    }
+
+    fn put_on(
+        &mut self,
+        at: Tick,
+        slot: u8,
+        name: &str,
+        quality: u8,
+        level: Option<u16>,
+        before: Before,
+    ) -> Result<Vec<Output>, StoryError> {
+        checked_name(name)?;
+        let quality = Quality::of_number(quality).ok_or(StoryError::BadItem)?;
+        if !gear::SLOTS.contains(&slot) {
+            return Err(StoryError::BadItem);
+        }
+        let upgrade = gear::is_big_upgrade(quality, level, before);
+        let item = Item {
+            name,
+            slot,
+            quality,
+        };
+        self.change(|character| character.put_on(at, &item, upgrade))
     }
 
     /// A slap is a meeting too, and it can earn a title (5.4.1).

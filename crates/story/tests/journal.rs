@@ -1,7 +1,9 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use hourglass::Tick;
-use timeways_story::character::Character;
+use timeways_story::character::{Character, Item};
+use timeways_story::chronicle::deed_fact;
+use timeways_story::gear::Quality;
 use timeways_story::input::{GameQuestKind, MessageId};
 use timeways_story::journal::{Chapter, Deed, Journal, Person, Place, journal, pages};
 use timeways_story::learned::{Read, learned};
@@ -750,4 +752,41 @@ fn a_sheet_full_of_quotes_spreads_over_pages_in_its_order() {
         .flat_map(|page| page.journal.hero.sheet.clone())
         .collect();
     assert_eq!(joined, whole.hero.sheet);
+}
+
+#[test]
+fn mounts_and_gear_are_deeds_and_no_milestones() {
+    let mut character = played_in_westfall(50);
+    let at = Tick(HOUR + 50 * 60);
+    let blade = Item {
+        name: "Barman Shanker",
+        slot: 16,
+        quality: Quality::Epic,
+    };
+
+    character.ride_mount(at, "Swift Palomino", true).unwrap();
+    character.put_on(at, &blade, true).unwrap();
+
+    let journal = journal(&character);
+    let facts: Vec<String> = journal
+        .deeds
+        .iter()
+        .filter(|deed| deed.at() == at)
+        .map(deed_fact)
+        .collect();
+    assert_eq!(
+        facts,
+        [
+            "Rode a first mount, Swift Palomino",
+            "Rode a first swift mount, Swift Palomino",
+            "Put on Barman Shanker, a first item of the finest kind",
+            "Put on Barman Shanker, far better than the item it replaced",
+        ]
+    );
+    assert!(
+        facts
+            .iter()
+            .all(|fact| !fact.to_lowercase().contains("epic"))
+    );
+    assert_eq!(journal.chapters.len(), 1);
 }

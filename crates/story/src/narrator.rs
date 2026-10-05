@@ -282,5 +282,25 @@ pub fn what_happened(moment: &Moment) -> String {
         Moment::ClassQuestDone { title } => {
             format!("The player finished \"{title}\", a quest of their class.")
         }
+        Moment::FirstMount { mount, .. } => {
+            format!("The player rode a mount of their own, {mount}. They never had one before.")
+        }
+        Moment::FirstEpicMount { mount, .. } => format!(
+            "The player rode {mount}, a swift mount, twice as fast as a runner. They never had \
+             one so fast before."
+        ),
+        Moment::FirstEpicItem { item, zone } => format!(
+            "The player put on {item}{}. It is of the finest kind of item, and they never \
+             wore one before.",
+            in_zone(zone.as_deref())
+        ),
+        Moment::BigUpgrade { item, zone } => format!(
+            "The player put on {item}{}. It is far better than the item it replaced.",
+            in_zone(zone.as_deref())
+        ),
     }
+}
+
+fn in_zone(zone: Option<&str>) -> String {
+    zone.map(|zone| format!(" in {zone}")).unwrap_or_default()
 }

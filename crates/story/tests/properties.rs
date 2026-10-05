@@ -16,14 +16,16 @@ use timeways_story::best_of_two::{Next, Round};
 use timeways_story::chapters::{
     MIN_CHAPTER_PLAY_SECONDS, SESSION_GAP_SECONDS, chapter_starts, sessions,
 };
-use timeways_story::character::Character;
+use timeways_story::character::{Character, Item};
 use timeways_story::check::{Fault, check, later_names, mentions, without_citations};
 use timeways_story::chronicle::{Pick, Saga};
+use timeways_story::gear::{BIG_UPGRADE_LEVELS, Before, Quality, SLOTS, is_big_upgrade};
 use timeways_story::hero::{Field, LONG, checked_text, cut, limit_of};
 use timeways_story::hero_hook::HOOK_FIELDS;
 use timeways_story::house::fenced;
-use timeways_story::input::{CallId, GameQuestKind, Input, MessageId, Reaction};
+use timeways_story::input::{CallId, GameQuestKind, Input, MessageId, Reaction, SlotWas};
 use timeways_story::journal::{Journal, TalkQuestState, journal, pages};
+use timeways_story::mounts::{EPIC_MOUNT_SPEED, is_epic};
 use timeways_story::npc_memory::{MAX_MEMORIES, MAX_MEMORY_CHARS, when};
 use timeways_story::pace::{Pace, WINDOW_SECONDS};
 use timeways_story::pack::Pack;
@@ -41,7 +43,9 @@ use timeways_story::store::{
     CallEnd, CharacterKey, Database, Line, NewCall, Node, Outcome, Root, Store, Table, safe_id,
 };
 use timeways_story::story::{Output, Story};
-use timeways_story::vocabulary::{DEATHS, DEFEATED, MET};
+use timeways_story::vocabulary::{
+    DEATHS, DEFEATED, FIRST_EPIC_ITEM, FIRST_EPIC_MOUNT, FIRST_MOUNT, MET, QUALITY, UPGRADED,
+};
 use timeways_story::wikitext::plain;
 
 /// One step of play, as the addon sends it.
@@ -93,6 +97,22 @@ enum Play {
     HourChanged(u8),
     /// The count of linen in the bags, at a meeting with an NPC.
     ItemsHeld(String, u16),
+    /// A ride on a mount, at a run speed in percent.
+    Mount(String, Option<u16>),
+    /// An item put on: its slot and quality as the game numbers them, its level, and the
+    /// level of what the slot held, or an empty slot.
+    Equip(Worn),
+}
+
+/// An item as the addon sends it. The numbers sit often at the edges of their bands.
+#[derive(Clone, Debug)]
+struct Worn {
+    slot: u8,
+    item: String,
+    quality: u8,
+    level: Option<u16>,
+    replaced: Option<u16>,
+    was: SlotWas,
 }
 
 const DRAFT_WITH_A_PLAYER: &str = r#"{"title": "Help", "text": "Help {P1}.", "steps": [{"goal": "item", "target": "1 Linen Cloth"}]}"#;
@@ -253,7 +273,79 @@ fn play() -> impl Strategy<Value = Play> {
             prop_oneof![Just(0u16), Just(1), Just(20), any::<u16>()]
         )
             .prop_map(|(npc, count)| Play::ItemsHeld(npc, count)),
+        (mount(), speed()).prop_map(|(mount, speed)| Play::Mount(mount, speed)),
+        worn().prop_map(Play::Equip),
     ]
+}
+
+fn mount() -> impl Strategy<Value = String> {
+    prop_oneof![
+        prop::sample::select(vec!["Gray Ram", "Swift Gray Ram", "Felsteed", "Brown Kodo"])
+            .prop_map(String::from),
+        name(),
+    ]
+}
+
+/// A run speed in percent, often at the edge of an epic mount, and sometimes hidden.
+fn speed() -> impl Strategy<Value = Option<u16>> {
+    let edges = prop::sample::select(vec![
+        0u16,
+        100,
+        160,
+        EPIC_MOUNT_SPEED - 1,
+        EPIC_MOUNT_SPEED,
+        EPIC_MOUNT_SPEED + 1,
+        200,
+        u16::MAX,
+    ]);
+    prop::option::of(prop_oneof![3 => edges, 1 => any::<u16>()])
+}
+
+/// An item level, often at a known edge.
+fn item_level() -> impl Strategy<Value = u16> {
+    let edges = prop::sample::select(vec![0u16, 1, 9, 10, 11, 30, 60, u16::MAX - 1, u16::MAX]);
+    prop_oneof![3 => edges, 1 => any::<u16>()]
+}
+
+/// A quality number of the game, often at the edges of rare and epic, and sometimes past
+/// Legendary.
+fn quality_number() -> impl Strategy<Value = u8> {
+    prop_oneof![
+        3 => prop::sample::select(vec![2u8, 3, 4, 5]),
+        1 => any::<u8>(),
+    ]
+}
+
+/// A slot of the game, often at the ends of 1 to 19, and sometimes outside them.
+fn slot() -> impl Strategy<Value = u8> {
+    prop_oneof![
+        3 => prop::sample::select(vec![0u8, 1, 11, 12, 19, 20]),
+        1 => any::<u8>(),
+    ]
+}
+
+fn worn() -> impl Strategy<Value = Worn> {
+    let item = prop_oneof![
+        prop::sample::select(vec!["Cruel Barb", "Destiny", "Barman Shanker"])
+            .prop_map(String::from),
+        name(),
+    ];
+    (
+        slot(),
+        item,
+        quality_number(),
+        prop::option::of(item_level()),
+        prop::option::of(item_level()),
+        prop::sample::select(vec![SlotWas::Worn, SlotWas::Empty]),
+    )
+        .prop_map(|(slot, item, quality, level, replaced, was)| Worn {
+            slot,
+            item,
+            quality,
+            level,
+            replaced,
+            was,
+        })
 }
 
 /// Play, and now and then a talk whose answer comes after a relog. Only a store on disk
@@ -508,6 +600,16 @@ fn input(play: &Play, at: Tick) -> Option<Input> {
             npc,
             item: "Linen Cloth".to_string(),
             count,
+        },
+        Play::Mount(mount, speed) => Input::MountRidden { at, mount, speed },
+        Play::Equip(worn) => Input::ItemEquipped {
+            at,
+            slot: worn.slot,
+            item: worn.item,
+            quality: worn.quality,
+            level: worn.level,
+            replaced: worn.replaced,
+            was: worn.was,
         },
     })
 }
@@ -2387,5 +2489,143 @@ proptest! {
         let text = format!("{hero} {between}{travel}");
 
         prop_assert!(timeways_story::arrival::arrival_in(&text, &["troll".to_string()]).is_some());
+    }
+}
+
+/// What a slot held, with the old level often near the new one.
+fn before(level: Option<u16>) -> impl Strategy<Value = Before> {
+    let near = level.unwrap_or(0);
+    let old = prop_oneof![
+        Just(Some(near)),
+        Just(Some(near.saturating_sub(BIG_UPGRADE_LEVELS - 1))),
+        Just(Some(near.saturating_sub(BIG_UPGRADE_LEVELS))),
+        Just(Some(near.saturating_sub(BIG_UPGRADE_LEVELS + 1))),
+        Just(None),
+        item_level().prop_map(Some),
+    ];
+    prop_oneof![
+        1 => Just(Before::Empty),
+        4 => old.prop_map(|level| Before::Worn { level }),
+    ]
+}
+
+fn quality() -> impl Strategy<Value = Quality> {
+    quality_number().prop_filter_map("Classic has it", Quality::of_number)
+}
+
+fn upgrade_case() -> impl Strategy<Value = (Quality, Option<u16>, Before)> {
+    (quality(), prop::option::of(item_level()))
+        .prop_flat_map(|(quality, level)| (Just(quality), Just(level), before(level)))
+}
+
+/// Puts on the item as the story program does, when its slot and quality are of Classic.
+fn wear(character: &mut Character, at: Tick, worn: &Worn) {
+    let Some(quality) = Quality::of_number(worn.quality) else {
+        return;
+    };
+    if !SLOTS.contains(&worn.slot) {
+        return;
+    }
+    let before = if worn.was == SlotWas::Empty {
+        Before::Empty
+    } else {
+        Before::Worn {
+            level: worn.replaced,
+        }
+    };
+    let item = Item {
+        name: &worn.item,
+        slot: worn.slot,
+        quality,
+    };
+    let upgrade = is_big_upgrade(quality, worn.level, before);
+    character.put_on(at, &item, upgrade).unwrap();
+}
+
+/// The facts of one name that the hero holds.
+fn count_of(character: &Character, fact: &str) -> usize {
+    let you = character.world().entity(character.you()).unwrap();
+    you.facts_named(fact).count()
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(512))]
+
+    /// GAMEPLAY.md 3.2: a big upgrade is a rare or better item with a known level, at least
+    /// `BIG_UPGRADE_LEVELS` over what the slot held. An empty slot counts as level 0.
+    #[test]
+    fn a_big_upgrade_is_rare_or_better_and_gains_enough_levels(case in upgrade_case()) {
+        let (quality, level, before) = case;
+        let old = match before {
+            Before::Empty => Some(0),
+            Before::Worn { level } => level,
+        };
+        let expected = match (level, old) {
+            (Some(new), Some(old)) => {
+                quality >= Quality::Rare
+                    && i64::from(new) - i64::from(old) >= i64::from(BIG_UPGRADE_LEVELS)
+            }
+            _ => false,
+        };
+
+        prop_assert_eq!(is_big_upgrade(quality, level, before), expected);
+    }
+
+    /// The same level again, or a lower one, is never a big upgrade.
+    #[test]
+    fn no_item_is_a_big_upgrade_over_its_own_level_or_more(
+        quality in quality(),
+        level in item_level(),
+        lower_by in 0u16..=BIG_UPGRADE_LEVELS,
+    ) {
+        let old = Before::Worn { level: Some(level) };
+        let new = Some(level.saturating_sub(lower_by));
+
+        prop_assert!(!is_big_upgrade(quality, new, old));
+    }
+
+    /// GAMEPLAY.md 3.2: an epic mount runs at `EPIC_MOUNT_SPEED` or more, and an unknown
+    /// speed is no epic ride.
+    #[test]
+    fn a_ride_is_epic_only_at_the_speed_of_an_epic_mount(speed in speed()) {
+        let expected = speed.is_some_and(|speed| speed >= EPIC_MOUNT_SPEED);
+
+        prop_assert_eq!(is_epic(speed), expected);
+    }
+
+    /// The first mount, the first epic mount, and the first epic item count once in a
+    /// life, and a big upgrade once for each slot and quality, in any play.
+    #[test]
+    fn each_first_of_the_gear_happens_once_in_any_play(
+        plays in prop::collection::vec(prop_oneof![
+            (mount(), speed()).prop_map(|(mount, speed)| Play::Mount(mount, speed)),
+            worn().prop_map(Play::Equip),
+        ], 0..60)
+    ) {
+        let mut character = Character::new();
+
+        for (n, play) in plays.iter().enumerate() {
+            let at = Tick(n as u64 + 1);
+            match play {
+                Play::Mount(mount, speed) => character.ride_mount(at, mount, is_epic(*speed)).unwrap(),
+                Play::Equip(worn) => wear(&mut character, at, worn),
+                _ => {}
+            }
+        }
+
+        let character = &character;
+        prop_assert!(count_of(character, FIRST_MOUNT) <= 1);
+        prop_assert!(count_of(character, FIRST_EPIC_MOUNT) <= 1);
+        prop_assert!(count_of(character, FIRST_EPIC_ITEM) <= 1);
+        let world = character.world();
+        let you = world.entity(character.you()).unwrap();
+        let mut keys: Vec<(Option<i64>, Option<i64>)> = you
+            .facts_named(UPGRADED)
+            .map(|fact| (fact.value, world.entity(fact.linked_to.unwrap()).unwrap().value(QUALITY)))
+            .collect();
+        let all = keys.len();
+        keys.sort_unstable();
+        keys.dedup();
+        prop_assert_eq!(keys.len(), all);
     }
 }

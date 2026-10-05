@@ -715,3 +715,30 @@ fn a_quest_mark_shows_as_a_deed_with_its_quest() {
         "entry: Touched by the Light, from Rediscovering the Light"
     );
 }
+
+#[test]
+fn mounts_and_gear_show_as_deeds() {
+    let game = Game::new();
+
+    game.reply(concat!(
+        r#"{"type":"journal","page":0,"pages":1,"deeds":["#,
+        r#"{"kind":"mounted","mount":"Gray Ram","epic":false,"at":1790000000,"place":null},"#,
+        r#"{"kind":"mounted","mount":"Swift Gray Ram","epic":true,"at":1790000000,"place":null},"#,
+        r#"{"kind":"epic_item","item":"Barman Shanker","at":1790000000,"place":null},"#,
+        r#"{"kind":"upgraded","item":"Cruel Barb","at":1790000000,"place":null}]}"#,
+    ));
+
+    let entries: Vec<String> = lines(&game, "deeds")
+        .into_iter()
+        .filter(|line| line.starts_with("entry: "))
+        .collect();
+    assert_eq!(
+        entries,
+        [
+            "entry: Rode your first mount, Gray Ram",
+            "entry: Rode your first epic mount, Swift Gray Ram",
+            "entry: Equipped your first epic item, Barman Shanker",
+            "entry: Equipped Cruel Barb, a big upgrade",
+        ]
+    );
+}

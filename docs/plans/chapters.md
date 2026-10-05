@@ -70,6 +70,10 @@ A step adds its weight **only the first time its key happens**. A repeat adds 0.
 | A death to a foe you beat | `(DeathBy, foe)` | 0 |
 | A death with no known killer | `(DeathIn, zone)` | 2, then 1, then 0 |
 | A lasting mark, a joke title | `(Mark, …)`, `(Title, …)` | 1 |
+| The first mount (built: `first_mount`) | `(Mount, first)` | 3 |
+| The first epic mount (built: `first_epic_mount`) | `(EpicMount, first)` | 5 |
+| The first epic item (built: `first_epic_item`) | `(EpicItem, first)` | 3 |
+| A big upgrade (built: `upgraded`, value = slot, item `quality`) | `(Upgrade, slot, quality)` | 1 |
 | A new PvP rank | `(PvpRank, n)` | 2 |
 | The first entry into a dungeon | `(Dungeon, zone)` | 3 |
 | The first entry into a raid | `(Raid, zone)` | 5 |
@@ -89,7 +93,9 @@ A step adds its weight **only the first time its key happens**. A repeat adds 0.
 
 A kill counts only for a rare, a rare elite, a world boss, or a boss of an encounter. A normal mob or an elite is never beaten. So deaths to it decay, and it gives no revenge.
 
-**Caps.** `W_MAX`, the largest weight of one step, is 7. The **cap** of a key is the most it can add in all: its weight, 3 for a death key, and the weight + 2 for a kill. `CAP_MAX`, the largest cap, is 7. The fold keeps the gain of each key so far, so the cap is an invariant of the state.
+**Mounts and gear.** The world holds each of these facts at most once in a life, and `upgraded` once for each slot and quality (`GAMEPLAY.md` 3.2). So the key of each is new at its only event, and a repeat makes no event at all. A first ride on an epic mount makes two events, `(Mount, first)` and `(EpicMount, first)`: two steps, so no step weighs more than 5. A mount or an item is never a break. A mount is on the `World` track, also inside an instance, as a level is: it belongs to the leveling story. An item follows the track of where you stood.
+
+**Caps.** `W_MAX`, the largest weight of one step, is 7. The rows of mounts and gear weigh at most 5, so `W_MAX` and `CAP_MAX` stay 7, and theorems 8 and 13 keep their constants. The **cap** of a key is the most it can add in all: its weight, 3 for a death key, and the weight + 2 for a kill. `CAP_MAX`, the largest cap, is 7. The fold keeps the gain of each key so far, so the cap is an invariant of the state.
 
 ## 5. Chapters
 

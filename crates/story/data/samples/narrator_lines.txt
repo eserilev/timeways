@@ -126,3 +126,27 @@ who: a dwarf hunter
 lore: The Blackrock orcs took Stonewatch Keep in the Redridge Mountains. Their leader, Gath'Ilzogg, holds it above Lakeshire.
 hero: $N
 line: The Blackrock orcs took Stonewatch Keep and watched Lakeshire from its walls. Their leader Gath'Ilzogg fell there to $N.
+
+moment: The player rode a mount of their own, Gray Ram. They never had one before.
+who: a dwarf hunter
+lore: The Mountaineers of Ironforge patrol the passes of Khaz Modan on rams bred in the snows of Dun Morogh.
+hero: the dwarf
+line: Ironforge's Mountaineers hold the passes of Khaz Modan on ramback. Now the dwarf has a ram of their own.
+
+moment: The player rode Green Skeletal Warhorse, a swift mount, twice as fast as a runner. They never had one so fast before.
+who: a Forsaken warlock
+lore: When Lordaeron fell, the Scourge raised the warhorses of its knights along with their riders. The Forsaken of the Undercity kept the dead steeds, and the stablemasters of Brill sell them to the loyal.
+hero: $N
+line: The Scourge raised Lordaeron's warhorses with their riders. The Forsaken kept the horses, and the fastest of them now runs under $N.
+
+moment: The player put on Gutwrencher in Searing Gorge. It is of the finest kind of item, and they never wore one before.
+who: a human rogue
+lore: The Dark Iron dwarves mine Searing Gorge for Ragnaros, the Firelord who rules them from the depths of Blackrock Mountain.
+hero: no name
+line: The Dark Irons dig Searing Gorge hollow for Ragnaros, their master below Blackrock. In that heat, Gutwrencher found a new hand.
+
+moment: The player put on Cruel Barb in Westfall. It is far better than the item it replaced.
+who: a dwarf warrior
+lore: Gryan Stoutmantle leads the People's Militia from Sentinel Hill. He arms his recruits with the blades they take from the Defias.
+hero: by the title "Bookworm"
+line: Gryan Stoutmantle arms Sentinel Hill with blades taken from the Defias. The best of them, Cruel Barb, now hangs at the side of the Bookworm.

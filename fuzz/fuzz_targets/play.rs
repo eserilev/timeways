@@ -133,6 +133,20 @@ pub enum Play {
         good: u8,
         count: u32,
     },
+    /// A ride on a mount, at a run speed in percent.
+    Mount {
+        mount: Name,
+        speed: Option<u16>,
+    },
+    /// An item put on, with the numbers of the game as they come, and the level of what
+    /// the slot held. No level before means an empty slot.
+    Equip {
+        slot: u8,
+        item: Name,
+        quality: u8,
+        level: Option<u16>,
+        before: Option<Option<u16>>,
+    },
 }
 
 /// The words of the model for one call. A call takes the next one, and the list repeats.
@@ -201,6 +215,18 @@ fn input(play: &Play, at: u64) -> Option<Value> {
         } => json!({"type": "died", "at": at, "killer": text(killer), "cause": text(cause),
             "killer_level": killer_level}),
         Play::Slap(name) => json!({"type": "npc_slapped", "at": at, "name": name.0}),
+        Play::Mount { mount, speed } => {
+            json!({"type": "mount_ridden", "at": at, "mount": mount.0, "speed": speed})
+        }
+        Play::Equip {
+            slot,
+            item,
+            quality,
+            level,
+            before,
+        } => json!({"type": "item_equipped", "at": at, "slot": slot, "item": item.0,
+            "quality": quality, "level": level, "replaced": before.flatten(),
+            "was": if before.is_some() { "worn" } else { "empty" }}),
         Play::Level(level) => json!({"type": "level_reached", "at": at, "level": level}),
         Play::Emote { emote, hour } => {
             json!({"type": "emote_done", "at": at, "emote": emote.0, "hour": hour})

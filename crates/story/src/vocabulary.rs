@@ -5,7 +5,7 @@ use hourglass::EntityType::{Faction, Person, Place, Thing};
 use hourglass::{Band, Count, Direction, EntityType, FactRules, FactVocabulary, Shape};
 
 /// A change to a declared name needs a new version and a migration (`hourglass::migrate`).
-pub const VERSION: u32 = 8;
+pub const VERSION: u32 = 9;
 
 pub const MET: &str = "met";
 /// You saw this NPC, by a hover or a target. Talking is meeting; seeing is not.
@@ -44,6 +44,16 @@ pub const TITLE: &str = "title";
 pub const RACE: &str = "race";
 /// The class of the character, as its word: "paladin".
 pub const CLASS: &str = "class";
+/// The first mount that you rode, once in a life. You hold it about the mount.
+pub const FIRST_MOUNT: &str = "first_mount";
+/// The first mount that ran at the speed of an epic mount, once in a life.
+pub const FIRST_EPIC_MOUNT: &str = "first_epic_mount";
+/// The first item of epic quality that you put on, once in a life.
+pub const FIRST_EPIC_ITEM: &str = "first_epic_item";
+/// An item far better than what its slot held. The value is the inventory slot.
+pub const UPGRADED: &str = "upgraded";
+/// The quality of an item, as the number of the game: 3 rare, 4 epic. The item holds it.
+pub const QUALITY: &str = "quality";
 pub const MEMBER_OF: &str = "member_of";
 pub const LEADER_OF: &str = "leader_of";
 /// The map of the game where a place began or an NPC was met. `map_x` and `map_y` give
@@ -59,6 +69,10 @@ pub const TRUST: Band = Band {
 };
 /// The levels of the game.
 pub const LEVELS: Band = Band { min: 1, max: 60 };
+/// The inventory slots of the game.
+pub const SLOT_NUMBERS: Band = Band { min: 1, max: 19 };
+/// The item qualities of Classic, from poor (0) to legendary (5).
+pub const QUALITIES: Band = Band { min: 0, max: 5 };
 /// The band of the counts: deaths, kills, and slaps. Public, because a count stops at its
 /// top.
 pub const TALLY: Band = Band { min: 0, max: 1000 };
@@ -99,6 +113,14 @@ pub fn vocabulary() -> FactVocabulary {
         .declare(TITLE, linked(up_flag(), Person, &[Thing]))
         .declare(RACE, linked(up_flag(), Person, &[Thing]))
         .declare(CLASS, linked(up_flag(), Person, &[Thing]))
+        .declare(FIRST_MOUNT, linked(up_flag(), Person, &[Thing]))
+        .declare(FIRST_EPIC_MOUNT, linked(up_flag(), Person, &[Thing]))
+        .declare(FIRST_EPIC_ITEM, linked(up_flag(), Person, &[Thing]))
+        .declare(
+            UPGRADED,
+            linked(Shape::number(SLOT_NUMBERS), Person, &[Thing]),
+        )
+        .declare(QUALITY, FactRules::solo(Shape::number(QUALITIES)))
         .declare(MEMBER_OF, linked(Shape::flag(), Person, &[Faction]))
         .declare(LEADER_OF, linked(Shape::flag(), Person, &[Faction]))
         .declare(ON_MAP, FactRules::solo(Shape::number(MAP_IDS)))

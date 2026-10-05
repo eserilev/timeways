@@ -93,12 +93,19 @@ The player rejected three kinds of line as slop. Mood with no facts: "Level six 
 
 - It reacts to big moments. The story program finds them in the events that each batch adds to the world. From the highest rank down (`moments.rs`):
   - a finished class quest (5.4),
-  - a joke title (5.4.1),
-  - the first kill of a rare or a boss (the echo of a later kill is not a big moment), or the first entry into a dungeon or a raid (3.3),
+  - a joke title (5.4.1), or the first epic mount,
+  - the first kill of a rare or a boss (the echo of a later kill is not a big moment), the first entry into a dungeon or a raid (3.3), the first mount, or the first epic item,
   - a second or later death to the same NPC: "The third death to the same murloc.",
-  - a slap of an NPC, which it remembers (5.4.1), or a lasting buff or debuff of a quest (5.4),
+  - a slap of an NPC, which it remembers (5.4.1), a lasting buff or debuff of a quest (5.4), or a big upgrade,
   - a milestone level (10, 20, 30, and so on), with the zone where it came, or the first visit of a capital city (3.3),
   - the first visit of a zone.
+- **Mounts and gear** (built, the player 2026-10-05: "Getting a mount, an epic mount. Getting a crazy upgrade."). Each one is a deed, and each counts once:
+  - **The first mount:** the first ride on any mount (`mount_ridden`, 5.4). Its lore is the lore of the people who breed it: the rams of Ironforge, the sabers of Darnassus, the skeletal horses of the Undercity, the wolves of Orgrimmar, the kodos of Thunder Bluff, the raptors of Sen'jin Village, the mechanostriders of Gnomeregan, and the horses of Stormwind City. A word of the mount's name picks the people (`mounts.rs`). A class mount such as a Felsteed, and a name in another language, take the people of the hero.
+  - **The first epic mount:** the first ride at a run speed of 180 percent or more. A mount of level 40 runs at 160, and up to about 170 with Mithril Spurs or the Carrot on a Stick. An epic mount runs at 200. An unknown speed is no epic ride. A first ride on an epic mount is both firsts, and the line tells the epic one.
+  - **The first epic item:** the first item of epic quality or better that the hero puts on (`item_equipped`, 5.4).
+  - **A big upgrade:** an item of rare quality or better, with a known item level at least 10 over the level of what its slot held (`gear.rs`). A slot that held nothing since the login counts as level 0. An unknown level on either side is no upgrade. In Classic the level of an item runs close to its required level plus 5, so 10 item levels are the gear of about 10 more character levels. A quest reward or a dungeon drop of your own level gains only a few. A big upgrade counts once for each slot and quality: a second rare in the main hand is no news.
+  - The moment never says "epic", which is a banned word: a mount is "a swift mount", and an item is "of the finest kind". The lore of an item is the first passage about the item itself, such as a quest text that the player read, and else the lore of its zone.
+  - **A name from the game allows no word.** The name of a mount or an item comes from the game, so the checks of a line treat it as data from outside. A slop word or a banned word that only the name holds stays refused: an item called "Destiny" allows no "destiny" in the line, unless the lore holds the name too. A name of an item never allows a name from after the cutoff.
 - **Silence over slop** (built). A moment needs something concrete to tell: a named place, foe, person, quest, or title, or a milestone. A plain level up has nothing to tell, so it is no moment, and the player sees no line. Only every tenth level speaks. The model can also answer `SILENCE` when the moment and its lore give it nothing true to tell. Silence gets no retry.
 - It speaks at most once for each batch, about the best moment. The moments on one line of the list have the same rank. Of two moments of one rank, the later one wins, because it holds the newer count. A flavor moment (5.4.1) speaks only when no big moment does.
 - **The lore of a moment** (built). Each moment gets one short passage about its place, its foe, its person, or its quest (`narrator_lore.rs`). The spoiler limit and the lore cutoff hold, as for `/lore`. The order:
@@ -121,7 +128,7 @@ The prompts of the narrator, the chronicle, a talk, and a quest share one plan (
 - **The parts of a narrator prompt**, in order: the persona, the house rules, the task (one or two sentences, at most 30 words: for an arrival, the history of the place alone; for a deed, the history first, then the deed), the samples, the moment, the race and the class of the hero, the lore, how to name the hero, and the author's note.
 - **How a line names the hero** (built). A line never says "our hero". The kind of the moment decides first:
   - **An arrival names no hero.** A new zone, a new capital, or the first entry into a dungeon or a raid is a moment where the hero only came. The prompt says "Name the hero: not at all, the line is about the place", and the line is the history of the place alone.
-  - **A deed names the hero.** A kill of a rare or a boss, a death, a quest or a class quest, a title, a slap, a quest mark, and a tenth level. Even then, the prompt asks the line to keep the place, the foe, or the people the subject where it can: "Their leader Gath'Ilzogg fell there to $N."
+  - **A deed names the hero.** A kill of a rare or a boss, a death, a quest or a class quest, a title, a slap, a quest mark, a tenth level, a first mount or epic mount, a first epic item, and a big upgrade. Even then, the prompt asks the line to keep the place, the foe, or the people the subject where it can: "Their leader Gath'Ilzogg fell there to $N."
   - The rotation below holds only for a deed. The code picks the naming of each deed line in turn, from the number of the call, so the lines mix:
   - the name: the model writes `$N`, and the addon puts the name of the character there, on the player's screen only. No model ever sees the name (5.11);
   - the race or the class: "the Forsaken", "the night elf", "the paladin";
@@ -130,7 +137,7 @@ The prompts of the narrator, the chronicle, a talk, and a quest share one plan (
   - Each 8 lines hold 3 names, 2 races or classes, 2 lines with no name, and 1 title. A hero with no title, or with no race or class yet, gets the name in their place. A line names the hero at most once.
 - **The race and the class** come from the addon at each login (`character_described`, 5.4), and stay in the world as facts (5.1). The prompt says "The hero: a Forsaken warlock". A world from before this line has none, and the prompt leaves the line out.
 - **An NPC never gets the persona of the narrator.** It gets a short persona of its own from the facts: its name, its place, and its trust in you as words ("You are wary of the player"), never as a number.
-- **Golden samples.** Each prompt of the narrator, a chapter, a summary, or a talk carries 2 or 3 short samples of the voice, in turn: 22 for a narrator line, 5 for a chapter, 6 for the summary, and 3 for an NPC reply. The 12 arrival samples tell the place alone, and the 10 deed samples mix the namings of the rotation. The samples are data in `crates/story/data/samples/`. A test checks that each sample passes each check.
+- **Golden samples.** Each prompt of the narrator, a chapter, a summary, or a talk carries 2 or 3 short samples of the voice, in turn: 26 for a narrator line, 5 for a chapter, 6 for the summary, and 3 for an NPC reply. The 12 arrival samples tell the place alone, and the 14 deed samples mix the namings of the rotation. The samples are data in `crates/story/data/samples/`. A test checks that each sample passes each check.
   - **A narrator sample is a pair.** It shows the moment, the race and class of its hero, its lore, how to name the hero, and then the line. So a model learns how a line uses the lore and the facts, and how it follows the naming. A sample of the same moment as the prompt is left out, because a model copies the line of a moment that it sees twice.
   - **Samples name real places and people of 25 ADP.** This reverses an older rule, which kept every real name out of the samples. A sample with no names taught the model mood with no facts. Now the copy check stops a copied run of words, and the log of names in no fact shows a name that the moment does not hold. Every sample stays within the lore cutoff (5.9): nothing from Molten Core or later.
   - The narrator samples cover both factions, many zones, foes, and races, and many sentence shapes.
@@ -578,13 +585,15 @@ A first list. Each name goes through the API gate of Gnomish Relay (`scripts/wow
 | Talk to an NPC | `GOSSIP_SHOW`, `QUEST_GREETING`, `QUEST_DETAIL`, `QUEST_PROGRESS`, `QUEST_COMPLETE` |
 | The text that you read | The same events, and `ITEM_TEXT_READY` for a book (5.10) |
 | Loot | `CHAT_MSG_LOOT` |
+| A mount (built) | `PLAYER_MOUNT_DISPLAY_CHANGED` and `IsMounted()`. The game names no mount when you mount up, so the name is the aura with no end that you cast on yourself (`UNIT_AURA`, `sourceUnit` "player", `duration` 0) at most 3 seconds before. One second after you mount up, `GetUnitSpeed("player")` gives the run speed, sent as percent of a run on foot (7 yards a second). A hidden speed goes as none. Each mount goes once in a session. The line is `mount_ridden`. |
+| An item put on (built) | `PLAYER_EQUIPMENT_CHANGED`, then `GetInventoryItemLink` and `C_Item.GetItemInfo` for the name, the quality, and the item level. At login (`PLAYER_ENTERING_WORLD`) the addon reads every slot, so each change knows what its slot held. An emptied slot keeps its last item. Only an item of rare quality or better goes out, never the shirt or the tabard, and never the same item again in its slot. The line is `item_equipped`, with the level of what the slot held, or `"was": "empty"`. |
 | Group and guild | `GROUP_ROSTER_UPDATE`, `GUILD_ROSTER_UPDATE` |
 | Item count for a quest (built) | `C_Item.GetItemCount` of the item of an open carry step, at a gossip window or `/talk` with its NPC (3.4). `BAG_UPDATE_DELAYED` draws the Quests page again. |
 | Player tasks (4.7) | `CHAT_MSG_ADDON`, `TRADE_SHOW`, `TRADE_ACCEPT_UPDATE`, `TRADE_CLOSED`, and the events above for the steps |
 
 The addon sends game events in batches with the next strip. Each strip is a screenshot, so the addon takes few:
 
-- **Big moments go within 5 seconds:** a level up, a death, a new zone (not a new subzone), the kill of a rare or a boss, a finished quest of the game, and the entry into a dungeon or a raid. The narrator line belongs to that moment, so it must not come late. The other events of those 5 seconds go in the same batch.
+- **Big moments go within 5 seconds:** a level up, a death, a new zone (not a new subzone), the kill of a rare or a boss, a finished quest of the game, the entry into a dungeon or a raid, a mount, and a rare or epic item put on. The narrator line belongs to that moment, so it must not come late. The other events of those 5 seconds go in the same batch.
 - **Every other event waits** for the flush every 10 minutes, or for the next big moment or question.
 - **A question goes at once:** `/lore`, a talk, `/quest`, a task answer, and a journal page.
 - **Camping and quitting send what waits** (`PLAYER_CAMPING`, `PLAYER_QUITING`), because the game still draws then. At `PLAYER_LOGOUT` no screenshot can go, so a logout in an inn can lose the small events of the last 10 minutes.

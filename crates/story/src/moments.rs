@@ -4,11 +4,14 @@
 
 use crate::chapters::LEVEL_STEP;
 use crate::character::title_of_game_quest;
+use crate::gear::title_of_item;
 use crate::journal::mark_and_quest;
+use crate::mounts::{people_of, title_of_mount};
 use crate::places::{InstanceKind, is_capital};
+use crate::race_class::Race;
 use crate::vocabulary::{
-    CLASS_QUEST, DEFEATED, DUNGEON, GAME_QUEST_DONE, LEVEL, MARKED_BY, RAID, SLAPPED, TITLE,
-    VISITED,
+    CLASS_QUEST, DEFEATED, DUNGEON, FIRST_EPIC_ITEM, FIRST_EPIC_MOUNT, FIRST_MOUNT,
+    GAME_QUEST_DONE, LEVEL, MARKED_BY, RACE, RAID, SLAPPED, TITLE, UPGRADED, VISITED,
 };
 use hourglass::{EntityId, Event, EventKind, World};
 
@@ -36,14 +39,48 @@ pub enum Moment {
     QuestMarked { mark: String, quest: String },
     /// The first visit of a capital city.
     FirstCapital { city: String },
+    /// The first ride on a mount of your own. `people` is the place of the people who
+    /// breed such mounts (`mounts::people_of`): its lore is the lore of the moment.
+    FirstMount {
+        mount: String,
+        people: Option<String>,
+    },
+    /// The first ride at the speed of an epic mount.
+    FirstEpicMount {
+        mount: String,
+        people: Option<String>,
+    },
+    /// The first item of epic quality that you put on. `zone` is where.
+    FirstEpicItem { item: String, zone: Option<String> },
+    /// An item far better than what its slot held (`gear::is_big_upgrade`).
+    BigUpgrade { item: String, zone: Option<String> },
 }
 
 impl Moment {
+    /// What the lore of the moment is about, best first. An item comes first, because the
+    /// text that the player read can tell where it came from. Its zone comes next.
+    #[must_use]
+    pub fn subjects(&self) -> Vec<&str> {
+        match self {
+            Moment::FirstEpicItem { item, zone } | Moment::BigUpgrade { item, zone } => {
+                [Some(item.as_str()), zone.as_deref()]
+                    .into_iter()
+                    .flatten()
+                    .collect()
+            }
+            _ => self.subject().into_iter().collect(),
+        }
+    }
+
     /// The place, the foe, the person, or the quest of the moment: what its lore is about.
     /// A title and a flavor moment have no lore.
     #[must_use]
     pub fn subject(&self) -> Option<&str> {
         match self {
+            Moment::FirstMount { people, .. } | Moment::FirstEpicMount { people, .. } => {
+                people.as_deref()
+            }
+            Moment::FirstEpicItem { item, .. } | Moment::BigUpgrade { item, .. } => Some(item),
             Moment::Flavor { .. } | Moment::Titled { .. } => None,
             Moment::FirstKill { foe } => Some(foe),
             Moment::SlainAgain { killer, .. } => Some(killer),
@@ -63,7 +100,27 @@ impl Moment {
         match self {
             Moment::Titled { title } => vec![title],
             Moment::QuestMarked { mark, quest } => vec![quest, mark],
+            Moment::FirstMount { mount, people } | Moment::FirstEpicMount { mount, people } => {
+                [Some(mount.as_str()), people.as_deref()]
+                    .into_iter()
+                    .flatten()
+                    .collect()
+            }
+            Moment::FirstEpicItem { .. } | Moment::BigUpgrade { .. } => self.subjects(),
             _ => self.subject().into_iter().collect(),
+        }
+    }
+
+    /// The names that the game gave and no lore holds: a mount or an item. Such a name
+    /// allows no word of a line that the checks refuse (GAMEPLAY.md 3.2.1).
+    #[must_use]
+    pub fn outside_names(&self) -> Vec<&str> {
+        match self {
+            Moment::FirstMount { mount, .. } | Moment::FirstEpicMount { mount, .. } => {
+                vec![mount]
+            }
+            Moment::FirstEpicItem { item, .. } | Moment::BigUpgrade { item, .. } => vec![item],
+            _ => Vec::new(),
         }
     }
 
@@ -81,11 +138,14 @@ impl Moment {
     fn rank(&self) -> u8 {
         match self {
             Moment::ClassQuestDone { .. } => 7,
-            Moment::Titled { .. } => 6,
+            Moment::Titled { .. } | Moment::FirstEpicMount { .. } => 6,
             Moment::Flavor { .. } => 0,
-            Moment::FirstKill { .. } | Moment::FirstInstance { .. } => 5,
+            Moment::FirstKill { .. }
+            | Moment::FirstInstance { .. }
+            | Moment::FirstMount { .. }
+            | Moment::FirstEpicItem { .. } => 5,
             Moment::SlainAgain { .. } => 4,
-            Moment::Slapped { .. } | Moment::QuestMarked { .. } => 3,
+            Moment::Slapped { .. } | Moment::QuestMarked { .. } | Moment::BigUpgrade { .. } => 3,
             Moment::LevelUp { .. } | Moment::FirstCapital { .. } => 2,
             Moment::NewZone { .. } => 1,
         }
@@ -183,17 +243,7 @@ fn moment(world: &World, you: EntityId, kind: &EventKind) -> Option<Moment> {
             name,
             linked_to: None,
             ..
-        } if name == DUNGEON || name == RAID => {
-            let kind = if name == RAID {
-                InstanceKind::Raid
-            } else {
-                InstanceKind::Dungeon
-            };
-            Some(Moment::FirstInstance {
-                zone: name_of(place)?,
-                kind,
-            })
-        }
+        } if name == DUNGEON || name == RAID => first_instance(world, *place, name),
         EventKind::FactStart {
             entity,
             name,
@@ -202,6 +252,12 @@ fn moment(world: &World, you: EntityId, kind: &EventKind) -> Option<Moment> {
         } if *entity == you && name == TITLE => Some(Moment::Titled {
             title: name_of(title)?,
         }),
+        EventKind::FactStart {
+            entity,
+            name,
+            linked_to: Some(thing),
+            ..
+        } if *entity == you && is_gear(name) => gear_moment(world, you, name, *thing),
         EventKind::FactStart {
             entity,
             name,
@@ -216,6 +272,49 @@ fn moment(world: &World, you: EntityId, kind: &EventKind) -> Option<Moment> {
         }
         _ => None,
     }
+}
+
+fn first_instance(world: &World, place: EntityId, fact: &str) -> Option<Moment> {
+    let kind = if fact == RAID {
+        InstanceKind::Raid
+    } else {
+        InstanceKind::Dungeon
+    };
+    let zone = world.entity(place)?.name.clone();
+    Some(Moment::FirstInstance { zone, kind })
+}
+
+/// The facts of a first mount, a first epic item, and a big upgrade.
+fn is_gear(fact: &str) -> bool {
+    [FIRST_MOUNT, FIRST_EPIC_MOUNT, FIRST_EPIC_ITEM, UPGRADED].contains(&fact)
+}
+
+fn gear_moment(world: &World, you: EntityId, fact: &str, thing: EntityId) -> Option<Moment> {
+    let name = &world.entity(thing)?.name;
+    if let Some(mount) = title_of_mount(name) {
+        let people = people_of(mount, race_of(world, you)).map(str::to_string);
+        let mount = mount.to_string();
+        return match fact {
+            FIRST_MOUNT => Some(Moment::FirstMount { mount, people }),
+            FIRST_EPIC_MOUNT => Some(Moment::FirstEpicMount { mount, people }),
+            _ => None,
+        };
+    }
+    let item = title_of_item(name)?.to_string();
+    let zone = zone_of(world, you);
+    match fact {
+        FIRST_EPIC_ITEM => Some(Moment::FirstEpicItem { item, zone }),
+        UPGRADED => Some(Moment::BigUpgrade { item, zone }),
+        _ => None,
+    }
+}
+
+fn race_of(world: &World, you: EntityId) -> Option<Race> {
+    world
+        .entity(you)?
+        .facts_named(RACE)
+        .filter_map(|fact| world.entity(fact.linked_to?))
+        .find_map(|race| Race::from_word(&race.name))
 }
 
 /// A plain level up has nothing to tell, so only every tenth level speaks.

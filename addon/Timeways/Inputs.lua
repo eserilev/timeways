@@ -105,6 +105,26 @@ function Inputs.QuestMarked(at, quest, mark)
 	return { type = "quest_marked", at = at, quest = quest, mark = mark }
 end
 
+-- `speed` is the run speed on the mount, in percent of a run on foot, or nil.
+function Inputs.MountRidden(at, mount, speed)
+	return { type = "mount_ridden", at = at, mount = mount, speed = speed }
+end
+
+-- `item` and `before` are { item, quality, level } from `Gear`. No `before` means that the
+-- slot held nothing since the login. JSON here has no booleans, so `was` is a word.
+function Inputs.ItemEquipped(at, slot, item, before)
+	return {
+		type = "item_equipped",
+		at = at,
+		slot = slot,
+		item = item.item,
+		quality = item.quality,
+		level = item.level,
+		replaced = before and before.level,
+		was = before and "worn" or "empty",
+	}
+end
+
 function Inputs.GameQuestDone(at, title, kind)
 	return { type = "game_quest_done", at = at, title = title, kind = kind }
 end

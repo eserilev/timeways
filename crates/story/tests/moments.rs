@@ -1,8 +1,10 @@
 use hourglass::Tick;
-use timeways_story::character::Character;
+use timeways_story::character::{Character, Item};
+use timeways_story::gear::Quality;
 use timeways_story::input::GameQuestKind;
 use timeways_story::moments::{Moment, best, moments};
 use timeways_story::places::InstanceKind;
+use timeways_story::race_class::{Class, Race};
 
 /// The moments of what `act` adds to the world of `character`.
 fn moments_of(character: &mut Character, act: impl FnOnce(&mut Character)) -> Vec<Moment> {
@@ -290,4 +292,160 @@ fn taking_a_class_quest_is_no_moment() {
     });
 
     assert!(taken.is_empty(), "{taken:?}");
+}
+
+fn item(name: &str, slot: u8, quality: Quality) -> Item<'_> {
+    Item {
+        name,
+        slot,
+        quality,
+    }
+}
+
+#[test]
+fn a_first_mount_is_a_moment_with_its_people_and_a_second_mount_is_not() {
+    let mut character = Character::new();
+    character
+        .describe(Tick(1), Race::Human, Class::Paladin)
+        .unwrap();
+
+    let first = moments_of(&mut character, |c| {
+        c.ride_mount(Tick(2), "Gray Ram", false).unwrap();
+    });
+    let second = moments_of(&mut character, |c| {
+        c.ride_mount(Tick(3), "Pinto", false).unwrap();
+    });
+
+    assert_eq!(
+        first,
+        [Moment::FirstMount {
+            mount: "Gray Ram".to_string(),
+            people: Some("Ironforge".to_string()),
+        }]
+    );
+    assert!(second.is_empty(), "{second:?}");
+}
+
+#[test]
+fn a_first_epic_mount_comes_once_and_outranks_a_first_kill() {
+    let mut character = Character::new();
+    character.ride_mount(Tick(1), "Pinto", false).unwrap();
+
+    let both = moments_of(&mut character, |c| {
+        c.ride_mount(Tick(2), "Swift Palomino", true).unwrap();
+        c.defeat_npc(Tick(2), "Hogger").unwrap();
+    });
+    let again = moments_of(&mut character, |c| {
+        c.ride_mount(Tick(3), "Swift White Steed", true).unwrap();
+    });
+
+    assert_eq!(
+        best(both),
+        Some(Moment::FirstEpicMount {
+            mount: "Swift Palomino".to_string(),
+            people: Some("Stormwind City".to_string()),
+        })
+    );
+    assert!(again.is_empty(), "{again:?}");
+}
+
+#[test]
+fn an_epic_mount_as_the_first_ride_is_both_firsts_and_tells_the_epic_one() {
+    let mut character = Character::new();
+
+    let moments = moments_of(&mut character, |c| {
+        c.ride_mount(Tick(1), "Felsteed", true).unwrap();
+    });
+
+    assert_eq!(moments.len(), 2);
+    assert!(matches!(best(moments), Some(Moment::FirstEpicMount { .. })));
+}
+
+#[test]
+fn a_first_epic_item_is_a_moment_with_its_zone_once() {
+    let mut character = Character::new();
+    character
+        .enter_zone(Tick(1), "Stranglethorn Vale", None)
+        .unwrap();
+
+    let first = moments_of(&mut character, |c| {
+        c.put_on(Tick(2), &item("Barman Shanker", 16, Quality::Epic), false)
+            .unwrap();
+    });
+    let second = moments_of(&mut character, |c| {
+        c.put_on(Tick(3), &item("Destiny", 16, Quality::Epic), false)
+            .unwrap();
+    });
+
+    assert_eq!(
+        first,
+        [Moment::FirstEpicItem {
+            item: "Barman Shanker".to_string(),
+            zone: Some("Stranglethorn Vale".to_string()),
+        }]
+    );
+    assert!(second.is_empty(), "{second:?}");
+}
+
+#[test]
+fn a_big_upgrade_counts_once_for_each_slot_and_quality() {
+    let mut character = Character::new();
+
+    let first = moments_of(&mut character, |c| {
+        c.put_on(Tick(1), &item("Cruel Barb", 16, Quality::Rare), true)
+            .unwrap();
+    });
+    let same_slot = moments_of(&mut character, |c| {
+        c.put_on(Tick(2), &item("Thief's Blade", 16, Quality::Rare), true)
+            .unwrap();
+    });
+    let other_slot = moments_of(&mut character, |c| {
+        c.put_on(
+            Tick(3),
+            &item("Robe of the Moccasin", 5, Quality::Rare),
+            true,
+        )
+        .unwrap();
+    });
+    let no_upgrade = moments_of(&mut character, |c| {
+        c.put_on(
+            Tick(4),
+            &item("Smite's Mighty Hammer", 15, Quality::Rare),
+            false,
+        )
+        .unwrap();
+    });
+
+    assert!(
+        matches!(first.as_slice(), [Moment::BigUpgrade { .. }]),
+        "{first:?}"
+    );
+    assert!(same_slot.is_empty(), "{same_slot:?}");
+    assert!(matches!(other_slot.as_slice(), [Moment::BigUpgrade { .. }]));
+    assert!(no_upgrade.is_empty());
+}
+
+#[test]
+fn an_epic_upgrade_tells_the_first_epic_item() {
+    let mut character = Character::new();
+
+    let moments = moments_of(&mut character, |c| {
+        c.put_on(Tick(1), &item("Barman Shanker", 16, Quality::Epic), true)
+            .unwrap();
+    });
+
+    assert_eq!(moments.len(), 2);
+    assert!(matches!(best(moments), Some(Moment::FirstEpicItem { .. })));
+}
+
+#[test]
+fn the_lore_of_an_item_is_about_the_item_then_its_zone() {
+    let moment = Moment::BigUpgrade {
+        item: "Cruel Barb".to_string(),
+        zone: Some("Westfall".to_string()),
+    };
+
+    assert_eq!(moment.subjects(), ["Cruel Barb", "Westfall"]);
+    assert_eq!(moment.outside_names(), ["Cruel Barb"]);
+    assert!(!moment.is_arrival());
 }

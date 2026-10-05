@@ -168,6 +168,13 @@ local function DeedTitle(deed)
 		return "Finished the class quest " .. Name(deed.title)
 	elseif deed.kind == "quest_marked" then
 		return Name(deed.mark) .. ", from " .. Name(deed.quest)
+	elseif deed.kind == "mounted" then
+		local first = deed.epic and "Rode your first epic mount, " or "Rode your first mount, "
+		return first .. Name(deed.mount)
+	elseif deed.kind == "epic_item" then
+		return "Equipped your first epic item, " .. Name(deed.item)
+	elseif deed.kind == "upgraded" then
+		return "Equipped " .. Name(deed.item) .. ", a big upgrade"
 	elseif deed.kind == "died" then
 		return deed.killer and ("Killed by " .. Name(deed.killer)) or "Died"
 	end

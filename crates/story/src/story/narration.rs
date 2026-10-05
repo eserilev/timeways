@@ -6,7 +6,7 @@ use crate::input::MessageId;
 use crate::line_check::{Checked, Grounds, LineFault, checked_line};
 use crate::moments::Moment;
 use crate::narrator::{self, Telling, Who};
-use crate::narrator_lore::lore_about;
+use crate::narrator_lore::lore_of_moment;
 use crate::prompt::{self, Attempt};
 use crate::store::{CharacterKey, Node, Outcome};
 
@@ -30,11 +30,9 @@ impl Story {
         moment: &Moment,
     ) -> Option<(String, NarratorCall)> {
         let active = self.active.as_ref()?;
-        let passage = moment.subject().and_then(|subject| {
-            lore_about(&self.pack, &active.seen_index, &active.character, subject)
-                .ok()
-                .flatten()
-        });
+        let passage = lore_of_moment(&self.pack, &active.seen_index, &active.character, moment)
+            .ok()
+            .flatten();
         let lore = passage
             .as_ref()
             .map(|passage| narrator::lore_excerpt(&passage.text));

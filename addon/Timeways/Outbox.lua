@@ -23,6 +23,8 @@ local BIG = {
 	npc_defeated = true,
 	game_quest_done = true,
 	instance_entered = true,
+	mount_ridden = true,
+	item_equipped = true,
 }
 
 local waiting = {}

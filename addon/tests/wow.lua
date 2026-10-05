@@ -1165,6 +1165,37 @@ C_Item = {
 	GetItemIconByID = function()
 		return 134400
 	end,
+	-- Nothing for an item that the fake game has no data on, as the real one at first.
+	GetItemInfo = function(link)
+		local name = type(link) == "string" and link:match("%[(.-)%]")
+		local item = name and wow.items[name]
+		if not item then
+			return nil
+		end
+		return name, link, item.quality, item.level
+	end,
 }
+
+-- The items of the fake game by name: { quality, level }. `wow.gear` holds the name of the
+-- item in each inventory slot.
+wow.items = {}
+wow.gear = {}
+
+function GetInventoryItemLink(unit, slot)
+	local name = unit == "player" and wow.gear[slot]
+	return name and ("|cffa335ee|Hitem:1::::::::60:::::|h[" .. name .. "]|h|r") or nil
+end
+
+wow.mounted = false
+-- In yards a second: 7 on foot, 11.2 on a mount of level 40, 14 on an epic one.
+wow.runSpeed = 7
+
+function IsMounted()
+	return wow.mounted
+end
+
+function GetUnitSpeed()
+	return 0, wow.runSpeed, wow.runSpeed, 4.72
+end
 
 return wow

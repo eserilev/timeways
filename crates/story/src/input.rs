@@ -114,6 +114,30 @@ pub enum Input {
         quest: String,
         mark: String,
     },
+    /// You rode a mount. The addon sends each mount once in a session. `speed` is the run
+    /// speed on it, in percent of a run on foot: 160 for a mount of level 40, 200 for an
+    /// epic one. None when the game hid it.
+    MountRidden {
+        at: Tick,
+        mount: String,
+        #[serde(default)]
+        speed: Option<u16>,
+    },
+    /// You put on an item of rare quality or better, in an inventory slot of the game (1 to
+    /// 19). `quality` is the number of the game: 3 rare, 4 epic. `replaced` is the item
+    /// level of what the slot held before, when the game told it.
+    ItemEquipped {
+        at: Tick,
+        slot: u8,
+        item: String,
+        quality: u8,
+        #[serde(default)]
+        level: Option<u16>,
+        #[serde(default)]
+        replaced: Option<u16>,
+        #[serde(default)]
+        was: SlotWas,
+    },
     /// You turned in a quest of the game.
     GameQuestDone {
         at: Tick,
@@ -251,6 +275,16 @@ pub enum Input {
     },
 }
 
+/// What an inventory slot held before an item. The JSON of the addon has no booleans.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SlotWas {
+    #[default]
+    Worn,
+    /// Nothing since the login.
+    Empty,
+}
+
 /// Can you attack the NPC? A hostile one is a foe to hunt, never someone to meet.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -348,6 +382,8 @@ impl Input {
             | Input::GameQuestAccepted { at, .. }
             | Input::GameQuestDone { at, .. }
             | Input::QuestMarked { at, .. }
+            | Input::MountRidden { at, .. }
+            | Input::ItemEquipped { at, .. }
             | Input::TalkAsked { at, .. }
             | Input::DraftAsked { at, .. }
             | Input::QuestAsked { at, .. }

@@ -86,6 +86,13 @@ globals:
     args: []
   InCombatLockdown:
     args: []
+  IsMounted:
+    args: []
+  GetUnitSpeed:
+    args:
+      - type: string
+  GetInventoryItemLink:
+    args: [{type: string}, {type: number}]
   C_QuestLog:
     any: true
   issecretvalue:
@@ -153,6 +160,13 @@ globals:
     args: []
   InCombatLockdown:
     args: []
+  IsMounted:
+    args: []
+  GetUnitSpeed:
+    args:
+      - type: string
+  GetInventoryItemLink:
+    args: [{type: string}, {type: number}]
   ReloadUI:
     args: []
   Screenshot:

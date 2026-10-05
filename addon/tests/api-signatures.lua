@@ -155,6 +155,33 @@ return {
 				{ Name = "icon", Type = "fileID", Nilable = true },
 			},
 		},
+		["C_Item.GetItemInfo"] = {
+			MayReturnNothing = true,
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "itemInfo", Type = "ItemInfo", Nilable = false },
+			},
+			Returns = {
+				{ Name = "itemName", Type = "cstring", Nilable = false },
+				{ Name = "itemLink", Type = "cstring", Nilable = false },
+				{ Name = "itemQuality", Type = "ItemQuality", Nilable = false },
+				{ Name = "itemLevel", Type = "number", Nilable = false },
+				{ Name = "itemMinLevel", Type = "number", Nilable = false },
+				{ Name = "itemType", Type = "cstring", Nilable = false },
+				{ Name = "itemSubType", Type = "cstring", Nilable = false },
+				{ Name = "itemStackCount", Type = "number", Nilable = false },
+				{ Name = "itemEquipLoc", Type = "cstring", Nilable = false },
+				{ Name = "itemTexture", Type = "fileID", Nilable = false },
+				{ Name = "sellPrice", Type = "number", Nilable = false },
+				{ Name = "classID", Type = "number", Nilable = false },
+				{ Name = "subclassID", Type = "number", Nilable = false },
+				{ Name = "bindType", Type = "number", Nilable = false },
+				{ Name = "expansionID", Type = "number", Nilable = false },
+				{ Name = "setID", Type = "number", Nilable = true },
+				{ Name = "isCraftingReagent", Type = "bool", Nilable = false },
+				{ Name = "itemDescription", Type = "cstring", Nilable = false },
+			},
+		},
 		["C_Item.GetStackCount"] = {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {
@@ -343,6 +370,19 @@ return {
 				{ Name = "time", Type = "number", Nilable = false },
 			},
 		},
+		GetUnitSpeed = {
+			SecretArguments = "AllowedWhenUntainted",
+			SecretWhenUnitStatsRestricted = true,
+			Arguments = {
+				{ Name = "unit", Type = "UnitToken", Nilable = false },
+			},
+			Returns = {
+				{ Name = "currentSpeed", Type = "number", Nilable = false },
+				{ Name = "runSpeed", Type = "number", Nilable = false },
+				{ Name = "flightSpeed", Type = "number", Nilable = false },
+				{ Name = "swimSpeed", Type = "number", Nilable = false },
+			},
+		},
 		IsControlKeyDown = {
 			Returns = {
 				{ Name = "down", Type = "bool", Nilable = false },
@@ -357,6 +397,11 @@ return {
 			Returns = {
 				{ Name = "isInInstance", Type = "bool", Nilable = false },
 				{ Name = "instanceType", Type = "cstring", Nilable = false },
+			},
+		},
+		IsMounted = {
+			Returns = {
+				{ Name = "result", Type = "bool", Nilable = false },
 			},
 		},
 		Screenshot = {},
@@ -1483,6 +1528,13 @@ return {
 				{ Name = "isReloadingUi", Type = "bool", Nilable = false },
 			},
 		},
+		PLAYER_EQUIPMENT_CHANGED = {
+			SynchronousEvent = true,
+			Payload = {
+				{ Name = "equipmentSlot", Type = "number", Nilable = false },
+				{ Name = "hasCurrent", Type = "bool", Nilable = false },
+			},
+		},
 		PLAYER_GUILD_UPDATE = {
 			SynchronousEvent = true,
 			Payload = {
@@ -1507,6 +1559,9 @@ return {
 			SynchronousEvent = true,
 		},
 		PLAYER_LOGOUT = {
+			SynchronousEvent = true,
+		},
+		PLAYER_MOUNT_DISPLAY_CHANGED = {
 			SynchronousEvent = true,
 		},
 		PLAYER_QUITING = {
@@ -1622,6 +1677,7 @@ return {
 		"CreateFrame",
 		"GetGreetingText",
 		"GetGuildRosterInfo",
+		"GetInventoryItemLink",
 		"GetNumGuildMembers",
 		"GetObjectiveText",
 		"GetPlayerTradeMoney",

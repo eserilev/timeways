@@ -318,6 +318,16 @@ pub fn deed_fact(deed: &Deed) -> String {
         Deed::QuestMarked { mark, quest, .. } => {
             format!("Gained the lasting effect \"{mark}\" during the quest \"{quest}\"")
         }
+        Deed::Mounted {
+            mount, epic: false, ..
+        } => format!("Rode a first mount, {mount}"),
+        Deed::Mounted {
+            mount, epic: true, ..
+        } => format!("Rode a first swift mount, {mount}"),
+        Deed::EpicItem { item, .. } => format!("Put on {item}, a first item of the finest kind"),
+        Deed::Upgraded { item, .. } => {
+            format!("Put on {item}, far better than the item it replaced")
+        }
         Deed::Died {
             killer: Some(killer),
             ..

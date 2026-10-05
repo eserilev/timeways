@@ -37,6 +37,8 @@ pub struct Grounds {
     pub naming: Naming,
     /// The race, the class, and the title of the hero: words for the hero past `$N`.
     pub hero_words: Vec<String>,
+    /// The names of a mount or an item, from the game (`Moment::outside_names`).
+    pub outside: Vec<String>,
 }
 
 impl Grounds {
@@ -51,13 +53,32 @@ impl Grounds {
             lore: telling.lore.map(str::to_string),
             hero_words: naming.hero_words(telling.who),
             naming,
+            outside: moment
+                .outside_names()
+                .into_iter()
+                .map(str::to_string)
+                .collect(),
         }
     }
 
-    /// Everything that the prompt told about the moment.
+    /// Everything that the prompt told about the moment, as the words that a line can
+    /// take. A name from outside is left out, unless the lore holds it too: an item called
+    /// "Destiny" allows no "destiny" in the line.
     fn text(&self) -> String {
-        let mut parts = vec![self.moment.as_str()];
-        parts.extend(self.names.iter().map(String::as_str));
+        let lore = self.lore.as_deref().unwrap_or_default();
+        let untrusted: Vec<&str> = self
+            .outside
+            .iter()
+            .map(String::as_str)
+            .filter(|name| !mentions(lore, name))
+            .collect();
+        let mut moment = self.moment.clone();
+        for name in &untrusted {
+            moment = moment.replace(name, " ");
+        }
+        let mut parts = vec![moment.as_str()];
+        let names = self.names.iter().map(String::as_str);
+        parts.extend(names.filter(|name| !untrusted.contains(name)));
         parts.extend(self.lore.as_deref());
         parts.join("\n")
     }

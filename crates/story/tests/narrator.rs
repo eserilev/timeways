@@ -348,3 +348,41 @@ fn no_moment_says_for_the_first_time() {
         assert!(!what_happened(moment).contains("first time"), "{moment:?}");
     }
 }
+
+#[test]
+fn a_mount_or_item_moment_never_says_epic() {
+    let mount = Moment::FirstEpicMount {
+        mount: "Swift Gray Ram".to_string(),
+        people: Some("Ironforge".to_string()),
+    };
+    let item = Moment::FirstEpicItem {
+        item: "Barman Shanker".to_string(),
+        zone: None,
+    };
+
+    for moment in [&mount, &item] {
+        let told = timeways_story::narrator::what_happened(moment);
+        assert!(!told.to_lowercase().contains("epic"), "{told}");
+        assert!(!moment.is_arrival());
+    }
+    assert!(timeways_story::narrator::what_happened(&mount).contains("Swift Gray Ram"));
+    assert_eq!(mount.subject(), Some("Ironforge"));
+}
+
+#[test]
+fn a_level_moment_takes_the_lore_of_its_zone_and_tells_the_deed_in_few_words() {
+    let moment = Moment::LevelUp {
+        level: 10,
+        zone: Some("Elwynn Forest".to_string()),
+    };
+    let lore = "Elwynn Forest lies south of Stormwind.";
+
+    let prompt = prompt_of(&moment, Some(lore), &Who::default(), 0);
+
+    assert_eq!(moment.subject(), Some("Elwynn Forest"));
+    assert!(prompt.contains(lore), "{prompt}");
+    assert!(
+        prompt.contains("tell what the hero did, in few words"),
+        "{prompt}"
+    );
+}
