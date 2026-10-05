@@ -7,6 +7,7 @@ import Timeways.TrustBand
 import Timeways.Prompts
 import Timeways.Aliases
 import Timeways.StoryShelf
+import Timeways.EntryEdits
 
 open timeways_rules
 
@@ -133,3 +134,35 @@ open timeways_rules
 /-- info: 'timeways_rules.story_shelf.a_used_story_always_stands' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs (whitespace := lax) in
 #print axioms story_shelf.a_used_story_always_stands
+
+/-- info: 'timeways_rules.entry_edits.newest_row.spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms entry_edits.newest_row.spec
+
+/-- info: 'timeways_rules.entry_edits.newest_edit.spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms entry_edits.newest_edit.spec
+
+/-- info: 'timeways_rules.entry_edits.shown.spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms entry_edits.shown.spec
+
+/-- info: 'timeways_rules.entry_edits.pickEdit_tie' depends on axioms: [propext] -/
+#guard_msgs (whitespace := lax) in
+#print axioms entry_edits.pickEdit_tie
+
+/-- info: 'timeways_rules.entry_edits.the_newest_edit_decides' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms entry_edits.the_newest_edit_decides
+
+/-- info: 'timeways_rules.entry_edits.a_restore_shows_the_newest_narrator_text' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms entry_edits.a_restore_shows_the_newest_narrator_text
+
+/-- info: 'timeways_rules.entry_edits.a_restore_shows_a_later_narrator_text' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms entry_edits.a_restore_shows_a_later_narrator_text
+
+/-- info: 'timeways_rules.entry_edits.a_model_text_never_hides_player_words' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms entry_edits.a_model_text_never_hides_player_words

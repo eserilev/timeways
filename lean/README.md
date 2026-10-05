@@ -4,7 +4,8 @@ Aeneas translates the crate `timeways-rules` (`crates/rules`) into pure
 Lean functions. The theorems in `Timeways/QuestLog.lean`,
 `Timeways/HeroHook.lean`, `Timeways/Budget.lean`,
 `Timeways/TrustBand.lean`, `Timeways/Prompts.lean`,
-`Timeways/Aliases.lean`, and `Timeways/StoryShelf.lean` are about those
+`Timeways/Aliases.lean`, `Timeways/StoryShelf.lean`, and
+`Timeways/EntryEdits.lean` are about those
 functions. A theorem holds for every input, with no bound. The
 property tests in `crates/story/tests/properties.rs` check the same
 rules on random input, and they stay as a second check.
@@ -160,6 +161,30 @@ The glue in `crates/story/src/stories.rs` turns each row into a
 `ShelfLine`, and asks the database which stories an accepted call read.
 No proof reads the glue. The property test checks it, with numbers at
 the edges of a `u64` and numbers that come again.
+
+## What is proved: the player edits
+
+A player can change what a chapter, a tale, or the summary says
+(`docs/plans/chapters.md` 11). `shown` gives the rows that an entry
+shows: the edit whose title shows, the narrator row whose text shows,
+and the edit whose paragraphs show. It reads row ids and the kind of
+each edit, never a string. `shownM` is its pure model: the newest
+narrator row and the newest edit decide. The newest row is the one with
+the largest id. Of two edits with the same id, the later one in the
+list wins (`pickEdit_tie`).
+
+| Theorem | The law | Test |
+|---|---|---|
+| `newest_row.spec`, `newest_edit.spec`, `shown.spec` | The functions never panic, always end, and give their pure model. | the unit tests of `entry_edits.rs` |
+| `the_newest_edit_decides` | `shown` of the whole lists equals `shown` of only the newest narrator row and the newest edit. | `the_newest_edit_by_row_stands_in_any_order` |
+| `a_restore_shows_the_newest_narrator_text` | After a restore, the entry shows the newest narrator row, the title of the code, and no words of the player. | `restore_shows_the_newest_narrator_text` |
+| `a_restore_shows_a_later_narrator_text` | After a restore, a narrator row newer than all others shows, also one that came after the edit. | the same |
+| `a_model_text_never_hides_player_words` | One more narrator row never changes the shown title or the shown player row. Under `Replace`, it changes nothing. | `a_saga_after_a_note_on_the_open_chapter_shows_above_it`, `a_saga_after_a_replace_does_not_show` |
+
+The ids of narrator rows and of edit rows come from two tables, so the
+laws never compare them. Theorem 21 holds for any new narrator row, not
+only a newer one: the title and the player row never read the narrator
+rows.
 
 ## What you trust
 
