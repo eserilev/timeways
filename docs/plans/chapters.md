@@ -1,6 +1,6 @@
 # Plan: chapters and tales of the Chronicle
 
-Status: spec only, 2026-10-05. Nothing is built. The long first draft is in git history (`6e8b857`). This version adds tales and cuts the text. A review fixed it after `778226b` (section 15).
+Status: built, 2026-10-05, in the order of section 14. Section 16.3 lists what the build changed, and what is not built. The long first draft is in git history (`6e8b857`). A review fixed it after `778226b` (section 15).
 
 ## 1. Goal
 
@@ -206,7 +206,7 @@ The fold lives in `crates/rules/src/chapters.rs`, in loop style: index loops, `p
 Notes:
 
 - Theorem 16 alone says it all. "Never more than a death to an unbeaten foe" follows, because nothing gains less than 0.
-- 10, 11, and 12 need `Reachable`. A state built by hand can hold a pending close.
+- 10, 11, and 12 hold from any fold (16.2): a close needs a gain or a rule step, so no pending close can fire on a step with no gain.
 - The weights of a chapter are `u16`, and theorem 8 bounds them. The weight of a tale is a `u32` with `saturating_add`: a damaged log can hold many quests inside one instance.
 - Determinism needs no theorem. `cutsOf` is a function, so the same log always gives the same entries.
 - The walk reads Hourglass, so Lean does not see it. Its laws are property tests: "the steps of a prefix are a prefix of the steps", and "the ids are dense, in order of first use".
@@ -413,3 +413,23 @@ Theorems 1 to 19 are proved in `lean/Timeways/Chapters.lean`, about a pure model
 - **Theorems 5, 7, 10, 11, 14, and 16** hold from any fold, so they need no `Reachable`. Theorem 5 needs room for one more closed visit, as every fold of a log has.
 - **Theorem 19** needs room: no vector of the fold that a step grows is longer than its steps, and the steps fit a `usize`. A fold of one log from the start always has it.
 - **Theorem 2** names the visit by its tale index: the tale at that index has the instance of the step.
+
+### 16.3 Review of the build
+
+What the build changed from the text above, and why:
+
+- **A zone gets its record at its first step** (`note_zone`), with weight or not. The walk gives dense zone ids at every step, so a zone that only gave a flight still takes its id. Without this, the next zone settled under a wrong id and made no break. A unit test and the property tests check it.
+- **A move is a step of the place where you go.** The game writes the events of a move (the new place, the visit, the move itself) before you stand there. So the walk puts each such event in its new place. Else a step out of an instance, 30 minutes later, opened a run of the instance that you left.
+- **The founding of the character is in no chapter.** It is no play.
+- **A chapter names the zones where it gained weight**, not the zones of its first visits. So a flight over a zone names no place of the chapter, and the chapter after it names its own zone.
+- **A tale and a zone history use the samples of a chapter.** The user approved those. Samples of their own wait for the user.
+- **A rank and a level at the first login weigh nothing.** The addon sends rank 0 at login, so the first rank that you earn counts.
+- **A flight marks no place as visited.** With `"taxi": "yes"`, the story program moves you, and the visit waits until you come on foot.
+- **An edit can change the title alone:** a narrator text with a title.
+- **A bug found in the addon:** an empty Lua table goes out as a JSON object, so a restore with `"paragraphs": {}` broke the line. A restore now sends no paragraphs.
+
+Not built:
+
+- **The filter of the contents by kind** (section 6). The contents mark each tale with its kind.
+- **The Knowledge atlas.** The journal carries "Your history here" of each zone (`histories`), and nothing shows it yet. The atlas page of an instance shows its tale there, once the atlas exists.
+- **Narrator lines** for a battleground won and a new rank.

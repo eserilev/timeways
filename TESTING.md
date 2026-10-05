@@ -271,6 +271,15 @@ These lines use calls of the game that no test can check. Each step answers an o
 5. Take a flight path. Run `sqlite3 c_<name>.sqlite "SELECT body FROM inputs WHERE kind = 'zone_entered' ORDER BY position DESC LIMIT 3"`. The rows of the flight hold `"taxi":"yes"`.
 6. Kill a world boss, if you can. Its `npc_defeated` row holds `"kind":"worldboss"`.
 
+### 25. Your own words in the Chronicle
+
+1. Open a chapter that is over, and click Edit. A box opens with the title and the story. Add a line at the end, and click Save. The page says "Saving...", then shows the story and your line under it. The contents say "Edited".
+2. Click Edit again, and change the story itself. Save. Only your words show.
+3. Click Restore, and confirm. The narrator's story shows again, with no line of yours.
+4. Write a note on the open chapter. When the chapter ends and its story comes, the story shows above your note.
+5. On the title page, click Edit, write one paragraph, and Save. Turn on sharing in the Roleplay Profile. A friend with Total RP 3 sees your paragraph as your History.
+6. Type a very long text, or a `|`, and click Save. The text stays in the box with the reason under it.
+
 ## What to send back
 
 - Each Lua error, as text.
@@ -289,6 +298,7 @@ These lines use calls of the game that no test can check. Each step answers an o
 - For test 20: the draft, and the output of the two `sqlite3` commands.
 - For test 23: a screenshot of the contents, of a chapter page, and of a tale page.
 - For test 24: the answer to each step.
+- For test 25: a screenshot of a chapter with your note, and of the History that your friend sees.
 
 ## After the test
 

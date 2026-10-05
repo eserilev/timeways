@@ -74,6 +74,7 @@ TaskNames.lua
 TaskDraftHelp.lua
 TaskPages.lua
 JournalRows.lua
+JournalEdits.lua
 JournalChronicle.lua
 JournalQuests.lua
 JournalStories.lua

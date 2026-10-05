@@ -79,6 +79,21 @@ function Inputs.Defeated(at, name, kind)
 	return { type = "npc_defeated", at = at, name = name, kind = kind }
 end
 
+-- The player's own words for a chapter, a tale, or the summary (docs/plans/chapters.md 11).
+-- `entry` is { kind, first }. `text` is "keep", "replace", or "narrator". Each name of a
+-- player is marked: "{Ada}". An empty table of Lua goes out as a JSON object, so a restore
+-- sends no paragraphs at all.
+function Inputs.EntryEdited(at, entry, title, text, paragraphs)
+	return {
+		type = "entry_edited",
+		at = at,
+		entry = { kind = entry.kind, first = entry.first },
+		title = title,
+		text = text,
+		paragraphs = #paragraphs > 0 and paragraphs or nil,
+	}
+end
+
 -- You won a battle in this battleground.
 function Inputs.BgWon(at, zone)
 	return { type = "bg_won", at = at, zone = zone }

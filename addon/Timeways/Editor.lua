@@ -1,5 +1,5 @@
--- The writing page of the book: a title, a hint, and a box of several lines on the
--- parchment, with Save and Cancel under it.
+-- The writing page of the book: a title, a hint or a box for a heading, and a box of
+-- several lines on the parchment, with Save and Cancel under it.
 
 local _, ns = ...
 
@@ -16,7 +16,7 @@ local BUTTON_WIDTH, BUTTON_HEIGHT = 78, 22
 -- Room on the right for the scroll bar of the template.
 local SCROLL_BAR = 22
 
-local view, title, hint, scroll, box, count
+local view, title, hint, heading, scroll, box, count
 local request, closed
 
 -- Two anchors give the width of the pane, less the insets.
@@ -108,25 +108,42 @@ local function BuildBox()
 	count:SetPoint("TOPRIGHT", view, "TOPRIGHT", -(INSET - 6), BOX_TOP - BOX_HEIGHT - 6)
 end
 
+-- One line for a heading that the player can change, in place of the hint.
+local function BuildHeading()
+	heading = CreateFrame("EditBox", nil, view, "InputBoxTemplate")
+	heading:SetPoint("TOPLEFT", view, "TOPLEFT", INSET + 6, HINT_TOP + 4)
+	heading:SetPoint("TOPRIGHT", view, "TOPRIGHT", -INSET, HINT_TOP + 4)
+	heading:SetHeight(BUTTON_HEIGHT)
+	heading:SetAutoFocus(false)
+	heading:SetFontObject("QuestFont")
+	heading:SetScript("OnEnterPressed", function()
+		box:SetFocus()
+	end)
+	heading:SetScript("OnEscapePressed", Editor.Cancel)
+end
+
 local function Build(parent)
 	view = CreateFrame("Frame", nil, parent)
 	view:SetAllPoints(parent)
 	title = Label("QuestTitleFont", ns.Ink.title, TITLE_TOP)
 	hint = Label("QuestFont", ns.Ink.faded, HINT_TOP)
 	BuildBox()
+	BuildHeading()
 	Button("Save", "BOTTOMLEFT", INSET, Editor.Save)
 	Button("Cancel", "BOTTOMRIGHT", -INSET, Editor.Cancel)
 end
 
 local function Close()
 	box:ClearFocus()
+	heading:ClearFocus()
 	view:Hide()
 	closed()
 end
 
--- `edit` is { title, hint, text, limit, save = function(text) }, and optionally
--- `problem = function(text)`, which gives the reason that the text can't be saved, or nil,
--- and `bytes`, the limit of the text in bytes.
+-- `edit` is { title, hint, text, limit, save = function(text, heading) }, and optionally
+-- `problem = function(text, heading)`, which gives the reason that the text can't be saved,
+-- or nil, `bytes`, the limit of the text in bytes, and `heading` = { text, letters }, a
+-- heading that the player can change in place of the hint.
 -- `onClose` runs when the player saves or cancels.
 function Editor.Open(parent, edit, onClose)
 	if not view then
@@ -135,6 +152,12 @@ function Editor.Open(parent, edit, onClose)
 	request, closed = edit, onClose
 	title:SetText(edit.title)
 	hint:SetText(edit.hint)
+	hint:SetShown(edit.heading == nil)
+	heading:SetShown(edit.heading ~= nil)
+	if edit.heading then
+		heading:SetMaxLetters(edit.heading.letters)
+		heading:SetText(edit.heading.text or "")
+	end
 	box:SetMaxLetters(edit.limit)
 	box:SetText(edit.text or "")
 	scroll:SetVerticalScroll(0)
@@ -147,14 +170,15 @@ end
 -- the ink of the text, so it does not read like the faded count.
 function Editor.Save()
 	local text = box:GetText()
-	local problem = request.problem and request.problem(text)
+	local typed = request.heading and heading:GetText() or nil
+	local problem = request.problem and request.problem(text, typed)
 	if problem then
 		SetCountInk(ns.Ink.text)
 		count:SetText(problem)
 		return
 	end
 	Close()
-	request.save(text)
+	request.save(text, typed)
 end
 
 function Editor.Cancel()

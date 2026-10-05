@@ -91,10 +91,16 @@ function MspProfile.IsSharing()
 	return Data().share and not MspProfile.Owner()
 end
 
+-- Your own summary of the Chronicle, when you wrote one, goes out as the History in place
+-- of Background (docs/plans/chapters.md 11).
 local function CopySheet()
 	local fields = {}
 	for field, code in pairs(MspProfile.CODES) do
 		fields[code] = Shareable(sheet[field])
+	end
+	local summary = ns.JournalEdits.SharedSummary()
+	if summary then
+		fields.HI = Shareable(summary)
 	end
 	Data().fields = fields
 end

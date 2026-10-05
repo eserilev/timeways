@@ -211,9 +211,11 @@ local function StoryPage(hero, texts, unsaved)
 	local cards = Tabs("story")
 	cards.rows[1] = { kind = "line", text = JournalHero.USAGE, ink = "faded" }
 	local shared = ns.MspProfile.IsSharing()
+	local summary = ns.JournalEdits.SharedSummary()
 	for _, field in ipairs(ns.Hero.FIELDS) do
 		local card = Card(field, texts, unsaved, "Answer")
-		card.tag = shared and SHARED_AS[field] and "Shared" or nil
+		local history = field == "background" and summary
+		card.tag = shared and SHARED_AS[field] and not history and "Shared" or nil
 		cards.rows[#cards.rows + 1] = card
 	end
 	return {
@@ -261,15 +263,21 @@ local function AlsoShared(texts)
 			action = { label = "Edit in Your Story", run = OpenTab("story") },
 		},
 	}
+	local summary = ns.JournalEdits.SharedSummary()
 	for _, field in ipairs({ "origin", "background" }) do
 		local text = texts[field]
-		rows[#rows + 1] = {
+		local row = {
 			kind = "linked",
 			label = ns.Hero.LABELS[field],
 			text = text and ns.Plain(text) or "Not answered yet",
 			empty = text == nil,
 			note = "as " .. SHARED_AS[field],
 		}
+		-- Your own summary of the Chronicle goes out as the History in place of Background.
+		if field == "background" and summary then
+			row.label, row.text, row.empty = "Your summary", summary, false
+		end
+		rows[#rows + 1] = row
 	end
 	return rows
 end
@@ -288,6 +296,9 @@ local function TooltipLevel()
 end
 
 local function Shown(texts, field)
+	if field == "background" and ns.JournalEdits.SharedSummary() then
+		return ns.JournalEdits.SharedSummary()
+	end
 	return texts[field] and ns.Plain(texts[field])
 end
 
@@ -316,7 +327,7 @@ local function Preview(texts)
 		end
 	end
 	for _, part in ipairs({ { "appearance", "Description" }, { "background", "History" } }) do
-		if texts[part[1]] then
+		if Shown(texts, part[1]) then
 			lines[#lines + 1] = Line("section", part[2])
 			local cut = Line("prose", Shown(texts, part[1]))
 			cut.maxLines = 3

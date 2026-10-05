@@ -20,7 +20,7 @@ Journal.TITLES = {
 
 -- The lists that come in pages, with the sheet and the entries of the hero.
 -- Places and people have no page: the map and the tooltips read them.
-local LISTS = { "chapters", "tales", "places", "people", "deeds", "learned", "quests", "stories" }
+local LISTS = { "chapters", "tales", "edits", "places", "people", "deeds", "learned", "quests", "stories" }
 
 -- A reply holds at most 24 KB, so a long journal comes in pages. More than this many
 -- pages means a broken reply, not a long journal.
@@ -50,8 +50,17 @@ function Journal.Request(page)
 end
 
 local function Started()
-	local journal =
-		{ chapters = {}, tales = {}, places = {}, people = {}, deeds = {}, learned = {}, quests = {}, stories = {} }
+	local journal = {
+		chapters = {},
+		tales = {},
+		edits = {},
+		places = {},
+		people = {},
+		deeds = {},
+		learned = {},
+		quests = {},
+		stories = {},
+	}
 	journal.next = 0
 	journal.hero = { sheet = {}, entries = {} }
 	return journal
@@ -95,6 +104,7 @@ function Journal.Receive(value)
 		collecting.talk_quest = value.talk_quest
 		collecting.summary = value.summary
 		ns.Hero.ShowRefused(value.hero_refused)
+		ns.Hero.ShowRefused(value.edit_refused)
 	end
 	if not collecting or page ~= collecting.next then
 		return
@@ -106,6 +116,7 @@ function Journal.Receive(value)
 		return
 	end
 	pages, collecting = collecting, nil
+	ns.JournalEdits.JournalCame()
 	ns.Hero.JournalCame()
 	ns.MspProfile.JournalCame(pages.hero.sheet)
 	ns.Quest.JournalCame()

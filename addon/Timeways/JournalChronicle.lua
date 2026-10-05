@@ -158,10 +158,14 @@ local function Rest(lines, entry, others)
 	end
 end
 
--- The story of the narrator, then its notes.
-local function Story(lines, prose, footnotes)
+-- The story of the narrator, then the player's own paragraphs, then the notes. The desktop
+-- leaves out the narrator's story when the player's text stands in its place.
+local function Story(lines, prose, footnotes, edit)
 	if type(prose) == "string" then
 		lines[#lines + 1] = Line("prose", ns.WithName(prose))
+	end
+	for _, paragraph in ipairs(ns.JournalEdits.Paragraphs(edit)) do
+		lines[#lines + 1] = Line("prose", paragraph)
 	end
 	for _, footnote in ipairs(List(footnotes)) do
 		if type(footnote) == "string" then
@@ -170,12 +174,19 @@ local function Story(lines, prose, footnotes)
 	end
 end
 
+-- While an edit of the page is on its way.
+local function Saving(lines, entry)
+	if ns.JournalEdits.IsSaving(entry) then
+		lines[#lines + 1] = Line("help", ns.JournalRows.SAVING)
+	end
+end
+
 -- "Chapter 8", the title, the dates and levels, the story, the notes, and "In this
 -- chapter": one line for each kind, in the order places, people, defeated, quests, deaths,
 -- stories.
-function JournalChronicle.ChapterLines(chapter, stories)
+function JournalChronicle.ChapterLines(chapter, stories, edit)
 	local lines = {}
-	local title = Title(chapter) or Place(chapter)
+	local title = ns.JournalEdits.Title(edit) or Title(chapter) or Place(chapter)
 	if title then
 		lines[#lines + 1] = Line("note", "Chapter " .. Number(chapter))
 	end
@@ -184,7 +195,8 @@ function JournalChronicle.ChapterLines(chapter, stories)
 	if IsOpen(chapter) then
 		lines[#lines + 1] = Line("help", "This chapter isn't over yet. Its story comes when the next one starts.")
 	end
-	Story(lines, chapter.prose, chapter.footnotes)
+	Saving(lines, ns.JournalEdits.Chapter(chapter.first))
+	Story(lines, chapter.prose, chapter.footnotes, edit)
 	local sorted = Sorted(Entries(chapter.deeds))
 	local list = {}
 	Row(list, "Places", List(chapter.zones))
@@ -205,14 +217,15 @@ end
 
 -- "Dungeon", the instance, the day of the first run and the count of runs, the story, and
 -- what happened inside.
-function JournalChronicle.TaleLines(tale)
+function JournalChronicle.TaleLines(tale, edit)
 	local kind = KindOf(tale)
 	local lines = {
 		Line("note", kind),
-		Line("heading", Name(tale.instance)),
+		Line("heading", ns.JournalEdits.Title(edit) or Name(tale.instance)),
 		Line("text", Day(tale.began) .. " · " .. Runs(tale) .. "."),
 	}
-	Story(lines, tale.text, nil)
+	Saving(lines, ns.JournalEdits.Tale(tale.first))
+	Story(lines, tale.text, nil, edit)
 	local sorted = Sorted(Entries(tale.deeds))
 	local list = {}
 	Row(list, "Defeated", sorted.defeated)
@@ -237,16 +250,16 @@ end
 
 -- The summary that a model writes when a chapter ends. With no model, the page holds the
 -- header alone.
-local function TitleLines(journal, chapterEnded)
+local function TitleLines(journal, chapterEnded, edit)
 	local lines = {
 		Line("heading", UnitName("player") or "?"),
 		Line("text", LevelLine()),
 	}
-	if type(journal.summary) == "string" then
-		lines[#lines + 1] = Line("prose", ns.WithName(journal.summary))
-	elseif not chapterEnded then
+	Saving(lines, ns.JournalEdits.SUMMARY)
+	if type(journal.summary) ~= "string" and not edit and not chapterEnded then
 		lines[#lines + 1] = Line("help", "Fills in when your first chapter ends.")
 	end
+	Story(lines, journal.summary, nil, edit)
 	return lines
 end
 
@@ -311,21 +324,39 @@ end
 
 -- The pages in the order of the book: the title page, then each chapter and its tales.
 -- Each page is { key, item, chapter or tale }.
+-- A small "Edited" after the detail of a row that the player changed.
+local function Edited(detail, edit)
+	return edit and (detail .. " · Edited") or detail
+end
+
+local function TalePage(journal, tale, number)
+	local key = TaleKey(tale)
+	local edit = ns.JournalEdits.Of(journal, ns.JournalEdits.Tale(tale.first))
+	local title = ns.JournalEdits.Title(edit) or Name(tale.instance)
+	local item = Item(key, title, Edited(KindOf(tale) .. " · " .. Runs(tale), edit))
+	return { key = key, item = item, tale = tale, number = number, edit = edit }
+end
+
+local function ChapterPage(journal, chapter, n, own)
+	local edit = ns.JournalEdits.Of(journal, ns.JournalEdits.Chapter(chapter.first))
+	local title = ns.JournalEdits.Title(edit) or Title(chapter) or Place(chapter)
+	local text = "Chapter " .. Number(chapter) .. (title and (": " .. title) or "")
+	local detail = Edited(IsOpen(chapter) and (Dates(chapter) .. " · now") or Dates(chapter), edit)
+	local key = ChapterKey(chapter, n)
+	return { key = key, item = Item(key, text, detail, Mark(chapter, own)), chapter = chapter, edit = edit }
+end
+
 local function BookPages(journal)
 	local chapters = Entries(journal.chapters)
 	local tales = TalesByChapter(Entries(journal.tales))
-	local pages = { { key = TITLE_PAGE, item = Item(TITLE_PAGE, UnitName("player") or "?", "Who you've become") } }
+	local summaryEdit = ns.JournalEdits.Of(journal, ns.JournalEdits.SUMMARY)
+	local title = Item(TITLE_PAGE, UnitName("player") or "?", Edited("Who you've become", summaryEdit))
+	local pages = { { key = TITLE_PAGE, item = title, edit = summaryEdit } }
 	for n, chapter in ipairs(chapters) do
 		local own = tales[chapter.first] or {}
-		local title = Title(chapter) or Place(chapter)
-		local text = "Chapter " .. Number(chapter) .. (title and (": " .. title) or "")
-		local detail = IsOpen(chapter) and (Dates(chapter) .. " · now") or Dates(chapter)
-		local key = ChapterKey(chapter, n)
-		pages[#pages + 1] = { key = key, item = Item(key, text, detail, Mark(chapter, own)), chapter = chapter }
+		pages[#pages + 1] = ChapterPage(journal, chapter, n, own)
 		for _, tale in ipairs(own) do
-			local taleKey = TaleKey(tale)
-			local item = Item(taleKey, Name(tale.instance), KindOf(tale) .. " · " .. Runs(tale))
-			pages[#pages + 1] = { key = taleKey, item = item, tale = tale, number = Number(chapter) }
+			pages[#pages + 1] = TalePage(journal, tale, Number(chapter))
 		end
 	end
 	return pages
@@ -393,6 +424,27 @@ local function NewestChapter(pages)
 	return 1
 end
 
+-- The Edit button of a page opens the box with what the page shows.
+local function EditOf(journal, page)
+	return function()
+		if page.chapter then
+			local chapter = page.chapter
+			local prose = type(chapter.prose) == "string" and ns.WithName(chapter.prose) or nil
+			local entry = ns.JournalEdits.Chapter(chapter.first)
+			local label = "Chapter " .. Number(chapter)
+			ns.JournalEdits.Open(entry, label, prose, page.edit, Title(chapter) or Place(chapter))
+		elseif page.tale then
+			local tale = page.tale
+			local prose = type(tale.text) == "string" and ns.WithName(tale.text) or nil
+			local entry = ns.JournalEdits.Tale(tale.first)
+			ns.JournalEdits.Open(entry, Name(tale.instance), prose, page.edit, Name(tale.instance))
+		else
+			local prose = type(journal.summary) == "string" and ns.WithName(journal.summary) or nil
+			ns.JournalEdits.Open(ns.JournalEdits.SUMMARY, "Who you've become", prose, page.edit, nil)
+		end
+	end
+end
+
 function JournalChronicle.Page(journal)
 	local pages = BookPages(journal)
 	local items = {}
@@ -402,20 +454,24 @@ function JournalChronicle.Page(journal)
 	local keys = Keys(items)
 	local index = ns.JournalRows.OpenIndex(keys, ns.Journal.Selected("chapters"), NewestChapter(pages))
 	local open = pages[index]
-	local result = { list = Contents(pages), buttons = Steps(keys, index), side = "map", selected = keys[index] }
+	local result = { list = Contents(pages), side = "map", selected = keys[index] }
 	local count = ChapterCount(journal)
 	if open.chapter then
-		result.lines = JournalChronicle.ChapterLines(open.chapter, journal.stories)
+		result.lines = JournalChronicle.ChapterLines(open.chapter, journal.stories, open.edit)
 		result.footer = string.format("Chapter %s of %d", tostring(Number(open.chapter)), count)
 		result.crumb = "Chapter " .. Number(open.chapter)
 		result.zone = Place(open.chapter)
 	elseif open.tale then
-		result.lines = JournalChronicle.TaleLines(open.tale)
+		result.lines = JournalChronicle.TaleLines(open.tale, open.edit)
 		result.footer = "After chapter " .. open.number
 		result.crumb = Name(open.tale.instance)
 		result.zone = Name(open.tale.instance)
 	else
-		result.lines = TitleLines(journal, AnyClosed(journal))
+		result.lines = TitleLines(journal, AnyClosed(journal), open.edit)
+	end
+	result.buttons = ns.JournalEdits.Buttons(EditOf(journal, open), open.edit)
+	for _, step in ipairs(Steps(keys, index)) do
+		result.buttons[#result.buttons + 1] = step
 	end
 	return result
 end
