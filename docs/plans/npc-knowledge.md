@@ -504,7 +504,7 @@ The answer of the rule rests on rows of the world, so the talk call reads them. 
 | An NPC that walks to another zone | Its home follows its newest place (`place_of`), as standing does. |
 | A zone that is not in `zones.toml` | No continent. Only Home counts: every other place is World. |
 | A passage about two places | The nearest place decides (6.4). |
-| A pack of format 1 | It reads with no scope: no history mark, no faction affairs. Books then count as common, so every NPC knows them. The next build of the pack fixes it. |
+| A pack of format 2 | It reads with no scope: no history mark, no faction affairs. Books then count as common, so every NPC knows them. The next build of the pack fixes it. |
 | The player names a far place in the question | The words still search the pack. The NPC gets what its rule allows. The model gets the rule to say "I don't know". |
 | The model knows the place from its training | The prompt rule and the sample are the only guard in this plan. A check of the answer is open question 2. |
 | A later turn of a conversation (talk-window.md) | Each turn calls the same filter. The rule is the same for each turn, so the NPC never knows more in turn 5 than in turn 1. |
@@ -528,8 +528,8 @@ pub struct Scope {
 - `Passage` gets `#[serde(skip)] pub scope: Scope`.
 - The scope is in the table `link`, as two new kinds: `faction` (with the name `alliance` or `horde`) and `history` (with an empty name). The reader puts them in `scope`, never in `links`.
 - **Why not in `links`.** A link gates the spoiler limit, and `Pack::write` refuses a passage with no link. A scope row is not a gate. A passage with only a scope must still be refused, or it leaks.
-- `FORMAT_VERSION` goes to 2. The writer writes 2. The reader takes 1 and 2 (`READABLE_VERSIONS`). Format 1 is a known older format, not a guess, so the rule "never guessed at" holds. A pack of format 1 has no scope rows.
-- **Why read format 1.** `lore_start::open_lore` fails the start of the program when `Pack::open` fails. A player with a pack of format 1 and a new story program then has no Timeways until the desktop builds a new pack. Reading format 1 avoids that.
+- `FORMAT_VERSION` goes to 3: format 2 is taken by `about`, the subject of a page (GAMEPLAY.md 5.10, 2026-10-05). The writer writes 3. The reader takes 2 and 3 (`READABLE_VERSIONS`). Format 2 is a known older format, not a guess, so the rule "never guessed at" holds. A pack of format 2 has no scope rows.
+- **Why read format 2.** `lore_start::open_lore` fails the start of the program when `Pack::open` fails. A player with a pack of format 2 and a new story program then has no Timeways until the desktop builds a new pack. Reading format 2 avoids that.
 
 ### 12.2 `pack_sources.toml`
 

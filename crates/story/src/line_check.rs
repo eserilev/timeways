@@ -1,12 +1,12 @@
 //! The checks of a narrator line before it shows (GAMEPLAY.md 3.2.1). A line that fails
 //! gets one retry with the reasons, and silence after a second failure.
 
+use crate::arrival::arrival_in;
 use crate::check::{
     banned_words_in, has_emoji, mentions, names_after_cutoff_except, one_line, slop_in, words_of,
 };
 use crate::house::NAME_MARK;
-use crate::moments::Moment;
-use crate::narrator::{MAX_LINE_BYTES, MAX_LINE_CHARS, what_happened};
+use crate::narrator::{MAX_LINE_BYTES, MAX_LINE_CHARS, Naming, Telling, naming, what_happened};
 use crate::samples;
 use std::fmt;
 
@@ -27,21 +27,30 @@ const NOT_NAMES: [&str; 32] = [
     "then", "there", "these", "they", "this", "those", "under", "until", "when", "with",
 ];
 
-/// What a line was told from: the moment in words, its names, and its lore.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+/// What a line was told from: the moment in words, its names, its lore, and how it names
+/// the hero.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Grounds {
     pub moment: String,
     pub names: Vec<String>,
     pub lore: Option<String>,
+    pub naming: Naming,
+    /// The race, the class, and the title of the hero: words for the hero past `$N`.
+    pub hero_words: Vec<String>,
 }
 
 impl Grounds {
+    /// `turn` is the turn of the prompt, so the naming is the one that the prompt asked for.
     #[must_use]
-    pub fn of(moment: &Moment, lore: Option<&str>) -> Grounds {
+    pub fn of(telling: &Telling<'_>, turn: usize) -> Grounds {
+        let moment = telling.moment;
+        let naming = naming(moment, telling.who, turn);
         Grounds {
             moment: what_happened(moment),
             names: moment.names().into_iter().map(str::to_string).collect(),
-            lore: lore.map(str::to_string),
+            lore: telling.lore.map(str::to_string),
+            hero_words: naming.hero_words(telling.who),
+            naming,
         }
     }
 
@@ -79,6 +88,10 @@ pub enum LineFault {
     Bracket,
     /// The hero is named more than once.
     NamedTwice,
+    /// A clause only tells that the hero came, such as "$N came to Westfall".
+    Arrival(String),
+    /// The moment is about a place, and the line names the hero.
+    HeroAtAPlace,
 }
 
 impl fmt::Display for LineFault {
@@ -118,6 +131,15 @@ impl fmt::Display for LineFault {
                     "The line names the hero twice. Name the hero at most once."
                 )
             }
+            LineFault::Arrival(clause) => write!(
+                f,
+                "\"{clause}\" only tells that the hero came. Leave it out, and tell more of the \
+                 place or the deed."
+            ),
+            LineFault::HeroAtAPlace => write!(
+                f,
+                "This moment is about the place. Leave the hero out, and tell the place alone."
+            ),
         }
     }
 }
@@ -180,6 +202,10 @@ fn faults(line: &str, grounds: &Grounds, player_text: &str) -> Vec<LineFault> {
     if line.matches(NAME_MARK).count() > 1 {
         faults.push(LineFault::NamedTwice);
     }
+    if grounds.naming == Naming::Absent && line.contains(NAME_MARK) {
+        faults.push(LineFault::HeroAtAPlace);
+    }
+    faults.extend(arrival_in(line, &grounds.hero_words).map(LineFault::Arrival));
     faults
 }
 

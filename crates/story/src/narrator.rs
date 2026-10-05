@@ -25,12 +25,24 @@ pub const MAX_LORE_CHARS: usize = 400;
 /// chronicle shares it, and an NPC never gets it.
 pub const PERSONA: &str = include_str!("../data/narrator.txt");
 
-const TASK: &str = "Tell the moment below in one or two sentences, at most 30 words. First \
-give a piece of the history of its place, its foe, or its people, from the lore. Then tell \
-what the hero did. $N stands for the name of the hero: the game puts the name there.";
+/// The task of a moment where the hero only arrived: the line tells the place alone.
+const PLACE_TASK: &str = "Tell the moment below in one or two sentences, at most 30 words. \
+Give a piece of the history of its place, from the lore. The place is the subject of the \
+line, and the hero is not in it.";
 
-/// The author's note. A model weighs the end of a prompt most.
-const NOTE: &str = "\
+const DEED_TASK: &str = "Tell the moment below in one or two sentences, at most 30 words. \
+First give a piece of the history of its place, its foe, or its people, from the lore. Then \
+tell what the hero did, in few words. Keep the place, the foe, or the people the subject \
+where you can. $N stands for the name of the hero: the game puts the name there.";
+
+/// The author's note of a place moment. A model weighs the end of a prompt most.
+const PLACE_NOTE: &str = "\
+Remember: the line is about the place alone. Never tell that the hero came, entered, or \
+arrived. Take the history from the lore, and add nothing. When the lore gives you nothing \
+true to tell, answer SILENCE.
+Answer with the line only.";
+
+const DEED_NOTE: &str = "\
 Remember: the history first, then the deed. Take both from the moment and the lore, and \
 add nothing. Name the hero only as the line above says, and at most once. When the moment \
 and the lore give you nothing true to tell, answer SILENCE.
@@ -92,8 +104,9 @@ impl Who {
     }
 }
 
-/// How one line names the hero. The code picks it in turn, so the lines mix the name, the
-/// race or the class, no name, and now and then a title (GAMEPLAY.md 3.2.1).
+/// How one line names the hero (GAMEPLAY.md 3.2.1). A place moment leaves the hero out. A
+/// deed takes its naming in turn, so the lines mix the name, the race or the class, no
+/// name, and now and then a title.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Naming {
     /// `$N`, which the addon swaps for the name.
@@ -101,7 +114,10 @@ pub enum Naming {
     /// A race or a class: "the Forsaken", "the paladin".
     Kind(&'static str),
     Title(String),
+    /// The line tells the deed, but names nobody.
     Unnamed,
+    /// The hero only arrived, so the line is about the place alone.
+    Absent,
 }
 
 impl Naming {
@@ -113,9 +129,25 @@ impl Naming {
             Naming::Kind(word) => format!("the {word}"),
             Naming::Title(title) => format!("by the title \"{title}\""),
             Naming::Unnamed => "no name".to_string(),
+            Naming::Absent => ABSENT.to_string(),
         }
     }
+
+    /// The words that stand for the hero in this line, past `$N`: the race and the class
+    /// of the hero, and the title of the naming. The check of an arrival reads them.
+    #[must_use]
+    pub fn hero_words(&self, who: &Who) -> Vec<String> {
+        let kinds = [who.race.map(Race::word), who.class.map(Class::word)];
+        let mut words: Vec<String> = kinds.into_iter().flatten().map(str::to_string).collect();
+        if let Naming::Title(title) = self {
+            words.push(title.clone());
+        }
+        words
+    }
 }
+
+/// The naming of a place moment, as the prompt and the samples write it.
+pub const ABSENT: &str = "not at all, the line is about the place";
 
 #[derive(Clone, Copy)]
 enum Turn {
@@ -138,9 +170,13 @@ const ROTATION: [Turn; 8] = [
     Turn::Title,
 ];
 
-/// A kind or a title that the hero lacks gives the name.
+/// A place moment leaves the hero out. A deed takes the naming of its turn, and a kind or
+/// a title that the hero lacks gives the name.
 #[must_use]
-pub fn naming(who: &Who, turn: usize) -> Naming {
+pub fn naming(moment: &Moment, who: &Who, turn: usize) -> Naming {
+    if moment.is_arrival() {
+        return Naming::Absent;
+    }
     let race = who.race.map(|race| Naming::Kind(race.word()));
     let class = who.class.map(|class| Naming::Kind(class.word()));
     let named = match ROTATION[turn % ROTATION.len()] {
@@ -167,7 +203,9 @@ pub struct Telling<'a> {
 /// 3.2.1).
 #[must_use]
 pub fn prompt(telling: &Telling<'_>, turn: usize) -> String {
-    let mut prompt = format!("{PERSONA}\n{HOUSE_RULES}\n\n{TASK}");
+    let arrival = telling.moment.is_arrival();
+    let task = if arrival { PLACE_TASK } else { DEED_TASK };
+    let mut prompt = format!("{PERSONA}\n{HOUSE_RULES}\n\n{task}");
     let what = what_happened(telling.moment);
     let samples = samples::line_section(turn, &what);
     let _ = write!(prompt, "\n\n{samples}\n\nThe moment:\n{}", fenced(&what));
@@ -180,8 +218,9 @@ pub fn prompt(telling: &Telling<'_>, turn: usize) -> String {
         }
         None => prompt.push_str("\n\nThe lore: none"),
     }
-    let naming = naming(telling.who, turn).label();
-    let _ = write!(prompt, "\n\nName the hero: {naming}\n\n{NOTE}");
+    let naming = naming(telling.moment, telling.who, turn).label();
+    let note = if arrival { PLACE_NOTE } else { DEED_NOTE };
+    let _ = write!(prompt, "\n\nName the hero: {naming}\n\n{note}");
     prompt
 }
 

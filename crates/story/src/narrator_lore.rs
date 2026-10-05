@@ -20,9 +20,10 @@ pub enum LoreError {
     Seen(#[from] rusqlite::Error),
 }
 
-/// A passage linked to `subject` comes first, then one that names it. A search for "The
-/// Deadmines" also finds every passage with "the", so a passage about something else
-/// never counts.
+/// The own page of `subject` comes first, in page order, so the history of the Deadmines
+/// wins over the page of a boss inside it. Then a passage linked to `subject`, then one
+/// that names it. A search for "The Deadmines" also finds every passage with "the", so a
+/// passage about something else never counts.
 ///
 /// # Errors
 ///
@@ -33,16 +34,22 @@ pub fn lore_about(
     character: &Character,
     subject: &str,
 ) -> Result<Option<Passage>, LoreError> {
+    let known = |passages: Vec<Passage>| -> Vec<Passage> {
+        passages
+            .into_iter()
+            .filter(|passage| character.knows_all(&passage.links))
+            .filter_map(passage_limits::fitted)
+            .collect()
+    };
+    if let Some(own) = known(pack.about(subject, CANDIDATES)?).into_iter().next() {
+        return Ok(Some(own));
+    }
     let mut found = seen.search(subject, CANDIDATES)?;
     found.extend(pack.search(subject, CANDIDATES)?);
-    let known: Vec<Passage> = found
-        .into_iter()
-        .filter(|passage| character.knows_all(&passage.links))
-        .filter_map(passage_limits::fitted)
-        .collect();
-    let linked = known.iter().find(|passage| is_linked(passage, subject));
+    let found = known(found);
+    let linked = found.iter().find(|passage| is_linked(passage, subject));
     let named = || {
-        known
+        found
             .iter()
             .find(|passage| mentions(&passage.text, subject))
     };

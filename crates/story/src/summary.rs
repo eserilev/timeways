@@ -3,6 +3,7 @@
 //! reads the sheet, the sagas, the deeds, the level, the race, and the class. It reads no
 //! story and no standing.
 
+use crate::arrival::arrival_in;
 use crate::check::{json_object, slop_in, voice_text};
 use crate::hero::OWN_WORDS;
 use crate::house::{HOUSE_RULES, bulleted, fenced};
@@ -143,7 +144,7 @@ pub fn checked_summary(text: &str, told: &str, player_text: &str) -> Option<Stri
     )?;
     let names = summary.matches("$N").count();
     let our_hero = summary.to_lowercase().contains("our hero");
-    let clean = slop_in(&summary, told).is_empty();
+    let clean = slop_in(&summary, told).is_empty() && arrival_in(&summary, &[]).is_none();
     (names <= MAX_NAMES && !our_hero && clean).then_some(summary)
 }
 

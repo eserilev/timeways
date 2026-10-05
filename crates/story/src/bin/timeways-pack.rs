@@ -4,6 +4,7 @@
 //!
 //! ```text
 //! {"text": "...", "source": "https://...", "places": ["Goldshire"], "npcs": ["Innkeeper Farley"]}
+//! {"text": "...", "source": "https://...", "places": ["Goldshire"], "about": "Goldshire"}
 //! {"text": "...", "source": "https://...", "common": true}
 //! ```
 //!
@@ -33,6 +34,9 @@ struct PassageLine {
     npcs: Vec<String>,
     #[serde(default)]
     common: bool,
+    /// The place or the person that the page of the passage is about.
+    #[serde(default)]
+    about: Option<String>,
 }
 
 impl PassageLine {
@@ -45,6 +49,7 @@ impl PassageLine {
             source: self.source,
             links: places.chain(npcs).chain(common).collect(),
             origin: Origin::Pack,
+            about: self.about,
         }
     }
 }

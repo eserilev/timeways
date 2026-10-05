@@ -7,6 +7,13 @@
 # The old name for the hero
 our hero
 
+# Filler about the hero: the world is the main character. The check of an arrival
+# (arrival.rs) also refuses "$N came" and the like.
+one more stranger
+another stranger
+a stranger to these
+climbed up to meet
+
 # An ending that says nothing
 did not care
 did not look up

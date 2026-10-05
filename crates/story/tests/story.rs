@@ -23,6 +23,7 @@ fn passage(text: &str, source: &str, links: Vec<Link>) -> Passage {
         source: source.to_string(),
         links,
         origin: Origin::Pack,
+        about: None,
     }
 }
 
@@ -1011,7 +1012,7 @@ fn the_saga_goes_into_its_chapter() {
         panic!("expected a saga call, got {outputs:?}");
     };
 
-    let text = r#"{"saga": "$N rode into the golden fields of Westfall."}"#.to_string();
+    let text = r#"{"saga": "$N helped the farmers of Westfall."}"#.to_string();
     assert!(
         story
             .handle(Input::ModelAnswered { call, text })
@@ -1022,7 +1023,7 @@ fn the_saga_goes_into_its_chapter() {
     let chapters = chapters(&mut story);
     assert_eq!(
         chapters[0].prose.as_deref(),
-        Some("$N rode into the golden fields of Westfall.")
+        Some("$N helped the farmers of Westfall.")
     );
     assert_eq!(chapters[1].prose, None);
 }
@@ -1151,7 +1152,7 @@ fn a_changed_hero_sheet_goes_into_the_chapter_where_it_changed() {
 fn a_saga_that_repeats_an_earlier_saga_is_refused() {
     let mut story = story_with("saga-repeat", &[]);
     three_chapters(&mut story);
-    let saga = "$N walked the long road west and met a farmer by the old mill.";
+    let saga = "$N kept to the long road west and met a farmer by the old mill.";
 
     write_saga(&mut story, 3, saga);
     write_saga(&mut story, 4, saga);
@@ -1759,7 +1760,7 @@ fn the_saga_gets_the_small_moments_of_its_chapter_and_its_footnotes_are_kept_and
         panic!("expected a saga call, got {outputs:?}");
     };
     assert!(prompt.contains("Small moments:\n<<<\n1. The player used the emote /dance in Goldshire, at 3 o'clock, for the 1st time."), "{prompt}");
-    let text = r#"{"saga": "$N came to Goldshire.", "footnotes": [{"moment": 1, "text": "A dance, alone."}]}"#;
+    let text = r#"{"saga": "$N danced in Goldshire.", "footnotes": [{"moment": 1, "text": "A dance, alone."}]}"#;
     story
         .handle(Input::ModelAnswered {
             call: *call,
@@ -1797,7 +1798,7 @@ fn a_footnote_of_the_chronicle_does_not_hold_back_the_next_flavor_line() {
     let [_, Output::ModelCall { call, .. }] = outputs.as_slice() else {
         panic!("expected a saga call, got {outputs:?}");
     };
-    let text = r#"{"saga": "$N came.", "footnotes": [{"moment": 1, "text": "A dance."}]}"#;
+    let text = r#"{"saga": "$N danced.", "footnotes": [{"moment": 1, "text": "A dance."}]}"#;
     let saga = Input::ModelAnswered {
         call: *call,
         text: text.to_string(),

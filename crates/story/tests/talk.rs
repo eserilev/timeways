@@ -25,6 +25,7 @@ fn a_prompt_holds_what_the_npc_knows_and_ends_with_the_words_of_the_player() {
         source: "https://example.test/1".to_string(),
         links: vec![Link::Place("Testvale".to_string())],
         origin: Origin::Pack,
+        about: None,
     };
 
     let prompt = prompt(&farley(), &[lore], "any news?", 0);
@@ -371,6 +372,7 @@ fn passage(text: &str) -> Passage {
         source: "https://example.test/1".to_string(),
         links: Vec::new(),
         origin: Origin::Pack,
+        about: None,
     }
 }
 

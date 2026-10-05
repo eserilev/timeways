@@ -569,6 +569,7 @@ fn story_with_passage(file: &str, text: &str) -> Story {
         source: "https://example.test/1".to_string(),
         links: vec![timeways_story::pack::Link::Place("Testvale".to_string())],
         origin: timeways_story::pack::Origin::Pack,
+        about: None,
     };
     Pack::write(&path, &[tower]).unwrap();
     Story::new(Pack::open(&path).unwrap(), Store::Memory)

@@ -1,3 +1,4 @@
+use timeways_story::arrival::arrival_in;
 use timeways_story::check::{
     COPIED_WORDS, copies_a_sample, in_voice, names_after_cutoff, plain_text, slop_in,
 };
@@ -5,7 +6,7 @@ use timeways_story::line_check::{
     COPIED_LINE_WORDS, Checked, Grounds, LineFault, checked_line, grounded,
 };
 use timeways_story::moments::Moment;
-use timeways_story::narrator::{Telling, Who};
+use timeways_story::narrator::{ABSENT, Naming, Telling, Who};
 use timeways_story::samples::{LineSample, Voice, every_sample, line_samples, rotated};
 use timeways_story::talk::{self, Scene};
 use timeways_story::{chronicle, narrator};
@@ -23,6 +24,8 @@ fn grounds_of(sample: &LineSample) -> Grounds {
         moment: sample.moment.to_string(),
         names: Vec::new(),
         lore: sample.lore.map(str::to_string),
+        naming: Naming::Name,
+        hero_words: Vec::new(),
     }
 }
 
@@ -35,8 +38,8 @@ fn shares_a_run(text: &str, other: &str, length: usize) -> bool {
 }
 
 #[test]
-fn the_narrator_has_twenty_samples_a_chapter_five_and_an_npc_reply_three() {
-    assert_eq!(Voice::NarratorLine.samples().len(), 20);
+fn the_narrator_has_twenty_two_samples_a_chapter_five_and_an_npc_reply_three() {
+    assert_eq!(Voice::NarratorLine.samples().len(), 22);
     assert_eq!(Voice::Chapter.samples().len(), 5);
     assert_eq!(Voice::NpcReply.samples().len(), 3);
 }
@@ -106,21 +109,59 @@ fn every_narrator_sample_has_a_moment_and_a_naming() {
         let naming = sample.hero;
         let known = naming == "$N"
             || naming == "no name"
+            || naming == ABSENT
             || naming.starts_with("the ")
             || naming.starts_with("by the title \"");
         assert!(known, "{sample:?}");
     }
 }
 
-#[test]
-fn the_narrator_samples_mix_the_name_the_kind_no_name_and_a_title() {
-    let samples = line_samples();
-    let count = |test: fn(&str) -> bool| samples.iter().filter(|sample| test(sample.hero)).count();
+/// A sample of a zone, a capital, a dungeon, or a raid that the hero only came to.
+fn is_arrival(sample: &LineSample) -> bool {
+    sample.moment.starts_with("The player arrived in")
+        || sample.moment.starts_with("The player entered the")
+}
 
-    assert!(count(|hero| hero == "$N") >= 6);
-    assert!(count(|hero| hero.starts_with("the ")) >= 6);
-    assert!(count(|hero| hero == "no name") >= 2);
+#[test]
+fn the_deed_samples_mix_the_name_the_kind_no_name_and_a_title() {
+    let deeds: Vec<LineSample> = line_samples()
+        .into_iter()
+        .filter(|sample| !is_arrival(sample))
+        .collect();
+    let count = |test: fn(&str) -> bool| deeds.iter().filter(|sample| test(sample.hero)).count();
+
+    assert!(count(|hero| hero == "$N") >= 3);
+    assert!(count(|hero| hero.starts_with("the ")) >= 4);
+    assert!(count(|hero| hero == "no name") >= 1);
     assert!(count(|hero| hero.starts_with("by the title")) >= 1);
+}
+
+#[test]
+fn every_arrival_sample_tells_the_place_alone() {
+    let arrivals: Vec<LineSample> = line_samples().into_iter().filter(is_arrival).collect();
+
+    assert!(arrivals.len() >= 10);
+    for sample in arrivals {
+        assert_eq!(sample.hero, ABSENT, "{}", sample.line);
+        assert!(!sample.line.contains("$N"), "{}", sample.line);
+    }
+}
+
+#[test]
+fn no_sample_of_any_voice_tells_an_arrival_of_the_hero() {
+    let kinds: Vec<String> = [
+        "troll", "orc", "gnome", "dwarf", "tauren", "human", "Forsaken",
+    ]
+    .into_iter()
+    .chain([
+        "paladin", "rogue", "warrior", "hunter", "mage", "druid", "warlock",
+    ])
+    .map(str::to_string)
+    .collect();
+
+    for sample in every_sample() {
+        assert_eq!(arrival_in(sample, &kinds), None, "{sample}");
+    }
 }
 
 #[test]
@@ -212,7 +253,7 @@ fn the_samples_turn_from_one_prompt_to_the_next() {
 
     assert_eq!(first, all[0..3]);
     assert_eq!(second, all[1..4]);
-    assert_eq!(rotated(Voice::NarratorLine, 19), [all[19], all[0], all[1]]);
+    assert_eq!(rotated(Voice::NarratorLine, 21), [all[21], all[0], all[1]]);
 }
 
 #[test]

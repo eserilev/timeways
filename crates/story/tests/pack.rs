@@ -15,6 +15,7 @@ fn passage(text: &str, source: &str, links: Vec<Link>) -> Passage {
         source: source.to_string(),
         links,
         origin: Origin::Pack,
+        about: None,
     }
 }
 
@@ -150,4 +151,67 @@ fn a_missing_file_is_refused() {
     let result = Pack::open(&fresh_path("missing"));
 
     assert!(matches!(result, Err(PackError::Sqlite(_))));
+}
+
+fn about(passage: Passage, name: &str) -> Passage {
+    Passage {
+        about: Some(name.to_string()),
+        ..passage
+    }
+}
+
+#[test]
+fn a_passage_keeps_the_subject_of_its_page() {
+    let mine = about(
+        passage(
+            "The Deadmines lie beneath Moonbrook.",
+            "the wiki page \"Deadmines\"",
+            vec![place("The Deadmines")],
+        ),
+        "The Deadmines",
+    );
+    let pack = pack_of("about-round-trip", std::slice::from_ref(&mine));
+
+    let found = pack.search("Moonbrook", 10).unwrap();
+
+    assert_eq!(found, [mine]);
+}
+
+#[test]
+fn the_own_page_of_a_subject_comes_in_page_order() {
+    let lead = about(
+        passage("The lead of the mine.", "a", vec![place("The Deadmines")]),
+        "The Deadmines",
+    );
+    let boss = passage(
+        "A boss of the mine, linked to it.",
+        "b",
+        vec![place("The Deadmines")],
+    );
+    let history = about(
+        passage(
+            "The history of the mine.",
+            "a",
+            vec![place("The Deadmines")],
+        ),
+        "The Deadmines",
+    );
+    let pack = pack_of("about-order", &[lead.clone(), boss, history.clone()]);
+
+    let found = pack.about("The Deadmines", 10).unwrap();
+
+    assert_eq!(found, [lead, history]);
+}
+
+#[test]
+fn a_pack_of_format_one_is_refused() {
+    let path = fresh_path("format-one");
+    rusqlite::Connection::open(&path)
+        .unwrap()
+        .pragma_update(None, "user_version", 1)
+        .unwrap();
+
+    let result = Pack::open(&path);
+
+    assert!(matches!(result, Err(PackError::Version { found: 1 })));
 }

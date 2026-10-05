@@ -15,6 +15,7 @@ fn pack_file(name: &str) -> PathBuf {
         source: "https://example.test/1".to_string(),
         links: vec![Link::Place("Testvale".to_string())],
         origin: Origin::Pack,
+        about: None,
     };
     Pack::write(&path, &[tower]).unwrap();
     path

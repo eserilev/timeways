@@ -10,6 +10,7 @@ fn passage(text: &str) -> Passage {
         source: "https://example.test/1".to_string(),
         links,
         origin: Origin::Pack,
+        about: None,
     }
 }
 
@@ -141,6 +142,7 @@ fn a_lore_prompt_says_where_the_player_learned_a_passage() {
     let read = Passage {
         source: "the text of \"The Kingdom of Stormwind\"".to_string(),
         origin: Origin::Read,
+        about: None,
         ..passage("Long ago, the humans came.")
     };
 

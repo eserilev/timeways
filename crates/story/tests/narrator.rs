@@ -1,7 +1,7 @@
 use hourglass::Tick;
 use timeways_story::moments::Moment;
 use timeways_story::narrator::{
-    Budget, MAX_LORE_CHARS, Naming, PERSONA, Telling, Who, lore_excerpt, naming, prompt,
+    ABSENT, Budget, MAX_LORE_CHARS, Naming, PERSONA, Telling, Who, lore_excerpt, naming, prompt,
     what_happened,
 };
 use timeways_story::places::InstanceKind;
@@ -107,7 +107,7 @@ fn a_prompt_says_how_to_name_the_hero() {
 fn the_naming_mixes_the_name_the_kind_no_name_and_a_title() {
     let who = forsaken_warlock();
 
-    let namings: Vec<Naming> = (0..8).map(|turn| naming(&who, turn)).collect();
+    let namings: Vec<Naming> = (0..8).map(|turn| naming(&murloc(), &who, turn)).collect();
 
     assert_eq!(
         namings,
@@ -122,16 +122,104 @@ fn the_naming_mixes_the_name_the_kind_no_name_and_a_title() {
             Naming::Title("Slap Happy".to_string()),
         ]
     );
-    assert_eq!(naming(&who, 8), Naming::Name);
+    assert_eq!(naming(&murloc(), &who, 8), Naming::Name);
+}
+
+#[test]
+fn a_moment_where_the_hero_only_arrived_leaves_the_hero_out() {
+    let who = forsaken_warlock();
+    let arrivals = [
+        Moment::NewZone {
+            zone: "Westfall".to_string(),
+        },
+        Moment::FirstCapital {
+            city: "Ironforge".to_string(),
+        },
+        Moment::FirstInstance {
+            zone: "The Deadmines".to_string(),
+            kind: InstanceKind::Dungeon,
+        },
+    ];
+
+    for moment in &arrivals {
+        for turn in 0..8 {
+            assert_eq!(naming(moment, &who, turn), Naming::Absent, "{moment:?}");
+        }
+    }
+}
+
+#[test]
+fn every_deed_takes_the_naming_of_its_turn() {
+    let who = forsaken_warlock();
+    let deeds = [
+        murloc(),
+        Moment::FirstKill {
+            foe: "Hogger".to_string(),
+        },
+        Moment::LevelUp {
+            level: 20,
+            zone: None,
+        },
+        Moment::ClassQuestDone {
+            title: "The Tome of Divinity".to_string(),
+        },
+        Moment::Titled {
+            title: "Slap Happy".to_string(),
+        },
+    ];
+
+    for moment in &deeds {
+        assert_eq!(
+            naming(moment, &who, 1),
+            Naming::Kind("warlock"),
+            "{moment:?}"
+        );
+    }
+}
+
+#[test]
+fn a_place_prompt_asks_for_the_place_alone() {
+    let westfall = Moment::NewZone {
+        zone: "Westfall".to_string(),
+    };
+
+    let prompt = prompt_of(&westfall, None, &forsaken_warlock(), 0);
+
+    assert!(
+        prompt.contains(&format!("Name the hero: {ABSENT}\n")),
+        "{prompt}"
+    );
+    assert!(prompt.contains("the hero is not in it"), "{prompt}");
+    assert!(prompt.contains("Never tell that the hero came"), "{prompt}");
+    assert!(!prompt.contains("$N stands for"), "{prompt}");
+}
+
+#[test]
+fn a_deed_prompt_keeps_the_world_the_subject() {
+    let prompt = prompt_of(&murloc(), None, &forsaken_warlock(), 0);
+
+    assert!(prompt.contains("Keep the place, the foe, or the people the subject"));
+    assert!(prompt.contains("$N stands for the name of the hero"));
+}
+
+#[test]
+fn the_race_the_class_and_a_title_stand_for_the_hero() {
+    let who = forsaken_warlock();
+
+    assert_eq!(Naming::Name.hero_words(&who), ["Forsaken", "warlock"]);
+    assert_eq!(
+        Naming::Title("Slap Happy".to_string()).hero_words(&who),
+        ["Forsaken", "warlock", "Slap Happy"]
+    );
 }
 
 #[test]
 fn a_hero_that_the_addon_never_described_gets_the_name_for_a_kind() {
     let who = Who::default();
 
-    assert_eq!(naming(&who, 1), Naming::Name);
-    assert_eq!(naming(&who, 4), Naming::Name);
-    assert_eq!(naming(&who, 7), Naming::Name);
+    assert_eq!(naming(&murloc(), &who, 1), Naming::Name);
+    assert_eq!(naming(&murloc(), &who, 4), Naming::Name);
+    assert_eq!(naming(&murloc(), &who, 7), Naming::Name);
 }
 
 #[test]
@@ -141,7 +229,7 @@ fn a_hero_with_a_class_and_no_race_gets_the_class_for_the_race() {
         ..Who::default()
     };
 
-    assert_eq!(naming(&who, 4), Naming::Kind("mage"));
+    assert_eq!(naming(&murloc(), &who, 4), Naming::Kind("mage"));
 }
 
 #[test]
@@ -180,6 +268,11 @@ fn the_persona_is_a_keeper_of_time_that_tells_no_future_and_no_name() {
 fn the_persona_is_a_chronicler_who_ties_a_deed_to_its_history() {
     assert!(PERSONA.contains("You are a chronicler"));
     assert!(PERSONA.contains("Tie each deed to the history"));
+}
+
+#[test]
+fn the_persona_makes_the_world_the_main_character() {
+    assert!(PERSONA.contains("The world is the main character."));
 }
 
 #[test]

@@ -729,12 +729,14 @@ Each step is one commit or a few, with its tests, and with its rules moved into 
 
 Each sample comes from a sheet and the sagas only, and keeps the rules of the summary: one paragraph, at most 80 words, `$N` at most twice, never "our hero", no weather, no feeling, and nothing after the cutoff.
 
+**Changed 2026-10-05, still waits for the user.** The user said that the world is the main character, and that a clause where the hero only came somewhere is cringe (GAMEPLAY.md 3.2). Samples 2 to 6 had such a clause ("has walked the Barrens", "has since stood at Sentinel Hill", "crossed to Darkshore", "has since gone down into Gnomeregan", "has walked through the library"). Each one became a place that knows the deed. Sample 1 had none, and stays.
+
 1. Deathknell has buried its dead twice, and $N, once a squire of the Silver Hand, was among those who climbed back out. The paladin keeps an oath the Light may no longer hear. Brill has come to trust the Forsaken who carries it, and the Scarlet recruits at Solliden know that face.
-2. Razor Hill raised $N as it raises every orc child, with an axe and a watch post. The hunter has walked the Barrens from the Crossroads to the Wailing Caverns, and Mutanus the Devourer no longer stirs in the deep. A brother lost at Northwatch is the reason the hunter keeps going south.
-3. Northshire Abbey trained $N to hold a sword before the Defias burned the fields of Westfall. The warrior has since stood at Sentinel Hill, and Edwin VanCleef lies dead in the Deadmines below Moonbrook. A temper that the warrior owns to has not cost a fight yet.
-4. The night elves of Shadowglen gave $N a duty to the trees of Teldrassil. The druid crossed to Darkshore, where the furbolgs of the Blackwood went mad, and walked the shore as far as Auberdine. The druid still searches the ruins of Ameth'Aran for a teacher who never came home.
-5. Kharanos keeps the forge where $N first beat iron into a hammer. The paladin has since gone down into Gnomeregan, and the troggs of Loch Modan know the dwarf who held the line at Thelsamar. An oath to an old clan still decides each road.
-6. The Undercity sent $N out with a staff and a grudge against the Scarlet Crusade. The mage has walked through the library of the Scarlet Monastery and the hills of Hillsbrad, where Southshore watches the Forsaken with good reason. Of the life before death, only the name of a sister remains.
+2. Razor Hill raised $N as it raises every orc child, with an axe and a watch post. In the Wailing Caverns, Mutanus the Devourer no longer stirs in the deep, and the Crossroads know which hunter to thank. A brother lost at Northwatch is the reason the hunter keeps going south.
+3. Northshire Abbey trained $N to hold a sword before the Defias burned the fields of Westfall. Sentinel Hill counts the warrior among its militia, and Edwin VanCleef lies dead in the Deadmines below Moonbrook. A temper that the warrior owns to has not cost a fight yet.
+4. The night elves of Shadowglen gave $N a duty to the trees of Teldrassil. Darkshore lost the furbolgs of the Blackwood to madness, and Auberdine has seen the druid fight it. The druid still searches the ruins of Ameth'Aran for a teacher who never came home.
+5. Kharanos keeps the forge where $N first beat iron into a hammer. Gnomeregan has felt that hammer, and the troggs of Loch Modan know the dwarf who held the line at Thelsamar. An oath to an old clan still decides each road.
+6. The Undercity sent $N out with a staff and a grudge against the Scarlet Crusade. Arcanist Doan's library in the Scarlet Monastery fell to the mage, and Southshore, in the hills of Hillsbrad, watches the Forsaken with good reason. Of the life before death, only the name of a sister remains.
 
 ### Deviations from this plan, and why
 

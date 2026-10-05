@@ -75,6 +75,7 @@ fn pack_passage(text: &str, source: &str) -> Passage {
         source: source.to_string(),
         links: vec![Link::Place("Elwynn Forest".to_string())],
         origin: Origin::Pack,
+        about: None,
     }
 }
 

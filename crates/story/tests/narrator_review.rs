@@ -28,6 +28,7 @@ fn westfall() -> Passage {
         source: "the wiki page \"Westfall\"".to_string(),
         links: vec![Link::Place("Westfall".to_string())],
         origin: Origin::Pack,
+        about: None,
     }
 }
 
@@ -130,6 +131,48 @@ fn a_world_from_before_the_race_and_the_class_takes_them_from_the_review() {
     );
 }
 
+fn mine_passage(text: &str, about: Option<&str>) -> Passage {
+    Passage {
+        text: text.to_string(),
+        source: "the wiki page".to_string(),
+        links: vec![Link::Place("The Deadmines".to_string())],
+        origin: Origin::Pack,
+        about: about.map(str::to_string),
+    }
+}
+
+#[test]
+fn the_own_page_of_a_place_wins_over_a_boss_page_linked_to_it() {
+    let mut character = Character::new();
+    character
+        .enter_zone(Tick(1), "The Deadmines", None)
+        .unwrap();
+    let boss = mine_passage(
+        "Mr. Smite of The Deadmines serves in The Deadmines, the deep Deadmines.",
+        None,
+    );
+    let history = mine_passage(
+        "The Miners' League dug this mine first.",
+        Some("The Deadmines"),
+    );
+    let pack = pack_with("own-page", &[boss, history]);
+    let sources = Sources {
+        pack: &pack,
+        reads: &[],
+        fallback: &Who::default(),
+    };
+
+    let found = reviews(&events_of(&character), &sources).unwrap();
+
+    assert!(
+        found[0]
+            .prompt
+            .contains("The lore:\n<<<\nThe Miners' League dug this mine first.\n>>>"),
+        "{}",
+        found[0].prompt
+    );
+}
+
 /// A world on disk, as the story program saves it, with one new zone.
 fn saved_world(folder: &Path) -> std::path::PathBuf {
     let _ = std::fs::remove_dir_all(folder);
@@ -184,14 +227,14 @@ fn the_review_tool_with_a_model_prints_the_line_that_the_player_sees() {
         .arg(&world)
         .args([
             "--model",
-            "echo 'Westfall was farmland once. $N came anyway.'",
+            "echo 'Westfall was farmland once, before the Defias.'",
         ])
         .output()
         .unwrap();
 
     let printed = String::from_utf8_lossy(&output.stdout);
     assert!(
-        printed.contains("Shown: Westfall was farmland once. $N came anyway."),
+        printed.contains("Shown: Westfall was farmland once, before the Defias."),
         "{printed}"
     );
 }

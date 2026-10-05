@@ -87,10 +87,11 @@ fn review(
         who: &who,
     };
     let prompt = narrator::prompt(&telling, turn);
+    let grounds = Grounds::of(&telling, turn);
     Ok(Review {
         at,
-        grounds: Grounds::of(&moment, lore.as_deref()),
         moment,
+        grounds,
         prompt,
     })
 }

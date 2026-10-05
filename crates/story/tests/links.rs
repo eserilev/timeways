@@ -594,7 +594,7 @@ fn a_saga_reads_its_chapter_and_rests_on_its_call() {
     answer(
         &mut story,
         call,
-        r#"{"saga": "$N rode into the golden fields of Westfall."}"#,
+        r#"{"saga": "$N helped the farmers of Westfall."}"#,
     );
     drop(story);
 
@@ -1083,6 +1083,7 @@ fn a_lore_question_leaves_no_input_and_no_call() {
         source: "https://example.test/1".to_string(),
         links: vec![Link::Place("Elwynn Forest".to_string())],
         origin: Origin::Pack,
+        about: None,
     };
     Pack::write(&folder.join("pack.sqlite"), &[tower]).unwrap();
     let mut story = story(&folder);

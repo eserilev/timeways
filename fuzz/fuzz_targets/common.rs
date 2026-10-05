@@ -16,6 +16,7 @@ pub fn pack() -> Pack {
             source: "https://example.test".to_string(),
             links: vec![Link::Place(place.to_string())],
             origin: Origin::Pack,
+            about: Some(place.to_string()),
         };
         let passages = [
             passage("The tower fell.", "Testvale"),

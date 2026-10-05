@@ -9,6 +9,7 @@ fn passages() -> Vec<Passage> {
         source: "https://example.test/1".to_string(),
         links,
         origin: Origin::Pack,
+        about: None,
     };
     vec![tower]
 }

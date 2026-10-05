@@ -6,7 +6,7 @@ mod wiki_dump;
 
 use timeways_story::pack::{Link, Passage};
 use timeways_story::pack_sources::{
-    Outcome, PageReport, Sources, SourcesError, from_dump, paragraphs,
+    Outcome, PageReport, Sources, SourcesError, from_dump, paragraphs, subject_of,
 };
 use wiki_dump::{DumpPage, article, long, write_dump};
 
@@ -449,4 +449,33 @@ fn an_indented_quote_is_a_paragraph() {
         paragraphs(&text),
         [long("A quote."), long("Another quote.")]
     );
+}
+
+#[test]
+fn a_page_is_about_the_link_that_its_title_names() {
+    let deadmines = [Link::Place("The Deadmines".to_string())];
+    let keep = [Link::Place("Shadowfang Keep".to_string())];
+
+    assert_eq!(
+        subject_of("Deadmines", &deadmines).as_deref(),
+        Some("The Deadmines")
+    );
+    assert_eq!(
+        subject_of("Shadowfang Keep (Classic)", &keep).as_deref(),
+        Some("Shadowfang Keep")
+    );
+    assert_eq!(subject_of("Mr. Smite", &deadmines), None);
+    assert_eq!(subject_of("Test History", &[Link::Common]), None);
+}
+
+#[test]
+fn the_passages_of_a_page_keep_the_subject_of_the_page() {
+    let dump = testvale_dump("sources-about");
+
+    let built = from_dump(&dump, &sources(TESTVALE)).unwrap();
+
+    let first = &built.passages[0];
+    let last = &built.passages[built.passages.len() - 1];
+    assert_eq!(first.about.as_deref(), Some("Testvale"));
+    assert_eq!(last.about, None);
 }

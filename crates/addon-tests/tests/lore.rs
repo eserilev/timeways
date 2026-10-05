@@ -19,6 +19,7 @@ fn reply_line(text: Option<&str>, passages: &[&str]) -> String {
             source: "https://example.test/tower".to_string(),
             links: Vec::new(),
             origin: Origin::Pack,
+            about: None,
         })
         .collect();
     let answer = Answer {

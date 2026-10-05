@@ -1,6 +1,7 @@
 //! The narrator writes each finished chapter of the chronicle as a short saga (GAMEPLAY.md 3.3).
 //! The words of its prompt live here, and the facts come from the chapter alone.
 
+use crate::arrival::arrival_in;
 use crate::check::{json_object, slop_in, voice_text};
 use crate::hero::OWN_WORDS;
 use crate::house::{HOUSE_RULES, bulleted, fenced};
@@ -263,7 +264,7 @@ pub fn checked_saga(
         MAX_CHAPTER_BYTES,
         player_text,
     )
-    .filter(|saga| slop_in(saga, facts).is_empty())?;
+    .filter(|saga| is_clean(saga, facts))?;
     let mut footnotes: Vec<(usize, String)> = Vec::new();
     for footnote in reply.footnotes {
         let known = (1..=moment_count).contains(&footnote.moment);
@@ -276,7 +277,7 @@ pub fn checked_saga(
             MAX_FOOTNOTE_BYTES,
             player_text,
         )
-        .filter(|text| slop_in(text, facts).is_empty());
+        .filter(|text| is_clean(text, facts));
         if let (true, true, Some(text)) = (known, new, text) {
             footnotes.push((footnote.moment, text));
         }
@@ -286,6 +287,11 @@ pub fn checked_saga(
         text: saga,
         footnotes,
     })
+}
+
+/// No slop, and no clause that only tells that the hero came.
+fn is_clean(text: &str, facts: &str) -> bool {
+    slop_in(text, facts).is_empty() && arrival_in(text, &[]).is_none()
 }
 
 fn described(places: &[Place], zone: &str) -> String {

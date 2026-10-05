@@ -2332,3 +2332,58 @@ proptest! {
         prop_assert!(tokens <= budget, "{} tokens of {}", tokens, budget);
     }
 }
+
+/// A clause of travel: a verb of an arrival and a place.
+fn travel() -> impl Strategy<Value = String> {
+    let verbs = prop::sample::select(vec![
+        "came to",
+        "walked into",
+        "entered",
+        "arrived in",
+        "set foot in",
+        "stood at the gates of",
+        "went down into",
+        "climbed up to",
+    ]);
+    let places = prop::sample::select(vec!["Lordaeron", "Westfall", "Durotar", "the Barrens"]);
+    (verbs, places).prop_map(|(verb, place)| format!("{verb} {place}."))
+}
+
+/// No small word, one, or two: the most that the check reads past.
+fn small_words() -> impl Strategy<Value = String> {
+    prop::collection::vec(prop::sample::select(vec!["has", "now", "finally"]), 0..=2)
+        .prop_map(|words| words.iter().map(|word| word.to_string() + " ").collect())
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(128))]
+
+    /// GAMEPLAY.md 3.2.1: a people that comes to a place is history, even when the hero
+    /// is of that race.
+    #[test]
+    fn a_people_that_comes_to_a_place_is_never_an_arrival_of_the_hero(
+        people in prop::sample::select(vec![
+            "The Scourge", "The trolls", "The orcs", "The night elves", "The Defias",
+            "Strangers", "The troll Zul'jin", "The orc Thrall",
+        ]),
+        between in small_words(),
+        travel in travel(),
+    ) {
+        let text = format!("{people} {between}{travel}");
+        let hero = vec!["troll".to_string(), "orc".to_string()];
+
+        prop_assert_eq!(timeways_story::arrival::arrival_in(&text, &hero), None);
+    }
+
+    /// GAMEPLAY.md 3.2.1: the arrival of the hero is never the news.
+    #[test]
+    fn an_arrival_of_the_hero_is_always_found(
+        hero in prop::sample::select(vec!["$N", "The stranger", "The troll", "A newcomer"]),
+        between in small_words(),
+        travel in travel(),
+    ) {
+        let text = format!("{hero} {between}{travel}");
+
+        prop_assert!(timeways_story::arrival::arrival_in(&text, &["troll".to_string()]).is_some());
+    }
+}

@@ -6,11 +6,17 @@ use serde::Serialize;
 use std::path::Path;
 use thiserror::Error;
 
-/// A pack of another version gets refused, never guessed at.
-const FORMAT_VERSION: i64 = 1;
+/// A pack of another version gets refused, never guessed at. Format 2 added `about`.
+const FORMAT_VERSION: i64 = 2;
 
 const SCHEMA: &str = "
-    CREATE TABLE passage (id INTEGER PRIMARY KEY, text TEXT NOT NULL, source TEXT NOT NULL);
+    CREATE TABLE passage (
+        id INTEGER PRIMARY KEY,
+        text TEXT NOT NULL,
+        source TEXT NOT NULL,
+        about TEXT
+    );
+    CREATE INDEX passage_about ON passage (about);
     CREATE TABLE link (
         passage INTEGER NOT NULL REFERENCES passage (id),
         kind TEXT NOT NULL,
@@ -32,6 +38,11 @@ pub struct Passage {
     pub links: Vec<Link>,
     #[serde(skip)]
     pub origin: Origin,
+    /// The place or the person that the page of this passage is about: "The Deadmines" for
+    /// the page "Deadmines", and None for the page "Mr. Smite" that links to it. The
+    /// narrator takes the own page of a place first (GAMEPLAY.md 3.2).
+    #[serde(skip)]
+    pub about: Option<String>,
 }
 
 /// Where a passage comes from. Text that the player read is their own lore (GAMEPLAY.md 3.1.1).
@@ -136,22 +147,42 @@ impl Pack {
             return Ok(Vec::new());
         };
         let mut statement = self.connection.prepare_cached(
-            "SELECT passage.id, passage.text, passage.source
+            "SELECT passage.id, passage.text, passage.source, passage.about
              FROM passage_index JOIN passage ON passage.id = passage_index.rowid
              WHERE passage_index MATCH ?1 ORDER BY rank LIMIT ?2",
         )?;
-        let rows = statement.query_map(params![query, limit], |row| {
-            Ok((row.get::<_, i64>(0)?, row.get(1)?, row.get(2)?))
-        })?;
+        let rows = statement.query_map(params![query, limit], row_of)?;
+        self.passages(rows)
+    }
+
+    /// The passages of the own page of `name`, in the order of the page, so the lead
+    /// comes first.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when SQLite fails, or when the pack holds an unknown link kind.
+    pub fn about(&self, name: &str, limit: u32) -> Result<Vec<Passage>, PackError> {
+        let mut statement = self.connection.prepare_cached(
+            "SELECT id, text, source, about FROM passage WHERE about = ?1 ORDER BY id LIMIT ?2",
+        )?;
+        let rows = statement.query_map(params![name, limit], row_of)?;
+        self.passages(rows)
+    }
+
+    fn passages(
+        &self,
+        rows: impl Iterator<Item = rusqlite::Result<Row>>,
+    ) -> Result<Vec<Passage>, PackError> {
         let mut passages = Vec::new();
         for row in rows {
-            let (id, text, source) = row?;
+            let (id, text, source, about) = row?;
             let links = self.links(id)?;
             passages.push(Passage {
                 text,
                 source,
                 links,
                 origin: Origin::Pack,
+                about,
             });
         }
         Ok(passages)
@@ -171,10 +202,17 @@ impl Pack {
     }
 }
 
+/// The id, the text, the source, and the subject of a passage.
+type Row = (i64, String, String, Option<String>);
+
+fn row_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<Row> {
+    Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+}
+
 fn insert(connection: &Connection, passage: &Passage) -> Result<(), PackError> {
     connection.execute(
-        "INSERT INTO passage (text, source) VALUES (?1, ?2)",
-        params![passage.text, passage.source],
+        "INSERT INTO passage (text, source, about) VALUES (?1, ?2, ?3)",
+        params![passage.text, passage.source, passage.about],
     )?;
     let id = connection.last_insert_rowid();
     connection.execute(

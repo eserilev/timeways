@@ -44,13 +44,15 @@ impl Story {
             lore: lore.as_deref(),
             who: &who,
         };
-        let prompt = narrator::prompt(&telling, self.turn());
+        let turn = self.turn();
+        let prompt = narrator::prompt(&telling, turn);
+        let grounds = Grounds::of(&telling, turn);
         let mut reads = std::mem::take(&mut self.batch_rows);
         reads.extend(reads::passages_read(active, passage.as_slice()));
         let call = NarratorCall {
             batch,
             key: active.key.clone(),
-            grounds: Grounds::of(moment, lore.as_deref()),
+            grounds,
             attempt: Attempt::First,
             reads,
         };

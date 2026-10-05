@@ -39,6 +39,7 @@ impl SeenText {
             source: self.source(),
             links,
             origin: Origin::Read,
+            about: None,
         }
     }
 

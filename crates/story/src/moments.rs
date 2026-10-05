@@ -67,6 +67,16 @@ impl Moment {
         }
     }
 
+    /// The hero only came to a place: a zone, a capital, a dungeon, or a raid. Such a
+    /// line tells the place, and leaves the hero out (GAMEPLAY.md 3.2.1).
+    #[must_use]
+    pub fn is_arrival(&self) -> bool {
+        matches!(
+            self,
+            Moment::NewZone { .. } | Moment::FirstCapital { .. } | Moment::FirstInstance { .. }
+        )
+    }
+
     /// A higher rank wins when one batch holds several moments.
     fn rank(&self) -> u8 {
         match self {

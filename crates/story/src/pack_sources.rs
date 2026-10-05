@@ -253,7 +253,12 @@ fn add_books(built: &mut Built, titles: &[String], books: &BTreeMap<String, Page
             later: 0,
             game: 0,
         };
-        push_passages(built, &page.title, outcome, texts, &source, &[Link::Common]);
+        let book = Shelf {
+            source: &source,
+            links: &[Link::Common],
+            about: None,
+        };
+        push_passages(built, &page.title, outcome, texts, &book);
     }
 }
 
@@ -276,7 +281,35 @@ fn add_page(built: &mut Built, wanted: &WikiPage, page: Option<&Page>, filters: 
         game: not_later - texts.len(),
     };
     let source = format!("the wiki page \"{}\"", page.title);
-    push_passages(built, &page.title, outcome, texts, &source, &links(wanted));
+    let links = links(wanted);
+    let shelf = Shelf {
+        source: &source,
+        links: &links,
+        about: subject_of(&wanted.title, &links),
+    };
+    push_passages(built, &page.title, outcome, texts, &shelf);
+}
+
+/// The link that a page is about, when its title names it: the page "Deadmines" is about
+/// "The Deadmines", and "Shadowfang Keep (Classic)" about "Shadowfang Keep". The page "Mr.
+/// Smite" links to "The Deadmines" and is about none of its links.
+#[must_use]
+pub fn subject_of(title: &str, links: &[Link]) -> Option<String> {
+    let title = bare_title(title);
+    links.iter().find_map(|link| match link {
+        Link::Place(name) | Link::Npc(name) if bare_title(name) == title => Some(name.clone()),
+        _ => None,
+    })
+}
+
+/// A title in lower case, with no "the" before it and no "(Classic)" after it.
+fn bare_title(title: &str) -> String {
+    let title = title.trim().to_lowercase();
+    let title = match title.rfind(" (") {
+        Some(at) if title.ends_with(')') => title[..at].to_string(),
+        _ => title,
+    };
+    title.strip_prefix("the ").unwrap_or(&title).to_string()
 }
 
 /// The bodies of the listed sections, in page order. A subsection goes in only when its
@@ -316,13 +349,19 @@ fn links(page: &WikiPage) -> Vec<Link> {
     places.chain(npcs).chain(common).collect()
 }
 
+/// What each passage of one book or page shares.
+struct Shelf<'a> {
+    source: &'a str,
+    links: &'a [Link],
+    about: Option<String>,
+}
+
 fn push_passages(
     built: &mut Built,
     title: &str,
     outcome: Outcome,
     texts: Vec<String>,
-    source: &str,
-    links: &[Link],
+    shelf: &Shelf<'_>,
 ) {
     built.report.push(PageReport {
         title: title.to_string(),
@@ -330,9 +369,10 @@ fn push_passages(
     });
     built.passages.extend(texts.into_iter().map(|text| Passage {
         text,
-        source: source.to_string(),
-        links: links.to_vec(),
+        source: shelf.source.to_string(),
+        links: shelf.links.to_vec(),
         origin: Origin::Pack,
+        about: shelf.about.clone(),
     }));
 }
 

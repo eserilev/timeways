@@ -182,6 +182,7 @@ fn passage(text: &str) -> Passage {
         source: "https://example.test/1".to_string(),
         links: vec![Link::Place("Goldshire".to_string())],
         origin: Origin::Pack,
+        about: None,
     }
 }
 
@@ -478,7 +479,14 @@ fn narrator_moment(name: &'static str, moment: &Moment, lore: Option<&str>) -> T
         name,
         call: Call::NarratorLine,
         prompt: line(moment, lore),
-        shown: narrator_shown(Grounds::of(moment, lore)),
+        shown: narrator_shown(Grounds::of(
+            &Telling {
+                moment,
+                lore,
+                who: &who(),
+            },
+            0,
+        )),
     }
 }
 

@@ -139,7 +139,7 @@ fn chapters(story: &mut Story) -> Vec<Chapter> {
     }
 }
 
-const FIRST: &str = "$N walked the long west road and helped a farmer.";
+const FIRST: &str = "$N kept to the long west road and helped a farmer.";
 const SECOND: &str = "$N took the west road. A farmer needed help, and got it.";
 
 /// Two drafts that pass, and the call of the judge.

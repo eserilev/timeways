@@ -7,17 +7,20 @@
 mod common;
 
 use libfuzzer_sys::fuzz_target;
+use timeways_story::arrival::arrival_in;
 use timeways_story::check::{
     check, in_voice, later_names, names_after_cutoff, names_after_cutoff_except, plain_text,
     same_words, slop_in,
 };
-use timeways_story::line_check::{Checked, Grounds, checked_line, grounded};
-use timeways_story::moments::Moment;
 use timeways_story::draft;
 use timeways_story::house::without_fence_marks;
 use timeways_story::input::MessageId;
+use timeways_story::line_check::{Checked, Grounds, checked_line, grounded};
+use timeways_story::moments::Moment;
+use timeways_story::narrator::{Telling, Who};
 use timeways_story::quest::variety::{Recent, Shape, main_words};
 use timeways_story::quest::{self, Genre, Known, Step};
+use timeways_story::race_class::Race;
 use timeways_story::seen::{SeenText, TextKind};
 use timeways_story::story::Output;
 use timeways_story::{chronicle, hero, narrator, summary, talk};
@@ -242,21 +245,38 @@ fn assert_draft(text: &str) {
     assert!(fake_bridge::game_reply(&line).is_some(), "{line}");
 }
 
-/// A narrator line that passes keeps its limits, holds no slop and no bracket, names the
-/// hero at most once, and names something of its moment.
+/// A narrator line that passes keeps its limits, holds no slop, no bracket, and no arrival
+/// of the hero, names the hero at most once, and names something of its moment. A line of
+/// a place never names the hero.
 fn assert_line(text: &str) {
-    let moment = Moment::FirstKill {
+    let orc = Who {
+        race: Some(Race::Orc),
+        ..Who::default()
+    };
+    let hogger = Moment::FirstKill {
         foe: "Hogger".to_string(),
     };
-    let grounds = Grounds::of(&moment, Some("Hogger leads the gnolls of Elwynn Forest."));
-    let Checked::Line(line) = checked_line(text, &grounds, "") else {
-        return;
+    let elwynn = Moment::NewZone {
+        zone: "Elwynn Forest".to_string(),
     };
-    assert_voice(&line, narrator::MAX_LINE_CHARS, narrator::MAX_LINE_BYTES);
-    assert!(slop_in(&line, "").is_empty(), "{line:?}");
-    assert!(line.matches("$N").count() <= 1, "{line:?}");
-    assert!(!line.contains(['[', ']', '{', '}', '<', '>']), "{line:?}");
-    assert!(grounded(&line, &grounds), "{line:?}");
+    for moment in [&hogger, &elwynn] {
+        let telling = Telling {
+            moment,
+            lore: Some("Hogger leads the gnolls of Elwynn Forest."),
+            who: &orc,
+        };
+        let grounds = Grounds::of(&telling, 0);
+        let Checked::Line(line) = checked_line(text, &grounds, "") else {
+            continue;
+        };
+        assert_voice(&line, narrator::MAX_LINE_CHARS, narrator::MAX_LINE_BYTES);
+        assert!(slop_in(&line, "").is_empty(), "{line:?}");
+        assert!(line.matches("$N").count() <= 1, "{line:?}");
+        assert!(!line.contains(['[', ']', '{', '}', '<', '>']), "{line:?}");
+        assert!(grounded(&line, &grounds), "{line:?}");
+        assert_eq!(arrival_in(&line, &grounds.hero_words), None, "{line:?}");
+        assert!(!moment.is_arrival() || !line.contains("$N"), "{line:?}");
+    }
 }
 
 fuzz_target!(|data: &[u8]| {
@@ -270,6 +290,7 @@ fuzz_target!(|data: &[u8]| {
             chronicle::MAX_CHAPTER_BYTES,
         );
         assert!(slop_in(&saga.text, "").is_empty(), "{saga:?}");
+        assert_eq!(arrival_in(&saga.text, &[]), None, "{saga:?}");
         assert!(saga.footnotes.len() <= chronicle::MAX_FOOTNOTES);
         for (moment, footnote) in &saga.footnotes {
             assert!((1..=moments).contains(moment));
@@ -283,7 +304,11 @@ fuzz_target!(|data: &[u8]| {
             summary::MAX_SUMMARY_BYTES,
         );
         assert!(slop_in(&summary, "").is_empty(), "{summary:?}");
-        assert!(summary.matches("$N").count() <= summary::MAX_NAMES, "{summary:?}");
+        assert_eq!(arrival_in(&summary, &[]), None, "{summary:?}");
+        assert!(
+            summary.matches("$N").count() <= summary::MAX_NAMES,
+            "{summary:?}"
+        );
         assert!(!summary.to_lowercase().contains("our hero"), "{summary:?}");
     }
     if let Some(answer) = talk::checked_answer(&text, "") {

@@ -13,6 +13,7 @@ fn passage(text: &str, source: &str) -> Passage {
         source: source.to_string(),
         links: vec![Link::Common],
         origin: Origin::Pack,
+        about: None,
     }
 }
 
