@@ -14,9 +14,16 @@ local CARD_TOP, CARD_PADDING = 26, 8
 local LINE_HEIGHT, MAX_LINES = 14, 3
 local LINKED_LABEL = 90
 
+-- The box grows with its text from 3 lines, so the cards below it move down.
+local BOX_MIN_LINES = 3
+local BUTTON_ROW = 28
+
 local pane, paneWidth, paneHeight
 local box, scroll, child
 local tabs, lines, cards, linked = {}, {}, {}, {}
+-- The card that is open for writing, the key that it opened for, the spec that it drew,
+-- and the last spec of the page, to draw it again when the box grows.
+local writer, writerKey, writing, drawn
 
 function JournalCards.Build(parent, width, height)
 	pane, paneWidth, paneHeight = parent, width, height
@@ -183,6 +190,112 @@ local function DrawCard(n, row, x, y, width)
 	return height
 end
 
+-- Writing in a card ------------------------------------------------------------------------
+
+local function ShowCount(problem)
+	local text = writer.box:GetText() or ""
+	local count = ns.Editor.Count(text, writer.box:GetNumLetters(), writing.limit, writing.bytes)
+	writer.count:SetText(problem or count)
+	Ink(writer.count, problem and "text" or "faded")
+end
+
+-- The height of the text in the box, measured by a hidden line of the same font and width.
+local function BoxHeight()
+	writer.measure:SetText((writer.box:GetText() or "") .. " ")
+	return math.max(writer.measure:GetStringHeight(), BOX_MIN_LINES * LINE_HEIGHT)
+end
+
+-- A text that can't be saved stays in the box, with the reason in place of the count.
+local function SaveWriting()
+	local text = writer.box:GetText() or ""
+	local problem = writing.problem(text)
+	if problem then
+		ShowCount(problem)
+		return
+	end
+	writerKey = nil
+	writer.box:ClearFocus()
+	writing.save(text)
+end
+
+local function CancelWriting()
+	writerKey = nil
+	writer.box:ClearFocus()
+	writing.cancel()
+end
+
+local function Grew()
+	ShowCount()
+	if math.abs(BoxHeight() - writer.box:GetHeight()) > 0.5 then
+		JournalCards.Draw(drawn)
+	end
+end
+
+local function BuildWriter()
+	writer = CardFrame(0)
+	writer.question = Label(writer, "QuestFont", "faded")
+	writer.count = Label(writer, "QuestFontNormalSmall", "faded")
+	writer.count:SetPoint("TOPRIGHT", writer, "TOPRIGHT", -CARD_PADDING, -CARD_PADDING)
+	local edit = CreateFrame("EditBox", "TimewaysHeroCardBox", writer)
+	edit:SetMultiLine(true)
+	edit:SetAutoFocus(false)
+	edit:SetFontObject("QuestFont")
+	local ink = ns.Ink.text
+	edit:SetTextColor(ink[1], ink[2], ink[3])
+	edit:SetScript("OnTextChanged", Grew)
+	edit:SetScript("OnEnterPressed", SaveWriting)
+	edit:SetScript("OnEscapePressed", CancelWriting)
+	writer.box = edit
+	writer.measure = Label(writer, "QuestFont", "text")
+	writer.measure:Hide()
+	writer.save = ns.JournalFrame.SmallButton(writer)
+	Fit(writer.save, "Save")
+	writer.save:SetScript("OnClick", SaveWriting)
+	writer.cancel = ns.JournalFrame.SmallButton(writer)
+	Fit(writer.cancel, "Cancel")
+	writer.cancel:SetScript("OnClick", CancelWriting)
+end
+
+-- The card of a field that the player writes: the question, a box that grows, and Cancel and
+-- Save. Returns its height.
+local function DrawWriter(row, x, y, width)
+	if not writer then
+		BuildWriter()
+	end
+	writing = row.editing
+	local inner = width - 2 * CARD_PADDING
+	if writerKey ~= writing.key then
+		writerKey = writing.key
+		writer.box:SetMaxLetters(writing.limit)
+		writer.box:SetText(writing.text)
+		writer.box:SetFocus()
+	end
+	writer:ClearAllPoints()
+	writer:SetPoint("TOPLEFT", child, "TOPLEFT", x, -y)
+	writer.label:SetText(row.label)
+	writer.tag:SetText("")
+	writer.question:SetWidth(inner)
+	writer.question:SetText(row.text)
+	writer.question:ClearAllPoints()
+	writer.question:SetPoint("TOPLEFT", writer, "TOPLEFT", CARD_PADDING, -CARD_TOP)
+	local top = CARD_TOP + writer.question:GetStringHeight() + 6
+	writer.measure:SetWidth(inner)
+	local boxHeight = BoxHeight()
+	writer.box:SetSize(inner, boxHeight)
+	writer.box:ClearAllPoints()
+	writer.box:SetPoint("TOPLEFT", writer, "TOPLEFT", CARD_PADDING, -top)
+	local bottom = top + boxHeight + 6
+	writer.save:ClearAllPoints()
+	writer.save:SetPoint("TOPRIGHT", writer, "TOPRIGHT", -CARD_PADDING, -bottom)
+	writer.cancel:ClearAllPoints()
+	writer.cancel:SetPoint("TOPRIGHT", writer.save, "TOPLEFT", -6, 0)
+	ShowCount()
+	local height = bottom + BUTTON_ROW + CARD_PADDING
+	writer:SetSize(width, height)
+	writer:Show()
+	return height
+end
+
 local function HideFrom(list, first)
 	for n = first, #list do
 		local slot = list[n]
@@ -201,6 +314,7 @@ local function DrawRows(rows)
 	local y, counts = PADDING, { line = 0, card = 0, linked = 0 }
 	local column, rowHeight = 0, 0
 	local half = (Inner() - GAP) / 2
+	local open = false
 	local function CloseRow()
 		if column > 0 then
 			y = y + rowHeight + GAP
@@ -218,7 +332,10 @@ local function DrawRows(rows)
 			end
 		else
 			CloseRow()
-			if row.kind == "card" then
+			if row.editing then
+				y = y + DrawWriter(row, PADDING, y, Inner()) + GAP
+				open = true
+			elseif row.kind == "card" then
 				counts.card = counts.card + 1
 				y = y + DrawCard(counts.card, row, PADDING, y, Inner()) + GAP
 			elseif row.kind == "linked" then
@@ -231,6 +348,10 @@ local function DrawRows(rows)
 		end
 	end
 	CloseRow()
+	if writer and not open then
+		writerKey = nil
+		writer:Hide()
+	end
 	HideFrom(cards, counts.card + 1)
 	HideFrom(lines, counts.line + 1)
 	HideFrom(linked, counts.linked + 1)
@@ -239,12 +360,15 @@ end
 
 -- `spec` is { tabs = { { key, label, run } }, tab = the open key, rows = { ... } }. A row is
 -- { kind = "line" | "heading", text, ink, action }, { kind = "card", label, tag, text, empty,
--- note, wide, action }, or { kind = "linked", label, text, note, empty }. Nil hides the cards.
+-- note, wide, action, editing }, or { kind = "linked", label, text, note, empty }. A card with
+-- `editing` = { key, text, limit, bytes, problem, save, cancel } is open for writing. Nil
+-- hides the cards.
 function JournalCards.Draw(spec)
 	if not spec then
 		box:Hide()
 		return
 	end
+	drawn = spec
 	DrawTabs(spec)
 	local height = DrawRows(spec.rows)
 	child:SetSize(Inner() + 2 * PADDING, height)

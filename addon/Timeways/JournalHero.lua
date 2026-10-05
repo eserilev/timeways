@@ -20,15 +20,6 @@ local WIDE = { currently = true, appearance = true }
 -- The MSP names of the two answers that the profile shares too.
 local SHARED_AS = { origin = "Birthplace", background = "History" }
 
-local function IsQuestion(field)
-	for _, each in ipairs(ns.Hero.FIELDS) do
-		if each == field then
-			return true
-		end
-	end
-	return false
-end
-
 -- "03 Oct", as the notes show their day.
 local function Day(at)
 	return type(at) == "number" and date("%d %b", at) or "?"
@@ -76,6 +67,13 @@ local function AnsweredCount(texts)
 	return count
 end
 
+-- The field whose card is open for writing, or nil.
+local editing
+
+local function Refresh()
+	ns.JournalFrame.Refresh()
+end
+
 -- The first question after this one with no answer, and else the first one before it.
 function JournalHero.NextEmpty(field)
 	local journal = ns.Journal.Current()
@@ -92,14 +90,41 @@ function JournalHero.NextEmpty(field)
 	end
 end
 
--- After Save, the next question with no answer opens for its answer.
-local function OpenNextEmpty(field)
-	return function()
-		local next = JournalHero.NextEmpty(field)
-		if next then
-			ns.Hero.Edit(next, nil, OpenNextEmpty(next))
+local function IsQuestion(field)
+	for _, each in ipairs(ns.Hero.FIELDS) do
+		if each == field then
+			return true
 		end
 	end
+	return false
+end
+
+-- After Save, the next question with no answer opens for its answer.
+local function Saved(field)
+	editing = IsQuestion(field) and JournalHero.NextEmpty(field) or nil
+	Refresh()
+end
+
+-- The writing part of an open card: the box, its limits, Save, and Cancel.
+local function Editing(field, text)
+	local limit = ns.Hero.LIMITS[field]
+	return {
+		key = field,
+		text = text or "",
+		limit = limit.letters,
+		bytes = limit.bytes,
+		problem = function(typed)
+			return ns.Hero.Problem(field, typed)
+		end,
+		save = function(typed)
+			ns.Hero.Save(field, text, typed)
+			Saved(field)
+		end,
+		cancel = function()
+			editing = nil
+			Refresh()
+		end,
+	}
 end
 
 -- A card of a field: its answer and Edit, or its question and the empty label, such as
@@ -115,13 +140,17 @@ local function Card(field, texts, unsaved, empty)
 		wide = WIDE[field],
 		note = unsaved.fields[field] and SAVING or nil,
 	}
-	local saved = IsQuestion(field) and OpenNextEmpty(field) or nil
 	card.action = {
 		label = text and "Edit" or empty,
 		run = function()
-			ns.Hero.Edit(field, text, saved)
+			editing = field
+			Refresh()
 		end,
 	}
+	if editing == field then
+		card.text, card.empty, card.wide = ns.Hero.HINTS[field], true, true
+		card.editing = Editing(field, text)
+	end
 	return card
 end
 

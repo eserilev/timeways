@@ -46,20 +46,20 @@ local function SetCountInk(ink)
 	count:SetTextColor(ink[1], ink[2], ink[3])
 end
 
--- A letter outside ASCII takes more than one byte, so with a byte limit the room left is a
--- guess in letters.
-local function Left(text)
-	local letters = box:GetNumLetters()
-	if not request.bytes or #text == letters then
-		return string.format("%d / %d", letters, request.limit)
+-- "16 / 1000". A letter outside ASCII takes more than one byte, so with a byte limit the room
+-- left is a guess in letters.
+function Editor.Count(text, letters, limit, bytes)
+	if not bytes or #text == letters then
+		return string.format("%d / %d", letters, limit)
 	end
-	local left = math.min(request.limit - letters, request.bytes - #text)
+	local left = math.min(limit - letters, bytes - #text)
 	return left > 0 and string.format("About %d left", left) or "None left"
 end
 
 local function ShowCount()
 	SetCountInk(ns.Ink.faded)
-	count:SetText(Left(box:GetText() or ""))
+	local text = box:GetText() or ""
+	count:SetText(Editor.Count(text, box:GetNumLetters(), request.limit, request.bytes))
 end
 
 -- The scroll frame moves with the cursor, so the line that the player writes stays in view.

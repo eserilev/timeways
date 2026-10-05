@@ -141,26 +141,17 @@ StaticPopupDialogs.TIMEWAYS_HERO_REMOVE = {
 	end,
 }
 
--- `current` is the text that the book shows now, so an unchanged text sends nothing.
--- `saved` runs after a save, such as to open the next empty card.
-function Hero.Edit(field, current, saved)
-	local limit = Hero.LIMITS[field]
-	ns.JournalFrame.Edit({
-		title = Hero.LABELS[field],
-		hint = Hero.HINTS[field],
-		text = current,
-		limit = limit.letters,
-		bytes = limit.bytes,
-		problem = ProblemPast(limit.bytes),
-		save = function(text)
-			if Clean(text) ~= (current or "") then
-				Hero.Set(field, text)
-			end
-			if saved then
-				saved()
-			end
-		end,
-	})
+-- Saves the text of a card. `current` is the text that the book showed, so an unchanged text
+-- sends nothing.
+function Hero.Save(field, current, text)
+	if Clean(text) ~= (current or "") then
+		Hero.Set(field, text)
+	end
+end
+
+-- Why the text of a field can't be saved, or nil.
+function Hero.Problem(field, text)
+	return ProblemPast(Hero.LIMITS[field].bytes)(text)
 end
 
 function Hero.Write()

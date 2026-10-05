@@ -232,6 +232,15 @@ This test needs two characters with Timeways in one party, and a model.
 4. In the world file of the second character, run `sqlite3 c_<name>.sqlite "SELECT prompt FROM calls WHERE kind = 'draft'"`. The prompt holds `{P1}` and a card such as "{P1}: a human paladin", never the name of the first character.
 5. Run `sqlite3 c_<name>.sqlite "SELECT position, body FROM aliases"`. The first character has position 0, which is `{P1}`. Accept one more story that names the first character: no new row comes.
 
+### 21. The Hero tab
+
+1. Open `/hero`. The sub-tabs Your Story and Roleplay Profile show on the left. The six answers show as cards, two side by side, and Your Notes shows on the right.
+2. Click Answer on an empty card. The card opens in place with the question, a box, and "0 / 200" or "0 / 1000". Type four lines of text: the box grows, and the cards below it move down. Click Save. The next empty card opens.
+3. Press Escape in an open card. It closes, and nothing is saved.
+4. Open Roleplay Profile. The line says "Only you see this." There is no Name field. "What Others See" shows your name in the game, your title, "Level ... (Player)", and your fields. Description and History stop after 3 lines with "...".
+5. Click Share. The line says "Players with roleplay addons like Total RP 3 see this." Origin and Background in Your Story show "Shared".
+6. If you use Total RP 3: the page says "Total RP 3 shares your profile. Change it there." "Also shared" and the preview do not show, and the fields have no Edit.
+
 ## What to send back
 
 - Each Lua error, as text.

@@ -82,15 +82,39 @@ fn open_book(hero: &str) -> Game {
     game
 }
 
-/// Types this text in the editor and clicks Save.
+/// The box that the player writes in: the writing page of the book while it shows, and else
+/// the card that is open for writing. `frame` is the frame that holds its labels and buttons.
+const OPEN_BOX: &str = "local box, frame
+     if ns.Editor.IsShown() then
+         for _, widget in ipairs(wow.widgets) do
+             if widget.kind == 'EditBox' and widget.parent == TimewaysEditorScroll then box = widget end
+         end
+         frame = box.parent.parent
+     else
+         box = TimewaysHeroCardBox
+         frame = box.parent
+     end";
+
+/// Types this text in the open box and clicks its Save.
 fn write(game: &Game, text: &str) {
     game.run(&format!(
-        "wow.EditBox():SetText('{text}'); wow.Button('Save'):Click()"
+        "{OPEN_BOX}
+         box:SetText('{text}')
+         for _, widget in ipairs(wow.widgets) do
+             if widget.kind == 'Button' and widget.parent == frame and widget.text == 'Save' then
+                 widget:Click()
+             end
+         end"
     ));
 }
 
 fn editor_text(game: &Game) -> String {
-    game.eval("wow.EditBox():GetText()")
+    game.eval(&format!("{OPEN_BOX} return box:GetText()"))
+}
+
+/// True while a card is open for writing.
+fn card_is_open(game: &Game) -> bool {
+    game.eval("return TimewaysHeroCardBox ~= nil and TimewaysHeroCardBox.parent:IsShown()")
 }
 
 #[test]
@@ -138,13 +162,9 @@ fn save_opens_the_next_empty_card() {
     click(&game, GOAL);
     write(&game, "Avenge my brother.");
 
-    assert!(game.eval::<bool>("return ns.Editor.IsShown()"));
-    let title: String = game.eval(
-        "for _, widget in ipairs(wow.widgets) do
-             if widget.kind == 'FontString' and widget.text == 'Bond' and widget.shown then return widget.text end
-         end",
-    );
-    assert_eq!(title, "Bond");
+    assert!(card_is_open(&game));
+    let open: String = game.eval("return TimewaysHeroCardBox.parent.label.text");
+    assert_eq!(open, "Bond");
 }
 
 #[test]
@@ -182,18 +202,45 @@ fn the_editor_starts_with_the_text_of_the_field() {
 }
 
 #[test]
-fn the_editor_takes_the_place_of_the_page_until_the_player_cancels() {
+fn a_card_opens_for_writing_in_place_and_cancel_closes_it() {
     let game = open_book(FILLED);
     let page_shows = "return TimewaysJournalFrameScroll:IsShown()";
 
     click(&game, GOAL);
-    let hidden_while_writing = !game.eval::<bool>(page_shows);
-    game.run("wow.Button('Cancel'):Click()");
+    let open = card_is_open(&game);
+    let page_while_writing = game.eval::<bool>(page_shows);
+    game.run(
+        "for _, widget in ipairs(wow.widgets) do
+             if widget.kind == 'Button' and widget.parent == TimewaysHeroCardBox.parent
+                 and widget.text == 'Cancel' then widget:Click() end
+         end",
+    );
 
-    assert!(hidden_while_writing);
-    assert!(game.eval::<bool>(page_shows));
+    assert!(open && page_while_writing);
+    assert!(!card_is_open(&game));
     assert!(!game.eval::<bool>("return ns.Editor.IsShown()"));
     assert_eq!(game.sent().len(), 1);
+}
+
+#[test]
+fn a_box_that_grows_moves_the_cards_below_it() {
+    let game = open_book(FILLED);
+    let flaw_top = "for _, widget in ipairs(wow.widgets) do
+             if widget.kind == 'FontString' and widget.text == 'Flaw' and widget.parent:IsShown() then
+                 return widget.parent.point[5]
+             end
+         end";
+    click(&game, GOAL);
+    let before: f64 = game.eval(flaw_top);
+
+    game.run(&format!(
+        "TimewaysHeroCardBox:SetText('{}')
+         TimewaysHeroCardBox.scripts.OnTextChanged(TimewaysHeroCardBox, true)",
+        "word ".repeat(200)
+    ));
+
+    let after: f64 = game.eval(flaw_top);
+    assert!(after < before, "{before} {after}");
 }
 
 #[test]
@@ -202,7 +249,7 @@ fn enter_saves_the_text_and_a_line_break_becomes_a_space() {
 
     click(&game, GOAL);
     game.run(
-        "local box = wow.EditBox()
+        "local box = TimewaysHeroCardBox
          box:SetText('Avenge\\nmy brother.')
          box.scripts.OnEnterPressed(box)",
     );
@@ -236,10 +283,10 @@ fn the_editor_stops_at_the_limit_of_the_desktop_and_counts_the_letters() {
 
     click(&game, GOAL);
 
-    let limit: usize = game.eval("wow.EditBox().maxLetters");
+    let limit: usize = game.eval("TimewaysHeroCardBox.maxLetters");
     assert_eq!(limit, timeways_story::hero::LONG.chars);
     let count = format!("16 / {limit}");
-    let shown: Vec<String> = game.eval("wow.ShownTexts(wow.EditBox().parent.parent)");
+    let shown: Vec<String> = game.eval("wow.ShownTexts(TimewaysHeroCardBox.parent)");
     assert!(shown.contains(&count), "{shown:?}");
 }
 
@@ -260,9 +307,9 @@ fn a_text_too_long_to_save_stays_in_the_editor_with_the_reason() {
 
     write(&game, &wide);
 
-    assert!(game.eval::<bool>("return ns.Editor.IsShown()"));
+    assert!(card_is_open(&game));
     assert_eq!(editor_text(&game), wide);
-    let shown: Vec<String> = game.eval("wow.ShownTexts(wow.EditBox().parent.parent)");
+    let shown: Vec<String> = game.eval("wow.ShownTexts(TimewaysHeroCardBox.parent)");
     assert!(
         shown.contains(&"Too long to save. Try a shorter version.".to_string()),
         "{shown:?}"
@@ -272,14 +319,15 @@ fn a_text_too_long_to_save_stays_in_the_editor_with_the_reason() {
 
 /// The label under the box: the count, or the reason that the text can't be saved.
 fn count_label(game: &Game) -> (String, Vec<f64>) {
-    game.run(
-        "for _, widget in ipairs(wow.widgets) do
+    game.run(&format!(
+        "{OPEN_BOX}
+         for _, widget in ipairs(wow.widgets) do
              if widget.kind == 'FontString' and widget.point and widget.point[1] == 'TOPRIGHT'
-                 and widget.parent == wow.EditBox().parent.parent then
+                 and widget.parent == frame then
                  countLabel = widget
              end
-         end",
-    );
+         end"
+    ));
     (
         game.eval("countLabel.text"),
         game.eval("countLabel.textColor"),
@@ -305,7 +353,7 @@ fn a_text_with_accented_letters_counts_toward_the_byte_limit() {
     click(&game, GOAL);
 
     game.run(&format!(
-        "local box = wow.EditBox()
+        "local box = TimewaysHeroCardBox
          box:SetText('{}')
          box.scripts.OnTextChanged(box, true)",
         "\u{e9}".repeat(550)
@@ -323,7 +371,7 @@ fn a_text_past_the_byte_limit_has_none_left() {
     click(&game, GOAL);
 
     game.run(&format!(
-        "local box = wow.EditBox()
+        "local box = TimewaysHeroCardBox
          box:SetText('{}')
          box.scripts.OnTextChanged(box, true)",
         "\u{e9}".repeat(700)
@@ -335,7 +383,7 @@ fn a_text_past_the_byte_limit_has_none_left() {
 #[test]
 fn the_box_takes_the_width_that_the_layout_gives_its_scroll_frame() {
     let game = open_book(FILLED);
-    click(&game, GOAL);
+    click(&game, "Your Notes");
 
     let width: f64 = game.eval(
         "TimewaysEditorScroll:SetWidth(312)
@@ -348,7 +396,7 @@ fn the_box_takes_the_width_that_the_layout_gives_its_scroll_frame() {
 #[test]
 fn the_box_scrolls_to_keep_the_cursor_in_view() {
     let game = open_book(FILLED);
-    click(&game, GOAL);
+    click(&game, "Your Notes");
 
     let offset: f64 = game.eval(
         "local box = wow.EditBox()
@@ -409,7 +457,12 @@ fn a_saved_field_shows_at_once_with_a_saving_mark() {
     click(&game, GOAL);
     write(&game, "Avenge my brother.");
 
-    game.run("wow.Button('Cancel'):Click()");
+    game.run(
+        "for _, widget in ipairs(wow.widgets) do
+             if widget.kind == 'Button' and widget.parent == TimewaysHeroCardBox.parent
+                 and widget.text == 'Cancel' then widget:Click() end
+         end",
+    );
 
     assert_eq!(
         card(&game, "Goal"),
