@@ -15,5 +15,6 @@
 
 pub mod budget;
 pub mod hero_hook;
+pub mod prompts;
 pub mod quest_log;
 pub mod trust;

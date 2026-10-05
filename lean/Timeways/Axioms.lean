@@ -4,6 +4,7 @@ import Timeways.QuestLog
 import Timeways.HeroHook
 import Timeways.Budget
 import Timeways.TrustBand
+import Timeways.Prompts
 
 open timeways_rules
 
@@ -70,3 +71,7 @@ open timeways_rules
 /-- info: 'timeways_rules.trust.trust_stays_between_minus_one_hundred_and_one_hundred' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs (whitespace := lax) in
 #print axioms trust.trust_stays_between_minus_one_hundred_and_one_hundred
+
+/-- info: 'timeways_rules.prompts.the_newest_prompts_are_always_kept' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms prompts.the_newest_prompts_are_always_kept

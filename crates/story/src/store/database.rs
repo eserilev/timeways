@@ -6,6 +6,8 @@ use rusqlite::{Connection, OptionalExtension, params, params_from_iter};
 use serde::de::DeserializeOwned;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
+pub use timeways_rules::prompts::PROMPTS_KEPT;
+use timeways_rules::prompts::oldest_prompt_kept;
 
 /// A file of another version is refused, never changed. Nothing is live, so a new version
 /// starts with new worlds.
@@ -49,10 +51,6 @@ CREATE INDEX reads_of_a_row ON reads (tab, row);
 CREATE INDEX reads_of_a_call ON reads (call);
 CREATE INDEX calls_of_a_kind ON calls (kind);
 ";
-
-/// After this many calls, the prompt of an older call is cleared. Its row, its answer,
-/// and its links stay.
-pub const PROMPTS_KEPT: u64 = 500;
 
 /// The tables of the world. Each row is one JSON value, and its position is its place in
 /// the table, from 0. An event's position is its `EventId`.
@@ -669,12 +667,6 @@ fn write_line(transaction: &rusqlite::Transaction<'_>, line: &Line) -> rusqlite:
         )?;
     }
     Ok(())
-}
-
-/// The position of the oldest call that keeps its prompt, after the call at `newest`.
-#[must_use]
-pub fn oldest_prompt_kept(newest: u64) -> u64 {
-    newest.saturating_sub(PROMPTS_KEPT - 1)
 }
 
 fn address(node: Node) -> (&'static str, u64) {

@@ -8,7 +8,7 @@ mod shared;
 
 pub use database::{
     CallEnd, CallRecord, Database, Line, NewCall, NewInput, NewRow, Next, Node, Origin, Outcome,
-    PROMPTS_KEPT, Root, Table, oldest_prompt_kept,
+    PROMPTS_KEPT, Root, Table,
 };
 pub use logs::{FlavorLog, HeroLog, LearnedLog, Prose, QuestLog, StoryLog, Written};
 pub use shared::Shared;

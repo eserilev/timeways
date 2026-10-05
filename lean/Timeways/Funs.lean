@@ -90,6 +90,18 @@ def hero_hook.pick
       ok (some index)
   else ok none
 
+/-- [timeways_rules::prompts::PROMPTS_KEPT]
+    Source: 'crates/rules/src/prompts.rs', lines 5:0-5:34
+    Visibility: public -/
+@[global_simps, irreducible] def prompts.PROMPTS_KEPT : Std.U64 := 500#u64
+
+/-- [timeways_rules::prompts::oldest_prompt_kept]:
+    Source: 'crates/rules/src/prompts.rs', lines 10:0-12:1
+    Visibility: public -/
+def prompts.oldest_prompt_kept (newest : Std.U64) : Result Std.U64 := do
+  let i ← prompts.PROMPTS_KEPT - 1#u64
+  ok (core.num.U64.saturating_sub newest i)
+
 /-- [timeways_rules::quest_log::DAY_SECONDS]
     Source: 'crates/rules/src/quest_log.rs', lines 6:0-6:39
     Visibility: public -/

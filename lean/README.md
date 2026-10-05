@@ -2,8 +2,9 @@
 
 Aeneas translates the crate `timeways-rules` (`crates/rules`) into pure
 Lean functions. The theorems in `Timeways/QuestLog.lean`,
-`Timeways/HeroHook.lean`, `Timeways/Budget.lean`, and
-`Timeways/TrustBand.lean` are about those functions. A theorem holds for every input, with no bound. The
+`Timeways/HeroHook.lean`, `Timeways/Budget.lean`,
+`Timeways/TrustBand.lean`, and `Timeways/Prompts.lean` are about those
+functions. A theorem holds for every input, with no bound. The
 property tests in `crates/story/tests/properties.rs` check the same
 rules on random input, and they stay as a second check.
 
@@ -84,21 +85,29 @@ holds for a row that starts at any k, while the counts fit a `u64`.
 
 ## What is proved: the narrator budget
 
-| Theorem | The law | Kani twin |
+| Theorem | The law | Test |
 |---|---|---|
-| `the_narrator_never_speaks_four_times_in_one_hour` | For any sequence of times, any four lines that the narrator speaks in a row span an hour or more. | `the_narrator_never_speaks_four_times_in_one_hour` |
+| `the_narrator_never_speaks_four_times_in_one_hour` | For any sequence of times, any four lines that the narrator speaks in a row span an hour or more. | `the_budget_allows_three_lines_in_an_hour` |
 
-Kani checks four calls with steps of up to 18 hours, and time that only
-moves forward. The Lean law holds for a sequence of any length, with
-any times, also times that go back. `linesSpoken` applies `take` to
+The law holds for a sequence of any length, with any times, also times
+that go back. `linesSpoken` applies `take` to
 each time of the list, from `fresh`, the budget of `Budget::default()`.
 
 ## What is proved: trust
 
 | Theorem | The law | Test |
 |---|---|---|
-| `next_trust.spec` | The trust after one change is in the band -100..100, for every trust held and every change. When the trust held is in the band, a change never moves it against its sign. | Kani: `trust_stays_in_its_band_for_any_change`, `a_change_of_trust_never_moves_against_its_sign` |
+| `next_trust.spec` | The trust after one change is in the band -100..100, for every trust held and every change. When the trust held is in the band, a change never moves it against its sign. | none |
 | `trust_stays_between_minus_one_hundred_and_one_hundred` | For any trust held and any sequence of changes, the trust after each change is in the band. | `trust_stays_between_minus_one_hundred_and_one_hundred` |
+
+## What is proved: the prompts kept
+
+`oldest_prompt_kept` gives the oldest call that keeps its prompt
+(GAMEPLAY.md 5.14). The store clears the prompts of the calls before it.
+
+| Theorem | The law | Test |
+|---|---|---|
+| `the_newest_prompts_are_always_kept` | For every position of the newest call, also at the edge of `u64`, the newest 500 calls keep their prompts, or every call when there are fewer. | `only_the_newest_prompts_are_kept` |
 
 ## What you trust
 
@@ -117,7 +126,8 @@ each time of the list, from `fresh`, the budget of `Budget::default()`.
 4. **The glue in the story program.** `crates/story/src/quest/log.rs`
    turns each line into a `Change` and each `Quest` back into a
    `Tracked`. `narrator::Budget` turns a `Tick` into seconds and back.
-   No proof reads the glue. The tests of the story program cover it.
+   The SQL of `store::database` clears the prompts before
+   `oldest_prompt_kept`. No proof reads the glue. The tests of the story program cover it.
 5. **Two starts.** `fresh` in `Timeways/Budget.lean` is the budget
    that `Budget::default()` makes. `trustsAfter` in
    `Timeways/TrustBand.lean` applies `next_trust` one change after the
