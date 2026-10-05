@@ -269,6 +269,7 @@ fn apply_rule(fold: &mut Fold, rule: u8) {
 
 fn apply_play(fold: &mut Fold, play: Play) {
     let here = fold.gains.len();
+    note_zone(fold, play.zone);
     if let Some(last) = fold.last_at
         && play.at >= last.saturating_add(AWAY_SECONDS)
     {
@@ -372,14 +373,19 @@ fn add_to_chapter(fold: &mut Fold, zone: usize, amount: u16, here: usize) {
     }
 }
 
+/// Each zone gets its record at its first step, with weight or not. So the ids of the walk,
+/// dense in the order of first use, name the same zones here.
+fn note_zone(fold: &mut Fold, zone: usize) {
+    if zone == fold.zones.len() && has_slot(fold.zones.len(), zone) {
+        fold.zones.push(UNSETTLED);
+    }
+}
+
 /// Settling in a new zone, or a return to a zone that had no weight in the open chapter
 /// and the one before it.
-fn zone_break(fold: &mut Fold, zone: usize) -> Option<Break> {
-    if !has_slot(fold.zones.len(), zone) {
+fn zone_break(fold: &Fold, zone: usize) -> Option<Break> {
+    if zone >= fold.zones.len() {
         return None;
-    }
-    if zone == fold.zones.len() {
-        fold.zones.push(UNSETTLED);
     }
     let record = fold.zones[zone];
     if !record.settled {

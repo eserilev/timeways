@@ -324,7 +324,7 @@ def chapters.start : Result chapters.Fold := do
     }
 
 /-- [timeways_rules::chapters::add_to_visit]:
-    Source: 'crates/rules/src/chapters.rs', lines 567:0-574:1 -/
+    Source: 'crates/rules/src/chapters.rs', lines 573:0-580:1 -/
 def chapters.add_to_visit
   (fold : chapters.Fold) (amount : Std.U16) : Result chapters.Fold := do
   match fold.visit with
@@ -335,7 +335,7 @@ def chapters.add_to_visit
     ok { fold with visit := (some { visit with gain := i1 }) }
 
 /-- [timeways_rules::chapters::close_visit]:
-    Source: 'crates/rules/src/chapters.rs', lines 552:0-563:1 -/
+    Source: 'crates/rules/src/chapters.rs', lines 558:0-569:1 -/
 def chapters.close_visit
   (fold : chapters.Fold) (visit : chapters.Visit) : Result chapters.Fold := do
   let v ← alloc.vec.Vec.push fold.visits visit
@@ -355,7 +355,7 @@ def chapters.close_visit
   else ok { fold with visits := v, visit := none }
 
 /-- [timeways_rules::chapters::tale_of]: loop 0:
-    Source: 'crates/rules/src/chapters.rs', lines 536:4-549:1 -/
+    Source: 'crates/rules/src/chapters.rs', lines 542:4-555:1 -/
 @[rust_loop]
 def chapters.tale_of_loop
   (fold : chapters.Fold) («instance» : Std.Usize) (here : Std.Usize)
@@ -391,7 +391,7 @@ def chapters.tale_of_loop
 partial_fixpoint
 
 /-- [timeways_rules::chapters::tale_of]:
-    Source: 'crates/rules/src/chapters.rs', lines 534:0-549:1 -/
+    Source: 'crates/rules/src/chapters.rs', lines 540:0-555:1 -/
 def chapters.tale_of
   (fold : chapters.Fold) («instance» : Std.Usize) (here : Std.Usize) :
   Result (Std.Usize × chapters.Fold)
@@ -414,7 +414,7 @@ def chapters.tale_of
     })
 
 /-- [timeways_rules::chapters::enter_instance]:
-    Source: 'crates/rules/src/chapters.rs', lines 509:0-530:1 -/
+    Source: 'crates/rules/src/chapters.rs', lines 515:0-536:1 -/
 def chapters.enter_instance
   (fold : chapters.Fold) («instance» : Std.Usize) (here : Std.Usize)
   («at» : Std.U64) :
@@ -472,7 +472,7 @@ def chapters.enter_instance
         }
 
 /-- [timeways_rules::chapters::leave_instance]:
-    Source: 'crates/rules/src/chapters.rs', lines 499:0-505:1 -/
+    Source: 'crates/rules/src/chapters.rs', lines 505:0-511:1 -/
 def chapters.leave_instance
   (fold : chapters.Fold) («at» : Std.U64) : Result chapters.Fold := do
   match fold.visit with
@@ -505,14 +505,14 @@ def weights.death_weight
 @[global_simps, irreducible] def weights.DEATHS_COUNTED : Std.U8 := 2#u8
 
 /-- [timeways_rules::chapters::one_more_death]:
-    Source: 'crates/rules/src/chapters.rs', lines 490:0-496:1 -/
+    Source: 'crates/rules/src/chapters.rs', lines 496:0-502:1 -/
 def chapters.one_more_death (deaths : Std.U8) : Result Std.U8 := do
   if deaths < weights.DEATHS_COUNTED
   then deaths + 1#u8
   else ok deaths
 
 /-- [timeways_rules::chapters::has_slot]:
-    Source: 'crates/rules/src/chapters.rs', lines 405:0-407:1 -/
+    Source: 'crates/rules/src/chapters.rs', lines 411:0-413:1 -/
 def chapters.has_slot (length : Std.Usize) (id : Std.Usize) : Result Bool := do
   if id < length
   then ok true
@@ -521,7 +521,7 @@ def chapters.has_slot (length : Std.Usize) (id : Std.Usize) : Result Bool := do
        else ok false
 
 /-- [timeways_rules::chapters::death_gain]:
-    Source: 'crates/rules/src/chapters.rs', lines 466:0-488:1 -/
+    Source: 'crates/rules/src/chapters.rs', lines 472:0-494:1 -/
 def chapters.death_gain
   (fold : chapters.Fold) (record : chapters.KeyRecord) (foe : Option Std.Usize)
   (rule : Std.U8) :
@@ -592,7 +592,7 @@ def weights.weight
   | weights.KeyKind.BgWin => ok 3#u16
 
 /-- [timeways_rules::chapters::first_time_gain]:
-    Source: 'crates/rules/src/chapters.rs', lines 436:0-438:1 -/
+    Source: 'crates/rules/src/chapters.rs', lines 442:0-444:1 -/
 def chapters.first_time_gain
   (record : chapters.KeyRecord) (kind : weights.KeyKind) (rule : Std.U8) :
   Result Std.U16
@@ -602,7 +602,7 @@ def chapters.first_time_gain
   else weights.weight rule kind
 
 /-- [timeways_rules::chapters::kill_gain]:
-    Source: 'crates/rules/src/chapters.rs', lines 442:0-462:1 -/
+    Source: 'crates/rules/src/chapters.rs', lines 448:0-468:1 -/
 def chapters.kill_gain
   (fold : chapters.Fold) (record : chapters.KeyRecord) (key : chapters.Key)
   (rule : Std.U8) :
@@ -648,7 +648,7 @@ def chapters.kill_gain
     else ok ((base, false), fold)
 
 /-- [timeways_rules::chapters::gain_of]:
-    Source: 'crates/rules/src/chapters.rs', lines 411:0-434:1 -/
+    Source: 'crates/rules/src/chapters.rs', lines 417:0-440:1 -/
 def chapters.gain_of
   (fold : chapters.Fold) (key : Option chapters.Key) :
   Result ((Std.U16 × Bool) × chapters.Fold)
@@ -800,6 +800,22 @@ def chapters.gain_of
       ok ((amount, revenge), { fold1 with keys := v1 })
     else ok ((0#u16, false), fold)
 
+/-- [timeways_rules::chapters::note_zone]:
+    Source: 'crates/rules/src/chapters.rs', lines 378:0-382:1 -/
+def chapters.note_zone
+  (fold : chapters.Fold) (zone : Std.Usize) : Result chapters.Fold := do
+  let i := alloc.vec.Vec.len fold.zones
+  if zone = i
+  then
+    let i1 := alloc.vec.Vec.len fold.zones
+    let b ← chapters.has_slot i1 zone
+    if b
+    then
+      let v ← alloc.vec.Vec.push fold.zones chapters.UNSETTLED
+      ok { fold with zones := v }
+    else ok fold
+  else ok fold
+
 /-- [timeways_rules::weights::limits]:
     Source: 'crates/rules/src/weights.rs', lines 90:0-93:1
     Visibility: public -/
@@ -807,7 +823,7 @@ def weights.limits (rule : Std.U8) : Result weights.Limits := do
   ok { min := 15#u16, max := 40#u16 }
 
 /-- [timeways_rules::chapters::settle]:
-    Source: 'crates/rules/src/chapters.rs', lines 394:0-401:1 -/
+    Source: 'crates/rules/src/chapters.rs', lines 400:0-407:1 -/
 def chapters.settle
   (fold : chapters.Fold) (zone : Std.Usize) : Result chapters.Fold := do
   let i := alloc.vec.Vec.len fold.zones
@@ -822,36 +838,30 @@ def chapters.settle
   else ok fold
 
 /-- [timeways_rules::chapters::zone_break]:
-    Source: 'crates/rules/src/chapters.rs', lines 377:0-392:1 -/
+    Source: 'crates/rules/src/chapters.rs', lines 386:0-398:1 -/
 def chapters.zone_break
   (fold : chapters.Fold) (zone : Std.Usize) :
-  Result ((Option chapters.Break) × chapters.Fold)
+  Result (Option chapters.Break)
   := do
   let i := alloc.vec.Vec.len fold.zones
-  let b ← chapters.has_slot i zone
-  if b
-  then
-    let i1 := alloc.vec.Vec.len fold.zones
-    let v ←
-      if zone = i1
-      then alloc.vec.Vec.push fold.zones chapters.UNSETTLED
-      else ok fold.zones
+  if zone >= i
+  then ok none
+  else
     let record ←
       alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice
-        chapters.ZoneRecord) v zone
+        chapters.ZoneRecord) fold.zones zone
     if record.settled
     then
-      let i2 ←
+      let i1 ←
         lift (core.num.Usize.saturating_add record.last_chapter 1#usize)
-      let i3 := alloc.vec.Vec.len fold.closed
-      if i2 < i3
-      then ok (some chapters.Break.Return, { fold with zones := v })
-      else ok (none, { fold with zones := v })
-    else ok (some chapters.Break.NewZone, { fold with zones := v })
-  else ok (none, fold)
+      let i2 := alloc.vec.Vec.len fold.closed
+      if i1 < i2
+      then ok (some chapters.Break.Return)
+      else ok none
+    else ok (some chapters.Break.NewZone)
 
 /-- [timeways_rules::chapters::close_chapter]:
-    Source: 'crates/rules/src/chapters.rs', lines 324:0-331:1 -/
+    Source: 'crates/rules/src/chapters.rs', lines 325:0-332:1 -/
 def chapters.close_chapter
   (fold : chapters.Fold) (last : Std.Usize) (close : chapters.Close) :
   Result chapters.Fold
@@ -862,7 +872,7 @@ def chapters.close_chapter
   ok { fold with closed := v }
 
 /-- [timeways_rules::chapters::title_rank]:
-    Source: 'crates/rules/src/chapters.rs', lines 313:0-322:1 -/
+    Source: 'crates/rules/src/chapters.rs', lines 314:0-323:1 -/
 def chapters.title_rank (cut : chapters.Break) : Result Std.U8 := do
   match cut with
   | chapters.Break.Return => ok 0#u8
@@ -873,7 +883,7 @@ def chapters.title_rank (cut : chapters.Break) : Result Std.U8 := do
   | chapters.Break.Away => ok 5#u8
 
 /-- [timeways_rules::chapters::wait_for_cut]:
-    Source: 'crates/rules/src/chapters.rs', lines 298:0-311:1 -/
+    Source: 'crates/rules/src/chapters.rs', lines 299:0-312:1 -/
 def chapters.wait_for_cut
   (fold : chapters.Fold) (new : chapters.Break) : Result chapters.Fold := do
   match fold.pending with
@@ -886,7 +896,7 @@ def chapters.wait_for_cut
     else ok { fold with pending := (some new) }
 
 /-- [timeways_rules::chapters::add_to_chapter]:
-    Source: 'crates/rules/src/chapters.rs', lines 335:0-373:1 -/
+    Source: 'crates/rules/src/chapters.rs', lines 336:0-374:1 -/
 def chapters.add_to_chapter
   (fold : chapters.Fold) (zone : Std.Usize) (amount : Std.U16)
   (here : Std.Usize) :
@@ -895,45 +905,45 @@ def chapters.add_to_chapter
   if amount = 0#u16
   then ok fold
   else
-    let (o, fold1) ← chapters.zone_break fold zone
-    let fold2 ←
+    let o ← chapters.zone_break fold zone
+    let fold1 ←
       match o with
-      | none => ok fold1
-      | some cut => chapters.wait_for_cut fold1 cut
-    let bounds ← weights.limits fold2.open.rule
+      | none => ok fold
+      | some cut => chapters.wait_for_cut fold cut
+    let bounds ← weights.limits fold1.open.rule
     let (v, v1, v2, v3, i, i1, o1, o2, o3, v4, v5, o4, o5, v6, bounds1) ←
-      match fold2.pending with
+      match fold1.pending with
       | none =>
-        ok (fold2.keys, fold2.foes, fold2.zones, fold2.closed,
-          fold2.open.first, fold2.open.weight, fold2.open.opening,
-          fold2.open.zone, none, fold2.tales, fold2.visits, fold2.visit,
-          fold2.last_at, fold2.gains, bounds)
+        ok (fold1.keys, fold1.foes, fold1.zones, fold1.closed,
+          fold1.open.first, fold1.open.weight, fold1.open.opening,
+          fold1.open.zone, none, fold1.tales, fold1.visits, fold1.visit,
+          fold1.last_at, fold1.gains, bounds)
       | some cut =>
         do
         let (v7, v8, v9, v10, i2, i3, o6, o7, o8, v11, v12, o9, o10, v13) ←
-          if fold2.open.weight >= bounds.min
+          if fold1.open.weight >= bounds.min
           then
-            if fold2.open.first < here
+            if fold1.open.first < here
             then
               do
               let i4 ← here - 1#usize
-              let fold3 ←
-                chapters.close_chapter { fold2 with pending := none } i4
+              let fold2 ←
+                chapters.close_chapter { fold1 with pending := none } i4
                   chapters.Close.Break
-              ok (fold3.keys, fold3.foes, fold3.zones, fold3.closed, here,
-                0#u16, chapters.Opening.Break cut, some zone, fold3.pending,
-                fold3.tales, fold3.visits, fold3.visit, fold3.last_at,
-                fold3.gains)
+              ok (fold2.keys, fold2.foes, fold2.zones, fold2.closed, here,
+                0#u16, chapters.Opening.Break cut, some zone, fold2.pending,
+                fold2.tales, fold2.visits, fold2.visit, fold2.last_at,
+                fold2.gains)
             else
-              ok (fold2.keys, fold2.foes, fold2.zones, fold2.closed,
-                fold2.open.first, fold2.open.weight, fold2.open.opening,
-                fold2.open.zone, none, fold2.tales, fold2.visits, fold2.visit,
-                fold2.last_at, fold2.gains)
+              ok (fold1.keys, fold1.foes, fold1.zones, fold1.closed,
+                fold1.open.first, fold1.open.weight, fold1.open.opening,
+                fold1.open.zone, none, fold1.tales, fold1.visits, fold1.visit,
+                fold1.last_at, fold1.gains)
           else
-            ok (fold2.keys, fold2.foes, fold2.zones, fold2.closed,
-              fold2.open.first, fold2.open.weight, fold2.open.opening,
-              fold2.open.zone, none, fold2.tales, fold2.visits, fold2.visit,
-              fold2.last_at, fold2.gains)
+            ok (fold1.keys, fold1.foes, fold1.zones, fold1.closed,
+              fold1.open.first, fold1.open.weight, fold1.open.opening,
+              fold1.open.zone, none, fold1.tales, fold1.visits, fold1.visit,
+              fold1.last_at, fold1.gains)
         ok (v7, v8, v9, v10, i2, i3, o6, o7, o8, v11, v12, o9, o10, v13,
           bounds)
     let i2 ← lift (core.num.U16.saturating_add i1 amount)
@@ -941,7 +951,7 @@ def chapters.add_to_chapter
     let o6 ← if b
                then ok (some zone)
                else ok o2
-    let fold3 ←
+    let fold2 ←
       chapters.settle
         {
           keys := v,
@@ -950,7 +960,7 @@ def chapters.add_to_chapter
           closed := v3,
           «open» :=
             {
-              fold2.open
+              fold1.open
                 with
                 first := i, weight := i2, opening := o1, zone := o6
             },
@@ -961,17 +971,17 @@ def chapters.add_to_chapter
           last_at := o5,
           gains := v6
         } zone
-    if fold3.open.weight >= bounds1.max
+    if fold2.open.weight >= bounds1.max
     then
-      let fold4 ← chapters.close_chapter fold3 here chapters.Close.Max
+      let fold3 ← chapters.close_chapter fold2 here chapters.Close.Max
       let i3 ← here + 1#usize
       ok
         {
-          fold4
+          fold3
             with
             «open» :=
               {
-                fold2.open
+                fold1.open
                   with
                   first := i3,
                   weight := 0#u16,
@@ -979,49 +989,48 @@ def chapters.add_to_chapter
                   zone := (some zone)
               }
         }
-    else ok fold3
+    else ok fold2
 
 /-- [timeways_rules::chapters::apply_play]:
-    Source: 'crates/rules/src/chapters.rs', lines 270:0-295:1 -/
+    Source: 'crates/rules/src/chapters.rs', lines 270:0-296:1 -/
 def chapters.apply_play
   (fold : chapters.Fold) (play : chapters.Play) : Result chapters.Fold := do
   let here := alloc.vec.Vec.len fold.gains
-  let (fold1, play1) ←
-    match fold.last_at with
-    | none => ok (fold, play)
+  let fold1 ← chapters.note_zone fold play.zone
+  let fold2 ←
+    match fold1.last_at with
+    | none => ok fold1
     | some last =>
       do
       let i ← chapters.AWAY_SECONDS
       let i1 ← lift (core.num.U64.saturating_add last i)
-      let f ←
-        if play.at >= i1
-        then chapters.wait_for_cut fold chapters.Break.Away
-        else ok fold
-      ok (f, play)
-  let fold2 ←
-    match play1.mark with
-    | none => ok fold1
-    | some mark => chapters.wait_for_cut fold1 mark
-  let (fold3, t) ←
-    match play1.track with
+      if play.at >= i1
+      then chapters.wait_for_cut fold1 chapters.Break.Away
+      else ok fold1
+  let fold3 ←
+    match play.mark with
+    | none => ok fold2
+    | some mark => chapters.wait_for_cut fold2 mark
+  let (fold4, t) ←
+    match play.track with
     | chapters.Track.World =>
       do
-      let fold4 ← chapters.leave_instance fold2 play1.at
-      ok (fold4, chapters.Track.World)
+      let fold5 ← chapters.leave_instance fold3 play.at
+      ok (fold5, chapters.Track.World)
     | chapters.Track.Instance «instance» =>
       do
-      let fold4 ← chapters.enter_instance fold2 «instance» here play1.at
-      ok (fold4, play1.track)
-  let ((amount, revenge), fold4) ← chapters.gain_of fold3 play1.key
-  let fold5 ←
+      let fold5 ← chapters.enter_instance fold3 «instance» here play.at
+      ok (fold5, play.track)
+  let ((amount, revenge), fold5) ← chapters.gain_of fold4 play.key
+  let fold6 ←
     match t with
     | chapters.Track.World =>
-      chapters.add_to_chapter fold4 play1.zone amount here
-    | chapters.Track.Instance _ => chapters.add_to_visit fold4 amount
+      chapters.add_to_chapter fold5 play.zone amount here
+    | chapters.Track.Instance _ => chapters.add_to_visit fold5 amount
   let v ←
-    alloc.vec.Vec.push fold5.gains ({ amount, track := t, revenge } :
+    alloc.vec.Vec.push fold6.gains ({ amount, track := t, revenge } :
       chapters.Gain)
-  ok { fold5 with last_at := (some play1.at), gains := v }
+  ok { fold6 with last_at := (some play.at), gains := v }
 
 /-- [timeways_rules::chapters::apply_rule]:
     Source: 'crates/rules/src/chapters.rs', lines 248:0-268:1 -/

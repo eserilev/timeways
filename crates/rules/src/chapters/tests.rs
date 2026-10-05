@@ -510,6 +510,21 @@ fn an_id_out_of_range_gains_nothing() {
     assert_eq!(gains(&fold), [0]);
     assert!(fold.keys.is_empty());
     assert!(fold.zones.is_empty());
+    assert_eq!(fold.open.zone, None);
+}
+
+#[test]
+fn a_zone_flown_over_takes_its_id_and_the_next_zone_still_settles() {
+    let mut log = Log::new();
+    log.fly_over(ELWYNN);
+    log.quests(WESTFALL, 15);
+
+    log.quest(DUSKWOOD);
+    let fold = log.fold();
+
+    assert_eq!(fold.zones.len(), 3);
+    assert_eq!(fold.closed.len(), 1);
+    assert_eq!(fold.open.opening, Opening::Break(Break::NewZone));
 }
 
 #[test]
