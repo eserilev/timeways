@@ -37,7 +37,9 @@ use timeways_story::quest::{
 use timeways_story::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use timeways_story::seen::TextKind;
 use timeways_story::spot::{MAP_IDS, Spot, THOUSANDTHS, spot_of};
-use timeways_story::store::{CharacterKey, Database, Node, Root, Store, Table, safe_id};
+use timeways_story::store::{
+    CallEnd, CharacterKey, Database, Line, NewCall, Node, Outcome, Root, Store, Table, safe_id,
+};
 use timeways_story::story::{Output, Story};
 use timeways_story::vocabulary::{DEATHS, DEFEATED, MET};
 use timeways_story::wikitext::plain;
@@ -2150,6 +2152,118 @@ proptest! {
             let prompt = row[0].clone().unwrap_or_default();
             for word in text_words(&prompt) {
                 prop_assert!(!keys.contains(&key_of(word)), "{} in {}", word, prompt);
+            }
+        }
+    }
+}
+
+/// A step of the shelf of stories: an accept, a removal, or a call that reads the story.
+#[derive(Clone, Debug)]
+enum ShelfPlay {
+    Accept(u64),
+    Remove(u64),
+    Use(u64),
+}
+
+/// The numbers come from a small range, so that a number often comes again, and from the
+/// edges of a `u64`.
+fn shelf_number() -> impl Strategy<Value = u64> {
+    prop_oneof![Just(0u64), Just(1), Just(u64::MAX), 0u64..4]
+}
+
+fn shelf_play() -> impl Strategy<Value = ShelfPlay> {
+    prop_oneof![
+        3 => shelf_number().prop_map(ShelfPlay::Accept),
+        2 => shelf_number().prop_map(ShelfPlay::Remove),
+        1 => shelf_number().prop_map(ShelfPlay::Use),
+    ]
+}
+
+fn accepted_story(number: u64) -> Input {
+    Input::StoryAccepted {
+        at: Tick(10),
+        number,
+        text: "A tale of the road.".to_string(),
+    }
+}
+
+/// An accepted call reads the row of the story, as a later call kind will.
+fn a_call_reads_row(folder: &Path, position: u64, row: u64) {
+    let key = CharacterKey::new("Stormrage", "Ada").unwrap();
+    let mut database = Store::Folder(folder.to_path_buf())
+        .open(&key)
+        .unwrap()
+        .database;
+    let line = Line {
+        calls: vec![NewCall {
+            position,
+            kind: "saga",
+            pack: "test".to_string(),
+            prompt: "prompt".to_string(),
+            reads: vec![Node::Row(Table::Stories, row)],
+        }],
+        ended: vec![CallEnd {
+            position,
+            answer: Some("answer".to_string()),
+            outcome: Outcome::Accepted,
+        }],
+        ..Line::default()
+    };
+    database.save(&line).unwrap();
+}
+
+fn standing_numbers(story: &mut Story) -> Vec<u64> {
+    first_page(story)
+        .stories
+        .iter()
+        .map(|told| told.number)
+        .collect()
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(48))]
+
+    /// GAMEPLAY.md 4.8: a number comes once, a removed story never comes back, and a story
+    /// that a call used stays. Lean proves the rules (lean/Timeways/StoryShelf.lean). This
+    /// checks the glue of the story program around them.
+    #[test]
+    fn the_shelf_keeps_each_number_once(plays in prop::collection::vec(shelf_play(), 0..24)) {
+        let folder = fresh("shelf");
+        let mut story = story(&folder, Store::Folder(folder.clone()));
+        let (mut rows, mut removed, mut used) = (Vec::new(), Vec::new(), Vec::new());
+        let mut calls = 0;
+        for play in &plays {
+            match *play {
+                ShelfPlay::Accept(number) => {
+                    if story.handle(accepted_story(number)).is_ok() {
+                        rows.push(number);
+                    }
+                }
+                ShelfPlay::Remove(number) => {
+                    let removal = story.handle(Input::StoryRemoved { at: Tick(20), number });
+                    prop_assert!(removal.is_err() || !used.contains(&number));
+                    if removal.is_ok() {
+                        rows.push(number);
+                        removed.push(number);
+                    }
+                }
+                ShelfPlay::Use(number) => {
+                    let Some(row) = rows.iter().position(|n| *n == number) else { continue };
+                    drop(story);
+                    a_call_reads_row(&folder, calls, row as u64);
+                    calls += 1;
+                    used.push(number);
+                    story = self::story(&folder, Store::Folder(folder.clone()));
+                }
+            }
+            let standing = standing_numbers(&mut story);
+            let distinct: std::collections::BTreeSet<&u64> = standing.iter().collect();
+            prop_assert_eq!(distinct.len(), standing.len(), "{:?}", standing);
+            for number in &removed {
+                prop_assert!(!standing.contains(number), "{} came back", number);
+            }
+            for number in &used {
+                prop_assert!(removed.contains(number) || standing.contains(number));
             }
         }
     }

@@ -112,4 +112,12 @@ structure quest_log.Quest where
   giver : String
   progress : quest_log.Progress
 
+/-- [timeways_rules::story_shelf::ShelfLine]
+    Source: 'crates/rules/src/story_shelf.rs', lines 9:0-12:1
+    Visibility: public -/
+@[discriminant isize]
+inductive story_shelf.ShelfLine where
+| Accepted : Std.U64 → story_shelf.ShelfLine
+| Removed : Std.U64 → story_shelf.ShelfLine
+
 end timeways_rules

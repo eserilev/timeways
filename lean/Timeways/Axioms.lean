@@ -6,6 +6,7 @@ import Timeways.Budget
 import Timeways.TrustBand
 import Timeways.Prompts
 import Timeways.Aliases
+import Timeways.StoryShelf
 
 open timeways_rules
 
@@ -112,3 +113,23 @@ open timeways_rules
 /-- info: 'timeways_rules.aliases.restore_keeps_what_is_no_known_name' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs (whitespace := lax) in
 #print axioms aliases.restore_keeps_what_is_no_known_name
+
+/-- info: 'timeways_rules.story_shelf.lands.spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms story_shelf.lands.spec
+
+/-- info: 'timeways_rules.story_shelf.standing.spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms story_shelf.standing.spec
+
+/-- info: 'timeways_rules.story_shelf.a_number_stands_at_most_once' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms story_shelf.a_number_stands_at_most_once
+
+/-- info: 'timeways_rules.story_shelf.a_removed_story_never_comes_back' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms story_shelf.a_removed_story_never_comes_back
+
+/-- info: 'timeways_rules.story_shelf.a_used_story_always_stands' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms story_shelf.a_used_story_always_stands

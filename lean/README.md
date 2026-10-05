@@ -3,8 +3,9 @@
 Aeneas translates the crate `timeways-rules` (`crates/rules`) into pure
 Lean functions. The theorems in `Timeways/QuestLog.lean`,
 `Timeways/HeroHook.lean`, `Timeways/Budget.lean`,
-`Timeways/TrustBand.lean`, `Timeways/Prompts.lean`, and
-`Timeways/Aliases.lean` are about those functions. A theorem holds for every input, with no bound. The
+`Timeways/TrustBand.lean`, `Timeways/Prompts.lean`,
+`Timeways/Aliases.lean`, and `Timeways/StoryShelf.lean` are about those
+functions. A theorem holds for every input, with no bound. The
 property tests in `crates/story/tests/properties.rs` check the same
 rules on random input, and they stay as a second check.
 
@@ -137,6 +138,28 @@ players. The glue in `crates/story/src/aliases.rs` cuts the text into
 pieces and folds the case. No proof reads it. Its property tests check
 that a text cut and joined again is the same text, and that no word of
 the text for a model folds to a known name.
+
+## What is proved: the story shelf
+
+The shelf holds the accepted stories of a player (`GAMEPLAY.md` 4.8).
+`lands` decides if a line of the `stories` table may land: an accept of
+a new number, or a removal of a story that stands and that no accepted
+call used. `standing` gives the numbers that stand, oldest first.
+`Landed` says that each line landed against the lines before it. The
+story program only appends a line that lands, so every shelf of a
+world is `Landed`.
+
+| Theorem | The law | Test |
+|---|---|---|
+| `lands.spec`, `standing.spec` | The two functions never panic, always end, and give their pure model. | the unit tests of `story_shelf.rs` |
+| `a_number_stands_at_most_once` | On a landed shelf, no number stands twice. | `the_shelf_keeps_each_number_once` |
+| `a_removed_story_never_comes_back` | After a removal, the number never stands again, whatever lines come after it. The shelf need not be landed. | the same |
+| `a_used_story_always_stands` | A story that a call used and that stands, stands after any line that lands. | the same |
+
+The glue in `crates/story/src/stories.rs` turns each row into a
+`ShelfLine`, and asks the database which stories an accepted call read.
+No proof reads the glue. The property test checks it, with numbers at
+the edges of a `u64` and numbers that come again.
 
 ## What you trust
 

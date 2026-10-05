@@ -970,6 +970,158 @@ def quest_log.quest_log
   := do
   quest_log.quest_log_loop changes (alloc.vec.Vec.new quest_log.Quest) 0#usize
 
+/-- [timeways_rules::story_shelf::is_taken]: loop 0:
+    Source: 'crates/rules/src/story_shelf.rs', lines 18:4-29:1
+    Visibility: public -/
+@[rust_loop]
+def story_shelf.is_taken_loop
+  (lines : Slice story_shelf.ShelfLine) (number : Std.U64) (index : Std.Usize)
+  :
+  Result Bool
+  := do
+  let i := Slice.len lines
+  if index < i
+  then
+    let line ← Slice.index_usize lines index
+    match line with
+    | story_shelf.ShelfLine.Accepted n =>
+      if n = number
+      then ok true
+      else
+        let index1 ← index + 1#usize
+        story_shelf.is_taken_loop lines number index1
+    | story_shelf.ShelfLine.Removed _ =>
+      let index1 ← index + 1#usize
+      story_shelf.is_taken_loop lines number index1
+  else ok false
+partial_fixpoint
+
+/-- [timeways_rules::story_shelf::is_taken]:
+    Source: 'crates/rules/src/story_shelf.rs', lines 16:0-29:1
+    Visibility: public -/
+@[reducible]
+def story_shelf.is_taken
+  (lines : Slice story_shelf.ShelfLine) (number : Std.U64) : Result Bool := do
+  story_shelf.is_taken_loop lines number 0#usize
+
+/-- [timeways_rules::story_shelf::is_removed]: loop 0:
+    Source: 'crates/rules/src/story_shelf.rs', lines 35:4-45:1
+    Visibility: public -/
+@[rust_loop]
+def story_shelf.is_removed_loop
+  (lines : Slice story_shelf.ShelfLine) (number : Std.U64) (index : Std.Usize)
+  :
+  Result Bool
+  := do
+  let i := Slice.len lines
+  if index < i
+  then
+    let line ← Slice.index_usize lines index
+    match line with
+    | story_shelf.ShelfLine.Accepted _ =>
+      let index1 ← index + 1#usize
+      story_shelf.is_removed_loop lines number index1
+    | story_shelf.ShelfLine.Removed n =>
+      if n = number
+      then ok true
+      else
+        let index1 ← index + 1#usize
+        story_shelf.is_removed_loop lines number index1
+  else ok false
+partial_fixpoint
+
+/-- [timeways_rules::story_shelf::is_removed]:
+    Source: 'crates/rules/src/story_shelf.rs', lines 33:0-45:1
+    Visibility: public -/
+@[reducible]
+def story_shelf.is_removed
+  (lines : Slice story_shelf.ShelfLine) (number : Std.U64) : Result Bool := do
+  story_shelf.is_removed_loop lines number 0#usize
+
+/-- [timeways_rules::story_shelf::holds]: loop 0:
+    Source: 'crates/rules/src/story_shelf.rs', lines 50:4-57:1 -/
+@[rust_loop]
+def story_shelf.holds_loop
+  (numbers : Slice Std.U64) (number : Std.U64) (index : Std.Usize) :
+  Result Bool
+  := do
+  let i := Slice.len numbers
+  if index < i
+  then
+    let i1 ← Slice.index_usize numbers index
+    if i1 = number
+    then ok true
+    else
+      let index1 ← index + 1#usize
+      story_shelf.holds_loop numbers number index1
+  else ok false
+partial_fixpoint
+
+/-- [timeways_rules::story_shelf::holds]:
+    Source: 'crates/rules/src/story_shelf.rs', lines 48:0-57:1 -/
+@[reducible]
+def story_shelf.holds
+  (numbers : Slice Std.U64) (number : Std.U64) : Result Bool := do
+  story_shelf.holds_loop numbers number 0#usize
+
+/-- [timeways_rules::story_shelf::lands]:
+    Source: 'crates/rules/src/story_shelf.rs', lines 63:0-70:1
+    Visibility: public -/
+def story_shelf.lands
+  (lines : Slice story_shelf.ShelfLine) (line : story_shelf.ShelfLine)
+  (used : Slice Std.U64) :
+  Result Bool
+  := do
+  match line with
+  | story_shelf.ShelfLine.Accepted number =>
+    let b ← story_shelf.is_taken lines number
+    ok (¬ b)
+  | story_shelf.ShelfLine.Removed number =>
+    let b ← story_shelf.is_taken lines number
+    if b
+    then
+      let b1 ← story_shelf.is_removed lines number
+      if b1
+      then ok false
+      else let b2 ← story_shelf.holds used number
+           ok (¬ b2)
+    else ok false
+
+/-- [timeways_rules::story_shelf::standing]: loop 0:
+    Source: 'crates/rules/src/story_shelf.rs', lines 78:4-86:5
+    Visibility: public -/
+@[rust_loop]
+def story_shelf.standing_loop
+  (lines : Slice story_shelf.ShelfLine) (numbers : alloc.vec.Vec Std.U64)
+  (index : Std.Usize) :
+  Result (alloc.vec.Vec Std.U64)
+  := do
+  let i := Slice.len lines
+  if index < i
+  then
+    let line ← Slice.index_usize lines index
+    let numbers1 ←
+      match line with
+      | story_shelf.ShelfLine.Accepted number =>
+        do
+        let b ← story_shelf.is_removed lines number
+        if b
+        then ok numbers
+        else alloc.vec.Vec.push numbers number
+      | story_shelf.ShelfLine.Removed _ => ok numbers
+    let index1 ← index + 1#usize
+    story_shelf.standing_loop lines numbers1 index1
+  else ok numbers
+partial_fixpoint
+
+/-- [timeways_rules::story_shelf::standing]:
+    Source: 'crates/rules/src/story_shelf.rs', lines 75:0-88:1
+    Visibility: public -/
+@[reducible]
+def story_shelf.standing
+  (lines : Slice story_shelf.ShelfLine) : Result (alloc.vec.Vec Std.U64) := do
+  story_shelf.standing_loop lines (alloc.vec.Vec.new Std.U64) 0#usize
+
 /-- [timeways_rules::trust::MIN_TRUST]
     Source: 'crates/rules/src/trust.rs', lines 4:0-4:32
     Visibility: public -/

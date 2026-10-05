@@ -4,6 +4,8 @@
 
 use hourglass::Tick;
 use serde::{Deserialize, Serialize};
+use timeways_rules::story_shelf;
+pub use timeways_rules::story_shelf::ShelfLine;
 
 /// The addon sends at most this, as for the text of a player quest.
 pub const MAX_STORY_BYTES: usize = 400;
@@ -36,24 +38,42 @@ pub fn checked_text(text: &str) -> Option<&str> {
     (fits && plain).then_some(text)
 }
 
+/// The line as the proved rules of the shelf read it (`timeways_rules::story_shelf`).
+fn shelf_line(change: &StoryChange) -> ShelfLine {
+    match change {
+        StoryChange::Accepted { number, .. } => ShelfLine::Accepted { number: *number },
+        StoryChange::Removed { number, .. } => ShelfLine::Removed { number: *number },
+    }
+}
+
+#[must_use]
+pub fn shelf(changes: &[StoryChange]) -> Vec<ShelfLine> {
+    changes.iter().map(shelf_line).collect()
+}
+
+/// The row of the acceptance of a number.
+fn accepted_row(changes: &[StoryChange], number: u64) -> Option<(u64, &StoryChange)> {
+    (0..).zip(changes).find(
+        |(_, change)| matches!(change, StoryChange::Accepted { number: n, .. } if *n == number),
+    )
+}
+
 /// Each story that stands, with the row of its acceptance, oldest first.
 #[must_use]
 pub fn standing(changes: &[StoryChange]) -> Vec<(u64, &StoryChange)> {
-    let removed = |number: u64| {
-        changes
-            .iter()
-            .any(|change| matches!(change, StoryChange::Removed { number: n, .. } if *n == number))
-    };
-    (0..)
-        .zip(changes)
-        .filter(|(_, change)| matches!(change, StoryChange::Accepted { number, .. } if !removed(*number)))
+    story_shelf::standing(&shelf(changes))
+        .into_iter()
+        .filter_map(|number| accepted_row(changes, number))
         .collect()
 }
 
-/// True when a story with this number was ever accepted. A number is never used twice.
+/// True when the line may become a row. `used` is true when an accepted call read the
+/// story of a removal.
 #[must_use]
-pub fn is_taken(changes: &[StoryChange], number: u64) -> bool {
-    changes
-        .iter()
-        .any(|change| matches!(change, StoryChange::Accepted { number: n, .. } if *n == number))
+pub fn lands(changes: &[StoryChange], line: ShelfLine, used: bool) -> bool {
+    let used = match (line, used) {
+        (ShelfLine::Removed { number }, true) => vec![number],
+        _ => Vec::new(),
+    };
+    story_shelf::lands(&shelf(changes), line, &used)
 }

@@ -4,7 +4,7 @@
 use super::{Active, Output, Story, StoryError, aliases};
 use crate::aliases::{unmarked, with_names};
 use crate::store::{Node, StoreError, Table};
-use crate::stories::{PlayerStory, StoryChange, checked_text, is_taken, standing};
+use crate::stories::{PlayerStory, ShelfLine, StoryChange, checked_text, lands, standing};
 use hourglass::Tick;
 
 impl Story {
@@ -20,7 +20,11 @@ impl Story {
         let marked = unmarked(text);
         let text = checked_text(&marked.text).ok_or(StoryError::BadStory)?;
         let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
-        if is_taken(active.stories.changes(), number) {
+        if !lands(
+            active.stories.changes(),
+            ShelfLine::Accepted { number },
+            false,
+        ) {
             return Err(StoryError::StoryTaken(number));
         }
         let text = aliases::without_names(active, &marked.names, text)?;
@@ -42,7 +46,8 @@ impl Story {
             .find(|(_, change)| matches!(change, StoryChange::Accepted { number: n, .. } if *n == number))
             .map(|(row, _)| row)
             .ok_or(StoryError::NoStory(number))?;
-        if is_used(active, row)? {
+        let removal = ShelfLine::Removed { number };
+        if !lands(active.stories.changes(), removal, is_used(active, row)?) {
             return Err(StoryError::StoryInUse(number));
         }
         active.stories.add(StoryChange::Removed { number, at })?;
