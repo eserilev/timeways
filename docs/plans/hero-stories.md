@@ -677,17 +677,17 @@ Decision 2 of 1.4 changes no theorem here: the shelf holds accepted stories, and
 
 The `used` list comes from the database (`uses_of`). No proof reads that glue. The tests of `story/stories.rs` cover it, as `lean/README.md` says for the other glue.
 
-**The Kani twin** (`crates/story/src/proofs.rs`): `the_shelf_keeps_each_number_once_for_four_lines`. Four lines with any numbers from a small range, and any `used`. Kani checks the bounded case fast, and the Lean theorem covers any length.
+**The property test** (`crates/story/tests/properties.rs`): `the_shelf_keeps_each_number_once`. Any play of accepts, uses, and removals, with numbers from a small range, so that a number often comes again. The Lean theorems cover `lands` and `standing` for any length. The test covers the glue of `stories.rs` around them, which no proof reads.
 
 ### 7.2 Not in Lean
 
 | Candidate | Where it runs | Decision |
 |---|---|---|
 | The waiting box: 1 for each author, 20 in all | Lua (`PlayerStories.lua`) | Property test over the real Lua (6.3). A Lean proof would prove a Rust copy. |
-| A sender never has two stories waiting with one receiver | Lua, on two computers | The two-player property test of 6.3, with lost messages and reloads. It is a rule of two addons and a lossy channel, so the real Lua on both sides is the only honest model. Kani and Lean see neither. |
+| A sender never has two stories waiting with one receiver | Lua, on two computers | The two-player property test of 6.3, with lost messages and reloads. It is a rule of two addons and a lossy channel, so the real Lua on both sides is the only honest model. Lean sees neither. |
 | The drafts never pass 10 | Lua | Property test over the real Lua. |
 | The escape round trip | Lua (`TaskWire.lua`) | Property test with every escaped byte, and the fuzz target `task_wire`. |
-| The story text check (bytes, paragraphs, control characters) | Rust (`stories::checked_story`) | A property test and the fuzz target `story_accepted`. The check is a few lines over `str`. Aeneas models `str` and `char` poorly, and a proof costs far more than it finds. Kani on UTF-8 strings is slow, and a bounded check adds nothing to the fuzzer. |
+| The story text check (bytes, paragraphs, control characters) | Rust (`stories::checked_story`) | A property test and the fuzz target `story_accepted`. The check is a few lines over `str`. Aeneas models `str` and `char` poorly, and a proof costs far more than it finds. |
 | The summary sees only accepted stories | Rust | The rule is now stronger: the summary reads no story. The property test `no_prompt_holds_the_text_of_a_story` checks every prompt of any play. A theorem would need the whole prompt builder in `crates/rules`, with strings and the world. |
 | The wire size bound (the worst story fits 16 parts) | Lua | A unit test of the worst case, and a property test over the real Lua. The bound is arithmetic over three numbers, so the worst case is known exactly. |
 
@@ -696,7 +696,7 @@ The `used` list comes from the database (`uses_of`). No proof reads that glue. T
 Each step is one commit or a few, with its tests, and with its rules moved into `GAMEPLAY.md` and the README.
 
 1. **The fix of today's bugs.** First the failing tests: `a_story_whose_names_grow_past_the_desktop_limit_stays_waiting` and `a_c1_control_character_is_not_clean_text`. Then `IsCleanText` refuses C1 controls, and Accept checks the scrubbed text and `Outbox.Fits` before it removes a story. Still the old shape of `story`.
-2. **The shelf in `crates/rules`.** `story_shelf.rs`, its unit tests, the extraction, the Lean theorems of 7.1, `lean/README.md`, and the Kani twin. `stories.rs` calls it. No change in behavior.
+2. **The shelf in `crates/rules`.** `story_shelf.rs`, its unit tests, the extraction, the Lean theorems of 7.1, `lean/README.md`, and the property test of 7.1. `stories.rs` calls it. No change in behavior.
 3. **The desktop story.** The title, the paragraphs, the limits of 3.3, `VERSION` 5, the journal, the property tests, and the fuzz target `story_accepted` with its seeds. The addon sends one paragraph and no title until step 4.
 4. **The wire.** `StoryText.lua`, `story` with a title, the `Body` reader and the `%0A` escape, `story_ask` and `story_room`, one story for each author, the saved bounds of point 13, the Lua tests and properties, and the seeds of `task_wire` and `task_play`.
 5. **The Stories tab.** The list, the reader, the badge, Block player, the Drafts group, `/stories`, and the new chat lines. The Hero page loses "Stories About You". Accept sends the title and the paragraphs.

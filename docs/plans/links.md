@@ -138,7 +138,7 @@ The internal name is "player story". `flavor::Told` already means a telling of a
 - `inputs` holds what the player typed in `/talk` and `/lore`, as the world holds today. The file never leaves the computer.
 - A prompt holds that text too, so it can hold a player name that the player typed. That is the player's own choice (rule 5).
 - **Dropped: a "clear my history" action.** A `/lore` question changes nothing, so it is not kept at all. What is kept is what the proof needs, so nothing is left to clear.
-- After 500 calls, the store clears the prompt of the oldest call. The row, its answer, and its links stay.
+- After 500 calls, the store clears the prompt of the oldest call. The row, its answer, and its links stay. Lean proves that the newest 500 calls always keep their prompts (`the_newest_prompts_are_always_kept`).
 
 ## 11. Build order
 
