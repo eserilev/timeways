@@ -65,12 +65,14 @@ local function IsTold(id, story)
 		and StorySaved.TOLD_STATUSES[story.status] == true
 end
 
--- A draft is the text as typed, so it can hold empty lines. Its only control sign is "\n".
+-- A draft is the text as the box shows it: a typed "|" is "||", and blank lines stay. Its
+-- only control sign is "\n".
 local function IsDraftText(text, letters, bytes)
 	return type(text) == "string"
-		and #text <= bytes
-		and ns.StoryText.Letters(text) <= letters
-		and ns.TaskWire.IsCleanText((text:gsub("\n", " ")))
+		and #text <= 2 * bytes
+		and ns.StoryText.Letters(text) <= 2 * letters
+		and not text:gsub("\n", " "):find("%c")
+		and ns.Utf8.IsValid(text)
 end
 
 local function IsDraft(draft)

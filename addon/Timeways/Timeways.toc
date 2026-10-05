@@ -63,6 +63,7 @@ PlayerTasks.lua
 StorySaved.lua
 StoryDrafts.lua
 PlayerStories.lua
+StoryScroll.lua
 TaskTrade.lua
 TaskTracker.lua
 TaskForm.lua

@@ -78,6 +78,7 @@ return {
 		"GetTradePlayerItemInfo",
 		"GetTradeTargetItemInfo",
 		"InCombatLockdown",
+		"IsControlKeyDown",
 		"IsInGroup",
 		"IsInGuild",
 		"IsInInstance",

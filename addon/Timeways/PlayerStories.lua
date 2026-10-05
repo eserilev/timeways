@@ -406,8 +406,10 @@ function PlayerStories.Shown(text)
 	return (ns.Plain(tostring(text)):gsub("%$N", me))
 end
 
-local USAGE = "Usage: /story <words> to tell your target a story about them, /story accept," .. " or /story decline."
+local USAGE = "Usage: /story to write a story about your target, /story <words> to tell it"
+	.. " now, /story accept, or /story decline. /stories shows the stories about you."
 
+-- `/story` alone opens the scroll for your target.
 function PlayerStories.Command(message)
 	local words = tostring(message or ""):match("^%s*(.-)%s*$")
 	local verb = words:lower()
@@ -415,8 +417,10 @@ function PlayerStories.Command(message)
 		PlayerStories.Accept()
 	elseif verb == "decline" then
 		PlayerStories.Decline()
-	elseif verb == "" or verb == "help" then
+	elseif verb == "help" then
 		Say(USAGE .. " " .. ns.TaskPages.LOGGED)
+	elseif verb == "" then
+		ns.StoryScroll.OpenFor(ns.TaskPeople.OfUnit("target"))
 	else
 		PlayerStories.Tell(ns.TaskPeople.OfUnit("target"), words)
 	end

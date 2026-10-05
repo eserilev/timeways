@@ -343,6 +343,11 @@ return {
 				{ Name = "time", Type = "number", Nilable = false },
 			},
 		},
+		IsControlKeyDown = {
+			Returns = {
+				{ Name = "down", Type = "bool", Nilable = false },
+			},
+		},
 		IsInGuild = {
 			Returns = {
 				{ Name = "result", Type = "bool", Nilable = false },
@@ -543,6 +548,18 @@ return {
 				{ Name = "enabled", Type = "bool", Nilable = false },
 			},
 		},
+		["FrameAPICharacterModelBase:SetUnit"] = {
+			RequiresDeclassifiedUnitIdentity = true,
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "unit", Type = "UnitToken", Nilable = false },
+				{ Name = "blend", Type = "bool", Nilable = false, Default = true },
+				{ Name = "useNativeForm", Type = "bool", Nilable = true },
+			},
+			Returns = {
+				{ Name = "success", Type = "bool", Nilable = false },
+			},
+		},
 		["FrameAPIModelSceneFrameActorBase:Hide"] = {
 			Arguments = {},
 		},
@@ -733,6 +750,13 @@ return {
 			Arguments = {
 				{ Name = "start", Type = "number", Nilable = false, Default = 0 },
 				{ Name = "stop", Type = "number", Nilable = false, Default = -1 },
+			},
+		},
+		["SimpleEditBoxAPI:Insert"] = {
+			SecretArguments = "AllowedWhenUntainted",
+			SecretArgumentsAddAspect = { Enum.SecretAspect.Text },
+			Arguments = {
+				{ Name = "text", Type = "cstring", Nilable = false },
 			},
 		},
 		["SimpleEditBoxAPI:SetAutoFocus"] = {

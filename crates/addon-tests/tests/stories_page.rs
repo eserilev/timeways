@@ -254,7 +254,7 @@ fn a_used_story_says_why_it_stays() {
 }
 
 #[test]
-fn drafts_show_with_delete_and_delete_asks_first() {
+fn drafts_show_with_continue_and_delete_and_delete_asks_first() {
     let game = game_with(
         "TimewaysStories = { drafts = { { to = 'Morvane-Stormrage', title = '', text = 'We went.\\n\\nWe came back.', at = 1790000000 } } }",
     );
@@ -263,6 +263,7 @@ fn drafts_show_with_delete_and_delete_asks_first() {
 
     let rows = list(&game);
     let lines = page_lines(&game);
+    let shown = buttons(&game);
     click(&game, "Delete");
     let still_there: usize = game.eval("return #ns.StoryDrafts.All()");
     game.run("wow.AcceptPopup()");
@@ -283,6 +284,7 @@ fn drafts_show_with_delete_and_delete_asks_first() {
             "prose: We came back.",
         ]
     );
+    assert_eq!(shown, ["Continue", "Delete"]);
     assert_eq!(still_there, 1);
     assert_eq!(game.eval::<usize>("return #ns.StoryDrafts.All()"), 0);
 }

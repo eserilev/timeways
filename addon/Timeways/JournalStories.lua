@@ -229,11 +229,15 @@ local function DraftPage(row)
 		Line("note", "To " .. Short(draft.to) .. " · " .. Day(draft.at)),
 	}
 	Paragraphs(lines, ns.StoryText.Paragraphs(ns.StoryText.Body(draft.text)), ns.Plain)
-	return lines, {
-		Button("Delete", function()
-			ns.StoryDrafts.AskDelete(draft.to)
-		end),
-	}
+	return lines,
+		{
+			Button("Continue", function()
+				ns.StoryScroll.OpenDraft(draft.to)
+			end),
+			Button("Delete", function()
+				ns.StoryDrafts.AskDelete(draft.to)
+			end),
+		}
 end
 
 local PAGES = { waiting = WaitingPage, accepted = AcceptedPage, draft = DraftPage }

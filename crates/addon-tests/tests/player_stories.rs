@@ -432,10 +432,10 @@ fn a_story_too_long_to_send_asks_for_a_shorter_one() {
 }
 
 #[test]
-fn the_story_command_alone_says_that_blizzard_can_read_a_story() {
+fn the_story_help_says_that_blizzard_can_read_a_story() {
     let (ada, _) = party();
 
-    ada.run("wow.Slash('/story', '')");
+    ada.run("wow.Slash('/story', 'help')");
 
     let last = ada.printed().pop().unwrap();
     assert!(last.ends_with("Like chat, Blizzard can read what you send."));
@@ -656,6 +656,24 @@ fn a_draft_survives_a_reload() {
 
     let text: String = reloaded.eval("return ns.StoryDrafts.For('Corvin-Stormrage').text");
     assert_eq!(text, "One.\n\nTwo.");
+}
+
+#[test]
+fn a_draft_with_a_typed_bar_survives_a_reload() {
+    let game = Game::new();
+    game.run(
+        "TimewaysStories = { drafts = {
+             { to = 'Corvin-Stormrage', title = 'A || title', text = 'One ||.\\n\\nTwo.', at = 1 },
+             { to = 'Bram-Stormrage', title = '', text = 'A bell\\7.', at = 1 } } }",
+    );
+
+    let kept: Vec<String> = game.eval(
+        "local out = {}
+         for _, draft in ipairs(ns.StoryDrafts.All()) do table.insert(out, draft.to) end
+         return out",
+    );
+
+    assert_eq!(kept, ["Corvin-Stormrage"]);
 }
 
 #[test]

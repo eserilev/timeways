@@ -477,6 +477,13 @@ function UnitCreatureType(unit)
 	end
 end
 
+-- A test holds Ctrl down with `wow.ctrl = true`.
+wow.ctrl = false
+
+function IsControlKeyDown()
+	return wow.ctrl
+end
+
 function UnitLevel(unit)
 	local u = Unit(unit)
 	return u and u.level or 0
@@ -664,9 +671,15 @@ function Widget:SetAlpha(alpha)
 	self.alpha = alpha
 end
 
--- The player copies the selected text of an edit box with Ctrl+C.
-function Widget:HighlightText()
-	self.highlighted = true
+-- The player copies the selected text of an edit box with Ctrl+C. A part of the text is
+-- selected from the cursor position `start` up to `stop`.
+function Widget:HighlightText(start, stop)
+	self.highlighted = start and { start, stop } or true
+end
+
+-- The fake cursor stands at the end of the text.
+function Widget:Insert(text)
+	self:SetText((self.text or "") .. text)
 end
 
 function Widget:SetNumeric(numeric)

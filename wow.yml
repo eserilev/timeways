@@ -143,6 +143,8 @@ globals:
     any: true
   ChatFontNormal:
     any: true
+  IsControlKeyDown:
+    args: []
   GetTime:
     args: []
   GetBuildInfo:
