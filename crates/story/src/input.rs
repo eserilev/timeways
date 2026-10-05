@@ -2,6 +2,7 @@
 //! answers to model calls (GAMEPLAY.md 3.1, 5.4, and 5.6).
 
 use crate::places::InstanceKind;
+use crate::race_class::{Class, Race};
 use crate::seen::TextKind;
 use crate::spot::{self, Spot};
 use crate::store::Root;
@@ -19,6 +20,12 @@ pub enum Input {
     CharacterEntered {
         realm: String,
         name: String,
+    },
+    /// The race and the class of the character, at each login (GAMEPLAY.md 3.2.1).
+    CharacterDescribed {
+        at: Tick,
+        race: Race,
+        class: Class,
     },
     /// `spot` is where the player stands as the place begins.
     ZoneEntered {
@@ -315,6 +322,7 @@ impl Input {
     pub fn at_mut(&mut self) -> Option<&mut Tick> {
         match self {
             Input::ZoneEntered { at, .. }
+            | Input::CharacterDescribed { at, .. }
             | Input::NpcMet { at, .. }
             | Input::NpcSeen { at, .. }
             | Input::NpcKilled { at, .. }

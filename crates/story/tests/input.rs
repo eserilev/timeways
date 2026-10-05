@@ -1,6 +1,7 @@
 use hourglass::Tick;
 use timeways_story::input::{CallId, GameQuestKind, Input, MessageId, Reaction};
 use timeways_story::places::InstanceKind;
+use timeways_story::race_class::{Class, Race};
 
 fn parse(line: &str) -> Result<Input, serde_json::Error> {
     serde_json::from_str(line)
@@ -444,4 +445,27 @@ fn an_hour_change_and_the_hour_of_a_zone_read() {
     );
     assert_eq!(changed.hour(), Some(21));
     assert_eq!(zone.hour(), Some(3));
+}
+
+#[test]
+fn a_description_reads_the_tokens_of_the_game() {
+    let line = r#"{"type":"character_described","at":100,"race":"Scourge","class":"WARLOCK"}"#;
+
+    let input = parse(line).unwrap();
+
+    assert_eq!(
+        input,
+        Input::CharacterDescribed {
+            at: Tick(100),
+            race: Race::Forsaken,
+            class: Class::Warlock,
+        }
+    );
+}
+
+#[test]
+fn a_description_with_a_race_from_a_later_expansion_is_refused() {
+    let line = r#"{"type":"character_described","at":100,"race":"Pandaren","class":"MONK"}"#;
+
+    assert!(parse(line).is_err());
 }

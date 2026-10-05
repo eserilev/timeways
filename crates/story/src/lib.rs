@@ -29,6 +29,7 @@ pub mod prompt;
 #[cfg(kani)]
 mod proofs;
 pub mod quest;
+pub mod race_class;
 pub mod reply_size;
 pub mod samples;
 pub mod seen;

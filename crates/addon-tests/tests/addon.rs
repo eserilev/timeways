@@ -5,6 +5,7 @@ mod common;
 use common::Game;
 use hourglass::Tick;
 use timeways_story::input::{Input, MessageId};
+use timeways_story::race_class::{Class, Race};
 
 const NOW: Tick = Tick(1_790_000_000);
 
@@ -19,7 +20,7 @@ fn zone(zone: &str, subzone: Option<&str>) -> Input {
 }
 
 #[test]
-fn login_sends_the_level_and_the_zone_and_asks_for_the_journal() {
+fn login_sends_the_race_the_level_and_the_zone_and_asks_for_the_journal() {
     let game = Game::new();
     game.run(
         "wow.units.player = { name = 'Ada', level = 12 }
@@ -29,6 +30,11 @@ fn login_sends_the_level_and_the_zone_and_asks_for_the_journal() {
     );
 
     let expected = [
+        Input::CharacterDescribed {
+            at: NOW,
+            race: Race::Human,
+            class: Class::Paladin,
+        },
         Input::LevelReached { at: NOW, level: 12 },
         zone("Elwynn Forest", Some("Goldshire")),
         Input::JournalAsked {
@@ -381,6 +387,34 @@ fn login_names_the_character_of_this_session() {
             realm: "Quel'Thalas".to_string(),
             name: "Bren".to_string()
         }
+    );
+}
+
+#[test]
+fn login_sends_the_race_and_the_class_as_the_tokens_of_the_game() {
+    let game = Game::before_login();
+    game.run(
+        "wow.race = 'Scourge'
+         wow.class = 'Warlock'
+         wow.units.player = { name = 'Bren', level = 5 }
+         wow.Fire('PLAYER_ENTERING_WORLD')
+         wow.RunTickers()",
+    );
+
+    let described = game.sent()[0]
+        .lines()
+        .filter_map(|line| serde_json::from_str::<Input>(line).ok())
+        .find(|input| matches!(input, Input::CharacterDescribed { .. }));
+    assert!(
+        matches!(
+            described,
+            Some(Input::CharacterDescribed {
+                race: Race::Forsaken,
+                class: Class::Warlock,
+                ..
+            })
+        ),
+        "{described:?}"
     );
 }
 

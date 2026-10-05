@@ -5,7 +5,7 @@ use hourglass::EntityType::{Faction, Person, Place, Thing};
 use hourglass::{Band, Count, Direction, EntityType, FactRules, FactVocabulary, Shape};
 
 /// A change to a declared name needs a new version and a migration (`hourglass::migrate`).
-pub const VERSION: u32 = 7;
+pub const VERSION: u32 = 8;
 
 pub const MET: &str = "met";
 /// You saw this NPC, by a hover or a target. Talking is meeting; seeing is not.
@@ -40,6 +40,10 @@ pub const RAID: &str = "raid";
 pub const LEVEL: &str = "level";
 pub const SLAPPED: &str = "slapped";
 pub const TITLE: &str = "title";
+/// The race of the character. The world keeps its word: "Forsaken", "night elf".
+pub const RACE: &str = "race";
+/// The class of the character, as its word: "paladin".
+pub const CLASS: &str = "class";
 pub const MEMBER_OF: &str = "member_of";
 pub const LEADER_OF: &str = "leader_of";
 /// The map of the game where a place began or an NPC was met. `map_x` and `map_y` give
@@ -93,6 +97,8 @@ pub fn vocabulary() -> FactVocabulary {
         .declare(DEATHS, FactRules::solo(up_tally()))
         .declare(SLAPPED, linked(up_tally(), Person, &[Person]))
         .declare(TITLE, linked(up_flag(), Person, &[Thing]))
+        .declare(RACE, linked(up_flag(), Person, &[Thing]))
+        .declare(CLASS, linked(up_flag(), Person, &[Thing]))
         .declare(MEMBER_OF, linked(Shape::flag(), Person, &[Faction]))
         .declare(LEADER_OF, linked(Shape::flag(), Person, &[Faction]))
         .declare(ON_MAP, FactRules::solo(Shape::number(MAP_IDS)))

@@ -2,11 +2,13 @@
 
 use crate::input::{GameQuestKind, Reaction};
 use crate::places::InstanceKind;
+use crate::race_class::{Class, Race};
 use crate::spot::{self, Spot};
 use crate::vocabulary::{
-    self, ANIMAL, CLASS_QUEST, DEAD, DEATHS, DEFEATED, DUNGEON, GAME_QUEST_DONE, GAME_QUEST_TAKEN,
-    HOSTILE, LEVEL, MAP_X, MAP_Y, MARK_OF, MARKED_BY, MET, ON_MAP, QUEST_ACCEPTED, QUEST_DONE,
-    QUEST_OFFERED, RAID, SEEN, SLAPPED, TALLY, TITLE, TRUSTS, VISITED,
+    self, ANIMAL, CLASS, CLASS_QUEST, DEAD, DEATHS, DEFEATED, DUNGEON, GAME_QUEST_DONE,
+    GAME_QUEST_TAKEN, HOSTILE, LEVEL, MAP_X, MAP_Y, MARK_OF, MARKED_BY, MET, ON_MAP,
+    QUEST_ACCEPTED, QUEST_DONE, QUEST_OFFERED, RACE, RAID, SEEN, SLAPPED, TALLY, TITLE, TRUSTS,
+    VISITED,
 };
 use hourglass::{
     Entity, EntityId, EntityType, Event, EventHistory, EventId, EventKind, Fact, LOCATED_IN,
@@ -162,6 +164,36 @@ impl Character {
     #[must_use]
     pub fn has_title(&self, title: &str) -> bool {
         self.holds_about(TITLE, title)
+    }
+
+    /// The titles that you earned, oldest first.
+    #[must_use]
+    pub fn titles(&self) -> Vec<&str> {
+        self.names_held(TITLE)
+    }
+
+    /// The race and the class stay once known. The addon sends them at each login.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first refusal of Hourglass.
+    pub fn describe(&mut self, at: Tick, race: Race, class: Class) -> Result<(), Refusal> {
+        let race = self.find_or_create(at, EntityType::Thing, race.word())?;
+        self.start_once(at, self.you, RACE, race)?;
+        let class = self.find_or_create(at, EntityType::Thing, class.word())?;
+        self.start_once(at, self.you, CLASS, class)
+    }
+
+    #[must_use]
+    pub fn race(&self) -> Option<Race> {
+        self.names_held(RACE).into_iter().find_map(Race::from_word)
+    }
+
+    #[must_use]
+    pub fn class(&self) -> Option<Class> {
+        self.names_held(CLASS)
+            .into_iter()
+            .find_map(Class::from_word)
     }
 
     /// Does this NPC share a past with you: trust, a slap, or a kill either way? A plain
@@ -778,6 +810,18 @@ impl Character {
         };
         self.propose(at, kind)?;
         Ok(id)
+    }
+
+    /// The names of what your facts of this name link to, oldest first.
+    fn names_held(&self, fact: &str) -> Vec<&str> {
+        let Some(you) = self.world.entity(self.you) else {
+            return Vec::new();
+        };
+        you.facts_named(fact)
+            .filter_map(|fact| fact.linked_to)
+            .filter_map(|target| self.world.entity(target))
+            .map(|entity| entity.name.as_str())
+            .collect()
     }
 
     fn holds_about(&self, fact: &str, name: &str) -> bool {

@@ -61,9 +61,18 @@ function Watch.Level(level)
 	ns.Outbox.Add(ns.Inputs.Level(time(), level))
 end
 
+function Watch.Describe()
+	local _, race = UnitRace("player")
+	local _, class = UnitClass("player")
+	if type(race) == "string" and type(class) == "string" then
+		ns.Outbox.Add(ns.Inputs.Described(time(), race, class))
+	end
+end
+
 -- The world starts from what the game shows at login.
 function Watch.Login()
 	ns.Outbox.SetCharacter(ns.Inputs.Character(GetRealmName(), UnitName("player")))
+	Watch.Describe()
 	Watch.Level(UnitLevel("player"))
 	Watch.Zone()
 	-- The tooltips need the people before the book ever opens.

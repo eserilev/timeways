@@ -23,6 +23,12 @@ function Inputs.Character(realm, name)
 	return { type = "character_entered", realm = realm, name = name }
 end
 
+-- The file tokens of the race and the class, which no language changes: "Scourge",
+-- "WARLOCK". The narrator calls you by them (GAMEPLAY.md 3.2.1).
+function Inputs.Described(at, race, class)
+	return { type = "character_described", at = at, race = race, class = class }
+end
+
 -- `spot` is where the player stands, from `Position.Here`, or nil.
 function Inputs.Zone(at, zone, subzone, spot)
 	return {

@@ -473,6 +473,7 @@ Each character has one Hourglass world. A guild has one more world, held by its 
 | `deaths` | number, 0 to 1000 | up | none | Your deaths, with a known killer or not. A known killer also holds `defeated`. |
 | `slapped` | number, 0 to 1000 | up | person to person | How often you slapped an NPC. It never ends. |
 | `title` | flag | up | person to thing | A joke title of your journal, such as "Scourge of Squirrels". |
+| `race`, `class` | flag | up | person to thing | Your race and your class, from the addon at each login (3.2.1). The thing holds the word that the narrator uses: "Forsaken", "night elf", "paladin". |
 | `member_of` | flag | free | person to faction | Guild membership, and faction ties. |
 | `leader_of` | flag | free | person to faction | A canon leader, for example Thrall and the Horde. Only the canon seed and game events change it (5.9). |
 | `on_map` | number, 1 to 1000000 | free | none | The map of the game (`C_Map`) where a place began or where you met an NPC. |
@@ -503,6 +504,7 @@ A first list. Each name goes through the API gate of Gnomish Relay (`scripts/wow
 
 | Moment | WoW events |
 |---|---|
+| Your race and class (built) | `PLAYER_ENTERING_WORLD`, with the file tokens of `UnitRace` and `UnitClass` ("Scourge", "WARLOCK"). No language of the client changes a token. The line is `character_described`, and the narrator uses it to name you (3.2.1). |
 | New zone | `ZONE_CHANGED_NEW_AREA`, `ZONE_CHANGED` |
 | Level up | `PLAYER_LEVEL_UP` |
 | Quest of the game taken and done (built) | `QUEST_ACCEPTED` and `QUEST_TURNED_IN`, with the title from `C_QuestLog.GetInfo`. The log puts a quest of your class under a header with the name of the class (`UnitClass`), so the addon marks it as a class quest. The log is read at login too, so a quest taken before still counts. A finished class quest is a big moment for the narrator (3.2) and a chapter milestone (3.3). |

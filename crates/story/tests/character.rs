@@ -3,6 +3,7 @@
 use hourglass::{EntityId, EntityType, Event, EventId, EventKind, Tick};
 use timeways_story::character::Character;
 use timeways_story::input::{GameQuestKind, Reaction};
+use timeways_story::race_class::{Class, Race};
 use timeways_story::vocabulary::{
     DEAD, GAME_QUEST_TAKEN, LEVEL, MET, QUEST_ACCEPTED, QUEST_OFFERED, VISITED,
 };
@@ -763,4 +764,50 @@ fn a_game_quest_turned_in_is_no_longer_open() {
 
     assert_eq!(character.game_quests_open(), ["Red Linen Goods"]);
     assert_eq!(character.game_quests_done(), ["Wanted: Hogger"]);
+}
+
+#[test]
+fn the_race_and_the_class_stay_in_the_world() {
+    let mut character = Character::new();
+
+    character
+        .describe(Tick(1), Race::NightElf, Class::Druid)
+        .unwrap();
+    let events: Vec<Event> = character.world().history().iter().cloned().collect();
+    let replayed = Character::from_history(&events).unwrap();
+
+    assert_eq!(replayed.race(), Some(Race::NightElf));
+    assert_eq!(replayed.class(), Some(Class::Druid));
+}
+
+#[test]
+fn a_second_description_at_the_next_login_adds_nothing() {
+    let mut character = Character::new();
+    character
+        .describe(Tick(1), Race::Troll, Class::Shaman)
+        .unwrap();
+    let before = character.world().history().len();
+
+    character
+        .describe(Tick(2), Race::Troll, Class::Shaman)
+        .unwrap();
+
+    assert_eq!(character.world().history().len(), before);
+}
+
+#[test]
+fn a_character_that_the_addon_never_described_has_no_race_and_no_class() {
+    let character = Character::new();
+
+    assert_eq!(character.race(), None);
+    assert_eq!(character.class(), None);
+}
+
+#[test]
+fn the_titles_come_oldest_first() {
+    let mut character = Character::new();
+    character.earn_title(Tick(1), "Bookworm").unwrap();
+    character.earn_title(Tick(2), "Slap Happy").unwrap();
+
+    assert_eq!(character.titles(), ["Bookworm", "Slap Happy"]);
 }

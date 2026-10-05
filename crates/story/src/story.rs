@@ -19,6 +19,7 @@ use crate::passage_limits;
 use crate::places::InstanceKind;
 use crate::prompt::Context;
 use crate::quest::{Encounter, QuestView, Status, quest_log};
+use crate::race_class::{Class, Race};
 use crate::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use crate::seen::{MAX_SEEN_BYTES, SeenIndex, SeenText, TextKind};
 use crate::spot::Spot;
@@ -438,6 +439,7 @@ impl Story {
                 self.enter_character(&realm, &name)?;
                 Ok(Vec::new())
             }
+            Input::CharacterDescribed { at, race, class } => self.describe(at, race, class),
             Input::ZoneEntered {
                 at,
                 zone,
@@ -533,6 +535,10 @@ impl Story {
             Input::ModelAnswered { call, text } => self.answered(call, &text),
             Input::ModelFailed { call } => self.failed(call),
         }
+    }
+
+    fn describe(&mut self, at: Tick, race: Race, class: Class) -> Result<Vec<Output>, StoryError> {
+        self.change(|character| character.describe(at, race, class))
     }
 
     fn enter_zone(
