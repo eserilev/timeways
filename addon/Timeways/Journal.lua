@@ -1,5 +1,5 @@
--- The pages of the journal: the hero, the chronicle, deeds, what you learned, and your
--- side quests (GAMEPLAY.md 3.1.1, 3.4, 3.6, and 3.7).
+-- The pages of the journal: the hero, the chronicle, the stories of players, deeds, what you
+-- learned, and your side quests (GAMEPLAY.md 3.1.1, 3.4, 3.6, 3.7, and 4.8).
 -- The desktop sends them, because the world lives there and never in the saved variables
 -- (5.10).
 
@@ -8,10 +8,11 @@ local _, ns = ...
 local Journal = {}
 ns.Journal = Journal
 
-Journal.SECTIONS = { "hero", "chapters", "deeds", "learned", "quests" }
+Journal.SECTIONS = { "hero", "chapters", "stories", "deeds", "learned", "quests" }
 Journal.TITLES = {
 	hero = "Hero",
 	chapters = "Chronicle",
+	stories = "Stories",
 	deeds = "Deeds",
 	learned = "Knowledge",
 	quests = "Quests",
@@ -546,65 +547,6 @@ local function Lore(hero, unsaved)
 	return lines
 end
 
--- A story that waits for your answer: Accept on its text, Decline on its author.
-local function WaitingStory(index, story)
-	local accept = {
-		label = "Accept",
-		run = function()
-			ns.PlayerStories.Accept(index)
-		end,
-	}
-	local decline = {
-		label = "Decline",
-		run = function()
-			ns.PlayerStories.Decline(index)
-		end,
-	}
-	return {
-		Line("entry", ns.Plain(story.text), accept),
-		Line("text", ns.TaskPeople.Short(story.author) .. " told this story about you.", decline),
-		Line("help", ns.TaskPages.REPORT),
-	}
-end
-
--- An accepted story. One that the story already used stays, so it has no Remove.
-local function AcceptedStory(story)
-	local remove = not story.used
-			and {
-				label = "Remove",
-				run = function()
-					ns.PlayerStories.Remove(story)
-				end,
-			}
-		or nil
-	local author = ns.PlayerStories.AuthorOf(story.number)
-	local by = author and ns.TaskPeople.Short(author) or "a friend"
-	return {
-		Line("entry", ns.PlayerStories.Shown(ns.PlayerStories.AcceptedText(story)), remove),
-		Line("text", "Told by " .. by .. ", " .. Day(story.at) .. "."),
-	}
-end
-
--- The stories that players told about you (4.8): the ones that wait, then the accepted ones.
-local function Stories(journal)
-	local lines = { Line("heading", "Stories About You") }
-	local waiting = ns.PlayerStories.Waiting()
-	for index = #waiting, 1, -1 do
-		for _, line in ipairs(WaitingStory(index, waiting[index])) do
-			lines[#lines + 1] = line
-		end
-	end
-	for _, story in ipairs(Entries(journal.stories)) do
-		for _, line in ipairs(AcceptedStory(story)) do
-			lines[#lines + 1] = line
-		end
-	end
-	if #lines == 1 then
-		lines[#lines + 1] = Line("help", "Target someone in your group and type /story to tell a story about them.")
-	end
-	return lines
-end
-
 -- The lines of the open item: a question, the Roleplay Profile, or one of its fields.
 local function OpenLines(key, texts, unsaved)
 	if key == PROFILE then
@@ -626,9 +568,6 @@ local function Hero(journal)
 	local profileOpen = IsIn(ProfileKeys(), key)
 	local lines = OpenLines(key, texts, unsaved)
 	for _, line in ipairs(Lore(hero, unsaved)) do
-		lines[#lines + 1] = line
-	end
-	for _, line in ipairs(Stories(journal)) do
 		lines[#lines + 1] = line
 	end
 	local steps = profileOpen and ProfileKeys() or ns.Hero.FIELDS
@@ -659,6 +598,7 @@ end
 local BUILDERS = {
 	hero = Hero,
 	chapters = Chronicle,
+	stories = ns.JournalStories.Page,
 	deeds = OwnList(Deeds, "deeds"),
 	learned = OwnList(Learned, "learned"),
 	quests = ns.JournalQuests.Page,
@@ -675,6 +615,7 @@ local EMPTY = {
 Journal.USAGE = {
 	hero = "Your character's backstory. It shapes your story.",
 	chapters = "Your story so far, chapter by chapter.",
+	stories = ns.JournalStories.USAGE,
 	deeds = "Your levels, big kills, deaths, and titles.",
 	learned = "Everything you've read or heard.",
 	quests = "Quests from the people you meet. Target someone and type /quest.",
@@ -703,10 +644,21 @@ function Journal.Render(journal, section)
 	return page
 end
 
--- Tasks from players need no desktop, so their page shows while the journal loads.
+-- The count on the tab of a section, or nil for none.
+local BADGES = { stories = ns.JournalStories.Badge }
+
+function Journal.Badge(section)
+	return BADGES[section] and BADGES[section]()
+end
+
+-- Tasks and stories from players need no desktop, so their pages show while the journal
+-- loads.
 function Journal.Page(section)
 	if pages then
 		return Journal.Render(pages, section)
+	end
+	if section == "stories" then
+		return ns.JournalStories.Page(nil)
 	end
 	local loading = Line("help", "Loading... If this stays empty, start Gnomish Relay on your computer.")
 	if section ~= "quests" then

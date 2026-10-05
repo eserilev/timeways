@@ -52,7 +52,7 @@ fn the_tabs_stand_in_one_row_inside_the_frame_and_fit_their_labels() {
 
     let tabs = tabs(&game);
 
-    assert_eq!(tabs.len(), 5);
+    assert_eq!(tabs.len(), 6);
     let right_edge = frame_width(&game) - 12.0;
     let mut end = 12.0;
     for tab in &tabs {
@@ -88,7 +88,7 @@ fn only_the_tab_of_the_open_section_is_marked() {
          end
          return out",
     );
-    assert_eq!(enabled, [true, false, true, true, true]);
+    assert_eq!(enabled, [true, false, true, true, true, true]);
 }
 
 /// Each line of the page that shows, as { left, width }, and each of its buttons as

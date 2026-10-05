@@ -47,6 +47,7 @@ local STYLES = {
 }
 
 local TAB_PADDING, TAB_GAP = 16, 3
+local BADGE_SIZE = 16
 -- A button grows to its label, so a longer label never spills out.
 local BUTTON_HEIGHT, BUTTON_PADDING, BUTTON_MIN = 22, 20, 48
 
@@ -148,6 +149,17 @@ local function FitButton(button, label)
 	return width
 end
 
+-- A count on the corner of a tab, such as the stories that wait for an answer.
+local function Badge(tab)
+	local disc = tab:CreateTexture(nil, "OVERLAY")
+	disc:SetSize(BADGE_SIZE, BADGE_SIZE)
+	disc:SetPoint("CENTER", tab, "TOPRIGHT", -2, -2)
+	disc:SetColorTexture(unpack(ns.Ink.badge))
+	local count = tab:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+	count:SetPoint("CENTER", disc, "CENTER", 0, 0)
+	return { disc = disc, count = count }
+end
+
 -- The tabs stand in one row at the right end of the bar, as the game puts the tabs of a log.
 local function Tab(name)
 	local tab = SmallButton(frame)
@@ -155,7 +167,17 @@ local function Tab(name)
 	tab:SetScript("OnClick", function()
 		JournalFrame.Open(name)
 	end)
+	tab.badge = Badge(tab)
 	return tab
+end
+
+local function DrawBadges()
+	for name, tab in pairs(tabs) do
+		local count = ns.Journal.Badge(name)
+		tab.badge.count:SetText(count and tostring(count) or "")
+		tab.badge.count:SetShown(count ~= nil)
+		tab.badge.disc:SetShown(count ~= nil)
+	end
 end
 
 -- Each tab is as wide as its label, and the row ends at the right end of the bar.
@@ -329,6 +351,7 @@ function JournalFrame.Refresh()
 	for name, tab in pairs(tabs) do
 		tab:SetEnabled(name ~= section)
 	end
+	DrawBadges()
 	ShowBook(not writing)
 end
 

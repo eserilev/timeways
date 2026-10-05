@@ -163,6 +163,11 @@ SlashCmdList.TIMEWAYSHERO = ns.Hero.Command
 SLASH_TIMEWAYSSTORY1 = "/story"
 SlashCmdList.TIMEWAYSSTORY = ns.PlayerStories.Command
 
+SLASH_TIMEWAYSSTORIES1 = "/stories"
+SlashCmdList.TIMEWAYSSTORIES = function()
+	ns.JournalFrame.Open("stories")
+end
+
 SLASH_TIMEWAYSJOURNAL1 = "/journal"
 SLASH_TIMEWAYSJOURNAL2 = "/timeways"
 SlashCmdList.TIMEWAYSJOURNAL = function(message)

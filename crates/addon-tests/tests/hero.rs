@@ -452,15 +452,9 @@ fn the_editor_shows_the_saved_text_before_the_journal_comes() {
     assert_eq!(editor_text(&game), "Avenge my brother.");
 }
 
-/// The lines of the page up to the stories that players told, which follow the notes.
+/// The lines of the page: the open question, then the notes.
 fn notes(game: &Game) -> Vec<String> {
-    let mut lines = lines(game);
-    let stories = lines
-        .iter()
-        .position(|line| line == "heading: Stories About You")
-        .unwrap();
-    lines.truncate(stories);
-    lines
+    lines(game)
 }
 
 #[test]
@@ -623,7 +617,7 @@ fn an_empty_hero_opens_the_hero_page_once_and_a_written_one_does_not() {
 }
 
 #[test]
-fn the_book_has_five_tabs_with_the_hero_first() {
+fn the_book_has_six_tabs_with_the_hero_first() {
     let game = Game::new();
 
     game.run("wow.Slash('/journal', '')");
@@ -637,7 +631,17 @@ fn the_book_has_five_tabs_with_the_hero_first() {
          end
          return out",
     );
-    assert_eq!(tabs, ["Hero", "Chronicle", "Deeds", "Knowledge", "Quests"]);
+    assert_eq!(
+        tabs,
+        [
+            "Hero",
+            "Chronicle",
+            "Stories",
+            "Deeds",
+            "Knowledge",
+            "Quests"
+        ]
+    );
 }
 
 #[test]
@@ -693,71 +697,6 @@ fn the_questions_on_parchment_print_in_the_quest_fonts_with_no_shadow() {
             "What does your character want?: QuestFont 0,0",
         ]
     );
-}
-
-const STORIES: &str = r#"{"type":"journal","page":0,"pages":1,"hero":{"sheet":[],"entries":[]},"stories":[{"number":1,"paragraphs":["$N held the bridge."],"at":1790000000,"used":false},{"number":2,"paragraphs":["A tale","that stays."],"at":1790000000,"used":true}]}"#;
-
-#[test]
-fn the_hero_page_shows_the_stories_about_you_with_their_authors() {
-    let game = Game::new();
-    game.run("wow.units.player = { name = 'Corvin', player = true, guid = 'Player-1-Corvin' }");
-    game.run(
-        "TimewaysStories = { authors = { [1] = 'Ada-Stormrage' }, nextNumber = 3,
-             waiting = { { id = 'a1', author = 'Bram-Stormrage', title = '', text = 'Bram saw it all.', at = 1 } } }",
-    );
-    game.run("wow.Slash('/hero', '')");
-    game.reply(STORIES);
-    let me: String = game.eval("return UnitName('player')");
-
-    let lines = lines(&game);
-
-    let stories = lines
-        .iter()
-        .position(|line| line == "heading: Stories About You")
-        .unwrap();
-    let day: String = game.eval("return date('%d %b %Y', 1790000000)");
-    assert_eq!(
-        lines[stories + 1..],
-        [
-            "entry: Bram saw it all. [Accept]".to_string(),
-            "text: Bram told this story about you. [Decline]".to_string(),
-            "help: To report abuse, open Support in the game menu.".to_string(),
-            format!("entry: {me} held the bridge. [Remove]"),
-            format!("text: Told by Ada, {day}."),
-            "entry: A tale that stays.".to_string(),
-            format!("text: Told by a friend, {day}."),
-        ]
-    );
-}
-
-#[test]
-fn only_a_story_that_waits_for_an_answer_shows_how_to_report_abuse() {
-    let game = Game::new();
-    game.run("wow.units.player = { name = 'Corvin', player = true, guid = 'Player-1-Corvin' }");
-    game.run("wow.Slash('/hero', '')");
-    game.reply(STORIES);
-
-    let lines = lines(&game);
-
-    assert!(
-        !lines.iter().any(|line| line.contains("report abuse")),
-        "{lines:?}"
-    );
-}
-
-#[test]
-fn a_broken_saved_story_is_dropped() {
-    let game = Game::new();
-    game.run(
-        "TimewaysStories = { waiting = {
-             { id = 'a1', author = 'Bram-Stormrage', title = '', text = 'Fine.', at = 1 },
-             { id = 'a2', author = 'no realm', title = '', text = 'Broken.', at = 1 },
-             { id = 'a3', author = 'Bram-Stormrage', title = '', text = 'A |Hlink|h.', at = 1 } } }",
-    );
-
-    let waiting: usize = game.eval("return #ns.PlayerStories.Waiting()");
-
-    assert_eq!(waiting, 1);
 }
 
 #[test]

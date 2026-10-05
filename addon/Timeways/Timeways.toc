@@ -71,6 +71,7 @@ TaskDraftHelp.lua
 TaskPages.lua
 JournalRows.lua
 JournalQuests.lua
+JournalStories.lua
 Journal.lua
 Ink.lua
 MapPane.lua

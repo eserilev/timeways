@@ -18,4 +18,6 @@ ns.Ink = {
 	-- On parchment the red bar is too loud, so the open row takes a tint of the brown ink.
 	selectedOnParchment = { 0.36, 0.2, 0.07, 0.16 },
 	night = { 0.08, 0.05, 0.03, 0.9 },
+	-- The count on a tab, in the red of the buttons of the game.
+	badge = { 0.6, 0.1, 0.06, 1 },
 }
