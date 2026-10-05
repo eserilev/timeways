@@ -662,6 +662,7 @@ dependencies = [
  "rusty-hourglass",
  "serde",
  "serde_json",
+ "timeways-rules",
  "timeways-story",
 ]
 

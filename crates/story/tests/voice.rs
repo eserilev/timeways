@@ -432,6 +432,7 @@ fn task_draft() -> String {
     draft::prompt(
         &draft_known(),
         "get my friend to kill hogger and then meet me in goldshire",
+        &[],
     )
 }
 

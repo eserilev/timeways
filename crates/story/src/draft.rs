@@ -37,8 +37,8 @@ pub struct DraftStep {
     pub target: String,
 }
 
-/// What the world of the player holds, as far as a draft can use it. A player task never
-/// names another player to a model (5.11), so no list holds a player.
+/// What the world of the player holds, as far as a draft can use it. A player reaches a
+/// model only as an ID with a card (5.11), so no list holds a player.
 #[derive(Debug, Default)]
 pub struct Known<'a> {
     pub zones: Vec<&'a str>,
@@ -81,9 +81,16 @@ pub fn checked_idea(idea: &str) -> Option<&str> {
     (fits && !idea.chars().any(char::is_control)).then_some(idea)
 }
 
+/// `idea` holds an ID such as `{P1}` for each player, and `cards` says who each one is.
 #[must_use]
-pub fn prompt(known: &Known<'_>, idea: &str) -> String {
+pub fn prompt(known: &Known<'_>, idea: &str, cards: &[String]) -> String {
     let places: Vec<&str> = known.zones.iter().chain(&known.subzones).copied().collect();
+    let players = if cards.is_empty() {
+        String::new()
+    } else {
+        let cards: Vec<&str> = cards.iter().map(String::as_str).collect();
+        format!("Players in the idea:\n{}\n\n", fenced(&bulleted(&cards)))
+    };
     format!(
         "You help a player of World of Warcraft write a small task for a friend. The player is \
          the author: keep their idea, and make it read well.\n{HOUSE_RULES}\n\n\
@@ -96,10 +103,12 @@ pub fn prompt(known: &Known<'_>, idea: &str) -> String {
          {{\"goal\": \"kill\", \"target\": \"<a number> <a person or creature to defeat>\"}}, \
          or {{\"goal\": \"item\", \"target\": \"<a number> <an item to bring>\"}}.\n\
          - Copy each name exactly as the list writes it. Use no other place or person.\n\
-         - Name no player. Call the one who gets the task \"my friend\".\n\
+         - Write each player of the idea as the idea writes it, such as {{P1}}, with the \
+         braces. Name no other player. Call the one who gets the task \"my friend\" when \
+         the idea does not name them.\n\
          - The title has at most {MAX_TITLE_BYTES} characters. The text has at most 60 words, \
          in the voice of the player.\n\n\
-         The idea of the player:\n{}\n\n\
+         {players}The idea of the player:\n{}\n\n\
          Reply with JSON only: {{\"title\": \"...\", \"text\": \"...\", \"steps\": [...]}}",
         list(&places),
         list(&known.npcs),

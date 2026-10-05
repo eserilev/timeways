@@ -1,25 +1,29 @@
 //! Player stories in the story program (GAMEPLAY.md 4.8): an accepted story is a row with
 //! the proof of another player, and the player removes it only while nothing used it.
 
-use super::{Active, Output, Story, StoryError};
+use super::{Active, Output, Story, StoryError, aliases};
+use crate::aliases::{unmarked, with_names};
 use crate::store::{Node, StoreError, Table};
 use crate::stories::{PlayerStory, StoryChange, checked_text, is_taken, standing};
 use hourglass::Tick;
 
 impl Story {
-    /// A number comes once: a story removed and sent again is a new story.
+    /// A number comes once: a story removed and sent again is a new story. The story keeps
+    /// an ID in place of each name of a player (5.11), and the limits hold for the text as
+    /// its author wrote it.
     pub(super) fn accept_story(
         &mut self,
         at: Tick,
         number: u64,
         text: &str,
     ) -> Result<Vec<Output>, StoryError> {
-        let text = checked_text(text).ok_or(StoryError::BadStory)?;
+        let marked = unmarked(text);
+        let text = checked_text(&marked.text).ok_or(StoryError::BadStory)?;
         let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
         if is_taken(active.stories.changes(), number) {
             return Err(StoryError::StoryTaken(number));
         }
-        let text = text.to_string();
+        let text = aliases::without_names(active, &marked.names, text)?;
         active
             .stories
             .add(StoryChange::Accepted { number, at, text })?;
@@ -53,7 +57,8 @@ fn is_used(active: &Active, row: u64) -> Result<bool, StoreError> {
     Ok(!uses.is_empty())
 }
 
-/// The stories that stand, oldest first, each with whether a call used it.
+/// The stories that stand, oldest first, each with whether a call used it. The player
+/// reads the names, never the IDs.
 pub(super) fn journal_stories(active: &Active) -> Result<Vec<PlayerStory>, StoreError> {
     let mut stories = Vec::new();
     for (row, change) in standing(active.stories.changes()) {
@@ -62,7 +67,7 @@ pub(super) fn journal_stories(active: &Active) -> Result<Vec<PlayerStory>, Store
         };
         stories.push(PlayerStory {
             number: *number,
-            text: text.clone(),
+            text: with_names(active.aliases.table(), text),
             at: *at,
             used: is_used(active, row)?,
         });

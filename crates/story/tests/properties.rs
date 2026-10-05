@@ -7,6 +7,11 @@ use proptest::prelude::*;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
+use timeways_rules::aliases::{Alias, PlayerId, find, learn_all};
+use timeways_story::aliases::{
+    AliasRow, MAX_PLAYER_NAME_BYTES, alias_of, joined, key_of, knows_every_id, text_pieces,
+    unmarked, with_names, without_names,
+};
 use timeways_story::best_of_two::{Next, Round};
 use timeways_story::chapters::{
     MIN_CHAPTER_PLAY_SECONDS, SESSION_GAP_SECONDS, chapter_starts, sessions,
@@ -79,11 +84,16 @@ enum Play {
     /// A story that a player of the party told, accepted, with its number in the addon.
     StoryAccept(u64, String),
     StoryRemove(u64),
+    /// "Help me write" with an idea whose players are marked. The model answers with a
+    /// draft that names the first player.
+    DraftAsk(String),
     /// The local hour changed.
     HourChanged(u8),
     /// The count of linen in the bags, at a meeting with an NPC.
     ItemsHeld(String, u16),
 }
+
+const DRAFT_WITH_A_PLAYER: &str = r#"{"title": "Help", "text": "Help {P1}.", "steps": [{"goal": "item", "target": "1 Linen Cloth"}]}"#;
 
 /// A step as a model proposes it. The count of a kill sits often at its edges.
 #[derive(Clone, Debug)]
@@ -480,6 +490,11 @@ fn input(play: &Play, at: Tick) -> Option<Input> {
         Play::EndBatch(_) => Input::BatchEnd { id: MessageId(4) },
         Play::StoryAccept(number, text) => Input::StoryAccepted { at, number, text },
         Play::StoryRemove(number) => Input::StoryRemoved { at, number },
+        Play::DraftAsk(idea) => Input::DraftAsked {
+            id: MessageId(5),
+            at,
+            idea: idea.clone(),
+        },
         Play::HourChanged(hour) => Input::HourChanged { at, hour },
         Play::ItemsHeld(npc, count) => Input::ItemsHeld {
             at,
@@ -571,6 +586,7 @@ fn play_once(story: &mut Story, play: &Play, clock: &mut u64) -> Vec<Output> {
         // A refused answer gets a retry, and the model answers it the same way.
         Play::Quest(_, steps) => return answer_every_call(story, outputs, &quest_answer(steps)),
         Play::TalkWork(_, steps) => return talk_with_work(story, *call, steps),
+        Play::DraftAsk(_) => DRAFT_WITH_A_PLAYER.to_string(),
         _ => return Vec::new(),
     };
     let call = *call;
@@ -1948,5 +1964,193 @@ proptest! {
 
         prop_assert!(!words.chars().any(|c| c.is_ascii_digit()), "{}", words);
         prop_assert!(age_words().contains(&words), "{}", words);
+    }
+}
+
+/// A name as the addon or a damaged line can send it, often at an edge: empty, a prefix of
+/// another name, in another case, with a realm, outside ASCII, an ID, or at the limit.
+fn alias_name() -> impl Strategy<Value = String> {
+    prop_oneof![
+        prop::sample::select(vec![
+            "",
+            "Ada",
+            "ada",
+            "ADA",
+            "Ada-Stormrage",
+            "Adam",
+            "Ad",
+            "Élise",
+            "ÉLISE",
+            "élise-Argent",
+            "P7",
+            "{P7}",
+            "Al",
+            "al-Al",
+            "Ünal",
+            "Bread",
+        ])
+        .prop_map(String::from),
+        Just("a".repeat(MAX_PLAYER_NAME_BYTES)),
+        Just("a".repeat(MAX_PLAYER_NAME_BYTES + 1)),
+        Just("é".repeat(MAX_PLAYER_NAME_BYTES / 2)),
+        "[A-Za-zé]{1,12}",
+    ]
+}
+
+/// A piece of a text about players: a name in any form, a word that holds a name, an ID
+/// typed by hand, or a sign.
+fn text_part(names: Vec<String>) -> impl Strategy<Value = String> {
+    let name = prop::sample::select(names);
+    prop_oneof![
+        3 => name.clone(),
+        2 => name.clone().prop_map(|name| name.to_uppercase()),
+        1 => name.clone().prop_map(|name| format!("{name}-Stormrage")),
+        1 => name.clone().prop_map(|name| format!("x{name}")),
+        1 => name.prop_map(|name| format!("{name}s")),
+        1 => prop::sample::select(vec![
+            " ", ", ", ".", "-", "'", "{P1}", "P7", "{", "}", "é", "—", " and ", "$N",
+        ])
+        .prop_map(String::from),
+        1 => "[a-z]{1,6}",
+    ]
+}
+
+/// A table of names and a text made of those names and other parts.
+fn names_and_text() -> impl Strategy<Value = (Vec<String>, String)> {
+    prop::collection::vec(alias_name(), 1..6).prop_flat_map(|names| {
+        let parts = prop::collection::vec(text_part(names.clone()), 0..24);
+        (Just(names), parts.prop_map(|parts| parts.concat()))
+    })
+}
+
+fn alias_table(names: &[String]) -> Vec<Alias> {
+    let mut table = Vec::new();
+    let aliases: Vec<Alias> = names.iter().filter_map(|name| alias_of(name)).collect();
+    learn_all(&mut table, &aliases);
+    table
+}
+
+/// The words of a text, as `TaskNames.lua` cuts them.
+fn text_words(text: &str) -> Vec<&str> {
+    text.split(|c: char| c.is_ascii() && !c.is_ascii_alphanumeric())
+        .filter(|word| !word.is_empty())
+        .collect()
+}
+
+/// A player of the play: no NPC or place of `name()` shares a word with these.
+fn player_mark() -> impl Strategy<Value = String> {
+    let name = prop::sample::select(vec!["Zqada", "Qorvin", "Élise", "Zqal"]);
+    (name, any::<bool>(), any::<bool>()).prop_map(|(name, upper, realm)| {
+        let name = if upper {
+            name.to_uppercase()
+        } else {
+            name.to_string()
+        };
+        let realm = if realm { "-Stormrage" } else { "" };
+        format!("{{{name}{realm}}}")
+    })
+}
+
+/// A text from the addon with its players marked.
+fn marked_words() -> impl Strategy<Value = String> {
+    let part = prop_oneof![player_mark(), "[a-z]{1,6}"];
+    prop::collection::vec(part, 1..8).prop_map(|parts| parts.join(" "))
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(256))]
+
+    /// GAMEPLAY.md 5.11 and the Lean laws `an_id_is_never_reused`, `a_name_keeps_its_id`,
+    /// and `two_names_never_share_an_id`.
+    #[test]
+    fn an_alias_is_never_reused_over_any_lines(
+        lines in prop::collection::vec(prop::collection::vec(alias_name(), 0..5), 0..8)
+    ) {
+        let mut table: Vec<Alias> = Vec::new();
+        for line in &lines {
+            let before = table.clone();
+            let names: Vec<Alias> = line.iter().filter_map(|name| alias_of(name)).collect();
+
+            learn_all(&mut table, &names);
+
+            prop_assert!(table.starts_with(&before));
+            for alias in &names {
+                let id = find(&table, &alias.key);
+                prop_assert!(id.is_some());
+                let known = find(&before, &alias.key);
+                prop_assert!(known.is_none() || known == id);
+            }
+        }
+        for (place, alias) in table.iter().enumerate() {
+            prop_assert_eq!(find(&table, &alias.key), Some(PlayerId(place)));
+            prop_assert!(alias.shown.len() <= MAX_PLAYER_NAME_BYTES);
+            prop_assert!(!alias.key.chars().any(|c| c.is_ascii_digit()));
+        }
+    }
+
+    /// The Lean law `no_known_name_after_the_swap`, for the text as the story program cuts
+    /// and joins it.
+    #[test]
+    fn the_text_for_a_model_holds_no_known_name_as_a_word((names, text) in names_and_text()) {
+        let table = alias_table(&names);
+        let plain = unmarked(&text).text;
+
+        let for_a_model = without_names(&table, &plain);
+
+        prop_assert_eq!(joined(&text_pieces(&plain, &table)), plain.clone());
+        for word in text_words(&for_a_model) {
+            prop_assert!(find(&table, &key_of(word)).is_none(), "{} in {}", word, for_a_model);
+        }
+        prop_assert!(knows_every_id(&table, &for_a_model));
+    }
+
+    /// The Lean law `the_swap_and_back_keeps_the_text`: a name comes back in the form of
+    /// the table, so the text comes back the same but for the case of each name.
+    #[test]
+    fn the_swap_and_back_gives_each_name_in_the_form_of_the_table((names, text) in names_and_text()) {
+        let table = alias_table(&names);
+        let plain = unmarked(&text).text;
+
+        let back = with_names(&table, &without_names(&table, &plain));
+
+        if !plain.contains('-') {
+            prop_assert_eq!(back.to_lowercase(), plain.to_lowercase());
+        }
+        prop_assert!(!back.contains("{P"), "{}", back);
+    }
+
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(48))]
+
+    /// GAMEPLAY.md 5.11: no model sees the name of a player that the table knows. Every
+    /// story and idea marks its players, as the addon does.
+    #[test]
+    fn no_prompt_holds_a_known_player_name(
+        plays in prop::collection::vec(prop_oneof![
+            4 => play(),
+            1 => marked_words().prop_map(Play::DraftAsk),
+            1 => (0u64..4, marked_words()).prop_map(|(number, text)| Play::StoryAccept(number, text)),
+        ], 0..60)
+    ) {
+        let folder = fresh("aliases");
+        let mut clock = 1_000;
+        let mut story = story(&folder, Store::Folder(folder.clone()));
+        run(&mut story, &plays, &mut clock);
+        drop(story);
+
+        let connection = rusqlite::Connection::open(world_file(&folder)).unwrap();
+        let keys: Vec<String> = rows_of(&connection, "SELECT body FROM aliases")
+            .into_iter()
+            .filter_map(|row| serde_json::from_str::<AliasRow>(row[0].as_deref()?).ok())
+            .map(|row| key_of(&row.name))
+            .collect();
+        for row in rows_of(&connection, "SELECT prompt FROM calls WHERE prompt IS NOT NULL") {
+            let prompt = row[0].clone().unwrap_or_default();
+            for word in text_words(&prompt) {
+                prop_assert!(!keys.contains(&key_of(word)), "{} in {}", word, prompt);
+            }
+        }
     }
 }

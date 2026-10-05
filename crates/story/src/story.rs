@@ -1,5 +1,6 @@
 //! One input in, and the outputs for it out (GAMEPLAY.md 3.1, 5.2, and 5.6).
 
+use crate::aliases::AliasRow;
 use crate::best_of_two::Round;
 use crate::character::{Character, Refusal};
 use crate::check;
@@ -34,6 +35,7 @@ use std::time::{Duration, Instant};
 use thiserror::Error;
 
 mod active;
+mod aliases;
 mod calls;
 mod drafts;
 mod narration;
@@ -433,6 +435,7 @@ impl Story {
         Ok(outputs)
     }
 
+    #[allow(clippy::too_many_lines, reason = "one arm for each kind of line")]
     fn dispatch(&mut self, input: Input) -> Result<Vec<Output>, StoryError> {
         match input {
             Input::Hello => Ok(vec![Output::Hello { protocol: PROTOCOL }]),
@@ -531,6 +534,9 @@ impl Story {
             Input::QuestAbandoned { at, number } => self.abandon_quest(at, number),
             Input::JournalAsked { id, page } => self.journal_answer(id, page),
             Input::StoryAccepted { at, number, text } => self.accept_story(at, number, &text),
+            Input::PlayerDescribed {
+                name, race, class, ..
+            } => self.describe_player(&AliasRow { name, race, class }),
             Input::StoryRemoved { at, number } => self.remove_story(at, number),
             Input::BatchEnd { id } => Ok(self.end_batch(id)),
             Input::ModelAnswered { call, text } => self.answered(call, &text),
@@ -765,6 +771,7 @@ impl Story {
             learned,
             quests,
             stories,
+            aliases,
         } = self.store.open(&key)?;
         let read: Vec<SeenText> = learned
             .read()
@@ -787,6 +794,7 @@ impl Story {
             learned,
             quests,
             stories,
+            aliases,
             seen_index,
             hero_refused: None,
             talk_quest: None,

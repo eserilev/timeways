@@ -221,3 +221,120 @@ fn a_refused_story_keeps_its_input_and_adds_no_row() {
     );
     assert_eq!(count("SELECT count(*) FROM stories"), 0);
 }
+
+fn stored_bodies(folder: &Path, table: &str) -> Vec<String> {
+    let path = folder.join("worlds/r_Stormrage/c_Ada.sqlite");
+    let connection = rusqlite::Connection::open(path).unwrap();
+    let mut statement = connection
+        .prepare(&format!("SELECT body FROM {table} ORDER BY position"))
+        .unwrap();
+    statement
+        .query_map([], |row| row.get(0))
+        .unwrap()
+        .map(Result::unwrap)
+        .collect()
+}
+
+#[test]
+fn a_story_keeps_an_id_for_each_player_and_the_journal_shows_the_name() {
+    let folder = fresh_folder("ids");
+    let mut story = story(&folder);
+
+    accept(
+        &mut story,
+        1,
+        "{Corvin} and $N held the bridge. CORVIN-Stormrage ran.",
+    )
+    .unwrap();
+
+    assert_eq!(
+        stories(&mut story)[0].text,
+        "Corvin and $N held the bridge. Corvin ran."
+    );
+    drop(story);
+    let body = &stored_bodies(&folder, "stories")[0];
+    assert!(
+        body.contains("{P1} and $N held the bridge. {P1} ran."),
+        "{body}"
+    );
+    assert!(!body.contains("Corvin"), "{body}");
+}
+
+#[test]
+fn a_player_keeps_the_same_id_after_a_reopen() {
+    let folder = fresh_folder("same-id");
+    let mut story = story(&folder);
+    accept(&mut story, 1, "{Corvin} and {Bob} came.").unwrap();
+    drop(story);
+
+    let mut story = self::story(&folder);
+    accept(&mut story, 2, "{Bob} came back.").unwrap();
+    drop(story);
+
+    let bodies = stored_bodies(&folder, "stories");
+    assert!(bodies[1].contains("{P2} came back."), "{}", bodies[1]);
+    assert_eq!(stored_bodies(&folder, "aliases").len(), 2);
+}
+
+#[test]
+fn a_refused_story_gives_no_player_an_id() {
+    let folder = fresh_folder("refused-ids");
+    let mut story = story(&folder);
+
+    let refused = accept(&mut story, 1, "{Corvin} said |cff0000|r");
+    drop(story);
+
+    assert!(matches!(refused, Err(StoryError::BadStory)));
+    assert!(stored_bodies(&folder, "aliases").is_empty());
+}
+
+#[test]
+fn the_limit_of_a_story_holds_for_the_text_without_the_marks() {
+    let folder = fresh_folder("limit-marks");
+    let mut story = story(&folder);
+    let words = "{Al} ".repeat(MAX_STORY_BYTES / 3);
+
+    accept(&mut story, 1, words.trim_end()).unwrap();
+
+    assert_eq!(stories(&mut story).len(), 1);
+}
+
+#[test]
+fn a_player_described_with_no_name_is_refused() {
+    let folder = fresh_folder("bad-player");
+    let mut story = story(&folder);
+
+    let refused = story.handle(Input::PlayerDescribed {
+        at: Tick(5),
+        name: "P7".to_string(),
+        race: None,
+        class: None,
+    });
+
+    assert!(matches!(refused, Err(StoryError::BadName)));
+}
+
+#[test]
+fn a_row_that_names_a_player_twice_ends_the_table_at_the_open() {
+    let folder = fresh_folder("twice");
+    let mut story = story(&folder);
+    accept(&mut story, 1, "{Corvin} came.").unwrap();
+    drop(story);
+    let path = folder.join("worlds/r_Stormrage/c_Ada.sqlite");
+    let connection = rusqlite::Connection::open(path).unwrap();
+    connection
+        .execute(
+            "INSERT INTO aliases (position, body) VALUES (1, '{\"name\":\"CORVIN\"}')",
+            [],
+        )
+        .unwrap();
+    drop(connection);
+
+    let mut story = self::story(&folder);
+    accept(&mut story, 2, "{Bob} came.").unwrap();
+    drop(story);
+
+    let rows = stored_bodies(&folder, "aliases");
+    assert_eq!(rows.len(), 2);
+    assert!(rows[1].contains("Bob"), "{}", rows[1]);
+}

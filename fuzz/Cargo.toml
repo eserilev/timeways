@@ -16,6 +16,7 @@ rusty-hourglass = { git = "https://github.com/eserilev/rusty-hourglass", rev = "
 rusqlite = { version = "0.40", features = ["bundled"] }
 serde = "1"
 serde_json = "1"
+timeways-rules = { path = "../crates/rules" }
 timeways-story = { path = "../crates/story" }
 
 # Not a member of the main workspace: fuzzing needs nightly and libFuzzer.
@@ -122,6 +123,13 @@ bench = false
 [[bin]]
 name = "talk_history"
 path = "fuzz_targets/talk_history.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "player_names"
+path = "fuzz_targets/player_names.rs"
 test = false
 doc = false
 bench = false

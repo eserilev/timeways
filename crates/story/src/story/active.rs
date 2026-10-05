@@ -6,8 +6,9 @@ use crate::input::Input;
 use crate::journal::TalkQuest;
 use crate::seen::SeenIndex;
 use crate::store::{
-    CallEnd, CharacterKey, Database, FlavorLog, HeroLog, LearnedLog, Line, NewCall, NewInput,
-    NewRow, Next, Node, Origin, Outcome, Prose, QuestLog, Root, StoreError, StoryLog, Table,
+    AliasLog, CallEnd, CharacterKey, Database, FlavorLog, HeroLog, LearnedLog, Line, NewCall,
+    NewInput, NewRow, Next, Node, Origin, Outcome, Prose, QuestLog, Root, StoreError, StoryLog,
+    Table,
 };
 
 /// A line from the bridge as the database keeps it, after the clock check.
@@ -60,6 +61,7 @@ pub(super) struct Active {
     pub(super) learned: LearnedLog,
     pub(super) quests: QuestLog,
     pub(super) stories: StoryLog,
+    pub(super) aliases: AliasLog,
     pub(super) seen_index: SeenIndex,
     /// Why the last edit of the hero did not stand, until a journal page shows it.
     pub(super) hero_refused: Option<String>,
@@ -123,6 +125,7 @@ impl Active {
             (Table::Learned, self.learned.take_unsaved()),
             (Table::Quests, self.quests.take_unsaved()),
             (Table::Stories, self.stories.take_unsaved()),
+            (Table::Aliases, self.aliases.take_unsaved()),
         ])
     }
 

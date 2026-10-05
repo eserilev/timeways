@@ -27,6 +27,16 @@ pub enum Input {
         race: Race,
         class: Class,
     },
+    /// A player whom a text of this batch names, with the race and the class that the game
+    /// shows. The alias table keeps them for the card of the player (GAMEPLAY.md 5.11).
+    PlayerDescribed {
+        at: Tick,
+        name: String,
+        #[serde(default)]
+        race: Option<Race>,
+        #[serde(default)]
+        class: Option<Class>,
+    },
     /// `spot` is where the player stands as the place begins.
     ZoneEntered {
         at: Tick,
@@ -199,14 +209,16 @@ pub enum Input {
         question: String,
         target: Option<String>,
     },
-    /// "Help me write this" for a player task (GAMEPLAY.md 4.7): the idea of the player.
+    /// "Help me write this" for a player task (GAMEPLAY.md 4.7): the idea of the player, with
+    /// each name of a player marked: "{Ada}" (5.11).
     DraftAsked {
         id: MessageId,
         at: Tick,
         idea: String,
     },
     /// The player accepted a story that a player of the party told about them (GAMEPLAY.md
-    /// 4.8). The number is the addon's own, and the text holds no real name.
+    /// 4.8). The number is the addon's own. The text marks each name of a player: "{Ada}"
+    /// (5.11).
     StoryAccepted {
         at: Tick,
         number: u64,
@@ -323,6 +335,7 @@ impl Input {
         match self {
             Input::ZoneEntered { at, .. }
             | Input::CharacterDescribed { at, .. }
+            | Input::PlayerDescribed { at, .. }
             | Input::NpcMet { at, .. }
             | Input::NpcSeen { at, .. }
             | Input::NpcKilled { at, .. }

@@ -10,7 +10,7 @@ pub use database::{
     CallEnd, CallRecord, Database, Line, NewCall, NewInput, NewRow, Next, Node, Origin, Outcome,
     PROMPTS_KEPT, Root, Table,
 };
-pub use logs::{FlavorLog, HeroLog, LearnedLog, Prose, QuestLog, StoryLog, Written};
+pub use logs::{AliasLog, FlavorLog, HeroLog, LearnedLog, Prose, QuestLog, StoryLog, Written};
 pub use shared::Shared;
 
 use crate::character::Character;
@@ -143,6 +143,7 @@ pub struct Opened {
     pub learned: LearnedLog,
     pub quests: QuestLog,
     pub stories: StoryLog,
+    pub aliases: AliasLog,
 }
 
 /// Everything of `Opened` but the database, read in one transaction.
@@ -156,6 +157,7 @@ struct Read {
     learned: LearnedLog,
     quests: QuestLog,
     stories: StoryLog,
+    aliases: AliasLog,
 }
 
 impl Store {
@@ -201,6 +203,7 @@ impl Store {
             learned: read.learned,
             quests: read.quests,
             stories: read.stories,
+            aliases: read.aliases,
         })
     }
 }
@@ -223,6 +226,10 @@ fn read_all(database: &Database, path: PathBuf) -> Result<Read, StoreError> {
         LearnedLog::from_rows(database.read_and_repair(Table::Learned, |_: &LearnedLine, _| true)?);
     let quests = QuestLog::from_rows(database.read_and_repair(Table::Quests, |_, _| true)?);
     let stories = StoryLog::from_rows(database.read_and_repair(Table::Stories, |_, _| true)?);
+    let seen = std::cell::RefCell::new(std::collections::BTreeSet::new());
+    let aliases = AliasLog::from_rows(database.read_and_repair(Table::Aliases, |row, _| {
+        logs::is_new_name(row, &mut seen.borrow_mut())
+    })?);
     database.drop_broken_links()?;
     Ok(Read {
         character,
@@ -234,6 +241,7 @@ fn read_all(database: &Database, path: PathBuf) -> Result<Read, StoreError> {
         learned,
         quests,
         stories,
+        aliases,
     })
 }
 

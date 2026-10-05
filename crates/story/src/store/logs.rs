@@ -4,6 +4,7 @@
 
 use super::StoreError;
 use super::database::NewRow;
+use crate::aliases::{self, AliasRow};
 use crate::flavor::{Flavor, Told};
 use crate::hero::Change;
 use crate::learned::{Read, Rumor};
@@ -12,6 +13,7 @@ use crate::stories::StoryChange;
 use hourglass::Tick;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use timeways_rules::aliases::{self as rules, Alias, PlayerId};
 
 /// The new rows of one table, each at the next position.
 #[derive(Debug, Default)]
@@ -384,4 +386,83 @@ impl StoryLog {
     pub fn take_unsaved(&mut self) -> Vec<NewRow> {
         self.unsaved.take()
     }
+}
+
+/// The alias table (GAMEPLAY.md 5.11): each player that a text named, at the place of its
+/// ID. Rows only grow, so an ID is never reused.
+pub struct AliasLog {
+    rows: Vec<AliasRow>,
+    table: Vec<Alias>,
+    unsaved: Unsaved,
+}
+
+impl AliasLog {
+    /// The rows must hold names, each once (`is_new_name`).
+    pub(super) fn from_rows(rows: Vec<AliasRow>) -> AliasLog {
+        let mut table = Vec::with_capacity(rows.len());
+        for row in &rows {
+            if let Some(alias) = aliases::alias_of(&row.name) {
+                rules::learn(&mut table, alias);
+            }
+        }
+        let unsaved = Unsaved::after(rows.len());
+        AliasLog {
+            rows,
+            table,
+            unsaved,
+        }
+    }
+
+    #[must_use]
+    pub fn table(&self) -> &[Alias] {
+        &self.table
+    }
+
+    #[must_use]
+    pub fn row(&self, id: PlayerId) -> Option<&AliasRow> {
+        self.rows.get(id.0)
+    }
+
+    /// The ID of the player of the row. A new name gets the next ID, and keeps the race
+    /// and the class of its row. A text that is no name gets none.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Json` for a row that does not serialize, and then keeps nothing.
+    pub fn learn(&mut self, row: &AliasRow) -> Result<Option<PlayerId>, StoreError> {
+        let Some(alias) = aliases::alias_of(&row.name) else {
+            return Ok(None);
+        };
+        if let Some(id) = rules::find(&self.table, &alias.key) {
+            return Ok(Some(id));
+        }
+        let row = AliasRow {
+            name: alias.shown.clone(),
+            race: row.race,
+            class: row.class,
+        };
+        self.unsaved.push(&row)?;
+        self.rows.push(row);
+        Ok(Some(rules::learn(&mut self.table, alias)))
+    }
+
+    /// The cards of the players of a text for a model, in order.
+    #[must_use]
+    pub fn cards(&self, text: &str) -> Vec<String> {
+        aliases::ids_in(text)
+            .into_iter()
+            .filter_map(|id| self.row(id).map(|row| row.card(id)))
+            .collect()
+    }
+
+    pub fn take_unsaved(&mut self) -> Vec<NewRow> {
+        self.unsaved.take()
+    }
+}
+
+/// A row that the alias table can hold: a name, and not one that a row before it holds.
+/// `seen` gathers the keys of the rows before.
+pub(super) fn is_new_name(row: &AliasRow, seen: &mut std::collections::BTreeSet<String>) -> bool {
+    aliases::player_name(&row.name) == Some(row.name.as_str())
+        && seen.insert(aliases::key_of(&row.name))
 }
