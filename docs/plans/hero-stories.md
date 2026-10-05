@@ -1,12 +1,12 @@
 # Plan: Hero, Stories, and the Chronicle title page
 
-Status: draft 1, 2026-10-04. The user approved the design mockup "Hero and Stories". This plan reviews that mockup against the code, fixes what does not work, and turns it into steps. Nothing is built. When a step is built, its rules move into `GAMEPLAY.md`, and this plan marks the step as done.
+Status: draft 2, 2026-10-04. The user approved the design mockup "Hero and Stories". This plan reviews that mockup against the code, fixes what does not work, and turns it into steps. Draft 2 adds five decisions of the user (section 1.4). Nothing is built. When a step is built, its rules move into `GAMEPLAY.md`, and this plan marks the step as done.
 
 The mockup covers five parts:
 
 1. Hero, Your Story: answer cards and Your Notes.
 2. Hero, Roleplay Profile: the MSP fields, Origin and Background shared as Birthplace and History, and the "What Others See" preview.
-3. A new Stories tab: waiting and accepted stories, a reader page, Decline all, Block player, and a badge.
+3. A new Stories tab: waiting and accepted stories, a reader page, Block player, and a badge.
 4. The `/story` writing scroll: a title and a body with line breaks.
 5. The Chronicle title page: a summary of the character that a model writes when a chapter ends.
 
@@ -40,11 +40,11 @@ Each point names what the mockup says, what is wrong or missing, and what this p
    - A part holds 244 bytes of text, but a cut never splits a letter, so a part can hold only 241. 16 parts then hold 3856 bytes, not 3904. The worst story takes 14 parts and fits.
    - A full story of plain ASCII is about 1090 bytes: 5 parts. The budget has a burst of 8, so it goes at once when nothing else waits. A worst story of 14 parts sends 8 at once and the rest in 6 seconds.
 
-7. **A burst of stories can lose parts at the receiver.** A sender sends one part each second after its burst. The receiver refills a sender's allowance at one part each 2 seconds (`PeerAllowance`, 24 in a burst). Three worst stories in a row are 42 parts, and the last ones are dropped. Such a message never completes, and nobody hears of it. **Decision:** the scroll sends one story at a time to each player. Send waits with "Sending..." while the parts of the last story to that player still wait in `TaskChannel`.
+7. **A burst of stories can lose parts at the receiver.** A sender sends one part each second after its burst. The receiver refills a sender's allowance at one part each 2 seconds (`PeerAllowance`, 24 in a burst). Three worst stories in a row are 42 parts, and the last ones are dropped. Such a message never completes, and nobody hears of it. **Decision:** one story at a time between a sender and a receiver (1.4, decision 2). So at most one story to a player is ever in flight.
 
-8. **The author never learns of a full box or a block.** The receiver drops a story in silence when the author already has 3 waiting, when 20 wait in all, or when the author is blocked. The author still sees "Sent to Morvane." And Block player in the mockup "uses the same list as quests", but the only `block` message of the wire names a quest id. The author's addon finds no quest, and never learns of the block. **Decision:** two new unlogged types, `story_full` and `story_block`, each with the story id (section 3.2).
+8. **The author never learns of a full box or a block.** The receiver drops a story in silence when the box is full or when the author is blocked. The author still sees "Sent to Morvane." And Block player in the mockup "uses the same list as quests", but the only `block` message of the wire names a quest id. The author's addon finds no quest, and never learns of the block. **Decision:** the author asks before writing and before sending (1.4, decision 3). The answer names a full box, a story that still waits, and a block.
 
-9. **The target may not have Timeways.** `PlayerStories.Tell` checks only that the target is in your group. A story to a player with no Timeways goes nowhere, and the author sees "Sent". **Decision:** the scroll sends `hello` to the group when it opens, as the quest form does. Send works only for a player who answered `here`.
+9. **The target may not have Timeways.** `PlayerStories.Tell` checks only that the target is in your group. A story to a player with no Timeways goes nowhere, and the author sees "Sent". **Decision:** the question of decision 3 (1.4) also finds a player with no Timeways: no answer comes.
 
 10. **Two meanings of `/story`.** The chat line of the mockup says "Type /story to read it". But `/story` with a target opens the scroll. The reader of a new story is often in a group with its author, and may have the author targeted. Then `/story` opens a scroll to write back, not the story. **Decision:** `/stories` opens the Stories tab. `/story` writes.
 
@@ -55,8 +55,22 @@ Each point names what the mockup says, what is wrong or missing, and what this p
 13. **Saved variables grow.**
     - `told` keeps the newest 100 stories that you told, each with its text. At 1200 bytes, that is about 120 KB that any addon can read. **Decision:** a told story keeps its title, not its text. The author needs only the title, for the chat line of the answer.
     - `authors` maps the number of each accepted story to its author, and is never cut. **Decision:** the newest 500 numbers stay.
-    - The scroll keeps a draft for each player. **Decision:** the newest 5 drafts stay, in `TimewaysStories`.
+    - Drafts: see 1.4, decision 4. At most 10, each at most 72 + 1200 bytes: about 13 KB.
     - `waiting` holds at most 20 stories of about 1.3 KB each: 26 KB. That is fine.
+
+### 1.4 Decisions of the user, 2026-10-04
+
+1. **The name is not editable.** The Roleplay Profile has no Name field. MSP `NA` is always the name of the character in the game. The code that goes away:
+   - `Hero.lua`: `name` leaves `Hero.PROFILE`, `Hero.LABELS`, `Hero.HINTS`, and `Hero.LIMITS`. The profile has five fields: title, currently, appearance, age, and motto.
+   - `MspProfile.lua`: `name = "NA"` leaves `MspProfile.CODES`. So the saved copy holds no `NA`, and `Checked` drops one that another addon wrote. `MspProfile.Fields()` sets `fields.NA = UnitName("player")` always, in place of `fields.NA or UnitName("player")`. The import from Total RP 3 or MyRolePlay no longer takes `NA`, because it walks `Hero.PROFILE`.
+   - `crates/story/src/hero.rs`: `"name"` leaves `FIELDS` (11 fields), `limit_of`, and `NOT_IN_PROMPTS`. A `hero_set` of `name` is refused as an unknown field. The world version moves to 5 in step 3 anyway, so an old `name` row never comes back.
+   - `Msp.lua` keeps `NA` in `KEPT`, because the tooltip still shows the roleplay name of other players.
+   - The tests of the name field go: the desktop limit test of `name`, the import of `NA` in `msp.rs`, and the check of NA in `msp_mrp.rs`, which now expects the name in the game.
+   - `GAMEPLAY.md` 3.7 and 3.7.1, and `docs/plans/msp.md` 3.1 and 3.2, lose the name field in step 6c.
+2. **One story at a time between a sender and a receiver.** If I sent you a story, I can't send you another until you Accept or Decline it. This replaces "3 for each author", and Decline all goes. The box still holds at most 20 stories in all. The receiver enforces it, because a changed addon can skip the check of the sender.
+3. **Check before writing.** When `/story` opens on a target, the scroll asks the target first, with a new small question: `story_ask`, answered by `story_room`. The scroll opens with the answer as its status line, and Send stays off until the answer is "open". This is cleaner than not opening, because you can still write and save a draft. Send asks again, and sends only on "open".
+4. **Drafts: save for later.** A story can be saved and finished later, also when the target is offline or out of your group. The scroll has a Save button, and Close also saves a draft that changed, so no text is lost. The Stories tab has a Drafts group with Continue and Delete. Sending a draft still needs the target in your group and the answer "open".
+5. **The summary.** It stays as section 3.5 says, until the user decides. The summary reads stories once the alias table (`GAMEPLAY.md` 5.11) exists.
 
 14. **Accepted stories show "my friend".** The mockup shows an accepted story with every name in place. The desktop keeps the scrubbed copy, and the journal brings that copy back. So the page shows "my friend" for other players, and your own name for `$N`. **Decision:** keep it. One copy of each story, and no real name on the desktop. The waiting copy, before Accept, still shows every name.
 
@@ -118,13 +132,15 @@ The mockup's design, with `\n` in the strings, would need a change to two checks
 
 | Key | Holds | Bound |
 |---|---|---|
-| `waiting` | `{ id, author, title, text, at }`, oldest first. `text` is the body, with `\n` between paragraphs. | 3 for each author, 20 in all |
+| `waiting` | `{ id, author, title, text, at }`, oldest first. `text` is the body, with `\n` between paragraphs. | 1 for each author, 20 in all |
 | `told` | `{ to, title, at, status }`, by story id. No text. | newest 100 |
 | `authors` | the author of each accepted story, by its number | newest 500 numbers |
-| `drafts` | `{ to, title, text, at }` | newest 5 |
+| `drafts` | `{ to, title, text, at }`, one for each player | 10 in all. A draft holds at most 60 letters and 72 bytes of title, and 1000 letters and 1200 bytes of body: about 13 KB for all of them. |
 | `nextNumber` | the next number of an accepted story | |
 
-`Clean` checks each entry when it first reads the table, as today. A waiting body must pass the body rule, and a draft must be clean text with `\n` only as its control character. A broken entry goes.
+`Clean` checks each entry when it first reads the table, as today. A waiting body must pass the body rule, and a draft must be clean text with `\n` only as its control character. A broken entry goes. If the table holds more than one waiting story of an author, or more than 10 drafts, `Clean` keeps the oldest story and the newest drafts.
+
+A told story with the status `sent` blocks a new story to that player. The answer of the receiver is the truth: when it says "open", a `sent` story of this author no longer waits there, and it gets the status `lost`. So an answer that got lost never blocks the author for good.
 
 **On the desktop**, a row of the `stories` table:
 
@@ -154,15 +170,18 @@ Every message stays `1;<type>;<fields>`. The changes:
 | `story` | `id`, `title`, `text` | logged | Was `id`, `text`. `title` may be empty. |
 | `story_accept` | `id` | normal | none |
 | `story_decline` | `id` | normal | none |
-| `story_full` | `id` | normal | New. The receiver has 3 stories from you waiting, or 20 in all. |
-| `story_block` | `id` | normal | New. The receiver blocked you. |
+| `story_ask` | none | normal | New. "Can I send you a story?" |
+| `story_room` | `room` | normal | New. The answer to `story_ask`, and to a story that the box did not take. `room` is `open`, `full`, `waiting`, or `blocked`. |
 
 - **Escapes.** `Escape` adds `\n` to the bytes that take an escape: `%`, `;`, `\`, and `\n`. A paragraph break travels as `%0A`.
 - **A new reader, `Body`.** It unescapes the field and checks the body rule of 3.1: the only control character is `\n`, never two in a row, never at the start or the end, at most 19 of them, and at most 1000 letters and 1200 bytes. Every other reader keeps `IsCleanText`, so a `\n` in a title, a quest, or a zone is still refused.
 - **C1 controls.** `IsCleanText` refuses `\194[\128-\159]` (point 3).
-- **The receiver, in order:** a blocked author gets nothing back. A sender outside your group gets nothing back. A full box answers `story_full`. The same id from the same author again is dropped. Else the story waits.
-- **The author, on `story_full`:** the told story gets the status `full`. Chat: "Morvane has too many stories waiting. Try again later."
-- **The author, on `story_block`:** only for an id that the author told to that player. The author adds the player to `refusedBy`, as for a quest block.
+- **The room of a sender**, in order: `blocked` for a blocked sender, `waiting` when a story of that sender waits, `full` when 20 wait, and else `open`.
+- **On `story_ask`:** a sender outside your group gets no answer. Every other sender gets `story_room`.
+- **On `story`:** a sender outside your group gets nothing back. The same id from the same author again is dropped. A room other than `open` answers `story_room` with it, and drops the story. Else the story waits. So the box never holds two stories of one author, even from a changed addon.
+- **The author, on `story_room`:** the scroll shows the room. `blocked` adds the player to `refusedBy`, as for a quest block. `open` gives a told story with the status `sent` to that player the status `lost`. A `story_room` other than `open` that comes with no open question refuses the last story sent to that player: that story gets the status of the room, and the chat says so.
+- **No answer to `story_ask` in 5 seconds** means the target has no Timeways.
+- A blocked author now gets an answer, `blocked`, where a call of a player quest gets none. The author can't send anyway, and the scroll says why.
 - **The limits of the parts do not change:** at most 16 parts of 255 bytes. The worst story takes 14 (point 6).
 
 ### 3.3 The desktop
@@ -198,6 +217,8 @@ A title or a paragraph that holds a control character (`char::is_control`, so C1
 - **A new call kind `summary`.** Its read rule (`story/reads.rs`, and the table of `GAMEPLAY.md` 5.14): the hero rows of the six questions, the `chapters` rows whose sagas its prompt holds, the events behind each deed of its prompt and behind the level, and the `summaries` row before it.
 
 ### 3.5 The summary
+
+The summary reads stories once the alias table (`GAMEPLAY.md` 5.11) exists. Until then, it reads none (point 5).
 
 **When.** After the saga round of a chapter ends, with a saga or with none, the summary of that chapter is due. The call opens only when all of these hold:
 
@@ -276,8 +297,8 @@ Two sub-tabs under the Hero tab: **Your Story** and **Roleplay Profile**. They u
 
 | Where | Copy |
 |---|---|
-| Field labels | Name, Title, Age, Motto, Currently, Appearance |
-| Empty field | the question and [Add]. The name shows "Kobee (your name in the game)". |
+| Field labels | Title, Age, Motto, Currently, Appearance |
+| Empty field | the question and [Add] |
 | Filled field | the text and [Edit] |
 | Block | Also shared, from Your Story [Edit in Your Story] |
 | In the block | Origin: the text, "as Birthplace". Background: the text, "as History". Empty: "Not answered yet". |
@@ -287,6 +308,7 @@ Two sub-tabs under the Hero tab: **Your Story** and **Roleplay Profile**. They u
 - With another roleplay addon, the fields show its text, read only, with no Edit. The block "Also shared" and the preview hide (point 15).
 - The preview reads the sheet of the journal and the unsaved edits (point 16). It cuts Description and History to 3 lines with "…".
 - The tooltip line of the preview uses the level, race, and class of the game: "Level 9 Undead Paladin (Player)".
+- The preview names the character by the name in the game, with the title after it: "Kobee, Oathkeeper of the Fallen Watch". There is no Name field (1.4, decision 1).
 
 ### 4.4 Stories
 
@@ -304,7 +326,6 @@ The list is on the left on parchment (`side = "sheet"`). The reader is on the ri
 | Byline, waiting | By Kobee · Today |
 | Byline, accepted | By Ashka · Accepted 2 Oct |
 | Byline, author unknown | By a friend · Accepted 2 Oct |
-| More than one from one author | Kobee has 3 stories waiting. [Decline all] |
 | Under a waiting story | To report abuse, open Support in the game menu. |
 | Buttons, waiting | [Block player] [Decline] [Accept] |
 | Button, accepted | [Remove] |
@@ -314,13 +335,17 @@ The list is on the left on parchment (`side = "sheet"`). The reader is on the ri
 | Accept fails (point 2) | This story is too long to keep. Decline it, or ask Kobee for a shorter one. |
 | Block popup | Block Kobee? You won't get quests or stories from them anymore. [Block] [Cancel] |
 | Remove popup | Remove this story? [Remove] [Cancel] (as today) |
+| Heading | Drafts 2 |
+| Draft row | the title, or "A story about Morvane" in faded ink, then "To Morvane · Today" |
+| Draft buttons | [Continue] [Delete] |
+| Delete popup | Delete this draft? [Delete] [Cancel] |
 | Blocked players, in Quests | They can't send you quests or stories |
 
 - The reader shows each paragraph as its own block, with a gap between them, in a scroll frame (point 22). `$N` shows as your name.
-- Waiting stories come first, newest first. Then the accepted ones, newest first.
+- Waiting stories come first, newest first. Then the accepted ones, newest first. Then the drafts, newest first.
+- **Continue** opens the scroll with the draft, for its player, also when that player is not your target. The scroll then asks the player, as in 4.5.
 - Accept and Decline open the next waiting story.
-- **Decline all** sends `story_decline` for each waiting story of that author, and removes exactly those.
-- **Block player** asks first. It adds the author to the blocked list of quests, removes every waiting story of that author, and sends one `story_block`.
+- **Block player** asks first. It adds the author to the blocked list of quests, and removes the waiting story of that author. It sends nothing: the next question of the author gets `blocked`.
 - The Hero page loses its "Stories About You" part.
 
 **Chat:**
@@ -332,13 +357,13 @@ The list is on the left on parchment (`side = "sheet"`). The reader is on the ri
 | You accepted | Story accepted. It's part of your story now. |
 | You declined | Story declined. |
 | The author hears | Morvane accepted your story. / Morvane declined your story. |
-| The author hears, full | Morvane has too many stories waiting. Try again later. |
+| The author hears, the box did not take it | Morvane's story box is full. / Morvane hasn't answered your last story yet. / Morvane doesn't take stories from you. |
 
 **Commands:** `/stories` opens the Stories tab. `/story accept` and `/story decline` answer the newest waiting story, as today.
 
 ### 4.5 The writing scroll
 
-`/story` with a target in your group opens the scroll. `/story <words>` still sends a quick story with no title, from the chat.
+`/story` with a target in your group opens the scroll for that player, with the draft for that player when there is one. The scroll asks the player at once (`story_ask`), and the status line shows the answer. Continue on a draft opens it the same way. `/story <words>` still sends a quick story with no title, from the chat, after the same question.
 
 | Where | Copy |
 |---|---|
@@ -349,13 +374,20 @@ The list is on the left on parchment (`side = "sheet"`). The reader is on the ri
 | Count, near the limit | 87 left |
 | At the limit | No room left |
 | Footer | Like chat, Blizzard can read what you send. |
-| Buttons | [Close] [Send] |
+| Buttons | [Close] [Save] [Send] |
+| Saved | Saved. Find it under Drafts in Stories. |
+| Drafts full | You have 10 drafts. Send or delete one first. |
+| Close with drafts full | Discard this story? [Discard] [Cancel] |
 | Sending | Sending... |
 | Sent | Sent to Morvane. They'll decide if it's part of their story. |
-| Checking | Checking for Timeways... |
-| No Timeways | Morvane needs Timeways to get stories. |
+| Checking | Checking... |
+| Room: open | (no line, and Send is on) |
+| Room: full | Morvane's story box is full. |
+| Room: waiting | Morvane hasn't answered your last story yet. |
+| Room: blocked | Morvane doesn't take stories from you. |
+| No answer | Morvane needs Timeways to get stories. |
+| Not in your group | Invite Morvane to your group to send it. |
 | Left the group | Morvane left your group. Invite them back to send it. |
-| Blocked | Morvane doesn't take stories from you. |
 | The `\|` sign | Stories can't hold the \| sign. Take it out and try again. |
 | Other signs | Some of these characters can't be sent. Take them out and try again. |
 | Chat, no target | Target a player in your group first. |
@@ -363,9 +395,11 @@ The list is on the left on parchment (`side = "sheet"`). The reader is on the ri
 - **Title:** one line, at most 60 letters and 72 bytes. Enter or Tab goes to the body.
 - **Body:** Enter starts a new paragraph. A blank line also counts as one break, so two Enters give the same story as one. Ctrl+Enter sends.
 - The count hides until 100 letters are left.
-- Close or Escape keeps the draft for that player. The newest 5 drafts stay.
+- Save keeps the draft and closes the scroll. Close or Escape also saves a draft that changed. A sent story deletes its draft.
+- One draft for each player, 10 in all. Save never drops an older draft: at 10, it says so, and the text stays.
 - On an error, the text stays, and the bad sign is selected. A typed `|` reads as `||` in the box, so the position comes from the text before the unescape.
-- Send works only for a player who answered `here`, and only when no story to that player is still sending.
+- Send stays off until the answer is "open". Send asks again, and sends only on "open". The status line follows each answer.
+- The header of a draft for a player who is not your target shows the name only, with no portrait and no level.
 - The portrait is `PlayerModel:SetUnit("target")`.
 
 ### 4.6 Chronicle: the title page
@@ -397,15 +431,18 @@ Later, as an option: share the summary as the History of the profile.
 | Same limit as a Hero note | Same letters and bytes, its own text rule | A note holds no line break. |
 | Title "60 characters" | 60 letters and 72 bytes | Every text of the desktop has a byte limit. |
 | "About 3.8 KB", "6 parts, about 4 seconds" | At most 3276 bytes in 14 parts. A full ASCII story is 5 parts and goes at once. | The letter limit binds first, and a part never splits a letter. |
-| Send at any time | One story in flight to each player | A burst of stories loses parts at the receiver. |
-| Block uses the quest list | Also a `story_block` message, and `story_full` | Else the author never learns of a block or a full box. |
+| 3 stories waiting from one author, and Decline all | One story at a time between two players. No Decline all. | The user's decision. It also keeps a burst of stories from losing parts at the receiver. |
+| Block uses the quest list | Also the room `blocked` in `story_room` | Else the author never learns of a block. |
+| The scroll checks only the group | `story_ask` and `story_room` when the scroll opens, and again on Send | The user's decision: know before you write. |
+| Close keeps the draft | Save, Close saves too, and a Drafts group with Continue and Delete. 10 drafts. | The user's decision: finish a story later, also for a player who is offline. |
+| A Name field in the profile | No Name field. MSP `NA` is the name in the game. | The user's decision. |
 | "Type /story to read it" | "Type /stories to read it" | `/story` with a target opens the scroll. |
-| Any group member | Only a member who answered `here` | Else a story to a player with no Timeways goes nowhere. |
+| Any group member | Only a member who answered `story_ask` | Else a story to a player with no Timeways goes nowhere. |
 | Accepted stories with every name | "my friend" for other players | The desktop keeps only the scrubbed copy. |
 | "Also shared" and the preview always | Hidden with another roleplay addon | That addon shares its own fields. |
 | Preview from `MspProfile.Fields()` | Preview from the sheet | The shared copy exists only while sharing. |
 | `PanelTemplates` sub-tabs | The journal's own tab code | `PanelTemplates_*` is not in the API gate. |
-| The summary reads stories and standing | Neither | No story reaches a model before the alias table. Standing is not built. |
+| The summary reads stories and standing | Neither, for now. It reads stories once the alias table exists. | No story reaches a model before the alias table. Standing is not built. |
 | "One model call when a chapter ends" | After the saga round, with no open call and no tight window, newest chapter only | The slots and the pace window are shared with sagas and questions. |
 | Example summary with "he" and a story | `$N`, "they", or the class, from the sheet and the sagas only | The model does not know the sex, and stories stay out. |
 | "In use" state | Kept in code, never shown yet | No call reads a story yet. |
@@ -484,22 +521,27 @@ The addon tests run the real Lua in `crates/addon-tests`, with the fake API of `
 - `a_line_break_in_a_title_is_dropped`
 - `a_story_of_the_old_shape_is_dropped`
 - `the_longest_story_with_every_letter_escaped_fits_sixteen_parts`
-- `a_fourth_story_from_one_author_gets_story_full`
-- `a_twenty_first_story_gets_story_full`
-- `the_author_hears_that_the_box_is_full`
+- `a_second_story_from_one_author_gets_the_room_waiting`
+- `a_twenty_first_story_gets_the_room_full`
+- `a_story_from_a_blocked_author_gets_the_room_blocked`
+- `story_ask_gets_open_when_nothing_of_yours_waits`
+- `story_ask_from_outside_the_group_gets_no_answer`
+- `the_author_hears_why_the_box_did_not_take_the_story`
+- `the_answer_open_marks_a_sent_story_as_lost`
+- `the_author_can_send_again_after_accept_or_decline`
 - `a_story_from_a_player_outside_the_group_gets_no_answer`
-- `decline_all_removes_exactly_the_stories_of_that_author`
-- `decline_all_sends_one_decline_for_each_story`
-- `block_player_removes_the_waiting_stories_of_that_author_and_sends_one_block`
-- `a_blocked_author_learns_it_from_story_block`
-- `a_story_block_for_a_story_never_told_changes_nothing`
+- `block_player_removes_the_waiting_story_of_that_author`
+- `a_blocked_author_learns_it_from_the_room`
 - `accept_sends_the_title_and_the_paragraphs_without_names`
 - `names_leave_the_title_too`
 - `a_story_whose_names_grow_past_the_strip_stays_waiting` (the failing test of today's bug)
 - `a_story_whose_names_grow_past_the_desktop_limit_stays_waiting`
 - `a_told_story_keeps_no_text`
 - `a_saved_waiting_story_with_a_broken_body_is_dropped`
-- `the_newest_five_drafts_stay`
+- `a_draft_survives_a_reload`
+- `save_at_ten_drafts_keeps_the_text_and_says_why`
+- `a_sent_story_deletes_its_draft`
+- `a_saved_file_with_two_waiting_stories_of_one_author_keeps_the_oldest`
 - `authors_keep_the_newest_five_hundred_numbers`
 
 `crates/addon-tests/tests/stories_page.rs` (new):
@@ -508,7 +550,9 @@ The addon tests run the real Lua in `crates/addon-tests`, with the fake API of `
 - `the_badge_hides_with_no_waiting_story`
 - `waiting_stories_show_while_the_journal_loads`
 - `a_story_with_no_title_shows_who_told_it`
-- `decline_all_shows_only_for_an_author_with_more_than_one_story`
+- `drafts_show_with_continue_and_delete`
+- `continue_opens_the_scroll_for_the_player_of_the_draft`
+- `delete_asks_first`
 - `accept_opens_the_next_waiting_story`
 - `at_twenty_waiting_the_list_asks_for_answers`
 - `the_reader_puts_your_name_in_place_of_the_hero_mark`
@@ -518,10 +562,13 @@ The addon tests run the real Lua in `crates/addon-tests`, with the fake API of `
 `crates/addon-tests/tests/story_scroll.rs` (new):
 
 - `the_scroll_does_not_open_without_a_target_in_your_group`
-- `send_waits_for_the_target_to_answer_here`
+- `the_scroll_asks_the_target_when_it_opens`
+- `send_stays_off_until_the_room_is_open`
+- `the_status_line_names_a_full_box_a_waiting_story_and_a_block`
 - `the_scroll_says_when_the_target_has_no_timeways`
-- `send_waits_while_a_story_to_that_player_is_sending`
-- `close_keeps_the_draft_for_that_player`
+- `send_asks_again_and_sends_only_on_open`
+- `close_saves_a_changed_draft`
+- `a_draft_for_a_player_out_of_the_group_can_be_written_but_not_sent`
 - `an_error_keeps_the_text_and_selects_the_bad_sign`
 - `the_count_shows_only_when_a_hundred_letters_are_left`
 - `a_target_who_left_the_group_keeps_the_text_with_the_reason`
@@ -552,8 +599,9 @@ In `crates/story/tests/properties.rs`. Each number draws its edges on purpose, w
 
 In `crates/addon-tests/tests/player_stories.rs`, with proptest over the real Lua, as `task_names.rs` does:
 
-- `the_waiting_box_never_passes_three_for_each_author_or_twenty_in_all`, for any order of stories from 1 to 30 authors, with blocks and declines between them.
-- `decline_all_removes_exactly_the_stories_of_that_author`.
+- `the_waiting_box_never_holds_two_stories_of_one_author_or_more_than_twenty`, for any order of stories from 1 to 30 authors, also from a changed addon that skips `story_ask`, with blocks, accepts, and declines between them. Author counts draw 1, 20, 21, and 30 on purpose.
+- `a_sender_never_has_two_stories_waiting_with_one_receiver`. Two real addons in the two-player harness, with any order of asks, sends, accepts, declines, reloads of either side, and lost messages. After each step: the receiver holds at most one story of the sender, and the sender holds at most one told story with the status `sent` to the receiver.
+- `the_drafts_never_pass_ten_and_save_never_drops_one`.
 - `encode_then_decode_gives_any_clean_story_back`. Edges: all `%`, all `;`, all `\`, 19 breaks, 1000 letters, 1001 letters, and 1200 bytes.
 - `every_story_that_the_scroll_takes_fits_sixteen_parts`.
 
@@ -561,8 +609,8 @@ In `crates/addon-tests/tests/player_stories.rs`, with proptest over the real Lua
 
 - **New: `fuzz/fuzz_targets/story_accepted.rs`.** An arbitrary title, arbitrary paragraphs, and a number build a `story_accepted` line. The line goes through `fake_bridge::dropped_lines_of`, then into the story program, then a journal request. It checks: no panic; a line that the bridge passes is kept or refused with `BadStory`; each journal page passes `fake_bridge::game_reply`; a kept story has at most 20 paragraphs, each at most 1600 bytes with no control character. Dictionary `fuzz/dicts/story_accepted.dict`: `"paragraphs"`, `"title"`, `\n`, `\u0085`, `|`, `"`, `\\`.
 - **Seeds in `fuzz/seeds/story_accepted/`:** `title_and_paragraphs.json`, `no_title.json`, `twenty_paragraphs.json`, `twenty_one_paragraphs.json`, `all_quotes.json`, `line_break_in_a_paragraph.json`, `c1_control.json`, `empty_paragraph.json`, `max_number.json`.
-- **`task_wire`:** new seeds with `%0A`, `%0A%0A`, `%0D`, a title with `%0A`, and the bytes of U+0085.
-- **`task_play`:** `story_full` and `story_block` join the types. Corvin's `/story` words gain line breaks, and the scroll sends with a title.
+- **`task_wire`:** new seeds with `%0A`, `%0A%0A`, `%0D`, a title with `%0A`, the bytes of U+0085, and `story_room` with an unknown room.
+- **`task_play`:** `story_ask` and `story_room` join the types, with a room of any text. Corvin's `/story` words gain line breaks, and the scroll sends with a title.
 - **`answers`:** `summary::checked_summary` joins the checked answers. A summary that passes keeps its limits and holds no control character.
 
 ### 6.5 Steps in the game
@@ -575,19 +623,19 @@ These replace section 13 of `TESTING.md`, and add two sections, when step 10 lan
 2. On the second character, the chat says "... told a story about you: <title>. Type /stories to read it." The Stories tab has a badge with 1.
 3. Type `/stories`. The story shows on a page, with its title, "By ... · Today", and three paragraphs. The line "To report abuse, open Support in the game menu." shows under it.
 4. Click Accept. The first character's chat says "... accepted your story." On the second character, the story moves under Accepted, with "By ... · Accepted <day>".
-5. Tell three more stories, and click Decline all. The first character hears three declines.
-6. Tell four stories in a row. The fourth gets "... has too many stories waiting. Try again later."
+5. Tell a story, and before the second character answers, type `/story` again. The scroll opens with "... hasn't answered your last story yet.", and Send is off. Decline it on the second character. Send turns on.
+6. Write a story, click Save, and leave the party. Open Stories: the draft shows under Drafts. Click Continue: "Invite ... to your group to send it." Invite the player again: Send turns on.
 7. Type a `|` in the body, and click Send. The error shows, the `|` is selected, and the text stays.
 8. Press Enter in the body. A new paragraph starts, and nothing is sent. Press Ctrl+Enter. The story is sent.
-9. Close the scroll with text in it. Open it again for the same player. The text is still there.
-10. Click Block player on a waiting story, then Block. The first character types `/story` and clicks Send: "... doesn't take stories from you." The Quests tab lists the player under Blocked players.
-11. Target a player in your group who has no Timeways, and type `/story`. Send says "... needs Timeways to get stories."
+9. Close the scroll with text in it. `/reload`. Open it again for the same player. The text is still there.
+10. Click Block player on a waiting story, then Block. The first character types `/story`: the scroll opens with "... doesn't take stories from you." The Quests tab lists the player under Blocked players.
+11. Target a player in your group who has no Timeways, and type `/story`. After a few seconds, the scroll says "... needs Timeways to get stories."
 12. Tell a story that names the first character. Accept it the next day, after the author left the party. In the world file, run `sqlite3 c_<name>.sqlite "SELECT body FROM stories"`: the name shows as "my friend".
 
 **20. The Hero tab.**
 
 1. Open `/hero`. The six answers show as cards. Click Answer on an empty card, type, and Save. The next empty card opens.
-2. Open Roleplay Profile. The line says "Only you see this." The preview under What Others See shows your fields.
+2. Open Roleplay Profile. The line says "Only you see this." There is no Name field. The preview under What Others See shows your name in the game and your fields.
 3. Click Share. Origin and Background in Your Story show "Shared".
 4. If you use Total RP 3: the page says "Total RP 3 shares your profile. Change it there." "Also shared" and the preview do not show.
 
@@ -625,6 +673,8 @@ pub fn standing(lines: &[ShelfLine]) -> Vec<u64>
 | `a_used_story_always_stands` | A story that a call used stands after any line. | `theorem a_used_story_always_stands (ls : List ShelfLine) (l : ShelfLine) (used : Slice U64) (n : U64) (hu : n ∈ used.val) (hs : n ∈ standingSpec ls) : lands ls l used ⦃ ok => ok → n ∈ standingSpec (ls ++ [l]) ⦄` | Yes. It is the rule "accepted in use can't be removed", stated over any line, not over one test. |
 | `lands.spec` | `lands` and `standing` never panic and always end. | `theorem lands.spec ... : lands ls l used ⦃ _ => True ⦄` | Yes, and it comes free with the other proofs. |
 
+Decision 2 of 1.4 changes no theorem here: the shelf holds accepted stories, and the one-story rule lives in the addon (7.2).
+
 The `used` list comes from the database (`uses_of`). No proof reads that glue. The tests of `story/stories.rs` cover it, as `lean/README.md` says for the other glue.
 
 **The Kani twin** (`crates/story/src/proofs.rs`): `the_shelf_keeps_each_number_once_for_four_lines`. Four lines with any numbers from a small range, and any `used`. Kani checks the bounded case fast, and the Lean theorem covers any length.
@@ -633,8 +683,9 @@ The `used` list comes from the database (`uses_of`). No proof reads that glue. T
 
 | Candidate | Where it runs | Decision |
 |---|---|---|
-| The waiting box: 3 for each author, 20 in all | Lua (`PlayerStories.lua`) | Property test over the real Lua (6.3). A Lean proof would prove a Rust copy. |
-| Decline all removes exactly that author's stories | Lua | Property test over the real Lua. |
+| The waiting box: 1 for each author, 20 in all | Lua (`PlayerStories.lua`) | Property test over the real Lua (6.3). A Lean proof would prove a Rust copy. |
+| A sender never has two stories waiting with one receiver | Lua, on two computers | The two-player property test of 6.3, with lost messages and reloads. It is a rule of two addons and a lossy channel, so the real Lua on both sides is the only honest model. Kani and Lean see neither. |
+| The drafts never pass 10 | Lua | Property test over the real Lua. |
 | The escape round trip | Lua (`TaskWire.lua`) | Property test with every escaped byte, and the fuzz target `task_wire`. |
 | The story text check (bytes, paragraphs, control characters) | Rust (`stories::checked_story`) | A property test and the fuzz target `story_accepted`. The check is a few lines over `str`. Aeneas models `str` and `char` poorly, and a proof costs far more than it finds. Kani on UTF-8 strings is slow, and a bounded check adds nothing to the fuzzer. |
 | The summary sees only accepted stories | Rust | The rule is now stronger: the summary reads no story. The property test `no_prompt_holds_the_text_of_a_story` checks every prompt of any play. A theorem would need the whole prompt builder in `crates/rules`, with strings and the world. |
@@ -647,17 +698,17 @@ Each step is one commit or a few, with its tests, and with its rules moved into 
 1. **The fix of today's bugs.** First the failing tests: `a_story_whose_names_grow_past_the_desktop_limit_stays_waiting` and `a_c1_control_character_is_not_clean_text`. Then `IsCleanText` refuses C1 controls, and Accept checks the scrubbed text and `Outbox.Fits` before it removes a story. Still the old shape of `story`.
 2. **The shelf in `crates/rules`.** `story_shelf.rs`, its unit tests, the extraction, the Lean theorems of 7.1, `lean/README.md`, and the Kani twin. `stories.rs` calls it. No change in behavior.
 3. **The desktop story.** The title, the paragraphs, the limits of 3.3, `VERSION` 5, the journal, the property tests, and the fuzz target `story_accepted` with its seeds. The addon sends one paragraph and no title until step 4.
-4. **The wire.** `StoryText.lua`, `story` with a title, the `Body` reader and the `%0A` escape, `story_full`, `story_block`, the saved bounds of point 13, the Lua tests and properties, and the seeds of `task_wire` and `task_play`.
-5. **The Stories tab.** The list, the reader, the badge, Decline all, Block player, `/stories`, and the new chat lines. The Hero page loses "Stories About You". Accept sends the title and the paragraphs.
-6. **Hero cards.** 6a: the sub-tabs, the cards, Your Notes, with today's editor. 6b: editing inside a card. 6c: the Roleplay Profile page, "Also shared", and the preview. These do not depend on steps 1 to 5.
-7. **The writing scroll.** `StoryScroll.lua`, the drafts, the `here` check, one story in flight, the errors with the selection, Ctrl+Enter, and `IsControlKeyDown` in the API gate.
+4. **The wire.** `StoryText.lua`, `story` with a title, the `Body` reader and the `%0A` escape, `story_ask` and `story_room`, one story for each author, the saved bounds of point 13, the Lua tests and properties, and the seeds of `task_wire` and `task_play`.
+5. **The Stories tab.** The list, the reader, the badge, Block player, the Drafts group, `/stories`, and the new chat lines. The Hero page loses "Stories About You". Accept sends the title and the paragraphs.
+6. **Hero cards.** 6a: the sub-tabs, the cards, Your Notes, with today's editor. 6b: editing inside a card. 6c: the Roleplay Profile page with no Name field, the removal of the name code (1.4, decision 1), "Also shared", and the preview. These do not depend on steps 1 to 5.
+7. **The writing scroll.** `StoryScroll.lua`, Save and the drafts, the question when it opens and on Send, the errors with the selection, Ctrl+Enter, and `IsControlKeyDown` in the API gate.
 8. **Scroll rods.** Find the wooden art in the game's own textures. Until then, the scroll uses the parchment of the journal with no rods.
 9. **The summary samples.** Write 6 lines in the summary voice from the sheet and the sagas, and show them to the user. Nothing ships before the user says yes.
 10. **The summary.** The table `summaries`, the call kind, the schedule, the prompt, `Call::Summary`, the check, the read rule, the journal field, the tests of 6.1, the property test of the budget, and the fuzz of the answer. Then the title page in the addon, and the steps in `TESTING.md` (6.5).
 
 ### Fallback for point 4
 
-If the release candidates count as live, keep `story` as it is for a story with no title and one paragraph of at most 400 bytes, and send every other story as `story2` (`id`, `title`, `text`). The receiver reads both. The scroll then needs to know whether the target reads `story2`, so `here` would need a field, and an older addon drops a `here` with a field. That is why this plan prefers the change in place.
+If the release candidates count as live, keep `story` as it is for a story with no title and one paragraph of at most 400 bytes, and send every other story as `story2` (`id`, `title`, `text`). The receiver reads both. The scroll then needs to know whether the target reads `story2`. An older addon gives no answer to `story_ask`, so the scroll would read it as "no Timeways". That is why this plan prefers the change in place.
 
 ## 9. Open
 
