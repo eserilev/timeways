@@ -1,6 +1,6 @@
 # Plan: Hero, Stories, and the Chronicle title page
 
-Status: draft 2, 2026-10-04. The user approved the design mockup "Hero and Stories". This plan reviews that mockup against the code, fixes what does not work, and turns it into steps. Draft 2 adds five decisions of the user (section 1.4). Nothing is built. When a step is built, its rules move into `GAMEPLAY.md`, and this plan marks the step as done.
+Status: built, 2026-10-04, except steps 8 and 9 (section 8). The user approved the design mockup "Hero and Stories". This plan reviews that mockup against the code, fixes what does not work, and turns it into steps. Draft 2 added five decisions of the user (section 1.4). Draft 3 adapts the plan to the alias table (`docs/plans/aliases.md`), which landed after draft 2: stories now carry `{Name}` marks, not "my friend" (section 1.5). The rules of each built step are in `GAMEPLAY.md` 3.3, 3.6, 3.7, 3.7.1, 4.7, and 4.8.
 
 The mockup covers five parts:
 
@@ -20,7 +20,7 @@ Each point names what the mockup says, what is wrong or missing, and what this p
 
 1. **The bridge drops a line break.** The mockup sends `story_accepted` with `\n` in the text, and the journal carries it back. Relay SPEC 9.8 forbids both: an addon line may hold no control character in any string ("A line break is a control character"), and a journal string may hold no control character. The bridge drops such a `story_accepted` line, so the story is lost after the author heard "accepted". **Decision:** the body is a list of paragraphs. Each paragraph is one string with no control character. The addon line carries `paragraphs` as a JSON array, and the journal does the same. This needs no change in the relay. Between two addons, a paragraph break travels as the escape `%0A`, because the logged channel takes no control character either.
 
-2. **Name scrubbing makes a story longer.** On Accept, the addon puts "my friend" in place of each known player name (`TaskNames.WithoutNames`). A name of 2 letters becomes 9 bytes. "Al, Al, Al" grows by a factor of more than 3. Today, a 400-byte story that names a short name many times grows past `MAX_STORY_BYTES`. The desktop refuses it, and the story is lost: the author already heard "accepted", and the reader's addon already removed it. With a 1200-byte body, the line can also pass the room of one strip, and `Outbox` drops a line that never fits, with no error. **Decision:** the desktop limits are larger than the wire limits (section 3.3). Before Accept removes a story, the addon checks the scrubbed story against the desktop limits and against `Outbox.Fits`. If either check fails, the story stays waiting, and the page says why. This bug exists today, so step 1 starts with its failing test.
+2. **Name scrubbing makes a story longer.** (Draft 3: the alias table fixed this, see 1.5.) On Accept, the addon puts "my friend" in place of each known player name (`TaskNames.WithoutNames`). A name of 2 letters becomes 9 bytes. "Al, Al, Al" grows by a factor of more than 3. Today, a 400-byte story that names a short name many times grows past `MAX_STORY_BYTES`. The desktop refuses it, and the story is lost: the author already heard "accepted", and the reader's addon already removed it. With a 1200-byte body, the line can also pass the room of one strip, and `Outbox` drops a line that never fits, with no error. **Decision:** the desktop limits are larger than the wire limits (section 3.3). Before Accept removes a story, the addon checks the scrubbed story against the desktop limits and against `Outbox.Fits`. If either check fails, the story stays waiting, and the page says why. This bug exists today, so step 1 starts with its failing test.
 
 3. **A C1 control character passes the addon and fails the bridge.** `TaskWire.IsCleanText` refuses `%c`, which in Lua 5.1 is only bytes 0 to 31 and 127. Rust `char::is_control`, which the bridge and `stories::checked_text` use, also refuses U+0080 to U+009F. So a story with U+0085 passes the wire and the Accept button, and then the bridge drops its line. `MspProfile.lua` already handles this range. **Decision:** `IsCleanText` refuses `\194[\128-\159]` too. This also protects the other texts that reach the desktop.
 
@@ -58,6 +58,15 @@ Each point names what the mockup says, what is wrong or missing, and what this p
     - Drafts: see 1.4, decision 4. At most 10, each at most 72 + 1200 bytes: about 13 KB.
     - `waiting` holds at most 20 stories of about 1.3 KB each: 26 KB. That is fine.
 
+### 1.5 What the alias table changed (draft 3)
+
+The alias table landed after draft 2. It changes these points:
+
+- **Point 2 is gone.** Accept marks each known name as `{Name}`, never "my friend". The desktop measures a story without its marks, and a mark never makes a name longer than the player typed it. So the desktop limits are the limits of the wire: a title of 60 letters and 72 bytes, and a body of 1000 letters and 1200 bytes, with one letter and one byte for each break. `StoryText.FitsDesktop` and the larger desktop limits of 3.3 (240, 2400, 1600) are not needed. A test of each side holds the numbers equal (`the_story_limits_of_the_desktop_match_the_addon`). The test `a_story_full_of_names_at_the_limit_still_fits_the_desktop` shows it.
+- **`Outbox.Fits` stays the gate before Accept.** Marks add 2 bytes to each name, and the JSON escape doubles `"` and `\`. The longest story without names fits one strip (`the_longest_story_without_names_fits_one_strip`). A story whose line does not fit stays waiting with the reason (`a_story_whose_marks_make_it_too_long_for_the_strip_stays_waiting`, with a small fake strip).
+- **Point 14 is gone.** The desktop keeps IDs, and the journal gives the names back. So an accepted story shows every name, and your own name in place of `$N`.
+- **The world version.** The alias table took version 5. The new shape of a story is version 6, and the table `summaries` is version 7 (3.6).
+
 ### 1.4 Decisions of the user, 2026-10-04
 
 1. **The name is not editable.** The Roleplay Profile has no Name field. MSP `NA` is always the name of the character in the game. The code that goes away:
@@ -72,7 +81,7 @@ Each point names what the mockup says, what is wrong or missing, and what this p
 4. **Drafts: save for later.** A story can be saved and finished later, also when the target is offline or out of your group. The scroll has a Save button, and Close also saves a draft that changed, so no text is lost. The Stories tab has a Drafts group with Continue and Delete. Sending a draft still needs the target in your group and the answer "open".
 5. **The summary.** It stays as section 3.5 says, until the user decides. The summary reads stories once the alias table (`GAMEPLAY.md` 5.11) exists.
 
-14. **Accepted stories show "my friend".** The mockup shows an accepted story with every name in place. The desktop keeps the scrubbed copy, and the journal brings that copy back. So the page shows "my friend" for other players, and your own name for `$N`. **Decision:** keep it. One copy of each story, and no real name on the desktop. The waiting copy, before Accept, still shows every name.
+14. **Accepted stories show "my friend".** (Draft 3: gone with the alias table, see 1.5. An accepted story shows every name.) The mockup shows an accepted story with every name in place. The desktop keeps the scrubbed copy, and the journal brings that copy back. So the page shows "my friend" for other players, and your own name for `$N`. **Decision:** keep it. One copy of each story, and no real name on the desktop. The waiting copy, before Accept, still shows every name.
 
 15. **Another roleplay addon.** With Total RP 3, MyRolePlay, or XRP, Timeways sends no MSP message. That addon shares its own Birthplace and History. The mockup still shows "Also shared, from Your Story", the "Shared" tag on Origin and Background, and the preview. **Decision:** with another roleplay addon, those three hide. The page shows "Total RP 3 shares your profile. Change it there." and the six imported fields, read only, as today.
 
@@ -126,7 +135,7 @@ The mockup's design, with `\n` in the strings, would need a change to two checks
 - `StoryText.Body(typed)`: the body of a typed text. It turns `\r\n` and `\r` into `\n`, trims each line, and joins the lines that are not empty with one `\n`. So a blank line and a single line break both give one paragraph break.
 - `StoryText.Paragraphs(body)`: the list of paragraphs.
 - `StoryText.Problem(title, body)`: the reason why a story can't go, or nil.
-- `StoryText.FitsDesktop(title, paragraphs)`: true when the scrubbed story is inside the limits of section 3.3.
+- `StoryText.FitsDesktop(title, paragraphs)`: true when the scrubbed story is inside the limits of section 3.3. (Draft 3: not built, see 1.5. `StoryText.IsTitle`, `StoryText.IsBody`, and `StoryText.BadSign` came in its place.)
 
 **In the addon, `TimewaysStories`** (each character):
 
@@ -194,7 +203,7 @@ Every message stays `1;<type>;<fields>`. The changes:
 
 `title` is optional, and an empty one counts as none.
 
-**The checks** (`stories::checked_story`). The text comes after the names left it, so it can be longer than on the wire (point 2):
+**The checks** (`stories::is_good_story`). Draft 3: the limits are the limits of the wire (1.5): `MAX_TITLE_CHARS` 60, `MAX_TITLE_BYTES` 72, `MAX_BODY_CHARS` 1000, `MAX_BODY_BYTES` 1200, and `MAX_PARAGRAPHS` 20. Draft 2 said, before the alias table:
 
 | Constant | Value | Why |
 |---|---|---|
@@ -261,7 +270,9 @@ The user decided on 2026-10-04: from now on, each change of the schema says what
 
 | Version | Change | What a migration from the version before needs |
 |---|---|---|
+| (none, step 6c) | The field `name` of the hero leaves the sheet. | Nothing. A row `{"field":"name",...}` of the `hero` table still reads, and the sheet leaves it out. A migration can keep it. |
 | 6 (step 3) | A row of `stories` holds `title` and `paragraphs` in place of `text`. | Read each `accepted` row of version 5, and write it again as `{"line":"accepted","number":...,"at":...,"title":null,"paragraphs":[<text>]}`. The text keeps its IDs. A text of version 5 holds no line break, so it is one paragraph. A `removed` row stays as it is. The positions stay, so the reads of a call still point at the same story. Then set `user_version` to 6. |
+| 7 (step 10) | A new row table `summaries`, one row `{"after": <tick>, "text": "..."}` for each summary. | Create the table `summaries` with the columns of a row table, empty, and set `user_version` to 7. No other row changes. The first summary comes after the next saga round. |
 
 ## 4. The UI, page by page
 
@@ -446,7 +457,7 @@ Later, as an option: share the summary as the History of the profile.
 | A Name field in the profile | No Name field. MSP `NA` is the name in the game. | The user's decision. |
 | "Type /story to read it" | "Type /stories to read it" | `/story` with a target opens the scroll. |
 | Any group member | Only a member who answered `story_ask` | Else a story to a player with no Timeways goes nowhere. |
-| Accepted stories with every name | "my friend" for other players | The desktop keeps only the scrubbed copy. |
+| Accepted stories with every name | Every name (draft 3) | The alias table keeps IDs, and the journal gives the names back (1.5). |
 | "Also shared" and the preview always | Hidden with another roleplay addon | That addon shares its own fields. |
 | Preview from `MspProfile.Fields()` | Preview from the sheet | The shared copy exists only while sharing. |
 | `PanelTemplates` sub-tabs | The journal's own tab code | `PanelTemplates_*` is not in the API gate. |
@@ -623,7 +634,7 @@ In `crates/addon-tests/tests/player_stories.rs`, with proptest over the real Lua
 
 ### 6.5 Steps in the game
 
-These replace section 13 of `TESTING.md`, and add two sections, when step 10 lands. They describe UI that is not built yet, so they stay here until then.
+Built: `TESTING.md` sections 13, 21, and 22 hold these steps now, in their final words. The text below is draft 2.
 
 **13. Stories about each other.** Two characters with Timeways in one party.
 
@@ -703,16 +714,40 @@ The `used` list comes from the database (`uses_of`). No proof reads that glue. T
 
 Each step is one commit or a few, with its tests, and with its rules moved into `GAMEPLAY.md` and the README.
 
-1. **The fix of today's bugs.** First the failing tests: `a_story_whose_names_grow_past_the_desktop_limit_stays_waiting` and `a_c1_control_character_is_not_clean_text`. Then `IsCleanText` refuses C1 controls, and Accept checks the scrubbed text and `Outbox.Fits` before it removes a story. Still the old shape of `story`.
-2. **The shelf in `crates/rules`.** `story_shelf.rs`, its unit tests, the extraction, the Lean theorems of 7.1, `lean/README.md`, and the property test of 7.1. `stories.rs` calls it. No change in behavior.
-3. **The desktop story.** The title, the paragraphs, the limits of 3.3, `VERSION` 5, the journal, the property tests, and the fuzz target `story_accepted` with its seeds. The addon sends one paragraph and no title until step 4.
-4. **The wire.** `StoryText.lua`, `story` with a title, the `Body` reader and the `%0A` escape, `story_ask` and `story_room`, one story for each author, the saved bounds of point 13, the Lua tests and properties, and the seeds of `task_wire` and `task_play`.
-5. **The Stories tab.** The list, the reader, the badge, Block player, the Drafts group, `/stories`, and the new chat lines. The Hero page loses "Stories About You". Accept sends the title and the paragraphs.
-6. **Hero cards.** 6a: the sub-tabs, the cards, Your Notes, with today's editor. 6b: editing inside a card. 6c: the Roleplay Profile page with no Name field, the removal of the name code (1.4, decision 1), "Also shared", and the preview. These do not depend on steps 1 to 5.
-7. **The writing scroll.** `StoryScroll.lua`, Save and the drafts, the question when it opens and on Send, the errors with the selection, Ctrl+Enter, and `IsControlKeyDown` in the API gate.
-8. **Scroll rods.** Find the wooden art in the game's own textures. Until then, the scroll uses the parchment of the journal with no rods.
-9. **The summary samples.** Write 6 lines in the summary voice from the sheet and the sagas, and show them to the user. Nothing ships before the user says yes.
-10. **The summary.** The table `summaries`, the call kind, the schedule, the prompt, `Call::Summary`, the check, the read rule, the journal field, the tests of 6.1, the property test of the budget, and the fuzz of the answer. Then the title page in the addon, and the steps in `TESTING.md` (6.5).
+1. **Done. The fix of today's bugs.** The failing test `a_c1_control_character_is_not_clean_text` came first, then `IsCleanText` refuses U+0080 to U+009F. The bug of names that grow was already fixed by the alias table (1.5), so its test `a_story_full_of_names_at_the_limit_still_fits_the_desktop` is a regression test, not a failing one. The flaky tests of the review tool (`narrator_review.rs`) got a fix too: a model that never reads the prompt broke the pipe.
+2. **Done. The shelf in `crates/rules`.** `story_shelf.rs` with `lands` and `standing`, the extraction, `lean/Timeways/StoryShelf.lean` with the theorems of 7.1, `lean/README.md`, and the property test `the_shelf_keeps_each_number_once`.
+3. **Done. The desktop story.** The title, the paragraphs, the limits of the wire (1.5), `VERSION` 6, the journal, the tests of 6.1, the property tests `a_story_line_that_the_bridge_passes_lands_or_is_refused_with_its_reason` and `every_accepted_story_fits_one_page_of_the_journal` (in `through_the_bridge.rs`), and the fuzz target `story_accepted` with its seeds and dictionary.
+4. **Done. The wire.** `StoryText.lua`, `StorySaved.lua`, `StoryDrafts.lua`, `story` with a title (`story_title` and `body` in `TaskWire`), the `%0A` escape, `story_ask` and `story_room`, one story for each author, the saved bounds of point 13, the Lua tests and properties, and the seeds of `task_wire` and `task_play`. A send marks an older told story to the same player as `lost`, because a story goes only after "open": so the sender never waits on two.
+5. **Done. The Stories tab.** `JournalStories.lua`: the list, the reader, the badge, Block player, the Drafts group, `/stories`, and the new chat lines. The Hero page lost "Stories About You".
+6. **Done. Hero cards.** `JournalHero.lua` builds the page and `JournalCards.lua` draws the left half: the sub-tabs with the button code of the top row, the cards two by two, the profile page with no Name field, "Also shared", and the preview. 6b edits inside the card: the box grows with its text, and the cards below it move (`a_box_that_grows_moves_the_cards_below_it`). Add a note keeps the writing page of the book.
+7. **Done. The writing scroll.** `StoryScroll.lua`, Save and the drafts, the question when it opens and on Send, the errors with the selection, Ctrl+Enter, and `IsControlKeyDown` in the API gate and in `wow.yml`.
+8. **Not done. Scroll rods.** Finding the wooden art needs the game client, and no test can see a texture. The scroll uses the parchment of the journal with no rods.
+9. **Waits for the user. The summary samples.** The 6 lines are below. They are not in the prompt: the summary runs with the persona and the house rules alone until the user says yes. Then they go into `crates/story/data/samples/`, and the prompt holds 2 of them in turn.
+10. **Done. The summary.** The table `summaries` (`VERSION` 7), the call kind `summary`, the schedule, the prompt (`summary.rs`), `Call::Summary`, the check, the read rule, the journal field, the tests of `crates/story/tests/summary.rs`, the property test of the budget, the fuzz of the answer, the title page in the addon, and the steps in `TESTING.md` (21 and 22).
+
+### The samples of step 9, for the user
+
+Each sample comes from a sheet and the sagas only, and keeps the rules of the summary: one paragraph, at most 80 words, `$N` at most twice, never "our hero", no weather, no feeling, and nothing after the cutoff.
+
+1. Deathknell has buried its dead twice, and $N, once a squire of the Silver Hand, was among those who climbed back out. The paladin keeps an oath the Light may no longer hear. Brill has come to trust the Forsaken who carries it, and the Scarlet recruits at Solliden know that face.
+2. Razor Hill raised $N as it raises every orc child, with an axe and a watch post. The hunter has walked the Barrens from the Crossroads to the Wailing Caverns, and Mutanus the Devourer no longer stirs in the deep. A brother lost at Northwatch is the reason the hunter keeps going south.
+3. Northshire Abbey trained $N to hold a sword before the Defias burned the fields of Westfall. The warrior has since stood at Sentinel Hill, and Edwin VanCleef lies dead in the Deadmines below Moonbrook. A temper that the warrior owns to has not cost a fight yet.
+4. The night elves of Shadowglen gave $N a duty to the trees of Teldrassil. The druid crossed to Darkshore, where the furbolgs of the Blackwood went mad, and walked the shore as far as Auberdine. The druid still searches the ruins of Ameth'Aran for a teacher who never came home.
+5. Kharanos keeps the forge where $N first beat iron into a hammer. The paladin has since gone down into Gnomeregan, and the troggs of Loch Modan know the dwarf who held the line at Thelsamar. An oath to an old clan still decides each road.
+6. The Undercity sent $N out with a staff and a grudge against the Scarlet Crusade. The mage has walked through the library of the Scarlet Monastery and the hills of Hillsbrad, where Southshore watches the Forsaken with good reason. Of the life before death, only the name of a sister remains.
+
+### Deviations from this plan, and why
+
+- **The desktop limits** are the limits of the wire (1.5).
+- **`StoryText.FitsDesktop`** is gone (1.5). `StoryText.Problem` gives the reason, and `StoryText.BadSign` the place of the bad sign.
+- **A draft keeps the text as the box shows it**, so a typed `|` stays `||`, and blank lines stay. Its check takes a `|` and twice the bytes, so a draft with a bad sign survives a reload.
+- **Enter in the body inserts the break itself.** A blank line makes the same story, so the key works whether or not the game adds a break too (9, the first check in the game).
+- **The selection of the bad sign counts bytes** (9, the second check in the game).
+- **The summary waits while any finished chapter waits for its saga**, not only an older one. The rounds take the oldest chapter first, so this is the same rule, said more simply.
+- **The badge** is a small red square with the count, from `SetColorTexture`. No atlas of a round badge is in the API gate.
+- **With another roleplay addon**, the right half of the profile says "Other players see the profile of Total RP 3.", so the page is never empty.
+- **The Chronicle with no chapter** opens on the title page, with "Fills in when your first chapter ends." The old line "Your story hasn't started yet." is gone.
+- **The Remove popup of a story** shows its title, or its first paragraph.
 
 ### Fallback for point 4
 
@@ -723,6 +758,8 @@ If the release candidates count as live, keep `story` as it is for a story with 
 - An in-game check: does a multi-line `EditBox` with an `OnEnterPressed` handler still insert a line break on Enter?
 - An in-game check: do `HighlightText` and `GetCursorPosition` count bytes or letters in this client?
 - The throttle of the logged channel in numbers (open in `docs/plans/logged-messages.md`). A story of 14 parts tests it.
-- Stories in the summary and the narrator, after the alias table (5.11).
+- Stories in the summary and the narrator. The alias table exists now, so a story keeps IDs and could go into a prompt. The user decides (1.4, decision 5).
+- The samples of the summary (step 9).
+- The art of the scroll rods (step 8).
 - Standing in the summary, after `docs/plans/standing.md` is built.
 - Share the summary as the History of the profile, with "Changes when a chapter ends."
