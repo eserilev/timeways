@@ -65,13 +65,17 @@ Each point names what draft 1 said, what was wrong or open, and what this draft 
 
 ### 3.1 The fields
 
-`crates/story/src/hero.rs` holds 12 fields in the order of the page: the six questions, then `name`, `title`, `currently`, `appearance`, `age`, `motto`. Each field has a limit in characters and in bytes (table in point 6). An entry of your own lore keeps 1000 characters and 1200 bytes. `hero_set` takes any of the 12 fields. The journal sends each field of the sheet as an item of the list, so a sheet can fill more than one page.
+`crates/story/src/hero.rs` holds 11 fields in the order of the page: the six questions, then `title`, `currently`, `appearance`, `age`, `motto`. Each field has a limit in characters and in bytes (table in point 6). An entry of your own lore keeps 1000 characters and 1200 bytes. `hero_set` takes any of the 11 fields. The journal sends each field of the sheet as an item of the list, so a sheet can fill more than one page.
+
+**No name field** (the user, 2026-10-04, `docs/plans/hero-stories.md` 1.4). MSP `NA` is always the name of the character in the game. The saved copy holds no `NA`, and drops one that another addon wrote. An import from another roleplay addon takes no `NA`. The tooltip of another player still shows that player's roleplay name.
 
 ### 3.2 The Hero page
 
+Replaced by the sub-tab Roleplay Profile of `docs/plans/hero-stories.md` (4.3). Draft 2 of this plan said:
+
 - The list keeps "About your hero" with the six questions. Under them, one more item: **Roleplay Profile**, with a short state: "Not shared", "Shared", or "From MyRolePlay" (the name of the other addon).
 - The section is folded by default. A click on Roleplay Profile opens it: its six fields show under it in the list, and the parchment shows the state and the switch. A click on a question folds it again.
-- A field of the profile opens like a question: its question, its answer, and Edit. The name shows the name of the game until you set one.
+- A field of the profile opens like a question: its question, its answer, and Edit.
 - **The switch** is a button on the parchment: "Share" when it is off, and "Stop sharing" when it is on. The line above it says what other players see. The switch is off by default, and stays off for a new character.
 - With another roleplay addon, the six fields show its text with "From MyRolePlay" (or its name), and have no Edit. The switch does not show: that addon shares the profile.
 

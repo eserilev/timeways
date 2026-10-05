@@ -232,7 +232,6 @@ const ADA_SHEET: &[(&str, &str)] = &[
     ("background", "A farm girl who took up the sword."),
     ("goal", "Find my brother."),
     ("traits", "Loud."),
-    ("name", "Ada Brightwater"),
     ("title", "Keeper of the Flame"),
     ("currently", "Reading by the fire."),
     ("appearance", "Tall, with a scar."),
@@ -342,7 +341,7 @@ fn the_tooltip_fields_come_together_with_the_version_of_the_tooltip() {
 
     let (_, text) = &msp_sent(&ada)[0];
     assert!(
-        text.starts_with("VP:3`VA:Timeways/1`NA:Ada Brightwater`NH`NI`NT:Keeper of the Flame`RA`CU:Reading by the fire.`FR`FC`TT"),
+        text.starts_with("VP:3`VA:Timeways/1`NA:Ada`NH`NI`NT:Keeper of the Flame`RA`CU:Reading by the fire.`FR`FC`TT"),
         "{text}"
     );
 }
@@ -421,7 +420,7 @@ fn stop_sharing_clears_the_saved_copy_and_answers_nothing() {
     bo_asks(&ada, "?DE");
     ada.tick();
 
-    assert_eq!(saved, 8);
+    assert_eq!(saved, 7);
     assert!(ada.eval::<bool>(
         "return next(TimewaysProfile.fields) == nil and TimewaysProfile.share == false"
     ));
@@ -429,7 +428,7 @@ fn stop_sharing_clears_the_saved_copy_and_answers_nothing() {
 }
 
 #[test]
-fn the_saved_copy_holds_only_the_eight_shared_fields() {
+fn the_saved_copy_holds_only_the_seven_shared_fields_and_no_name() {
     let ada = sharing_ada();
 
     let codes: Vec<String> = ada.eval(
@@ -437,7 +436,7 @@ fn the_saved_copy_holds_only_the_eight_shared_fields() {
          table.sort(codes) return codes",
     );
 
-    assert_eq!(codes, ["AG", "CU", "DE", "HB", "HI", "MO", "NA", "NT"]);
+    assert_eq!(codes, ["AG", "CU", "DE", "HB", "HI", "MO", "NT"]);
 }
 
 #[test]
@@ -531,7 +530,7 @@ fn two_timeways_players_see_the_name_and_the_title_in_the_tooltip() {
     let corvin = corvin_sees(&ada);
 
     let lines: Vec<String> = corvin.eval("return wow.ShowTooltip('mouseover')");
-    assert_eq!(lines, ["Ada Brightwater, Keeper of the Flame"]);
+    assert_eq!(lines, ["Ada, Keeper of the Flame"]);
 }
 
 #[test]
@@ -554,7 +553,7 @@ fn timeways_asks_for_each_shared_field_and_keeps_its_text_in_memory() {
     assert_eq!(
         fields,
         [
-            "NA=Ada Brightwater",
+            "NA=Ada",
             "NT=Keeper of the Flame",
             "CU=Reading by the fire.",
             "DE=Tall, with a scar.",
@@ -694,13 +693,9 @@ fn another_roleplay_addon_fills_the_profile_and_leaves_the_questions_alone() {
 
     let sets = hero_sets(&game);
     let fields: Vec<&str> = sets.iter().map(|(field, _)| field.as_str()).collect();
-    assert_eq!(
-        fields,
-        ["name", "title", "currently", "appearance", "age", "motto"]
-    );
-    assert_eq!(sets[0].1, "Lady Ada");
-    assert_eq!(sets[2].1, "Reading by the fire");
-    assert_eq!(sets[3].1, format!("Tall {}", "a".repeat(995)));
+    assert_eq!(fields, ["title", "currently", "appearance", "age", "motto"]);
+    assert_eq!(sets[1].1, "Reading by the fire");
+    assert_eq!(sets[2].1, format!("Tall {}", "a".repeat(995)));
 }
 
 #[test]
@@ -771,46 +766,41 @@ fn with_another_roleplay_addon_timeways_answers_nothing() {
 }
 
 /// The lines of the Hero page with `key` open, as `style: text [button]`.
-fn page(game: &Game, key: &str) -> Vec<String> {
-    game.run(&format!("ns.JournalFrame.Select('{key}')"));
+/// The rows of the Roleplay Profile sub-tab: a line as `text [button]`, a card as
+/// `Label: text [button]`, and a linked answer as `Label: text (note)`.
+fn profile(game: &Game) -> Vec<String> {
+    game.run("ns.Journal.Select('hero', 'profile')");
+    game.eval(
+        "local out = {}
+         for _, row in ipairs(ns.Journal.Page('hero').cards.rows) do
+             local action = row.action and (' [' .. row.action.label .. ']') or ''
+             local note = row.note and (' (' .. row.note .. ')') or ''
+             local label = row.label and (row.label .. ': ') or ''
+             table.insert(out, label .. row.text .. action .. note)
+         end
+         return out",
+    )
+}
+
+/// The lines on the right of the Roleplay Profile: the preview.
+fn preview(game: &Game) -> Vec<String> {
+    game.run("ns.Journal.Select('hero', 'profile')");
     game.eval(
         "local out = {}
          for _, line in ipairs(ns.Journal.Lines('hero')) do
-             local action = line.action and (' [' .. line.action.label .. ']') or ''
-             table.insert(out, line.style .. ': ' .. line.text .. action)
+             local cut = line.maxLines and (' (' .. line.maxLines .. ' lines)') or ''
+             table.insert(out, line.style .. ': ' .. line.text .. cut)
          end
          return out",
     )
 }
 
-/// The rows of the list of the Hero page, as `text (detail)`.
-fn list(game: &Game) -> Vec<String> {
-    game.eval(
-        "local out = {}
-         for _, row in ipairs(ns.Journal.Page('hero').list) do
-             table.insert(out, row.text .. (row.detail and (' (' .. row.detail .. ')') or ''))
-         end
-         return out",
-    )
-}
-
-#[test]
-fn the_roleplay_profile_is_folded_until_it_opens() {
-    let game = Game::new();
-    game.run("wow.units.player = { name = 'Ada', player = true }");
-    game.reply(&sheet_reply(&[("title", "Keeper")]));
-    game.run("wow.Slash('/hero', '')");
-
-    let folded = list(&game);
-    page(&game, "roleplay");
-    let open = list(&game);
-
-    assert_eq!(folded.last().unwrap(), "Roleplay Profile (Not shared)");
-    assert_eq!(open.len(), folded.len() + 6);
-    assert_eq!(
-        open[open.len() - 6..open.len() - 4],
-        ["Name (Ada)", "Title (Keeper)"]
-    );
+fn run_profile_button(game: &Game, label: &str) {
+    game.run(&format!(
+        "for _, row in ipairs(ns.Journal.Page('hero').cards.rows) do
+             if row.action and row.action.label == '{label}' then row.action.run() return end
+         end"
+    ));
 }
 
 #[test]
@@ -819,65 +809,38 @@ fn share_turns_the_switch_on_and_stop_sharing_turns_it_off() {
     game.reply(&sheet_reply(&[]));
     game.run("wow.Slash('/hero', '')");
 
-    let off = page(&game, "roleplay");
-    game.run(
-        "for _, line in ipairs(ns.Journal.Lines('hero')) do
-             if line.action and line.action.label == 'Share' then line.action.run() end
-         end",
-    );
-    let on = page(&game, "roleplay");
+    let off = profile(&game);
+    run_profile_button(&game, "Share");
+    let on = profile(&game);
 
-    assert_eq!(off[0], "heading: Roleplay Profile");
+    assert_eq!(off[0], "Only you see this. [Share]");
     assert_eq!(
-        off[1],
-        "text: Players with roleplay addons like Total RP 3 can see this profile if you share it. [Share]"
-    );
-    assert_eq!(
-        on[1],
-        "text: Players with roleplay addons like Total RP 3 can see this profile. [Stop sharing]"
+        on[0],
+        "Players with roleplay addons like Total RP 3 see this. [Stop sharing]"
     );
     assert!(game.eval::<bool>("return TimewaysProfile.share"));
 }
 
 #[test]
-fn a_field_of_the_profile_opens_with_its_question_and_edit() {
+fn the_profile_shows_each_field_as_a_card_and_has_no_name_field() {
     let game = Game::new();
-    game.reply(&sheet_reply(&[("age", "Thirty.")]));
+    game.reply(&sheet_reply(&[("age", "Thirty."), ("origin", "Lordaeron")]));
     game.run("wow.Slash('/hero', '')");
 
-    let lines = page(&game, "age");
+    let rows = profile(&game);
 
     assert_eq!(
-        lines[..3],
+        rows[1..],
         [
-            "note: Roleplay Profile",
-            "heading: How old is your character? [Edit]",
-            "text: Thirty.",
+            "Title: What title does your character go by? [Add]",
+            "Currently: What is your character doing right now? [Add]",
+            "Appearance: What does your character look like? [Add]",
+            "Age: Thirty. [Edit]",
+            "Motto: What's your character's motto? [Add]",
+            "Also shared, from Your Story [Edit in Your Story]",
+            "Origin: Lordaeron (as Birthplace)",
+            "Background: Not answered yet (as History)",
         ]
-    );
-}
-
-#[test]
-fn an_imported_profile_shows_its_addon_and_has_no_edit() {
-    let game = with_trp3();
-    game.reply(&sheet_reply(&[("age", "30")]));
-    game.run("wow.Slash('/hero', '')");
-
-    let lines = page(&game, "age");
-    let overview = page(&game, "roleplay");
-
-    assert_eq!(
-        lines[..4],
-        [
-            "note: Roleplay Profile",
-            "heading: How old is your character?",
-            "text: 30",
-            "hint: From Total RP 3",
-        ]
-    );
-    assert_eq!(
-        overview[1],
-        "help: Total RP 3 shares your profile. Change it there."
     );
 }
 
@@ -886,16 +849,138 @@ fn a_profile_field_takes_its_own_limit_in_the_editor() {
     let game = Game::new();
     game.reply(&sheet_reply(&[]));
     game.run("wow.Slash('/hero', '')");
+    profile(&game);
 
-    page(&game, "age");
     game.run(
-        "for _, line in ipairs(ns.Journal.Lines('hero')) do
-             if line.action and line.action.label == 'Edit' then line.action.run() end
+        "for _, row in ipairs(ns.Journal.Page('hero').cards.rows) do
+             if row.key == 'age' then row.action.run() end
          end",
     );
 
     let limit: u32 = game.eval("return wow.EditBox().maxLetters");
     assert_eq!(limit, 100);
+}
+
+#[test]
+fn edit_in_your_story_opens_the_other_sub_tab() {
+    let game = Game::new();
+    game.reply(&sheet_reply(&[]));
+    game.run("wow.Slash('/hero', '')");
+    profile(&game);
+
+    run_profile_button(&game, "Edit in Your Story");
+
+    let tab: String = game.eval("return ns.Journal.Page('hero').cards.tab");
+    assert_eq!(tab, "story");
+}
+
+#[test]
+fn the_preview_reads_the_sheet_before_you_share() {
+    let game = Game::new();
+    game.run(
+        "wow.units.player = { name = 'Kobee', player = true, guid = 'Player-1-Kobee', level = 9 }
+         wow.race, wow.class = 'Undead', 'Paladin'",
+    );
+    game.reply(&sheet_reply(&[
+        ("title", "Oathkeeper"),
+        ("currently", "Mending a tabard."),
+        ("age", "Died at 27."),
+        ("origin", "Brill"),
+        ("motto", "The oath outlived me."),
+        ("appearance", "Tall and gaunt."),
+        ("background", "A squire."),
+    ]));
+    game.run("wow.Slash('/hero', '')");
+
+    let lines = preview(&game);
+
+    assert!(!game.eval::<bool>("return ns.MspProfile.IsSharing()"));
+    assert_eq!(
+        lines,
+        [
+            "heading: What Others See",
+            "section: Tooltip",
+            "entry: Kobee, Oathkeeper",
+            "text: Level 9 Undead Paladin (Player)",
+            "text: Currently: Mending a tabard.",
+            "section: Profile",
+            "entry: Kobee",
+            "text: Oathkeeper",
+            "text: Age: Died at 27.",
+            "text: Birthplace: Brill",
+            "text: Motto: The oath outlived me.",
+            "section: Description",
+            "prose: Tall and gaunt. (3 lines)",
+            "section: History",
+            "prose: A squire. (3 lines)",
+        ]
+    );
+}
+
+#[test]
+fn the_preview_shows_an_unsaved_edit_at_once() {
+    let game = Game::new();
+    game.reply(&sheet_reply(&[]));
+    game.run("wow.Slash('/hero', '')");
+
+    game.run("ns.Hero.Set('title', 'Lady of the Lake')");
+
+    let lines = preview(&game);
+    assert!(
+        lines
+            .iter()
+            .any(|line| line.ends_with(", Lady of the Lake")),
+        "{lines:?}"
+    );
+}
+
+#[test]
+fn another_roleplay_addon_hides_also_shared_and_the_preview() {
+    let game = with_trp3();
+    game.reply(&sheet_reply(&[("age", "30"), ("origin", "Gilneas")]));
+    game.run("wow.Slash('/hero', '')");
+
+    let rows = profile(&game);
+    let lines = preview(&game);
+
+    assert_eq!(rows[0], "Total RP 3 shares your profile. Change it there.");
+    assert!(rows.contains(&"Age: 30".to_string()), "{rows:?}");
+    assert!(
+        !rows.iter().any(|row| row.contains("Also shared")),
+        "{rows:?}"
+    );
+    assert!(!rows.iter().any(|row| row.contains('[')), "{rows:?}");
+    assert_eq!(
+        lines,
+        ["help: Other players see the profile of Total RP 3."]
+    );
+}
+
+#[test]
+fn shared_shows_on_origin_and_background_only_while_sharing_alone() {
+    let game = Game::new();
+    game.reply(&sheet_reply(&[("origin", "Brill")]));
+    game.run("wow.Slash('/hero', '')");
+    let tags = |game: &Game| -> Vec<String> {
+        game.run("ns.Journal.Select('hero', 'story')");
+        game.eval(
+            "local out = {}
+             for _, row in ipairs(ns.Journal.Page('hero').cards.rows) do
+                 if row.tag then table.insert(out, row.label) end
+             end
+             return out",
+        )
+    };
+
+    let alone_off = tags(&game);
+    game.run("ns.MspProfile.SetSharing(true)");
+    let alone_on = tags(&game);
+    game.run("msp = { my = {} }");
+    let with_another = tags(&game);
+
+    assert!(alone_off.is_empty());
+    assert_eq!(alone_on, ["Origin", "Background"]);
+    assert!(with_another.is_empty());
 }
 
 /// Ada shares a long profile, the logged channel gives nil, and Bo asks for two long fields.
@@ -1056,10 +1141,10 @@ fn a_roleplay_addon_with_no_name_starts_the_line_with_a_capital() {
     game.reply(&sheet_reply(&[]));
     game.run("wow.Slash('/hero', '')");
 
-    let overview = page(&game, "roleplay");
+    let rows = profile(&game);
 
     assert_eq!(
-        overview[1],
-        "help: Your roleplay addon shares your profile. Change it there."
+        rows[0],
+        "Your roleplay addon shares your profile. Change it there."
     );
 }

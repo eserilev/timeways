@@ -73,10 +73,12 @@ TaskPages.lua
 JournalRows.lua
 JournalQuests.lua
 JournalStories.lua
+JournalHero.lua
 Journal.lua
 Ink.lua
 MapPane.lua
 JournalList.lua
+JournalCards.lua
 Editor.lua
 JournalInputs.lua
 JournalFrame.lua

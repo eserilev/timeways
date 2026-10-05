@@ -918,6 +918,12 @@ return {
 				{ Name = "justifyH", Type = "JustifyHorizontal", Nilable = false },
 			},
 		},
+		["SimpleFontStringAPI:SetMaxLines"] = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "maxLines", Type = "number", Nilable = false },
+			},
+		},
 		["SimpleFontStringAPI:SetShadowOffset"] = {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {

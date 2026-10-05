@@ -36,15 +36,15 @@ pub const SHORT: Limit = Limit {
 pub const PROMPT_TEXT_CHARS: usize = 300;
 
 /// The fields of the sheet, in the order of the page: the six questions, then the roleplay
-/// profile that roleplay addons share (GAMEPLAY.md 3.7.1).
-pub const FIELDS: [&str; 12] = [
+/// profile that roleplay addons share (GAMEPLAY.md 3.7.1). The name is always the name in
+/// the game, so no field holds it.
+pub const FIELDS: [&str; 11] = [
     "origin",
     "background",
     "goal",
     "bond",
     "flaw",
     "traits",
-    "name",
     "title",
     "currently",
     "appearance",
@@ -52,10 +52,10 @@ pub const FIELDS: [&str; 12] = [
     "motto",
 ];
 
-/// The name is the name in the game until the player sets one, and a title often holds it.
-/// No model sees the name of a real player (GAMEPLAY.md 5.11). The rest of the roleplay
-/// profile stays out too: with it, a full sheet is over the budget of a chapter prompt.
-const NOT_IN_PROMPTS: [&str; 6] = ["name", "title", "currently", "appearance", "age", "motto"];
+/// A title often holds the name of the character, and no model sees the name of a real
+/// player (GAMEPLAY.md 5.11). The rest of the roleplay profile stays out too: with it, a
+/// full sheet is over the budget of a chapter prompt.
+const NOT_IN_PROMPTS: [&str; 5] = ["title", "currently", "appearance", "age", "motto"];
 
 /// None for a name that is no field.
 #[must_use]
@@ -63,7 +63,7 @@ pub fn limit_of(field: &str) -> Option<Limit> {
     match field {
         "background" | "goal" | "bond" | "flaw" | "traits" | "appearance" => Some(LONG),
         "origin" | "currently" | "motto" => Some(LINE),
-        "name" | "title" | "age" => Some(SHORT),
+        "title" | "age" => Some(SHORT),
         _ => None,
     }
 }

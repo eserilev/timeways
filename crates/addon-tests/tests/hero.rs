@@ -29,11 +29,37 @@ fn lines(game: &Game) -> Vec<String> {
     )
 }
 
-/// Runs the button of the line with this text.
+/// The cards of the open sub-tab, as `Label: text [button] (tag) (note)`.
+fn cards(game: &Game) -> Vec<String> {
+    game.eval(
+        "local out = {}
+         for _, row in ipairs(ns.Journal.Page('hero').cards.rows) do
+             if row.kind == 'card' then
+                 local action = row.action and (' [' .. row.action.label .. ']') or ''
+                 local tag = row.tag and (' (' .. row.tag .. ')') or ''
+                 local note = row.note and (' (' .. row.note .. ')') or ''
+                 table.insert(out, row.label .. ': ' .. row.text .. action .. tag .. note)
+             end
+         end
+         return out",
+    )
+}
+
+fn card(game: &Game, label: &str) -> String {
+    cards(game)
+        .into_iter()
+        .find(|card| card.starts_with(&format!("{label}: ")))
+        .unwrap()
+}
+
+/// Runs the button of the line with this text, or of the card of this question.
 fn click(game: &Game, text: &str) {
     game.run(&format!(
         "for _, line in ipairs(ns.Journal.Lines('hero')) do
              if line.text == '{text}' then line.action.run() end
+         end
+         for _, row in ipairs(ns.Journal.Page('hero').cards.rows) do
+             if row.kind == 'card' and ns.Hero.HINTS[row.key] == '{text}' then row.action.run() end
          end"
     ));
 }
@@ -68,89 +94,57 @@ fn editor_text(game: &Game) -> String {
 }
 
 #[test]
-fn the_hero_page_shows_the_open_question_with_its_button_and_each_entry() {
+fn every_question_shows_as_a_card_with_the_notes_beside_it() {
     let game = Game::new();
 
     game.reply(&hero_reply(FILLED, "null"));
 
-    let lines = lines(&game);
     assert_eq!(
-        lines[..3],
+        cards(&game),
         [
-            "note: Question 1 of 6",
-            "heading: Where is your character from? [Edit]",
-            "hint: Not answered yet."
+            "Origin: Where is your character from? [Answer]",
+            "Background: What did your character do before adventuring? [Answer]",
+            "Goal: Find my brother. [Edit]",
+            "Bond: Who or what does your character care about most? [Answer]",
+            "Flaw: What is your character's biggest flaw? [Answer]",
+            "Traits: How would you describe your character's personality? [Answer]",
         ]
     );
-    let own = lines
-        .iter()
-        .position(|line| line == "heading: Your Notes [Add a note]")
-        .unwrap();
-    assert_eq!(lines[own + 1], "entry: An oath. [Remove]");
-    assert!(
-        lines[own + 2].starts_with("text: About Innkeeper Farley. Goldshire, "),
-        "{}",
-        lines[own + 2]
+    let day: String = game.eval("return date('%d %b', 1790000000)");
+    assert_eq!(
+        lines(&game),
+        [
+            "heading: Your Notes [Add a note]".to_string(),
+            "entry: An oath. [Remove]".to_string(),
+            format!("text: About Innkeeper Farley · Goldshire · {day}"),
+        ]
     );
-}
-
-/// The rows of the list of the Hero page, as `style: text (detail)`.
-fn sheet(game: &Game) -> Vec<String> {
-    game.eval(
-        "local out = {}
-         for _, row in ipairs(ns.Journal.Page('hero').list) do
-             local detail = row.detail and (' (' .. row.detail .. ')') or ''
-             table.insert(out, row.style .. ': ' .. row.text .. detail)
-         end
-         return out",
-    )
 }
 
 #[test]
-fn the_sheet_lists_each_question_with_its_answer() {
+fn the_page_says_what_the_answers_shape() {
     let game = Game::new();
 
     game.reply(&hero_reply(FILLED, "null"));
 
-    let rows = sheet(&game);
-    assert_eq!(rows[0], "group: About your hero");
-    assert_eq!(rows.len(), 2 + 6 + 1);
-    assert_eq!(
-        rows[2..5],
-        [
-            "item: Where is your character from? (Not answered yet.)",
-            "item: What did your character do before adventuring? (Not answered yet.)",
-            "item: What does your character want? (Find my brother.)",
-        ]
-    );
+    let first: String = game.eval("return ns.Journal.Page('hero').cards.rows[1].text");
+    assert_eq!(first, "Shapes your chapters and what NPCs say to you.");
 }
 
 #[test]
-fn a_question_of_the_sheet_opens_on_the_parchment() {
+fn save_opens_the_next_empty_card() {
     let game = open_book(FILLED);
 
-    let lines = lines(&game);
+    click(&game, GOAL);
+    write(&game, "Avenge my brother.");
 
-    assert_eq!(
-        lines[..3],
-        [
-            "note: Question 3 of 6",
-            "heading: What does your character want? [Edit]",
-            "text: Find my brother."
-        ]
+    assert!(game.eval::<bool>("return ns.Editor.IsShown()"));
+    let title: String = game.eval(
+        "for _, widget in ipairs(wow.widgets) do
+             if widget.kind == 'FontString' and widget.text == 'Bond' and widget.shown then return widget.text end
+         end",
     );
-}
-
-#[test]
-fn next_and_previous_step_through_the_questions() {
-    let game = open_book(FILLED);
-
-    game.run("wow.Button('Next'):Click()");
-    let after_next = lines(&game)[0].clone();
-    game.run("wow.Button('Previous'):Click(); wow.Button('Previous'):Click()");
-
-    assert_eq!(after_next, "note: Question 4 of 6");
-    assert_eq!(lines(&game)[0], "note: Question 2 of 6");
+    assert_eq!(title, "Bond");
 }
 
 #[test]
@@ -415,18 +409,22 @@ fn a_saved_field_shows_at_once_with_a_saving_mark() {
     click(&game, GOAL);
     write(&game, "Avenge my brother.");
 
-    let lines = lines(&game);
-    let goal = lines
-        .iter()
-        .position(|line| line == "heading: What does your character want? [Edit]")
-        .unwrap();
+    game.run("wow.Button('Cancel'):Click()");
+
     assert_eq!(
-        lines[goal + 1..goal + 3],
-        ["text: Avenge my brother.", "hint: Saving..."]
+        card(&game, "Goal"),
+        "Goal: Avenge my brother. [Edit] (Saving...)"
     );
-    let shown: Vec<String> =
-        game.eval("wow.ShownTexts(TimewaysJournalFrameScroll:GetScrollChild())");
-    assert!(shown.contains(&"Avenge my brother.".to_string()));
+    let shown: bool = game.eval(
+        "for _, widget in ipairs(wow.widgets) do
+             if widget.kind == 'FontString' and widget.shown and widget.text == 'Avenge my brother.'
+                 and widget.parent.parent == TimewaysJournalCardsScroll:GetScrollChild() then
+                 return true
+             end
+         end
+         return false",
+    );
+    assert!(shown);
 }
 
 #[test]
@@ -436,9 +434,10 @@ fn a_cleared_field_shows_as_not_answered_at_once() {
     click(&game, GOAL);
     write(&game, "");
 
-    let lines = lines(&game);
-    assert!(lines.contains(&"hint: Not answered yet.".to_string()));
-    assert!(!lines.contains(&"text: Find my brother.".to_string()));
+    assert_eq!(
+        card(&game, "Goal"),
+        "Goal: What does your character want? [Answer] (Saving...)"
+    );
 }
 
 #[test]
@@ -479,12 +478,12 @@ fn a_removed_entry_leaves_the_page_at_once() {
     game.run("wow.AcceptPopup()");
 
     let lines = notes(&game);
-    assert!(!lines.contains(&"entry: An oath. [Remove]".to_string()));
-    assert!(
-        lines
-            .last()
-            .unwrap()
-            .starts_with("help: Write anything the game")
+    assert_eq!(
+        lines,
+        [
+            "heading: Your Notes [Add a note]",
+            "help: A grudge, a promise, a secret."
+        ]
     );
 }
 
@@ -497,9 +496,8 @@ fn the_next_journal_replaces_the_unsaved_edits_and_clears_the_mark() {
     let saved = r#"{"sheet":[{"field":"goal","text":"Avenge them all."}],"entries":[]}"#;
     game.reply(&hero_reply(saved, "null"));
 
-    let lines = lines(&game);
-    assert!(lines.contains(&"text: Avenge them all.".to_string()));
-    assert!(!lines.iter().any(|line| line.contains("Saving")));
+    assert_eq!(card(&game, "Goal"), "Goal: Avenge them all. [Edit]");
+    assert!(!cards(&game).iter().any(|card| card.contains("Saving")));
 }
 
 #[test]
@@ -513,7 +511,7 @@ fn a_refused_edit_goes_away_and_the_reason_shows() {
     game.reply(&hero_reply(FILLED, r#""Not saved: too long.""#));
 
     let lines = lines(&game);
-    assert!(lines.contains(&"text: Find my brother.".to_string()));
+    assert_eq!(card(&game, "Goal"), "Goal: Find my brother. [Edit]");
     assert!(!lines.contains(&"entry: A stranger knew my name.".to_string()));
     assert!(!lines.iter().any(|line| line.contains("Saving")));
     assert_eq!(
@@ -653,7 +651,7 @@ fn a_sheet_field_with_no_name_shows_gaps_and_no_error() {
         "null",
     ));
 
-    assert!(!lines(&game).is_empty());
+    assert_eq!(cards(&game).len(), 6);
 }
 
 #[test]
@@ -668,21 +666,18 @@ fn an_entry_number_that_is_no_whole_number_removes_nothing_and_raises_no_error()
     assert!(game.sent().is_empty());
 }
 
-/// The game's UI fonts have a shadow that smudges dark ink, so the parchment list takes
-/// the quest fonts of the right page. Only the list sets a shadow.
+/// A card prints in the quest fonts of the right page, in dark ink.
 #[test]
-fn the_questions_on_parchment_print_in_the_quest_fonts_with_no_shadow() {
+fn the_cards_print_in_the_quest_fonts() {
     let game = open_book(FILLED);
 
     let fonts: Vec<String> = game.eval(
         "local out = {}
          for _, widget in ipairs(wow.widgets) do
              local text = widget.text
-             if widget.kind == 'FontString' and widget.shown and widget.shadow
-                 and (text == 'About your hero' or text == 'What does your character want?'
-                     or text == 'Find my brother.') then
-                 local shadow = widget.shadow[1] .. ',' .. widget.shadow[2]
-                 table.insert(out, text .. ': ' .. tostring(widget.font) .. ' ' .. shadow)
+             if widget.kind == 'FontString' and widget.shown
+                 and (text == 'Goal' or text == 'Find my brother.') then
+                 table.insert(out, text .. ': ' .. tostring(widget.font))
              end
          end
          table.sort(out)
@@ -691,11 +686,7 @@ fn the_questions_on_parchment_print_in_the_quest_fonts_with_no_shadow() {
 
     assert_eq!(
         fonts,
-        [
-            "About your hero: QuestTitleFont 0,0",
-            "Find my brother.: QuestFontNormalSmall 0,0",
-            "What does your character want?: QuestFont 0,0",
-        ]
+        ["Find my brother.: QuestFont", "Goal: QuestTitleFont"]
     );
 }
 
@@ -710,10 +701,6 @@ fn a_sheet_that_spreads_over_two_pages_shows_whole() {
         r#"{"type":"journal","page":1,"pages":2,"hero":{"sheet":[{"field":"goal","text":"Find my brother."}],"entries":[]}}"#,
     );
 
-    let rows = sheet(&game);
-    assert_eq!(rows[2], "item: Where is your character from? (A farm.)");
-    assert_eq!(
-        rows[4],
-        "item: What does your character want? (Find my brother.)"
-    );
+    assert_eq!(card(&game, "Origin"), "Origin: A farm. [Edit]");
+    assert_eq!(card(&game, "Goal"), "Goal: Find my brother. [Edit]");
 }

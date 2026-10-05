@@ -125,9 +125,12 @@ fn a_session_of_play_goes_through_the_bridge_and_back_into_the_book() {
     assert!(learned.contains("The inn is warm."), "{learned}");
     assert!(learned.contains("Kill Hogger."), "{learned}");
     assert!(learned.contains("ruled here."), "{learned}");
-    game.run("ns.Journal.Select('hero', 'goal')");
-    let hero = lines(&game, "hero");
-    assert!(hero.contains("Find my brother."), "{hero}");
+    let goal: String = game.eval(
+        "for _, row in ipairs(ns.Journal.Page('hero').cards.rows) do
+             if row.key == 'goal' then return row.text end
+         end",
+    );
+    assert_eq!(goal, "Find my brother.");
     let quests = lines(&game, "quests");
     assert!(quests.contains("The Lost Lantern"), "{quests}");
 }

@@ -174,14 +174,21 @@ fn the_map_and_the_parchment_share_the_frame_side_by_side() {
     assert!(scroll + 26.0 <= parchment[1], "{scroll} {parchment:?}");
 }
 
+/// Two stories that wait, so the Stories page has a list and three buttons.
+const WAITING: &str = "TimewaysStories = { waiting = {
+     { id = 'b1', author = 'Bram-Stormrage', title = 'One', text = 'Hi.', at = 1 },
+     { id = 'c1', author = 'Cora-Stormrage', title = 'Two', text = 'Hi.', at = 1 } } }";
+
 #[test]
 fn the_buttons_at_the_bottom_stand_inside_the_frame() {
-    let game = open("hero");
+    let game = Game::new();
+    game.run(WAITING);
+    game.run("ns.JournalFrame.Open('stories')");
 
     // Each button as { offset of its right edge from the right of the footer, width }.
     let buttons: Vec<Vec<f64>> = game.eval(
         "local out = {}
-         for _, label in ipairs({ 'Previous', 'Next' }) do
+         for _, label in ipairs({ 'Decline', 'Accept' }) do
              local button = wow.Button(label)
              table.insert(out, { button.point[4], button.width, button.parent.width })
          end
@@ -196,14 +203,15 @@ fn the_buttons_at_the_bottom_stand_inside_the_frame() {
 }
 
 #[test]
-fn the_list_floats_over_the_map_and_fills_the_left_half_for_the_hero() {
+fn the_list_floats_over_the_map_and_fills_the_left_half_for_the_stories() {
     let game = open("quests");
+    game.run(WAITING);
     let floating: Vec<f64> = game.eval(
         "local box = TimewaysJournalListScroll.parent
          return { box.width, box.parent.width }",
     );
 
-    game.run("ns.JournalFrame.Open('hero')");
+    game.run("ns.JournalFrame.Open('stories')");
 
     let sheet: Vec<f64> = game.eval(
         "local box = TimewaysJournalListScroll.parent
@@ -215,9 +223,11 @@ fn the_list_floats_over_the_map_and_fills_the_left_half_for_the_hero() {
 
 #[test]
 fn the_list_marks_the_open_item() {
-    let game = open("hero");
+    let game = Game::new();
+    game.run(WAITING);
+    game.run("ns.JournalFrame.Open('stories')");
 
-    game.run("ns.JournalFrame.Select('goal')");
+    game.run("ns.JournalFrame.Select('w:Bram-Stormrage:b1')");
 
     // The shade of each row of the list, in order.
     let marked: Vec<bool> = game.eval(
@@ -229,8 +239,8 @@ fn the_list_marks_the_open_item() {
          end
          return out",
     );
-    // Six questions, then the Roleplay Profile.
-    assert_eq!(marked, [false, false, true, false, false, false, false]);
+    // The newest story first.
+    assert_eq!(marked, [false, true]);
 }
 
 #[test]
@@ -270,9 +280,9 @@ fn the_editor_takes_the_place_of_the_page_the_list_the_tabs_and_the_buttons() {
     let shown: Vec<bool> = game.eval(
         "return {
              TimewaysJournalFrameScroll:IsShown(),
-             TimewaysJournalListScroll.parent:IsShown(),
+             TimewaysJournalCardsScroll.parent:IsShown(),
              wow.Button('Hero'):IsShown(),
-             wow.Button('Next').parent:IsShown(),
+             wow.Button('Your Story'):IsShown() and TimewaysJournalCardsScroll.parent:IsShown(),
              ns.Editor.IsShown(),
          }",
     );
@@ -289,9 +299,9 @@ fn the_book_comes_back_whole_when_the_player_cancels() {
     let shown: Vec<bool> = game.eval(
         "return {
              TimewaysJournalFrameScroll:IsShown(),
-             TimewaysJournalListScroll.parent:IsShown(),
+             TimewaysJournalCardsScroll.parent:IsShown(),
              wow.Button('Hero'):IsShown(),
-             wow.Button('Next').parent:IsShown(),
+             wow.Button('Your Story'):IsShown(),
          }",
     );
     assert_eq!(shown, [true, true, true, true]);

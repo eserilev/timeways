@@ -128,7 +128,8 @@ fn a_text_full_of_quotes_fits_up_to_the_limit() {
 fn each_field_has_a_limit_and_a_short_field_stops_sooner() {
     assert!(FIELDS.iter().all(|field| limit_of(field).is_some()));
     assert_eq!(limit_of("origin"), Some(LINE));
-    assert_eq!(limit_of("name"), Some(SHORT));
+    assert_eq!(limit_of("title"), Some(SHORT));
+    assert_eq!(limit_of("name"), None);
     assert_eq!(limit_of("appearance"), Some(LONG));
     assert_eq!(limit_of("notes"), None);
 
@@ -149,7 +150,6 @@ fn the_sheet_keeps_the_roleplay_fields_after_the_questions() {
 #[test]
 fn a_portrait_leaves_out_the_roleplay_profile() {
     let changes = [
-        set("name", "Ada Brightwater"),
         set("title", "Lady Ada"),
         set("age", "Thirty winters."),
         set("currently", "Reading."),

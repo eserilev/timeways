@@ -10,7 +10,8 @@ ns.Hero = Hero
 -- The questions of the sheet, then the roleplay profile that roleplay addons share
 -- (GAMEPLAY.md 3.7.1).
 Hero.FIELDS = { "origin", "background", "goal", "bond", "flaw", "traits" }
-Hero.PROFILE = { "name", "title", "currently", "appearance", "age", "motto" }
+-- The name is always the name in the game, so the profile has no field for it.
+Hero.PROFILE = { "title", "currently", "appearance", "age", "motto" }
 Hero.LABELS = {
 	origin = "Origin",
 	background = "Background",
@@ -18,7 +19,6 @@ Hero.LABELS = {
 	bond = "Bond",
 	flaw = "Flaw",
 	traits = "Traits",
-	name = "Name",
 	title = "Title",
 	currently = "Currently",
 	appearance = "Appearance",
@@ -32,7 +32,6 @@ Hero.HINTS = {
 	bond = "Who or what does your character care about most?",
 	flaw = "What is your character's biggest flaw?",
 	traits = "How would you describe your character's personality?",
-	name = "What's your character's name?",
 	title = "What title does your character go by?",
 	currently = "What is your character doing right now?",
 	appearance = "What does your character look like?",
@@ -52,7 +51,6 @@ Hero.LIMITS = {
 	bond = LONG,
 	flaw = LONG,
 	traits = LONG,
-	name = SHORT,
 	title = SHORT,
 	currently = LINE,
 	appearance = LONG,
@@ -144,7 +142,8 @@ StaticPopupDialogs.TIMEWAYS_HERO_REMOVE = {
 }
 
 -- `current` is the text that the book shows now, so an unchanged text sends nothing.
-function Hero.Edit(field, current)
+-- `saved` runs after a save, such as to open the next empty card.
+function Hero.Edit(field, current, saved)
 	local limit = Hero.LIMITS[field]
 	ns.JournalFrame.Edit({
 		title = Hero.LABELS[field],
@@ -156,6 +155,9 @@ function Hero.Edit(field, current)
 		save = function(text)
 			if Clean(text) ~= (current or "") then
 				Hero.Set(field, text)
+			end
+			if saved then
+				saved()
 			end
 		end,
 	})

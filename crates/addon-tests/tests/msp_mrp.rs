@@ -91,7 +91,7 @@ fn bo() -> Player {
     Player { game, name: "Bo" }
 }
 
-const ADA_SHEET: &str = r#"{"type":"journal","page":0,"pages":1,"hero":{"sheet":[{"field":"origin","text":"Lordaeron"},{"field":"background","text":"A farm girl who took up the sword."},{"field":"goal","text":"Find my brother."},{"field":"name","text":"Ada Brightwater"},{"field":"title","text":"Keeper of the Flame"},{"field":"currently","text":"Reading by the fire."},{"field":"appearance","text":"Tall, with a scar ~ and a | mark."},{"field":"age","text":"Thirty winters."},{"field":"motto","text":"Light and steel."}],"entries":[]},"hero_refused":null}"#;
+const ADA_SHEET: &str = r#"{"type":"journal","page":0,"pages":1,"hero":{"sheet":[{"field":"origin","text":"Lordaeron"},{"field":"background","text":"A farm girl who took up the sword."},{"field":"goal","text":"Find my brother."},{"field":"title","text":"Keeper of the Flame"},{"field":"currently","text":"Reading by the fire."},{"field":"appearance","text":"Tall, with a scar ~ and a | mark."},{"field":"age","text":"Thirty winters."},{"field":"motto","text":"Light and steel."}],"entries":[]},"hero_refused":null}"#;
 
 /// Ada with Timeways, her sheet from the desktop, and the switch on.
 fn ada() -> Player {
@@ -175,7 +175,7 @@ fn myroleplay_gets_each_shared_field_of_timeways() {
     assert_eq!(
         mrp_fields(&bo, "Ada-Stormrage"),
         [
-            "NA=Ada Brightwater",
+            "NA=Ada",
             "NT=Keeper of the Flame",
             "CU=Reading by the fire.",
             "DE=Tall, with a scar ~ and a | mark.",
@@ -361,7 +361,6 @@ fn timeways_imports_the_own_profile_of_myroleplay() {
         })
         .collect();
     let expected = [
-        ("name", "Ada Brightwater"),
         ("title", "Keeper of the Flame"),
         ("currently", "Reading."),
         ("appearance", "Tall. A scar."),

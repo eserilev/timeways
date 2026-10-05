@@ -36,11 +36,9 @@ local Entries = ns.JournalRows.Entries
 local Name = ns.JournalRows.Name
 local Day = ns.JournalRows.Day
 local Line = ns.JournalRows.Line
-local Group = ns.JournalRows.Group
 local Item = ns.JournalRows.Item
 local Button = ns.JournalRows.Button
 local Keys = ns.JournalRows.Keys
-local SAVING = ns.JournalRows.SAVING
 
 -- The page draws again while it shows the count of a carry step.
 function Journal.BagsChanged()
@@ -73,6 +71,11 @@ local function Append(journal, value)
 			table.insert(journal.hero[list], entry)
 		end
 	end
+end
+
+-- The whole journal that the book shows, or nil while the first one loads.
+function Journal.Current()
+	return pages
 end
 
 -- The journal of the first page alone, for the self-test.
@@ -343,244 +346,6 @@ local function Chronicle(journal)
 	return page
 end
 
--- The texts of the sheet by field, with the edits that the desktop did not confirm yet.
-local function SheetTexts(hero, unsaved)
-	local texts = {}
-	for _, field in ipairs(Entries(hero and hero.sheet)) do
-		if type(field.field) == "string" then
-			texts[field.field] = field.text
-		end
-	end
-	for field, text in pairs(unsaved.fields) do
-		texts[field] = text ~= "" and text or nil
-	end
-	return texts
-end
-
-local function Answer(text)
-	return type(text) == "string" and ns.Plain(text) or "Not answered yet."
-end
-
--- The key of the Roleplay Profile in the list (3.7.1). Its fields show under it while it
--- or one of them is open.
-local PROFILE = "roleplay"
-
-local function Joined(first, second)
-	local keys = {}
-	for _, list in ipairs({ first, second }) do
-		for _, key in ipairs(list) do
-			keys[#keys + 1] = key
-		end
-	end
-	return keys
-end
-
-local function ProfileKeys()
-	return Joined({ PROFILE }, ns.Hero.PROFILE)
-end
-
-local function IsIn(keys, key)
-	for _, each in ipairs(keys) do
-		if each == key then
-			return true
-		end
-	end
-	return false
-end
-
--- An empty name shows the name in the game, which roleplay addons show in its place.
-local function ProfileAnswer(field, text)
-	if type(text) == "string" then
-		return ns.Plain(text)
-	end
-	if field == "name" then
-		return UnitName("player") or Answer(nil)
-	end
-	return Answer(nil)
-end
-
-local function SheetList(texts, profileOpen)
-	local rows = {
-		Group("About your hero"),
-		{ style = "help", text = Journal.USAGE.hero },
-	}
-	for _, field in ipairs(ns.Hero.FIELDS) do
-		rows[#rows + 1] = Item(field, ns.Hero.HINTS[field], Answer(texts[field]))
-	end
-	rows[#rows + 1] = Item(PROFILE, "Roleplay Profile", ns.MspProfile.State())
-	if profileOpen then
-		for _, field in ipairs(ns.Hero.PROFILE) do
-			rows[#rows + 1] = Item(field, ns.Hero.LABELS[field], ProfileAnswer(field, texts[field]))
-		end
-	end
-	return rows
-end
-
-local function EditButton(field, text)
-	return {
-		label = "Edit",
-		run = function()
-			ns.Hero.Edit(field, text)
-		end,
-	}
-end
-
-local function FieldLines(field, index, texts, unsaved)
-	local text = texts[field]
-	local lines = {
-		Line("note", string.format("Question %d of %d", index, #ns.Hero.FIELDS)),
-		Line("heading", ns.Hero.HINTS[field], EditButton(field, text)),
-		Line(type(text) == "string" and "text" or "hint", Answer(text)),
-	}
-	if unsaved.fields[field] then
-		lines[#lines + 1] = Line("hint", SAVING)
-	end
-	return lines
-end
-
-local SHARE_HELP = {
-	on = "Players with roleplay addons like Total RP 3 can see this profile.",
-	off = "Players with roleplay addons like Total RP 3 can see this profile if you share it.",
-}
-local SHARED_FIELDS = "They see these six fields, where you're from, and your background."
-	.. " Your other answers and your notes stay private."
-
-local function ShareButton()
-	local sharing = ns.MspProfile.IsSharing()
-	return {
-		label = sharing and "Stop sharing" or "Share",
-		run = function()
-			ns.MspProfile.SetSharing(not sharing)
-		end,
-	}
-end
-
--- The state of the profile and the switch, or the name of the addon that owns it.
-local function ProfileLines()
-	local lines = { Line("heading", "Roleplay Profile") }
-	local owner = ns.MspProfile.Owner()
-	if owner then
-		-- The owner can be "your roleplay addon", which starts in lower case.
-		local subject = owner:gsub("^%l", string.upper)
-		lines[#lines + 1] = Line("help", subject .. " shares your profile. Change it there.")
-		return lines
-	end
-	local help = ns.MspProfile.IsSharing() and SHARE_HELP.on or SHARE_HELP.off
-	lines[#lines + 1] = Line("text", help, ShareButton())
-	lines[#lines + 1] = Line("help", SHARED_FIELDS)
-	return lines
-end
-
--- A field of the profile. Another roleplay addon owns the text, so it has no Edit then.
-local function ProfileFieldLines(field, texts, unsaved)
-	local text = texts[field]
-	local owner = ns.MspProfile.Owner()
-	local edit = not owner and EditButton(field, text) or nil
-	local lines = {
-		Line("note", "Roleplay Profile"),
-		Line("heading", ns.Hero.HINTS[field], edit),
-		Line(type(text) == "string" and "text" or "hint", ProfileAnswer(field, text)),
-	}
-	if owner then
-		lines[#lines + 1] = Line("hint", "From " .. owner)
-	elseif field == "name" and type(text) ~= "string" then
-		lines[#lines + 1] = Line("help", "Roleplay addons show your name in the game until you set one.")
-	end
-	if unsaved.fields[field] then
-		lines[#lines + 1] = Line("hint", SAVING)
-	end
-	return lines
-end
-
-local function AnsweredCount(texts)
-	local count = 0
-	for _, field in ipairs(ns.Hero.FIELDS) do
-		if type(texts[field]) == "string" then
-			count = count + 1
-		end
-	end
-	return count
-end
-
-local function SavedEntry(entry)
-	local remove = {
-		label = "Remove",
-		run = function()
-			ns.Hero.Remove(entry)
-		end,
-	}
-	local about = type(entry.npc) == "string" and ("About " .. Name(entry.npc) .. ". ") or ""
-	local place = type(entry.place) == "string" and (Name(entry.place) .. ", ") or ""
-	return {
-		Line("entry", ns.Plain(tostring(entry.text)), remove),
-		Line("text", about .. place .. Day(entry.at) .. "."),
-	}
-end
-
--- The player's own entries, less the ones that wait for removal, then the new ones.
-local function LoreEntries(hero, unsaved)
-	local lines = {}
-	for _, entry in ipairs(Entries(hero and hero.entries)) do
-		if not unsaved.removed[entry.number] then
-			for _, line in ipairs(SavedEntry(entry)) do
-				lines[#lines + 1] = line
-			end
-		end
-	end
-	for _, entry in ipairs(unsaved.added) do
-		lines[#lines + 1] = Line("entry", ns.Plain(entry.text))
-		lines[#lines + 1] = Line("hint", SAVING)
-	end
-	return lines
-end
-
-local function Lore(hero, unsaved)
-	local add = { label = "Add a note", run = ns.Hero.Write }
-	local lines = { Line("heading", "Your Notes", add) }
-	local entries = LoreEntries(hero, unsaved)
-	if #entries == 0 then
-		lines[#lines + 1] = Line("help", "Write anything the game can't see: a grudge, a promise, a secret.")
-	end
-	for _, line in ipairs(entries) do
-		lines[#lines + 1] = line
-	end
-	return lines
-end
-
--- The lines of the open item: a question, the Roleplay Profile, or one of its fields.
-local function OpenLines(key, texts, unsaved)
-	if key == PROFILE then
-		return ProfileLines()
-	end
-	if IsIn(ns.Hero.PROFILE, key) then
-		return ProfileFieldLines(key, texts, unsaved)
-	end
-	return FieldLines(key, OpenIndex("hero", ns.Hero.FIELDS, 1), texts, unsaved)
-end
-
--- Who the hero is (3.7): the questions of the sheet and the Roleplay Profile on the left,
--- and the open one with the player's own lore on the right.
-local function Hero(journal)
-	local hero, unsaved = journal.hero, ns.Hero.Unsaved()
-	local texts = SheetTexts(hero, unsaved)
-	local keys = Joined(ns.Hero.FIELDS, ProfileKeys())
-	local key = keys[OpenIndex("hero", keys, 1)]
-	local profileOpen = IsIn(ProfileKeys(), key)
-	local lines = OpenLines(key, texts, unsaved)
-	for _, line in ipairs(Lore(hero, unsaved)) do
-		lines[#lines + 1] = line
-	end
-	local steps = profileOpen and ProfileKeys() or ns.Hero.FIELDS
-	return {
-		list = SheetList(texts, profileOpen),
-		selected = key,
-		lines = lines,
-		buttons = Steps(steps, OpenIndex("hero", steps, 1), "Previous", "Next"),
-		footer = string.format("%d of %d answered", AnsweredCount(texts), #ns.Hero.FIELDS),
-		side = "sheet",
-	}
-end
-
 -- A page with no list: the lines alone, beside the map.
 local function SinglePage(builder)
 	return function(journal)
@@ -596,7 +361,7 @@ local function OwnList(builder, section)
 end
 
 local BUILDERS = {
-	hero = Hero,
+	hero = ns.JournalHero.Page,
 	chapters = Chronicle,
 	stories = ns.JournalStories.Page,
 	deeds = OwnList(Deeds, "deeds"),
@@ -613,7 +378,7 @@ local EMPTY = {
 
 -- The line at the bottom of the book, on how to use the page.
 Journal.USAGE = {
-	hero = "Your character's backstory. It shapes your story.",
+	hero = ns.JournalHero.USAGE,
 	chapters = "Your story so far, chapter by chapter.",
 	stories = ns.JournalStories.USAGE,
 	deeds = "Your levels, big kills, deaths, and titles.",
@@ -634,7 +399,9 @@ Journal.USAGE = {
 --   zone: the zone that the map shows, or nil for the zone of the player.
 --   map: the id of the map to show, which wins over `zone` when the game has its art.
 --   pins: the pins of the map, from `TaskPins.For`, or nil.
---   side: what the left half shows: "map", or "sheet" for the list alone on parchment.
+--   side: what the left half shows: "map", "sheet" for the list alone on parchment, or
+--     "cards" for the cards of JournalCards.
+--   cards: the sub-tabs and the cards of the left half, for the side "cards".
 function Journal.Render(journal, section)
 	local page = BUILDERS[section](journal)
 	page.footer = page.footer or Journal.USAGE[section]

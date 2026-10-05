@@ -19,7 +19,6 @@ local GLOBAL = "TimewaysProfile"
 MspProfile.CODES = {
 	origin = "HB",
 	background = "HI",
-	name = "NA",
 	title = "NT",
 	currently = "CU",
 	appearance = "DE",
@@ -119,14 +118,14 @@ function MspProfile.Edited(field, text)
 	end
 end
 
--- The fields of MSP that Timeways shares, by code. The name of the game stands in for an
--- empty name, as in every roleplay addon.
+-- The fields of MSP that Timeways shares, by code. The name is always the name in the game:
+-- the profile has no field for it.
 function MspProfile.Fields()
 	local fields = {}
 	for code, text in pairs(Data().fields) do
 		fields[code] = text
 	end
-	fields.NA = fields.NA or UnitName("player")
+	fields.NA = UnitName("player")
 	return fields
 end
 

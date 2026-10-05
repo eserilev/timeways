@@ -104,6 +104,7 @@ local function BuildSides()
 	local map = ns.MapPane.Build(frame, MAP_WIDTH, BODY_HEIGHT)
 	map:SetPoint("TOPLEFT", frame, "TOPLEFT", EDGE, BODY_TOP)
 	ns.JournalList.Build(map, MAP_WIDTH, BODY_HEIGHT)
+	ns.JournalCards.Build(map, MAP_WIDTH, BODY_HEIGHT)
 
 	detail = CreateFrame("Frame", nil, frame)
 	detail:SetSize(DETAIL_WIDTH, BODY_HEIGHT)
@@ -133,7 +134,8 @@ local function LabelWidth(button)
 	return button:GetFontString():GetStringWidth()
 end
 
-local function SmallButton(parent)
+-- The small red button of the book, for the tabs and the buttons of a page.
+function JournalFrame.SmallButton(parent)
 	local button = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
 	button:SetHeight(BUTTON_HEIGHT)
 	button:SetNormalFontObject("GameFontNormalSmall")
@@ -142,12 +144,16 @@ local function SmallButton(parent)
 	return button
 end
 
-local function FitButton(button, label)
+-- A button grows to its label. Returns its width.
+function JournalFrame.FitButton(button, label)
 	button:SetText(label)
 	local width = math.max(LabelWidth(button) + BUTTON_PADDING, BUTTON_MIN)
 	button:SetWidth(width)
 	return width
 end
+
+local SmallButton = JournalFrame.SmallButton
+local FitButton = JournalFrame.FitButton
 
 -- A count on the corner of a tab, such as the stories that wait for an answer.
 local function Badge(tab)
@@ -259,6 +265,8 @@ local function DrawLine(n, line, y)
 	-- A line with a button sits in the middle of the button's height.
 	local nudge = line.action and 4 or 0
 	text:SetPoint("TOPLEFT", page, "TOPLEFT", MARGIN_LEFT + style.indent, -y - nudge)
+	-- A line can stop after a few lines, and the game ends it with "...".
+	text:SetMaxLines(line.maxLines or 0)
 	text:SetText(line.text)
 	text:Show()
 	local bullet = Bullet(n)
@@ -312,9 +320,11 @@ end
 -- covers the map, so a sheet leaves the map as it is.
 local function DrawSide(journalPage, writing)
 	local skin = journalPage.side
-	-- While the player writes, the list hides, so a click cannot open another item.
+	-- While the player writes, the list and the cards hide, so a click cannot open another
+	-- item.
 	ns.JournalList.Draw(not writing and journalPage.list or nil, journalPage.selected, skin)
-	if skin == "sheet" then
+	ns.JournalCards.Draw(not writing and journalPage.cards or nil)
+	if skin == "sheet" or skin == "cards" then
 		return nil
 	end
 	local place = ns.MapPane.Show(journalPage.zone, journalPage.map, journalPage.pins)
