@@ -227,11 +227,11 @@ local function ChapterLines(chapter)
 	lines[#lines + 1] = Line("heading", place or ("Chapter " .. ChapterNumber(chapter)))
 	lines[#lines + 1] = Line("text", Dates(chapter) .. ".")
 	if type(chapter.prose) == "string" then
-		lines[#lines + 1] = Line("prose", ns.Plain(chapter.prose))
+		lines[#lines + 1] = Line("prose", ns.WithName(chapter.prose))
 	end
 	for _, footnote in ipairs(List(chapter.footnotes)) do
 		if type(footnote) == "string" then
-			lines[#lines + 1] = Line("note", "* " .. ns.Plain(footnote))
+			lines[#lines + 1] = Line("note", "* " .. ns.WithName(footnote))
 		end
 	end
 	if #List(chapter.zones) > 0 then
@@ -261,13 +261,6 @@ local function ChapterLines(chapter)
 	return lines
 end
 
--- The desktop keeps `$N` in place of the name of the character, so no model sees it (5.11).
-local function WithName(text)
-	local name = UnitName("player")
-	local shown = type(name) == "string" and not issecretvalue(name) and name:gsub("%%", "%%%%") or "you"
-	return (ns.Plain(text):gsub("%$N", shown))
-end
-
 local LEARNED_TITLES = {
 	book = function(entry)
 		return "Read " .. Name(entry.title)
@@ -289,7 +282,7 @@ local function Learned(entries)
 		if title then
 			lines[#lines + 1] = Line("entry", title(entry))
 			if type(entry.excerpt) == "string" then
-				lines[#lines + 1] = Line("prose", WithName(entry.excerpt))
+				lines[#lines + 1] = Line("prose", ns.WithName(entry.excerpt))
 			end
 			local place = type(entry.place) == "string" and (Name(entry.place) .. ", ") or ""
 			lines[#lines + 1] = Line("text", place .. Day(entry.at) .. ".")

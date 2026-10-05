@@ -477,6 +477,33 @@ fn a_narrator_line_shows_from_the_answer_to_a_batch() {
 }
 
 #[test]
+fn a_narrator_line_shows_the_name_of_your_character_for_its_mark() {
+    let game = Game::new();
+    game.run("wow.units.player = { name = 'Kobee', level = 5 }");
+
+    game.reply(
+        r#"{"type":"events_seen","id":3,"narrator":"Deathknell has buried its dead twice. $N climbed back out."}"#,
+    );
+
+    assert!(
+        game.printed()[0]
+            .ends_with("Narrator|r: Deathknell has buried its dead twice. Kobee climbed back out."),
+        "{:?}",
+        game.printed()
+    );
+}
+
+#[test]
+fn a_saga_in_the_journal_shows_the_name_of_your_character_for_its_mark() {
+    let game = Game::new();
+    game.run("wow.units.player = { name = 'Kobee', level = 5 }");
+
+    let shown = game.eval::<String>("ns.WithName('$N went into the Deadmines. $N came out.')");
+
+    assert_eq!(shown, "Kobee went into the Deadmines. Kobee came out.");
+}
+
+#[test]
 fn a_notice_shows_as_a_line_of_timeways_and_not_of_the_narrator() {
     let game = Game::new();
 

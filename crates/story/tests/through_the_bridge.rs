@@ -381,10 +381,9 @@ fn a_passage_over_the_limit_of_the_bridge_still_gets_an_answer() {
     );
 }
 
-/// Each `$N` of a seen text becomes "our hero", so the text grows past the size that the
-/// addon sent.
+/// The addon puts the name back in place of each `$N` of an answer.
 #[test]
-fn a_seen_text_that_grows_past_the_limit_of_the_bridge_still_gets_an_answer() {
+fn a_seen_text_full_of_the_mark_of_the_name_still_gets_an_answer() {
     let story = story_with_passage("through-seen.sqlite", "The tower of Testvale fell.");
     let mut bridge = FakeBridge::new(story);
     let text = "$N ".repeat(660);
@@ -396,7 +395,7 @@ fn a_seen_text_that_grows_past_the_limit_of_the_bridge_still_gets_an_answer() {
     let reply = bridge.batch(&format!("{CHARACTER}\n{question}"));
 
     assert!(
-        matches!(&reply, Reply::Done(text) if text.contains("our hero")),
+        matches!(&reply, Reply::Done(text) if text.contains("$N $N")),
         "{reply:?}"
     );
 }

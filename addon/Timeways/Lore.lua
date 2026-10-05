@@ -71,12 +71,12 @@ end
 -- With no text, no model answered, and the passages show as they are (GAMEPLAY.md 5.6).
 local function AnswerText(answer)
 	if type(answer.text) == "string" then
-		return ns.Plain(WithoutCitations(answer.text))
+		return ns.WithName(WithoutCitations(answer.text))
 	end
 	local paragraphs = {}
 	for _, passage in ipairs(type(answer.passages) == "table" and answer.passages or {}) do
 		if type(passage) == "table" and type(passage.text) == "string" then
-			paragraphs[#paragraphs + 1] = ns.Plain(passage.text)
+			paragraphs[#paragraphs + 1] = ns.WithName(passage.text)
 		end
 	end
 	return #paragraphs > 0 and table.concat(paragraphs, "\n\n") or nil

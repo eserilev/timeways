@@ -75,7 +75,7 @@ end
 
 local function ShowInChat(npc, text)
 	if text then
-		DEFAULT_CHAT_FRAME:AddMessage(string.format("|cffffd100%s says:|r %s", npc, ns.Plain(text)))
+		DEFAULT_CHAT_FRAME:AddMessage(string.format("|cffffd100%s says:|r %s", npc, ns.WithName(text)))
 	else
 		DEFAULT_CHAT_FRAME:AddMessage(string.format("|cffffd100%s looks at you and says nothing.|r", npc))
 	end

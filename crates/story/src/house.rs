@@ -3,6 +3,10 @@
 
 use std::ops::Range;
 
+/// The mark of the name of the character, as in the quest text of the game. The model
+/// never sees the name, and the addon puts it back on the player's screen (GAMEPLAY.md 5.11).
+pub const NAME_MARK: &str = "$N";
+
 const OPEN: &str = "<<<";
 const CLOSE: &str = ">>>";
 

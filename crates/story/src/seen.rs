@@ -10,9 +10,6 @@ use std::collections::HashSet;
 /// The addon cuts a text at 2000 bytes. The rest is room for its JSON escapes.
 pub const MAX_SEEN_BYTES: usize = 2400;
 
-/// The addon writes this in place of the name of the character, as the game templates do.
-const PLAYER_NAME: &str = "$N";
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TextKind {
@@ -38,7 +35,7 @@ impl SeenText {
         links.extend(self.npc.clone().map(Link::Npc));
         links.extend(self.zone.clone().map(Link::Place));
         Passage {
-            text: words.join(" ").replace(PLAYER_NAME, "our hero"),
+            text: words.join(" "),
             source: self.source(),
             links,
             origin: Origin::Read,
@@ -207,12 +204,12 @@ mod tests {
     }
 
     #[test]
-    fn the_name_of_the_character_becomes_our_hero() {
+    fn the_mark_of_the_name_stays_for_the_addon() {
         let text = quest("Wanted: Hogger", "Well met, $N. Hogger\n\nmust die.");
 
         let passage = text.passage();
 
-        assert_eq!(passage.text, "Well met, our hero. Hogger must die.");
+        assert_eq!(passage.text, "Well met, $N. Hogger must die.");
         assert_eq!(passage.source, "the quest \"Wanted: Hogger\"");
     }
 

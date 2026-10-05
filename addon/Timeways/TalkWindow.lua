@@ -104,13 +104,13 @@ local function PastRows(rows)
 			lastDay = day
 		end
 		rows[#rows + 1] = Row("pastSaid", "You: " .. exchange.said)
-		rows[#rows + 1] = Row("pastHeard", ns.Plain(exchange.heard))
+		rows[#rows + 1] = Row("pastHeard", ns.WithName(exchange.heard))
 	end
 end
 
 local function AnswerRow(turn)
 	if turn.state == "answered" then
-		return Row("heard", ns.Plain(turn.heard))
+		return Row("heard", ns.WithName(turn.heard))
 	end
 	if turn.state == "silent" then
 		return Row("status", string.format(COPY.silent, ns.Plain(talk.npc)))
