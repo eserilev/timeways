@@ -33,6 +33,209 @@ def core.option.Option.Insts.CoreCloneClone {T : Type} (cloneCloneInst :
   clone := core.option.Option.Insts.CoreCloneClone.clone cloneCloneInst
 }
 
+/-- [timeways_rules::aliases::{impl core::clone::Clone for timeways_rules::aliases::PlayerId}::clone]:
+    Source: 'crates/rules/src/aliases.rs', lines 9:9-9:14
+    Visibility: public -/
+def aliases.PlayerId.Insts.CoreCloneClone.clone
+  (self : aliases.PlayerId) : Result aliases.PlayerId := do
+  ok self
+
+/-- [timeways_rules::aliases::{impl core::clone::Clone for timeways_rules::aliases::Alias}::clone]:
+    Source: 'crates/rules/src/aliases.rs', lines 13:9-13:14
+    Visibility: public -/
+def aliases.Alias.Insts.CoreCloneClone.clone
+  (self : aliases.Alias) : Result aliases.Alias := do
+  let s ← alloc.string.String.Insts.CoreCloneClone.clone self.key
+  let s1 ← alloc.string.String.Insts.CoreCloneClone.clone self.shown
+  ok { key := s, shown := s1 }
+
+/-- [timeways_rules::aliases::{impl core::clone::Clone for timeways_rules::aliases::Piece}::clone]:
+    Source: 'crates/rules/src/aliases.rs', lines 22:9-22:14
+    Visibility: public -/
+def aliases.Piece.Insts.CoreCloneClone.clone
+  (self : aliases.Piece) : Result aliases.Piece := do
+  match self with
+  | aliases.Piece.Text __self_0 =>
+    let s ← alloc.string.String.Insts.CoreCloneClone.clone __self_0
+    ok (aliases.Piece.Text s)
+  | aliases.Piece.Word __self_0 __self_1 =>
+    let s ← alloc.string.String.Insts.CoreCloneClone.clone __self_0
+    let s1 ← alloc.string.String.Insts.CoreCloneClone.clone __self_1
+    ok (aliases.Piece.Word s s1)
+  | aliases.Piece.Player __self_0 =>
+    let pi ← aliases.PlayerId.Insts.CoreCloneClone.clone __self_0
+    ok (aliases.Piece.Player pi)
+
+/-- [timeways_rules::aliases::find]: loop 0:
+    Source: 'crates/rules/src/aliases.rs', lines 44:4-51:1
+    Visibility: public -/
+@[rust_loop]
+def aliases.find_loop
+  (table : Slice aliases.Alias) (key : String) (place : Std.Usize) :
+  Result (Option aliases.PlayerId)
+  := do
+  let i := Slice.len table
+  if place < i
+  then
+    let a ← Slice.index_usize table place
+    let b ← alloc.string.String.Insts.CoreCmpPartialEqString.eq a.key key
+    if b
+    then ok (some place)
+    else let place1 ← place + 1#usize
+         aliases.find_loop table key place1
+  else ok none
+partial_fixpoint
+
+/-- [timeways_rules::aliases::find]:
+    Source: 'crates/rules/src/aliases.rs', lines 42:0-51:1
+    Visibility: public -/
+@[reducible]
+def aliases.find
+  (table : Slice aliases.Alias) (key : String) :
+  Result (Option aliases.PlayerId)
+  := do
+  aliases.find_loop table key 0#usize
+
+/-- [timeways_rules::aliases::learn]:
+    Source: 'crates/rules/src/aliases.rs', lines 55:0-62:1
+    Visibility: public -/
+def aliases.learn
+  (table : alloc.vec.Vec aliases.Alias) («alias» : aliases.Alias) :
+  Result (aliases.PlayerId × (alloc.vec.Vec aliases.Alias))
+  := do
+  let s := alloc.vec.Vec.deref table
+  let o ← aliases.find s «alias».key
+  match o with
+  | none =>
+    let i := alloc.vec.Vec.len table
+    let table1 ← alloc.vec.Vec.push table «alias»
+    ok (i, table1)
+  | some id => ok (id, table)
+
+/-- [timeways_rules::aliases::learn_all]: loop 0:
+    Source: 'crates/rules/src/aliases.rs', lines 68:4-71:5
+    Visibility: public -/
+@[rust_loop]
+def aliases.learn_all_loop
+  (table : alloc.vec.Vec aliases.Alias) (names : Slice aliases.Alias)
+  (index : Std.Usize) :
+  Result (alloc.vec.Vec aliases.Alias)
+  := do
+  let i := Slice.len names
+  if index < i
+  then
+    let a ← Slice.index_usize names index
+    let a1 ← aliases.Alias.Insts.CoreCloneClone.clone a
+    let (_, table1) ← aliases.learn table a1
+    let index1 ← index + 1#usize
+    aliases.learn_all_loop table1 names index1
+  else ok table
+partial_fixpoint
+
+/-- [timeways_rules::aliases::learn_all]:
+    Source: 'crates/rules/src/aliases.rs', lines 66:0-72:1
+    Visibility: public -/
+@[reducible]
+def aliases.learn_all
+  (table : alloc.vec.Vec aliases.Alias) (names : Slice aliases.Alias) :
+  Result (alloc.vec.Vec aliases.Alias)
+  := do
+  aliases.learn_all_loop table names 0#usize
+
+/-- [timeways_rules::aliases::to_id]:
+    Source: 'crates/rules/src/aliases.rs', lines 75:0-82:1 -/
+def aliases.to_id
+  (table : Slice aliases.Alias) (piece : aliases.Piece) :
+  Result aliases.Piece
+  := do
+  match piece with
+  | aliases.Piece.Text _ => aliases.Piece.Insts.CoreCloneClone.clone piece
+  | aliases.Piece.Word key _ =>
+    let o ← aliases.find table key
+    match o with
+    | none => aliases.Piece.Insts.CoreCloneClone.clone piece
+    | some id => ok (aliases.Piece.Player id)
+  | aliases.Piece.Player _ => aliases.Piece.Insts.CoreCloneClone.clone piece
+
+/-- [timeways_rules::aliases::to_ids]: loop 0:
+    Source: 'crates/rules/src/aliases.rs', lines 90:4-93:5
+    Visibility: public -/
+@[rust_loop]
+def aliases.to_ids_loop
+  (table : Slice aliases.Alias) (pieces : Slice aliases.Piece)
+  (swapped : alloc.vec.Vec aliases.Piece) (index : Std.Usize) :
+  Result (alloc.vec.Vec aliases.Piece)
+  := do
+  let i := Slice.len pieces
+  if index < i
+  then
+    let p ← Slice.index_usize pieces index
+    let p1 ← aliases.to_id table p
+    let swapped1 ← alloc.vec.Vec.push swapped p1
+    let index1 ← index + 1#usize
+    aliases.to_ids_loop table pieces swapped1 index1
+  else ok swapped
+partial_fixpoint
+
+/-- [timeways_rules::aliases::to_ids]:
+    Source: 'crates/rules/src/aliases.rs', lines 87:0-95:1
+    Visibility: public -/
+@[reducible]
+def aliases.to_ids
+  (table : Slice aliases.Alias) (pieces : Slice aliases.Piece) :
+  Result (alloc.vec.Vec aliases.Piece)
+  := do
+  aliases.to_ids_loop table pieces (alloc.vec.Vec.new aliases.Piece) 0#usize
+
+/-- [timeways_rules::aliases::to_name]:
+    Source: 'crates/rules/src/aliases.rs', lines 98:0-109:1 -/
+def aliases.to_name
+  (table : Slice aliases.Alias) (piece : aliases.Piece) :
+  Result aliases.Piece
+  := do
+  match piece with
+  | aliases.Piece.Text _ => aliases.Piece.Insts.CoreCloneClone.clone piece
+  | aliases.Piece.Word _ _ => aliases.Piece.Insts.CoreCloneClone.clone piece
+  | aliases.Piece.Player id =>
+    let i := Slice.len table
+    if id < i
+    then
+      let «alias» ← Slice.index_usize table id
+      let s ← alloc.string.String.Insts.CoreCloneClone.clone «alias».key
+      let s1 ← alloc.string.String.Insts.CoreCloneClone.clone «alias».shown
+      ok (aliases.Piece.Word s s1)
+    else aliases.Piece.Insts.CoreCloneClone.clone (aliases.Piece.Player id)
+
+/-- [timeways_rules::aliases::to_names]: loop 0:
+    Source: 'crates/rules/src/aliases.rs', lines 118:4-121:5
+    Visibility: public -/
+@[rust_loop]
+def aliases.to_names_loop
+  (table : Slice aliases.Alias) (pieces : Slice aliases.Piece)
+  (swapped : alloc.vec.Vec aliases.Piece) (index : Std.Usize) :
+  Result (alloc.vec.Vec aliases.Piece)
+  := do
+  let i := Slice.len pieces
+  if index < i
+  then
+    let p ← Slice.index_usize pieces index
+    let p1 ← aliases.to_name table p
+    let swapped1 ← alloc.vec.Vec.push swapped p1
+    let index1 ← index + 1#usize
+    aliases.to_names_loop table pieces swapped1 index1
+  else ok swapped
+partial_fixpoint
+
+/-- [timeways_rules::aliases::to_names]:
+    Source: 'crates/rules/src/aliases.rs', lines 115:0-123:1
+    Visibility: public -/
+@[reducible]
+def aliases.to_names
+  (table : Slice aliases.Alias) (pieces : Slice aliases.Piece) :
+  Result (alloc.vec.Vec aliases.Piece)
+  := do
+  aliases.to_names_loop table pieces (alloc.vec.Vec.new aliases.Piece) 0#usize
+
 /-- [timeways_rules::budget::HOUR]
     Source: 'crates/rules/src/budget.rs', lines 5:0-5:23 -/
 @[global_simps, irreducible] def budget.HOUR : Std.U64 := 3600#u64

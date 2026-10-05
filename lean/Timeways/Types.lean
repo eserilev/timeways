@@ -19,6 +19,28 @@ set_option maxRecDepth 2048
 
 namespace timeways_rules
 
+/-- [timeways_rules::aliases::PlayerId]
+    Source: 'crates/rules/src/aliases.rs', lines 10:0-10:31
+    Visibility: public -/
+@[reducible]
+def aliases.PlayerId := Std.Usize
+
+/-- [timeways_rules::aliases::Alias]
+    Source: 'crates/rules/src/aliases.rs', lines 14:0-19:1
+    Visibility: public -/
+structure aliases.Alias where
+  key : String
+  shown : String
+
+/-- [timeways_rules::aliases::Piece]
+    Source: 'crates/rules/src/aliases.rs', lines 23:0-32:1
+    Visibility: public -/
+@[discriminant isize]
+inductive aliases.Piece where
+| Text : String → aliases.Piece
+| Word : String → String → aliases.Piece
+| Player : aliases.PlayerId → aliases.Piece
+
 /-- [timeways_rules::budget::Budget]
     Source: 'crates/rules/src/budget.rs', lines 9:0-11:1
     Visibility: public -/

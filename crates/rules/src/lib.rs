@@ -13,6 +13,7 @@
 // Their fixes bring a closure or a range, and Aeneas translates neither.
 #![allow(clippy::manual_map, clippy::manual_range_contains)]
 
+pub mod aliases;
 pub mod budget;
 pub mod hero_hook;
 pub mod prompts;

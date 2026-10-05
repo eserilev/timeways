@@ -6,4 +6,5 @@ import Timeways.HeroHook
 import Timeways.Budget
 import Timeways.TrustBand
 import Timeways.Prompts
+import Timeways.Aliases
 import Timeways.Axioms

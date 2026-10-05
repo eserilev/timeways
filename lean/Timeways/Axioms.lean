@@ -5,6 +5,7 @@ import Timeways.HeroHook
 import Timeways.Budget
 import Timeways.TrustBand
 import Timeways.Prompts
+import Timeways.Aliases
 
 open timeways_rules
 
@@ -75,3 +76,39 @@ open timeways_rules
 /-- info: 'timeways_rules.prompts.the_newest_prompts_are_always_kept' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs (whitespace := lax) in
 #print axioms prompts.the_newest_prompts_are_always_kept
+
+/-- info: 'timeways_rules.aliases.an_id_is_never_reused' depends on axioms: [propext] -/
+#guard_msgs (whitespace := lax) in
+#print axioms aliases.an_id_is_never_reused
+
+/-- info: 'timeways_rules.aliases.a_name_keeps_its_id' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms aliases.a_name_keeps_its_id
+
+/-- info: 'timeways_rules.aliases.two_names_never_share_an_id' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms aliases.two_names_never_share_an_id
+
+/-- info: 'timeways_rules.aliases.one_id_names_one_player' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms aliases.one_id_names_one_player
+
+/-- info: 'timeways_rules.aliases.every_name_of_a_line_gets_an_id' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms aliases.every_name_of_a_line_gets_an_id
+
+/-- info: 'timeways_rules.aliases.no_known_name_after_the_swap' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms aliases.no_known_name_after_the_swap
+
+/-- info: 'timeways_rules.aliases.every_id_of_the_swap_is_in_the_table' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms aliases.every_id_of_the_swap_is_in_the_table
+
+/-- info: 'timeways_rules.aliases.the_swap_and_back_keeps_the_text' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms aliases.the_swap_and_back_keeps_the_text
+
+/-- info: 'timeways_rules.aliases.restore_keeps_what_is_no_known_name' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms aliases.restore_keeps_what_is_no_known_name

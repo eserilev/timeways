@@ -3,8 +3,8 @@
 Aeneas translates the crate `timeways-rules` (`crates/rules`) into pure
 Lean functions. The theorems in `Timeways/QuestLog.lean`,
 `Timeways/HeroHook.lean`, `Timeways/Budget.lean`,
-`Timeways/TrustBand.lean`, and `Timeways/Prompts.lean` are about those
-functions. A theorem holds for every input, with no bound. The
+`Timeways/TrustBand.lean`, `Timeways/Prompts.lean`, and
+`Timeways/Aliases.lean` are about those functions. A theorem holds for every input, with no bound. The
 property tests in `crates/story/tests/properties.rs` check the same
 rules on random input, and they stay as a second check.
 
@@ -109,6 +109,35 @@ each time of the list, from `fresh`, the budget of `Budget::default()`.
 |---|---|---|
 | `the_newest_prompts_are_always_kept` | For every position of the newest call, also at the edge of `u64`, the newest 500 calls keep their prompts, or every call when there are fewer. | `only_the_newest_prompts_are_kept` |
 
+## What is proved: the alias table
+
+The alias table gives each player an ID (`GAMEPLAY.md` 5.11). The
+story program cuts a text into pieces: words with their keys, other
+text, and IDs. The rules compare keys only. `learnLines` applies
+`learn_all` one line after the other, as the story program does.
+
+| Theorem | The law | Test |
+|---|---|---|
+| `an_id_is_never_reused` | After any sequence of lines, each place of the table holds the player that it held before. A new player goes only at the end. | `an_alias_is_never_reused_over_any_lines` |
+| `a_name_keeps_its_id` | Once the table holds a name at a place, every later table holds it at that place. | the same |
+| `two_names_never_share_an_id` | From an empty table, no sequence of lines puts one key at two places. | `an_alias_is_never_reused_over_any_lines` |
+| `one_id_names_one_player` | Two keys at the same place are the same key. | none |
+| `every_name_of_a_line_gets_an_id` | After a line, the table holds each name of the line. | none |
+| `no_known_name_after_the_swap` | No word of the text for a model has a key of the table. | `the_text_for_a_model_holds_no_known_name_as_a_word` |
+| `every_id_of_the_swap_is_in_the_table` | Each ID of the swap names a player of the table, when the text held no ID before. | none |
+| `the_swap_and_back_keeps_the_text` | The swap to IDs and back gives each piece back. A known name comes back with its key, in the form that the table holds. | `the_swap_and_back_gives_each_name_in_the_form_of_the_table` |
+| `restore_keeps_what_is_no_known_name` | A piece that is no known name comes back exactly. | the same |
+
+A full round trip of the text is not true. "ADA-Stormrage" comes back
+as "Ada": the ID keeps who the player is, not how the text wrote the
+name. So the round trip law names the form of the table.
+
+`learn` and `learn_all` need room in the table: fewer than `usize::MAX`
+players. The glue in `crates/story/src/aliases.rs` cuts the text into
+pieces and folds the case. No proof reads it. Its property tests check
+that a text cut and joined again is the same text, and that no word of
+the text for a model folds to a known name.
+
 ## What you trust
 
 1. **Charon and Aeneas.** A bug in the translation makes the Lean
@@ -121,8 +150,8 @@ each time of the list, from `fresh`, the budget of `Budget::default()`.
    `unwrap_or`.
 3. **The three standard axioms of Lean.** `Timeways/Axioms.lean` pins
    the axioms of each theorem with `#guard_msgs`. A `sorry` or a new
-   axiom fails the build. Every pin names exactly `propext`,
-   `Classical.choice`, and `Quot.sound`.
+   axiom fails the build. Every pin names `propext`,
+   `Classical.choice`, and `Quot.sound`, or fewer of them.
 4. **The glue in the story program.** `crates/story/src/quest/log.rs`
    turns each line into a `Change` and each `Quest` back into a
    `Tracked`. `narrator::Budget` turns a `Tick` into seconds and back.
