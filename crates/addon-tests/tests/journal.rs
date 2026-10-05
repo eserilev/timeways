@@ -20,7 +20,7 @@ fn journal_reply(character: &Character) -> String {
     let page = pages(journal(character)).remove(0);
     serde_json::to_string(&Output::Journal {
         id: MessageId(1),
-        page,
+        page: Box::new(page),
         notice: None,
     })
     .unwrap()
@@ -230,7 +230,7 @@ fn explorer() -> Character {
 fn page_reply(page: timeways_story::journal::Page) -> String {
     serde_json::to_string(&Output::Journal {
         id: MessageId(1),
-        page,
+        page: Box::new(page),
         notice: None,
     })
     .unwrap()
@@ -576,7 +576,7 @@ fn learned_reply(entries: Vec<Learned>) -> String {
     let page = pages(whole).remove(0);
     serde_json::to_string(&Output::Journal {
         id: MessageId(1),
-        page,
+        page: Box::new(page),
         notice: None,
     })
     .unwrap()

@@ -111,6 +111,7 @@ fn chapter(number: usize, zones: &[&str], deeds: Vec<Deed>) -> Chapter {
         left_out: 0,
         prose: None,
         footnotes: Vec::new(),
+        ..Chapter::default()
     }
 }
 

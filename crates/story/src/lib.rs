@@ -48,4 +48,5 @@ pub mod talk;
 pub mod titles;
 pub mod tokens;
 pub mod vocabulary;
+pub mod walk;
 pub mod wikitext;

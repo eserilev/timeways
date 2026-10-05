@@ -1,11 +1,14 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use hourglass::Tick;
+use timeways_story::chapters::Book;
 use timeways_story::character::{Character, Item};
 use timeways_story::chronicle::deed_fact;
 use timeways_story::gear::Quality;
 use timeways_story::input::{GameQuestKind, MessageId};
-use timeways_story::journal::{Chapter, Deed, Journal, Person, Place, journal, pages};
+use timeways_story::journal::{
+    Chapter, Deed, EntryState, Journal, OpenedBy, Person, Place, journal, pages,
+};
 use timeways_story::learned::{Read, learned};
 use timeways_story::places::{InstanceKind, PlaceKind};
 use timeways_story::reply_size::MAX_LINE;
@@ -131,15 +134,21 @@ fn a_journal_serializes_with_a_kind_on_each_deed() {
         "hero_refused": null,
         "chapters": [{
             "number": 1,
+            "first": 1,
             "began": 5,
             "ended": 5,
+            "opened_by": "first",
+            "state": "open",
+            "levels": [12, 12],
             "zones": [],
             "people": [],
             "deeds": [{ "kind": "level", "from": null, "to": 12, "at": 5, "place": null }],
+            "again": [],
             "left_out": 0,
             "prose": null,
             "footnotes": [],
         }],
+        "tales": [],
         "places": [],
         "people": [],
         "deeds": [{ "kind": "level", "from": null, "to": 12, "at": 5, "place": null }],
@@ -194,7 +203,7 @@ fn every_page_line_fits_in_one_reply() {
     for page in pages {
         let output = Output::Journal {
             id: MessageId(u64::MAX),
-            page,
+            page: Box::new(page),
             notice: None,
         };
         let line = serde_json::to_string(&output).unwrap();
@@ -295,6 +304,9 @@ fn one_session_is_one_chapter_with_its_new_zones_people_and_deeds() {
     };
     let expected = Chapter {
         number: 1,
+        first: 1,
+        title: Some("Westfall".to_string()),
+        state: EntryState::Open,
         began: Tick(HOUR),
         ended: Tick(HOUR + 120),
         zones: vec!["Westfall".to_string()],
@@ -303,6 +315,7 @@ fn one_session_is_one_chapter_with_its_new_zones_people_and_deeds() {
         left_out: 0,
         prose: None,
         footnotes: Vec::new(),
+        ..Chapter::default()
     };
     assert_eq!(chapters, [expected]);
 }
@@ -316,96 +329,120 @@ fn chapter_zones(character: &Character) -> Vec<Vec<String>> {
         .collect()
 }
 
-/// A character at level 8 who plays in Westfall from the first hour, with an event each
-/// 10 minutes for `minutes`.
-fn played_in_westfall(minutes: u64) -> Character {
+/// A character at level 8 who plays in Westfall from the first hour: a meeting, then new
+/// farms on foot, one a minute, for a weight of `weight` (docs/plans/chapters.md 4).
+fn played_in_westfall(weight: u64) -> Character {
     let mut character = Character::new();
     character.reach_level(Tick(HOUR), 8).unwrap();
     character.enter_zone(Tick(HOUR), "Westfall", None).unwrap();
-    for n in 1..=minutes / 10 {
+    character.meet_npc(Tick(HOUR), "Gryan Stoutmantle").unwrap();
+    for n in 1..weight {
         character
-            .enter_zone(Tick(HOUR + n * 600), "Westfall", Some(&format!("Farm {n}")))
+            .enter_zone(Tick(HOUR + n * 60), "Westfall", Some(&format!("Farm {n}")))
             .unwrap();
     }
     character
 }
 
-#[test]
-fn a_new_zone_after_enough_play_starts_a_chapter() {
-    let mut character = played_in_westfall(50);
+/// A new zone, and a meeting there: the first step with weight in the zone.
+fn settle_in(character: &mut Character, at: u64, zone: &str, npc: &str) {
+    character.enter_zone(Tick(at), zone, None).unwrap();
+    character.meet_npc(Tick(at), npc).unwrap();
+}
 
-    character
-        .enter_zone(Tick(HOUR + 50 * 60), "Duskwood", None)
-        .unwrap();
+#[test]
+fn a_new_zone_after_the_least_weight_starts_a_chapter() {
+    let mut character = played_in_westfall(15);
+
+    settle_in(&mut character, 2 * HOUR, "Duskwood", "Madame Eva");
 
     assert_eq!(chapter_zones(&character), [["Westfall"], ["Duskwood"]]);
 }
 
 #[test]
-fn a_new_zone_soon_after_the_chapter_began_joins_it() {
-    let mut character = played_in_westfall(20);
+fn a_new_zone_below_the_least_weight_joins_the_chapter() {
+    let mut character = played_in_westfall(14);
 
-    character
-        .enter_zone(Tick(HOUR + 20 * 60), "Duskwood", None)
-        .unwrap();
+    settle_in(&mut character, 2 * HOUR, "Duskwood", "Madame Eva");
 
     assert_eq!(chapter_zones(&character), [["Westfall", "Duskwood"]]);
 }
 
 #[test]
-fn a_pause_alone_starts_no_chapter_and_time_away_is_no_play() {
+fn a_flight_over_a_zone_names_no_place_of_the_chapter() {
     let mut character = played_in_westfall(20);
 
     character
-        .enter_zone(Tick(9 * HOUR), "Duskwood", None)
+        .enter_zone(Tick(2 * HOUR), "Duskwood", Some("Darkshire"))
+        .unwrap();
+    character
+        .enter_zone(Tick(2 * HOUR + 60), "Westfall", None)
         .unwrap();
 
-    assert_eq!(chapter_zones(&character), [["Westfall", "Duskwood"]]);
+    assert_eq!(chapter_zones(&character), [["Westfall"]]);
 }
 
 #[test]
-fn every_tenth_level_starts_a_chapter_and_other_levels_do_not() {
-    let mut character = played_in_westfall(50);
+fn eight_hours_away_cuts_at_the_next_step_with_weight() {
+    let mut character = played_in_westfall(20);
 
-    character.reach_level(Tick(HOUR + 50 * 60), 9).unwrap();
-    character.reach_level(Tick(HOUR + 100 * 60), 10).unwrap();
+    character
+        .enter_zone(Tick(12 * HOUR), "Westfall", Some("Moonbrook"))
+        .unwrap();
+    let chapters = journal(&character).chapters;
+
+    assert_eq!(chapters.len(), 2);
+    assert_eq!(chapters[1].opened_by, OpenedBy::Away);
+    assert_eq!(chapters[1].title.as_deref(), Some("Westfall"));
+}
+
+#[test]
+fn every_tenth_level_cuts_a_chapter_with_the_least_weight_and_other_levels_do_not() {
+    let mut character = played_in_westfall(15);
+
+    character.reach_level(Tick(2 * HOUR), 9).unwrap();
+    character.reach_level(Tick(3 * HOUR), 10).unwrap();
 
     let chapters = journal(&character).chapters;
     assert_eq!(chapters.len(), 2);
-    assert_eq!(chapters[1].began, Tick(HOUR + 100 * 60));
+    assert_eq!(chapters[1].began, Tick(3 * HOUR));
+    assert_eq!(chapters[1].opened_by, OpenedBy::Level);
+    assert_eq!(chapters[1].levels, Some([10, 10]));
+    assert_eq!(chapters[0].levels, Some([8, 9]));
 }
 
 #[test]
-fn the_first_kill_of_a_rare_starts_a_chapter_and_its_echo_does_not() {
-    let mut character = played_in_westfall(50);
+fn a_first_kill_is_a_deed_and_its_echo_is_a_tally_line() {
+    let mut character = played_in_westfall(2);
 
-    character
-        .defeat_npc(Tick(HOUR + 50 * 60), "Mother Fang")
-        .unwrap();
-    character
-        .defeat_npc(Tick(HOUR + 200 * 60), "Mother Fang")
-        .unwrap();
+    character.defeat_npc(Tick(2 * HOUR), "Mother Fang").unwrap();
+    character.defeat_npc(Tick(3 * HOUR), "Mother Fang").unwrap();
+    character.defeat_npc(Tick(4 * HOUR), "Mother Fang").unwrap();
 
-    let starts: Vec<Tick> = journal(&character)
-        .chapters
+    let chapter = journal(&character).chapters.remove(0);
+    let kills: Vec<&Deed> = chapter
+        .deeds
         .iter()
-        .map(|chapter| chapter.began)
+        .filter(|deed| matches!(deed, Deed::Defeated { .. }))
         .collect();
-    assert_eq!(starts, [Tick(HOUR), Tick(HOUR + 50 * 60)]);
+    assert_eq!(kills.len(), 1);
+    assert_eq!(chapter.again, ["Defeated Mother Fang again, 3 times."]);
+    assert_eq!(Book::of(&character).fold().open.weight, 2 + 3);
 }
 
 #[test]
 fn a_chapter_keeps_twenty_entries_of_each_list_and_counts_the_rest() {
     let mut character = Character::new();
+    character.enter_zone(Tick(HOUR), "Westfall", None).unwrap();
     for n in 0..25 {
         character
-            .enter_zone(Tick(HOUR + n), &format!("Zone {n}"), None)
+            .meet_npc(Tick(HOUR + n), &format!("Farmer {n}"))
             .unwrap();
     }
 
     let chapters = journal(&character).chapters;
 
-    assert_eq!(chapters[0].zones.len(), 20);
+    assert_eq!(chapters[0].people.len(), 20);
     assert_eq!(chapters[0].left_out, 5);
 }
 
@@ -463,7 +500,7 @@ fn the_largest_chapter_still_fits_on_one_page() {
         .map(|page| {
             serde_json::to_string(&Output::Journal {
                 id: MessageId(u64::MAX),
-                page,
+                page: Box::new(page),
                 notice: None,
             })
             .unwrap()
@@ -517,7 +554,7 @@ fn a_long_list_of_what_you_learned_fits_on_pages_and_keeps_its_order() {
         assert!(page.journal.learned.len() <= 200);
         let output = Output::Journal {
             id: MessageId(u64::MAX),
-            page,
+            page: Box::new(page),
             notice: None,
         };
         let line = serde_json::to_string(&output).unwrap();
@@ -596,30 +633,18 @@ fn a_turned_in_quest_of_the_game_is_a_deed_and_a_class_quest_is_its_own_kind() {
 }
 
 #[test]
-fn a_finished_class_quest_starts_a_chapter_and_a_plain_quest_does_not() {
-    let mut character = played_in_westfall(50);
+fn a_class_quest_weighs_three_and_a_plain_quest_one() {
+    let mut character = Character::new();
+    character.enter_zone(Tick(HOUR), "Westfall", None).unwrap();
 
     character
-        .finish_game_quest(
-            Tick(HOUR + 50 * 60),
-            "The Defias Brotherhood",
-            GameQuestKind::Normal,
-        )
+        .finish_game_quest(Tick(HOUR), "The Defias Brotherhood", GameQuestKind::Normal)
         .unwrap();
     character
-        .finish_game_quest(
-            Tick(HOUR + 51 * 60),
-            "The Tome of Valor",
-            GameQuestKind::Class,
-        )
+        .finish_game_quest(Tick(HOUR + 60), "The Tome of Valor", GameQuestKind::Class)
         .unwrap();
 
-    let starts: Vec<Tick> = journal(&character)
-        .chapters
-        .iter()
-        .map(|chapter| chapter.began)
-        .collect();
-    assert_eq!(starts, [Tick(HOUR), Tick(HOUR + 51 * 60)]);
+    assert_eq!(Book::of(&character).fold().open.weight, 1 + 3);
 }
 
 #[test]
@@ -709,7 +734,7 @@ fn a_second_mark_of_an_instance_adds_no_event() {
 
 #[test]
 fn a_quest_mark_is_a_deed_with_its_quest_once_and_no_milestone() {
-    let mut character = played_in_westfall(50);
+    let mut character = played_in_westfall(5);
 
     for at in [HOUR + 50 * 60, HOUR + 51 * 60] {
         character
@@ -727,7 +752,7 @@ fn a_quest_mark_is_a_deed_with_its_quest_once_and_no_milestone() {
         mark: "Touched by the Light".to_string(),
         quest: "Rediscovering the Light".to_string(),
         at: Tick(HOUR + 50 * 60),
-        place: Some("Farm 5".to_string()),
+        place: Some("Farm 4".to_string()),
     };
     assert_eq!(marks, [&expected]);
     assert_eq!(journal.chapters.len(), 1);
@@ -756,7 +781,7 @@ fn a_sheet_full_of_quotes_spreads_over_pages_in_its_order() {
 
 #[test]
 fn mounts_and_gear_are_deeds_and_no_milestones() {
-    let mut character = played_in_westfall(50);
+    let mut character = played_in_westfall(5);
     let at = Tick(HOUR + 50 * 60);
     let blade = Item {
         name: "Barman Shanker",

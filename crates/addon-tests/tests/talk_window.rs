@@ -423,7 +423,7 @@ fn journal_reply(at: u64, state: TalkQuestState, quests: Vec<QuestView>) -> Stri
     let page = pages(journal).remove(0);
     serde_json::to_string(&Output::Journal {
         id: MessageId(1),
-        page,
+        page: Box::new(page),
         notice: None,
     })
     .unwrap()

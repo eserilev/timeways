@@ -11,12 +11,13 @@ pub use database::{
     PROMPTS_KEPT, Root, Table,
 };
 pub use logs::{
-    AliasLog, FlavorLog, HeroLog, LearnedLog, Prose, QuestLog, StoryLog, Summary, SummaryLog,
-    Written,
+    AliasLog, FlavorLog, HeroLog, LearnedLog, Prose, QuestLog, RowLog, SagaSpan, StoryLog, Summary,
+    SummaryLog, Written,
 };
 pub use shared::Shared;
 
 use crate::character::Character;
+use crate::walk::RuleRow;
 use hourglass::{Event, EventId};
 use logs::{ChapterProse, FlavorLine, LearnedLine};
 use std::fs;
@@ -148,6 +149,7 @@ pub struct Opened {
     pub stories: StoryLog,
     pub aliases: AliasLog,
     pub summaries: SummaryLog,
+    pub rules: RowLog<RuleRow>,
 }
 
 /// Everything of `Opened` but the database, read in one transaction.
@@ -163,6 +165,7 @@ struct Read {
     stories: StoryLog,
     aliases: AliasLog,
     summaries: SummaryLog,
+    rules: RowLog<RuleRow>,
 }
 
 impl Store {
@@ -210,6 +213,7 @@ impl Store {
             stories: read.stories,
             aliases: read.aliases,
             summaries: read.summaries,
+            rules: read.rules,
         })
     }
 }
@@ -237,6 +241,7 @@ fn read_all(database: &Database, path: PathBuf) -> Result<Read, StoreError> {
         logs::is_new_name(row, &mut seen.borrow_mut())
     })?);
     let summaries = SummaryLog::from_rows(database.read_and_repair(Table::Summaries, |_, _| true)?);
+    let rules = RowLog::from_rows(database.read_and_repair(Table::ChapterRules, |_, _| true)?);
     database.drop_broken_links()?;
     Ok(Read {
         character,
@@ -250,6 +255,7 @@ fn read_all(database: &Database, path: PathBuf) -> Result<Read, StoreError> {
         stories,
         aliases,
         summaries,
+        rules,
     })
 }
 

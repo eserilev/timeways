@@ -2,6 +2,7 @@
 
 use crate::aliases::AliasRow;
 use crate::best_of_two::Round;
+use crate::chapters::{self, Book};
 use crate::character::{Character, Item, Refusal};
 use crate::check;
 use crate::draft::Draft;
@@ -9,7 +10,7 @@ use crate::flavor::{self, Flavor, HUMBLING_GAP, Kind, Teller, Told};
 use crate::gear::{self, Before, Quality};
 use crate::hero::{self, Change, Entry};
 use crate::input::{CallId, GameQuestKind, Input, MessageId, Reaction, SlotWas};
-use crate::journal::{Page, journal, pages};
+use crate::journal::{Page, pages};
 use crate::learned::{Read, learned};
 use crate::lore::{Answer, LoreCall, Next};
 use crate::moments::{Moment, best, moments};
@@ -30,7 +31,7 @@ use crate::store::{CharacterKey, Node, Opened, Shared, Store, StoreError, Table}
 use crate::stories::MAX_PARAGRAPHS;
 use crate::talk::{self, QuestTalk, Scene};
 use crate::titles;
-use hourglass::Tick;
+use hourglass::{EventId, Tick};
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::time::{Duration, Instant};
@@ -122,10 +123,11 @@ pub enum Output {
         #[serde(skip_serializing_if = "Option::is_none")]
         notice: Option<String>,
     },
+    /// The page is boxed, because it is far larger than the other outputs.
     Journal {
         id: MessageId,
         #[serde(flatten)]
-        page: Page,
+        page: Box<Page>,
         #[serde(skip_serializing_if = "Option::is_none")]
         notice: Option<String>,
     },
@@ -259,7 +261,7 @@ pub struct Story {
     shared: Option<Shared>,
     /// The chapters of the active character that the narrator was asked a saga for in
     /// this run. A failed chapter keeps its plain list, and gets no second round.
-    chronicle_asked: BTreeSet<Tick>,
+    chronicle_asked: BTreeSet<EventId>,
     /// The drafts of the saga that is written now. Only a final saga goes to the disk.
     saga_round: Option<Round>,
     pace: Pace,
@@ -430,6 +432,9 @@ impl Story {
         let met = quests::encounter(&input);
         let hour = input.hour();
         let mut outputs = self.dispatch(input)?;
+        if let Some(active) = self.active.as_mut() {
+            active.catch_up();
+        }
         if let Some(at) = at {
             self.advance_quests(at, hour, &met)?;
         }
@@ -838,6 +843,7 @@ impl Story {
             stories,
             aliases,
             summaries,
+            mut rules,
         } = self.store.open(&key)?;
         let read: Vec<SeenText> = learned
             .read()
@@ -845,6 +851,13 @@ impl Story {
             .map(|read| read.text.clone())
             .collect();
         let seen_index = SeenIndex::new(&read)?;
+        let history = character.world().history();
+        let next_event = EventId(history.len() as u64);
+        if let Some(row) = chapters::new_epoch(rules.rows(), next_event, chapters::CURRENT_RULE) {
+            rules.add(row)?;
+        }
+        let mut book = Book::new(character.you(), rules.rows().to_vec());
+        book.catch_up(history);
         Ok(Active {
             key,
             character,
@@ -862,6 +875,8 @@ impl Story {
             stories,
             aliases,
             summaries,
+            rules,
+            book,
             seen_index,
             hero_refused: None,
             talk_quest: None,
@@ -885,6 +900,8 @@ impl Story {
         let changed = act(&mut active.character);
         let world = active.character.world();
         let added: Vec<_> = world.history().iter().skip(before).cloned().collect();
+        active.catch_up();
+        let world = active.character.world();
         self.batch_rows.extend(
             added
                 .iter()
@@ -1105,7 +1122,7 @@ impl Story {
         let page = self.journal_page(page)?;
         Ok(vec![Output::Journal {
             id,
-            page,
+            page: Box::new(page),
             notice: None,
         }])
     }
@@ -1115,9 +1132,13 @@ impl Story {
     fn journal_page(&mut self, page: usize) -> Result<Page, StoryError> {
         if page == 0 || self.journal.is_empty() {
             let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
-            let mut journal = journal(&active.character);
+            let mut journal = active.journal();
             for chapter in &mut journal.chapters {
-                let written = active.prose.get(chapter.began).cloned().unwrap_or_default();
+                let written = active
+                    .prose
+                    .get(EventId(chapter.first))
+                    .cloned()
+                    .unwrap_or_default();
                 chapter.prose = Some(written.text).filter(|text| !text.is_empty());
                 chapter.footnotes = written.footnotes;
             }

@@ -4,17 +4,17 @@
 use super::{Active, Output, Pending, Story, StoryError};
 use crate::chronicle::deed_fact;
 use crate::hero::{self, Change, FIELDS};
-use crate::journal::{Chapter, Deed, journal};
+use crate::journal::{Chapter, Deed, EntryState};
 use crate::memory;
 use crate::narrator::Who;
 use crate::store::{CharacterKey, Node, Outcome, Summary, Table};
 use crate::summary::{self, Facts, MAX_DEEDS, MAX_SAGAS};
-use hourglass::Tick;
+use hourglass::EventId;
 
-/// The summary of the chapter that began at `began` waits for its call.
+/// The summary after the chapter whose first event is `after` waits for its call.
 pub(super) struct Due {
     pub(super) key: CharacterKey,
-    pub(super) began: Tick,
+    pub(super) after: EventId,
 }
 
 /// The six questions of the sheet. The Roleplay Profile stays out: the title can name a
@@ -24,8 +24,8 @@ const QUESTIONS: usize = 6;
 impl Story {
     /// The saga round of a chapter ended, with a saga or with none. A newer chapter takes the
     /// place of an older one that never got its call: its summary would be replaced at once.
-    pub(super) fn summary_is_due(&mut self, key: CharacterKey, began: Tick) {
-        self.summary_due = Some(Due { key, began });
+    pub(super) fn summary_is_due(&mut self, key: CharacterKey, after: EventId) {
+        self.summary_due = Some(Due { key, after });
     }
 
     /// The call of the summary that is due. It opens only while no other call is open, the
@@ -44,10 +44,10 @@ impl Story {
             return None;
         }
         let due = self.summary_due.take()?;
-        let (facts, read) = facts_and_read(active, due.began);
+        let (facts, read) = facts_and_read(active, due.after);
         let pending = Pending::Summary {
             key: due.key,
-            after: due.began,
+            after: due.after,
             told: summary::told(&facts),
         };
         self.open_call(pending, summary::prompt(&facts), read)
@@ -58,7 +58,7 @@ impl Story {
     pub(super) fn summary_answered(
         &mut self,
         key: &CharacterKey,
-        after: Tick,
+        after: EventId,
         told: &str,
         text: Option<&str>,
     ) -> Result<(Vec<Output>, Outcome), StoryError> {
@@ -81,13 +81,11 @@ pub(super) fn journal_summary(active: &Active) -> Option<Box<str>> {
         .map(|(_, summary)| summary.text.clone().into_boxed_str())
 }
 
-/// The finished chapters up to the one that began at `began`, newest first, each with the
-/// tick where the next one began.
-fn finished_up_to(chapters: &[Chapter], began: Tick) -> Vec<(&Chapter, Tick)> {
-    let mut finished: Vec<(&Chapter, Tick)> = chapters
-        .windows(2)
-        .map(|pair| (&pair[0], pair[1].began))
-        .filter(|(chapter, _)| chapter.began <= began)
+/// The closed chapters up to the one whose first event is `after`, newest first.
+fn finished_up_to(chapters: &[Chapter], after: EventId) -> Vec<&Chapter> {
+    let mut finished: Vec<&Chapter> = chapters
+        .iter()
+        .filter(|chapter| chapter.state == EntryState::Closed && chapter.first <= after.0)
         .collect();
     finished.reverse();
     finished.truncate(MAX_SAGAS);
@@ -117,10 +115,10 @@ fn deed_name(deed: &Deed) -> Option<&str> {
 /// What the prompt tells, and the rows behind it: the hero rows of the six questions, the
 /// saga and the events of each chapter of the prompt, the events behind each deed and the
 /// level, and the summary before it. Reading too much only counts a row as used.
-fn facts_and_read(active: &Active, began: Tick) -> (Facts, Vec<Node>) {
-    let world = journal(&active.character);
+fn facts_and_read(active: &Active, after: EventId) -> (Facts, Vec<Node>) {
+    let world = active.journal();
     let hero = hero::hero(active.hero.changes());
-    let chapters = finished_up_to(&world.chapters, began);
+    let chapters = finished_up_to(&world.chapters, after);
     let deeds = deeds_of_note(&world.deeds);
     let before = active.summaries.newest();
     let facts = Facts {
@@ -130,7 +128,7 @@ fn facts_and_read(active: &Active, began: Tick) -> (Facts, Vec<Node>) {
         before: before.map(|(_, summary)| summary.text.clone()),
         chapters: chapters
             .iter()
-            .map(|(chapter, _)| match active.prose.get(chapter.began) {
+            .map(|chapter| match active.prose.get(EventId(chapter.first)) {
                 Some(written) => written.text.clone(),
                 None => memory::summary(chapter),
             })
@@ -139,14 +137,15 @@ fn facts_and_read(active: &Active, began: Tick) -> (Facts, Vec<Node>) {
         sample_turn: active.summaries.len(),
     };
     let mut read = question_rows(active);
-    for (chapter, next) in &chapters {
+    for chapter in &chapters {
+        let first = EventId(chapter.first);
         read.extend(
             active
                 .prose
-                .row_of(chapter.began)
+                .row_of(first)
                 .map(|row| Node::Row(Table::Chapters, row)),
         );
-        read.extend(chapter_events(active, chapter.began, *next));
+        read.extend(chapter_events(active, first));
     }
     read.extend(super::reads::events_about(
         active,
@@ -166,11 +165,16 @@ fn question_rows(active: &Active) -> Vec<Node> {
         .collect()
 }
 
-fn chapter_events(active: &Active, began: Tick, next: Tick) -> Vec<Node> {
-    let history = active.character.world().history();
-    history
-        .iter()
-        .filter(|event| event.tick >= began && event.tick < next)
-        .map(|event| Node::Row(Table::Events, event.id.0))
+/// The events of the chapter whose first event is `first`.
+fn chapter_events(active: &Active, first: EventId) -> Vec<Node> {
+    let span = active
+        .book
+        .chapters()
+        .into_iter()
+        .find(|span| span.first == first);
+    span.map(|span| span.first.0..=span.last.0)
+        .into_iter()
+        .flatten()
+        .map(|event| Node::Row(Table::Events, event))
         .collect()
 }

@@ -147,10 +147,12 @@ fn meet(story: &mut Story, at: u64, name: &str) {
 /// Two chapters: the first one is finished. Its narrator line fails long before the
 /// saga, so the pace leaves room for two drafts.
 fn two_sessions(story: &mut Story) {
-    meet(story, HOUR, "Gryan Stoutmantle");
     enter(story, HOUR, "Westfall", None);
-    enter(story, HOUR + 25 * 60, "Westfall", Some("Camp One"));
-    enter(story, HOUR + 50 * 60, "Westfall", Some("Camp Two"));
+    meet(story, HOUR, "Gryan Stoutmantle");
+    // 14 new camps on foot: with the meeting, the least weight of a chapter.
+    for n in 1..=14 {
+        enter(story, HOUR + n * 60, "Westfall", Some(&format!("Camp {n}")));
+    }
     enter(story, 5 * HOUR, "Duskwood", None);
     for output in handled(story, Input::BatchEnd { id: MessageId(91) }) {
         if let Output::ModelCall { call, .. } = output {

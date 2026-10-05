@@ -2,7 +2,6 @@
 //! program and the fuzzer share this path.
 
 use crate::input::{Input, MessageId};
-use crate::journal::Page;
 use crate::lore::Answer;
 use crate::story::{Output, Story};
 use crate::talk::MAX_NPC_BYTES;
@@ -91,7 +90,7 @@ fn empty_answer(line: &str) -> Option<Output> {
         // No pages: the addon keeps the journal that it shows.
         "journal_asked" => Some(Output::Journal {
             id,
-            page: Page::default(),
+            page: Box::default(),
             notice: None,
         }),
         _ => None,

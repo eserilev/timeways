@@ -49,7 +49,7 @@ fn quest_reply(quest: QuestView) -> String {
     let page = pages(journal).remove(0);
     serde_json::to_string(&Output::Journal {
         id: MessageId(1),
-        page,
+        page: Box::new(page),
         notice: None,
     })
     .unwrap()
@@ -384,7 +384,7 @@ fn a_finished_quest_shows_as_a_deed() {
     let page = pages(journal).remove(0);
     let reply = serde_json::to_string(&Output::Journal {
         id: MessageId(1),
-        page,
+        page: Box::new(page),
         notice: None,
     })
     .unwrap();

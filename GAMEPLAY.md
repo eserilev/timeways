@@ -188,16 +188,18 @@ A chapter follows the progress of the character, not the clock. The narrator (3.
 - It uses the real events of the chapter: the zones, the bosses, the deaths, the loot, and the quests.
 - You read it in the game as a book, one page per chapter.
 - The history of the world is the source, so the chronicle never contradicts itself.
-- **Where a chapter begins** (built): the code decides, never a model.
-  - The first chapter begins with the first play.
-  - A later chapter begins at a milestone: the first visit of a zone, every tenth level, or the first kill of a rare or a boss.
-  - A milestone after less than 45 minutes of play in the chapter joins that chapter. So two milestones close together make one chapter, not two thin ones.
-  - Only play counts. A stretch of 30 minutes with no event ends a session, and the time away is no play. A pause alone never begins a chapter.
-  - A finished class quest is a milestone too (5.4).
-  - A dungeon, a raid, and a capital city are zones of their own, so the first entry into one is already the first visit of a zone.
-  - **Planned:** a new rule replaces this one. Each new deed adds weight, and a repeat adds none. A chapter closes at a natural break once it has enough weight, or at a maximum. A fold in `crates/rules` decides it, and Lean proves its laws. See `docs/plans/chapters.md`.
+- **Where a chapter begins** (built, `docs/plans/chapters.md`): the code decides, never a model. A fold in `crates/rules` decides every chapter and every tale, and Lean proves its laws.
+  - The story program walks the history once, oldest first. Each event becomes one step, with a key (what it is about), a zone, and a track: the open world, or one instance. A level and a mount always count in the open world.
+  - A step adds weight only the first time that its key happens: a quest 1, a side quest 2, a class quest 3, a new subzone on foot 1, a level 2, a first talk 1, a first kill of a rare or a boss 3, of a raid boss 5, deaths to one foe 2 then 1 then 0, a mark or a title 1, a first mount 3, a first epic mount 5, a first epic item 3, a big upgrade 1, the first entry into a dungeon 3 or a raid 5. The first kill of a foe that killed you adds 2 for revenge. A death to a foe that you beat weighs 0. A repeat weighs 0, so it never makes an entry.
+  - A subzone counts only after another key in its zone, in the same stay. So a flight, a walk, or a hearthstone makes no chapter.
+  - A natural break waits for the next step with weight in the open world: settling in a new zone, a return to a zone with no weight in the open chapter and the one before it, every tenth level, leaving a capital, and 8 hours away. There, the chapter closes when it weighs 15 or more. Else the break is spent. A chapter also closes once it weighs 40, with no break. So a long grind in one zone still breaks into chapters.
+  - The title of a chapter is the zone where it opened, "Return to Westfall", or "Westfall, continued" after a close at 40.
+  - The founding of the character is in no chapter. The first chapter begins with the first play.
+- **Tales** (built): each dungeon and raid gets one tale in the life of the character. A tale is a list of runs. A run closes at the first step 30 minutes or more after you left the instance, or at a step in another instance. So a wipe and a corpse run stay one run. Steps in an instance add nothing to the chapter and close nothing, so a raid night never cuts the open chapter. A tale follows the chapter that held its first step. It shows its first kills, its deaths, and its count of runs.
+- **Tally lines** (built): a repeat still shows, as one line of its chapter or tale: "Defeated Hogger again, 6 times."
+- **Rule epochs** (built): the table `chapter_rules` names the rule of the chapters from each event on. A world with no row gets the rule of the program from its first event. A change of the rule starts at the next event, so no closed chapter and no saga moves.
 - **The kind of a place** (built): after the zone of an instance, the addon sends `instance_entered` with "party" for a dungeon or "raid" (from `IsInInstance`). A battleground and an arena send nothing. The story program marks the zone, and the six capitals are known by name. The facts of a saga name the kind ("The Deadmines (a dungeon)"). A first dungeon or raid is a big moment for the narrator, as high as a first kill, and a first capital ranks above a new zone.
-- **The saga** (built): after a batch, the story program asks a model for the saga, and the footnotes (5.4.1), of the oldest finished chapter that has none yet, one chapter at a time. The last chapter can still grow, so it waits for the next milestone. The facts of the prompt come from the chapter alone. The saga ties the deeds of the chapter to the history of its places and peoples, in the voice of the narrator (3.2). It names the hero as `$N` at most twice, and else says "they" or names no one. It never says "our hero". The saga must be plain text in one paragraph, at most 600 characters, with no name from after the cutoff (5.9), and with no slop that the facts of the chapter lack (3.2.1). A saga that fails keeps the plain list, and gets no retry in the same run: the second draft is its second chance. A saga is stored by the tick where its chapter begins. A change of these rules moves the beginnings, so an old saga can lose its chapter.
+- **The saga** (built): after a batch, the story program asks a model for the saga, and the footnotes (5.4.1), of the oldest closed chapter that has none yet, one chapter at a time. The open chapter can still grow, so it waits until it closes. The facts of the prompt come from the chapter alone. The saga ties the deeds of the chapter to the history of its places and peoples, in the voice of the narrator (3.2). It names the hero as `$N` at most twice, and else says "they" or names no one. It never says "our hero". The saga must be plain text in one paragraph, at most 600 characters, with no name from after the cutoff (5.9), and with no slop that the facts of the chapter lack (3.2.1). A saga that fails keeps the plain list, and gets no retry in the same run: the second draft is its second chance. A saga is stored by the first event of its chapter, with the rule that cut the chapter and its last event.
 - **Best of two** (built): a chapter gets two drafts, one after the other. The second draft has the same facts and the next samples in turn, so the two drafts differ.
   - Each draft goes through the checks of a saga: the voice, the banned words, the cutoff, and no repeats.
   - When both drafts pass, a short judge call picks one. Its prompt holds the persona, the facts, and the two drafts. It answers `{"pick": 1}` or `{"pick": 2}`. A bad answer or a failed call picks draft 1.
@@ -210,7 +212,7 @@ A chapter follows the progress of the character, not the clock. The narrator (3.
 - **The hero sheet in a saga** (built): the sheet (3.7) goes only into the prompt of the first chapter, and of a chapter in which the player changed it. So the chapters do not all open with the same portrait. The entries that the player wrote in a chapter always go into its prompt.
 - **No repeats** (built): a saga that holds 8 words in a row of an earlier saga is refused, and its chapter keeps the plain list.
 - **The summary** (built): the title page of the Chronicle says who the character has become, in one paragraph of the narrator. After the saga round of a chapter ends, with a saga or with none, the summary of that chapter is due. Its call opens at the end of a batch, only while no other call is open, the budget window is not tight, and no older chapter waits for its saga: the sagas go first. With a backlog, only the newest finished chapter gets a summary. A restart forgets a due summary, and the next saga round makes it due again. So a chapter costs at most 4 calls. The prompt (`summary.rs`) holds the persona and the house rules, the race, the class, and the level, the six answers of the sheet as "the hero's own story, not canon", the summary before it, the sagas of the newest chapters (a chapter with no saga gives its plain list, at most 3, as many as fit), and the deeds of note: first kills and class quests, newest first, at most 10. It holds no story and no field of the Roleplay Profile. The answer is JSON, `{"summary": "..."}`, with the checks of a saga: one line, at most 600 characters, no emoji, no banned word, no slop that the facts lack, no name past the cutoff that the player did not write, `$N` at most twice, and never "our hero". A refused answer or a failed call keeps the summary before it. The prompt also holds 2 of the 6 samples of the summary, in turn: the count of summaries so far picks them (approved by the user, 2026-10-05).
-- **Without a model** (built): a chapter lists what was new in it: the zones, the people, and the deeds. A chapter with nothing new gets no number. Each list of a chapter keeps at most 20 entries, so a chapter always fits on one page of the journal (5.5).
+- **Without a model** (built): a chapter lists what was new in it: the zones where it gained weight, the people, and the deeds. A deed in an instance goes to its tale. Each list of a chapter keeps at most 20 entries, so a chapter always fits on one page of the journal (5.5).
 
 ### 3.4 Personal side quests
 
@@ -736,14 +738,18 @@ Timeways uses the transport of Gnomish Relay, with its own key and its own slots
   | Table | One row for each |
   |---|---|
   | `events` | Hourglass event |
-  | `chapters` | saga of a chapter (3.3), keyed by the tick that began the chapter |
+  | `chapters` | saga of a chapter (3.3), keyed by the first event of the chapter, with its rule and its last event |
   | `flavor` | flavor moment or telling (5.4.1) |
   | `hero` | change of the story of the hero (3.7) |
   | `learned` | text that the player read, or rumor (3.1.1, 5.10) |
   | `quests` | change of a side quest (3.4) |
   | `stories` | change of a player story (4.8) |
   | `aliases` | player that a text named: the ID is the position of the row, plus 1 (5.11) |
-  | `summaries` | summary of who the character has become (3.3); the newest one stands |
+  | `summaries` | summary of who the character has become (3.3), after the chapter of its first event; the newest one stands |
+  | `chapter_rules` | rule epoch of the chapters (3.3): a rule and the event where it starts |
+  | `tales` | text of a tale (3.3), with the run that it covers |
+  | `zone_histories` | "Your history here" of a zone (3.3) |
+  | `entry_edits` | edit of a chapter, a tale, or the summary by the player (3.3); the newest one of an entry stands |
 
 - **The tables of proof** (5.14): `inputs` (the lines from the addon), `calls` (the model calls), and `reads` (what each call read).
 - **What all characters share** lives in `timeways.sqlite` in the data folder: the budget of the narrator (3.2) and the pace of the model (3.3). So a restart never lets the narrator speak 3 times at once. The file opens with the first `character_entered`, and a value that does not read comes back as its default. A file that does not open, such as a file of another version, never locks a character out: the values start from their defaults and stay in memory for the run. A failed save of a shared value goes to the log, and the next line tries it again.

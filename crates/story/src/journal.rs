@@ -1,7 +1,7 @@
 //! The journal of a character: the chronicle, the places, the people, the deeds, the hero,
 //! what you learned, and your side quests. No model takes part.
 
-use crate::chapters::{chapter_starts, is_level_milestone, sessions};
+use crate::chapters::{Book, ChapterSpan, SpanState, TaleSpan};
 use crate::character::{Character, title_of_game_quest, title_of_mark};
 use crate::gear::title_of_item;
 use crate::hero::{Entry, Field, Hero};
@@ -19,6 +19,7 @@ use crate::vocabulary::{
 };
 use hourglass::{EntityId, EventId, EventKind, LOCATED_IN, Tick, World};
 use serde::Serialize;
+use timeways_rules::chapters::{Break, Opening};
 
 /// The bridge takes at most 200 items in one list (Gnomish Relay SPEC.md 9.8).
 const PAGE_LIST_ITEMS: usize = 200;
@@ -42,6 +43,8 @@ pub struct Journal {
     /// A box keeps the page small, as for `talk_quest`.
     pub hero_refused: Option<Box<str>>,
     pub chapters: Vec<Chapter>,
+    /// One tale for each dungeon, raid, and battleground (docs/plans/chapters.md 6).
+    pub tales: Vec<Tale>,
     pub places: Vec<Place>,
     pub people: Vec<Person>,
     pub deeds: Vec<Deed>,
@@ -80,17 +83,29 @@ pub enum TalkQuestState {
     Refused { line: String },
 }
 
-/// One chapter of the chronicle, from one milestone to the next, with no model: what was
-/// new in it (GAMEPLAY.md 3.3 and 5.6).
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+/// One chapter of the chronicle, as the fold cut it (docs/plans/chapters.md 5), with no
+/// model: what was new in it.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
 pub struct Chapter {
     pub number: usize,
+    /// The event of its first step: the key of its saga and of its edits.
+    pub first: u64,
     pub began: Tick,
     /// The tick of the last event of the chapter.
     pub ended: Tick,
+    /// The title from the code: the zone where it opened, a return, or a continuation.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    pub opened_by: OpenedBy,
+    pub state: EntryState,
+    /// The level at its start and at its end, once the world knows one.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub levels: Option<[i64; 2]>,
     pub zones: Vec<String>,
     pub people: Vec<String>,
     pub deeds: Vec<Deed>,
+    /// The tally lines of repeats: "Defeated Hogger again, 6 times."
+    pub again: Vec<String>,
     /// The entries past the first 20 of each list. The other pages of the journal hold
     /// them all.
     pub left_out: usize,
@@ -98,6 +113,52 @@ pub struct Chapter {
     pub prose: Option<String>,
     /// The footnotes of the saga: small moments of the chapter (5.4.1).
     pub footnotes: Vec<String>,
+}
+
+/// Why a chapter began. The contents of the addon mark it.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OpenedBy {
+    #[default]
+    First,
+    Return,
+    NewZone,
+    Level,
+    Capital,
+    Inn,
+    Away,
+    /// The chapter before it reached the most weight.
+    Max,
+    Rule,
+}
+
+/// A closed entry never changes. An open one still grows.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EntryState {
+    Open,
+    #[default]
+    Closed,
+}
+
+/// The one tale of a dungeon, a raid, or a battleground (docs/plans/chapters.md 6).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct Tale {
+    /// The event of its first step: the key of its texts and of its edits.
+    pub first: u64,
+    /// The first event of the chapter that it follows in the book.
+    pub chapter: u64,
+    pub instance: String,
+    pub kind: PlaceKind,
+    pub began: Tick,
+    /// The closed visits: "Molten Core, 7 runs."
+    pub runs: u32,
+    /// The first kills, deaths, and quests of its visits.
+    pub deeds: Vec<Deed>,
+    pub again: Vec<String>,
+    pub left_out: usize,
+    /// The newest text of the narrator, once a model wrote one.
+    pub text: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -235,6 +296,7 @@ pub fn pages(journal: Journal) -> Vec<Page> {
     let mut items: Vec<Item> = journal.hero.sheet.into_iter().map(Item::Field).collect();
     items.extend(journal.hero.entries.into_iter().map(Item::Entry));
     items.extend(journal.chapters.into_iter().map(Item::Chapter));
+    items.extend(journal.tales.into_iter().map(Item::Tale));
     items.extend(journal.places.into_iter().map(Item::Place));
     items.extend(journal.people.into_iter().map(Item::Person));
     items.extend(journal.deeds.into_iter().map(Item::Deed));
@@ -271,6 +333,7 @@ enum Item {
     Field(Field),
     Entry(Entry),
     Chapter(Chapter),
+    Tale(Tale),
     Place(Place),
     Person(Person),
     Deed(Deed),
@@ -285,6 +348,7 @@ impl Item {
             Item::Field(field) => Size::of(field),
             Item::Entry(entry) => Size::of(entry),
             Item::Chapter(chapter) => Size::of(chapter),
+            Item::Tale(tale) => Size::of(tale),
             Item::Place(place) => Size::of(place),
             Item::Person(person) => Size::of(person),
             Item::Deed(deed) => Size::of(deed),
@@ -300,6 +364,7 @@ impl Item {
             Item::Field(_) => journal.hero.sheet.len(),
             Item::Entry(_) => journal.hero.entries.len(),
             Item::Chapter(_) => journal.chapters.len(),
+            Item::Tale(_) => journal.tales.len(),
             Item::Place(_) => journal.places.len(),
             Item::Person(_) => journal.people.len(),
             Item::Deed(_) => journal.deeds.len(),
@@ -314,6 +379,7 @@ impl Item {
             Item::Field(field) => journal.hero.sheet.push(field),
             Item::Entry(entry) => journal.hero.entries.push(entry),
             Item::Chapter(chapter) => journal.chapters.push(chapter),
+            Item::Tale(tale) => journal.tales.push(tale),
             Item::Place(place) => journal.places.push(place),
             Item::Person(person) => journal.people.push(person),
             Item::Deed(deed) => journal.deeds.push(deed),
@@ -324,40 +390,61 @@ impl Item {
     }
 }
 
-/// Each list is in the order of the history, oldest first.
+/// Each list is in the order of the history, oldest first. It folds the whole history
+/// under the first rule. The story program keeps its book and calls `journal_of`.
 #[must_use]
 pub fn journal(character: &Character) -> Journal {
+    journal_of(character, &Book::of(character))
+}
+
+/// The journal with the chapters and the tales of `book`.
+#[must_use]
+pub fn journal_of(character: &Character, book: &Book) -> Journal {
     let world = character.world();
     let you = character.you();
-    let places: Vec<Place> = first_links(world, you, VISITED)
-        .into_iter()
-        .map(|(place, first_visit)| Place {
-            name: name_of(world, place),
-            kind: places::kind_of(world, place),
-            within: world.location_of(place).map(|zone| name_of(world, zone)),
-            first_visit,
-            spot: spot_of(world, place),
+    let visits = first_links(world, you, VISITED);
+    let places: Vec<Place> = visits
+        .iter()
+        .map(|link| Place {
+            name: name_of(world, link.target),
+            kind: places::kind_of(world, link.target),
+            within: world
+                .location_of(link.target)
+                .map(|zone| name_of(world, zone)),
+            first_visit: link.tick,
+            spot: spot_of(world, link.target),
         })
         .collect();
-    let people: Vec<Person> = first_links(world, you, MET)
-        .into_iter()
-        .map(|(npc, first_met)| Person {
-            name: name_of(world, npc),
-            place: world.location_of(npc).map(|place| name_of(world, place)),
-            first_met,
-            trust: fact_value(world, npc, TRUSTS, you),
-            slapped: fact_value(world, you, SLAPPED, npc),
-            spot: spot_of(world, npc),
+    let meetings = first_links(world, you, MET);
+    let people: Vec<Person> = meetings
+        .iter()
+        .map(|link| Person {
+            name: name_of(world, link.target),
+            place: world
+                .location_of(link.target)
+                .map(|place| name_of(world, place)),
+            first_met: link.tick,
+            trust: fact_value(world, link.target, TRUSTS, you),
+            slapped: fact_value(world, you, SLAPPED, link.target),
+            spot: spot_of(world, link.target),
             trust_why: None,
         })
         .collect();
-    let deeds: Vec<Deed> = deeds_with_events(world, you)
-        .into_iter()
-        .map(|row| row.deed)
-        .collect();
-    let chapters = chapters(world, &places, &people, &deeds);
+    let deed_rows = deeds_with_events(world, you);
+    let facts = Facts {
+        people: people
+            .iter()
+            .zip(&meetings)
+            .map(|(person, link)| (person, link.event))
+            .collect(),
+        deeds: &deed_rows,
+    };
+    let chapters = chapters(world, book, &facts);
+    let tales = tales(world, book, &facts, &chapters);
+    let deeds = deed_rows.into_iter().map(|row| row.deed).collect();
     Journal {
         chapters,
+        tales,
         places,
         people,
         deeds,
@@ -365,48 +452,73 @@ pub fn journal(character: &Character) -> Journal {
     }
 }
 
-/// A chapter with nothing new has no number.
-fn chapters(world: &World, places: &[Place], people: &[Person], deeds: &[Deed]) -> Vec<Chapter> {
-    let ticks: Vec<Tick> = world.history().iter().map(|event| event.tick).collect();
-    let sessions = sessions(ticks.iter().copied());
-    let starts = chapter_starts(&sessions, &milestones(places, deeds));
+/// The facts of the journal, each with the event that made it.
+struct Facts<'a> {
+    people: Vec<(&'a Person, EventId)>,
+    deeds: &'a [DeedRow],
+}
+
+/// The event is in the range of the chapter, on either track.
+fn in_span(book: &Book, span: &ChapterSpan, event: EventId) -> bool {
+    book.step_of(event)
+        .is_some_and(|step| span.steps.contains(&step))
+}
+
+/// The event is in the range of the chapter, in the open world.
+fn in_world_of(book: &Book, span: &ChapterSpan, event: EventId) -> bool {
+    book.step_of(event)
+        .is_some_and(|step| span.steps.contains(&step) && book.is_world_step(step))
+}
+
+/// The event is a step of a visit of the tale, in its instance.
+fn in_tale(book: &Book, tale: &TaleSpan, event: EventId) -> bool {
+    book.step_of(event).is_some_and(|step| {
+        !book.is_world_step(step) && tale.visits.iter().any(|visit| visit.steps.contains(&step))
+    })
+}
+
+/// The newest event of a deed. A death holds the kill of its killer first.
+fn deed_event(row: &DeedRow) -> Option<EventId> {
+    row.events.last().copied()
+}
+
+fn chapters(world: &World, book: &Book, facts: &Facts<'_>) -> Vec<Chapter> {
     let mut chapters = Vec::new();
-    for (index, &began) in starts.iter().enumerate() {
-        let next = starts.get(index + 1).copied();
-        let within = |at: Tick| at >= began && next.is_none_or(|next| at < next);
-        let Some(ended) = ticks.iter().copied().filter(|&at| within(at)).max() else {
-            continue;
-        };
+    for span in book.chapters() {
         let mut left_out = 0;
         let zones = capped(
-            places
-                .iter()
-                .filter(|place| place.within.is_none() && within(place.first_visit))
-                .map(|place| place.name.clone()),
+            book.zones_with_gain(span.steps.clone())
+                .into_iter()
+                .map(|zone| name_of(world, zone)),
             &mut left_out,
         );
         let met = capped(
-            people
+            facts
+                .people
                 .iter()
-                .filter(|person| within(person.first_met))
-                .map(|person| person.name.clone()),
+                .filter(|(_, event)| in_span(book, &span, *event))
+                .map(|(person, _)| person.name.clone()),
             &mut left_out,
         );
-        let done = capped(
-            deeds.iter().filter(|deed| within(deed.at())).cloned(),
-            &mut left_out,
-        );
-        if zones.is_empty() && met.is_empty() && done.is_empty() {
-            continue;
-        }
-        let number = chapters.len() + 1;
+        let rows: Vec<&DeedRow> = facts
+            .deeds
+            .iter()
+            .filter(|row| deed_event(row).is_some_and(|event| in_world_of(book, &span, event)))
+            .collect();
+        let (done, again) = deeds_and_again(&rows, &mut left_out);
         chapters.push(Chapter {
-            number,
-            began,
-            ended,
+            number: chapters.len() + 1,
+            first: span.first.0,
+            began: tick_of(world, span.first),
+            ended: tick_of(world, span.last),
+            title: chapter_title(world, &span),
+            opened_by: opened_by(span.opening),
+            state: entry_state(span.state),
+            levels: levels(facts.deeds, span.first, span.last),
             zones,
             people: met,
             deeds: done,
+            again,
             left_out,
             prose: None,
             footnotes: Vec::new(),
@@ -415,31 +527,116 @@ fn chapters(world: &World, places: &[Place], people: &[Person], deeds: &[Deed]) 
     chapters
 }
 
-/// The ticks that can begin a chapter: the first visit of a zone, every tenth level, and
-/// the first kill of a rare or a boss, and a finished class quest.
-fn milestones(places: &[Place], deeds: &[Deed]) -> Vec<Tick> {
-    let zones = places
-        .iter()
-        .filter(|place| place.within.is_none())
-        .map(|place| place.first_visit);
-    let big_deeds = deeds.iter().filter(|deed| is_milestone(deed)).map(Deed::at);
-    zones.chain(big_deeds).collect()
+fn tales(world: &World, book: &Book, facts: &Facts<'_>, chapters: &[Chapter]) -> Vec<Tale> {
+    let mut tales = Vec::new();
+    for span in book.tales() {
+        let rows: Vec<&DeedRow> = facts
+            .deeds
+            .iter()
+            .filter(|row| deed_event(row).is_some_and(|event| in_tale(book, &span, event)))
+            .collect();
+        let mut left_out = 0;
+        let (deeds, again) = deeds_and_again(&rows, &mut left_out);
+        // A tale follows the chapter whose range holds its first step. That never moves.
+        let chapter = chapters
+            .iter()
+            .rev()
+            .find(|chapter| chapter.first <= span.first.0)
+            .map_or(span.first.0, |chapter| chapter.first);
+        tales.push(Tale {
+            first: span.first.0,
+            chapter,
+            instance: name_of(world, span.instance),
+            kind: places::kind_of(world, span.instance),
+            began: tick_of(world, span.first),
+            runs: span.runs,
+            deeds,
+            again,
+            left_out,
+            text: None,
+        });
+    }
+    tales
 }
 
-fn is_milestone(deed: &Deed) -> bool {
-    match deed {
-        Deed::Level { from, to, .. } => from.is_some() && is_level_milestone(*to),
-        Deed::Defeated { times, .. } => *times == 1,
-        Deed::ClassQuestDone { .. } => true,
-        Deed::Titled { .. }
-        | Deed::QuestDone { .. }
-        | Deed::GameQuestDone { .. }
-        | Deed::QuestMarked { .. }
-        | Deed::Mounted { .. }
-        | Deed::EpicItem { .. }
-        | Deed::Upgraded { .. }
-        | Deed::Died { .. } => false,
+/// The deeds, and one tally line for each foe killed again: "Defeated Hogger again, 6
+/// times." A repeat adds no weight, but it still shows.
+fn deeds_and_again(rows: &[&DeedRow], left_out: &mut usize) -> (Vec<Deed>, Vec<String>) {
+    let mut again: Vec<(String, i64)> = Vec::new();
+    let mut done = Vec::new();
+    for row in rows {
+        match &row.deed {
+            Deed::Defeated { foe, times, .. } if *times > 1 => {
+                match again.iter_mut().find(|(name, _)| name == foe) {
+                    Some(tally) => tally.1 = *times,
+                    None => again.push((foe.clone(), *times)),
+                }
+            }
+            deed => done.push(deed.clone()),
+        }
     }
+    let lines = again
+        .into_iter()
+        .map(|(foe, times)| format!("Defeated {foe} again, {times} times."));
+    (capped(done.into_iter(), left_out), capped(lines, left_out))
+}
+
+fn tick_of(world: &World, event: EventId) -> Tick {
+    world
+        .history()
+        .get(event)
+        .map_or(Tick(0), |event| event.tick)
+}
+
+/// The zone where the chapter opened, a return to it, or its continuation.
+fn chapter_title(world: &World, span: &ChapterSpan) -> Option<String> {
+    let zone = name_of(world, span.zone?);
+    Some(match span.opening {
+        Opening::Break(Break::Return) => format!("Return to {zone}"),
+        Opening::Max => format!("{zone}, continued"),
+        _ => zone,
+    })
+}
+
+fn opened_by(opening: Opening) -> OpenedBy {
+    match opening {
+        Opening::First => OpenedBy::First,
+        Opening::Break(Break::Return) => OpenedBy::Return,
+        Opening::Break(Break::NewZone) => OpenedBy::NewZone,
+        Opening::Break(Break::Level) => OpenedBy::Level,
+        Opening::Break(Break::Capital) => OpenedBy::Capital,
+        Opening::Break(Break::Inn) => OpenedBy::Inn,
+        Opening::Break(Break::Away) => OpenedBy::Away,
+        Opening::Max => OpenedBy::Max,
+        Opening::Rule => OpenedBy::Rule,
+    }
+}
+
+fn entry_state(state: SpanState) -> EntryState {
+    match state {
+        SpanState::Open => EntryState::Open,
+        SpanState::Closed => EntryState::Closed,
+    }
+}
+
+/// The level held at the first event of a range, and at its last.
+fn levels(rows: &[DeedRow], first: EventId, last: EventId) -> Option<[i64; 2]> {
+    let mut start = None;
+    let mut end = None;
+    for row in rows {
+        let (Deed::Level { to, .. }, Some(event)) = (&row.deed, deed_event(row)) else {
+            continue;
+        };
+        if event > last {
+            break;
+        }
+        if event <= first {
+            start = Some(*to);
+        }
+        end = Some(*to);
+    }
+    let end = end?;
+    Some([start.unwrap_or(end), end])
 }
 
 fn capped<T>(items: impl Iterator<Item = T>, left_out: &mut usize) -> Vec<T> {
@@ -473,9 +670,16 @@ impl Deed {
     }
 }
 
-/// The targets of one linked fact of `holder`, each with the tick that opened it. The
+/// A fact of `holder` that links to `target`, with the event that opened it.
+struct Link {
+    target: EntityId,
+    tick: Tick,
+    event: EventId,
+}
+
+/// The targets of one linked fact of `holder`, each with the event that opened it. The
 /// facts in this list never change, so the opening event is the first time.
-fn first_links(world: &World, holder: EntityId, fact: &str) -> Vec<(EntityId, Tick)> {
+fn first_links(world: &World, holder: EntityId, fact: &str) -> Vec<Link> {
     let Some(entity) = world.entity(holder) else {
         return Vec::new();
     };
@@ -486,7 +690,14 @@ fn first_links(world: &World, holder: EntityId, fact: &str) -> Vec<(EntityId, Ti
     links.sort();
     links
         .into_iter()
-        .filter_map(|(opened, target)| Some((target, world.history().get(opened)?.tick)))
+        .filter_map(|(opened, target)| {
+            let tick = world.history().get(opened)?.tick;
+            Some(Link {
+                target,
+                tick,
+                event: opened,
+            })
+        })
         .collect()
 }
 

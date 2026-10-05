@@ -1,11 +1,10 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
-use hourglass::Tick;
+use hourglass::{EventId, Tick};
 use rusqlite::{Connection, params};
 use std::fs;
 use std::path::{Path, PathBuf};
 use timeways_story::input::{Input, MessageId};
-use timeways_story::journal::Page;
 use timeways_story::narrator::Budget;
 use timeways_story::pace::Pace;
 use timeways_story::pack::Pack;
@@ -64,14 +63,14 @@ fn places(story: &mut Story) -> Vec<String> {
             page: 0,
         })
         .unwrap());
-    let Some(Output::Journal {
-        page: Page { journal, .. },
-        ..
-    }) = output
-    else {
+    let Some(Output::Journal { page, .. }) = output else {
         panic!("expected a journal, got {output:?}");
     };
-    journal.places.into_iter().map(|place| place.name).collect()
+    page.journal
+        .places
+        .into_iter()
+        .map(|place| place.name)
+        .collect()
 }
 
 fn world_file(folder: &Path, name: &str) -> PathBuf {
@@ -371,24 +370,31 @@ fn fail_each_call(story: &mut Story, batch: u64) {
 fn the_saga_survives_a_restart() {
     let folder = fresh_folder("saga-restart");
     let mut first = story(&folder, "Ada");
-    // 50 minutes of play, then a new zone: the milestone of a second chapter.
-    let zones = [
-        (3600, "Westfall", None),
-        (3600 + 25 * 60, "Westfall", Some("Moonbrook")),
-        (3600 + 50 * 60, "Westfall", Some("Sentinel Hill")),
-        (5 * 3600, "Duskwood", None),
+    // A meeting and 14 new camps on foot: the least weight of a chapter. Then a meeting in
+    // a new zone: the step with weight that begins the second chapter.
+    let entered = |at: u64, zone: &str, subzone: Option<String>| Input::ZoneEntered {
+        at: Tick(at),
+        zone: zone.to_string(),
+        subzone,
+        spot: None,
+        hour: None,
+    };
+    let met = |at: u64, name: &str| Input::NpcMet {
+        at: Tick(at),
+        name: name.to_string(),
+        spot: None,
+    };
+    let mut inputs = vec![
+        entered(3600, "Westfall", None),
+        met(3600, "Gryan Stoutmantle"),
     ];
-    for (batch, (at, zone, subzone)) in zones.into_iter().enumerate() {
-        let entered = Input::ZoneEntered {
-            at: Tick(at),
-            zone: zone.to_string(),
-            subzone: subzone.map(str::to_string),
-            spot: None,
-            hour: None,
-        };
-        first.handle(entered).unwrap();
+    inputs.extend((1..=14).map(|n| entered(3600 + n * 60, "Westfall", Some(format!("Camp {n}")))));
+    inputs.push(entered(5 * 3600, "Duskwood", None));
+    for (batch, input) in inputs.into_iter().enumerate() {
+        first.handle(input).unwrap();
         fail_each_call(&mut first, 90 + batch as u64);
     }
+    first.handle(met(5 * 3600, "Madame Eva")).unwrap();
     let outputs = first.handle(Input::BatchEnd { id: MessageId(3) }).unwrap();
     let Output::ModelCall { call, .. } = outputs[1].clone() else {
         panic!("expected a saga call, got {outputs:?}");
@@ -562,7 +568,12 @@ fn the_words_of_a_saga_come_back_after_a_restart() {
         text: "$N came.".to_string(),
         footnotes: Vec::new(),
     };
-    first.prose.add(Tick(5), written).unwrap();
+    let span = timeways_story::store::SagaSpan {
+        rule: 1,
+        first: EventId(5),
+        last: EventId(9),
+    };
+    first.prose.add(span, written).unwrap();
     let line = Line {
         rows: vec![(Table::Chapters, first.prose.take_unsaved())],
         ..Line::default()

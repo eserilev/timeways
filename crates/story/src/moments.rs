@@ -2,7 +2,6 @@
 //! (GAMEPLAY.md 3.2). The narrator speaks about the best one. Each moment holds a name or
 //! a milestone, because a line with nothing concrete to tell is slop: silence is better.
 
-use crate::chapters::LEVEL_STEP;
 use crate::character::title_of_game_quest;
 use crate::gear::title_of_item;
 use crate::journal::mark_and_quest;
@@ -13,6 +12,7 @@ use crate::vocabulary::{
     CLASS_QUEST, DEFEATED, DUNGEON, FIRST_EPIC_ITEM, FIRST_EPIC_MOUNT, FIRST_MOUNT,
     GAME_QUEST_DONE, LEVEL, MARKED_BY, RACE, RAID, SLAPPED, TITLE, UPGRADED, VISITED,
 };
+use crate::walk::LEVEL_STEP;
 use hourglass::{EntityId, Event, EventKind, World};
 
 #[derive(Clone, Debug, PartialEq, Eq)]

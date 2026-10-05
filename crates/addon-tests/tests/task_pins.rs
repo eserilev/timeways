@@ -100,7 +100,7 @@ fn reply(journal: Journal) -> String {
     let page = pages(journal).remove(0);
     serde_json::to_string(&Output::Journal {
         id: MessageId(1),
-        page,
+        page: Box::new(page),
         notice: None,
     })
     .unwrap()

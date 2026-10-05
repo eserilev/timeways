@@ -134,7 +134,7 @@ fn page(story: &mut Story) -> Page {
         .unwrap()
         .remove(0)
     {
-        Output::Journal { page, .. } => page,
+        Output::Journal { page, .. } => *page,
         other => panic!("expected a journal page, got {other:?}"),
     }
 }

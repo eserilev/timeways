@@ -59,6 +59,15 @@ fn meet(story: &mut Story, at: u64, name: &str) {
     story.handle(input).unwrap();
 }
 
+/// 14 new camps on foot after a meeting in the zone: with the meeting, the weight of a
+/// chapter (docs/plans/chapters.md 4). A camp is a subzone, so the facts of the chapter
+/// stay short.
+fn walk_camps(story: &mut Story, at: u64, zone: &str) {
+    for n in 1..=14 {
+        enter(story, at + n * 60, zone, Some(&format!("Camp {n}")));
+    }
+}
+
 /// Ends a batch, and lets each model call of it fail.
 fn close_batch(story: &mut Story, batch: u64) {
     let outputs = story
@@ -76,10 +85,9 @@ fn close_batch(story: &mut Story, batch: u64) {
 /// A finished chapter in Westfall, and a new one in Duskwood. The last failed call is an
 /// hour before the next batch, so the budget window is calm.
 fn two_calm_sessions(story: &mut Story) {
-    meet(story, HOUR, "Gryan Stoutmantle");
     enter(story, HOUR, "Westfall", None);
-    enter(story, HOUR + 25 * 60, "Westfall", Some("Camp One"));
-    enter(story, HOUR + 50 * 60, "Westfall", Some("Camp Two"));
+    meet(story, HOUR, "Gryan Stoutmantle");
+    walk_camps(story, HOUR, "Westfall");
     enter(story, 5 * HOUR, "Duskwood", None);
     close_batch(story, 91);
     meet(story, 6 * HOUR, "Salma Saldean");
@@ -169,7 +177,10 @@ fn the_judge_sees_the_facts_and_both_drafts() {
 
     let (_, prompt) = up_to_the_judge(&mut story);
 
-    assert!(prompt.contains("The facts of chapter 1:\n<<<\n- Traveled to: Westfall."));
+    assert!(
+        prompt.contains("The facts of chapter 1:\n<<<\n- Traveled to: Westfall."),
+        "{prompt}"
+    );
     assert!(
         prompt.contains(&format!("Draft 1:\n<<<\n{FIRST}\n>>>")),
         "{prompt}"

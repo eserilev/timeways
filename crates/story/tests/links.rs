@@ -569,10 +569,12 @@ fn a_narrator_line_reads_the_events_of_its_batch() {
 /// Two chapters: the first one is finished. The narrator lines of the zones get no
 /// answer.
 fn two_sessions(story: &mut Story) {
-    meet(story, HOUR, "Gryan Stoutmantle");
     enter(story, HOUR, "Westfall", None);
-    enter(story, HOUR + 25 * 60, "Westfall", Some("Camp One"));
-    enter(story, HOUR + 50 * 60, "Westfall", Some("Camp Two"));
+    meet(story, HOUR, "Gryan Stoutmantle");
+    // 14 new camps on foot: with the meeting, the least weight of a chapter.
+    for n in 1..=14 {
+        enter(story, HOUR + n * 60, "Westfall", Some(&format!("Camp {n}")));
+    }
     enter(story, 5 * HOUR, "Duskwood", None);
     let outputs = story.handle(Input::BatchEnd { id: MessageId(91) }).unwrap();
     for output in outputs {
@@ -605,9 +607,10 @@ fn a_saga_reads_its_chapter_and_rests_on_its_call() {
         &folder,
         "SELECT position FROM events WHERE body LIKE '%Gryan Stoutmantle%'",
     );
+    // The meeting with Salma is the step with weight that began the next chapter.
     let salma = positions(
         &folder,
-        "SELECT position FROM events WHERE body LIKE '%Salma Saldean%'",
+        "SELECT position FROM events WHERE body LIKE '%\"met\"%' ORDER BY position DESC LIMIT 1",
     );
     assert!(read.contains(&Node::Row(Table::Events, gryan[0])));
     assert!(!read.contains(&Node::Row(Table::Events, salma[0])));

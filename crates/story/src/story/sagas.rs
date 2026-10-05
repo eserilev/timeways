@@ -7,10 +7,10 @@ use crate::check;
 use crate::chronicle::{self, Draft, Pick, Saga};
 use crate::flavor::{self, Teller, Told};
 use crate::hero::{self, Entry};
-use crate::journal::journal;
+use crate::journal::{Chapter, EntryState};
 use crate::memory;
-use crate::store::{CharacterKey, Node, Outcome, Written};
-use hourglass::Tick;
+use crate::store::{CharacterKey, Node, Outcome, SagaSpan, Written};
+use hourglass::{EventId, Tick};
 
 impl Story {
     /// The next call of the saga that is written now, or the first draft of the next
@@ -34,16 +34,17 @@ impl Story {
             return None;
         }
         let active = self.active.as_ref()?;
-        let journal = journal(&active.character);
-        let chapters = journal.chapters;
+        let journal = active.journal();
+        let chapters = &journal.chapters;
         let index = self.chapter_waiting_for_saga(active)?;
-        let (chapter, next) = (&chapters[index], &chapters[index + 1]);
+        let chapter = &chapters[index];
+        let next = next_began(chapters, index);
         let earlier = &chapters[index.saturating_sub(memory::MEMORY_CHAPTERS)..index];
         let top = flavor::top_moments(
             active.flavor.moments(),
             active.flavor.told(),
             &active.character,
-            (chapter.began, Tick(next.began.0 - 1)),
+            (chapter.began, Tick(next.0.saturating_sub(1))),
             CHAPTER_MOMENTS,
         );
         let words: Vec<String> = top
@@ -51,12 +52,13 @@ impl Story {
             .map(|moment| flavor::describe(&moment.flavor, moment.count))
             .collect();
         let kinds = top.iter().map(|moment| moment.flavor.kind.key()).collect();
+        let first = EventId(chapter.first);
         let pending = Pending::Chronicle {
             key: active.key.clone(),
-            began: chapter.began,
+            first,
         };
         let hero = hero::hero(active.hero.changes());
-        let in_chapter = |entry: &Entry| entry.at >= chapter.began && entry.at < next.began;
+        let in_chapter = |entry: &Entry| entry.at >= chapter.began && entry.at < next;
         let written = hero::newest_texts(&hero.entries, in_chapter);
         // The entries of the chapter and of the portrait share one limit, so a full story
         // fits the budget of a chapter.
@@ -65,7 +67,7 @@ impl Story {
         // The sheet is news only once, or when the player changed it, so chapters do not
         // all open with the same portrait.
         let sheet_is_news =
-            index == 0 || hero::sheet_changed(active.hero.changes(), chapter.began, next.began);
+            index == 0 || hero::sheet_changed(active.hero.changes(), chapter.began, next);
         let portrait = sheet_is_news
             .then(|| hero::portrait(&hero, &others))
             .flatten();
@@ -80,30 +82,38 @@ impl Story {
                 draft,
             )
         };
-        let (first, second) = (draft(Draft::First), draft(Draft::Second));
+        let (first_prompt, second) = (draft(Draft::First), draft(Draft::Second));
         let facts = chronicle::facts(&journal.places, chapter);
         let round = Round::new(
             active.key.clone(),
-            chapter.began,
+            first,
             kinds,
             chapter.number,
             facts,
             second,
         );
-        let read = reads::chapter_read(active, chapter.began, next.began);
-        self.chronicle_asked.insert(chapter.began);
+        let range = reads::Range {
+            first,
+            last: span_last(active, first)?,
+            began: chapter.began,
+            next,
+        };
+        let read = reads::chapter_read(active, &range);
+        self.chronicle_asked.insert(first);
         self.saga_round = Some(round);
         self.round_read.clone_from(&read);
         self.round_calls.clear();
-        self.open_call(pending, first, read)
+        self.open_call(pending, first_prompt, read)
     }
 
-    /// The oldest finished chapter with no saga that was not asked for one in this run.
+    /// The oldest closed chapter with no saga that was not asked for one in this run.
     pub(super) fn chapter_waiting_for_saga(&self, active: &Active) -> Option<usize> {
-        let chapters = journal(&active.character).chapters;
-        (1..chapters.len()).map(|next| next - 1).find(|&index| {
-            let began = chapters[index].began;
-            active.prose.get(began).is_none() && !self.chronicle_asked.contains(&began)
+        let chapters = active.journal().chapters;
+        chapters.iter().position(|chapter| {
+            let first = EventId(chapter.first);
+            chapter.state == EntryState::Closed
+                && active.prose.get(first).is_none()
+                && !self.chronicle_asked.contains(&first)
         })
     }
 
@@ -112,13 +122,13 @@ impl Story {
     pub(super) fn saga_answered(
         &mut self,
         key: &CharacterKey,
-        began: Tick,
+        first: EventId,
         text: Option<&str>,
     ) -> Result<(Vec<Output>, Outcome), StoryError> {
         let Some(round) = self
             .saga_round
             .as_ref()
-            .filter(|round| &round.key == key && round.began == began)
+            .filter(|round| &round.key == key && round.first == first)
         else {
             return Ok((Vec::new(), Outcome::Refused));
         };
@@ -147,7 +157,7 @@ impl Story {
         let saga = chronicle::checked_saga(text, round.kinds.len(), round.facts(), &player_text)?;
         let earlier: Vec<&str> = active
             .prose
-            .before(round.began)
+            .before(round.first)
             .map(|written| written.text.as_str())
             .collect();
         (!check::copies_a_sample(&saga.text, &earlier)).then_some(saga)
@@ -168,7 +178,7 @@ impl Story {
             Next::Call(prompt) => {
                 let pending = Pending::Chronicle {
                     key: round.key.clone(),
-                    began: round.began,
+                    first: round.first,
                 };
                 let earlier = self.round_calls.iter().map(|call| Node::Call(*call));
                 let read = self.round_read.iter().copied().chain(earlier).collect();
@@ -185,7 +195,7 @@ impl Story {
         let Some(round) = self.saga_round.take() else {
             return Ok(());
         };
-        self.summary_is_due(round.key.clone(), round.began);
+        self.summary_is_due(round.key.clone(), round.first);
         let Some(saga) = saga else {
             return Ok(());
         };
@@ -210,8 +220,11 @@ impl Story {
             .into_iter()
             .map(|(_, footnote)| footnote)
             .collect();
+        let Some(span) = saga_span(active, round.first) else {
+            return Ok(());
+        };
         active.prose.add(
-            round.began,
+            span,
             Written {
                 text: saga.text,
                 footnotes,
@@ -219,4 +232,33 @@ impl Story {
         )?;
         Ok(())
     }
+}
+
+/// The tick where the chapter after this one began. The chapter after a close at the most
+/// weight can still have no step, so the tick after the last event stands in for it.
+fn next_began(chapters: &[Chapter], index: usize) -> Tick {
+    chapters.get(index + 1).map_or_else(
+        || Tick(chapters[index].ended.0.saturating_add(1)),
+        |next| next.began,
+    )
+}
+
+/// The last event of the chapter whose first event is `first`.
+fn span_last(active: &Active, first: EventId) -> Option<EventId> {
+    saga_span(active, first).map(|span| span.last)
+}
+
+/// The rule and the range of the chapter whose first event is `first`, as its saga row
+/// keeps them.
+fn saga_span(active: &Active, first: EventId) -> Option<SagaSpan> {
+    let span = active
+        .book
+        .chapters()
+        .into_iter()
+        .find(|span| span.first == first)?;
+    Some(SagaSpan {
+        rule: span.rule,
+        first: span.first,
+        last: span.last,
+    })
 }

@@ -1,15 +1,17 @@
 //! The character of the last `character_entered`: its world, its logs, and what one line
 //! from the bridge adds to its database (docs/plans/links.md).
 
+use crate::chapters::Book;
 use crate::character::Character;
 use crate::input::Input;
-use crate::journal::TalkQuest;
+use crate::journal::{Journal, TalkQuest, journal_of};
 use crate::seen::SeenIndex;
 use crate::store::{
     AliasLog, CallEnd, CharacterKey, Database, FlavorLog, HeroLog, LearnedLog, Line, NewCall,
-    NewInput, NewRow, Next, Node, Origin, Outcome, Prose, QuestLog, Root, StoreError, StoryLog,
-    SummaryLog, Table,
+    NewInput, NewRow, Next, Node, Origin, Outcome, Prose, QuestLog, Root, RowLog, StoreError,
+    StoryLog, SummaryLog, Table,
 };
+use crate::walk::RuleRow;
 
 /// A line from the bridge as the database keeps it, after the clock check.
 pub(super) struct Kept {
@@ -63,6 +65,10 @@ pub(super) struct Active {
     pub(super) stories: StoryLog,
     pub(super) aliases: AliasLog,
     pub(super) summaries: SummaryLog,
+    /// The rule epochs of the chapters (docs/plans/chapters.md 13).
+    pub(super) rules: RowLog<RuleRow>,
+    /// The chapters and the tales, folded one event at a time.
+    pub(super) book: Book,
     pub(super) seen_index: SeenIndex,
     /// Why the last edit of the hero did not stand, until a journal page shows it.
     pub(super) hero_refused: Option<String>,
@@ -128,7 +134,18 @@ impl Active {
             (Table::Stories, self.stories.take_unsaved()),
             (Table::Aliases, self.aliases.take_unsaved()),
             (Table::Summaries, self.summaries.take_unsaved()),
+            (Table::ChapterRules, self.rules.take_unsaved()),
         ])
+    }
+
+    /// Folds the events that came since the last call into the book.
+    pub(super) fn catch_up(&mut self) {
+        self.book.catch_up(self.character.world().history());
+    }
+
+    /// The journal with the chapters and the tales of the book.
+    pub(super) fn journal(&self) -> Journal {
+        journal_of(&self.character, &self.book)
     }
 
     /// The call gets its row now, with what it read, so a row that changes while the model

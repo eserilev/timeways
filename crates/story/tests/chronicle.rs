@@ -37,6 +37,7 @@ fn chapter() -> Chapter {
         left_out: 0,
         prose: None,
         footnotes: Vec::new(),
+        ..Chapter::default()
     }
 }
 

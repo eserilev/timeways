@@ -449,7 +449,7 @@ fn journal_page(story: &mut Story, page: usize) -> timeways_story::journal::Page
         })
         .unwrap())
     {
-        Some(Output::Journal { page, .. }) => page,
+        Some(Output::Journal { page, .. }) => *page,
         other => panic!("expected a journal, got {other:?}"),
     }
 }
@@ -940,26 +940,29 @@ fn each_batch_starts_with_no_moments() {
 
 const HOUR: u64 = 3600;
 
-/// 50 minutes of play in one zone from `from`, so that a milestone after it starts a new
-/// chapter (GAMEPLAY.md 3.3). The batch stays open, so no saga is asked here.
-fn play_fifty_minutes(story: &mut Story, from: u64, zone: &str) {
+/// A meeting in one zone from `from`, then 14 new camps on foot: the least weight of a
+/// chapter (docs/plans/chapters.md 4). A camp is a subzone, so the facts stay short. The
+/// batch stays open, so no saga is asked here.
+fn play_a_chapter(story: &mut Story, from: u64, zone: &str, npc: &str) {
     enter(story, from, zone, None);
-    enter(story, from + 25 * 60, zone, Some("Camp One"));
-    enter(story, from + 50 * 60, zone, Some("Camp Two"));
+    meet(story, from, npc);
+    for n in 1..=14 {
+        enter(story, from + n * 60, zone, Some(&format!("Camp {n}")));
+    }
 }
 
-/// The first visit of a zone: the milestone that starts the next chapter. The narrator
-/// line of the zone gets no answer, and it keeps the saga from this batch.
+/// A new zone and a meeting there: the step with weight that starts the next chapter. The
+/// narrator line gets no answer, and it keeps the saga from this batch.
 fn new_chapter(story: &mut Story, at: u64, zone: &str, batch: u64) {
     enter(story, at, zone, None);
+    meet(story, at, &format!("A guard of {zone}"));
     let _ = close_narrator(story, batch);
 }
 
 /// Two chapters: the first one is finished. The narrator lines of the zones get no
 /// answer, so no call keeps the saga waiting.
 fn two_sessions(story: &mut Story) {
-    meet(story, HOUR, "Gryan Stoutmantle");
-    play_fifty_minutes(story, HOUR, "Westfall");
+    play_a_chapter(story, HOUR, "Westfall", "Gryan Stoutmantle");
     new_chapter(story, 5 * HOUR, "Duskwood", 91);
     meet(story, 5 * HOUR, "Salma Saldean");
 }
@@ -1054,10 +1057,8 @@ fn a_saga_is_asked_once_for_each_chapter() {
 #[test]
 fn a_saga_recalls_the_last_chapters_before_it() {
     let mut story = story_with("saga-memory", &[]);
-    meet(&mut story, HOUR, "Gryan Stoutmantle");
-    play_fifty_minutes(&mut story, HOUR, "Westfall");
-    enter(&mut story, 5 * HOUR, "Duskwood", None);
-    play_fifty_minutes(&mut story, 5 * HOUR, "Duskwood");
+    play_a_chapter(&mut story, HOUR, "Westfall", "Gryan Stoutmantle");
+    play_a_chapter(&mut story, 5 * HOUR, "Duskwood", "Madame Eva");
     enter(&mut story, 9 * HOUR, "Redridge Mountains", None);
     meet(&mut story, 9 * HOUR, "Marshal Dughan");
     let _ = close_narrator(&mut story, 90);
@@ -1078,11 +1079,10 @@ fn a_saga_recalls_the_last_chapters_before_it() {
 
 /// Three chapters, the last one still open. The narrator lines get no answer.
 fn three_chapters(story: &mut Story) {
-    meet(story, HOUR, "Gryan Stoutmantle");
-    play_fifty_minutes(story, HOUR, "Westfall");
-    enter(story, 5 * HOUR, "Duskwood", None);
-    play_fifty_minutes(story, 5 * HOUR, "Duskwood");
+    play_a_chapter(story, HOUR, "Westfall", "Gryan Stoutmantle");
+    play_a_chapter(story, 5 * HOUR, "Duskwood", "Madame Eva");
     enter(story, 9 * HOUR, "Redridge Mountains", None);
+    meet(story, 9 * HOUR, "Marshal Dughan");
     let _ = close_narrator(story, 90);
 }
 
@@ -1133,12 +1133,12 @@ fn the_hero_sheet_goes_only_into_the_first_chapter() {
 #[test]
 fn a_changed_hero_sheet_goes_into_the_chapter_where_it_changed() {
     let mut story = story_with("sheet-changed", &[]);
-    meet(&mut story, HOUR, "Gryan Stoutmantle");
-    play_fifty_minutes(&mut story, HOUR, "Westfall");
+    play_a_chapter(&mut story, HOUR, "Westfall", "Gryan Stoutmantle");
     enter(&mut story, 5 * HOUR, "Duskwood", None);
     set_field(&mut story, "origin", "Born in a Brill cellar.").unwrap();
-    play_fifty_minutes(&mut story, 5 * HOUR, "Duskwood");
+    play_a_chapter(&mut story, 5 * HOUR, "Duskwood", "Marshal McBride");
     enter(&mut story, 9 * HOUR, "Redridge Mountains", None);
+    meet(&mut story, 9 * HOUR, "Marshal Dughan");
     let _ = close_narrator(&mut story, 90);
     let _ = close_narrator(&mut story, 91);
 
@@ -1205,9 +1205,9 @@ fn a_saga_for_another_character_is_dropped() {
 fn the_saga_waits_while_another_model_call_is_open() {
     let mut story = story_with("saga-waits-for-calls", &[tower()]);
     enter(&mut story, 1, "Testvale", None);
-    meet(&mut story, HOUR, "Gryan Stoutmantle");
-    play_fifty_minutes(&mut story, HOUR, "Westfall");
+    play_a_chapter(&mut story, HOUR, "Westfall", "Gryan Stoutmantle");
     enter(&mut story, 5 * HOUR, "Duskwood", None);
+    meet(&mut story, 5 * HOUR, "Madame Eva");
     let (narrator, _) =
         model_call(one(story.handle(Input::BatchEnd { id: MessageId(2) }).unwrap()).unwrap());
     let (question, _) = model_call(ask(&mut story, "why is this tower in ruins?", None));
@@ -1751,7 +1751,7 @@ fn the_saga_gets_the_small_moments_of_its_chapter_and_its_footnotes_are_kept_and
     let _ = close_narrator(&mut story, 1);
     dance_at(&mut story, HOUR + 60, 3);
     let _ = close_narrator(&mut story, 2);
-    play_fifty_minutes(&mut story, HOUR + 120, "Elwynn Forest");
+    play_a_chapter(&mut story, HOUR + 120, "Elwynn Forest", "Marshal McBride");
     new_chapter(&mut story, 5 * HOUR, "Westfall", 91);
     meet(&mut story, 5 * HOUR, "Salma Saldean");
 
@@ -1789,7 +1789,7 @@ fn a_footnote_of_the_chronicle_does_not_hold_back_the_next_flavor_line() {
     let _ = close_narrator(&mut story, 1);
     dance_at(&mut story, HOUR + 60, 12);
     let _ = close_narrator(&mut story, 2);
-    play_fifty_minutes(&mut story, HOUR + 120, "Elwynn Forest");
+    play_a_chapter(&mut story, HOUR + 120, "Elwynn Forest", "Marshal McBride");
     new_chapter(&mut story, 4 * HOUR, "Westfall", 91);
     // Back in Goldshire, a famous place, so the fall scores as high as the dance did.
     enter(&mut story, 5 * HOUR, "Elwynn Forest", Some("Goldshire"));
@@ -2031,7 +2031,7 @@ fn the_saga_reads_what_the_player_wrote_in_its_chapter() {
         "I swore an oath at the Sentinel Hill.",
         None,
     );
-    play_fifty_minutes(&mut story, HOUR + 60, "Westfall");
+    play_a_chapter(&mut story, HOUR + 60, "Westfall", "Marshal McBride");
     new_chapter(&mut story, 5 * HOUR, "Duskwood", 91);
     meet(&mut story, 5 * HOUR, "Salma Saldean");
 
@@ -2306,7 +2306,7 @@ fn a_small_moment_at_the_start_of_the_next_chapter_stays_out_of_the_saga_before_
     let mut story = story_with("saga-moment-edge", &[]);
     meet(&mut story, HOUR, "Gryan Stoutmantle");
     let _ = close_narrator(&mut story, 1);
-    play_fifty_minutes(&mut story, HOUR, "Westfall");
+    play_a_chapter(&mut story, HOUR, "Westfall", "Marshal McBride");
     new_chapter(&mut story, 5 * HOUR, "Duskwood", 91);
     meet(&mut story, 5 * HOUR, "Salma Saldean");
 
@@ -2321,7 +2321,7 @@ fn the_saga_reads_the_entries_from_the_start_of_its_chapter_to_the_start_of_the_
     let mut story = story_with("saga-entry-edge", &[]);
     meet(&mut story, HOUR, "Gryan Stoutmantle");
     add_entry(&mut story, HOUR, "At the start of chapter one.", None);
-    play_fifty_minutes(&mut story, HOUR, "Westfall");
+    play_a_chapter(&mut story, HOUR, "Westfall", "Marshal McBride");
     new_chapter(&mut story, 5 * HOUR, "Duskwood", 91);
     meet(&mut story, 5 * HOUR, "Salma Saldean");
     add_entry(&mut story, 5 * HOUR, "At the start of chapter two.", None);
@@ -2340,7 +2340,7 @@ fn a_saga_shows_at_most_five_entries_the_ones_of_its_chapter_first() {
     for n in 1..=4 {
         add_entry(&mut story, HOUR + n, &format!("In chapter one {n}."), None);
     }
-    play_fifty_minutes(&mut story, HOUR + 60, "Westfall");
+    play_a_chapter(&mut story, HOUR + 60, "Westfall", "Marshal McBride");
     new_chapter(&mut story, 5 * HOUR, "Duskwood", 91);
     meet(&mut story, 5 * HOUR, "Salma Saldean");
     for n in 1..=3 {

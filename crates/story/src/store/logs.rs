@@ -10,7 +10,7 @@ use crate::hero::Change;
 use crate::learned::{Read, Rumor};
 use crate::quest::QuestChange;
 use crate::stories::StoryChange;
-use hourglass::Tick;
+use hourglass::EventId;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use timeways_rules::aliases::{self as rules, Alias, PlayerId};
@@ -46,14 +46,24 @@ impl Unsaved {
     }
 }
 
-/// The saga of one chapter, as one row of the chronicle. A row from before footnotes has
-/// none.
+/// The saga of one chapter, as one row of the chronicle: the rule that cut the chapter, and
+/// its first and last events.
 #[derive(Serialize, Deserialize)]
 pub(super) struct ChapterProse {
-    pub(super) began: Tick,
+    pub(super) rule: u8,
+    pub(super) first: EventId,
+    pub(super) last: EventId,
     pub(super) text: String,
     #[serde(default)]
     pub(super) footnotes: Vec<String>,
+}
+
+/// The chapter of a saga: the rule that cut it, and its first and last events.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SagaSpan {
+    pub rule: u8,
+    pub first: EventId,
+    pub last: EventId,
 }
 
 /// The saga of one chapter and its footnotes, as the player reads them.
@@ -63,13 +73,13 @@ pub struct Written {
     pub footnotes: Vec<String>,
 }
 
-/// The saga of each chapter, by the tick that began the chapter. The world holds facts
+/// The saga of each chapter, by the first event of the chapter. The world holds facts
 /// only, so the words live in a table of their own.
 #[derive(Debug, Default)]
 pub struct Prose {
-    chapters: BTreeMap<Tick, Written>,
+    chapters: BTreeMap<EventId, Written>,
     /// The row of the saga of each chapter, for the reads of a call.
-    rows: BTreeMap<Tick, u64>,
+    rows: BTreeMap<EventId, u64>,
     unsaved: Unsaved,
 }
 
@@ -78,7 +88,7 @@ impl Prose {
         let unsaved = Unsaved::after(rows.len());
         let positions = (0..)
             .zip(&rows)
-            .map(|(row, prose)| (prose.began, row))
+            .map(|(row, prose)| (prose.first, row))
             .collect();
         let chapters = rows
             .into_iter()
@@ -87,7 +97,7 @@ impl Prose {
                     text: row.text,
                     footnotes: row.footnotes,
                 };
-                (row.began, written)
+                (row.first, written)
             })
             .collect();
         Prose {
@@ -97,20 +107,20 @@ impl Prose {
         }
     }
 
-    /// The row that holds the saga of the chapter that began at `began`.
+    /// The row that holds the saga of the chapter whose first event is `first`.
     #[must_use]
-    pub fn row_of(&self, began: Tick) -> Option<u64> {
-        self.rows.get(&began).copied()
+    pub fn row_of(&self, first: EventId) -> Option<u64> {
+        self.rows.get(&first).copied()
     }
 
     #[must_use]
-    pub fn get(&self, began: Tick) -> Option<&Written> {
-        self.chapters.get(&began)
+    pub fn get(&self, first: EventId) -> Option<&Written> {
+        self.chapters.get(&first)
     }
 
-    /// The sagas of the chapters that began before `began`.
-    pub fn before(&self, began: Tick) -> impl Iterator<Item = &Written> {
-        self.chapters.range(..began).map(|(_, written)| written)
+    /// The sagas of the chapters before the one whose first event is `first`.
+    pub fn before(&self, first: EventId) -> impl Iterator<Item = &Written> {
+        self.chapters.range(..first).map(|(_, written)| written)
     }
 
     /// The chapters that have a saga.
@@ -127,15 +137,17 @@ impl Prose {
     /// # Errors
     ///
     /// Returns `Json` for a saga that does not serialize, and then keeps nothing.
-    pub fn add(&mut self, began: Tick, written: Written) -> Result<(), StoreError> {
+    pub fn add(&mut self, span: SagaSpan, written: Written) -> Result<(), StoreError> {
         let row = ChapterProse {
-            began,
+            rule: span.rule,
+            first: span.first,
+            last: span.last,
             text: written.text.clone(),
             footnotes: written.footnotes.clone(),
         };
         let position = self.unsaved.push(&row)?;
-        self.chapters.insert(began, written);
-        self.rows.insert(began, position);
+        self.chapters.insert(span.first, written);
+        self.rows.insert(span.first, position);
         Ok(())
     }
 
@@ -372,10 +384,10 @@ impl QuestLog {
     }
 }
 
-/// One summary of the character: written after the chapter that began at `after`.
+/// One summary of the character: written after the chapter whose first event is `after`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Summary {
-    pub after: Tick,
+    pub after: EventId,
     pub text: String,
 }
 
@@ -533,4 +545,53 @@ impl AliasLog {
 pub(super) fn is_new_name(row: &AliasRow, seen: &mut std::collections::BTreeSet<String>) -> bool {
     aliases::player_name(&row.name) == Some(row.name.as_str())
         && seen.insert(aliases::key_of(&row.name))
+}
+
+/// The rows of a table that only grows, oldest first. The row of an item is its place in
+/// the list.
+#[derive(Debug)]
+pub struct RowLog<T> {
+    rows: Vec<T>,
+    unsaved: Unsaved,
+}
+
+impl<T> Default for RowLog<T> {
+    fn default() -> Self {
+        RowLog {
+            rows: Vec::new(),
+            unsaved: Unsaved::default(),
+        }
+    }
+}
+
+impl<T: Serialize> RowLog<T> {
+    pub(super) fn from_rows(rows: Vec<T>) -> RowLog<T> {
+        let unsaved = Unsaved::after(rows.len());
+        RowLog { rows, unsaved }
+    }
+
+    #[must_use]
+    pub fn rows(&self) -> &[T] {
+        &self.rows
+    }
+
+    /// The rows with their places.
+    pub fn with_rows(&self) -> impl Iterator<Item = (u64, &T)> {
+        (0..).zip(&self.rows)
+    }
+
+    /// The row of the new item.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Json` for an item that does not serialize, and then keeps nothing.
+    pub fn add(&mut self, item: T) -> Result<u64, StoreError> {
+        let row = self.unsaved.push(&item)?;
+        self.rows.push(item);
+        Ok(row)
+    }
+
+    pub fn take_unsaved(&mut self) -> Vec<NewRow> {
+        self.unsaved.take()
+    }
 }

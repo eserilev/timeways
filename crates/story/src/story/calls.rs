@@ -13,6 +13,7 @@ use crate::prompt::Attempt;
 use crate::store::{CharacterKey, Node, Outcome, StoreError};
 use crate::talk::Work;
 use crate::{check, talk};
+use hourglass::EventId;
 use hourglass::Tick;
 use std::collections::VecDeque;
 
@@ -24,19 +25,19 @@ pub(super) enum Pending {
     },
     /// A narrator line for the batch (`NarratorCall`).
     Narrator(NarratorCall),
-    /// A draft of the saga of the chapter that began at `began`, or the pick of the judge,
-    /// for this character only. The round of the chapter knows which.
+    /// A draft of the saga of the chapter whose first event is `first`, or the pick of the
+    /// judge, for this character only. The round of the chapter knows which.
     Chronicle {
         key: CharacterKey,
-        began: Tick,
+        first: EventId,
     },
     /// A side quest for this character only (`QuestCall`).
     Quest(QuestCall),
-    /// Who the character has become, after the chapter that began at `after`, for this
-    /// character only. `told` holds the facts of the prompt, for the check of slop.
+    /// Who the character has become, after the chapter whose first event is `after`, for
+    /// this character only. `told` holds the facts of the prompt, for the check of slop.
     Summary {
         key: CharacterKey,
-        after: Tick,
+        after: EventId,
         told: String,
     },
     /// A draft of a player task, for this character only.
@@ -138,7 +139,7 @@ impl Story {
                 (self.follow(question, next).into_iter().collect(), outcome)
             }
             Pending::Narrator(narration) => self.narrator_answered(row, narration, &prompt, text),
-            Pending::Chronicle { key, began } => self.saga_answered(&key, began, Some(text))?,
+            Pending::Chronicle { key, first } => self.saga_answered(&key, first, Some(text))?,
             Pending::Summary { key, after, told } => {
                 self.summary_answered(&key, after, &told, Some(text))?
             }
@@ -271,7 +272,7 @@ impl Story {
                 notice: None,
             }],
             Pending::Narrator(narration) => vec![quests::quiet(narration.batch)],
-            Pending::Chronicle { key, began } => self.saga_answered(&key, began, None)?.0,
+            Pending::Chronicle { key, first } => self.saga_answered(&key, first, None)?.0,
             Pending::Summary { key, after, told } => {
                 self.summary_answered(&key, after, &told, None)?.0
             }

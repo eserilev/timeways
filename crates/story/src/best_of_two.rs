@@ -3,13 +3,14 @@
 
 use crate::chronicle::{self, Pick, Saga};
 use crate::store::CharacterKey;
-use hourglass::Tick;
+use hourglass::EventId;
 
-/// The chapter that began at `began`, for this character only, and its drafts so far.
+/// The chapter whose first event is `first`, for this character only, and its drafts so
+/// far.
 #[derive(Debug)]
 pub struct Round {
     pub key: CharacterKey,
-    pub began: Tick,
+    pub first: EventId,
     /// The kinds of the small moments of the prompt, in their order.
     pub kinds: Vec<String>,
     number: usize,
@@ -33,7 +34,7 @@ impl Round {
     #[must_use]
     pub fn new(
         key: CharacterKey,
-        began: Tick,
+        first: EventId,
         kinds: Vec<String>,
         number: usize,
         facts: String,
@@ -41,7 +42,7 @@ impl Round {
     ) -> Round {
         Round {
             key,
-            began,
+            first,
             kinds,
             number,
             facts,

@@ -406,13 +406,19 @@ fn a_seen_text_full_of_the_mark_of_the_name_still_gets_an_answer() {
 fn start_saga(bridge: &mut FakeBridge) {
     let zone = |at: u64, zone: &str, subzone: Option<&str>| json!({"type": "zone_entered", "at": at, "zone": zone, "subzone": subzone});
     let met = |at: u64, name: &str| json!({"type": "npc_met", "at": at, "name": name});
-    let first_session = [
+    // A meeting and 14 new camps on foot: the least weight of a chapter.
+    let mut first_session = vec![
         zone(START, "Testvale", None),
         met(START + 60, "Keeper Tessa"),
-        zone(START + 25 * 60, "Testvale", Some("Camp One")),
-        zone(START + 50 * 60, "Testvale", Some("Camp Two")),
-        zone(START + 5 * 3600, "Duskwood", None),
     ];
+    for n in 1..=14 {
+        first_session.push(zone(
+            START + 60 + n * 60,
+            "Testvale",
+            Some(&format!("Camp {n}")),
+        ));
+    }
+    first_session.push(zone(START + 5 * 3600, "Duskwood", None));
     for line in &first_session {
         batch(bridge, line);
     }

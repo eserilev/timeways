@@ -124,21 +124,29 @@ fn until_summary(story: &mut Story, first_batch: u64, summary: Option<&str>) -> 
         .find_map(|batch| end_batch(story, batch, summary).into_iter().next())
 }
 
+/// 14 new camps on foot after a meeting in the zone: with the meeting, the least weight of
+/// a chapter (docs/plans/chapters.md 4). A camp is a subzone, so the facts stay short.
+fn walk_camps(story: &mut Story, at: u64, zone: &str) {
+    for n in 1..=14 {
+        enter(story, at + n * 60, zone, Some(&format!("Camp {n}")));
+    }
+}
+
 /// A finished chapter in Westfall, and a new one in Duskwood, in a calm window.
 fn one_finished_chapter(story: &mut Story) {
-    meet(story, HOUR, "Gryan Stoutmantle");
     enter(story, HOUR, "Westfall", None);
-    enter(story, HOUR + 25 * 60, "Westfall", Some("Camp One"));
-    enter(story, HOUR + 50 * 60, "Westfall", Some("Camp Two"));
+    meet(story, HOUR, "Gryan Stoutmantle");
+    walk_camps(story, HOUR, "Westfall");
     enter(story, 5 * HOUR, "Duskwood", None);
+    meet(story, 5 * HOUR, "Madame Eva");
 }
 
 /// Play in Duskwood long enough to fill a chapter, and a new zone hours later, so the
 /// chapter in Duskwood is finished too.
 fn second_finished_chapter(story: &mut Story) {
-    enter(story, 5 * HOUR + 25 * 60, "Duskwood", Some("Darkshire"));
-    enter(story, 5 * HOUR + 50 * 60, "Duskwood", Some("Raven Hill"));
+    walk_camps(story, 5 * HOUR, "Duskwood");
     enter(story, 9 * HOUR, "Redridge Mountains", None);
+    meet(story, 9 * HOUR, "Marshal Dughan");
 }
 
 /// The summary that the journal carries.

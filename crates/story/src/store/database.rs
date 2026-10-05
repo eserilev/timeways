@@ -11,7 +11,7 @@ use timeways_rules::prompts::oldest_prompt_kept;
 
 /// A file of another version is refused, never changed. Nothing is live, so a new version
 /// starts with new worlds.
-const VERSION: i64 = 7;
+const VERSION: i64 = 8;
 
 /// WAL syncs the disk once for each line, and a reader such as `sqlite3` never blocks a
 /// save.
@@ -68,10 +68,20 @@ pub enum Table {
     /// Who the character has become, for the title page of the Chronicle. The newest row
     /// stands.
     Summaries,
+    /// The rule epochs of the chapters (docs/plans/chapters.md 13): from which event each
+    /// rule cuts.
+    ChapterRules,
+    /// The texts of the tales, each with the visit that it covers.
+    Tales,
+    /// "Your history here": one text for a zone, rewritten after a chapter.
+    ZoneHistories,
+    /// The player's edits of a chapter, a tale, or the summary. The newest row of an entry
+    /// stands.
+    EntryEdits,
 }
 
 impl Table {
-    pub const ALL: [Table; 9] = [
+    pub const ALL: [Table; 13] = [
         Table::Events,
         Table::Chapters,
         Table::Flavor,
@@ -81,6 +91,10 @@ impl Table {
         Table::Stories,
         Table::Aliases,
         Table::Summaries,
+        Table::ChapterRules,
+        Table::Tales,
+        Table::ZoneHistories,
+        Table::EntryEdits,
     ];
 
     #[must_use]
@@ -95,6 +109,10 @@ impl Table {
             Table::Stories => "stories",
             Table::Aliases => "aliases",
             Table::Summaries => "summaries",
+            Table::ChapterRules => "chapter_rules",
+            Table::Tales => "tales",
+            Table::ZoneHistories => "zone_histories",
+            Table::EntryEdits => "entry_edits",
         }
     }
 

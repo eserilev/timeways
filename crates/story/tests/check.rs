@@ -410,6 +410,7 @@ fn chapter_of_every_deed() -> Chapter {
         left_out: 0,
         prose: None,
         footnotes: Vec::new(),
+        ..Chapter::default()
     }
 }
 
