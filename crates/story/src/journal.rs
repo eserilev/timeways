@@ -48,6 +48,30 @@ pub struct Journal {
     pub quests: Vec<QuestView>,
     /// The stories that players told about you, and that you accepted (4.8).
     pub stories: Vec<PlayerStory>,
+    /// The quest that the newest talk with work asked for (3.5). The talk window shows it.
+    /// A box keeps the page small, and every answer holds a page.
+    pub talk_quest: Option<Box<TalkQuest>>,
+}
+
+/// The quest that a talk asked for, as the talk window shows it (GAMEPLAY.md 3.5).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct TalkQuest {
+    pub npc: String,
+    /// The time of the talk. The window shows only a quest of its own talk.
+    pub at: Tick,
+    #[serde(flatten)]
+    pub state: TalkQuestState,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(tag = "state", rename_all = "snake_case")]
+pub enum TalkQuestState {
+    /// The model writes the quest now.
+    Writing,
+    /// The offer, by its number in the quest log.
+    Offered { number: u64 },
+    /// No quest, and why, in the words of `/quest`.
+    Refused { line: String },
 }
 
 /// One chapter of the chronicle, from one milestone to the next, with no model: what was
@@ -171,9 +195,10 @@ pub fn pages(journal: Journal) -> Vec<Page> {
     let mut pages = Vec::new();
     let mut current = Journal {
         hero_refused: journal.hero_refused,
+        talk_quest: journal.talk_quest,
         ..Journal::default()
     };
-    let mut used = Size::of(&current.hero_refused);
+    let mut used = Size::of(&current.hero_refused).plus(Size::of(&current.talk_quest));
     let budget = Size {
         line: MAX_LINE - FRAME.line,
         slot: MAX_SLOT - FRAME.slot,

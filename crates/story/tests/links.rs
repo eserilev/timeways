@@ -727,6 +727,26 @@ fn a_quest_offer_reads_its_giver_and_rests_on_its_call() {
 }
 
 #[test]
+fn a_quest_from_a_talk_reads_the_talk_and_its_offer_rests_on_the_quest_call() {
+    let folder = fresh_folder("talk-quest-call-reads");
+    let mut story = story(&folder);
+    enter(&mut story, 1, "Elwynn Forest", Some("Goldshire"));
+    meet(&mut story, 2, "Marshal Dughan");
+    let talk_call = talk(&mut story, "Marshal Dughan");
+    let work = r#"{"say": "I could use a hand.", "trust": 0, "work": true}"#;
+    let quest_call = call_of(&answer(&mut story, talk_call, work));
+    let text = r#"{"title": "A Walk", "genre": "errand", "text": "I need you in Goldshire.", "steps": [{"goal": "visit", "place": "Goldshire"}]}"#;
+
+    answer(&mut story, quest_call, text);
+    drop(story);
+
+    let database = database(&folder);
+    assert!(database.reads_of(1).unwrap().contains(&Node::Call(0)));
+    let source = database.source_of(Node::Row(Table::Quests, 0)).unwrap();
+    assert_eq!(source.map(|source| source.call), Some(1));
+}
+
+#[test]
 fn a_talk_to_the_npc_of_a_talk_step_reads_the_rows_of_its_quest() {
     let folder = fresh_folder("talk-quest-reads");
     let mut story = story(&folder);

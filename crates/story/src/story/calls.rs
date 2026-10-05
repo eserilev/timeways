@@ -1,8 +1,8 @@
 //! The model calls of the story program: each one opens with its row and its reads, waits
 //! for a free slot, and ends with its answer or its failure (GAMEPLAY.md 5.6 and 5.14).
 
-use super::quests::QuestCall;
-use super::{Active, MAX_OPEN_CALLS, Output, Story, StoryError, drafts, narrator, quests, reads};
+use super::quests::{QuestCall, TalkWork};
+use super::{Active, MAX_OPEN_CALLS, Output, Story, StoryError, drafts, narrator, reads};
 use crate::hero::Hero;
 use crate::hero_hook::{self, Hook};
 use crate::input::{CallId, MessageId};
@@ -10,6 +10,7 @@ use crate::learned::Rumor;
 use crate::lore::{LoreCall, Next};
 use crate::prompt::Attempt;
 use crate::store::{CharacterKey, Node, Outcome, StoreError};
+use crate::talk::Work;
 use crate::{check, talk};
 use hourglass::Tick;
 use std::collections::VecDeque;
@@ -149,10 +150,12 @@ impl Story {
                 npc,
                 at,
             } => {
-                let answer = self.talk_answered(question, &key, npc, at, text);
-                let outcome =
-                    accepted_if(matches!(&answer, Output::TalkAnswer { text: Some(_), .. }));
-                (vec![answer], outcome)
+                let outputs = self.talk_answered(question, &key, npc, at, text, row);
+                let said = matches!(
+                    outputs.first(),
+                    Some(Output::TalkAnswer { text: Some(_), .. })
+                );
+                (outputs, accepted_if(said))
             }
             Pending::Quest(quest) => self.quest_answered(row, quest, &prompt, text),
             Pending::Draft { question, key } => {
@@ -184,7 +187,8 @@ impl Story {
 
     /// The words always show. The change of trust lands only for the character that
     /// talked, and never before the last event, because the world can move on while the
-    /// model thinks.
+    /// model thinks. Work asks the NPC for a quest, also only for that character. `row` is
+    /// the row of the talk call, which the quest call reads.
     pub(super) fn talk_answered(
         &mut self,
         question: MessageId,
@@ -192,43 +196,64 @@ impl Story {
         npc: String,
         asked_at: Tick,
         text: &str,
-    ) -> Output {
+        row: Option<u64>,
+    ) -> Vec<Output> {
         let Some(answer) = talk::checked_answer(text, &self.player_text(key)) else {
-            return Output::TalkAnswer {
+            return vec![Output::TalkAnswer {
                 id: question,
                 npc,
                 text: None,
                 notice: None,
-            };
+            }];
         };
         let same = self
             .active
             .as_ref()
             .is_some_and(|active| &active.key == key);
+        let mut outputs = Vec::new();
         if same {
-            let rumor = Rumor {
-                at: asked_at,
-                npc: npc.clone(),
-                text: answer.say.clone(),
-            };
-            // A failed write loses one rumor. The words still show.
-            if let Some(active) = self.active.as_mut() {
-                let _ = active.learned.add_rumor(rumor);
-            }
+            self.land_talk(&npc, asked_at, &answer);
         }
-        if same && answer.trust_change != 0 {
+        if same && answer.work == Work::Offered {
+            let work = TalkWork {
+                npc: npc.clone(),
+                at: asked_at,
+                said: answer.say.clone(),
+                call: row,
+            };
+            outputs = self.quest_from_talk(work);
+        }
+        outputs.insert(
+            0,
+            Output::TalkAnswer {
+                id: question,
+                npc,
+                text: Some(answer.say),
+                notice: None,
+            },
+        );
+        outputs
+    }
+
+    /// The words become a rumor that the NPC remembers (GAMEPLAY.md 3.5), and the change of
+    /// trust lands.
+    fn land_talk(&mut self, npc: &str, asked_at: Tick, answer: &talk::Answer) {
+        let rumor = Rumor {
+            at: asked_at,
+            npc: npc.to_string(),
+            text: answer.say.clone(),
+        };
+        // A failed write loses one rumor. The words still show.
+        if let Some(active) = self.active.as_mut() {
+            let _ = active.learned.add_rumor(rumor);
+        }
+        if answer.trust_change != 0 {
             // A refusal is not possible here. A failed save loses the change, because the
             // character opens again from the disk, and the words still show.
             let _ = self.change(|character| {
                 let at = asked_at.max(character.world().tick);
-                character.adjust_trust(at, &npc, answer.trust_change)
+                character.adjust_trust(at, npc, answer.trust_change)
             });
-        }
-        Output::TalkAnswer {
-            id: question,
-            npc,
-            text: Some(answer.say),
-            notice: None,
         }
     }
 
@@ -259,7 +284,7 @@ impl Story {
                 text: None,
                 notice: None,
             }],
-            Pending::Quest(quest) => self.deliver(quest.batch, quests::no_task(&quest.giver)),
+            Pending::Quest(quest) => self.quest_failed(&quest),
             Pending::Draft { question, .. } => vec![drafts::draft_answer(question, None)],
         })
     }

@@ -59,14 +59,25 @@ impl<'a> Lists<'a> {
     }
 }
 
+/// What the giver said in the talk that asked for the quest (GAMEPLAY.md 3.5). The quest
+/// keeps to it, so the talk and the quest tell one story.
+const SAID_RULE: &str = "The quest is the work that you spoke of. The steps still use only \
+                         the lists above.";
+
 /// The lists are as long as the budget of a quest call allows, with room for the retry.
+/// `said` holds the words of the giver when a talk asked for the quest.
 #[must_use]
-pub fn prompt(known: &Known<'_>, place: Option<&str>, hook: Option<Hook<'_>>) -> String {
+pub fn prompt(
+    known: &Known<'_>,
+    place: Option<&str>,
+    hook: Option<Hook<'_>>,
+    said: Option<&str>,
+) -> String {
     let budget = Call::Quest
         .prompt_budget()
         .saturating_sub(prompt::retry_tokens());
     largest_fit(PROMPT_NAMES, budget, |names| {
-        prompt_of(&Lists::of(known, names), known, place, hook)
+        prompt_of(&Lists::of(known, names), known, place, hook, said)
     })
 }
 
@@ -75,10 +86,18 @@ fn prompt_of(
     known: &Known<'_>,
     place: Option<&str>,
     hook: Option<Hook<'_>>,
+    said: Option<&str>,
 ) -> String {
-    let hook = hook.map_or_else(String::new, |hook| {
+    let mut hook = hook.map_or_else(String::new, |hook| {
         format!("{}\n\n", hook_block(&hook, QUEST_RULE))
     });
+    if let Some(said) = said {
+        let _ = write!(
+            hook,
+            "You just said this to the player:\n{}\n{SAID_RULE}\n\n",
+            fenced(said)
+        );
+    }
     format!(
         "{}\n{HOUSE_RULES}\n\nGive the player a small task of your own: a rumor, a favor, or \
          an errand.\n\nPlaces that the player can visit:\n{}\n\n\

@@ -3,6 +3,7 @@
 
 use crate::character::Character;
 use crate::input::Input;
+use crate::journal::TalkQuest;
 use crate::seen::SeenIndex;
 use crate::store::{
     CallEnd, CharacterKey, Database, FlavorLog, HeroLog, LearnedLog, Line, NewCall, NewInput,
@@ -62,6 +63,9 @@ pub(super) struct Active {
     pub(super) seen_index: SeenIndex,
     /// Why the last edit of the hero did not stand, until a journal page shows it.
     pub(super) hero_refused: Option<String>,
+    /// The quest that the newest talk with work asked for (GAMEPLAY.md 3.5). It lives in
+    /// memory only: the talk window waits a few minutes at most.
+    pub(super) talk_quest: Option<Box<TalkQuest>>,
 }
 
 impl Active {

@@ -5,6 +5,7 @@ use super::{Active, EventsBatch, Pending, Story, StoryError, calls, checked_name
 use crate::character::Character;
 use crate::hero;
 use crate::input::{Input, MessageId};
+use crate::journal::{TalkQuest, TalkQuestState};
 use crate::prompt::{self, Attempt};
 use crate::quest::variety::{RECENT_IN_PROMPT, recent_quests};
 use crate::quest::{
@@ -27,6 +28,15 @@ pub(super) struct QuestCall {
     pub(super) at: Tick,
     pub(super) attempt: Attempt,
     pub(super) reads: Vec<Node>,
+    pub(super) asker: Asker,
+}
+
+/// Who asked for the quest. The talk window shows the quest of a talk, so a talk gets no
+/// notice (GAMEPLAY.md 3.5).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Asker {
+    Command,
+    Talk,
 }
 
 /// Why an answer gives no offer.
@@ -37,11 +47,26 @@ enum NoOffer {
     Fault(QuestFault),
 }
 
+/// How a quest call ends: the offer by its number, or no quest. Each has its line.
+enum Ending {
+    Offered { number: u64, line: String },
+    NoQuest { line: String },
+}
+
 /// A `/quest` of this batch. It waits for the end of the batch, because the offer comes
 /// back as a notice of the batch answer.
 pub(super) struct QuestRequest {
     giver: String,
     at: Tick,
+}
+
+/// The talk with work that asks for a quest: its words, and the row of its call, which
+/// the quest call reads (GAMEPLAY.md 5.14).
+pub(super) struct TalkWork {
+    pub(super) npc: String,
+    pub(super) at: Tick,
+    pub(super) said: String,
+    pub(super) call: Option<u64>,
 }
 
 impl Story {
@@ -59,6 +84,7 @@ impl Story {
     /// The offer takes the place of the narrator call, and comes back as a notice of
     /// `batch`. With no batch, the batch ended with a question, and the notice waits for the
     /// next answer. A request that breaks a rule gets a line of the code, and no model call.
+    /// A giver gets one quest call at a time: the offer that comes answers both asks.
     pub(super) fn quest_call(
         &mut self,
         batch: Option<EventsBatch>,
@@ -67,23 +93,80 @@ impl Story {
         let Some(active) = self.active.as_ref() else {
             return batch.map(|batch| quiet(batch.id)).into_iter().collect();
         };
+        if self.writes_quest_of(&active.key, &request.giver) {
+            return batch.map(|batch| quiet(batch.id)).into_iter().collect();
+        }
         let quests = quest_log(active.quests.changes());
-        let giver = request.giver.as_str();
-        if let Some(refusal) = refusal(&active.character, &quests, giver) {
+        if let Some(refusal) = refusal(&active.character, &quests, &request.giver) {
             return self.deliver(batch, refusal);
         }
+        self.open_quest_call(batch, request, Asker::Command, None)
+    }
+
+    /// Work in a talk asks the NPC for a quest, as `/quest` does (GAMEPLAY.md 3.5). The
+    /// talk window shows the quest, so the state goes into the journal, not a notice. The
+    /// limits that refuse it now give their line at once, with no model call.
+    pub(super) fn quest_from_talk(&mut self, work: TalkWork) -> Vec<Output> {
+        let Some(active) = self.active.as_mut() else {
+            return Vec::new();
+        };
+        let quests = quest_log(active.quests.changes());
+        let refusal = refusal(&active.character, &quests, &work.npc);
+        let asks_model = refusal.is_none();
+        let state = refusal.map_or(TalkQuestState::Writing, |line| TalkQuestState::Refused {
+            line,
+        });
+        active.talk_quest = Some(Box::new(TalkQuest {
+            npc: work.npc.clone(),
+            at: work.at,
+            state,
+        }));
+        let key = active.key.clone();
+        if !asks_model || self.writes_quest_of(&key, &work.npc) {
+            return Vec::new();
+        }
+        let request = QuestRequest {
+            giver: work.npc,
+            at: work.at,
+        };
+        let talk = (work.said, work.call);
+        self.open_quest_call(None, request, Asker::Talk, Some(talk))
+    }
+
+    /// True while a quest call of this character for this giver runs or waits for a slot.
+    fn writes_quest_of(&self, key: &CharacterKey, giver: &str) -> bool {
+        self.calls.values().any(|call| {
+            matches!(&call.pending, Pending::Quest(quest) if &quest.key == key && quest.giver == giver)
+        })
+    }
+
+    /// `talk` holds the words of the giver and the row of the talk call, when a talk asked.
+    fn open_quest_call(
+        &mut self,
+        batch: Option<EventsBatch>,
+        request: QuestRequest,
+        asker: Asker,
+        talk: Option<(String, Option<u64>)>,
+    ) -> Vec<Output> {
+        let Some(active) = self.active.as_ref() else {
+            return Vec::new();
+        };
+        let quests = quest_log(active.quests.changes());
+        let giver = request.giver.as_str();
         let seen = seen_texts(active);
         let known = known(&active.character, giver, &seen, &quests);
         let hero = hero::hero(active.hero.changes());
         // A failed count gives no hook, and the offer still goes out.
         let (hook, hook_read) = calls::hook_for(active, &hero).unwrap_or_default();
-        let prompt = quest::prompt(&known, active.character.place_of(giver), hook);
+        let said = talk.as_ref().map(|(said, _)| said.as_str());
+        let prompt = quest::prompt(&known, active.character.place_of(giver), hook, said);
         let mut reads = reads::events_about(active, known_names(&known));
         reads.extend(hook_read);
         let recent: Vec<u64> = known.recent.iter().map(|recent| recent.number).collect();
         reads.extend(reads::quest_rows(active, &recent));
         reads.extend(reads::game_quests_read(active, &known.game_quests));
         reads.extend(reads::level_read(active));
+        reads.extend(talk.and_then(|(_, call)| call).map(Node::Call));
         let pending = Pending::Quest(QuestCall {
             batch,
             key: active.key.clone(),
@@ -91,6 +174,7 @@ impl Story {
             at: request.at,
             attempt: Attempt::First,
             reads: reads.clone(),
+            asker,
         });
         self.open_call(pending, prompt, reads).into_iter().collect()
     }
@@ -107,7 +191,7 @@ impl Story {
         text: &str,
     ) -> (Vec<Output>, Outcome) {
         let no_offer = match self.offer(&quest.key, &quest.giver, quest.at, text) {
-            Ok(line) => return (self.deliver(quest.batch, line), Outcome::Accepted),
+            Ok(offered) => return (self.end_quest_call(&quest, offered), Outcome::Accepted),
             Err(no_offer) => no_offer,
         };
         let line = match no_offer {
@@ -120,7 +204,45 @@ impl Story {
             NoOffer::Fault(_) => no_task(&quest.giver),
             NoOffer::Line(line) => line,
         };
-        (self.deliver(quest.batch, line), Outcome::Refused)
+        let ending = Ending::NoQuest { line };
+        (self.end_quest_call(&quest, ending), Outcome::Refused)
+    }
+
+    /// With no model, the giver has no quest for you now.
+    pub(super) fn quest_failed(&mut self, quest: &QuestCall) -> Vec<Output> {
+        let line = no_task(&quest.giver);
+        self.end_quest_call(quest, Ending::NoQuest { line })
+    }
+
+    /// The quest of a talk goes into the journal. A `/quest` gets its notice too, also when
+    /// a talk waits for the same giver.
+    fn end_quest_call(&mut self, quest: &QuestCall, ending: Ending) -> Vec<Output> {
+        let (state, line) = match ending {
+            Ending::Offered { number, line } => (TalkQuestState::Offered { number }, line),
+            Ending::NoQuest { line } => (TalkQuestState::Refused { line: line.clone() }, line),
+        };
+        self.settle_talk_quest(quest, state);
+        match quest.asker {
+            Asker::Command => self.deliver(quest.batch, line),
+            Asker::Talk => Vec::new(),
+        }
+    }
+
+    /// Only a talk quest of this character and giver that is still being written changes.
+    fn settle_talk_quest(&mut self, quest: &QuestCall, state: TalkQuestState) {
+        let Some(active) = self
+            .active
+            .as_mut()
+            .filter(|active| active.key == quest.key)
+        else {
+            return;
+        };
+        let Some(talk_quest) = active.talk_quest.as_mut() else {
+            return;
+        };
+        if talk_quest.npc == quest.giver && talk_quest.state == TalkQuestState::Writing {
+            talk_quest.state = state;
+        }
     }
 
     /// The second call: the first prompt, the first answer, and the reason. It reads what
@@ -146,14 +268,14 @@ impl Story {
             .collect()
     }
 
-    /// The offer line, or why there is none.
+    /// The offer with its line, or why there is none.
     fn offer(
         &mut self,
         key: &CharacterKey,
         giver: &str,
         asked_at: Tick,
         text: &str,
-    ) -> Result<String, NoOffer> {
+    ) -> Result<Ending, NoOffer> {
         let none = || NoOffer::Line(no_task(giver));
         let Some(active) = self.active.as_mut().filter(|active| &active.key == key) else {
             return Err(none());
@@ -185,7 +307,7 @@ impl Story {
         let _ = self.change(|character| {
             character.offer_quest(at, giver, &thing_name(number, &offer.title))
         });
-        Ok(line)
+        Ok(Ending::Offered { number, line })
     }
 
     /// The answer names its offer by number. With no number, it takes the newest offer.

@@ -782,6 +782,7 @@ impl Story {
             stories,
             seen_index,
             hero_refused: None,
+            talk_quest: None,
         })
     }
 
@@ -1046,6 +1047,7 @@ impl Story {
             journal.stories = stories::journal_stories(active)?;
             journal.hero = hero::hero(active.hero.changes());
             journal.hero_refused = active.hero_refused.take();
+            journal.talk_quest.clone_from(&active.talk_quest);
             journal.learned = learned(active.learned.read(), active.learned.rumors());
             journal.quests = quest_log(active.quests.changes())
                 .into_iter()

@@ -144,6 +144,7 @@ fn a_journal_serializes_with_a_kind_on_each_deed() {
         "learned": [],
         "quests": [],
         "stories": [],
+        "talk_quest": null,
     });
     assert_eq!(json, expected);
 }

@@ -17,8 +17,8 @@ use timeways_story::chronicle::{Pick, Saga};
 use timeways_story::hero::{Field, LONG, checked_text, cut, limit_of};
 use timeways_story::hero_hook::HOOK_FIELDS;
 use timeways_story::house::fenced;
-use timeways_story::input::{GameQuestKind, Input, MessageId, Reaction};
-use timeways_story::journal::{Journal, journal, pages};
+use timeways_story::input::{CallId, GameQuestKind, Input, MessageId, Reaction};
+use timeways_story::journal::{Journal, TalkQuestState, journal, pages};
 use timeways_story::npc_memory::{MAX_MEMORIES, MAX_MEMORY_CHARS, when};
 use timeways_story::pace::{Pace, WINDOW_SECONDS};
 use timeways_story::pack::Pack;
@@ -26,8 +26,8 @@ use timeways_story::passage_limits::{MAX_PASSAGE_BYTES, pieces};
 use timeways_story::places::InstanceKind;
 use timeways_story::quest::variety::{Recent, SHAPES_TO_AVOID, Shape, TITLES_TO_AVOID, main_words};
 use timeways_story::quest::{
-    AnyOrder, DAY_SECONDS, Known, MAX_KILLS, MAX_WAIT_DAYS, QuestChange, Status, Step, Tracked,
-    checked_quest, quest_log,
+    AnyOrder, DAY_SECONDS, Known, MAX_KILLS, MAX_OPEN_QUESTS, MAX_WAIT_DAYS, QuestChange, Status,
+    Step, Tracked, checked_quest, quest_log,
 };
 use timeways_story::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use timeways_story::seen::TextKind;
@@ -57,6 +57,9 @@ enum Play {
     TalkAcrossRelog(String, String),
     /// `/quest` to an NPC, and the steps that the model proposes.
     Quest(String, Vec<TaskStep>),
+    /// A talk in which the NPC offers work, and the steps of the quest that the model
+    /// proposes then (GAMEPLAY.md 3.5).
+    TalkWork(String, Vec<TaskStep>),
     /// A hover or a target: the NPC, whether you can attack it, and its creature type.
     See(String, Reaction, Option<String>),
     /// A kill for a kill step.
@@ -149,6 +152,15 @@ fn target_play() -> impl Strategy<Value = Play> {
     ]
 }
 
+/// The plays that change what a task can name, and talks in which the NPC offers work.
+fn talk_target_play() -> impl Strategy<Value = Play> {
+    prop_oneof![
+        3 => target_play(),
+        1 => (target_name(), prop::collection::vec(task_step(target_name()), 1..3))
+            .prop_map(|(npc, steps)| Play::TalkWork(npc, steps)),
+    ]
+}
+
 /// Few names, so that the same NPC and the same place come back.
 fn name() -> impl Strategy<Value = String> + Clone {
     prop_oneof![
@@ -195,6 +207,8 @@ fn play() -> impl Strategy<Value = Play> {
         (name(), "[A-Za-z ]{1,60}").prop_map(|(npc, say)| Play::Talk(npc, say)),
         (name(), prop::collection::vec(task_step(name()), 0..5))
             .prop_map(|(npc, steps)| Play::Quest(npc, steps)),
+        (name(), prop::collection::vec(task_step(name()), 0..5))
+            .prop_map(|(npc, steps)| Play::TalkWork(npc, steps)),
         sighting(name()),
         name().prop_map(Play::Kill),
         Just(Play::Accept),
@@ -444,12 +458,14 @@ fn input(play: &Play, at: Tick) -> Option<Input> {
             zone: Some("Goldshire".to_string()),
             text,
         },
-        Play::Talk(npc, _) | Play::TalkAcrossRelog(npc, _) => Input::TalkAsked {
-            id: MessageId(2),
-            at,
-            npc,
-            text: "any news".to_string(),
-        },
+        Play::Talk(npc, _) | Play::TalkAcrossRelog(npc, _) | Play::TalkWork(npc, _) => {
+            Input::TalkAsked {
+                id: MessageId(2),
+                at,
+                npc,
+                text: "any news".to_string(),
+            }
+        }
         Play::Quest(npc, _) => Input::QuestAsked { at, npc },
         Play::See(name, reaction, creature) => Input::NpcSeen {
             at,
@@ -554,12 +570,22 @@ fn play_once(story: &mut Story, play: &Play, clock: &mut u64) -> Vec<Output> {
         }
         // A refused answer gets a retry, and the model answers it the same way.
         Play::Quest(_, steps) => return answer_every_call(story, outputs, &quest_answer(steps)),
+        Play::TalkWork(_, steps) => return talk_with_work(story, *call, steps),
         _ => return Vec::new(),
     };
     let call = *call;
     story
         .handle(Input::ModelAnswered { call, text })
         .unwrap_or_default()
+}
+
+/// The NPC offers work, and the model answers the quest call that follows with `steps`.
+fn talk_with_work(story: &mut Story, call: CallId, steps: &[TaskStep]) -> Vec<Output> {
+    let text = r#"{"say": "I could use a hand.", "trust": 1, "work": true}"#.to_string();
+    let outputs = story
+        .handle(Input::ModelAnswered { call, text })
+        .unwrap_or_default();
+    answer_every_call(story, outputs, &quest_answer(steps))
 }
 
 fn relog(story: &mut Story) {
@@ -627,7 +653,7 @@ impl Targets {
                     *reaction = Reaction::Friendly;
                 }
             }
-            Play::Slap(npc) | Play::Talk(npc, _) | Play::Quest(npc, _) => {
+            Play::Slap(npc) | Play::Talk(npc, _) | Play::Quest(npc, _) | Play::TalkWork(npc, _) => {
                 self.met.push(npc.clone());
             }
             Play::See(name, reaction, creature) => {
@@ -686,6 +712,33 @@ fn offer_giver(outputs: &[Output]) -> Option<&str> {
     };
     line.split_once(" has a quest for you: ")
         .map(|(giver, _)| giver)
+}
+
+/// The giver of the offer that the talk at `at` made, or None.
+fn talk_offer(story: &mut Story, at: Tick) -> Option<String> {
+    let journal = first_page(story);
+    let quest = journal.talk_quest?;
+    let offered = matches!(quest.state, TalkQuestState::Offered { .. });
+    (offered && quest.at == at).then_some(quest.npc)
+}
+
+fn open_quests(story: &mut Story) -> usize {
+    let quests = first_page(story).quests;
+    quests
+        .iter()
+        .filter(|quest| quest.status == Status::Accepted)
+        .count()
+}
+
+fn first_page(story: &mut Story) -> Journal {
+    let asked = Input::JournalAsked {
+        id: MessageId(1),
+        page: 0,
+    };
+    match story.handle(asked).unwrap().remove(0) {
+        Output::Journal { page, .. } => page.journal,
+        other => panic!("expected a journal, got {other:?}"),
+    }
 }
 
 /// Every page of the journal as the bridge gets it.
@@ -784,6 +837,20 @@ fn journal_lines(story: &mut Story) -> Vec<String> {
             return lines;
         }
     }
+}
+
+/// The journal with only what the world keeps. The quest of a talk lives in memory, so a
+/// restart drops it.
+fn saved_journal_lines(story: &mut Story) -> Vec<String> {
+    let without_talk_quest = |line: String| {
+        let mut value: serde_json::Value = serde_json::from_str(&line).unwrap();
+        value.as_object_mut().unwrap().remove("talk_quest");
+        value.to_string()
+    };
+    journal_lines(story)
+        .into_iter()
+        .map(without_talk_quest)
+        .collect()
 }
 
 /// One round of the best of two. `drafts` are the texts of the drafts that pass the checks,
@@ -941,11 +1008,11 @@ proptest! {
         let mut first = story(&folder, Store::Folder(folder.clone()));
         run(&mut first, &plays, &mut clock);
         journal_lines(&mut first);
-        let before = journal_lines(&mut first);
+        let before = saved_journal_lines(&mut first);
         drop(first);
 
         let mut second = story(&folder, Store::Folder(folder.clone()));
-        let after = journal_lines(&mut second);
+        let after = saved_journal_lines(&mut second);
 
         prop_assert_eq!(before, after);
     }
@@ -1110,7 +1177,7 @@ proptest! {
         // The reason for a refused edit shows once and is not kept, so a first read clears it.
         journal_lines(&mut restarted);
         journal_lines(&mut whole);
-        prop_assert_eq!(journal_lines(&mut restarted), journal_lines(&mut whole));
+        prop_assert_eq!(saved_journal_lines(&mut restarted), saved_journal_lines(&mut whole));
     }
 
     #[test]
@@ -1215,6 +1282,33 @@ proptest! {
             for (n, step) in steps.iter().enumerate() {
                 prop_assert!(targets.allows(giver, step, &steps[..n]), "{step:?} from {giver}");
             }
+            targets.last = steps.iter().filter_map(target).map(str::to_string).collect();
+        }
+    }
+
+    #[test]
+    fn a_talk_never_makes_a_quest_that_skips_the_quest_check(
+        plays in prop::collection::vec(talk_target_play(), 0..150)
+    ) {
+        let folder = fresh("talk-targets");
+        let mut story = story(&folder, Store::Memory);
+        let mut targets = Targets::default();
+        let mut clock = 1_000;
+
+        for play in &plays {
+            targets.watch(play);
+            let outputs = play_once(&mut story, play, &mut clock);
+            prop_assert!(open_quests(&mut story) <= MAX_OPEN_QUESTS);
+            let steps = match (play, talk_offer(&mut story, Tick(clock))) {
+                (Play::TalkWork(_, steps), Some(giver)) => {
+                    for (n, step) in steps.iter().enumerate() {
+                        prop_assert!(targets.allows(&giver, step, &steps[..n]), "{step:?} from {giver}");
+                    }
+                    steps
+                }
+                (Play::Quest(_, steps), _) if offer_giver(&outputs).is_some() => steps,
+                _ => continue,
+            };
             targets.last = steps.iter().filter_map(target).map(str::to_string).collect();
         }
     }

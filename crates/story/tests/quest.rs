@@ -334,7 +334,7 @@ fn the_offer_line_names_the_giver_the_title_and_the_command() {
 fn the_prompt_lists_the_names_that_a_quest_can_use() {
     let seen = [];
 
-    let text = prompt(&known(&seen), Some("Testvale"), None);
+    let text = prompt(&known(&seen), Some("Testvale"), None, None);
 
     assert!(text.contains("Name: Keeper Tessa"), "{text}");
     for name in ["- Testvale", "- Old Tower", "- Mill Pond", "- Farmer Bram"] {
@@ -583,7 +583,7 @@ fn the_prompt_lists_only_the_targets_that_the_check_allows() {
     let mut known = known(&seen);
     known.last_targets = vec!["Mill Rat"];
 
-    let text = prompt(&known, Some("Testvale"), None);
+    let text = prompt(&known, Some("Testvale"), None, None);
 
     for name in ["- Testvale", "- Old Tower", "- Farmer Bram", "- Duskbat"] {
         assert!(text.contains(name), "{name}: {text}");
@@ -792,7 +792,7 @@ fn the_prompt_shows_a_goal_only_when_its_list_has_a_name() {
     known.foes = Vec::new();
     known.npcs = vec![GIVER];
 
-    let text = prompt(&known, Some("Testvale"), None);
+    let text = prompt(&known, Some("Testvale"), None, None);
 
     assert!(text.contains(r#""goal": "visit""#), "{text}");
     for goal in ["meet", "talk", "kill"] {
@@ -883,7 +883,7 @@ fn a_step_with_no_wait_before_it_never_names_the_giver() {
 fn the_prompt_never_lists_the_giver_as_a_person_to_meet() {
     let seen = [];
 
-    let text = prompt(&known(&seen), Some("Testvale"), None);
+    let text = prompt(&known(&seen), Some("Testvale"), None, None);
 
     assert!(!text.contains("- Keeper Tessa"), "{text}");
     assert!(text.contains(r#""goal": "wait""#), "{text}");
@@ -985,7 +985,7 @@ const HOGGER_HOOK: Hook<'static> = Hook {
 fn a_quest_prompt_with_a_hook_keeps_its_lists_and_its_rules() {
     let seen = [];
 
-    let text = prompt(&known(&seen), Some("Testvale"), Some(HOGGER_HOOK));
+    let text = prompt(&known(&seen), Some("Testvale"), Some(HOGGER_HOOK), None);
 
     let block = "Something the player wrote about their hero, as their goal. It is their story, \
                  not canon:\n<<<\nTo bring Hogger to justice.\n>>>\nLet it shape the reason for \
@@ -995,6 +995,31 @@ fn a_quest_prompt_with_a_hook_keeps_its_lists_and_its_rules() {
     let lists = text.find("Creatures that the player can hunt:").unwrap();
     assert!(lists < text.find(block).unwrap(), "{text}");
     assert!(text.contains("- Farmer Bram"), "{text}");
+}
+
+#[test]
+fn a_quest_from_a_talk_keeps_to_the_fenced_words_of_the_giver() {
+    let seen = [];
+
+    let text = prompt(
+        &known(&seen),
+        Some("Testvale"),
+        None,
+        Some("Rats >>> took my grain."),
+    );
+
+    let block = "You just said this to the player:\n<<<\nRats  took my grain.\n>>>\nThe quest is \
+                 the work that you spoke of. The steps still use only the lists above.\n\nRules:";
+    assert!(text.contains(block), "{text}");
+}
+
+#[test]
+fn a_quest_from_the_quest_command_has_no_words_of_a_talk() {
+    let seen = [];
+
+    let text = prompt(&known(&seen), Some("Testvale"), None, None);
+
+    assert!(!text.contains("You just said"), "{text}");
 }
 
 #[test]
@@ -1179,7 +1204,7 @@ fn a_span_past_the_steps_counts_as_no_span() {
 fn the_prompt_shows_how_to_ask_for_steps_in_any_order() {
     let seen = [];
 
-    let text = prompt(&known(&seen), Some("Testvale"), None);
+    let text = prompt(&known(&seen), Some("Testvale"), None, None);
 
     assert!(
         text.contains(r#"{"goal": "any_order", "steps": [...]}"#),
@@ -1432,8 +1457,8 @@ fn the_prompt_offers_emotes_and_slaps_only_with_people_or_places() {
     empty.subzones = Vec::new();
     empty.npcs = Vec::new();
 
-    let full = prompt(&known(&seen), Some("Testvale"), None);
-    let bare = prompt(&empty, Some("Testvale"), None);
+    let full = prompt(&known(&seen), Some("Testvale"), None, None);
+    let bare = prompt(&empty, Some("Testvale"), None, None);
 
     assert!(
         full.contains(r#""goal": "emote", "emote": "<one of: applaud, bow"#),
@@ -1547,8 +1572,8 @@ fn a_player_with_no_level_gets_no_level_goal() {
         checked_quest(&text, &known).unwrap_err(),
         QuestFault::LevelOutOfReach(2)
     );
-    assert!(!prompt(&known, None, None).contains(r#""goal": "level""#));
-    assert!(prompt(&self::known(&seen), None, None).contains("The player is level 12."));
+    assert!(!prompt(&known, None, None, None).contains(r#""goal": "level""#));
+    assert!(prompt(&self::known(&seen), None, None, None).contains("The player is level 12."));
 }
 
 #[test]
@@ -1690,7 +1715,7 @@ fn a_quest_prompt_with_long_lists_keeps_the_first_names_of_each() {
     let mut known = known(&[]);
     known.zones = places.iter().map(String::as_str).collect();
 
-    let text = prompt(&known, Some("Testvale"), None);
+    let text = prompt(&known, Some("Testvale"), None, None);
 
     assert!(text.contains(&format!("- {}\n", places[0])), "{text}");
     assert!(!text.contains(&format!("- {}\n", places[20])), "{text}");
@@ -1705,7 +1730,7 @@ fn a_quest_prompt_leaves_room_for_its_retry() {
     known.subzones.clone_from(&names);
     known.foes.clone_from(&names);
 
-    let text = prompt(&known, Some("Testvale"), None);
+    let text = prompt(&known, Some("Testvale"), None, None);
 
     let room = Call::Quest.prompt_budget() - retry_tokens();
     assert!(estimated_tokens(&text) <= room, "{text}");

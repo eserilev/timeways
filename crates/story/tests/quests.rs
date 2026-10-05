@@ -462,9 +462,9 @@ fn open_quests(story: &mut Story) -> usize {
 fn two_offers_of_one_giver_never_make_two_open_quests() {
     let mut story = story("two-offers");
     let (first, _) = call_of(ask(&mut story, 5));
-    let (second, _) = call_of(ask(&mut story, 6));
     answer_with(&mut story, first, "The Lost Lantern", VISIT_POND);
-    accept(&mut story, 7, None);
+    let (second, _) = call_of(ask(&mut story, 6));
+    accept(&mut story, 7, Some(1));
 
     let line = answer_with(&mut story, second, "The Old Well", MEET_BRAM);
     accept(&mut story, 8, None);
@@ -474,6 +474,18 @@ fn two_offers_of_one_giver_never_make_two_open_quests() {
         Some("Keeper Tessa is waiting for you to finish \"The Lost Lantern\".")
     );
     assert_eq!(open_quests(&mut story), 1);
+}
+
+#[test]
+fn a_second_quest_command_while_the_first_is_written_asks_no_second_model() {
+    let mut story = story("one-call-per-giver");
+    let (first, _) = call_of(ask(&mut story, 5));
+
+    let second = ask(&mut story, 6);
+
+    assert_eq!(notice(vec![second]), None);
+    answer_with(&mut story, first, "The Lost Lantern", VISIT_POND);
+    assert_eq!(quests(&mut story).len(), 1);
 }
 
 /// The steps of four quests in a row: no two share a shape or a target with the quest before.

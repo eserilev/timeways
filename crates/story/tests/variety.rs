@@ -232,7 +232,7 @@ fn the_prompt_lists_the_last_three_quests_with_shape_and_genre() {
     let mut recent = three_recent();
     recent[2].genre = None;
 
-    let text = prompt(&known(recent), Some("Testvale"), None);
+    let text = prompt(&known(recent), Some("Testvale"), None, None);
 
     let block = "The player's last quests, newest first:\n<<<\n\
                  - \"Old Debts\": meet. An errand.\n\
@@ -246,7 +246,7 @@ fn the_prompt_lists_the_last_three_quests_with_shape_and_genre() {
 
 #[test]
 fn the_prompt_leaves_out_the_recent_block_with_no_earlier_quest() {
-    let text = prompt(&known(Vec::new()), Some("Testvale"), None);
+    let text = prompt(&known(Vec::new()), Some("Testvale"), None, None);
 
     assert!(!text.contains("last quests"), "{text}");
 }

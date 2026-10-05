@@ -153,6 +153,8 @@ pub struct Words {
     genre: u8,
     /// The first two steps of a quest go in an any-order set.
     set: bool,
+    /// The NPC of a talk offers work, so a quest call follows (GAMEPLAY.md 3.5).
+    work: bool,
 }
 
 /// The plays come last, so they take every byte that is left: a long input is a long play.
@@ -310,7 +312,7 @@ fn answer(prompt: &str, words: &Words) -> Option<String> {
     } else if prompt.contains("A player speaks to you") {
         assert_memory_block(prompt);
         assert_hook_block(prompt);
-        json!({"say": words.text.0, "trust": words.trust}).to_string()
+        json!({"say": words.text.0, "trust": words.trust, "work": words.work}).to_string()
     } else {
         format!("{} [1]", words.text.0)
     })

@@ -288,7 +288,12 @@ fn longest_recent() -> Recent {
 }
 
 fn quest_offer() -> String {
-    quest::prompt(&quest_known(), Some("Goldshire"), Some(longest_hook()))
+    quest::prompt(
+        &quest_known(),
+        Some("Goldshire"),
+        Some(longest_hook()),
+        None,
+    )
 }
 
 /// `count` names of 22 characters each, as long as most names of the game.
@@ -317,7 +322,12 @@ fn full_quest_known() -> Known<'static> {
 }
 
 fn full_quest_offer() -> String {
-    quest::prompt(&full_quest_known(), Some("Goldshire"), Some(longest_hook()))
+    quest::prompt(
+        &full_quest_known(),
+        Some("Goldshire"),
+        Some(longest_hook()),
+        Some(&"word ".repeat(80)),
+    )
 }
 
 /// The longest first prompt, a long bad answer, and a fault that quotes a long name.
