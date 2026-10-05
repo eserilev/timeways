@@ -36,6 +36,7 @@ local Entries = ns.JournalRows.Entries
 local Name = ns.JournalRows.Name
 local Day = ns.JournalRows.Day
 local Line = ns.JournalRows.Line
+local Group = ns.JournalRows.Group
 local Item = ns.JournalRows.Item
 local Button = ns.JournalRows.Button
 local Keys = ns.JournalRows.Keys
@@ -95,6 +96,7 @@ function Journal.Receive(value)
 	if page == 0 then
 		collecting = Started()
 		collecting.talk_quest = value.talk_quest
+		collecting.summary = value.summary
 		ns.Hero.ShowRefused(value.hero_refused)
 	end
 	if not collecting or page ~= collecting.next then
@@ -323,24 +325,57 @@ local function Steps(keys, index, before, after)
 	}
 end
 
--- The book opens on the newest chapter, the one still being written.
+-- The key of the title page of the Chronicle: who you've become
+-- (docs/plans/hero-stories.md 4.6).
+local TITLE_PAGE = "title"
+
+-- "Level 12 Undead Paladin", from the game.
+local function LevelLine()
+	local race = UnitRace("player") or ""
+	local class = UnitClass("player") or ""
+	return string.format("Level %d %s %s", UnitLevel("player") or 0, race, class)
+end
+
+-- The summary that a model writes when a chapter ends. With no model, the page holds the
+-- header alone.
+local function TitleLines(journal, chapterEnded)
+	local lines = {
+		Line("heading", UnitName("player") or "?"),
+		Line("text", LevelLine()),
+	}
+	if type(journal.summary) == "string" then
+		lines[#lines + 1] = Line("prose", ns.WithName(journal.summary))
+	elseif not chapterEnded then
+		lines[#lines + 1] = Line("help", "Fills in when your first chapter ends.")
+	end
+	return lines
+end
+
+-- The title page comes first, and the book opens on the newest chapter, the one still
+-- being written.
 local function Chronicle(journal)
 	local chapters = Entries(journal.chapters)
-	local page = { list = {}, lines = {}, buttons = {}, side = "map" }
+	local title = Item(TITLE_PAGE, UnitName("player") or "?", "Who you've become")
+	local items, list = { title }, { title }
+	if #chapters > 0 then
+		list[2] = Group("Chapters")
+	end
 	for n, chapter in ipairs(chapters) do
 		local key = type(chapter.number) == "number" and chapter.number or ("#" .. n)
-		page.list[n] = Item(key, ChapterTitle(chapter), Dates(chapter))
+		items[n + 1] = Item(key, ChapterTitle(chapter), Dates(chapter))
+		list[#list + 1] = items[n + 1]
 	end
-	local keys = Keys(page.list)
+	local keys = Keys(items)
 	local index = OpenIndex("chapters", keys, #keys)
-	local chapter = chapters[index]
+	local page = { list = list, buttons = Steps(keys, index, "Previous chapter", "Next chapter"), side = "map" }
+	page.selected = keys[index]
+	local chapter = chapters[index - 1]
 	if not chapter then
+		page.lines = TitleLines(journal, #chapters >= 2)
 		return page
 	end
-	page.selected = keys[index]
 	page.lines = ChapterLines(chapter)
-	page.buttons = Steps(keys, index, "Previous chapter", "Next chapter")
-	page.footer = string.format("Chapter %d of %d", index, #chapters)
+	page.footer = string.format("Chapter %d of %d", index - 1, #chapters)
 	page.crumb = "Chapter " .. ChapterNumber(chapter)
 	page.zone = ChapterPlace(chapter)
 	return page
@@ -370,7 +405,6 @@ local BUILDERS = {
 }
 
 local EMPTY = {
-	chapters = "Your story hasn't started yet. Go make some trouble.",
 	deeds = "No deeds yet.",
 	learned = "You haven't learned a thing yet. Pick up a book, or listen at the inn.",
 	quests = "No quests yet. Target someone and type /quest to ask for one.",

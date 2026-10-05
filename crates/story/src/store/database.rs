@@ -11,7 +11,7 @@ use timeways_rules::prompts::oldest_prompt_kept;
 
 /// A file of another version is refused, never changed. Nothing is live, so a new version
 /// starts with new worlds.
-const VERSION: i64 = 6;
+const VERSION: i64 = 7;
 
 /// WAL syncs the disk once for each line, and a reader such as `sqlite3` never blocks a
 /// save.
@@ -65,10 +65,13 @@ pub enum Table {
     Stories,
     /// The alias table (GAMEPLAY.md 5.11): the place of a row is the ID of its player.
     Aliases,
+    /// Who the character has become, for the title page of the Chronicle. The newest row
+    /// stands.
+    Summaries,
 }
 
 impl Table {
-    pub const ALL: [Table; 8] = [
+    pub const ALL: [Table; 9] = [
         Table::Events,
         Table::Chapters,
         Table::Flavor,
@@ -77,6 +80,7 @@ impl Table {
         Table::Quests,
         Table::Stories,
         Table::Aliases,
+        Table::Summaries,
     ];
 
     #[must_use]
@@ -90,6 +94,7 @@ impl Table {
             Table::Quests => "quests",
             Table::Stories => "stories",
             Table::Aliases => "aliases",
+            Table::Summaries => "summaries",
         }
     }
 

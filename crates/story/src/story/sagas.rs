@@ -1,7 +1,7 @@
 //! The saga of each finished chapter in the story program (GAMEPLAY.md 3.3): the drafts,
 //! the judge, and the final saga on the disk.
 
-use super::{CHAPTER_MOMENTS, Output, Pending, Story, StoryError, reads};
+use super::{Active, CHAPTER_MOMENTS, Output, Pending, Story, StoryError, reads};
 use crate::best_of_two::{Next, Round};
 use crate::check;
 use crate::chronicle::{self, Draft, Pick, Saga};
@@ -36,10 +36,7 @@ impl Story {
         let active = self.active.as_ref()?;
         let journal = journal(&active.character);
         let chapters = journal.chapters;
-        let index = (1..chapters.len()).map(|next| next - 1).find(|&index| {
-            let began = chapters[index].began;
-            active.prose.get(began).is_none() && !self.chronicle_asked.contains(&began)
-        })?;
+        let index = self.chapter_waiting_for_saga(active)?;
         let (chapter, next) = (&chapters[index], &chapters[index + 1]);
         let earlier = &chapters[index.saturating_sub(memory::MEMORY_CHAPTERS)..index];
         let top = flavor::top_moments(
@@ -99,6 +96,15 @@ impl Story {
         self.round_read.clone_from(&read);
         self.round_calls.clear();
         self.open_call(pending, first, read)
+    }
+
+    /// The oldest finished chapter with no saga that was not asked for one in this run.
+    pub(super) fn chapter_waiting_for_saga(&self, active: &Active) -> Option<usize> {
+        let chapters = journal(&active.character).chapters;
+        (1..chapters.len()).map(|next| next - 1).find(|&index| {
+            let began = chapters[index].began;
+            active.prose.get(began).is_none() && !self.chronicle_asked.contains(&began)
+        })
     }
 
     /// `text` is None for a failed call. A failed judge picks the first draft. A draft
@@ -173,10 +179,13 @@ impl Story {
 
     /// With no saga, the chapter keeps its plain list. A footnote tells its kind of moment,
     /// so the same joke waits (5.4.1).
+    /// The summary of the chapter is due, with a saga or with none (docs/plans/hero-stories.md
+    /// 3.5).
     fn finish_round(&mut self, saga: Option<Saga>) -> Result<(), StoryError> {
         let Some(round) = self.saga_round.take() else {
             return Ok(());
         };
+        self.summary_is_due(round.key.clone(), round.began);
         let Some(saga) = saga else {
             return Ok(());
         };

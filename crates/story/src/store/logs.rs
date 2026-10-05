@@ -68,12 +68,18 @@ pub struct Written {
 #[derive(Debug, Default)]
 pub struct Prose {
     chapters: BTreeMap<Tick, Written>,
+    /// The row of the saga of each chapter, for the reads of a call.
+    rows: BTreeMap<Tick, u64>,
     unsaved: Unsaved,
 }
 
 impl Prose {
     pub(super) fn from_rows(rows: Vec<ChapterProse>) -> Prose {
         let unsaved = Unsaved::after(rows.len());
+        let positions = (0..)
+            .zip(&rows)
+            .map(|(row, prose)| (prose.began, row))
+            .collect();
         let chapters = rows
             .into_iter()
             .map(|row| {
@@ -84,7 +90,17 @@ impl Prose {
                 (row.began, written)
             })
             .collect();
-        Prose { chapters, unsaved }
+        Prose {
+            chapters,
+            rows: positions,
+            unsaved,
+        }
+    }
+
+    /// The row that holds the saga of the chapter that began at `began`.
+    #[must_use]
+    pub fn row_of(&self, began: Tick) -> Option<u64> {
+        self.rows.get(&began).copied()
     }
 
     #[must_use]
@@ -117,8 +133,9 @@ impl Prose {
             text: written.text.clone(),
             footnotes: written.footnotes.clone(),
         };
-        self.unsaved.push(&row)?;
+        let position = self.unsaved.push(&row)?;
         self.chapters.insert(began, written);
+        self.rows.insert(began, position);
         Ok(())
     }
 
@@ -347,6 +364,47 @@ impl QuestLog {
     pub fn add(&mut self, change: QuestChange) -> Result<(), StoreError> {
         self.unsaved.push(&change)?;
         self.changes.push(change);
+        Ok(())
+    }
+
+    pub fn take_unsaved(&mut self) -> Vec<NewRow> {
+        self.unsaved.take()
+    }
+}
+
+/// One summary of the character: written after the chapter that began at `after`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Summary {
+    pub after: Tick,
+    pub text: String,
+}
+
+/// The summaries of the character, oldest first. The newest one stands.
+#[derive(Debug, Default)]
+pub struct SummaryLog {
+    rows: Vec<Summary>,
+    unsaved: Unsaved,
+}
+
+impl SummaryLog {
+    pub(super) fn from_rows(rows: Vec<Summary>) -> SummaryLog {
+        let unsaved = Unsaved::after(rows.len());
+        SummaryLog { rows, unsaved }
+    }
+
+    /// The newest summary, and its row.
+    #[must_use]
+    pub fn newest(&self) -> Option<(u64, &Summary)> {
+        let row = self.rows.len().checked_sub(1)?;
+        Some((row as u64, &self.rows[row]))
+    }
+
+    /// # Errors
+    ///
+    /// Returns `Json` for a summary that does not serialize, and then keeps nothing.
+    pub fn add(&mut self, summary: Summary) -> Result<(), StoreError> {
+        self.unsaved.push(&summary)?;
+        self.rows.push(summary);
         Ok(())
     }
 

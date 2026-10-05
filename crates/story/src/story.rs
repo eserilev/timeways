@@ -43,6 +43,7 @@ mod quests;
 mod reads;
 mod sagas;
 mod stories;
+mod summaries;
 pub mod why;
 
 use active::{Active, Kept};
@@ -265,6 +266,9 @@ pub struct Story {
     round_read: Vec<Node>,
     /// The calls of the saga that is written now. A later call of the round reads them.
     round_calls: Vec<u64>,
+    /// The summary of the newest finished chapter waits for its call. A restart forgets
+    /// it, and the next saga round makes it due again.
+    summary_due: Option<summaries::Due>,
     quest_request: Option<QuestRequest>,
     /// The newest time of an input from the addon. An emote or a book changes no world, so
     /// the tick of the world can be much older.
@@ -302,6 +306,7 @@ impl Story {
             batch_rows: Vec::new(),
             round_read: Vec::new(),
             round_calls: Vec::new(),
+            summary_due: None,
             quest_request: None,
             newest: Tick(0),
             notice: None,
@@ -760,6 +765,7 @@ impl Story {
         self.saga_round = None;
         self.round_read.clear();
         self.round_calls.clear();
+        self.summary_due = None;
         self.quest_request = None;
         self.notice = None;
     }
@@ -777,6 +783,7 @@ impl Story {
             quests,
             stories,
             aliases,
+            summaries,
         } = self.store.open(&key)?;
         let read: Vec<SeenText> = learned
             .read()
@@ -800,6 +807,7 @@ impl Story {
             quests,
             stories,
             aliases,
+            summaries,
             seen_index,
             hero_refused: None,
             talk_quest: None,
@@ -956,6 +964,7 @@ impl Story {
             None => vec![self.narrator_call(batch)],
         };
         outputs.extend(self.saga_call());
+        outputs.extend(self.summary_call());
         self.batch_rows.clear();
         outputs
     }
@@ -1062,8 +1071,9 @@ impl Story {
                 person.trust_why = why::trust_why(active, &person.name)?;
             }
             journal.stories = stories::journal_stories(active)?;
+            journal.summary = summaries::journal_summary(active);
             journal.hero = hero::hero(active.hero.changes());
-            journal.hero_refused = active.hero_refused.take();
+            journal.hero_refused = active.hero_refused.take().map(String::into_boxed_str);
             journal.talk_quest.clone_from(&active.talk_quest);
             journal.learned = learned(active.learned.read());
             journal.quests = quest_log(active.quests.changes())

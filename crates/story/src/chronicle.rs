@@ -296,7 +296,9 @@ fn described(places: &[Place], zone: &str) -> String {
     kind.described(zone)
 }
 
-fn deed_fact(deed: &Deed) -> String {
+/// A deed as one plain fact, as a prompt tells it.
+#[must_use]
+pub fn deed_fact(deed: &Deed) -> String {
     match deed {
         Deed::Level { from: None, to, .. } => format!("Began the saga at level {to}"),
         Deed::Level { to, .. } => format!("Reached level {to}"),

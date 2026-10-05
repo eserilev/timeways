@@ -241,6 +241,14 @@ This test needs two characters with Timeways in one party, and a model.
 5. Click Share. The line says "Players with roleplay addons like Total RP 3 see this." Origin and Background in Your Story show "Shared".
 6. If you use Total RP 3: the page says "Total RP 3 shares your profile. Change it there." "Also shared" and the preview do not show, and the fields have no Edit.
 
+### 22. The Chronicle title page
+
+This test needs a model.
+
+1. Before your first chapter ends, open the Chronicle and click the first row, your name with "Who you've become". The page shows your name, "Level ... ...", and "Fills in when your first chapter ends."
+2. Play until a chapter ends and its saga shows, and play a little more, so a batch ends. Open the first row again. A paragraph shows with your name in it, and never "our hero".
+3. In the world file, run `sqlite3 c_<name>.sqlite "SELECT prompt FROM calls WHERE kind = 'summary'"`. The prompt holds your answers of Your Story, and no story and no title of the Roleplay Profile.
+
 ## What to send back
 
 - Each Lua error, as text.

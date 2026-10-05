@@ -10,7 +10,10 @@ pub use database::{
     CallEnd, CallRecord, Database, Line, NewCall, NewInput, NewRow, Next, Node, Origin, Outcome,
     PROMPTS_KEPT, Root, Table,
 };
-pub use logs::{AliasLog, FlavorLog, HeroLog, LearnedLog, Prose, QuestLog, StoryLog, Written};
+pub use logs::{
+    AliasLog, FlavorLog, HeroLog, LearnedLog, Prose, QuestLog, StoryLog, Summary, SummaryLog,
+    Written,
+};
 pub use shared::Shared;
 
 use crate::character::Character;
@@ -144,6 +147,7 @@ pub struct Opened {
     pub quests: QuestLog,
     pub stories: StoryLog,
     pub aliases: AliasLog,
+    pub summaries: SummaryLog,
 }
 
 /// Everything of `Opened` but the database, read in one transaction.
@@ -158,6 +162,7 @@ struct Read {
     quests: QuestLog,
     stories: StoryLog,
     aliases: AliasLog,
+    summaries: SummaryLog,
 }
 
 impl Store {
@@ -204,6 +209,7 @@ impl Store {
             quests: read.quests,
             stories: read.stories,
             aliases: read.aliases,
+            summaries: read.summaries,
         })
     }
 }
@@ -230,6 +236,7 @@ fn read_all(database: &Database, path: PathBuf) -> Result<Read, StoreError> {
     let aliases = AliasLog::from_rows(database.read_and_repair(Table::Aliases, |row, _| {
         logs::is_new_name(row, &mut seen.borrow_mut())
     })?);
+    let summaries = SummaryLog::from_rows(database.read_and_repair(Table::Summaries, |_, _| true)?);
     database.drop_broken_links()?;
     Ok(Read {
         character,
@@ -242,6 +249,7 @@ fn read_all(database: &Database, path: PathBuf) -> Result<Read, StoreError> {
         quests,
         stories,
         aliases,
+        summaries,
     })
 }
 

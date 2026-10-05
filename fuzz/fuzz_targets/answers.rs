@@ -20,7 +20,7 @@ use timeways_story::quest::variety::{Recent, Shape, main_words};
 use timeways_story::quest::{self, Genre, Known, Step};
 use timeways_story::seen::{SeenText, TextKind};
 use timeways_story::story::Output;
-use timeways_story::{chronicle, hero, narrator, talk};
+use timeways_story::{chronicle, hero, narrator, summary, talk};
 
 fn assert_plain(text: &str, max_chars: usize, max_bytes: usize) {
     assert!(
@@ -275,6 +275,16 @@ fuzz_target!(|data: &[u8]| {
             assert!((1..=moments).contains(moment));
             assert_voice(footnote, chronicle::MAX_FOOTNOTE_CHARS, 1600);
         }
+    }
+    if let Some(summary) = summary::checked_summary(&text, "", "") {
+        assert_voice(
+            &summary,
+            summary::MAX_SUMMARY_CHARS,
+            summary::MAX_SUMMARY_BYTES,
+        );
+        assert!(slop_in(&summary, "").is_empty(), "{summary:?}");
+        assert!(summary.matches("$N").count() <= summary::MAX_NAMES, "{summary:?}");
+        assert!(!summary.to_lowercase().contains("our hero"), "{summary:?}");
     }
     if let Some(answer) = talk::checked_answer(&text, "") {
         assert_voice(&answer.say, talk::MAX_SAY_CHARS, talk::MAX_SAY_BYTES);

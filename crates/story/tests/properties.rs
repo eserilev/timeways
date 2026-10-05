@@ -2274,3 +2274,61 @@ proptest! {
         }
     }
 }
+
+/// An answer of the sheet: empty, short, or at the limit of its field.
+fn sheet_text() -> impl Strategy<Value = Option<String>> {
+    prop_oneof![
+        Just(None),
+        Just(Some("Short.".to_string())),
+        Just(Some("w".repeat(LONG.chars))),
+        Just(Some("\u{e9}".repeat(LONG.bytes / 2))),
+    ]
+}
+
+fn summary_facts() -> impl Strategy<Value = timeways_story::summary::Facts> {
+    let chapters = prop_oneof![Just(0usize), Just(1), Just(3), Just(50)];
+    let deeds = prop_oneof![Just(0usize), Just(1), Just(10)];
+    (
+        prop::collection::vec(sheet_text(), 6),
+        prop::option::of(Just("b".repeat(600))),
+        chapters,
+        deeds,
+    )
+        .prop_map(|(answers, before, chapters, deeds)| {
+            let changes: Vec<timeways_story::hero::Change> = FIELDS
+                .iter()
+                .zip(answers)
+                .filter_map(|(field, text)| {
+                    Some(timeways_story::hero::Change::Set {
+                        at: Tick(1),
+                        field: (*field).to_string(),
+                        text: text?,
+                    })
+                })
+                .collect();
+            let sheet = timeways_story::hero::hero(&changes);
+            timeways_story::summary::Facts {
+                who: Some("a Forsaken warlock".to_string()),
+                level: Some(60),
+                sheet: timeways_story::hero::portrait(&sheet, &[]),
+                before,
+                chapters: vec!["s".repeat(600); chapters],
+                deeds: vec![format!("Defeated {}, a first kill", "N".repeat(96)); deeds],
+            }
+        })
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(64))]
+
+    /// docs/plans/hero-stories.md 3.5: the prompt of a summary fits the context of a small
+    /// model, with room for its longest reply.
+    #[test]
+    fn the_summary_prompt_fits_its_budget(facts in summary_facts()) {
+        let prompt = timeways_story::summary::prompt(&facts);
+
+        let tokens = timeways_story::tokens::estimated_tokens(&prompt);
+        let budget = timeways_story::tokens::Call::Summary.prompt_budget();
+        prop_assert!(tokens <= budget, "{} tokens of {}", tokens, budget);
+    }
+}

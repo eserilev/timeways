@@ -1831,7 +1831,10 @@ fn hero_page(story: &mut Story) -> (timeways_story::hero::Hero, Option<String>) 
         })
         .unwrap())
     {
-        Some(Output::Journal { page, .. }) => (page.journal.hero, page.journal.hero_refused),
+        Some(Output::Journal { page, .. }) => (
+            page.journal.hero,
+            page.journal.hero_refused.map(String::from),
+        ),
         other => panic!("expected a journal, got {other:?}"),
     }
 }

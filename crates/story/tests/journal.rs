@@ -144,6 +144,7 @@ fn a_journal_serializes_with_a_kind_on_each_deed() {
         "learned": [],
         "quests": [],
         "stories": [],
+        "summary": null,
         "talk_quest": null,
     });
     assert_eq!(json, expected);
@@ -453,7 +454,7 @@ fn the_largest_chapter_still_fits_on_one_page() {
             text: "\u{10348}".repeat(300),
         })
         .collect();
-    journal.hero_refused = Some("r".repeat(200));
+    journal.hero_refused = Some("r".repeat(200).into_boxed_str());
 
     let sizes: Vec<usize> = pages(journal)
         .into_iter()

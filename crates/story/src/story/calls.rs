@@ -32,6 +32,13 @@ pub(super) enum Pending {
     },
     /// A side quest for this character only (`QuestCall`).
     Quest(QuestCall),
+    /// Who the character has become, after the chapter that began at `after`, for this
+    /// character only. `told` holds the facts of the prompt, for the check of slop.
+    Summary {
+        key: CharacterKey,
+        after: Tick,
+        told: String,
+    },
     /// A draft of a player task, for this character only.
     Draft {
         question: MessageId,
@@ -53,6 +60,7 @@ impl Pending {
             Pending::Lore { .. } => "lore",
             Pending::Narrator(_) => "narrator",
             Pending::Chronicle { .. } => "saga",
+            Pending::Summary { .. } => "summary",
             Pending::Quest(quest) if quest.attempt == Attempt::Retry => QUEST_RETRY,
             Pending::Quest(_) => QUEST,
             Pending::Draft { .. } => "draft",
@@ -67,6 +75,7 @@ impl Pending {
             Pending::Lore { .. } => false,
             Pending::Narrator(NarratorCall { key, .. })
             | Pending::Chronicle { key, .. }
+            | Pending::Summary { key, .. }
             | Pending::Quest(QuestCall { key, .. })
             | Pending::Draft { key, .. }
             | Pending::Talk { key, .. } => key == active,
@@ -130,6 +139,9 @@ impl Story {
             }
             Pending::Narrator(narration) => self.narrator_answered(row, narration, &prompt, text),
             Pending::Chronicle { key, began } => self.saga_answered(&key, began, Some(text))?,
+            Pending::Summary { key, after, told } => {
+                self.summary_answered(&key, after, &told, Some(text))?
+            }
             Pending::Talk {
                 question,
                 key,
@@ -260,6 +272,9 @@ impl Story {
             }],
             Pending::Narrator(narration) => vec![quests::quiet(narration.batch)],
             Pending::Chronicle { key, began } => self.saga_answered(&key, began, None)?.0,
+            Pending::Summary { key, after, told } => {
+                self.summary_answered(&key, after, &told, None)?.0
+            }
             Pending::Talk { question, npc, .. } => vec![Output::TalkAnswer {
                 id: question,
                 npc,

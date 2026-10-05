@@ -40,6 +40,7 @@ pub mod spot;
 pub mod store;
 pub mod stories;
 pub mod story;
+pub mod summary;
 pub mod talk;
 pub mod titles;
 pub mod tokens;

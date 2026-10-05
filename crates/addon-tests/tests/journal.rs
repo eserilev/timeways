@@ -417,6 +417,7 @@ const THREE_CHAPTERS: &str = concat!(
 #[test]
 fn the_chronicle_lists_each_chapter_by_its_first_zone() {
     let game = Game::new();
+    game.run("wow.units.player = { name = 'Ada', player = true, guid = 'Player-1-Ada' }");
 
     game.reply(THREE_CHAPTERS);
 
@@ -425,7 +426,61 @@ fn the_chronicle_lists_each_chapter_by_its_first_zone() {
          for _, row in ipairs(ns.Journal.Page('chapters').list) do table.insert(out, row.text) end
          return out",
     );
-    assert_eq!(titles, ["Chapter 1: A", "Chapter 2: B", "Chapter 3"]);
+    assert_eq!(
+        titles,
+        [
+            "Ada",
+            "Chapters",
+            "Chapter 1: A",
+            "Chapter 2: B",
+            "Chapter 3"
+        ]
+    );
+}
+
+#[test]
+fn the_title_page_is_the_first_row_of_the_chronicle() {
+    let game = Game::new();
+    game.reply(THREE_CHAPTERS);
+
+    let first: String = game.eval("return ns.Journal.Page('chapters').list[1].detail");
+    game.run("ns.Journal.Select('chapters', 'title')");
+    let footer: String = game.eval("return ns.Journal.Page('chapters').footer");
+
+    assert_eq!(first, "Who you've become");
+    assert_eq!(footer, "Your story so far, chapter by chapter.");
+}
+
+#[test]
+fn the_title_page_puts_your_name_in_place_of_the_hero_mark() {
+    let game = Game::new();
+    game.run(
+        "wow.units.player = { name = 'Ada', player = true, guid = 'Player-1-Ada', level = 12 }
+         wow.race, wow.class = 'Undead', 'Paladin'",
+    );
+    game.reply(&THREE_CHAPTERS.replace(
+        r#""page":0,"#,
+        r#""page":0,"summary":"Brill trusts $N now.","#,
+    ));
+    game.run("ns.Journal.Select('chapters', 'title')");
+
+    assert_eq!(
+        lines(&game, "chapters"),
+        [
+            "heading: Ada",
+            "text: Level 12 Undead Paladin",
+            "prose: Brill trusts Ada now."
+        ]
+    );
+}
+
+#[test]
+fn with_no_model_the_title_page_holds_the_header_alone() {
+    let game = Game::new();
+    game.reply(THREE_CHAPTERS);
+    game.run("ns.Journal.Select('chapters', 'title')");
+
+    assert_eq!(lines(&game, "chapters").len(), 2);
 }
 
 #[test]
@@ -455,14 +510,14 @@ fn previous_chapter_opens_the_one_before_and_the_newest_has_no_next() {
 }
 
 #[test]
-fn no_chapter_yet_shows_a_note() {
+fn before_the_first_summary_the_title_page_says_when_it_fills_in() {
     let game = Game::new();
 
     game.reply(&journal_reply(&Character::new()));
 
     assert_eq!(
-        lines(&game, "chapters"),
-        ["help: Your story hasn't started yet. Go make some trouble."]
+        lines(&game, "chapters")[2],
+        "help: Fills in when your first chapter ends."
     );
 }
 

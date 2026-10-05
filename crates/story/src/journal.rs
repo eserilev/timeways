@@ -37,7 +37,8 @@ pub struct Journal {
     /// The sheet and the entries of the hero are lists like the others.
     pub hero: Hero,
     /// Why the last edit of the hero did not stand. It shows once.
-    pub hero_refused: Option<String>,
+    /// A box keeps the page small, as for `talk_quest`.
+    pub hero_refused: Option<Box<str>>,
     pub chapters: Vec<Chapter>,
     pub places: Vec<Place>,
     pub people: Vec<Person>,
@@ -48,6 +49,9 @@ pub struct Journal {
     pub quests: Vec<QuestView>,
     /// The stories that players told about you, and that you accepted (4.8).
     pub stories: Vec<PlayerStory>,
+    /// Who the character has become, for the title page of the Chronicle
+    /// (docs/plans/hero-stories.md 3.5). Only the first page carries it.
+    pub summary: Option<Box<str>>,
     /// The quest that the newest talk with work asked for (3.5). The talk window shows it.
     /// A box keeps the page small, and every answer holds a page.
     pub talk_quest: Option<Box<TalkQuest>>,
@@ -196,9 +200,12 @@ pub fn pages(journal: Journal) -> Vec<Page> {
     let mut current = Journal {
         hero_refused: journal.hero_refused,
         talk_quest: journal.talk_quest,
+        summary: journal.summary,
         ..Journal::default()
     };
-    let mut used = Size::of(&current.hero_refused).plus(Size::of(&current.talk_quest));
+    let mut used = Size::of(&current.hero_refused)
+        .plus(Size::of(&current.talk_quest))
+        .plus(Size::of(&current.summary));
     let budget = Size {
         line: MAX_LINE - FRAME.line,
         slot: MAX_SLOT - FRAME.slot,
