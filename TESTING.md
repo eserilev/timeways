@@ -147,14 +147,21 @@ This test needs a model.
 
 This test needs two characters with Timeways in one party.
 
-1. On the first character, target the second and type `/story Corvin held the bridge alone.` (use the real name). The chat says "You told ... a story about them."
-2. On the second character, the chat says "... told a story about you. Type /story to read it." Type `/story`. The story shows, with "Type /story accept or /story decline."
-3. Open `/hero`. Under "Stories About You", the story shows with Accept, and the author with Decline, and the line "To report abuse, open Support in the game menu."
-4. Click Accept. The first character's chat says "... accepted your story." On the second character, the story shows with "Told by ..." and Remove. The name of the second character shows in place of `$N`.
-5. Tell a second story, and click Decline. The first character's chat says "... declined your story."
-6. Tell a story that names the first character. Leave the party. Accept it the next day. The Hero page shows the story with the real name. In the world file, run `sqlite3 c_<name>.sqlite "SELECT body FROM stories"`: the name shows as an ID such as `{P1}`, never the real name.
-7. Click Remove on an accepted story, then Remove in the dialog. The story leaves the page.
-8. A character who is not in your group can't tell you a story: nothing arrives.
+1. On the first character, target the second and type `/story`. The scroll "Tell a Story" opens with the second character's portrait, the name, and "Level ... ...". The status line says "Checking...", then goes blank, and Send turns on when you type.
+2. Type a title and three paragraphs, with a blank line between two of them. Click Send. The scroll says "Sent to ... They'll decide if it's part of their story."
+3. On the second character, the chat says "... told a story about you: <title>. Type /stories to read it." The Stories tab of the journal has a badge with 1.
+4. Type `/stories`. The story shows as a page: the title, "By ... · Today", and three paragraphs, with "To report abuse, open Support in the game menu." under them. The bar says "1 waiting".
+5. Click Accept. The first character's chat says "... accepted your story." On the second character, the story moves under Accepted, with "By ... · Accepted <day>" and Remove. The name of the second character shows in place of `$N`.
+6. Tell a story, and before the second character answers, type `/story` again. The scroll says "... hasn't answered your last story yet.", and Send stays off. Decline the story on the second character, close the scroll, and open it again. Send turns on.
+7. Write a story, click Save, and leave the party. Open Stories: the draft shows under Drafts. Click Continue: "Invite ... to your group to send it." Invite the player again, close the scroll, and click Continue again: Send turns on.
+8. Type a `|` in the body, and click Send. The error shows, the `|` is selected, and the text stays. Write down whether the selection covers the `|` alone, also after a letter such as "é" before it. This checks whether `HighlightText` counts bytes or letters.
+9. Press Enter in the body. A new paragraph starts, and nothing is sent. Write down whether one Enter gives one line break or two: the box inserts a break itself, and the game can add one more. Press Ctrl+Enter. The story is sent.
+10. Close the scroll with text in it. `/reload`. Type `/story` for the same player. The text is still there.
+11. On the second character, click Block player on a waiting story, then Block. The first character types `/story`: the scroll says "... doesn't take stories from you." The Quests tab of the second character lists the player under Blocked players.
+12. Target a player in your group who has no Timeways, and type `/story`. After 5 seconds, the scroll says "... needs Timeways to get stories."
+13. Tell a story that names the first character. Leave the party. Accept it the next day. The page shows the story with the real name. In the world file, run `sqlite3 c_<name>.sqlite "SELECT body FROM stories"`: the name shows as an ID such as `{P1}`, never the real name, and the body is a list of paragraphs.
+14. Click Remove on an accepted story, then Remove in the dialog. The story leaves the page.
+15. A character who is not in your group can't tell you a story: nothing arrives.
 
 ### 14. Messages that Blizzard can read
 

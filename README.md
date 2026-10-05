@@ -23,7 +23,7 @@ What works:
 - **Player quests.** Give a quest to a player in your party, guild, or friends list who has Timeways. The game checks the steps, and the giver decides at the end. You type each step in plain words, and "Help me write" drafts a whole quest.
 - **Roleplay profiles.** Share your character's name, title, looks, and story with players who use Total RP 3, MyRolePlay, or XRP, and see their names in the tooltip.
 - **Remembered players.** Right-click a player to mark them Friendly, Neutral, or Avoid, and add a note. Only you see it, in their tooltip.
-- **Player stories.** Target someone in your group and type `/story <words>` to tell a story about them. They accept it into their own story, or decline it.
+- **Player stories.** Target someone in your group and type `/story` to write a story about them, with a title and paragraphs. They read it in the Stories tab, and accept it into their own story, or decline it.
 - **`/journal`.** A book in the look of the classic quest frame, with 5 tabs: Hero (your hero in your own words), Chronicle (one chapter for each milestone, with a saga from the narrator), Deeds, Knowledge, and Quests. The map shows where you have been.
 - **The narrator.** One short line at a big moment, like a rare you killed, a new capital, every tenth level, or a third death to the same murloc. It ties what you did to the history of the place or the foe. It calls you by name, by race or class, or not at all. Nothing to say means no line. At most 3 lines each hour.
 - **Kills, deaths, and slaps.** Addons cannot read the combat log in this client. So the addon reads kills and deaths from other events, and never sends the name of a real player.
