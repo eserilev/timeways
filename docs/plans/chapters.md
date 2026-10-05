@@ -194,7 +194,7 @@ The fold lives in `crates/rules/src/chapters.rs`, in loop style: index loops, `p
 | 9 | `the_weight_of_a_chapter_is_the_sum_of_its_gains` | A chapter's weight is the sum of the gains of its `World` steps. |
 | 10 | `a_step_with_no_gain_closes_nothing` | A step with gain 0 closes no chapter, unless it is a `Rule` step. |
 | 11 | `a_repeat_never_adds_weight` | A step with a spent key gains 0, and the key stays spent. |
-| 12 | `repeats_alone_never_make_an_entry` | From a reachable state, steps with spent keys or no key close no chapter, open no tale, and add no gain to a visit. |
+| 12 | `repeats_alone_never_make_an_entry` | Steps with spent keys or no key close no chapter, add no gain to a visit, and add a tale only for an instance that has none (16.2). |
 | 13 | `entries_grow_only_with_what_is_new` | The bounds of section 7. |
 | 14 | `an_instance_step_never_adds_world_weight` | An `Instance` step adds 0 to a chapter. |
 | 15 | `an_instance_has_at_most_one_tale` | No two tales share an instance. |
@@ -400,3 +400,16 @@ Proposed answers wait for the user.
 - **The wire.** The line has a shape, fits the strip without names, and `Outbox.Fits` gates Save. Each edit is its own journal item, so the largest chapter still fits a page.
 - **Gaps closed:** the reads of each call, the proof root, rule epochs, Restore asks first, no-op rows, and growth. The row `after` is gone: nothing read it.
 - **The proofs of 20 and 21** (`lean/Timeways/EntryEdits.lean`). Theorem 20 is three theorems: `the_newest_edit_decides`, `a_restore_shows_the_newest_narrator_text`, and `a_restore_shows_a_later_narrator_text`. Theorem 21 holds for any new narrator row, not only a newer one, because the title and the player row never read the narrator rows. Of two edits with the same row id, the later one in the list stands (`pickEdit_tie`).
+
+### 16.2 Review of the proofs
+
+Theorems 1 to 19 are proved in `lean/Timeways/Chapters.lean`, about a pure model (`ChaptersModel.lean`) that `ChaptersBridge.lean` proves equal to the Rust fold. Each axiom is pinned in `Axioms.lean`. These statements changed, and each keeps its intent:
+
+- **Theorem 12 was false as written.** "Open no tale" fails for a step with no key into an instance that has no tale: the fold opens its tale, so that theorem 2 holds for every step. Only a damaged walk makes such a step, because the first step in an instance is `instance_entered` with its new key. Now: the steps close no chapter, gain 0, add no gain to a visit, and add a tale only for an instance that has none (the instances of the tales grow as a prefix, with no instance twice). It holds from any fold, not only a reachable one.
+- **"Add no gain to a visit"** is stated as: every new gain is 0, and the sum of the gains of the visits does not grow.
+- **Theorem 13 has six parts.** The count of closed chapters that no rule step closed, times `MIN`, is at most the gain in the open world. The chapters that rule steps closed are no more than the rule steps. The gain of all steps is at most 7 times the keys, and the keys are no more than the distinct key ids of the steps. The tales are no more than the distinct instances. The closed visits with gain are no more than the gain in instances. The tale texts are rows of the story program, so the proof bounds the closed visits with gain, which bound the texts. `MIN` is the `MIN` of rule 1, the only rule so far.
+- **Theorem 17 is per foe.** The deaths count on the foe record, not on the key, so two keys of one foe from a damaged walk still weigh 3 at most. A death to a foe out of range weighs 0.
+- **Theorem 18** says that the steps of a log add revenge for one foe once at most.
+- **Theorems 5, 7, 10, 11, 14, and 16** hold from any fold, so they need no `Reachable`. Theorem 5 needs room for one more closed visit, as every fold of a log has.
+- **Theorem 19** needs room: no vector of the fold that a step grows is longer than its steps, and the steps fit a `usize`. A fold of one log from the start always has it.
+- **Theorem 2** names the visit by its tale index: the tale at that index has the instance of the step.

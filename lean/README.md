@@ -4,8 +4,8 @@ Aeneas translates the crate `timeways-rules` (`crates/rules`) into pure
 Lean functions. The theorems in `Timeways/QuestLog.lean`,
 `Timeways/HeroHook.lean`, `Timeways/Budget.lean`,
 `Timeways/TrustBand.lean`, `Timeways/Prompts.lean`,
-`Timeways/Aliases.lean`, `Timeways/StoryShelf.lean`, and
-`Timeways/EntryEdits.lean` are about those
+`Timeways/Aliases.lean`, `Timeways/StoryShelf.lean`,
+`Timeways/EntryEdits.lean`, and `Timeways/Chapters.lean` are about those
 functions. A theorem holds for every input, with no bound. The
 property tests in `crates/story/tests/properties.rs` check the same
 rules on random input, and they stay as a second check.
@@ -185,6 +185,84 @@ The ids of narrator rows and of edit rows come from two tables, so the
 laws never compare them. Theorem 21 holds for any new narrator row, not
 only a newer one: the title and the player row never read the narrator
 rows.
+
+## What is proved: the chapters
+
+The fold in `crates/rules/src/chapters.rs` decides each chapter, each
+visit of an instance, each tale, and the gain of each step
+(`docs/plans/chapters.md`). The proofs have three files.
+
+- `Timeways/ChaptersModel.lean` is a pure model of the fold. Each
+  function of the model gives back only the fields that it changes, so
+  a law sees at once what a step leaves alone. `runM ss` is the fold of
+  the log `ss` from the start.
+- `Timeways/ChaptersBridge.lean` proves that the Rust fold computes the
+  model, function by function. So the laws of the model are laws of the
+  Rust code.
+- `Timeways/Chapters.lean` holds the laws.
+
+**The room.** A push on a full vector fails in Rust. The bridge needs
+room for each step: no vector of the fold that a step can grow is longer
+than the steps so far (`Sized`), and the steps so far and the new steps
+fit a `usize`. A fold of one log from the start always has this room.
+The keys, the foes, and the zones need no room: the fold checks it
+(`has_slot`).
+
+**Reachable.** A law of the form "from a reachable fold" is a law about
+`runM ss` for a log `ss` that fits a `usize`. Folding one line at a time
+gives the same fold as folding the whole log
+(`advance_one_line_at_a_time`), so the story program can fold each new
+line.
+
+| # | Theorem | The law | Test |
+|---|---|---|---|
+| 1 | `every_step_is_in_one_chapter` | The closed chapters chain from step 0 to the first step of the open chapter, in order, with no gap, no overlap, and none empty. Each step is in one closed chapter, or in the open chapter. | `a_long_grind_in_one_zone_still_breaks_into_chapters` |
+| 2 | `every_instance_step_is_in_one_visit` | Each step in an instance is in exactly one visit, closed or open, and the tale of that visit has the instance of the step. | `a_wipe_and_a_corpse_run_stay_one_run`, `another_instance_closes_the_open_visit` |
+| 3 | `a_closed_chapter_never_changes` | The closed chapters of a log are a prefix of the closed chapters of the log with more steps. | `folding_one_line_at_a_time_gives_the_same_fold` |
+| 4 | `a_closed_visit_never_changes` | The closed visits of a log are a prefix of the closed visits of the log with more steps. | `folding_one_line_at_a_time_gives_the_same_fold` |
+| 5 | `a_tale_changes_only_with_a_visit` | A step keeps the instance and the first step of each tale. It keeps the weight and the runs, or it adds exactly one closed visit of that tale. `taleMoved_grows`: the weight and the runs only grow. | `a_second_dungeon_run_with_nothing_new_changes_only_its_count` |
+| 6 | `a_closed_chapter_has_min_weight` | Every closed chapter weighs `MIN` or more, or a rule step closed it. | `a_break_below_the_least_weight_is_spent` |
+| 7 | `a_rule_change_closes_at_most_one_chapter` | A rule step closes one chapter at most. A step of play closes none below `MIN`, and none as a rule. | `a_rule_change_closes_the_open_chapter_below_the_least_weight` |
+| 8 | `no_chapter_passes_max_and_one_step` | No chapter weighs more than `MAX - 1 + 7`, and the open chapter weighs less than `MAX`. | `a_long_grind_in_one_zone_still_breaks_into_chapters` |
+| 9 | `the_weight_of_a_chapter_is_the_sum_of_its_gains` | The weight of a chapter is the sum of the gains of its steps in the open world. | `revenge_outside_an_instance_counts_for_the_chapter` |
+| 10 | `a_step_with_no_gain_closes_nothing` | A step of play that gains 0 closes no chapter. | `a_flight_across_four_zones_makes_no_chapter` |
+| 11 | `a_repeat_never_adds_weight` | A step with a spent key gains 0, and the key stays spent after any step. | `the_same_thing_done_again_never_adds_weight` |
+| 12 | `repeats_alone_never_make_an_entry` | Steps with spent keys or no key close no chapter, gain 0, add no gain to a visit, and add a tale only for an instance that has none. | `a_second_dungeon_run_with_nothing_new_changes_only_its_count` |
+| 13 | `entries_grow_only_with_what_is_new` | The bounds of section 7 of the plan, in six parts (below). | none |
+| 14 | `an_instance_step_never_adds_world_weight` | A step in an instance leaves the open chapter and the closed chapters as they were. | `an_instance_step_adds_nothing_to_the_chapter_and_closes_nothing` |
+| 15 | `an_instance_has_at_most_one_tale` | No two tales share an instance. | `another_instance_closes_the_open_visit` |
+| 16 | `a_death_to_a_beaten_foe_weighs_nothing` | Once a foe is beaten, a death to it gains 0, on either track and under every rule, and the foe stays beaten. | `a_death_to_a_beaten_foe_weighs_nothing` |
+| 17 | `deaths_to_one_foe_weigh_at_most_three` | The deaths to one foe gain 3 at most in all. | `deaths_to_one_foe_weigh_two_then_one_then_nothing` |
+| 18 | `revenge_counts_once` | The steps of a log add revenge for one foe once at most. | `revenge_counts_once` |
+| 19 | `advance.spec`, `chapters.spec` | `advance` and `chapters` give the model. So they never panic, never overflow, and always end. | all the unit tests of `chapters/tests.rs` |
+
+Theorem 13 has six parts. The closed chapters that no rule step closed,
+times `MIN`, weigh no more than the gain in the open world
+(`worldGainOf`). The chapters that rule steps closed are no more than
+the rule steps. The gain of all steps is the sum of the gains of the
+keys, so it is at most 7 times the keys. The keys are no more than the
+distinct key ids of the steps. The tales are no more than the distinct
+instances of the steps. The closed visits with gain are no more than
+the gain in instances. A tale writes its text only after a closed visit
+with gain, so the tale texts have the same bound. The story program
+writes the texts, so no proof counts them.
+
+The triples `chapters_cover_the_steps`,
+`chapters_weigh_between_min_and_max`, and
+`chapters_have_one_tale_for_each_instance` state theorems 1, 6, 8, and
+15 on the Rust function `chapters`. `chapters_holds` turns any law of
+`runM` into such a triple.
+
+Theorems 5, 7, 10, 11, 12, 14, and 16 hold from any fold, not only a
+reachable one. Theorem 5 needs room for one more closed visit.
+
+The constants `MIN` (15) and `MAX` (40) are those of rule 1, the only
+rule so far. A new rule changes `weights::limits`, so the model and
+theorems 6, 8, and 13 then name the constants of each rule.
+
+The property tests of the story program (`crates/story/tests/properties.rs`)
+check the walk from events to steps, which no proof reads: dense ids,
+and the steps of a prefix are a prefix of the steps.
 
 ## What you trust
 

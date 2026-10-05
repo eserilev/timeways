@@ -8,6 +8,7 @@ import Timeways.Prompts
 import Timeways.Aliases
 import Timeways.StoryShelf
 import Timeways.EntryEdits
+import Timeways.Chapters
 
 open timeways_rules
 
@@ -166,3 +167,99 @@ open timeways_rules
 /-- info: 'timeways_rules.entry_edits.a_model_text_never_hides_player_words' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs (whitespace := lax) in
 #print axioms entry_edits.a_model_text_never_hides_player_words
+
+/-- info: 'timeways_rules.chapters.advance.spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms chapters.advance.spec
+
+/-- info: 'timeways_rules.chapters.chapters.spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms chapters.chapters.spec
+
+/-- info: 'timeways_rules.chapters.every_step_is_in_one_chapter' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms chapters.every_step_is_in_one_chapter
+
+/-- info: 'timeways_rules.chapters.every_instance_step_is_in_one_visit' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms chapters.every_instance_step_is_in_one_visit
+
+/-- info: 'timeways_rules.chapters.a_closed_chapter_never_changes' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms chapters.a_closed_chapter_never_changes
+
+/-- info: 'timeways_rules.chapters.a_closed_visit_never_changes' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms chapters.a_closed_visit_never_changes
+
+/-- info: 'timeways_rules.chapters.a_tale_changes_only_with_a_visit' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms chapters.a_tale_changes_only_with_a_visit
+
+/-- info: 'timeways_rules.chapters.a_closed_chapter_has_min_weight' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms chapters.a_closed_chapter_has_min_weight
+
+/-- info: 'timeways_rules.chapters.a_rule_change_closes_at_most_one_chapter' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms chapters.a_rule_change_closes_at_most_one_chapter
+
+/-- info: 'timeways_rules.chapters.no_chapter_passes_max_and_one_step' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms chapters.no_chapter_passes_max_and_one_step
+
+/-- info: 'timeways_rules.chapters.the_weight_of_a_chapter_is_the_sum_of_its_gains' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms chapters.the_weight_of_a_chapter_is_the_sum_of_its_gains
+
+/-- info: 'timeways_rules.chapters.a_step_with_no_gain_closes_nothing' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms chapters.a_step_with_no_gain_closes_nothing
+
+/-- info: 'timeways_rules.chapters.a_repeat_never_adds_weight' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms chapters.a_repeat_never_adds_weight
+
+/-- info: 'timeways_rules.chapters.repeats_alone_never_make_an_entry' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms chapters.repeats_alone_never_make_an_entry
+
+/-- info: 'timeways_rules.chapters.entries_grow_only_with_what_is_new' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms chapters.entries_grow_only_with_what_is_new
+
+/-- info: 'timeways_rules.chapters.an_instance_step_never_adds_world_weight' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms chapters.an_instance_step_never_adds_world_weight
+
+/-- info: 'timeways_rules.chapters.an_instance_has_at_most_one_tale' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms chapters.an_instance_has_at_most_one_tale
+
+/-- info: 'timeways_rules.chapters.a_death_to_a_beaten_foe_weighs_nothing' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms chapters.a_death_to_a_beaten_foe_weighs_nothing
+
+/-- info: 'timeways_rules.chapters.deaths_to_one_foe_weigh_at_most_three' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms chapters.deaths_to_one_foe_weigh_at_most_three
+
+/-- info: 'timeways_rules.chapters.revenge_counts_once' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms chapters.revenge_counts_once
+
+/-- info: 'timeways_rules.chapters.chapters_cover_the_steps' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms chapters.chapters_cover_the_steps
+
+/-- info: 'timeways_rules.chapters.chapters_weigh_between_min_and_max' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms chapters.chapters_weigh_between_min_and_max
+
+/-- info: 'timeways_rules.chapters.chapters_have_one_tale_for_each_instance' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms chapters.chapters_have_one_tale_for_each_instance
+
+/-- info: 'timeways_rules.chapters.advance_one_line_at_a_time' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms chapters.advance_one_line_at_a_time
