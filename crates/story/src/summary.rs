@@ -8,6 +8,7 @@ use crate::check::{json_object, slop_in, voice_text};
 use crate::hero::OWN_WORDS;
 use crate::house::{HOUSE_RULES, bulleted, fenced};
 use crate::narrator::PERSONA;
+use crate::samples::{self, Voice};
 use crate::tokens::{Call, largest_fit};
 use serde::Deserialize;
 use std::fmt::Write;
@@ -54,6 +55,8 @@ pub struct Facts {
     pub chapters: Vec<String>,
     /// The deeds of note, newest first.
     pub deeds: Vec<String>,
+    /// Picks the samples of the voice, so two summaries in a row differ.
+    pub sample_turn: usize,
 }
 
 #[derive(Deserialize)]
@@ -107,7 +110,8 @@ fn prompt_with(facts: &Facts, count: usize) -> String {
             fenced(&bulleted(&deeds))
         );
     }
-    let _ = write!(prompt, "\n\n{NOTE}");
+    let samples = samples::section(Voice::Summary, facts.sample_turn);
+    let _ = write!(prompt, "\n\n{samples}\n\n{NOTE}");
     prompt
 }
 

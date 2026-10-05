@@ -9,13 +9,14 @@ use timeways_story::moments::Moment;
 use timeways_story::narrator::{ABSENT, Naming, Telling, Who};
 use timeways_story::samples::{LineSample, Voice, every_sample, line_samples, rotated};
 use timeways_story::talk::{self, Scene};
-use timeways_story::{chronicle, narrator};
+use timeways_story::{chronicle, narrator, summary};
 
 /// Each voice, with the most characters and words that its prompt allows.
-const VOICES: [(Voice, usize, usize); 3] = [
+const VOICES: [(Voice, usize, usize); 4] = [
     (Voice::NarratorLine, narrator::MAX_LINE_CHARS, 30),
     (Voice::Chapter, chronicle::MAX_CHAPTER_CHARS, 80),
     (Voice::NpcReply, talk::MAX_SAY_CHARS, 60),
+    (Voice::Summary, summary::MAX_SUMMARY_CHARS, 80),
 ];
 
 /// What a sample was told from, as the check sees a line of the game.
@@ -38,10 +39,31 @@ fn shares_a_run(text: &str, other: &str, length: usize) -> bool {
 }
 
 #[test]
-fn the_narrator_has_twenty_two_samples_a_chapter_five_and_an_npc_reply_three() {
+fn the_narrator_has_twenty_two_samples_a_chapter_five_an_npc_reply_three_and_a_summary_six() {
     assert_eq!(Voice::NarratorLine.samples().len(), 22);
     assert_eq!(Voice::Chapter.samples().len(), 5);
     assert_eq!(Voice::NpcReply.samples().len(), 3);
+    assert_eq!(Voice::Summary.samples().len(), 6);
+}
+
+#[test]
+fn a_summary_prompt_carries_two_samples_in_turn() {
+    let all = Voice::Summary.samples();
+    let facts = |sample_turn| summary::Facts {
+        sample_turn,
+        ..summary::Facts::default()
+    };
+
+    let first = summary::prompt(&facts(0));
+    let second = summary::prompt(&facts(1));
+
+    assert!(first.contains(all[0]) && first.contains(all[1]), "{first}");
+    assert!(!first.contains(all[2]), "{first}");
+    assert!(
+        second.contains(all[1]) && second.contains(all[2]),
+        "{second}"
+    );
+    assert!(!second.contains(all[0]), "{second}");
 }
 
 #[test]
@@ -181,8 +203,9 @@ fn no_sample_of_any_voice_says_our_hero() {
 }
 
 #[test]
-fn a_chapter_sample_names_the_hero_at_most_twice() {
-    for sample in Voice::Chapter.samples() {
+fn a_chapter_or_summary_sample_names_the_hero_at_most_twice() {
+    let samples = [Voice::Chapter.samples(), Voice::Summary.samples()].concat();
+    for sample in samples {
         assert!(sample.matches("$N").count() <= 2, "{sample}");
         assert_eq!(slop_in(sample, ""), Vec::<&str>::new(), "{sample}");
     }
@@ -242,6 +265,7 @@ fn a_prompt_carries_two_or_three_samples() {
     assert_eq!(rotated(Voice::NarratorLine, 0).len(), 3);
     assert_eq!(rotated(Voice::Chapter, 0).len(), 2);
     assert_eq!(rotated(Voice::NpcReply, 0).len(), 2);
+    assert_eq!(rotated(Voice::Summary, 0).len(), 2);
 }
 
 #[test]

@@ -1,0 +1,11 @@
+# Golden samples of the summary of a character (docs/plans/hero-stories.md 3.5). One sample per
+# line, at most 80 words. A sample says who another hero has become, from a sheet and the sagas
+# alone. The world is the main character: a place knows the deed, and no clause tells only that
+# the hero came somewhere. $N at most twice. Real places and people of 25 ADP, before Molten Core.
+# The user approved these six on 2026-10-05.
+Deathknell has buried its dead twice, and $N, once a squire of the Silver Hand, was among those who climbed back out. The paladin keeps an oath the Light may no longer hear. Brill has come to trust the Forsaken who carries it, and the Scarlet recruits at Solliden know that face.
+Razor Hill raised $N as it raises every orc child, with an axe and a watch post. In the Wailing Caverns, Mutanus the Devourer no longer stirs in the deep, and the Crossroads know which hunter to thank. A brother lost at Northwatch is the reason the hunter keeps going south.
+Northshire Abbey trained $N to hold a sword before the Defias burned the fields of Westfall. Sentinel Hill counts the warrior among its militia, and Edwin VanCleef lies dead in the Deadmines below Moonbrook. A temper that the warrior owns to has not cost a fight yet.
+The night elves of Shadowglen gave $N a duty to the trees of Teldrassil. Darkshore lost the furbolgs of the Blackwood to madness, and Auberdine has seen the druid fight it. The druid still searches the ruins of Ameth'Aran for a teacher who never came home.
+Kharanos keeps the forge where $N first beat iron into a hammer. Gnomeregan has felt that hammer, and the troggs of Loch Modan know the dwarf who held the line at Thelsamar. An oath to an old clan still decides each road.
+The Undercity sent $N out with a staff and a grudge against the Scarlet Crusade. Arcanist Doan's library in the Scarlet Monastery fell to the mage, and Southshore, in the hills of Hillsbrad, watches the Forsaken with good reason. Of the life before death, only the name of a sister remains.

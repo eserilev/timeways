@@ -2293,8 +2293,9 @@ fn summary_facts() -> impl Strategy<Value = timeways_story::summary::Facts> {
         prop::option::of(Just("b".repeat(600))),
         chapters,
         deeds,
+        prop_oneof![Just(0usize), Just(1), Just(5), Just(usize::MAX)],
     )
-        .prop_map(|(answers, before, chapters, deeds)| {
+        .prop_map(|(answers, before, chapters, deeds, sample_turn)| {
             let changes: Vec<timeways_story::hero::Change> = FIELDS
                 .iter()
                 .zip(answers)
@@ -2314,6 +2315,7 @@ fn summary_facts() -> impl Strategy<Value = timeways_story::summary::Facts> {
                 before,
                 chapters: vec!["s".repeat(600); chapters],
                 deeds: vec![format!("Defeated {}, a first kill", "N".repeat(96)); deeds],
+                sample_turn,
             }
         })
 }

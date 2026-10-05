@@ -399,6 +399,16 @@ impl SummaryLog {
         Some((row as u64, &self.rows[row]))
     }
 
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.rows.len()
+    }
+
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.rows.is_empty()
+    }
+
     /// # Errors
     ///
     /// Returns `Json` for a summary that does not serialize, and then keeps nothing.

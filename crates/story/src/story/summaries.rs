@@ -136,6 +136,7 @@ fn facts_and_read(active: &Active, began: Tick) -> (Facts, Vec<Node>) {
             })
             .collect(),
         deeds: deeds.iter().map(|deed| deed_fact(deed)).collect(),
+        sample_turn: active.summaries.len(),
     };
     let mut read = question_rows(active);
     for (chapter, next) in &chapters {

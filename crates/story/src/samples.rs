@@ -9,12 +9,14 @@ use crate::house::{bulleted, fenced};
 const NARRATOR_LINES: &str = include_str!("../data/samples/narrator_lines.txt");
 const CHAPTERS: &str = include_str!("../data/samples/chapters.txt");
 const NPC_REPLIES: &str = include_str!("../data/samples/npc_replies.txt");
+const SUMMARIES: &str = include_str!("../data/samples/summaries.txt");
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Voice {
     NarratorLine,
     Chapter,
     NpcReply,
+    Summary,
 }
 
 /// A narrator line with what it was told from, so a model sees how a line uses the
@@ -37,6 +39,7 @@ impl Voice {
             Voice::NarratorLine => line_samples().iter().map(|sample| sample.line).collect(),
             Voice::Chapter => data_lines(CHAPTERS).collect(),
             Voice::NpcReply => data_lines(NPC_REPLIES).collect(),
+            Voice::Summary => data_lines(SUMMARIES).collect(),
         }
     }
 
@@ -45,7 +48,7 @@ impl Voice {
     pub fn per_prompt(self) -> usize {
         match self {
             Voice::NarratorLine => 3,
-            Voice::Chapter | Voice::NpcReply => 2,
+            Voice::Chapter | Voice::NpcReply | Voice::Summary => 2,
         }
     }
 
@@ -55,7 +58,7 @@ impl Voice {
                 "Samples of your voice, about other heroes. Each one shows a moment, its lore, \
                  how to name the hero, and the line. Copy the manner, never the words:"
             }
-            Voice::Chapter => {
+            Voice::Chapter | Voice::Summary => {
                 "Samples of your voice, about other heroes. Copy the manner, never the words:"
             }
             Voice::NpcReply => {
@@ -112,7 +115,7 @@ fn in_turn<T: Copy>(all: &[T], count: usize, turn: usize) -> Vec<T> {
 pub fn section(voice: Voice, turn: usize) -> String {
     let samples = match voice {
         Voice::NarratorLine => line_pairs(turn, ""),
-        Voice::Chapter | Voice::NpcReply => bulleted(&rotated(voice, turn)),
+        Voice::Chapter | Voice::NpcReply | Voice::Summary => bulleted(&rotated(voice, turn)),
     };
     format!("{}\n{}", voice.heading(), fenced(&samples))
 }
@@ -151,6 +154,11 @@ fn shown_pair(sample: &LineSample) -> String {
 /// Every sample of every voice, for the check against a copy.
 #[must_use]
 pub fn every_sample() -> Vec<&'static str> {
-    let voices = [Voice::NarratorLine, Voice::Chapter, Voice::NpcReply];
+    let voices = [
+        Voice::NarratorLine,
+        Voice::Chapter,
+        Voice::NpcReply,
+        Voice::Summary,
+    ];
     voices.into_iter().flat_map(Voice::samples).collect()
 }

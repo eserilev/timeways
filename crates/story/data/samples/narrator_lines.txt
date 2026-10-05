@@ -11,7 +11,7 @@ moment: The player arrived in Tirisfal Glades. They had never been there before.
 who: a Forsaken warlock
 lore: Deathknell is a village of Tirisfal Glades. The plague killed its people, and the Scourge raised them. Now the Forsaken wake their own dead in its crypts.
 hero: not at all, the line is about the place
-line: Deathknell has buried its dead twice. The second time, they climbed back out.
+line: Deathknell has twice buried its dead. The second time, they climbed back out.
 
 moment: The player defeated Hogger. They never had before.
 who: a human paladin
