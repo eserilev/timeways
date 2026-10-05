@@ -21,6 +21,7 @@ pub mod memory;
 pub mod moments;
 pub mod narrator;
 pub mod narrator_lore;
+pub mod narrator_review;
 pub mod npc_memory;
 pub mod pace;
 pub mod pack;

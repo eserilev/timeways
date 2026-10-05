@@ -112,6 +112,24 @@ pub fn safe_id(text: &str) -> String {
     id
 }
 
+/// The name that `safe_id` made this id from, or None for an id that it never makes.
+#[must_use]
+pub fn name_of_safe_id(id: &str) -> Option<String> {
+    let mut bytes = Vec::with_capacity(id.len());
+    let mut rest = id.as_bytes();
+    while let Some((&first, after)) = rest.split_first() {
+        if first != b'_' {
+            bytes.push(first);
+            rest = after;
+            continue;
+        }
+        let hex = std::str::from_utf8(after.get(..2)?).ok()?;
+        bytes.push(u8::from_str_radix(hex, 16).ok()?);
+        rest = &after[2..];
+    }
+    String::from_utf8(bytes).ok()
+}
+
 /// What a character brings from the disk.
 pub struct Opened {
     pub character: Character,

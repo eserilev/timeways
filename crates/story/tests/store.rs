@@ -9,7 +9,9 @@ use timeways_story::journal::Page;
 use timeways_story::narrator::Budget;
 use timeways_story::pace::Pace;
 use timeways_story::pack::Pack;
-use timeways_story::store::{CharacterKey, Line, Store, StoreError, Table, safe_id};
+use timeways_story::store::{
+    CharacterKey, Line, Store, StoreError, Table, name_of_safe_id, safe_id,
+};
 use timeways_story::story::{Output, Story, StoryError};
 
 /// The one output of an input, or none.
@@ -819,4 +821,13 @@ fn a_failed_save_of_the_shared_values_keeps_the_line() {
             .any(|output| matches!(output, Output::ModelCall { .. }))
     }));
     assert_eq!(story.take_notes().len(), 1);
+}
+
+#[test]
+fn a_safe_id_gives_back_its_name() {
+    for name in ["Kobee", "Classic Beta PvP 2", "Zoë", "a_b"] {
+        assert_eq!(name_of_safe_id(&safe_id(name)).as_deref(), Some(name));
+    }
+    assert_eq!(name_of_safe_id("bad_Z"), None);
+    assert_eq!(name_of_safe_id("cut_4"), None);
 }

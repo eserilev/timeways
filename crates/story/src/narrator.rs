@@ -6,7 +6,7 @@ use crate::house::{HOUSE_RULES, NAME_MARK, fenced, first_chars};
 use crate::moments::Moment;
 use crate::places::InstanceKind;
 use crate::race_class::{Class, Race};
-use crate::samples::{self, Voice};
+use crate::samples;
 use hourglass::Tick;
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
@@ -168,9 +168,9 @@ pub struct Telling<'a> {
 #[must_use]
 pub fn prompt(telling: &Telling<'_>, turn: usize) -> String {
     let mut prompt = format!("{PERSONA}\n{HOUSE_RULES}\n\n{TASK}");
-    let samples = samples::section(Voice::NarratorLine, turn);
-    let what = fenced(&what_happened(telling.moment));
-    let _ = write!(prompt, "\n\n{samples}\n\nThe moment:\n{what}");
+    let what = what_happened(telling.moment);
+    let samples = samples::line_section(turn, &what);
+    let _ = write!(prompt, "\n\n{samples}\n\nThe moment:\n{}", fenced(&what));
     if let Some(who) = telling.who.described() {
         let _ = write!(prompt, "\n\nThe hero: {who}");
     }

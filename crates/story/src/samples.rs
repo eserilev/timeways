@@ -111,17 +111,31 @@ fn in_turn<T: Copy>(all: &[T], count: usize, turn: usize) -> Vec<T> {
 #[must_use]
 pub fn section(voice: Voice, turn: usize) -> String {
     let samples = match voice {
-        Voice::NarratorLine => {
-            let pairs = in_turn(&line_samples(), voice.per_prompt(), turn);
-            pairs
-                .iter()
-                .map(shown_pair)
-                .collect::<Vec<_>>()
-                .join("\n\n")
-        }
+        Voice::NarratorLine => line_pairs(turn, ""),
         Voice::Chapter | Voice::NpcReply => bulleted(&rotated(voice, turn)),
     };
     format!("{}\n{}", voice.heading(), fenced(&samples))
+}
+
+/// The narrator samples of one prompt under their heading. A sample of the same moment is
+/// left out: a model copies the line of a moment that it sees twice.
+#[must_use]
+pub fn line_section(turn: usize, moment: &str) -> String {
+    let voice = Voice::NarratorLine;
+    format!("{}\n{}", voice.heading(), fenced(&line_pairs(turn, moment)))
+}
+
+fn line_pairs(turn: usize, moment: &str) -> String {
+    let others: Vec<LineSample> = line_samples()
+        .into_iter()
+        .filter(|sample| sample.moment != moment)
+        .collect();
+    let pairs = in_turn(&others, Voice::NarratorLine.per_prompt(), turn);
+    pairs
+        .iter()
+        .map(shown_pair)
+        .collect::<Vec<_>>()
+        .join("\n\n")
 }
 
 /// A sample with the same headings as the moment of the prompt.

@@ -150,7 +150,7 @@ fn a_chapter_sample_names_the_hero_at_most_twice() {
 #[test]
 fn a_narrator_prompt_shows_each_sample_as_a_pair_of_moment_and_line() {
     let moment = Moment::NewZone {
-        zone: "Westfall".to_string(),
+        zone: "Ashenvale".to_string(),
     };
     let telling = Telling {
         moment: &moment,
@@ -183,7 +183,7 @@ fn a_sample_with_no_lore_shows_none() {
         .position(|sample| *sample == murlocs)
         .unwrap();
     let moment = Moment::NewZone {
-        zone: "Westfall".to_string(),
+        zone: "Ashenvale".to_string(),
     };
     let telling = Telling {
         moment: &moment,
@@ -248,7 +248,7 @@ fn a_phrase_shorter_than_a_copy_passes() {
 #[test]
 fn each_prompt_of_a_voice_carries_its_samples_in_turn() {
     let moment = Moment::NewZone {
-        zone: "Westfall".to_string(),
+        zone: "Ashenvale".to_string(),
     };
     let telling = Telling {
         moment: &moment,
@@ -270,4 +270,22 @@ fn each_prompt_of_a_voice_carries_its_samples_in_turn() {
         assert!(talk.contains(sample), "{sample}");
     }
     assert!(!talk.contains(Voice::NarratorLine.samples()[1]), "{talk}");
+}
+
+#[test]
+fn a_narrator_prompt_leaves_out_the_sample_of_its_own_moment() {
+    let first = line_samples()[0];
+    let moment = Moment::NewZone {
+        zone: "Tirisfal Glades".to_string(),
+    };
+    assert_eq!(narrator::what_happened(&moment), first.moment);
+    let telling = Telling {
+        moment: &moment,
+        lore: None,
+        who: &Who::default(),
+    };
+
+    let prompt = narrator::prompt(&telling, 0);
+
+    assert!(!prompt.contains(first.line), "{prompt}");
 }
