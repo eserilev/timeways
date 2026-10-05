@@ -490,7 +490,7 @@ def chapters.leave_instance
 @[global_simps, irreducible] def weights.CAP_MAX : Std.U16 := 7#u16
 
 /-- [timeways_rules::weights::death_weight]:
-    Source: 'crates/rules/src/weights.rs', lines 68:0-75:1
+    Source: 'crates/rules/src/weights.rs', lines 80:0-87:1
     Visibility: public -/
 def weights.death_weight
   (rule : Std.U8) (deaths : Std.U8) : Result Std.U16 := do
@@ -565,7 +565,7 @@ def chapters.death_gain
 @[global_simps, irreducible] def weights.REVENGE : Std.U16 := 2#u16
 
 /-- [timeways_rules::weights::weight]:
-    Source: 'crates/rules/src/weights.rs', lines 50:0-64:1
+    Source: 'crates/rules/src/weights.rs', lines 55:0-76:1
     Visibility: public -/
 def weights.weight
   (rule : Std.U8) (kind : weights.KeyKind) : Result Std.U16 := do
@@ -581,6 +581,10 @@ def weights.weight
   | weights.KeyKind.Death => ok 0#u16
   | weights.KeyKind.Mark => ok 1#u16
   | weights.KeyKind.Title => ok 1#u16
+  | weights.KeyKind.Mount => ok 3#u16
+  | weights.KeyKind.EpicMount => ok 5#u16
+  | weights.KeyKind.EpicItem => ok 3#u16
+  | weights.KeyKind.Upgrade => ok 1#u16
   | weights.KeyKind.PvpRank => ok 2#u16
   | weights.KeyKind.Dungeon => ok 3#u16
   | weights.KeyKind.Raid => ok 5#u16
@@ -730,6 +734,30 @@ def chapters.gain_of
             chapters.first_time_gain record weights.KeyKind.Title
               fold.open.rule
           ok ({ fold with keys := v }, record, (i2, false))
+        | weights.KeyKind.Mount =>
+          do
+          let i2 ←
+            chapters.first_time_gain record weights.KeyKind.Mount
+              fold.open.rule
+          ok ({ fold with keys := v }, record, (i2, false))
+        | weights.KeyKind.EpicMount =>
+          do
+          let i2 ←
+            chapters.first_time_gain record weights.KeyKind.EpicMount
+              fold.open.rule
+          ok ({ fold with keys := v }, record, (i2, false))
+        | weights.KeyKind.EpicItem =>
+          do
+          let i2 ←
+            chapters.first_time_gain record weights.KeyKind.EpicItem
+              fold.open.rule
+          ok ({ fold with keys := v }, record, (i2, false))
+        | weights.KeyKind.Upgrade =>
+          do
+          let i2 ←
+            chapters.first_time_gain record weights.KeyKind.Upgrade
+              fold.open.rule
+          ok ({ fold with keys := v }, record, (i2, false))
         | weights.KeyKind.PvpRank =>
           do
           let i2 ←
@@ -773,7 +801,7 @@ def chapters.gain_of
     else ok ((0#u16, false), fold)
 
 /-- [timeways_rules::weights::limits]:
-    Source: 'crates/rules/src/weights.rs', lines 78:0-81:1
+    Source: 'crates/rules/src/weights.rs', lines 90:0-93:1
     Visibility: public -/
 def weights.limits (rule : Std.U8) : Result weights.Limits := do
   ok { min := 15#u16, max := 40#u16 }

@@ -31,6 +31,11 @@ pub enum KeyKind {
     Death,
     Mark,
     Title,
+    Mount,
+    EpicMount,
+    EpicItem,
+    /// A big upgrade of one slot to one quality.
+    Upgrade,
     PvpRank,
     Dungeon,
     Raid,
@@ -51,14 +56,21 @@ pub fn weight(rule: u8, kind: KeyKind) -> u16 {
     // Rule 1 is the only rule so far. A new rule matches on `rule` first.
     let _ = rule;
     match kind {
-        KeyKind::GameQuest | KeyKind::Subzone | KeyKind::Talk | KeyKind::Mark | KeyKind::Title => 1,
+        KeyKind::GameQuest
+        | KeyKind::Subzone
+        | KeyKind::Talk
+        | KeyKind::Mark
+        | KeyKind::Title
+        | KeyKind::Upgrade => 1,
         KeyKind::SideQuest | KeyKind::Level | KeyKind::PvpRank => 2,
         KeyKind::ClassQuest
         | KeyKind::Kill
         | KeyKind::Dungeon
         | KeyKind::Battleground
-        | KeyKind::BgWin => 3,
-        KeyKind::RaidKill | KeyKind::Raid => 5,
+        | KeyKind::BgWin
+        | KeyKind::Mount
+        | KeyKind::EpicItem => 3,
+        KeyKind::RaidKill | KeyKind::Raid | KeyKind::EpicMount => 5,
         KeyKind::Death => 0,
     }
 }
@@ -112,6 +124,10 @@ mod tests {
             KeyKind::Death,
             KeyKind::Mark,
             KeyKind::Title,
+            KeyKind::Mount,
+            KeyKind::EpicMount,
+            KeyKind::EpicItem,
+            KeyKind::Upgrade,
             KeyKind::PvpRank,
             KeyKind::Dungeon,
             KeyKind::Raid,

@@ -48,7 +48,7 @@ structure budget.Budget where
   spoken : Array (Option Std.U64) 3#usize
 
 /-- [timeways_rules::weights::KeyKind]
-    Source: 'crates/rules/src/weights.rs', lines 19:0-39:1
+    Source: 'crates/rules/src/weights.rs', lines 19:0-44:1
     Visibility: public -/
 @[discriminant isize]
 inductive weights.KeyKind where
@@ -63,6 +63,10 @@ inductive weights.KeyKind where
 | Death : weights.KeyKind
 | Mark : weights.KeyKind
 | Title : weights.KeyKind
+| Mount : weights.KeyKind
+| EpicMount : weights.KeyKind
+| EpicItem : weights.KeyKind
+| Upgrade : weights.KeyKind
 | PvpRank : weights.KeyKind
 | Dungeon : weights.KeyKind
 | Raid : weights.KeyKind
@@ -218,7 +222,7 @@ structure chapters.Fold where
   gains : alloc.vec.Vec chapters.Gain
 
 /-- [timeways_rules::weights::Limits]
-    Source: 'crates/rules/src/weights.rs', lines 43:0-46:1
+    Source: 'crates/rules/src/weights.rs', lines 48:0-51:1
     Visibility: public -/
 structure weights.Limits where
   min : Std.U16
