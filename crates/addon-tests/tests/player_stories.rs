@@ -101,7 +101,7 @@ fn a_player_holds_at_most_three_stories_from_one_author() {
 }
 
 #[test]
-fn an_accepted_story_goes_to_the_desktop_without_names_and_the_author_hears() {
+fn an_accepted_story_goes_to_the_desktop_with_marked_names_and_the_author_hears() {
     let (ada, corvin) = party();
     tell(&ada, &corvin, "Corvin and Ada held the bridge.");
 
@@ -113,10 +113,17 @@ fn an_accepted_story_goes_to_the_desktop_without_names_and_the_author_hears() {
         inputs.iter().any(|input| matches!(
             input,
             Input::StoryAccepted { number: 1, text, .. }
-                if text == "$N and my friend held the bridge."
+                if text == "$N and {Ada} held the bridge."
         )),
         "{inputs:?}"
     );
+    let described = inputs
+        .iter()
+        .position(|input| matches!(input, Input::PlayerDescribed { name, .. } if name == "Ada"));
+    let accepted = inputs
+        .iter()
+        .position(|input| matches!(input, Input::StoryAccepted { .. }));
+    assert!(described < accepted && described.is_some(), "{inputs:?}");
     assert_eq!(waiting(&corvin), 0);
     let author: String = corvin.eval("return ns.PlayerStories.AuthorOf(1)");
     assert_eq!(author, "Ada-Stormrage");
@@ -204,7 +211,7 @@ fn a_story_shown_to_its_reader_says_how_to_report_abuse() {
 }
 
 #[test]
-fn a_story_accepted_after_its_author_left_still_goes_without_the_name() {
+fn a_story_accepted_after_its_author_left_still_marks_the_name() {
     let (ada, corvin) = party();
     tell(&ada, &corvin, "Ada and I held the bridge.");
     corvin.leave_party();
@@ -216,7 +223,7 @@ fn a_story_accepted_after_its_author_left_still_goes_without_the_name() {
     assert!(
         inputs.iter().any(|input| matches!(
             input,
-            Input::StoryAccepted { text, .. } if text == "my friend and I held the bridge."
+            Input::StoryAccepted { text, .. } if text == "{Ada} and I held the bridge."
         )),
         "{inputs:?}"
     );

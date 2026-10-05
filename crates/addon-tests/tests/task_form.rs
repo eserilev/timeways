@@ -283,7 +283,7 @@ fn with_the_desktop_away_a_typed_step_stays_as_written_at_once() {
 }
 
 #[test]
-fn a_typed_step_reaches_the_model_without_the_names_of_players() {
+fn a_typed_step_marks_the_names_of_players_for_the_story_program() {
     let (ada, _corvin) = form();
     type_in(
         &ada,
@@ -294,8 +294,7 @@ fn a_typed_step_reaches_the_model_without_the_names_of_players() {
     click_line(&ada, "Add a step", "Add");
 
     let ideas = asked_ideas(&ada);
-    assert!(ideas[0].contains("help my friend at the mill"), "{ideas:?}");
-    assert!(!ideas[0].contains("Corvin"));
+    assert!(ideas[0].contains("help {Corvin} at the mill"), "{ideas:?}");
 }
 
 #[test]

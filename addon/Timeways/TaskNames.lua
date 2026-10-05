@@ -1,6 +1,7 @@
--- Takes the names of players out of a text for a model (GAMEPLAY.md 4.7, 5.11). A name
--- matches as a whole word, in any case, with or without its realm: "élise", "ÉLISE", and
--- "Élise-Stormrage" are all Élise.
+-- Marks the names of players in a text for the story program, which gives each player an
+-- ID before a model reads the text (GAMEPLAY.md 4.7, 4.8, 5.11). A name matches as a whole
+-- word, in any case, with or without its realm: "élise", "ÉLISE", and "Élise-Stormrage"
+-- are all Élise.
 
 local _, ns = ...
 
@@ -53,7 +54,7 @@ local function Add(names, name)
 	end
 	local short = name:match("^[^-]+")
 	if short then
-		names[TaskNames.Fold(short)] = true
+		names[TaskNames.Fold(short)] = ns.TaskPeople.Full(name) or name
 	end
 end
 
@@ -80,7 +81,7 @@ local function AddTaskPlayers(names)
 	end
 end
 
--- Every player whom the addon knows, folded: { [name] = true }.
+-- Every player whom the addon knows, by the folded name: { [name] = "Name-Realm" }.
 local function KnownNames()
 	local names = {}
 	AddAll(names, ns.TaskPeople.GroupNames())
@@ -99,16 +100,72 @@ local function MyName()
 	end
 end
 
--- Other players become "my friend", and your own name becomes `$N`.
-function TaskNames.WithoutNames(text)
+-- The story program reads a brace as a mark, so a brace that a player typed becomes a
+-- parenthesis.
+local function WithoutBraces(text)
+	return (text:gsub("{", "("):gsub("}", ")"))
+end
+
+-- The end of a realm right after a word that ends at `last`, as in "Ada-Stormrage".
+local function RealmEnd(text, last)
+	local _, realmEnd = text:find("^%-" .. WORD, last + 1)
+	return realmEnd or last
+end
+
+-- Each player that the addon knows becomes "{Name}", as the game writes the name, and your
+-- own name becomes `$N`. Returns the text, and the players that it marks as "Name-Realm",
+-- once each.
+function TaskNames.Marked(text)
+	text = WithoutBraces(text)
 	local names, me = KnownNames(), MyName()
-	local function Alias(word)
-		local folded = TaskNames.Fold(word)
-		if folded == me then
-			return "$N"
+	local parts, players, seen, at = {}, {}, {}, 1
+	while true do
+		local first, last = text:find(WORD, at)
+		if not first then
+			break
 		end
-		return names[folded] and "my friend" or nil
+		parts[#parts + 1] = text:sub(at, first - 1)
+		local folded = TaskNames.Fold(text:sub(first, last))
+		local full = names[folded]
+		if folded == me then
+			parts[#parts + 1] = "$N"
+			last = RealmEnd(text, last)
+		elseif full then
+			parts[#parts + 1] = "{" .. full:match("^[^-]+") .. "}"
+			last = RealmEnd(text, last)
+			if not seen[full] then
+				seen[full] = true
+				players[#players + 1] = full
+			end
+		else
+			parts[#parts + 1] = text:sub(first, last)
+		end
+		at = last + 1
 	end
-	text = text:gsub("(" .. WORD .. ")%-" .. WORD, Alias)
-	return (text:gsub(WORD, Alias))
+	parts[#parts + 1] = text:sub(at)
+	return table.concat(parts), players
+end
+
+-- A line with the race and the class of each player whom the game shows now, for the card
+-- that a model reads. A player out of sight gets no line.
+function TaskNames.Described(players)
+	local lines = {}
+	for _, full in ipairs(players) do
+		local unit = ns.TaskPeople.UnitOf(full)
+		if unit then
+			local _, race = UnitRace(unit)
+			local _, class = UnitClass(unit)
+			lines[#lines + 1] = ns.Inputs.PlayerDescribed(time(), full:match("^[^-]+"), race, class)
+		end
+	end
+	return lines
+end
+
+-- The text for the story program. The lines that describe its players go first.
+function TaskNames.Send(text)
+	local marked, players = TaskNames.Marked(text)
+	for _, line in ipairs(TaskNames.Described(players)) do
+		ns.Outbox.Add(line)
+	end
+	return marked
 end

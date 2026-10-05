@@ -159,6 +159,10 @@ function UnitClass(unit)
 	if unit == "player" then
 		return wow.class, wow.class:upper()
 	end
+	local known = wow.units[unit]
+	if known and known.class then
+		return known.class, known.class:upper()
+	end
 end
 
 wow.race = "Human"
@@ -166,6 +170,10 @@ wow.race = "Human"
 function UnitRace(unit)
 	if unit == "player" then
 		return wow.race, wow.race
+	end
+	local known = wow.units[unit]
+	if known and known.race then
+		return known.race, known.race
 	end
 end
 

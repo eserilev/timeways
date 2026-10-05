@@ -240,7 +240,7 @@ local function Take(index)
 	return table.remove(Data().waiting, index)
 end
 
--- Names of players become "my friend", and yours becomes `$N`, before the text leaves.
+-- The story program gives each named player an ID (5.11), and your name becomes `$N`.
 function PlayerStories.Accept(index)
 	local story = Take(index or #Data().waiting)
 	if not story then
@@ -250,7 +250,7 @@ function PlayerStories.Accept(index)
 	local number = data.nextNumber
 	data.nextNumber = number + 1
 	data.authors[number] = story.author
-	local text = ns.TaskNames.WithoutNames(story.text)
+	local text = ns.TaskNames.Send(story.text)
 	ns.Outbox.Add(ns.Inputs.StoryAccepted(time(), number, text))
 	ns.TaskChannel.Whisper(story.author, { type = "story_accept", id = story.id })
 	Say("Story accepted. It's part of your story now.")

@@ -29,6 +29,13 @@ function Inputs.Described(at, race, class)
 	return { type = "character_described", at = at, race = race, class = class }
 end
 
+-- Another player whom a text names, with the file tokens of the race and the class. The
+-- story program keeps them for the card of the player that a model reads (GAMEPLAY.md
+-- 5.11).
+function Inputs.PlayerDescribed(at, name, race, class)
+	return { type = "player_described", at = at, name = name, race = race, class = class }
+end
+
 -- `spot` is where the player stands, from `Position.Here`, or nil.
 function Inputs.Zone(at, zone, subzone, spot)
 	return {

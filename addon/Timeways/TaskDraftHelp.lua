@@ -55,25 +55,26 @@ local function StepFailed()
 	end
 end
 
--- The name of a real player never goes to a model (5.11).
-local function Scrubbed(idea)
-	return ns.TaskNames.WithoutNames(ns.TaskForm.Clean(idea))
+-- The story program gives each player that the idea names an ID, so the name of a real
+-- player never goes to a model (5.11).
+local function Marked(idea)
+	return (ns.TaskNames.Marked(ns.TaskForm.Clean(idea)))
 end
 
--- A name that becomes "my friend" makes the idea longer, so the check runs after it.
+-- A mark makes the idea longer, so the check runs after it.
 local function IdeaProblem(idea)
-	if #Scrubbed(idea) > IDEA_BYTES then
+	if #Marked(idea) > IDEA_BYTES then
 		return "That idea is too long. Try a shorter one."
 	end
 end
 
 local function Ask(idea)
-	idea = Scrubbed(idea)
+	idea = ns.TaskForm.Clean(idea)
 	if idea == "" then
 		return
 	end
 	state, suggestion = "asking", nil
-	ns.Outbox.Add(ns.Inputs.DraftAsked(time(), idea), Failed)
+	ns.Outbox.Add(ns.Inputs.DraftAsked(time(), ns.TaskNames.Send(idea)), Failed)
 	ns.Outbox.Flush()
 	Changed()
 end
@@ -84,12 +85,13 @@ local function DesktopAway()
 end
 
 function TaskDraftHelp.CheckStep(text)
-	local idea = Scrubbed(STEP_IDEA:format(text))
+	local idea = Marked(STEP_IDEA:format(text))
 	if DesktopAway() or #idea > IDEA_BYTES then
 		ns.TaskForm.AddWritten(text)
 		return
 	end
 	checking = text
+	idea = ns.TaskNames.Send(STEP_IDEA:format(text))
 	ns.Outbox.Add(ns.Inputs.DraftAsked(time(), idea), StepFailed)
 	ns.Outbox.Flush()
 	Changed()
