@@ -268,6 +268,36 @@ impl Book {
         zones
     }
 
+    /// The weight that the steps of this range gained in the open world, for each zone.
+    #[must_use]
+    pub fn zone_weights(&self, steps: RangeInclusive<usize>) -> Vec<(EntityId, u32)> {
+        let mut weights: Vec<(EntityId, u32)> = Vec::new();
+        for step in steps {
+            let Some(gain) = self.fold.gains.get(step) else {
+                continue;
+            };
+            let Some(zone) = self.zone_of_step(step) else {
+                continue;
+            };
+            if gain.track != Track::World || gain.amount == 0 {
+                continue;
+            }
+            match weights.iter_mut().find(|(found, _)| *found == zone) {
+                Some((_, weight)) => *weight += u32::from(gain.amount),
+                None => weights.push((zone, u32::from(gain.amount))),
+            }
+        }
+        weights
+    }
+
+    /// The zone where you stood at a step.
+    #[must_use]
+    pub fn zone_of_step(&self, step: usize) -> Option<EntityId> {
+        self.zones
+            .get(step)
+            .and_then(|zone| self.walk.zone_of_id(*zone))
+    }
+
     /// True when the step counted in the open world.
     #[must_use]
     pub fn is_world_step(&self, step: usize) -> bool {

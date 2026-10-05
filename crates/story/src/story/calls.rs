@@ -40,6 +40,16 @@ pub(super) enum Pending {
         after: EventId,
         told: String,
     },
+    /// The text of a tale, for this character only. `told` holds the facts of the prompt,
+    /// for the check of slop.
+    Tale {
+        key: CharacterKey,
+        run: super::tales::TaleRun,
+        instance: String,
+        told: String,
+    },
+    /// "Your history here" of a zone, for this character only.
+    ZoneHistory(Box<super::zone_histories::HistoryCall>),
     /// A draft of a player task, for this character only.
     Draft {
         question: MessageId,
@@ -62,6 +72,8 @@ impl Pending {
             Pending::Narrator(_) => "narrator",
             Pending::Chronicle { .. } => "saga",
             Pending::Summary { .. } => "summary",
+            Pending::Tale { .. } => "tale",
+            Pending::ZoneHistory(_) => "zone_history",
             Pending::Quest(quest) if quest.attempt == Attempt::Retry => QUEST_RETRY,
             Pending::Quest(_) => QUEST,
             Pending::Draft { .. } => "draft",
@@ -77,9 +89,11 @@ impl Pending {
             Pending::Narrator(NarratorCall { key, .. })
             | Pending::Chronicle { key, .. }
             | Pending::Summary { key, .. }
+            | Pending::Tale { key, .. }
             | Pending::Quest(QuestCall { key, .. })
             | Pending::Draft { key, .. }
             | Pending::Talk { key, .. } => key == active,
+            Pending::ZoneHistory(call) => &call.key == active,
         }
     }
 }
@@ -143,6 +157,13 @@ impl Story {
             Pending::Summary { key, after, told } => {
                 self.summary_answered(&key, after, &told, Some(text))?
             }
+            Pending::Tale {
+                key,
+                run,
+                instance,
+                told,
+            } => self.tale_answered(&key, run, instance, &told, Some(text))?,
+            Pending::ZoneHistory(call) => self.zone_history_answered(*call, Some(text))?,
             Pending::Talk {
                 question,
                 key,
@@ -276,6 +297,13 @@ impl Story {
             Pending::Summary { key, after, told } => {
                 self.summary_answered(&key, after, &told, None)?.0
             }
+            Pending::Tale {
+                key,
+                run,
+                instance,
+                told,
+            } => self.tale_answered(&key, run, instance, &told, None)?.0,
+            Pending::ZoneHistory(call) => self.zone_history_answered(*call, None)?.0,
             Pending::Talk { question, npc, .. } => vec![Output::TalkAnswer {
                 id: question,
                 npc,

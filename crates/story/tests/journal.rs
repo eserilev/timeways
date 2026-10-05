@@ -155,6 +155,7 @@ fn a_journal_serializes_with_a_kind_on_each_deed() {
         "learned": [],
         "quests": [],
         "stories": [],
+        "histories": [],
         "summary": null,
         "talk_quest": null,
     });

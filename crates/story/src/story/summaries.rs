@@ -40,7 +40,7 @@ impl Story {
             .active
             .as_ref()
             .filter(|active| active.key == due.key)?;
-        if self.chapter_waiting_for_saga(active).is_some() {
+        if self.chapter_waiting_for_saga(active).is_some() || self.tale_waiting(active).is_some() {
             return None;
         }
         let due = self.summary_due.take()?;

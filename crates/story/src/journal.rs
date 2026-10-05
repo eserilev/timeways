@@ -1,7 +1,7 @@
 //! The journal of a character: the chronicle, the places, the people, the deeds, the hero,
 //! what you learned, and your side quests. No model takes part.
 
-use crate::chapters::{Book, ChapterSpan, SpanState, TaleSpan};
+use crate::chapters::{Book, ChapterSpan, SpanState, TaleSpan, VisitSpan};
 use crate::character::{Character, title_of_game_quest, title_of_mark};
 use crate::gear::title_of_item;
 use crate::hero::{Entry, Field, Hero};
@@ -54,6 +54,8 @@ pub struct Journal {
     pub quests: Vec<QuestView>,
     /// The stories that players told about you, and that you accepted (4.8).
     pub stories: Vec<PlayerStory>,
+    /// "Your history here" of each zone, the newest one of each (docs/plans/chapters.md 10).
+    pub histories: Vec<History>,
     /// Who the character has become, for the title page of the Chronicle
     /// (docs/plans/hero-stories.md 3.5). Only the first page carries it.
     pub summary: Option<Box<str>>,
@@ -265,6 +267,13 @@ pub enum Deed {
     },
 }
 
+/// "Your history here": what the chronicle tells of you in one zone.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct History {
+    pub zone: String,
+    pub text: String,
+}
+
 /// One reply of the journal. The addon joins the lists of pages 0 to `pages - 1`.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
 pub struct Page {
@@ -297,6 +306,7 @@ pub fn pages(journal: Journal) -> Vec<Page> {
     items.extend(journal.hero.entries.into_iter().map(Item::Entry));
     items.extend(journal.chapters.into_iter().map(Item::Chapter));
     items.extend(journal.tales.into_iter().map(Item::Tale));
+    items.extend(journal.histories.into_iter().map(Item::History));
     items.extend(journal.places.into_iter().map(Item::Place));
     items.extend(journal.people.into_iter().map(Item::Person));
     items.extend(journal.deeds.into_iter().map(Item::Deed));
@@ -334,6 +344,7 @@ enum Item {
     Entry(Entry),
     Chapter(Chapter),
     Tale(Tale),
+    History(History),
     Place(Place),
     Person(Person),
     Deed(Deed),
@@ -349,6 +360,7 @@ impl Item {
             Item::Entry(entry) => Size::of(entry),
             Item::Chapter(chapter) => Size::of(chapter),
             Item::Tale(tale) => Size::of(tale),
+            Item::History(history) => Size::of(history),
             Item::Place(place) => Size::of(place),
             Item::Person(person) => Size::of(person),
             Item::Deed(deed) => Size::of(deed),
@@ -365,6 +377,7 @@ impl Item {
             Item::Entry(_) => journal.hero.entries.len(),
             Item::Chapter(_) => journal.chapters.len(),
             Item::Tale(_) => journal.tales.len(),
+            Item::History(_) => journal.histories.len(),
             Item::Place(_) => journal.places.len(),
             Item::Person(_) => journal.people.len(),
             Item::Deed(_) => journal.deeds.len(),
@@ -380,6 +393,7 @@ impl Item {
             Item::Entry(entry) => journal.hero.entries.push(entry),
             Item::Chapter(chapter) => journal.chapters.push(chapter),
             Item::Tale(tale) => journal.tales.push(tale),
+            Item::History(history) => journal.histories.push(history),
             Item::Place(place) => journal.places.push(place),
             Item::Person(person) => journal.people.push(person),
             Item::Deed(deed) => journal.deeds.push(deed),
@@ -557,6 +571,35 @@ fn tales(world: &World, book: &Book, facts: &Facts<'_>, chapters: &[Chapter]) ->
         });
     }
     tales
+}
+
+/// The deeds of one run of an instance.
+#[must_use]
+pub fn visit_deeds(character: &Character, book: &Book, visit: &VisitSpan) -> Vec<Deed> {
+    deeds_with_events(character.world(), character.you())
+        .into_iter()
+        .filter(|row| {
+            deed_event(row)
+                .and_then(|event| book.step_of(event))
+                .is_some_and(|step| visit.steps.contains(&step) && !book.is_world_step(step))
+        })
+        .map(|row| row.deed)
+        .collect()
+}
+
+/// The deeds of the open world in one zone, oldest first, with their events.
+#[must_use]
+pub fn deeds_in_zone(character: &Character, book: &Book, zone: EntityId) -> Vec<DeedRow> {
+    deeds_with_events(character.world(), character.you())
+        .into_iter()
+        .filter(|row| {
+            deed_event(row)
+                .and_then(|event| book.step_of(event))
+                .is_some_and(|step| {
+                    book.is_world_step(step) && book.zone_of_step(step) == Some(zone)
+                })
+        })
+        .collect()
 }
 
 /// The deeds, and one tally line for each foe killed again: "Defeated Hogger again, 6

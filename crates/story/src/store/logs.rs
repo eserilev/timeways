@@ -123,6 +123,15 @@ impl Prose {
         self.chapters.range(..first).map(|(_, written)| written)
     }
 
+    /// The text of every saga, oldest chapter first.
+    #[must_use]
+    pub fn texts(&self) -> Vec<String> {
+        self.chapters
+            .values()
+            .map(|written| written.text.clone())
+            .collect()
+    }
+
     /// The chapters that have a saga.
     #[must_use]
     pub fn len(&self) -> usize {
@@ -433,6 +442,25 @@ impl SummaryLog {
     pub fn take_unsaved(&mut self) -> Vec<NewRow> {
         self.unsaved.take()
     }
+}
+
+/// The text of a tale, with the run that it covers: the first event of the tale and of the
+/// run. The newest row of a tale stands.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TaleText {
+    pub tale: EventId,
+    pub instance: String,
+    pub visit: EventId,
+    pub text: String,
+}
+
+/// "Your history here" of a zone, written after the chapter whose first event is `after`.
+/// The newest row of a zone stands.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ZoneHistory {
+    pub zone: String,
+    pub after: EventId,
+    pub text: String,
 }
 
 /// The changes of the player stories, oldest first (see `stories`). The row of a change is

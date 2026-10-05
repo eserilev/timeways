@@ -9,7 +9,7 @@ use crate::seen::SeenIndex;
 use crate::store::{
     AliasLog, CallEnd, CharacterKey, Database, FlavorLog, HeroLog, LearnedLog, Line, NewCall,
     NewInput, NewRow, Next, Node, Origin, Outcome, Prose, QuestLog, Root, RowLog, StoreError,
-    StoryLog, SummaryLog, Table,
+    StoryLog, SummaryLog, Table, TaleText, ZoneHistory,
 };
 use crate::walk::RuleRow;
 
@@ -67,6 +67,10 @@ pub(super) struct Active {
     pub(super) summaries: SummaryLog,
     /// The rule epochs of the chapters (docs/plans/chapters.md 13).
     pub(super) rules: RowLog<RuleRow>,
+    /// The texts of the tales (docs/plans/chapters.md 6).
+    pub(super) tales: RowLog<TaleText>,
+    /// "Your history here" of each zone (docs/plans/chapters.md 10).
+    pub(super) zone_histories: RowLog<ZoneHistory>,
     /// The chapters and the tales, folded one event at a time.
     pub(super) book: Book,
     pub(super) seen_index: SeenIndex,
@@ -135,6 +139,8 @@ impl Active {
             (Table::Aliases, self.aliases.take_unsaved()),
             (Table::Summaries, self.summaries.take_unsaved()),
             (Table::ChapterRules, self.rules.take_unsaved()),
+            (Table::Tales, self.tales.take_unsaved()),
+            (Table::ZoneHistories, self.zone_histories.take_unsaved()),
         ])
     }
 

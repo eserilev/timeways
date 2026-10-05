@@ -12,7 +12,7 @@ pub use database::{
 };
 pub use logs::{
     AliasLog, FlavorLog, HeroLog, LearnedLog, Prose, QuestLog, RowLog, SagaSpan, StoryLog, Summary,
-    SummaryLog, Written,
+    SummaryLog, TaleText, Written, ZoneHistory,
 };
 pub use shared::Shared;
 
@@ -150,6 +150,8 @@ pub struct Opened {
     pub aliases: AliasLog,
     pub summaries: SummaryLog,
     pub rules: RowLog<RuleRow>,
+    pub tales: RowLog<TaleText>,
+    pub zone_histories: RowLog<ZoneHistory>,
 }
 
 /// Everything of `Opened` but the database, read in one transaction.
@@ -166,6 +168,8 @@ struct Read {
     aliases: AliasLog,
     summaries: SummaryLog,
     rules: RowLog<RuleRow>,
+    tales: RowLog<TaleText>,
+    zone_histories: RowLog<ZoneHistory>,
 }
 
 impl Store {
@@ -214,6 +218,8 @@ impl Store {
             aliases: read.aliases,
             summaries: read.summaries,
             rules: read.rules,
+            tales: read.tales,
+            zone_histories: read.zone_histories,
         })
     }
 }
@@ -242,6 +248,9 @@ fn read_all(database: &Database, path: PathBuf) -> Result<Read, StoreError> {
     })?);
     let summaries = SummaryLog::from_rows(database.read_and_repair(Table::Summaries, |_, _| true)?);
     let rules = RowLog::from_rows(database.read_and_repair(Table::ChapterRules, |_, _| true)?);
+    let tales = RowLog::from_rows(database.read_and_repair(Table::Tales, |_, _| true)?);
+    let zone_histories =
+        RowLog::from_rows(database.read_and_repair(Table::ZoneHistories, |_, _| true)?);
     database.drop_broken_links()?;
     Ok(Read {
         character,
@@ -256,6 +265,8 @@ fn read_all(database: &Database, path: PathBuf) -> Result<Read, StoreError> {
         aliases,
         summaries,
         rules,
+        tales,
+        zone_histories,
     })
 }
 

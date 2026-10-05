@@ -47,7 +47,9 @@ mod reads;
 mod sagas;
 mod stories;
 mod summaries;
+mod tales;
 pub mod why;
+mod zone_histories;
 
 use active::{Active, Kept};
 use calls::{OpenCall, Pending};
@@ -264,6 +266,10 @@ pub struct Story {
     chronicle_asked: BTreeSet<EventId>,
     /// The drafts of the saga that is written now. Only a final saga goes to the disk.
     saga_round: Option<Round>,
+    /// The runs of the active character that a tale text was asked for in this run.
+    tale_asked: BTreeSet<EventId>,
+    /// The chapters of the active character that a zone history was asked for in this run.
+    history_asked: BTreeSet<EventId>,
     pace: Pace,
     /// The rows that the batch so far added: its events and its flavor moments. The
     /// narrator line of the batch reads them.
@@ -308,6 +314,8 @@ impl Story {
             shared: None,
             chronicle_asked: BTreeSet::new(),
             saga_round: None,
+            tale_asked: BTreeSet::new(),
+            history_asked: BTreeSet::new(),
             pace: Pace::default(),
             batch_rows: Vec::new(),
             round_read: Vec::new(),
@@ -821,6 +829,8 @@ impl Story {
         self.batch_rows.clear();
         self.candidates.clear();
         self.chronicle_asked.clear();
+        self.tale_asked.clear();
+        self.history_asked.clear();
         self.saga_round = None;
         self.round_read.clear();
         self.round_calls.clear();
@@ -844,6 +854,8 @@ impl Story {
             aliases,
             summaries,
             mut rules,
+            tales,
+            zone_histories,
         } = self.store.open(&key)?;
         let read: Vec<SeenText> = learned
             .read()
@@ -876,6 +888,8 @@ impl Story {
             aliases,
             summaries,
             rules,
+            tales,
+            zone_histories,
             book,
             seen_index,
             hero_refused: None,
@@ -1035,7 +1049,9 @@ impl Story {
             None => vec![self.narrator_call(batch)],
         };
         outputs.extend(self.saga_call());
+        outputs.extend(self.tale_call());
         outputs.extend(self.summary_call());
+        outputs.extend(self.zone_history_call());
         self.batch_rows.clear();
         outputs
     }
@@ -1147,6 +1163,11 @@ impl Story {
             }
             journal.stories = stories::journal_stories(active)?;
             journal.summary = summaries::journal_summary(active);
+            for tale in &mut journal.tales {
+                let newest = tales::newest_text(active, EventId(tale.first));
+                tale.text = newest.map(|(_, row)| row.text.clone());
+            }
+            journal.histories = zone_histories::journal_histories(active);
             journal.hero = hero::hero(active.hero.changes());
             journal.hero_refused = active.hero_refused.take().map(String::into_boxed_str);
             journal.talk_quest.clone_from(&active.talk_quest);

@@ -2,7 +2,7 @@
 //! 3.2.1). The estimate is rough on purpose. A prompt with a part of open length keeps as
 //! much of that part as fits its budget.
 
-use crate::{check, chronicle, narrator, quest, summary, talk};
+use crate::{check, chronicle, narrator, quest, summary, tale, talk, zone_history};
 
 /// The context of a small local model. The prompt and the longest reply share it.
 pub const CONTEXT_TOKENS: usize = 2048;
@@ -30,6 +30,10 @@ pub enum Call {
     Lore,
     /// Who the character has become, for the title page of the Chronicle.
     Summary,
+    /// The text of a tale of an instance.
+    Tale,
+    /// "Your history here" of a zone.
+    ZoneHistory,
 }
 
 impl Call {
@@ -59,6 +63,8 @@ impl Call {
             }
             Call::Lore => check::MAX_CHARS,
             Call::Summary => summary::MAX_SUMMARY_CHARS + JSON_CHARS,
+            Call::Tale => tale::MAX_TALE_CHARS + JSON_CHARS,
+            Call::ZoneHistory => zone_history::MAX_HISTORY_CHARS + JSON_CHARS,
         };
         chars.div_ceil(CHARS_PER_TOKEN)
     }

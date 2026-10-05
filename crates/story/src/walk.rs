@@ -134,7 +134,9 @@ impl Walk {
         let keyed = self.key_of(&event.kind);
         let counts = keyed.map_or(Counts::Here, |(_, counts)| counts);
         let key = keyed.map(|(key, _)| key);
-        let zone = self.zone();
+        let zone = self
+            .place_of(&event.kind)
+            .map_or_else(|| self.zone(), |place| Some(self.zone_around(place)));
         let track = match zone {
             Some(zone) if counts == Counts::Here && self.instances.contains(&zone) => {
                 Track::Instance(self.zone_id(zone))
@@ -150,6 +152,31 @@ impl Walk {
             track,
             mark,
             at: event.tick.0,
+        }
+    }
+
+    /// The place that a move is about. The events of a move come before you stand in the
+    /// new place, so a move out of an instance is a step of the place where you go: it
+    /// opens no run of the instance that you leave.
+    fn place_of(&self, kind: &EventKind) -> Option<EntityId> {
+        match kind {
+            EventKind::EntityCreated {
+                id,
+                entity_type: EntityType::Place,
+                ..
+            } => Some(*id),
+            EventKind::FactStart {
+                entity,
+                name,
+                linked_to: Some(place),
+                ..
+            } if *entity == self.you && name == VISITED => Some(*place),
+            EventKind::FactStart { entity, name, .. }
+                if name == LOCATED_IN && self.places.contains(entity) =>
+            {
+                Some(*entity)
+            }
+            _ => None,
         }
     }
 

@@ -23,7 +23,7 @@ use timeways_story::quest::{self, Genre, Known, Step};
 use timeways_story::race_class::Race;
 use timeways_story::seen::{SeenText, TextKind};
 use timeways_story::story::Output;
-use timeways_story::{chronicle, hero, narrator, summary, talk};
+use timeways_story::{chronicle, hero, narrator, summary, tale, talk, zone_history};
 
 fn assert_plain(text: &str, max_chars: usize, max_bytes: usize) {
     assert!(
@@ -38,6 +38,15 @@ fn assert_plain(text: &str, max_chars: usize, max_bytes: usize) {
 fn assert_voice(text: &str, max_chars: usize, max_bytes: usize) {
     assert_plain(text, max_chars, max_bytes);
     assert!(in_voice(text), "{text:?}");
+}
+
+/// A tale or a zone history keeps the saga check (docs/plans/chapters.md 6 and 10).
+fn assert_entry_text(text: &str, max_chars: usize, max_bytes: usize) {
+    assert_voice(text, max_chars, max_bytes);
+    assert!(slop_in(text, "").is_empty(), "{text:?}");
+    assert_eq!(arrival_in(text, &[]), None, "{text:?}");
+    assert!(text.matches("$N").count() <= 2, "{text:?}");
+    assert!(!text.to_lowercase().contains("our hero"), "{text:?}");
 }
 
 fn known(seen: &[SeenText]) -> Known<'_> {
@@ -310,6 +319,16 @@ fuzz_target!(|data: &[u8]| {
             "{summary:?}"
         );
         assert!(!summary.to_lowercase().contains("our hero"), "{summary:?}");
+    }
+    if let Some(tale) = tale::checked_tale(&text, "", "", &[]) {
+        assert_entry_text(&tale, tale::MAX_TALE_CHARS, tale::MAX_TALE_BYTES);
+    }
+    if let Ok(history) = zone_history::checked_history(&text, "", "", &[]) {
+        assert_entry_text(
+            &history,
+            zone_history::MAX_HISTORY_CHARS,
+            zone_history::MAX_HISTORY_BYTES,
+        );
     }
     if let Some(answer) = talk::checked_answer(&text, "") {
         assert_voice(&answer.say, talk::MAX_SAY_CHARS, talk::MAX_SAY_BYTES);
