@@ -16,16 +16,19 @@ chapters = [
 # The source of a passage names the book without this part of the page title.
 title_suffix = " (History of Warcraft)"
 
-# Wiki pages. Only the listed sections go in, and `lead = true` adds the text before the
-# first heading. A page with a place waits until the player visits the place.
+# Wiki pages. Only the listed sections go in, and a subsection only under a listed parent.
+# `lead = true` adds the text before the first heading. A page with a place waits until
+# the player visits the place.
 [[pages]]
 title = "Forsaken"
 lead = false
 sections = [
     "Introduction",
+    "History",
     "Third War and aftermath",
     "Alliance with the Horde",
     "World of Warcraft",
+    "Culture and people",
     "Free will",
     "True death",
 ]
@@ -34,13 +37,14 @@ common = true
 [[pages]]
 title = "Undercity"
 lead = false
-sections = ["Legacy of the Damned", "World of Warcraft"]
+sections = ["History", "Legacy of the Damned", "World of Warcraft"]
 common = true
 
 [[pages]]
 title = "Sylvanas Windrunner"
 lead = false
 sections = [
+    "Biography",
     "Ranger-General of Silvermoon",
     "The Second War",
     "Invasion of the Undead Scourge",
@@ -53,10 +57,272 @@ sections = [
 ]
 common = true
 
+
+# Zones. The "(Classic)" page tells of the zone before the Cataclysm. The main page
+# gives the older history.
+
+[[pages]]
+title = "Alterac Mountains (Classic)"
+lead = true
+sections = ["Geography"]
+places = ["Alterac Mountains"]
+
+[[pages]]
+title = "Alterac Mountains"
+lead = false
+sections = [
+    "History",
+    "The Troll Wars",
+    "Second War",
+    "Third War",
+    "World of Warcraft",
+    "Geography",
+]
+places = ["Alterac Mountains"]
+
+[[pages]]
+title = "Arathi Highlands (Classic)"
+lead = true
+sections = ["History", "Geography"]
+places = ["Arathi Highlands"]
+
+[[pages]]
+title = "Arathi Highlands"
+lead = false
+sections = ["History", "Arathor", "Third War", "World of Warcraft", "Geography"]
+places = ["Arathi Highlands"]
+
+[[pages]]
+title = "Badlands (Classic)"
+lead = true
+sections = ["History", "Geography"]
+places = ["Badlands"]
+
+[[pages]]
+title = "Badlands"
+lead = false
+sections = ["History", "Second War", "World of Warcraft", "Geography"]
+places = ["Badlands"]
+
+[[pages]]
+title = "Blasted Lands (Classic)"
+lead = true
+sections = ["History", "Geography"]
+places = ["Blasted Lands"]
+
+[[pages]]
+title = "Blasted Lands"
+lead = false
+sections = ["History", "World of Warcraft", "Geography"]
+places = ["Blasted Lands"]
+
+[[pages]]
+title = "Burning Steppes (Classic)"
+lead = true
+sections = ["History", "Geography"]
+places = ["Burning Steppes"]
+
+[[pages]]
+title = "Burning Steppes"
+lead = false
+sections = ["History", "Geography"]
+places = ["Burning Steppes"]
+
+[[pages]]
+title = "Deadwind Pass (Classic)"
+lead = true
+sections = ["History", "Geography"]
+places = ["Deadwind Pass"]
+
+[[pages]]
+title = "Deadwind Pass"
+lead = false
+sections = ["History", "Ancient times", "The Last Guardian", "World of Warcraft", "Geography"]
+places = ["Deadwind Pass"]
+
+[[pages]]
+title = "Dun Morogh (Classic)"
+lead = true
+sections = ["History", "People and culture", "Geography"]
+places = ["Dun Morogh"]
+
+[[pages]]
+title = "Dun Morogh"
+lead = false
+sections = ["History", "Geography"]
+places = ["Dun Morogh"]
+
+[[pages]]
+title = "Duskwood (Classic)"
+lead = true
+sections = ["History", "Geography", "Lore"]
+places = ["Duskwood"]
+
+[[pages]]
+title = "Duskwood"
+lead = false
+sections = [
+    "History",
+    "Felling of Andrassil",
+    "Before the First War",
+    "During the First War",
+    "World of Warcraft",
+    "Geography",
+]
+places = ["Duskwood"]
+
+[[pages]]
+title = "Eastern Plaguelands (Classic)"
+lead = true
+sections = ["History", "Geography"]
+places = ["Eastern Plaguelands"]
+
+[[pages]]
+title = "Eastern Plaguelands"
+lead = false
+sections = ["History", "World of Warcraft", "Geography"]
+places = ["Eastern Plaguelands"]
+
+[[pages]]
+title = "Elwynn Forest (Classic)"
+lead = true
+sections = ["Geography"]
+places = ["Elwynn Forest"]
+
+[[pages]]
+title = "Elwynn Forest"
+lead = false
+sections = ["History", "People and culture", "Geography"]
+places = ["Elwynn Forest"]
+
+[[pages]]
+title = "Hillsbrad Foothills (Classic)"
+lead = true
+sections = ["History", "Geography"]
+places = ["Hillsbrad Foothills"]
+
+[[pages]]
+title = "Hillsbrad Foothills"
+lead = false
+sections = ["History", "Second War", "Third War", "World of Warcraft", "Geography"]
+places = ["Hillsbrad Foothills"]
+
+[[pages]]
+title = "Hinterlands (Classic)"
+lead = true
+sections = [
+    "History",
+    "Early history",
+    "Wildhammer arrival",
+    "Second War",
+    "After the Third War",
+    "Geography",
+]
+places = ["The Hinterlands"]
+
+[[pages]]
+title = "Hinterlands"
+lead = false
+sections = [
+    "History",
+    "Early history",
+    "Wildhammer arrival",
+    "Second War",
+    "After the Third War",
+    "Geography",
+]
+places = ["The Hinterlands"]
+
+[[pages]]
+title = "Loch Modan (Classic)"
+lead = true
+sections = ["History", "Geography"]
+places = ["Loch Modan"]
+
+[[pages]]
+title = "Loch Modan"
+lead = false
+sections = ["History", "Geography"]
+places = ["Loch Modan"]
+
+[[pages]]
+title = "Redridge Mountains (Classic)"
+lead = true
+sections = ["Geography"]
+places = ["Redridge Mountains"]
+
+[[pages]]
+title = "Redridge Mountains"
+lead = false
+sections = ["History", "Geography"]
+places = ["Redridge Mountains"]
+
+[[pages]]
+title = "Searing Gorge (Classic)"
+lead = true
+sections = ["History", "Geography"]
+places = ["Searing Gorge"]
+
+[[pages]]
+title = "Searing Gorge"
+lead = false
+sections = ["History", "Geography"]
+places = ["Searing Gorge"]
+
+[[pages]]
+title = "Silverpine Forest (Classic)"
+lead = true
+sections = ["History", "People and Culture", "Geography"]
+places = ["Silverpine Forest"]
+
+[[pages]]
+title = "Silverpine Forest"
+lead = false
+sections = ["History", "Third War", "World of Warcraft", "Geography"]
+places = ["Silverpine Forest"]
+
+[[pages]]
+title = "Stranglethorn Vale (Classic)"
+lead = true
+sections = ["History", "Geography"]
+places = ["Stranglethorn Vale"]
+
+[[pages]]
+title = "Stranglethorn Vale"
+lead = false
+sections = [
+    "History",
+    "Ancient history",
+    "Booty Bay",
+    "First War",
+    "World of Warcraft",
+    "Geography",
+]
+places = ["Stranglethorn Vale"]
+
+[[pages]]
+title = "Swamp of Sorrows (Classic)"
+lead = true
+sections = ["Overview", "History", "Geography"]
+places = ["Swamp of Sorrows"]
+
+[[pages]]
+title = "Swamp of Sorrows"
+lead = false
+sections = ["Overview", "History", "First War", "Second War", "World of Warcraft", "Geography"]
+places = ["Swamp of Sorrows"]
+
+[[pages]]
+title = "Tirisfal Glades (Classic)"
+lead = true
+sections = ["History", "Geography"]
+places = ["Tirisfal Glades"]
+
 [[pages]]
 title = "Tirisfal Glades"
 lead = false
 sections = [
+    "History",
     "Rise of humanity",
     "Guardians of Tirisfal",
     "The fracturing of Arathor",
@@ -67,16 +333,1614 @@ sections = [
 places = ["Tirisfal Glades"]
 
 [[pages]]
-title = "Deathknell"
+title = "Western Plaguelands (Classic)"
 lead = true
-sections = ["Scourge", "Rotbrain undead", "Scarlet Crusade"]
-places = ["Deathknell"]
+sections = ["History", "Geography"]
+places = ["Western Plaguelands"]
+
+[[pages]]
+title = "Western Plaguelands"
+lead = false
+sections = ["History", "Geography"]
+places = ["Western Plaguelands"]
+
+[[pages]]
+title = "Westfall (Classic)"
+lead = true
+sections = ["History", "People and culture", "Geography"]
+places = ["Westfall"]
+
+[[pages]]
+title = "Westfall"
+lead = false
+sections = ["History", "Rise of the Defias", "World of Warcraft", "Geography"]
+places = ["Westfall"]
+
+[[pages]]
+title = "Wetlands (Classic)"
+lead = true
+sections = ["History", "Geography"]
+places = ["Wetlands"]
+
+[[pages]]
+title = "Wetlands"
+lead = false
+sections = ["History", "Geography"]
+places = ["Wetlands"]
+
+[[pages]]
+title = "Ashenvale (Classic)"
+lead = true
+sections = ["History", "Geography"]
+places = ["Ashenvale"]
+
+[[pages]]
+title = "Ashenvale"
+lead = false
+sections = ["History", "The Third War", "World of Warcraft", "Geography"]
+places = ["Ashenvale"]
+
+[[pages]]
+title = "Azshara (Classic)"
+lead = true
+sections = ["History", "Geography"]
+places = ["Azshara"]
+
+[[pages]]
+title = "Azshara"
+lead = false
+sections = ["History", "War of the Ancients", "Third War", "World of Warcraft", "Geography"]
+places = ["Azshara"]
+
+[[pages]]
+title = "Barrens (Classic)"
+lead = true
+sections = ["History", "Geography"]
+places = ["The Barrens"]
+
+[[pages]]
+title = "Barrens"
+lead = false
+sections = ["History", "Cycle of Hatred", "World of Warcraft", "Geography"]
+places = ["The Barrens"]
+
+[[pages]]
+title = "Darkshore (Classic)"
+lead = true
+sections = ["History", "Geography"]
+places = ["Darkshore"]
+
+[[pages]]
+title = "Darkshore"
+lead = false
+sections = ["History", "World of Warcraft", "Geography"]
+places = ["Darkshore"]
+
+[[pages]]
+title = "Desolace (Classic)"
+lead = true
+sections = ["History", "Geography"]
+places = ["Desolace"]
+
+[[pages]]
+title = "Desolace"
+lead = false
+sections = ["History", "World of Warcraft", "Geography"]
+places = ["Desolace"]
+
+[[pages]]
+title = "Durotar (Classic)"
+lead = true
+sections = ["History", "People and culture", "Geography"]
+places = ["Durotar"]
+
+[[pages]]
+title = "Durotar"
+lead = false
+sections = [
+    "History",
+    "[[Old Hatreds - The Colonization of Kalimdor]]",
+    "Cycle of Hatred",
+    "World of Warcraft",
+    "Geography",
+]
+places = ["Durotar"]
+
+[[pages]]
+title = "Dustwallow Marsh (Classic)"
+lead = true
+sections = ["History", "Geography"]
+places = ["Dustwallow Marsh"]
+
+[[pages]]
+title = "Dustwallow Marsh"
+lead = false
+sections = ["History", "Third War", "World of Warcraft", "Geography"]
+places = ["Dustwallow Marsh"]
+
+[[pages]]
+title = "Felwood (Classic)"
+lead = true
+sections = ["History", "Geography"]
+places = ["Felwood"]
+
+[[pages]]
+title = "Felwood"
+lead = false
+sections = ["History", "Third War", "World of Warcraft", "Geography"]
+places = ["Felwood"]
+
+[[pages]]
+title = "Feralas (Classic)"
+lead = true
+sections = ["History", "Geography"]
+places = ["Feralas"]
+
+[[pages]]
+title = "Feralas"
+lead = false
+sections = ["History", "After the Third War", "World of Warcraft", "Geography"]
+places = ["Feralas"]
+
+[[pages]]
+title = "Moonglade"
+lead = false
+sections = ["History", "Geography"]
+places = ["Moonglade"]
+
+[[pages]]
+title = "Mulgore (Classic)"
+lead = true
+sections = ["History", "Geography"]
+places = ["Mulgore"]
+
+[[pages]]
+title = "Mulgore"
+lead = false
+sections = ["History", "The Third War and after", "World of Warcraft", "Geography"]
+places = ["Mulgore"]
+
+[[pages]]
+title = "Silithus (Classic)"
+lead = true
+sections = ["History", "Geography"]
+places = ["Silithus"]
+
+[[pages]]
+title = "Silithus"
+lead = false
+sections = ["History", "World of Warcraft", "Geography"]
+places = ["Silithus"]
+
+[[pages]]
+title = "Stonetalon Mountains (Classic)"
+lead = true
+sections = ["History", "Geography"]
+places = ["Stonetalon Mountains"]
+
+[[pages]]
+title = "Stonetalon Mountains"
+lead = false
+sections = ["History", "The Third War", "World of Warcraft", "Geography"]
+places = ["Stonetalon Mountains"]
+
+[[pages]]
+title = "Tanaris (Classic)"
+lead = true
+sections = ["History", "Geography"]
+places = ["Tanaris"]
+
+[[pages]]
+title = "Tanaris"
+lead = false
+sections = ["History", "Geography"]
+places = ["Tanaris"]
+
+[[pages]]
+title = "Teldrassil (Classic)"
+lead = true
+sections = ["History", "Geography"]
+places = ["Teldrassil"]
+
+[[pages]]
+title = "Teldrassil"
+lead = false
+sections = ["History", "Birth", "World of Warcraft", "Geography"]
+places = ["Teldrassil"]
+
+[[pages]]
+title = "Thousand Needles (Classic)"
+lead = true
+sections = ["History", "Geography"]
+places = ["Thousand Needles"]
+
+[[pages]]
+title = "Thousand Needles"
+lead = false
+sections = ["History", "World of Warcraft", "Geography"]
+places = ["Thousand Needles"]
+
+[[pages]]
+title = "Un'Goro Crater (Classic)"
+lead = true
+sections = ["History", "Geography"]
+places = ["Un'Goro Crater"]
+
+[[pages]]
+title = "Un'Goro Crater"
+lead = false
+sections = ["History", "Ancient history", "Recent history", "World of Warcraft", "Geography"]
+places = ["Un'Goro Crater"]
+
+[[pages]]
+title = "Winterspring (Classic)"
+lead = true
+sections = ["History", "Geography"]
+places = ["Winterspring"]
+
+[[pages]]
+title = "Winterspring"
+lead = false
+sections = ["History", "Third War", "World of Warcraft", "Geography"]
+places = ["Winterspring"]
+
+# Capitals.
+
+[[pages]]
+title = "Stormwind City"
+lead = false
+sections = [
+    "History",
+    "Early history",
+    "First War",
+    "Second War and reconstruction",
+    "World of Warcraft",
+    "Culture",
+]
+places = ["Stormwind City"]
+
+[[pages]]
+title = "Ironforge"
+lead = false
+sections = ["History", "War of the Three Hammers", "The Third War", "World of Warcraft"]
+places = ["Ironforge"]
+
+[[pages]]
+title = "Darnassus"
+lead = false
+sections = ["Description", "History", "After the Third War", "World of Warcraft"]
+places = ["Darnassus"]
+
+[[pages]]
+title = "Orgrimmar"
+lead = false
+sections = ["History", "After the Third War", "World of Warcraft", "Geography"]
+places = ["Orgrimmar"]
+
+[[pages]]
+title = "Thunder Bluff"
+lead = false
+sections = ["History", "The Third War and after", "World of Warcraft", "Geography"]
+places = ["Thunder Bluff"]
+
+# Towns and subzones.
+
+[[pages]]
+title = "Goldshire"
+lead = true
+sections = ["History", "First War", "Second War"]
+places = ["Goldshire"]
+
+[[pages]]
+title = "Northshire Abbey"
+lead = true
+sections = ["History", "First War", "Second War", "World of Warcraft"]
+places = ["Northshire Abbey"]
+
+[[pages]]
+title = "Moonbrook"
+lead = true
+sections = ["History", "Rise of the Defias", "World of Warcraft"]
+places = ["Moonbrook"]
+
+[[pages]]
+title = "Lakeshire"
+lead = true
+sections = ["History", "World of Warcraft"]
+places = ["Lakeshire"]
+
+[[pages]]
+title = "Darkshire"
+lead = true
+sections = ["History", "World of Warcraft"]
+places = ["Darkshire"]
+
+[[pages]]
+title = "Gnomeregan"
+lead = true
+sections = ["History", "Geography"]
+places = ["Gnomeregan"]
+
+[[pages]]
+title = "Kharanos"
+lead = true
+sections = []
+places = ["Kharanos"]
+
+[[pages]]
+title = "Menethil Harbor"
+lead = true
+sections = ["History", "Second War", "World of Warcraft"]
+places = ["Menethil Harbor"]
+
+[[pages]]
+title = "Dun Modr"
+lead = true
+sections = ["History", "Second War", "World of Warcraft"]
+places = ["Dun Modr"]
+
+[[pages]]
+title = "Sepulcher"
+lead = true
+sections = ["History", "World of Warcraft"]
+places = ["The Sepulcher"]
+
+[[pages]]
+title = "Pyrewood Village"
+lead = true
+sections = ["History", "Origins"]
+places = ["Pyrewood Village"]
+
+[[pages]]
+title = "Ambermill"
+lead = true
+sections = ["History"]
+places = ["Ambermill"]
+
+[[pages]]
+title = "Southshore"
+lead = true
+sections = ["History", "Second War", "Third War", "World of Warcraft"]
+places = ["Southshore"]
+
+[[pages]]
+title = "Tarren Mill"
+lead = true
+sections = ["History", "The Second War", "World of Warcraft"]
+places = ["Tarren Mill"]
+
+[[pages]]
+title = "Durnholde Keep"
+lead = true
+sections = ["History", "Second War"]
+places = ["Durnholde Keep"]
+
+[[pages]]
+title = "Strahnbrad"
+lead = true
+sections = ["History", "Third War", "World of Warcraft"]
+places = ["Strahnbrad"]
+
+[[pages]]
+title = "Ravenholdt Manor"
+lead = true
+sections = ["History"]
+places = ["Ravenholdt Manor"]
+
+[[pages]]
+title = "Stromgarde Keep"
+lead = true
+sections = ["History", "Ancient times", "Founding", "Decline", "Second War", "World of Warcraft"]
+places = ["Stromgarde Keep"]
+
+[[pages]]
+title = "Hammerfall"
+lead = true
+sections = ["History", "World of Warcraft"]
+places = ["Hammerfall"]
+
+[[pages]]
+title = "Refuge Pointe"
+lead = true
+sections = []
+places = ["Refuge Pointe"]
+
+[[pages]]
+title = "Thoradin's Wall"
+lead = true
+sections = ["History", "Origins", "World of Warcraft"]
+places = ["Thoradin's Wall"]
+
+[[pages]]
+title = "Aerie Peak"
+lead = true
+sections = ["History", "Second War", "Third War", "World of Warcraft"]
+places = ["Aerie Peak"]
+
+[[pages]]
+title = "Jintha'Alor"
+lead = true
+sections = ["History"]
+places = ["Jintha'Alor"]
+
+[[pages]]
+title = "Kargath"
+lead = true
+sections = ["History", "World of Warcraft"]
+places = ["Kargath"]
+
+[[pages]]
+title = "Thorium Point"
+lead = true
+sections = []
+places = ["Thorium Point"]
+
+[[pages]]
+title = "Blackrock Mountain"
+lead = true
+sections = ["History", "Creation", "The First and Second Wars", "After the Second War", "Geography"]
+places = ["Blackrock Mountain"]
+
+[[pages]]
+title = "Morgan's Vigil"
+lead = true
+sections = []
+places = ["Morgan's Vigil"]
+
+[[pages]]
+title = "Stonard"
+lead = true
+sections = ["History", "First and Second Wars", "World of Warcraft"]
+places = ["Stonard"]
+
+[[pages]]
+title = "Nethergarde Keep"
+lead = true
+sections = ["History", "Second War", "World of Warcraft"]
+places = ["Nethergarde Keep"]
+
+[[pages]]
+title = "Karazhan"
+lead = true
+sections = ["History", "The Last Guardian", "World of Warcraft"]
+places = ["Karazhan"]
+
+[[pages]]
+title = "Booty Bay"
+lead = true
+sections = ["History", "World of Warcraft"]
+places = ["Booty Bay"]
+
+[[pages]]
+title = "Grom'gol Base Camp"
+lead = true
+sections = []
+places = ["Grom'gol Base Camp"]
+
+[[pages]]
+title = "Nesingwary's Expedition"
+lead = true
+sections = ["History", "World of Warcraft"]
+places = ["Nesingwary's Expedition"]
+
+[[pages]]
+title = "Gurubashi Arena"
+lead = true
+sections = []
+places = ["Gurubashi Arena"]
 
 [[pages]]
 title = "Brill"
 lead = false
-sections = ["The Third War", "Ashbringer", "World of Warcraft"]
+sections = ["History", "The Third War", "Ashbringer", "World of Warcraft"]
 places = ["Brill"]
+
+[[pages]]
+title = "Deathknell"
+lead = true
+sections = ["Enemies of Deathknell", "Scourge", "Rotbrain undead", "Scarlet Crusade"]
+places = ["Deathknell"]
+
+[[pages]]
+title = "Agamand Mills"
+lead = true
+sections = ["History"]
+places = ["Agamand Mills"]
+
+[[pages]]
+title = "Ruins of Lordaeron"
+lead = true
+sections = ["History", "World of Warcraft"]
+places = ["Ruins of Lordaeron"]
+
+[[pages]]
+title = "Chillwind Camp"
+lead = true
+sections = ["History", "World of Warcraft"]
+places = ["Chillwind Camp"]
+
+[[pages]]
+title = "Hearthglen"
+lead = true
+sections = ["History", "Third War", "World of Warcraft"]
+places = ["Hearthglen"]
+
+[[pages]]
+title = "Andorhal"
+lead = true
+sections = ["History", "Early history", "World of Warcraft"]
+places = ["Andorhal"]
+
+[[pages]]
+title = "Caer Darrow"
+lead = true
+sections = [
+    "History",
+    "Ancient history",
+    "Second War",
+    "The Barovs and Scholomance",
+    "World of Warcraft",
+]
+places = ["Caer Darrow"]
+
+[[pages]]
+title = "Uther's Tomb"
+lead = true
+sections = ["History", "Burial", "The Journey"]
+places = ["Uther's Tomb"]
+
+[[pages]]
+title = "Light's Hope Chapel"
+lead = true
+sections = ["History", "Third War", "World of Warcraft"]
+places = ["Light's Hope Chapel"]
+
+[[pages]]
+title = "Tyr's Hand"
+lead = true
+sections = [
+    "Description",
+    "History",
+    "Early history",
+    "Second War",
+    "Third War",
+    "World of Warcraft",
+]
+places = ["Tyr's Hand"]
+
+[[pages]]
+title = "Darrowshire"
+lead = true
+sections = []
+places = ["Darrowshire"]
+
+[[pages]]
+title = "Corin's Crossing"
+lead = true
+sections = []
+places = ["Corin's Crossing"]
+
+[[pages]]
+title = "Plaguewood"
+lead = true
+sections = ["History", "Third War", "World of Warcraft"]
+places = ["Plaguewood"]
+
+[[pages]]
+title = "Razor Hill"
+lead = true
+sections = ["History"]
+places = ["Razor Hill"]
+
+[[pages]]
+title = "Sen'jin Village"
+lead = true
+sections = ["History", "Overview"]
+places = ["Sen'jin Village"]
+
+[[pages]]
+title = "Valley of Trials"
+lead = true
+sections = ["Geography"]
+places = ["Valley of Trials"]
+
+[[pages]]
+title = "Echo Isles"
+lead = true
+sections = ["History", "After the Third War", "World of Warcraft", "Geography"]
+places = ["Echo Isles"]
+
+[[pages]]
+title = "Bloodhoof Village"
+lead = true
+sections = []
+places = ["Bloodhoof Village"]
+
+[[pages]]
+title = "Red Cloud Mesa"
+lead = true
+sections = []
+places = ["Red Cloud Mesa"]
+
+[[pages]]
+title = "Crossroads"
+lead = true
+sections = ["History"]
+places = ["The Crossroads"]
+
+[[pages]]
+title = "Ratchet"
+lead = true
+sections = ["History", "Foundation", "Cycle of Hatred", "World of Warcraft"]
+places = ["Ratchet"]
+
+[[pages]]
+title = "Northwatch Hold"
+lead = true
+sections = ["History", "Third War", "Cycle of Hatred", "World of Warcraft"]
+places = ["Northwatch Hold"]
+
+[[pages]]
+title = "Bael Modan"
+lead = true
+sections = ["History", "World of Warcraft"]
+places = ["Bael Modan"]
+
+[[pages]]
+title = "Shadowglen"
+lead = true
+sections = ["Geography"]
+places = ["Shadowglen"]
+
+[[pages]]
+title = "Aldrassil"
+lead = true
+sections = []
+places = ["Aldrassil"]
+
+[[pages]]
+title = "Rut'theran Village"
+lead = true
+sections = ["History", "World of Warcraft"]
+places = ["Rut'theran Village"]
+
+[[pages]]
+title = "Auberdine"
+lead = true
+sections = ["Description", "History", "World of Warcraft"]
+places = ["Auberdine"]
+
+[[pages]]
+title = "Ameth'Aran"
+lead = true
+sections = ["History", "Ancient times", "World of Warcraft"]
+places = ["Ameth'Aran"]
+
+[[pages]]
+title = "Bashal'Aran"
+lead = true
+sections = ["History", "Ancient times", "World of Warcraft"]
+places = ["Bashal'Aran"]
+
+[[pages]]
+title = "Astranaar"
+lead = true
+sections = ["History", "World of Warcraft"]
+places = ["Astranaar"]
+
+[[pages]]
+title = "Splintertree Post"
+lead = true
+sections = ["History"]
+places = ["Splintertree Post"]
+
+[[pages]]
+title = "Raynewood Retreat"
+lead = true
+sections = ["Background", "Modern times"]
+places = ["Raynewood Retreat"]
+
+[[pages]]
+title = "Sun Rock Retreat"
+lead = true
+sections = []
+places = ["Sun Rock Retreat"]
+
+[[pages]]
+title = "Stonetalon Peak"
+lead = true
+sections = ["History", "Ancient times", "Third War", "World of Warcraft"]
+places = ["Stonetalon Peak"]
+
+[[pages]]
+title = "Windshear Crag"
+lead = true
+sections = ["History"]
+places = ["Windshear Crag"]
+
+[[pages]]
+title = "Malaka'jin"
+lead = true
+sections = []
+places = ["Malaka'jin"]
+
+[[pages]]
+title = "Shadowprey Village"
+lead = true
+sections = []
+places = ["Shadowprey Village"]
+
+[[pages]]
+title = "Ghost Walker Post"
+lead = true
+sections = []
+places = ["Ghost Walker Post"]
+
+[[pages]]
+title = "Thunder Axe Fortress"
+lead = true
+sections = ["History"]
+places = ["Thunder Axe Fortress"]
+
+[[pages]]
+title = "Freewind Post"
+lead = true
+sections = []
+places = ["Freewind Post"]
+
+[[pages]]
+title = "Shimmering Flats"
+lead = true
+sections = []
+places = ["Shimmering Flats"]
+
+[[pages]]
+title = "Darkcloud Pinnacle"
+lead = true
+sections = []
+places = ["Darkcloud Pinnacle"]
+
+[[pages]]
+title = "Feathermoon Stronghold (Classic)"
+lead = true
+sections = []
+places = ["Feathermoon Stronghold"]
+
+[[pages]]
+title = "Camp Mojache"
+lead = true
+sections = ["History"]
+places = ["Camp Mojache"]
+
+[[pages]]
+title = "Theramore Isle"
+lead = true
+sections = ["History", "Third War", "Cycle of Hatred", "World of Warcraft", "Description"]
+places = ["Theramore Isle"]
+
+[[pages]]
+title = "Brackenwall Village"
+lead = true
+sections = []
+places = ["Brackenwall Village"]
+
+[[pages]]
+title = "Tiragarde Keep"
+lead = true
+sections = ["History"]
+places = ["Tiragarde Keep"]
+
+[[pages]]
+title = "Gadgetzan"
+lead = true
+sections = ["History", "World of Warcraft", "Geography"]
+places = ["Gadgetzan"]
+
+[[pages]]
+title = "Marshal's Refuge"
+lead = true
+sections = ["History", "World of Warcraft"]
+places = ["Marshal's Refuge"]
+
+[[pages]]
+title = "Fire Plume Ridge"
+lead = true
+sections = []
+places = ["Fire Plume Ridge"]
+
+[[pages]]
+title = "Bloodvenom Post"
+lead = true
+sections = ["History"]
+places = ["Bloodvenom Post"]
+
+[[pages]]
+title = "Timbermaw Hold"
+lead = true
+sections = ["History"]
+places = ["Timbermaw Hold"]
+
+[[pages]]
+title = "Jaedenar"
+lead = true
+sections = []
+places = ["Jaedenar"]
+
+[[pages]]
+title = "Irontree Woods"
+lead = true
+sections = []
+places = ["Irontree Woods"]
+
+[[pages]]
+title = "Everlook"
+lead = true
+sections = ["History"]
+places = ["Everlook"]
+
+[[pages]]
+title = "Mazthoril"
+lead = true
+sections = ["History", "World of Warcraft"]
+places = ["Mazthoril"]
+
+[[pages]]
+title = "Darkwhisper Gorge"
+lead = true
+sections = ["History", "Post-Third War"]
+places = ["Darkwhisper Gorge"]
+
+[[pages]]
+title = "Talrendis Point"
+lead = true
+sections = ["History", "World of Warcraft"]
+places = ["Talrendis Point"]
+
+[[pages]]
+title = "Ruins of Eldarath"
+lead = true
+sections = ["History"]
+places = ["Ruins of Eldarath"]
+
+[[pages]]
+title = "Nighthaven"
+lead = true
+sections = ["History"]
+places = ["Nighthaven"]
+
+[[pages]]
+title = "Valor's Rest"
+lead = true
+sections = []
+places = ["Valor's Rest"]
+
+# Dungeons of the launch of the game. Molten Core and every later raid stay out (GAMEPLAY.md
+# 5.9), and so do Maraudon (patch 1.2) and Dire Maul (patch 1.3).
+
+[[pages]]
+title = "Ragefire Chasm (Classic)"
+lead = true
+sections = ["History", "Official description"]
+places = ["Ragefire Chasm"]
+
+[[pages]]
+title = "Ragefire Chasm"
+lead = true
+sections = ["History"]
+places = ["Ragefire Chasm"]
+
+[[pages]]
+title = "Wailing Caverns"
+lead = true
+sections = ["History", "World of Warcraft", "Geography"]
+places = ["Wailing Caverns"]
+
+[[pages]]
+title = "Deadmines (Classic)"
+lead = true
+sections = ["Geography"]
+places = ["The Deadmines"]
+
+[[pages]]
+title = "Deadmines"
+lead = true
+sections = ["Background", "First War", "World of Warcraft", "Geography"]
+places = ["The Deadmines"]
+
+[[pages]]
+title = "Shadowfang Keep (Classic)"
+lead = true
+sections = ["History", "Overview", "Geography"]
+places = ["Shadowfang Keep"]
+
+[[pages]]
+title = "Shadowfang Keep"
+lead = true
+sections = ["History", "Overview", "Geography"]
+places = ["Shadowfang Keep"]
+
+[[pages]]
+title = "Blackfathom Deeps (Classic)"
+lead = true
+sections = ["Background", "Geography"]
+places = ["Blackfathom Deeps"]
+
+[[pages]]
+title = "Blackfathom Deeps"
+lead = true
+sections = ["Background", "Ancient Kalimdor", "Modern times", "Geography"]
+places = ["Blackfathom Deeps"]
+
+[[pages]]
+title = "Stormwind Stockade (Classic)"
+lead = true
+sections = ["History"]
+places = ["The Stockade"]
+
+[[pages]]
+title = "Stormwind Stockade"
+lead = true
+sections = ["History", "World of Warcraft", "Geography"]
+places = ["The Stockade"]
+
+[[pages]]
+title = "Razorfen Kraul (Classic)"
+lead = true
+sections = ["Lore", "Geography"]
+places = ["Razorfen Kraul"]
+
+[[pages]]
+title = "Razorfen Kraul"
+lead = true
+sections = ["Lore", "Geography"]
+places = ["Razorfen Kraul"]
+
+[[pages]]
+title = "Scarlet Monastery"
+lead = true
+sections = ["History", "World of Warcraft", "Geography"]
+places = ["Scarlet Monastery"]
+
+[[pages]]
+title = "Razorfen Downs (Classic)"
+lead = true
+sections = ["Description", "Geography"]
+places = ["Razorfen Downs"]
+
+[[pages]]
+title = "Razorfen Downs"
+lead = true
+sections = ["History", "Geography"]
+places = ["Razorfen Downs"]
+
+[[pages]]
+title = "Uldaman"
+lead = true
+sections = ["History", "Geography"]
+places = ["Uldaman"]
+
+[[pages]]
+title = "Zul'Farrak"
+lead = true
+sections = ["History", "Geography"]
+places = ["Zul'Farrak"]
+
+[[pages]]
+title = "Temple of Atal'Hakkar (Classic)"
+lead = true
+sections = ["History", "Geography"]
+places = ["The Temple of Atal'Hakkar"]
+
+[[pages]]
+title = "Temple of Atal'Hakkar"
+lead = true
+sections = ["History", "Origins", "Modern times", "Geography"]
+places = ["The Temple of Atal'Hakkar"]
+
+[[pages]]
+title = "Blackrock Depths"
+lead = true
+sections = ["Overview", "History", "Geography"]
+places = ["Blackrock Depths"]
+
+[[pages]]
+title = "Blackrock Spire"
+lead = true
+sections = ["History"]
+places = ["Blackrock Spire"]
+
+[[pages]]
+title = "Lower Blackrock Spire"
+lead = true
+sections = ["Background"]
+places = ["Blackrock Spire"]
+
+[[pages]]
+title = "Scholomance (Classic)"
+lead = true
+sections = ["History", "Geography"]
+places = ["Scholomance"]
+
+[[pages]]
+title = "Stratholme (Classic)"
+lead = true
+sections = ["History", "Geography"]
+places = ["Stratholme"]
+
+[[pages]]
+title = "Stratholme"
+lead = true
+sections = ["History", "Early history", "Second War", "Third War", "World of Warcraft", "Geography"]
+places = ["Stratholme"]
+
+# Bosses link to their dungeon: a kill is no meeting, so an NPC link never opens.
+
+[[pages]]
+title = "Mutanus the Devourer"
+lead = true
+sections = ["Lore"]
+places = ["Wailing Caverns"]
+
+[[pages]]
+title = "Lord Cobrahn"
+lead = true
+sections = ["Lore"]
+places = ["Wailing Caverns"]
+
+[[pages]]
+title = "Lord Pythas"
+lead = true
+sections = ["Background"]
+places = ["Wailing Caverns"]
+
+[[pages]]
+title = "Edwin VanCleef"
+lead = true
+sections = ["History", "The reconstruction of Stormwind", "World of Warcraft"]
+places = ["The Deadmines"]
+
+[[pages]]
+title = "Mr. Smite"
+lead = true
+sections = []
+places = ["The Deadmines"]
+
+[[pages]]
+title = "Sicco Thermaplugg"
+lead = true
+sections = ["Biography", "Early life", "Fall of Gnomeregan", "World of Warcraft"]
+places = ["Gnomeregan"]
+
+[[pages]]
+title = "Agathelos the Raging"
+lead = true
+sections = []
+places = ["Razorfen Kraul"]
+
+[[pages]]
+title = "Sally Whitemane"
+lead = true
+sections = ["Background", "Youth", "World of Warcraft"]
+places = ["Scarlet Monastery"]
+
+[[pages]]
+title = "Renault Mograine"
+lead = true
+sections = ["Biography"]
+places = ["Scarlet Monastery"]
+
+[[pages]]
+title = "Arcanist Doan"
+lead = true
+sections = ["Background", "World of Warcraft"]
+places = ["Scarlet Monastery"]
+
+[[pages]]
+title = "Herod"
+lead = true
+sections = ["Background"]
+places = ["Scarlet Monastery"]
+
+[[pages]]
+title = "Interrogator Vishas"
+lead = true
+sections = ["Background"]
+places = ["Scarlet Monastery"]
+
+[[pages]]
+title = "Archaedas"
+lead = true
+sections = ["Background", "Ordering of Azeroth", "World of Warcraft"]
+places = ["Uldaman"]
+
+[[pages]]
+title = "Chief Ukorz Sandscalp"
+lead = true
+sections = ["Background"]
+places = ["Zul'Farrak"]
+
+[[pages]]
+title = "Gahz'rilla"
+lead = true
+sections = ["Background"]
+places = ["Zul'Farrak"]
+
+[[pages]]
+title = "Jammal'an the Prophet (Classic)"
+lead = true
+sections = ["Description"]
+places = ["The Temple of Atal'Hakkar"]
+
+[[pages]]
+title = "Avatar of Hakkar"
+lead = true
+sections = []
+places = ["The Temple of Atal'Hakkar"]
+
+[[pages]]
+title = "Dagran Thaurissan"
+lead = true
+sections = ["Background"]
+places = ["Blackrock Depths"]
+
+[[pages]]
+title = "Moira Thaurissan"
+lead = true
+sections = ["Background", "Youth", "World of Warcraft"]
+places = ["Blackrock Depths"]
+
+[[pages]]
+title = "Hurley Blackbreath"
+lead = true
+sections = []
+places = ["Blackrock Depths"]
+
+[[pages]]
+title = "Dal'rend Blackhand"
+lead = true
+sections = ["Biography", "Rise of the Horde", "First War", "World of Warcraft"]
+places = ["Blackrock Spire"]
+
+[[pages]]
+title = "Ras Frostwhisper"
+lead = true
+sections = ["Background"]
+places = ["Scholomance"]
+
+[[pages]]
+title = "Kirtonos the Herald (Classic)"
+lead = true
+sections = ["Description"]
+places = ["Scholomance"]
+
+[[pages]]
+title = "Doctor Theolen Krastinov (Classic)"
+lead = true
+sections = ["Lore"]
+places = ["Scholomance"]
+
+[[pages]]
+title = "Magistrate Barthilas"
+lead = true
+sections = ["Background", "Magistracy of Stratholme"]
+places = ["Stratholme"]
+
+[[pages]]
+title = "Ramstein the Gorger"
+lead = true
+sections = ["History"]
+places = ["Stratholme"]
+
+# Factions link to the place where a player meets them first.
+
+[[pages]]
+title = "Defias Brotherhood"
+lead = true
+sections = ["History", "Formation", "World of Warcraft"]
+places = ["Westfall"]
+
+[[pages]]
+title = "Scarlet Crusade"
+lead = true
+sections = ["History", "Third War", "World of Warcraft"]
+places = ["Tirisfal Glades"]
+
+[[pages]]
+title = "Argent Dawn"
+lead = true
+sections = ["History", "World of Warcraft"]
+places = ["Western Plaguelands"]
+
+[[pages]]
+title = "Cenarion Circle"
+lead = true
+sections = [
+    "History",
+    "Long Vigil",
+    "Third War",
+    "World of Warcraft",
+    "War of the Shifting Sands",
+    "Culture",
+    "Teachings and power",
+]
+places = ["Moonglade"]
+
+[[pages]]
+title = "Bloodsail Buccaneers"
+lead = true
+sections = ["History", "Before the Cataclysm"]
+places = ["Stranglethorn Vale"]
+
+[[pages]]
+title = "Syndicate"
+lead = true
+sections = [
+    "History",
+    "Third War",
+    "World of Warcraft",
+    "Alterac Mountains",
+    "Hillsbrad Foothills",
+    "Arathi Highlands",
+    "Objectives and philosophy",
+    "Assassination policy",
+    "Slavery",
+]
+places = ["Alterac Mountains"]
+
+[[pages]]
+title = "Dark Iron dwarf"
+lead = true
+sections = ["History", "Culture"]
+places = ["Searing Gorge"]
+
+[[pages]]
+title = "Thorium Brotherhood"
+lead = true
+sections = ["In World of Warcraft", "Summary"]
+places = ["Searing Gorge"]
+
+[[pages]]
+title = "Timbermaw tribe"
+lead = true
+sections = ["History"]
+places = ["Felwood"]
+
+[[pages]]
+title = "Steamwheedle Cartel"
+lead = true
+sections = ["Background", "Great Wars", "World of Warcraft"]
+places = ["Tanaris"]
+
+[[pages]]
+title = "Venture Company"
+lead = true
+sections = ["History", "World of Warcraft"]
+places = ["Stonetalon Mountains"]
+
+[[pages]]
+title = "Burning Blade clan"
+lead = true
+sections = [
+    "History",
+    "Rise of the Horde",
+    "The First and Second War",
+    "The Third War",
+    "Cycle of Hatred",
+    "World of Warcraft",
+    "Durotar and the Barrens",
+    "Hidden enemies",
+    "Desolace",
+    "Culture",
+]
+places = ["Durotar"]
+
+[[pages]]
+title = "Darkspear tribe"
+lead = true
+sections = [
+    "History",
+    "Third War and aftermath",
+    "World of Warcraft",
+    "Culture",
+    "Philosophies",
+    "Darkspear loa",
+]
+places = ["Durotar"]
+
+[[pages]]
+title = "Royal Apothecary Society"
+lead = true
+sections = ["History", "Creation", "World of Warcraft"]
+places = ["Undercity"]
+
+[[pages]]
+title = "Explorers' League"
+lead = true
+sections = ["History", "World of Warcraft", "Culture", "Discoveries and beliefs", "Organization"]
+places = ["Ironforge"]
+
+[[pages]]
+title = "Wildhammer clan"
+lead = true
+sections = [
+    "History",
+    "Early history",
+    "War of the Three Hammers",
+    "Second War",
+    "Battle for Grim Batol",
+    "Third War",
+    "World of Warcraft",
+]
+places = ["The Hinterlands"]
+
+[[pages]]
+title = "Grimtotem tribe"
+lead = true
+sections = ["History", "Shaman", "Appearance"]
+places = ["Thousand Needles"]
+
+[[pages]]
+title = "Blackrock clan"
+lead = true
+sections = [
+    "History",
+    "Early history",
+    "Rise of the Horde",
+    "The First War",
+    "The Second War",
+    "The Third War",
+    "The Dark Horde",
+    "Culture",
+    "Organization",
+]
+places = ["Burning Steppes"]
+
+[[pages]]
+title = "Bloodscalp tribe"
+lead = true
+sections = []
+places = ["Stranglethorn Vale"]
+
+[[pages]]
+title = "Ravenholdt"
+lead = true
+sections = ["History", "World of Warcraft", "Characteristics"]
+places = ["Alterac Mountains"]
+
+[[pages]]
+title = "Sentinels"
+lead = true
+sections = [
+    "Background and history",
+    "Membership",
+    "Early history and organization",
+    "Terror of the Tides",
+    "World of Warcraft",
+]
+places = ["Ashenvale"]
+
+[[pages]]
+title = "Warsong clan"
+lead = true
+sections = [
+    "History",
+    "Early history",
+    "Rise of the Horde",
+    "Beyond the Dark Portal",
+    "Revitalization of the Horde",
+    "The Third War",
+    "Culture",
+]
+places = ["Ashenvale"]
+
+[[pages]]
+title = "Bronzebeard clan"
+lead = true
+sections = ["History", "Customs"]
+places = ["Ironforge"]
+
+[[pages]]
+title = "Cult of the Damned"
+lead = true
+sections = ["History", "Formation of the cult", "Third War", "World of Warcraft"]
+places = ["Western Plaguelands"]
+
+[[pages]]
+title = "Quilboar"
+lead = true
+sections = ["History", "New arrivals", "Culture", "Magic"]
+places = ["The Barrens"]
+
+[[pages]]
+title = "Gurubashi tribe"
+lead = true
+sections = ["History", "The Gurubashi civil war", "Culture"]
+places = ["Stranglethorn Vale"]
+
+[[pages]]
+title = "Kolkar clan"
+lead = true
+sections = ["History", "Territories", "The Barrens", "Desolace", "Durotar"]
+places = ["The Barrens"]
+
+# Characters. Their passages wait until the player meets them.
+
+[[pages]]
+title = "Thrall"
+lead = false
+sections = [
+    "Biography",
+    "Youth",
+    "The orcs",
+    "Liberation",
+    "Of Blood and Honor",
+    "Reign of Chaos",
+    "Flight to Kalimdor",
+    "Exodus of the Horde",
+    "Kalimdor",
+    "Lifting of the Blood Curse",
+    "Battle of Mount Hyjal",
+    "Founding of Orgrimmar",
+    "Lordship",
+]
+npcs = ["Thrall"]
+
+[[pages]]
+title = "Cairne Bloodhoof"
+lead = false
+sections = ["Biography", "Early history", "Third War", "Founding of Durotar"]
+npcs = ["Cairne Bloodhoof"]
+
+[[pages]]
+title = "Magni Bronzebeard"
+lead = false
+sections = ["Biography", "The Third War", "Gathering storm", "Against the Dark Irons"]
+npcs = ["King Magni Bronzebeard"]
+
+[[pages]]
+title = "Tyrande Whisperwind"
+lead = false
+sections = [
+    "Biography",
+    "Early life",
+    "War of the Ancients",
+    "The Sundering",
+    "The Long Vigil",
+    "Invasion of Ashenvale",
+    "Awakening of the druids",
+    "The Barrow Deeps and liberation of Illidan",
+    "Battle of Mount Hyjal and aftermath",
+    "Terror of the Tides",
+    "Lordaeron and the Plaguelands",
+]
+npcs = ["Tyrande Whisperwind"]
+
+[[pages]]
+title = "Fandral Staghelm"
+lead = false
+sections = ["Biography", "Early life", "The War of the Shifting Sands", "Creation of Teldrassil"]
+npcs = ["Arch Druid Fandral Staghelm"]
+
+[[pages]]
+title = "Jaina Proudmoore"
+lead = false
+sections = [
+    "Biography",
+    "Early exploits",
+    "The Third War",
+    "Arrival at Kalimdor",
+    "Founding of Theramore",
+    "Cycle of Hatred",
+]
+npcs = ["Lady Jaina Proudmoore"]
+
+[[pages]]
+title = "Gelbin Mekkatorque"
+lead = false
+sections = ["Biography", "Background", "Second War and aftermath", "Fall of Gnomeregan"]
+npcs = ["High Tinker Mekkatorque"]
+
+[[pages]]
+title = "Varimathras"
+lead = false
+sections = ["Biography", "The breaking of Ner'zhul", "The Third War"]
+npcs = ["Varimathras"]
+
+[[pages]]
+title = "Eitrigg"
+lead = false
+sections = ["Biography", "The First and Second Wars", "Of Blood and Honor", "World of Warcraft"]
+npcs = ["Eitrigg"]
+
+[[pages]]
+title = "Tirion Fordring"
+lead = false
+sections = ["Biography", "The Second War", "Of Blood and Honor"]
+npcs = ["Tirion Fordring"]
+
+[[pages]]
+title = "Gryan Stoutmantle"
+lead = false
+sections = ["Biography", "World of Warcraft"]
+npcs = ["Gryan Stoutmantle"]
+
+[[pages]]
+title = "Marshal Dughan"
+lead = true
+sections = ["History", "World of Warcraft"]
+npcs = ["Marshal Dughan"]
+
+[[pages]]
+title = "Magatha Grimtotem"
+lead = false
+sections = ["Biography", "World of Warcraft"]
+npcs = ["Magatha Grimtotem"]
+
+[[pages]]
+title = "Hamuul Runetotem"
+lead = false
+sections = ["History", "Druidism", "Forsaken and the Horde", "World of Warcraft"]
+npcs = ["Arch Druid Hamuul Runetotem"]
+
+[[pages]]
+title = "Hemet Nesingwary Jr."
+lead = true
+sections = ["History"]
+npcs = ["Hemet Nesingwary Jr."]
+
+[[pages]]
+title = "Remulos"
+lead = false
+sections = ["Biography", "The Sons of Cenarius", "The Idol of Remulos", "World of Warcraft"]
+npcs = ["Keeper Remulos"]
+
+[[pages]]
+title = "Shandris Feathermoon"
+lead = false
+sections = [
+    "Biography",
+    "War of the Ancients",
+    "The Long Vigil",
+    "The Third War",
+    "World of Warcraft",
+]
+npcs = ["Shandris Feathermoon"]
+
+[[pages]]
+title = "Rexxar"
+lead = false
+sections = [
+    "History",
+    "The wars",
+    "Founding of Durotar and the new Horde",
+    "Cycle of Hatred",
+    "World of Warcraft",
+]
+npcs = ["Rexxar"]
+
+[[pages]]
+title = "Bethor Iceshard"
+lead = true
+sections = ["History"]
+npcs = ["Bethor Iceshard"]
+
+[[pages]]
+title = "Mathias Shaw"
+lead = false
+sections = ["Biography", "World of Warcraft"]
+npcs = ["Master Mathias Shaw"]
+
+[[pages]]
+title = "Archbishop Benedictus"
+lead = false
+sections = ["Biography", "Early life", "World of Warcraft"]
+npcs = ["Archbishop Benedictus"]
+
+[[pages]]
+title = "Mankrik"
+lead = true
+sections = ["Biography"]
+npcs = ["Mankrik"]
 
 # A paragraph of a wiki page that matches one of these goes out, because it tells of a
 # time after 25 ADP. Each entry is a regular expression, and the match ignores case.
@@ -113,7 +1977,10 @@ terms = [
     "Dark Mirror",
     'patch \d',
     "expansion",
-    "Teldrassil",
+    # Teldrassil stands in 25 ADP. Only its burning is later.
+    'burn\w*[^.]{0,60}Teldrassil',
+    'Teldrassil[^.]{0,60}burn',
+    "War of (the )?Thorns",
     "Anduin",
     "Calia",
     "Desolate Council",
@@ -135,7 +2002,8 @@ terms = [
     "Ulduar",
     "vrykul",
     "Ymiron",
-    'Tyr\b',
+    # The titan, not the town of Tyr's Hand.
+    'Tyr(?:[^\w\x27]|$)',
     "Velonara",
     "Reigol",
     "Lament of the Highborne",
@@ -148,4 +2016,131 @@ terms = [
     "Windrunner Spire",
     "Deathstalkers",
     'Clea\b',
+    # The raids from Molten Core on have not happened (GAMEPLAY.md 5.9), and Onyxia is a secret.
+    "Onyxia",
+    "Prestor",
+    "Nefarian",
+    "Blackwing",
+    "C'Thun",
+    "Ahn'Qiraj War",
+    "Gates of Ahn'Qiraj",
+    "Scarab Wall",
+    "War Effort",
+    "Naxxramas",
+    "Firelands",
+    'banish\w*[^.]{0,40}Ragnaros',
+    'Ragnaros[^.]{0,60}(banish|defeat|slain)',
+    "Zandalar",
+    "Ahn'Qiraj",
+    'Hakkar.{0,3}s defeat',
+    "Hakkar returned",
+    # The keepers of time stay unnamed (crates/story/data/later_names.txt).
+    "Caverns of Time",
+    "Infinite dragonflight",
+    "Murozond",
+    "timeline",
+    # Later wars, places, and people.
+    "Fourth War",
+    "Shattering",
+    "Deathwing's (return|defeat|emergence)",
+    "war against Deathwing",
+    "Twilight Father",
+    "Dragon Soul",
+    "Iron Horde",
+    "Argent Crusade",
+    "Scarlet Brotherhood",
+    "Northern Barrens",
+    "Southern Barrens",
+    "Lor'danel",
+    "Bogpaddle",
+    "Marshtide",
+    "Operation: Gnomeregan",
+    "New Tinkertown",
+    "Council of Three Hammers",
+    'petrif',
+    "Queen Moira",
+    "Moira Thaurissan",
+    "Dagran Thaurissan II",
+    "Baine",
+    "Talanji",
+    "Zekhan",
+    "N'Zoth",
+    "Kezan",
+    "Bilgewater",
+    "Exodar",
+    "Exile's Reach",
+    "Uldum",
+    "Tol Barad",
+    "Twilight Highlands",
+    "Vashj'ir",
+    "Deepholm",
+    "Wyrmrest",
+    "Heroic mode",
+    "Dark Riders",
+    "third invasion",
+    "Mathias Shaw reported",
+    "Vanessa",
+    "Saldean",
+    "killed Zalazane",
+    "retook the isles",
+    'Malygos[^.]{0,40}ley lines',
+    "Li Li",
+    "Vindicator",
+]
+
+# A paragraph of a wiki page that matches one of these goes out, because it talks about the
+# game and not the world: players, levels, instances, quests, and loot. The narrator and
+# `/lore` speak of the world only.
+[game]
+terms = [
+    'players?\b',
+    "PvP",
+    "PvE",
+    'battlegrounds?',
+    "instanced",
+    'instances?\b',
+    'raid dungeons?',
+    'raid entrance',
+    'micro dungeons?',
+    '\d-man',
+    '\bmobs?\b',
+    '\bloot',
+    'quest ?hubs?',
+    'quest ?givers?',
+    '\bquests?\b',
+    'quest ?lines?',
+    'quest chains?',
+    "storyline",
+    '\blevels? \d',
+    "level range",
+    '\b(low|mid|high|max|low[ae]st|higher)[ -]level',
+    "leveling",
+    "in-game",
+    "in the game",
+    'flight (paths?|masters?|points?)',
+    'vendors?\b',
+    'trainers?\b',
+    "respawn",
+    '\bspawns?\b',
+    "nerf",
+    "soloable",
+    "final boss",
+    '\bbosses\b',
+    "mini-boss",
+    "Dungeon Finder",
+    "achievement",
+    '\bNPCs?\b',
+    '\bgank',
+    "contested zone",
+    'starting (area|zone)',
+    '(Alliance|Horde) characters',
+    'drop rates?',
+    '\bdrops\b',
+    "attunement",
+    "Blizzard",
+    '\bWoW\b',
+    "World of Warcraft",
+    "reputation",
+    '\bservers?\b',
+    "hotfix",
 ]
