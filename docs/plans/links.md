@@ -22,8 +22,8 @@ Three features need these answers:
 
 | File | Holds | Why |
 |---|---|---|
-| `worlds/r_<realm>/c_<name>.sqlite` | the world of one character: its rows, inputs, calls, and links | a character is the unit of play |
-| `timeways.sqlite`, in the data folder | what all characters share: the alias table (5.11), the budget, and the pace of the narrator | these cross characters |
+| `worlds/r_<realm>/c_<name>.sqlite` | the world of one character: its rows, inputs, calls, links, and the alias table (5.11) | a character is the unit of play |
+| `timeways.sqlite`, in the data folder | what all characters share: the budget and the pace of the narrator | these cross characters |
 
 `Store::Memory` opens both as in-memory SQLite. So every query works in tests, and `Option<Database>` goes away.
 
@@ -41,7 +41,7 @@ Three features need these answers:
 
 Narrator lines, lore answers, talk answers, drafts, and the drafts and pick of a saga all live in `calls`, as answers.
 
-**In `timeways.sqlite`:** the alias table, the budget window, and the pace. A restart then never lets the narrator speak 3 times at once.
+**In `timeways.sqlite`:** the budget window and the pace. A restart then never lets the narrator speak 3 times at once.
 
 **Out, on purpose:**
 
@@ -127,7 +127,7 @@ The proof of a row is the set of its roots. To find them, follow `input` and `ca
 
 A player tells a story about another player in the party. The other player accepts or declines it. Before it, three things must exist:
 
-1. **The alias table (5.11).** A story names real players. No real name goes into a prompt, so a story reaches a model only with aliases.
+1. **Done. The alias table (5.11).** A story names real players. The world keeps each story with IDs (`docs/plans/aliases.md`), so a story can reach a model with no real name.
 2. **A party input from the addon.** Today the addon tracks the group only for player tasks, and sends nothing to the desktop.
 3. **The proof levels of player tasks** (`TaskProof.lua`: Witnessed, Seen, Not confirmed). A story about shared play uses the same levels, from the inputs of the reader in the same stretch of party time.
 
@@ -149,9 +149,9 @@ Each step is one commit or a few, with its tests and its rules in `GAMEPLAY.md`.
 3. **Done. `calls` and the `call` column.** Every call gets a row when it opens, and its answer and result when it ends. A lore call gets no row: it changes no world.
 4. **Done. `reads`**, with the rules of section 6, one kind of call at a time: saga, quest, talk, narrator. A lore call has no row, so it has no reads.
 5. **Done. The queries:** `proof_of(row)`, `source_of(row)`, and `uses_of(row)`.
-6. **Done. `timeways.sqlite`:** the budget and the pace first. The alias table comes with 5.11.
+6. **Done. `timeways.sqlite`:** the budget and the pace. The alias table went into the world of each character instead, so a story and the IDs that it holds land in one transaction (`docs/plans/aliases.md`).
 7. **Done, for trust only. "Why?" in the journal.** The reads of a call hold far more than its cause, so only trust shows a why: one step back from its newest change. Quests, chapters, and deeds show none. The Deeds filter of section 7 is not built.
-8. **Done, first version. Player stories** (section 9, and `GAMEPLAY.md` 4.8). No story reaches a prompt, so the alias table and a party input wait for the next version.
+8. **Done, first version. Player stories** (section 9, and `GAMEPLAY.md` 4.8). The alias table is built (`docs/plans/aliases.md`). No story reaches a prompt yet, and a party input waits for the next version.
 
 ## 12. Tests that the plan needs
 

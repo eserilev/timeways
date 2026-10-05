@@ -152,7 +152,7 @@ This test needs two characters with Timeways in one party.
 3. Open `/hero`. Under "Stories About You", the story shows with Accept, and the author with Decline, and the line "To report abuse, open Support in the game menu."
 4. Click Accept. The first character's chat says "... accepted your story." On the second character, the story shows with "Told by ..." and Remove. The name of the second character shows in place of `$N`.
 5. Tell a second story, and click Decline. The first character's chat says "... declined your story."
-6. Tell a story that names the first character. Leave the party. Accept it the next day. In the world file, run `sqlite3 c_<name>.sqlite "SELECT body FROM stories"`: the name shows as "my friend", never the real name.
+6. Tell a story that names the first character. Leave the party. Accept it the next day. The Hero page shows the story with the real name. In the world file, run `sqlite3 c_<name>.sqlite "SELECT body FROM stories"`: the name shows as an ID such as `{P1}`, never the real name.
 7. Click Remove on an accepted story, then Remove in the dialog. The story leaves the page.
 8. A character who is not in your group can't tell you a story: nothing arrives.
 
@@ -215,6 +215,16 @@ This test needs a model. The narrator speaks at most 3 times in an hour.
 
    With `--claude`, each prompt also goes to Claude Code, and the tool prints the line that you would see. Without it, the tool prints the prompts only.
 
+### 20. Player names never reach a model
+
+This test needs two characters with Timeways in one party, and a model.
+
+1. On the second character, accept a story that names the first character, as in test 13. Open `/hero`: the story shows the real name, and no `{P1}`.
+2. On the second character, open `/journal` on the Quests tab, click New quest, then "Help me write". Type an idea that names the first character in lowercase, such as "help ada guard the mill".
+3. The draft names the first character as the game writes the name. It shows no `{P1}` and no "my friend".
+4. In the world file of the second character, run `sqlite3 c_<name>.sqlite "SELECT prompt FROM calls WHERE kind = 'draft'"`. The prompt holds `{P1}` and a card such as "{P1}: a human paladin", never the name of the first character.
+5. Run `sqlite3 c_<name>.sqlite "SELECT position, body FROM aliases"`. The first character has position 0, which is `{P1}`. Accept one more story that names the first character: no new row comes.
+
 ## What to send back
 
 - Each Lua error, as text.
@@ -230,6 +240,7 @@ This test needs a model. The narrator speaks at most 3 times in an hour.
 - For tests 15 to 17: a screenshot of each tooltip line and of the install line.
 - For test 18: a screenshot of the window with a quest card, and of a window with an earlier talk.
 - For test 19: each narrator line of the session, as text, and the output of the review tool.
+- For test 20: the draft, and the output of the two `sqlite3` commands.
 
 ## After the test
 
