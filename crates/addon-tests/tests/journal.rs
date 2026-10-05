@@ -348,7 +348,7 @@ fn the_journal_opens_on_the_chronicle() {
 }
 
 #[test]
-fn a_chapter_tells_what_was_new_in_one_session() {
+fn a_chapter_page_shows_its_dates_its_levels_and_what_happened_in_it() {
     let game = Game::new();
 
     game.reply(&journal_reply(&traveler()));
@@ -356,16 +356,57 @@ fn a_chapter_tells_what_was_new_in_one_session() {
     let expected = [
         "note: Chapter 1".to_string(),
         "heading: Elwynn Forest".to_string(),
-        format!("text: {}.", day(&game)),
-        "section: Places you visited".to_string(),
-        "text: Elwynn Forest and Westfall.".to_string(),
-        "section: People you met".to_string(),
-        "text: Innkeeper Farley.".to_string(),
-        "section: What you did".to_string(),
-        "entry: Started at level 12.".to_string(),
-        "entry: Reached level 13.".to_string(),
+        format!("text: {} · Levels 12 to 13.", day(&game)),
+        "help: This chapter isn't over yet. Its story comes when the next one starts.".to_string(),
+        "section: In this chapter".to_string(),
+        "text: Places: Elwynn Forest and Westfall.".to_string(),
+        "text: People: Innkeeper Farley.".to_string(),
     ];
     assert_eq!(lines(&game, "chapters"), expected);
+}
+
+#[test]
+fn in_this_chapter_names_each_kind_on_one_line_in_its_order() {
+    let game = Game::new();
+
+    game.reply(concat!(
+        r#"{"type":"journal","page":0,"pages":1,"stories":[{"number":3,"title":"The Courtyard","paragraphs":["x"],"at":1790000100}],"#,
+        r#""chapters":[{"number":8,"first":40,"began":1790000000,"ended":1790000200,"title":"Silverpine Forest","state":"closed","#,
+        r#""zones":["Silverpine Forest"],"people":["Dalar Dawnweaver"],"deeds":["#,
+        r#"{"kind":"defeated","foe":"Krethis","times":1,"at":1790000001},"#,
+        r#"{"kind":"game_quest_done","title":"Arugal's Folly","at":1790000002},"#,
+        r#"{"kind":"died","killer":"Bleak Worg","at":1790000003},"#,
+        r#"{"kind":"died","at":1790000004,"place":"The Dead Field"},"#,
+        r#"{"kind":"titled","title":"Wolf Friend","at":1790000005}],"#,
+        r#""again":["Defeated Hogger again, 6 times."],"left_out":0}]}"#,
+    ));
+
+    let lines = lines(&game, "chapters");
+    assert_eq!(
+        lines[3..],
+        [
+            "section: In this chapter",
+            "text: Places: Silverpine Forest.",
+            "text: People: Dalar Dawnweaver.",
+            "text: Defeated: Krethis.",
+            "text: Quests: Arugal's Folly.",
+            "text: Deaths: Bleak Worg and Unknown at The Dead Field.",
+            "text: Stories: The Courtyard.",
+            "entry: Earned the title Wolf Friend.",
+            "text: Defeated Hogger again, 6 times.",
+        ]
+    );
+}
+
+#[test]
+fn a_return_names_its_chapter_from_the_desktop() {
+    let game = Game::new();
+
+    game.reply(
+        r#"{"type":"journal","page":0,"pages":1,"chapters":[{"number":5,"title":"Return to Westfall","state":"closed","began":1790000000,"zones":["Westfall"],"people":[],"deeds":[],"left_out":0}]}"#,
+    );
+
+    assert_eq!(lines(&game, "chapters")[1], "heading: Return to Westfall");
 }
 
 #[test]
@@ -377,7 +418,7 @@ fn a_chapter_counts_what_it_left_out() {
     );
 
     let lines = lines(&game, "chapters");
-    assert_eq!(lines[4], "text: A, B and C.");
+    assert_eq!(lines[4], "text: Places: A, B and C.");
     assert_eq!(lines[5], "text: And 12 more.");
 }
 
@@ -409,13 +450,13 @@ fn a_chapter_that_spans_two_days_shows_both() {
 /// A journal with three chapters, in the zones A, B, and C.
 const THREE_CHAPTERS: &str = concat!(
     r#"{"type":"journal","page":0,"pages":1,"chapters":["#,
-    r#"{"number":1,"began":1790000000,"zones":["A"],"people":[],"deeds":[],"left_out":0},"#,
-    r#"{"number":2,"began":1790000000,"zones":["B"],"people":[],"deeds":[],"left_out":0},"#,
-    r#"{"number":3,"began":1790000000,"zones":[],"people":[],"deeds":[],"left_out":0}]}"#,
+    r#"{"number":1,"state":"closed","began":1790000000,"zones":["A"],"people":[],"deeds":[],"left_out":0},"#,
+    r#"{"number":2,"state":"closed","began":1790000000,"zones":["B"],"people":[],"deeds":[],"left_out":0},"#,
+    r#"{"number":3,"state":"open","began":1790000000,"zones":[],"people":[],"deeds":[],"left_out":0}]}"#,
 );
 
 #[test]
-fn the_chronicle_lists_each_chapter_by_its_first_zone() {
+fn the_contents_list_each_chapter_by_its_place_newest_first() {
     let game = Game::new();
     game.run("wow.units.player = { name = 'Ada', player = true, guid = 'Player-1-Ada' }");
 
@@ -431,9 +472,9 @@ fn the_chronicle_lists_each_chapter_by_its_first_zone() {
         [
             "Ada",
             "Chapters",
-            "Chapter 1: A",
+            "Chapter 3",
             "Chapter 2: B",
-            "Chapter 3"
+            "Chapter 1: A"
         ]
     );
 }
@@ -531,7 +572,7 @@ fn the_saga_comes_before_the_list_of_its_chapter() {
 
     let lines = lines(&game, "chapters");
     assert_eq!(lines[3], "prose: Our hero rode west. ||Hfake||h");
-    assert_eq!(lines[4], "section: Places you visited");
+    assert_eq!(lines[4], "section: In this chapter");
 }
 
 #[test]
@@ -740,5 +781,95 @@ fn mounts_and_gear_show_as_deeds() {
             "entry: Equipped your first epic item, Barman Shanker",
             "entry: Equipped Cruel Barb, a big upgrade",
         ]
+    );
+}
+
+/// Three chapters at level 8, 12, and 15, and a tale of the first one.
+const BANDS_AND_A_TALE: &str = concat!(
+    r#"{"type":"journal","page":0,"pages":1,"chapters":["#,
+    r#"{"number":1,"first":1,"state":"closed","began":1790000000,"levels":[7,8],"title":"Westfall","zones":["Westfall"],"people":[],"deeds":[],"left_out":0},"#,
+    r#"{"number":2,"first":50,"state":"closed","began":1790000000,"levels":[8,12],"opened_by":"level","title":"Duskwood","zones":["Duskwood"],"people":[],"deeds":[],"left_out":0},"#,
+    r#"{"number":3,"first":90,"state":"open","began":1790000000,"levels":[12,15],"title":"Redridge Mountains","zones":["Redridge Mountains"],"people":[],"deeds":[],"left_out":0}],"#,
+    r#""tales":[{"first":20,"chapter":1,"instance":"The Deadmines","kind":"dungeon","began":1790000000,"runs":2,"#,
+    r#""deeds":[{"kind":"defeated","foe":"Edwin VanCleef","times":1,"at":1790000001}],"again":["Defeated Cookie again, 2 times."],"left_out":0}]}"#,
+);
+
+fn contents(game: &Game) -> Vec<String> {
+    game.eval(
+        "local out = {}
+         for _, row in ipairs(ns.Journal.Page('chapters').list) do
+             table.insert(out, row.text .. (row.detail and (' / ' .. row.detail) or '') .. (row.mark and (' [' .. row.mark .. ']') or ''))
+         end
+         return out",
+    )
+}
+
+#[test]
+fn the_contents_group_the_chapters_by_level_band_newest_first() {
+    let game = Game::new();
+    game.run("wow.units.player = { name = 'Ada', player = true, guid = 'Player-1-Ada' }");
+    let day: String = game.eval(&format!("return date('%d %b %Y', {DAY})"));
+
+    game.reply(BANDS_AND_A_TALE);
+
+    assert_eq!(
+        contents(&game),
+        [
+            "Ada / Who you've become".to_string(),
+            "Levels 10 to 19".to_string(),
+            format!("Chapter 3: Redridge Mountains / {day} · now"),
+            format!("Chapter 2: Duskwood / {day} [Level 12]"),
+            "Levels 1 to 9".to_string(),
+            format!("Chapter 1: Westfall / {day} [Dungeon]"),
+            "The Deadmines / Dungeon · 2 runs".to_string(),
+        ]
+    );
+}
+
+#[test]
+fn a_tale_follows_its_chapter_in_the_book() {
+    let game = Game::new();
+    game.run("wow.Slash('/journal', '')");
+    game.reply(BANDS_AND_A_TALE);
+    game.run("ns.JournalFrame.Open('chapters')");
+    game.run("ns.JournalFrame.Select(1)");
+
+    game.run("wow.Button('Next chapter'):Click()");
+
+    assert_eq!(lines(&game, "chapters")[1], "heading: The Deadmines");
+    let footer: String = game.eval("return ns.Journal.Page('chapters').footer");
+    assert_eq!(footer, "After chapter 1");
+}
+
+#[test]
+fn a_tale_page_shows_its_kind_its_runs_its_first_kills_and_its_tally_lines() {
+    let game = Game::new();
+    game.reply(BANDS_AND_A_TALE);
+
+    game.run("ns.Journal.Select('chapters', 'tale:20')");
+
+    let day: String = game.eval(&format!("return date('%d %b %Y', {DAY})"));
+    assert_eq!(
+        lines(&game, "chapters"),
+        [
+            "note: Dungeon".to_string(),
+            "heading: The Deadmines".to_string(),
+            format!("text: {day} · 2 runs."),
+            "section: In this dungeon".to_string(),
+            "text: Defeated: Edwin VanCleef.".to_string(),
+            "text: Defeated Cookie again, 2 times.".to_string(),
+        ]
+    );
+}
+
+#[test]
+fn a_chapter_that_is_not_over_says_when_its_story_comes() {
+    let game = Game::new();
+
+    game.reply(BANDS_AND_A_TALE);
+
+    assert_eq!(
+        lines(&game, "chapters")[3],
+        "help: This chapter isn't over yet. Its story comes when the next one starts."
     );
 }

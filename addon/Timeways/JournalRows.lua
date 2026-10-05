@@ -67,3 +67,35 @@ function JournalRows.Keys(items)
 	end
 	return keys
 end
+
+-- The first kill is the true kill. Each later kill is an echo after a reset (5.13).
+function JournalRows.DeedTitle(deed)
+	if deed.kind == "level" and type(deed.to) == "number" then
+		local what = deed.from and "Reached level %d" or "Started at level %d"
+		return string.format(what, deed.to)
+	elseif deed.kind == "defeated" and type(deed.times) == "number" then
+		if deed.times == 1 then
+			return "Defeated " .. JournalRows.Name(deed.foe)
+		end
+		return string.format("Defeated %s again (%d times)", JournalRows.Name(deed.foe), deed.times)
+	elseif deed.kind == "titled" then
+		return "Earned the title " .. JournalRows.Name(deed.title)
+	elseif deed.kind == "quest_done" then
+		return "Finished the quest " .. JournalRows.Name(deed.title)
+	elseif deed.kind == "game_quest_done" then
+		return "Finished the quest " .. JournalRows.Name(deed.title)
+	elseif deed.kind == "class_quest_done" then
+		return "Finished the class quest " .. JournalRows.Name(deed.title)
+	elseif deed.kind == "quest_marked" then
+		return JournalRows.Name(deed.mark) .. ", from " .. JournalRows.Name(deed.quest)
+	elseif deed.kind == "mounted" then
+		local first = deed.epic and "Rode your first epic mount, " or "Rode your first mount, "
+		return first .. JournalRows.Name(deed.mount)
+	elseif deed.kind == "epic_item" then
+		return "Equipped your first epic item, " .. JournalRows.Name(deed.item)
+	elseif deed.kind == "upgraded" then
+		return "Equipped " .. JournalRows.Name(deed.item) .. ", a big upgrade"
+	elseif deed.kind == "died" then
+		return deed.killer and ("Killed by " .. JournalRows.Name(deed.killer)) or "Died"
+	end
+end
