@@ -7,7 +7,9 @@ mod common;
 mod players;
 
 use players::{Player, ada_and_corvin, exchange};
+use timeways_story::aliases::unmarked;
 use timeways_story::input::Input;
+use timeways_story::stories::{MAX_STORY_BYTES, checked_text};
 
 const PREFIX: &str = "|cffc8a064Timeways|r: ";
 
@@ -264,4 +266,25 @@ fn a_story_too_long_to_send_asks_for_a_shorter_one() {
         ada.printed().pop().unwrap(),
         format!("{PREFIX}Too long to send. Try a shorter version.")
     );
+}
+
+#[test]
+fn a_story_full_of_names_at_the_limit_still_fits_the_desktop() {
+    let (ada, corvin) = party();
+    let text = "ada ".repeat(100);
+    tell(&ada, &corvin, text.trim_end());
+
+    corvin.run("wow.Slash('/story', 'accept')");
+
+    let inputs = sent_inputs(&corvin);
+    let marked = inputs
+        .iter()
+        .find_map(|input| match input {
+            Input::StoryAccepted { text, .. } => Some(text.clone()),
+            _ => None,
+        })
+        .expect("an accepted story");
+    assert!(marked.len() > MAX_STORY_BYTES, "{marked}");
+    let plain = unmarked(&marked);
+    assert!(checked_text(&plain.text).is_some(), "{}", plain.text);
 }

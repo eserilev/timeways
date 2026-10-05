@@ -53,11 +53,16 @@ function TaskWire.WithoutRefused(text)
 	return text
 end
 
+-- U+0080 to U+009F. Lua's `%c` knows only bytes 0 to 31 and 127, and the bridge refuses
+-- these too.
+local C1_CONTROL = "\194[\128-\159]"
+
 -- A `|` starts a WoW escape, such as a color or a fake link, so no text of a peer holds one.
 -- The logged channel takes only valid UTF-8, with no refused sign.
 function TaskWire.IsCleanText(text)
 	return type(text) == "string"
 		and not text:find("[%c|]")
+		and not text:find(C1_CONTROL)
 		and ns.Utf8.IsValid(text)
 		and TaskWire.WithoutRefused(text) == text
 end

@@ -196,11 +196,17 @@ fn ask(model: &str, prompt: &str) -> Result<String, Box<dyn Error>> {
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()?;
-    child
+    let written = child
         .stdin
         .take()
         .ok_or("the model has no stdin")?
-        .write_all(prompt.as_bytes())?;
+        .write_all(prompt.as_bytes());
+    // A model that never reads the prompt, such as `echo`, can exit before the write ends.
+    if let Err(error) = written
+        && error.kind() != std::io::ErrorKind::BrokenPipe
+    {
+        return Err(error.into());
+    }
     let output = child.wait_with_output()?;
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
 }
