@@ -4,8 +4,7 @@
 pub const LINES_PER_HOUR: usize = 3;
 const HOUR: u64 = 3600;
 
-/// The times of the last lines in seconds, oldest first. No heap, so Kani proves the
-/// budget fast.
+/// The times of the last lines in seconds, oldest first.
 #[derive(Default)]
 pub struct Budget {
     pub spoken: [Option<u64>; LINES_PER_HOUR],

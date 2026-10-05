@@ -20,7 +20,7 @@ set_option maxRecDepth 2048
 namespace timeways_rules
 
 /-- [timeways_rules::budget::Budget]
-    Source: 'crates/rules/src/budget.rs', lines 10:0-12:1
+    Source: 'crates/rules/src/budget.rs', lines 9:0-11:1
     Visibility: public -/
 structure budget.Budget where
   spoken : Array (Option Std.U64) 3#usize

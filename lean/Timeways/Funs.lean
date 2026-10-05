@@ -38,7 +38,7 @@ def core.option.Option.Insts.CoreCloneClone {T : Type} (cloneCloneInst :
 @[global_simps, irreducible] def budget.HOUR : Std.U64 := 3600#u64
 
 /-- [timeways_rules::budget::{timeways_rules::budget::Budget}::take]:
-    Source: 'crates/rules/src/budget.rs', lines 17:4-30:5
+    Source: 'crates/rules/src/budget.rs', lines 16:4-29:5
     Visibility: public -/
 def budget.Budget.take
   (self : budget.Budget) («at» : Std.U64) :
