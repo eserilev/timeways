@@ -14,6 +14,19 @@ impl Story {
     }
 }
 
+/// Learns the names that the addon marked.
+pub(super) fn learn_names(active: &mut Active, marked: &[String]) -> Result<(), StoreError> {
+    for name in marked {
+        active.aliases.learn(&AliasRow::named(name))?;
+    }
+    Ok(())
+}
+
+/// The text with each name that the table knows as its ID.
+pub(super) fn with_ids(active: &Active, text: &str) -> String {
+    aliases::without_names(active.aliases.table(), text)
+}
+
 /// Learns the names that the addon marked, and gives the text with each name that the
 /// table knows as its ID.
 pub(super) fn without_names(
@@ -21,8 +34,6 @@ pub(super) fn without_names(
     marked: &[String],
     text: &str,
 ) -> Result<String, StoreError> {
-    for name in marked {
-        active.aliases.learn(&AliasRow::named(name))?;
-    }
-    Ok(aliases::without_names(active.aliases.table(), text))
+    learn_names(active, marked)?;
+    Ok(with_ids(active, text))
 }

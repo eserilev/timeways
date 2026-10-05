@@ -133,3 +133,10 @@ path = "fuzz_targets/player_names.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "story_accepted"
+path = "fuzz_targets/story_accepted.rs"
+test = false
+doc = false
+bench = false

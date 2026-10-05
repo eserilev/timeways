@@ -217,12 +217,14 @@ pub enum Input {
         idea: String,
     },
     /// The player accepted a story that a player of the party told about them (GAMEPLAY.md
-    /// 4.8). The number is the addon's own. The text marks each name of a player: "{Ada}"
-    /// (5.11).
+    /// 4.8). The number is the addon's own. The title and each paragraph mark each name of
+    /// a player: "{Ada}" (5.11). The bridge takes no line break, so the body is a list.
     StoryAccepted {
         at: Tick,
         number: u64,
-        text: String,
+        #[serde(default)]
+        title: Option<String>,
+        paragraphs: Vec<String>,
     },
     /// The player removed a story about them.
     StoryRemoved {

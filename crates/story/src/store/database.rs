@@ -11,7 +11,7 @@ use timeways_rules::prompts::oldest_prompt_kept;
 
 /// A file of another version is refused, never changed. Nothing is live, so a new version
 /// starts with new worlds.
-const VERSION: i64 = 5;
+const VERSION: i64 = 6;
 
 /// WAL syncs the disk once for each line, and a reader such as `sqlite3` never blocks a
 /// save.

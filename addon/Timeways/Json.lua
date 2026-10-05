@@ -14,9 +14,20 @@ local function EncodeString(s)
 	end) .. '"'
 end
 
--- An object with string keys, in sorted order, so one input always gives one line. A value
--- that is a table is an object too.
-function Json.Encode(object)
+local EncodeValue -- forward, for the recursion of arrays and objects
+
+-- A table whose first item is set is an array. No line of the story program holds an
+-- empty array, so an empty table is an object.
+local function EncodeArray(list)
+	local items = {}
+	for n, value in ipairs(list) do
+		items[n] = EncodeValue(value, n)
+	end
+	return "[" .. table.concat(items, ",") .. "]"
+end
+
+-- An object with string keys, in sorted order, so one input always gives one line.
+local function EncodeObject(object)
 	local keys = {}
 	for key in pairs(object) do
 		keys[#keys + 1] = key
@@ -24,20 +35,24 @@ function Json.Encode(object)
 	table.sort(keys)
 	local fields = {}
 	for _, key in ipairs(keys) do
-		local value = object[key]
-		local encoded
-		if type(value) == "string" then
-			encoded = EncodeString(value)
-		elseif type(value) == "number" and value % 1 == 0 then
-			encoded = string.format("%d", value)
-		elseif type(value) == "table" then
-			encoded = Json.Encode(value)
-		else
-			error("Json.Encode: " .. key .. " is not a string, a whole number, or an object")
-		end
-		fields[#fields + 1] = EncodeString(key) .. ":" .. encoded
+		fields[#fields + 1] = EncodeString(key) .. ":" .. EncodeValue(object[key], key)
 	end
 	return "{" .. table.concat(fields, ",") .. "}"
+end
+
+EncodeValue = function(value, key)
+	if type(value) == "string" then
+		return EncodeString(value)
+	elseif type(value) == "number" and value % 1 == 0 then
+		return string.format("%d", value)
+	elseif type(value) == "table" then
+		return value[1] ~= nil and EncodeArray(value) or EncodeObject(value)
+	end
+	error("Json.Encode: " .. key .. " is not a string, a whole number, a list, or an object")
+end
+
+function Json.Encode(object)
+	return EncodeObject(object)
 end
 
 local Parse -- forward, for the recursion of arrays and objects

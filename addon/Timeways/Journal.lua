@@ -580,7 +580,7 @@ local function AcceptedStory(story)
 	local author = ns.PlayerStories.AuthorOf(story.number)
 	local by = author and ns.TaskPeople.Short(author) or "a friend"
 	return {
-		Line("entry", ns.PlayerStories.Shown(story.text), remove),
+		Line("entry", ns.PlayerStories.Shown(ns.PlayerStories.AcceptedText(story)), remove),
 		Line("text", "Told by " .. by .. ", " .. Day(story.at) .. "."),
 	}
 end

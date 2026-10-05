@@ -13,6 +13,7 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use timeways_story::pack::Pack;
 use timeways_story::store::Store;
+use timeways_story::stories::is_good_story;
 use timeways_story::story::Story;
 
 /// A time of the real clock, in 2026.
@@ -571,4 +572,132 @@ fn story_with_passage(file: &str, text: &str) -> Story {
     };
     Pack::write(&path, &[tower]).unwrap();
     Story::new(Pack::open(&path).unwrap(), Store::Memory)
+}
+
+fn story_line(number: u64, title: Option<&str>, paragraphs: &[String]) -> Value {
+    json!({"type": "story_accepted", "at": START, "number": number, "title": title,
+           "paragraphs": paragraphs})
+}
+
+/// The numbers of the stories that the journal shows, from every page.
+fn shelf_numbers(bridge: &mut FakeBridge) -> Vec<u64> {
+    let mut numbers = Vec::new();
+    let mut page = 0;
+    loop {
+        let reply = batch(bridge, &json!({"type": "journal_asked", "page": page}));
+        let Reply::Done(text) = &reply else {
+            panic!("expected a journal, got {reply:?}");
+        };
+        let value: Value = serde_json::from_str(text).unwrap();
+        let stories = list(&reply, "stories");
+        numbers.extend(stories.iter().filter_map(|story| story["number"].as_u64()));
+        page += 1;
+        if page >= value["pages"].as_u64().unwrap() {
+            return numbers;
+        }
+    }
+}
+
+#[test]
+fn a_story_accepted_line_with_paragraphs_passes_the_bridge() {
+    let mut bridge = bridge(vec![0]);
+    let paragraphs = ["We went in.".to_string(), "We came out.".to_string()];
+    let line = story_line(7, Some("The Barn"), &paragraphs);
+
+    let text = format!("{CHARACTER}\n{line}");
+
+    assert_eq!(fake_bridge::dropped_lines_of(&text), Some(0));
+    bridge.batch(&text);
+    assert_eq!(shelf_numbers(&mut bridge), [7]);
+}
+
+/// The reason why the body is a list: the bridge drops a line with a line break in a
+/// string (relay SPEC 9.8).
+#[test]
+fn a_story_accepted_line_with_a_line_break_is_dropped_by_the_bridge() {
+    let line = story_line(7, None, &["We went in.\nWe came out.".to_string()]);
+
+    let dropped = fake_bridge::dropped_lines_of(&format!("{CHARACTER}\n{line}"));
+
+    assert_eq!(dropped, Some(1));
+}
+
+/// A text at the edges of what the journal escapes: quotes and backslashes double in
+/// JSON, and a letter of 4 bytes is the most bytes for one letter.
+fn story_text() -> impl Strategy<Value = String> {
+    let edge = |unit: &'static str| {
+        prop_oneof![
+            Just(0usize),
+            Just(1),
+            Just(250),
+            Just(500),
+            Just(1000),
+            0usize..1100
+        ]
+        .prop_map(move |count| unit.repeat(count))
+    };
+    prop_oneof![
+        edge("\""),
+        edge("\\"),
+        edge("\u{1F409}"),
+        edge("a"),
+        "[a-z ]{1,80}",
+        Just(" leading".to_string()),
+        Just("broken\nline".to_string()),
+        Just("c1\u{85}".to_string()),
+    ]
+}
+
+fn paragraph_count() -> impl Strategy<Value = usize> {
+    prop_oneof![Just(0usize), Just(1), Just(20), Just(21), 0usize..22]
+}
+
+fn told_story() -> impl Strategy<Value = (Option<String>, Vec<String>)> {
+    let title = prop::option::of(prop_oneof![story_text(), "[A-Za-z ]{0,61}"]);
+    let paragraphs = (paragraph_count(), story_text()).prop_flat_map(|(count, first)| {
+        prop::collection::vec(prop_oneof![Just(first), story_text()], count)
+    });
+    (title, paragraphs)
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(64))]
+
+    /// GAMEPLAY.md 4.8: a story that the bridge passes lands, or the story program refuses
+    /// it for its shape. Either way the journal keeps fitting the game.
+    #[test]
+    fn a_story_line_that_the_bridge_passes_lands_or_is_refused_with_its_reason(
+        stories in prop::collection::vec(told_story(), 1..6),
+    ) {
+        let mut bridge = bridge(vec![0]);
+        let mut expected = Vec::new();
+        for (number, (title, paragraphs)) in (0u64..).zip(&stories) {
+            let line = story_line(number, title.as_deref(), paragraphs);
+            let text = format!("{CHARACTER}\n{line}");
+            if fake_bridge::dropped_lines_of(&text) != Some(0) {
+                continue;
+            }
+            bridge.batch(&text);
+            let title = title.as_deref().filter(|title| !title.is_empty());
+            if is_good_story(title, paragraphs) {
+                expected.push(number);
+            }
+        }
+
+        prop_assert_eq!(shelf_numbers(&mut bridge), expected);
+    }
+
+    /// Each accepted story fits a page of the journal, at the edges of its limits.
+    #[test]
+    fn every_accepted_story_fits_one_page_of_the_journal(
+        (title, paragraphs) in told_story(),
+    ) {
+        let mut bridge = bridge(vec![0]);
+        let line = story_line(1, title.as_deref(), &paragraphs);
+
+        bridge.batch(&format!("{CHARACTER}\n{line}"));
+
+        let reply = batch(&mut bridge, &json!({"type": "journal_asked", "page": 0}));
+        prop_assert!(matches!(reply, Reply::Done(_)), "{:?}", reply);
+    }
 }

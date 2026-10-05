@@ -37,6 +37,16 @@ fn encode_writes_a_table_as_an_object() {
 }
 
 #[test]
+fn encode_writes_a_list_as_an_array() {
+    let game = Game::new();
+
+    assert_eq!(
+        encode(&game, "{ paragraphs = { 'One.', 'Two \"quoted\".' } }"),
+        r#"{"paragraphs":["One.","Two \"quoted\"."]}"#
+    );
+}
+
+#[test]
 fn encode_escapes_quotes_backslashes_and_control_characters() {
     let game = Game::new();
 

@@ -490,7 +490,12 @@ fn input(play: &Play, at: Tick) -> Option<Input> {
         Play::Decline => Input::QuestDeclined { at, number: None },
         Play::Wait(_) => return None,
         Play::EndBatch(_) => Input::BatchEnd { id: MessageId(4) },
-        Play::StoryAccept(number, text) => Input::StoryAccepted { at, number, text },
+        Play::StoryAccept(number, text) => Input::StoryAccepted {
+            at,
+            number,
+            title: None,
+            paragraphs: vec![text],
+        },
         Play::StoryRemove(number) => Input::StoryRemoved { at, number },
         Play::DraftAsk(idea) => Input::DraftAsked {
             id: MessageId(5),
@@ -2183,7 +2188,8 @@ fn accepted_story(number: u64) -> Input {
     Input::StoryAccepted {
         at: Tick(10),
         number,
-        text: "A tale of the road.".to_string(),
+        title: None,
+        paragraphs: vec!["A tale of the road.".to_string()],
     }
 }
 

@@ -695,7 +695,7 @@ fn the_questions_on_parchment_print_in_the_quest_fonts_with_no_shadow() {
     );
 }
 
-const STORIES: &str = r#"{"type":"journal","page":0,"pages":1,"hero":{"sheet":[],"entries":[]},"stories":[{"number":1,"text":"$N held the bridge.","at":1790000000,"used":false},{"number":2,"text":"A tale that stays.","at":1790000000,"used":true}]}"#;
+const STORIES: &str = r#"{"type":"journal","page":0,"pages":1,"hero":{"sheet":[],"entries":[]},"stories":[{"number":1,"paragraphs":["$N held the bridge."],"at":1790000000,"used":false},{"number":2,"paragraphs":["A tale","that stays."],"at":1790000000,"used":true}]}"#;
 
 #[test]
 fn the_hero_page_shows_the_stories_about_you_with_their_authors() {

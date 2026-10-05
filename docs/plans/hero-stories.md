@@ -255,6 +255,14 @@ A refused answer or a failed call keeps the summary before it. A model answer is
 
 **Without a model**, there is no summary. The title page shows the character line and the chapters.
 
+### 3.6 Migrations
+
+The user decided on 2026-10-04: from now on, each change of the schema says what a migration from the old version needs. Migrations are not built before Timeways launches on CurseForge, but they will be required then. A world of another version is still refused (`GAMEPLAY.md` 5.7).
+
+| Version | Change | What a migration from the version before needs |
+|---|---|---|
+| 6 (step 3) | A row of `stories` holds `title` and `paragraphs` in place of `text`. | Read each `accepted` row of version 5, and write it again as `{"line":"accepted","number":...,"at":...,"title":null,"paragraphs":[<text>]}`. The text keeps its IDs. A text of version 5 holds no line break, so it is one paragraph. A `removed` row stays as it is. The positions stay, so the reads of a call still point at the same story. Then set `user_version` to 6. |
+
 ## 4. The UI, page by page
 
 The copy below is final. It follows the UI copy rules of `CLAUDE.md`.

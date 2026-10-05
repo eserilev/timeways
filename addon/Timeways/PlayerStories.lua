@@ -251,7 +251,7 @@ function PlayerStories.Accept(index)
 	data.nextNumber = number + 1
 	data.authors[number] = story.author
 	local text = ns.TaskNames.Send(story.text)
-	ns.Outbox.Add(ns.Inputs.StoryAccepted(time(), number, text))
+	ns.Outbox.Add(ns.Inputs.StoryAccepted(time(), number, nil, { text }))
 	ns.TaskChannel.Whisper(story.author, { type = "story_accept", id = story.id })
 	Say("Story accepted. It's part of your story now.")
 	Changed()
@@ -280,11 +280,21 @@ StaticPopupDialogs.TIMEWAYS_STORY_REMOVE = {
 	end,
 }
 
+-- The paragraphs of a story of the journal, on one line.
+function PlayerStories.AcceptedText(story)
+	local paragraphs = {}
+	for _, paragraph in ipairs(type(story.paragraphs) == "table" and story.paragraphs or {}) do
+		paragraphs[#paragraphs + 1] = tostring(paragraph)
+	end
+	return table.concat(paragraphs, " ")
+end
+
 -- Asks first, because a removed story never comes back.
 function PlayerStories.Remove(story)
 	local number = story.number
 	if IsCount(number) then
-		StaticPopup_Show("TIMEWAYS_STORY_REMOVE", ns.Plain(tostring(story.text)), nil, { number = number })
+		local text = ns.Plain(PlayerStories.AcceptedText(story))
+		StaticPopup_Show("TIMEWAYS_STORY_REMOVE", text, nil, { number = number })
 	end
 end
 

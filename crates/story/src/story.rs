@@ -25,7 +25,7 @@ use crate::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use crate::seen::{MAX_SEEN_BYTES, SeenIndex, SeenText, TextKind};
 use crate::spot::Spot;
 use crate::store::{CharacterKey, Node, Opened, Shared, Store, StoreError, Table};
-use crate::stories::MAX_STORY_BYTES;
+use crate::stories::MAX_PARAGRAPHS;
 use crate::talk::{self, QuestTalk, Scene};
 use crate::titles;
 use hourglass::Tick;
@@ -196,7 +196,7 @@ pub enum StoryError {
     #[error(transparent)]
     Store(#[from] StoreError),
     #[error(
-        "a story is empty, longer than {MAX_STORY_BYTES} bytes, or holds a control character or a |"
+        "a story has no paragraph, more than {MAX_PARAGRAPHS}, an empty one, a space at the end of one, a title or a body over its limit, or a control character or a |"
     )]
     BadStory,
     #[error("a story with the number {0} came before")]
@@ -533,7 +533,12 @@ impl Story {
             Input::QuestDeclined { at, number } => self.answer_quest(at, Status::Declined, number),
             Input::QuestAbandoned { at, number } => self.abandon_quest(at, number),
             Input::JournalAsked { id, page } => self.journal_answer(id, page),
-            Input::StoryAccepted { at, number, text } => self.accept_story(at, number, &text),
+            Input::StoryAccepted {
+                at,
+                number,
+                title,
+                paragraphs,
+            } => self.accept_story(at, number, title.as_deref(), &paragraphs),
             Input::PlayerDescribed {
                 name, race, class, ..
             } => self.describe_player(&AliasRow { name, race, class }),

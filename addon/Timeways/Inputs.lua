@@ -129,8 +129,10 @@ function Inputs.HeroRemoved(at, number)
 	return { type = "hero_removed", at = at, number = number }
 end
 
-function Inputs.StoryAccepted(at, number, text)
-	return { type = "story_accepted", at = at, number = number, text = text }
+-- The bridge takes no line break, so the body goes as a list of paragraphs. An empty
+-- title is no title.
+function Inputs.StoryAccepted(at, number, title, paragraphs)
+	return { type = "story_accepted", at = at, number = number, title = Present(title), paragraphs = paragraphs }
 end
 
 function Inputs.StoryRemoved(at, number)

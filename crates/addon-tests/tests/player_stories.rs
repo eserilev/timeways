@@ -9,7 +9,7 @@ mod players;
 use players::{Player, ada_and_corvin, exchange};
 use timeways_story::aliases::unmarked;
 use timeways_story::input::Input;
-use timeways_story::stories::{MAX_STORY_BYTES, checked_text};
+use timeways_story::stories::is_good_story;
 
 const PREFIX: &str = "|cffc8a064Timeways|r: ";
 
@@ -114,8 +114,8 @@ fn an_accepted_story_goes_to_the_desktop_with_marked_names_and_the_author_hears(
     assert!(
         inputs.iter().any(|input| matches!(
             input,
-            Input::StoryAccepted { number: 1, text, .. }
-                if text == "$N and {Ada} held the bridge."
+            Input::StoryAccepted { number: 1, paragraphs, .. }
+                if paragraphs == &["$N and {Ada} held the bridge."]
         )),
         "{inputs:?}"
     );
@@ -225,7 +225,8 @@ fn a_story_accepted_after_its_author_left_still_marks_the_name() {
     assert!(
         inputs.iter().any(|input| matches!(
             input,
-            Input::StoryAccepted { text, .. } if text == "{Ada} and I held the bridge."
+            Input::StoryAccepted { paragraphs, .. }
+                if paragraphs == &["{Ada} and I held the bridge."]
         )),
         "{inputs:?}"
     );
@@ -280,11 +281,12 @@ fn a_story_full_of_names_at_the_limit_still_fits_the_desktop() {
     let marked = inputs
         .iter()
         .find_map(|input| match input {
-            Input::StoryAccepted { text, .. } => Some(text.clone()),
+            Input::StoryAccepted { paragraphs, .. } => Some(paragraphs[0].clone()),
             _ => None,
         })
         .expect("an accepted story");
-    assert!(marked.len() > MAX_STORY_BYTES, "{marked}");
-    let plain = unmarked(&marked);
-    assert!(checked_text(&plain.text).is_some(), "{}", plain.text);
+    assert!(marked.len() > text.len(), "{marked}");
+    let plain = unmarked(&marked).text;
+    assert!(plain.len() <= text.len(), "{plain}");
+    assert!(is_good_story(None, &[plain]));
 }

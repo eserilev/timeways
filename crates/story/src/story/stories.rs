@@ -2,23 +2,32 @@
 //! the proof of another player, and the player removes it only while nothing used it.
 
 use super::{Active, Output, Story, StoryError, aliases};
-use crate::aliases::{unmarked, with_names};
+use crate::aliases::{Marked, unmarked, with_names};
 use crate::store::{Node, StoreError, Table};
-use crate::stories::{PlayerStory, ShelfLine, StoryChange, checked_text, lands, standing};
+use crate::stories::{PlayerStory, ShelfLine, StoryChange, is_good_story, lands, standing};
 use hourglass::Tick;
 
 impl Story {
     /// A number comes once: a story removed and sent again is a new story. The story keeps
     /// an ID in place of each name of a player (5.11), and the limits hold for the text as
-    /// its author wrote it.
+    /// its author wrote it. An empty title is no title.
     pub(super) fn accept_story(
         &mut self,
         at: Tick,
         number: u64,
-        text: &str,
+        title: Option<&str>,
+        paragraphs: &[String],
     ) -> Result<Vec<Output>, StoryError> {
-        let marked = unmarked(text);
-        let text = checked_text(&marked.text).ok_or(StoryError::BadStory)?;
+        let title = title.filter(|title| !title.is_empty()).map(unmarked);
+        let paragraphs: Vec<Marked> = paragraphs.iter().map(|text| unmarked(text)).collect();
+        let plain: Vec<String> = paragraphs
+            .iter()
+            .map(|marked| marked.text.clone())
+            .collect();
+        let plain_title = title.as_ref().map(|marked| marked.text.as_str());
+        if !is_good_story(plain_title, &plain) {
+            return Err(StoryError::BadStory);
+        }
         let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
         if !lands(
             active.stories.changes(),
@@ -27,10 +36,22 @@ impl Story {
         ) {
             return Err(StoryError::StoryTaken(number));
         }
-        let text = aliases::without_names(active, &marked.names, text)?;
-        active
-            .stories
-            .add(StoryChange::Accepted { number, at, text })?;
+        let names: Vec<String> = title
+            .iter()
+            .chain(&paragraphs)
+            .flat_map(|marked| marked.names.iter().cloned())
+            .collect();
+        aliases::learn_names(active, &names)?;
+        let accepted = StoryChange::Accepted {
+            number,
+            at,
+            title: title.map(|marked| aliases::with_ids(active, &marked.text)),
+            paragraphs: plain
+                .iter()
+                .map(|text| aliases::with_ids(active, text))
+                .collect(),
+        };
+        active.stories.add(accepted)?;
         Ok(Vec::new())
     }
 
@@ -67,12 +88,23 @@ fn is_used(active: &Active, row: u64) -> Result<bool, StoreError> {
 pub(super) fn journal_stories(active: &Active) -> Result<Vec<PlayerStory>, StoreError> {
     let mut stories = Vec::new();
     for (row, change) in standing(active.stories.changes()) {
-        let StoryChange::Accepted { number, at, text } = change else {
+        let StoryChange::Accepted {
+            number,
+            at,
+            title,
+            paragraphs,
+        } = change
+        else {
             continue;
         };
+        let table = active.aliases.table();
         stories.push(PlayerStory {
             number: *number,
-            text: with_names(active.aliases.table(), text),
+            title: title.as_ref().map(|title| with_names(table, title)),
+            paragraphs: paragraphs
+                .iter()
+                .map(|text| with_names(table, text))
+                .collect(),
             at: *at,
             used: is_used(active, row)?,
         });
