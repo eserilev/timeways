@@ -233,7 +233,48 @@ Each open-world zone page in the atlas gets "Your history here": one narrated pa
 - The check is the saga check: at most 400 characters, no slop, never "our hero". It must not copy 8 words in a row from a saga. A refused answer gets one retry, then the old text stays.
 - The page also lists every chapter that had weight in the zone.
 
-## 11. Tests
+## 11. Player edits
+
+It is the player's story. A player can change what a chapter or a tale **says**, never which events it holds.
+
+**What a player can do:**
+
+- **Edit the text** of a chapter or a tale: rewrite the narrator's text, or replace it.
+- **Rename** a chapter or a tale.
+- **Add paragraphs** to any chapter, past or open.
+- **Restore** the narrator's text with one button.
+
+**What stays fixed:** the range of events, the weight, and the "In this chapter" list. These are what the game saw. The proofs of section 8 and the atlas depend on them.
+
+**How it works:**
+
+- An edit is a new row, never a change of an old row. A row table `chapter_edits` holds `{entry, after: EventId, title, paragraphs, at}`. The `entry` is a chapter or a tale, by its first `EventId`. The newest row of an entry stands. A row with no title and no paragraphs is a restore.
+- Edited text is the player's text. In the proof graph its root is `Player`, as a hero answer.
+- An edit makes no model call.
+- The limits are the limits of a story (`docs/plans/hero-stories.md`): a title of 60 letters, and at most 20 paragraphs and 1200 bytes. Player names go through the alias table first.
+- A saga that comes after an edit never overwrites it. The newest row stands: a player row over a model row.
+
+**What the narrator does with an edit:**
+
+- The prompts of the next saga, the summary, the zone history, and a tale read the edited text as "the player's telling, not canon", fenced as player text.
+- The narrator never contradicts the edit and never copies it back as its own.
+- The deeds of the chapter stay the facts of the prompt. The edit adds a telling. It never adds a fact.
+
+**In the journal:** each chapter and tale page gets Edit and, when edited, Restore. The box edits in place, as the Hero cards do. An edited entry shows a small "Edited" mark in the contents.
+
+**Sharing:** when the player shares the Chronicle summary as the History of the Roleplay Profile (later, `hero-stories.md`), an edited summary goes as the player wrote it.
+
+**Proofs** (section 8 gets these):
+
+| # | Theorem | In plain words |
+|---|---|---|
+| 20 | `an_edit_never_moves_a_chapter` | No edit row changes the range, the weight, or the gains of any chapter, visit, or tale. The fold never reads `chapter_edits`. |
+| 21 | `the_newest_edit_stands` | The text shown for an entry is the text of its newest edit row, or else the narrator's newest text. A restore shows the narrator's text again. |
+| 22 | `an_edit_is_never_lost` | A model text that arrives after an edit never replaces it. |
+
+Theorem 20 is a property of the code structure: `crates/rules` has no input for edits. A property test checks it on the real story program. Theorems 21 and 22 are a small pure function in `crates/rules`, `shown_text(narrator_rows, edit_rows)`, extracted and proved in Lean.
+
+## 12. Tests
 
 - **Unit tests** in `crates/rules` and `crates/story`, named as sentences. Examples: `a_flight_across_four_zones_makes_no_chapter`, `a_raid_night_does_not_cut_the_open_chapter`, `a_second_dungeon_run_with_nothing_new_changes_only_its_count`, `a_wipe_and_a_corpse_run_stay_one_run`, `a_level_inside_a_dungeon_counts_for_the_chapter`, `revenge_outside_an_instance_counts_for_the_chapter`.
 - **Property tests** in `crates/story/tests/properties.rs`. Make the edges likely: chapter weights at MIN−1, MIN, MAX, and MAX+1, gaps at `RUN_GAP` − 1 and `RUN_GAP`, runs of 10,000 zero-weight steps, and logs made only of breaks. They also cover:
@@ -241,9 +282,10 @@ Each open-world zone page in the atlas gets "Your history here": one narrated pa
   - 100 deaths to one mob weigh at most 3;
   - folding one line at a time gives the same entries as folding the whole log;
   - the walk gives dense ids, and the steps of a prefix are a prefix of the steps.
-- **Fuzz:** seeds for each new line, the `tales` and `zone_histories` rows, and the model answers of a tale and a zone history.
+- **Edits:** `an_edit_keeps_the_chapter_list`, `restore_shows_the_narrator_text`, `a_saga_after_an_edit_does_not_replace_it`, and a property test that any edits leave every chapter range as it was.
+- **Fuzz:** seeds for each new line, the `chapter_edits` rows, the edit line from the addon, the `tales` and `zone_histories` rows, and the model answers of a tale and a zone history.
 
-## 12. Migration
+## 13. Migration
 
 A new rule, or new values of MIN and MAX, re-cut the log. That orphans old sagas.
 
@@ -257,10 +299,11 @@ Nothing is live, so no world needs a migration before the first release (5.7). A
 | `summaries.after` becomes an `EventId` | The same map. |
 | New tables `chapter_rules`, `tales`, `zone_histories` | Create them. `chapter_rules` gets `{rule: 1, from: 0}`. A `tales` row is `{instance, visit: EventId, text}`. |
 | Old instance visits get tales | The fold finds them. They show the plain list. Only a visit that closes after the upgrade calls a model, so no backlog of calls. |
+| New table `chapter_edits` | Create it, empty. |
 | New facts `resting`, `battleground` | A vocabulary version. No old event changes. |
 | New fields `taxi`, `kind` on old lines | None. Both are optional. |
 
-## 13. Build order
+## 14. Build order
 
 1. The fold, the weight table, tracks, visits, tales, and rule steps in `crates/rules`, with unit tests.
 2. The Lean proofs of section 8.
@@ -270,8 +313,9 @@ Nothing is live, so no world needs a migration before the first release (5.7). A
 6. Property tests and fuzz seeds.
 7. Tale texts and the zone history.
 8. The new events: battleground entry, win, and rank first, then rest, taxi, and the kind of a kill.
+9. Player edits: `chapter_edits`, `shown_text` and its proofs, the edit line, the prompts, and Edit and Restore in the addon.
 
-## 14. Open questions
+## 15. Open questions
 
 Proposed answers wait for the user.
 
@@ -286,8 +330,9 @@ Proposed answers wait for the user.
 | Does a battleground tale count wins after the first? | No. Only the first win and new ranks. |
 | Does a level up count for the chapter, also inside an instance? | Yes. |
 | One call for a tale text, with no second draft? | Yes. A tale can change many times. |
+| Does an edited summary go to the shared History? | Yes (user, 2026-10-05). |
 
-## 15. Review notes
+## 16. Review notes
 
 - **Theorem 2 was false for tales.** A tale grows, so it is never closed. Now a closed *visit* is stable, a tale only grows, and its text names its visit (theorems 4, 5).
 - **A raid night still cut the chapter.** "Leaving an instance" was a break. It is not one now. Section 5.2 says what a raid night does.
