@@ -1,7 +1,7 @@
 //! The narrator writes each finished chapter of the chronicle as a short saga (GAMEPLAY.md 3.3).
 //! The words of its prompt live here, and the facts come from the chapter alone.
 
-use crate::check::{json_object, voice_text};
+use crate::check::{json_object, slop_in, voice_text};
 use crate::hero::OWN_WORDS;
 use crate::house::{HOUSE_RULES, bulleted, fenced};
 use crate::journal::{Chapter, Deed, Place};
@@ -30,13 +30,15 @@ const MAX_FOOTNOTE_BYTES: usize = 600;
 
 const FOOTNOTES: &str = "\
 Pick at most 3 of the small moments for footnotes, or none. A footnote is one short, dry \
-line of fact, for example: \"On the fourth day, our hero danced in Goldshire, alone, at \
-three in the morning.\"";
+line of fact, for example: \"On the fourth day, $N danced in Goldshire, alone, at three in \
+the morning.\"";
 
 /// The author's note, with the format last.
 const NOTE: &str = "\
-Remember: serious, concrete, and sparing, in one paragraph. Say \"our hero\" at most \
-twice, and tell nothing of what comes next.
+Remember: serious, concrete, and sparing, in one paragraph. Tie the deeds to the history \
+of their places and peoples, and tell nothing of what comes next.
+Write $N for the name of the hero, at most twice: the game puts the name there. Else say \
+\"they\", or name no one.
 Tell the facts as a story, not as a list. Few facts make a short chapter of two or three \
 sentences.
 Reply with JSON only: {\"saga\": \"<the chapter>\", \"footnotes\": [{\"moment\": <its number>, \
@@ -244,16 +246,24 @@ fn numbered(moments: &[String]) -> String {
 
 /// The saga as the player reads it, or None when it breaks a rule. A footnote that breaks
 /// a rule, or names no moment of the list, is dropped alone. A chapter that fails keeps
-/// its plain list, and gets no retry. `player_text` is the hero in the player's own words.
+/// its plain list; its second draft is its second chance (GAMEPLAY.md 3.3). `facts` are
+/// the facts of the chapter: a slop word that they hold, such as a name, stays allowed.
+/// `player_text` is the hero in the player's own words.
 #[must_use]
-pub fn checked_saga(text: &str, moment_count: usize, player_text: &str) -> Option<Saga> {
+pub fn checked_saga(
+    text: &str,
+    moment_count: usize,
+    facts: &str,
+    player_text: &str,
+) -> Option<Saga> {
     let reply: Reply = serde_json::from_str(json_object(text)?).ok()?;
     let saga = voice_text(
         &reply.saga,
         MAX_CHAPTER_CHARS,
         MAX_CHAPTER_BYTES,
         player_text,
-    )?;
+    )
+    .filter(|saga| slop_in(saga, facts).is_empty())?;
     let mut footnotes: Vec<(usize, String)> = Vec::new();
     for footnote in reply.footnotes {
         let known = (1..=moment_count).contains(&footnote.moment);
@@ -265,7 +275,8 @@ pub fn checked_saga(text: &str, moment_count: usize, player_text: &str) -> Optio
             MAX_FOOTNOTE_CHARS,
             MAX_FOOTNOTE_BYTES,
             player_text,
-        );
+        )
+        .filter(|text| slop_in(text, facts).is_empty());
         if let (true, true, Some(text)) = (known, new, text) {
             footnotes.push((footnote.moment, text));
         }
@@ -289,7 +300,7 @@ fn deed_fact(deed: &Deed) -> String {
     match deed {
         Deed::Level { from: None, to, .. } => format!("Began the saga at level {to}"),
         Deed::Level { to, .. } => format!("Reached level {to}"),
-        Deed::Defeated { foe, times: 1, .. } => format!("Defeated {foe} for the first time"),
+        Deed::Defeated { foe, times: 1, .. } => format!("Defeated {foe}, a first kill"),
         Deed::Defeated { foe, times, .. } => format!("Defeated {foe} again, {times} times in all"),
         Deed::Titled { title, .. } => format!("Earned the title \"{title}\""),
         Deed::QuestDone { title, .. } | Deed::GameQuestDone { title, .. } => {

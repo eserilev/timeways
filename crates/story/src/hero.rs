@@ -212,9 +212,9 @@ const TOO_LONG: &str = "Couldn't save that: it's too long. Try a shorter version
 /// The heading of the story of the hero in a prompt. It keeps the player's words apart
 /// from canon.
 pub const OWN_WORDS: &str =
-    "Who our hero is, in the player's own words. It is the hero's own story, not canon:";
+    "Who the hero is, in the player's own words. It is the hero's own story, not canon:";
 
-/// "Who our hero is", for the prompt of a chapter: the sheet, and the `entries` that the
+/// "Who the hero is", for the prompt of a chapter: the sheet, and the `entries` that the
 /// chapter shows with it. None for an empty story.
 #[must_use]
 pub fn portrait(hero: &Hero, entries: &[&str]) -> Option<String> {

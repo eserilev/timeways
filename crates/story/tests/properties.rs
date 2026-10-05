@@ -228,7 +228,7 @@ fn play() -> impl Strategy<Value = Play> {
         (0u64..20_000).prop_map(Play::Wait),
         prop::sample::select(vec![
             "The road remembers you.".to_string(),
-            r#"{"saga": "Our hero walked on.", "pick": 2}"#.to_string(),
+            r#"{"saga": "$N walked on.", "pick": 2}"#.to_string(),
             "not an answer".to_string(),
         ])
         .prop_map(Play::EndBatch),

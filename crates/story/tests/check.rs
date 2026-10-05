@@ -3,8 +3,8 @@
 use hourglass::Tick;
 use timeways_story::check::{
     Fault, MAX_CHARS, banned_words, banned_words_in, check, in_voice, later_names, mentions,
-    names_after_cutoff, names_after_cutoff_except, names_in_no_fact, plain_text, voice_text,
-    without_citations,
+    names_after_cutoff, names_after_cutoff_except, names_in_no_fact, plain_text, slop_in,
+    voice_text, without_citations,
 };
 use timeways_story::flavor::{self, Flavor, Kind};
 use timeways_story::journal::{Chapter, Deed};
@@ -203,13 +203,13 @@ fn two_citations_in_a_row_both_count() {
 
 #[test]
 fn a_plain_line_of_the_narrator_is_in_voice() {
-    assert!(in_voice("Our hero reached Ironforge in the snow."));
+    assert!(in_voice("$N reached Ironforge in the snow."));
 }
 
 #[test]
 fn an_emoji_is_out_of_voice() {
-    assert!(!in_voice("Our hero reached level 20 \u{1F389}"));
-    assert!(!in_voice("Our hero rested \u{2615}"));
+    assert!(!in_voice("$N reached level 20 \u{1F389}"));
+    assert!(!in_voice("$N rested \u{2615}"));
 }
 
 #[test]
@@ -234,7 +234,7 @@ fn a_banned_word_counts_only_as_a_whole_word() {
 #[test]
 fn every_banned_word_in_the_list_is_caught() {
     for banned in banned_words() {
-        let text = format!("Our hero heard {banned} at the inn.");
+        let text = format!("$N heard {banned} at the inn.");
 
         assert!(!in_voice(&text), "{banned}");
     }
@@ -247,26 +247,41 @@ fn no_banned_word_is_a_word_of_the_facts() {
     assert_eq!(banned_words_in(&facts), Vec::<&str>::new(), "{facts}");
 }
 
+/// A slop word in the facts would let every line say it.
+#[test]
+fn no_slop_word_is_a_word_of_the_facts() {
+    let facts = fact_texts().join("\n");
+
+    assert_eq!(slop_in(&facts, ""), Vec::<&str>::new(), "{facts}");
+}
+
+#[test]
+fn a_slop_word_that_the_facts_hold_is_allowed() {
+    let line = "The paladin came to Shadow Hold.";
+
+    assert_eq!(slop_in(line, ""), ["shadow"]);
+    assert!(slop_in(line, "The player arrived in Shadow Hold.").is_empty());
+}
+
+#[test]
+fn our_hero_is_slop() {
+    assert_eq!(slop_in("Our hero moved on.", ""), ["our hero", "moved on"]);
+}
+
 #[test]
 fn a_voice_text_is_a_plain_text_in_voice() {
     assert_eq!(
-        voice_text(" Our hero\n rested. ", 50, 200, "").as_deref(),
-        Some("Our hero rested.")
+        voice_text(" $N\n rested. ", 50, 200, "").as_deref(),
+        Some("$N rested.")
     );
-    assert_eq!(
-        voice_text("Our hero, like, literally rested.", 50, 200, ""),
-        None
-    );
+    assert_eq!(voice_text("$N, like, literally rested.", 50, 200, ""), None);
 }
 
 #[test]
 fn a_capital_word_inside_a_sentence_that_no_fact_names_is_logged() {
     let prompt = "The player arrived in Goldshire.";
 
-    let names = names_in_no_fact(
-        "Our hero met Varian in Goldshire. Then Varian left.",
-        prompt,
-    );
+    let names = names_in_no_fact("$N met Varian in Goldshire. Then Varian left.", prompt);
 
     assert_eq!(names, ["Varian"]);
 }
@@ -275,10 +290,7 @@ fn a_capital_word_inside_a_sentence_that_no_fact_names_is_logged() {
 fn the_first_word_of_a_sentence_and_a_known_name_are_no_unknown_names() {
     let prompt = "The player defeated Hogger for the first time.";
 
-    let names = names_in_no_fact(
-        "Hogger fell. Our hero took the ear of HOGGER. I saw.",
-        prompt,
-    );
+    let names = names_in_no_fact("Hogger fell. $N took the ear of HOGGER. I saw.", prompt);
 
     assert!(names.is_empty(), "{names:?}");
 }
@@ -318,16 +330,15 @@ fn fact_texts() -> Vec<String> {
             npc: "Innkeeper Farley".to_string(),
             times: 2,
         },
-        Moment::LevelUp { level: 12 },
+        Moment::LevelUp {
+            level: 20,
+            zone: Some("Westfall".to_string()),
+        },
         Moment::NewZone {
             zone: "Westfall".to_string(),
         },
     ];
-    let mut texts: Vec<String> = moments
-        .iter()
-        .map(|moment| narrator::prompt(moment, 0))
-        .map(|prompt| fenced_part(&prompt, "The moment:\n"))
-        .collect();
+    let mut texts: Vec<String> = moments.iter().map(narrator::what_happened).collect();
     texts.push(fenced_part(
         &chronicle::prompt(&[], &chapter_of_every_deed(), &[], &[], None, &[]),
         "The facts of chapter 1:\n",

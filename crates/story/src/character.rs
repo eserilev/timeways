@@ -1,6 +1,7 @@
 //! The world of one character, fed by game events (GAMEPLAY.md 5.1 and 5.2).
 
 use crate::input::{GameQuestKind, Reaction};
+use crate::pack::Link;
 use crate::places::InstanceKind;
 use crate::race_class::{Class, Race};
 use crate::spot::{self, Spot};
@@ -95,6 +96,17 @@ impl Character {
     #[must_use]
     pub fn has_visited(&self, place: &str) -> bool {
         self.holds_about(VISITED, place)
+    }
+
+    /// The spoiler limit (GAMEPLAY.md 3.1): every place of the links is visited, and every
+    /// NPC met.
+    #[must_use]
+    pub fn knows_all(&self, links: &[Link]) -> bool {
+        links.iter().all(|link| match link {
+            Link::Place(name) => self.has_visited(name),
+            Link::Npc(name) => self.has_met(name),
+            Link::Common => true,
+        })
     }
 
     #[must_use]

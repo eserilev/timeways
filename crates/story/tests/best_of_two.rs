@@ -139,8 +139,8 @@ fn chapters(story: &mut Story) -> Vec<Chapter> {
     }
 }
 
-const FIRST: &str = "Our hero walked the long west road and helped a farmer.";
-const SECOND: &str = "Our hero took the west road. A farmer needed help, and got it.";
+const FIRST: &str = "$N walked the long west road and helped a farmer.";
+const SECOND: &str = "$N took the west road. A farmer needed help, and got it.";
 
 /// Two drafts that pass, and the call of the judge.
 fn up_to_the_judge(story: &mut Story) -> (CallId, String) {
@@ -235,7 +235,7 @@ fn two_drafts_that_break_rules_leave_the_plain_list() {
     let (first, _) = first_draft(&mut story, 3);
     let (second, _) = answered(&mut story, first, "no json").unwrap();
 
-    let after = answered(&mut story, second, &saga("Our hero 🗡 rode west."));
+    let after = answered(&mut story, second, &saga("$N 🗡 rode west."));
 
     assert_eq!(after, None);
     assert_eq!(chapters(&mut story)[0].prose, None);

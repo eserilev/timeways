@@ -7,6 +7,7 @@ use timeways_story::input::{CallId, GameQuestKind, Input, MessageId};
 use timeways_story::lore::Answer;
 use timeways_story::pack::{Link, Origin, Pack, Passage};
 use timeways_story::places::InstanceKind;
+use timeways_story::race_class::{Class, Race};
 use timeways_story::store::Store;
 use timeways_story::story::{Output, Story, StoryError};
 
@@ -577,20 +578,38 @@ fn a_batch_with_no_big_moment_is_seen_at_once_with_no_line() {
 }
 
 #[test]
-fn a_big_moment_asks_the_model_for_a_narrator_line() {
-    let mut story = story_with("big-moment", &[]);
+fn a_plain_level_up_gets_no_narrator_line() {
+    let mut story = story_with("plain-level", &[]);
     level(&mut story, 1, 12);
     level(&mut story, 2, 13);
 
+    let output = batch_end(&mut story, 3);
+
+    assert_eq!(
+        output,
+        Output::EventsSeen {
+            id: MessageId(3),
+            narrator: None,
+            notice: None,
+        }
+    );
+}
+
+#[test]
+fn a_big_moment_asks_the_model_for_a_narrator_line() {
+    let mut story = story_with("big-moment", &[]);
+    level(&mut story, 1, 19);
+    level(&mut story, 2, 20);
+
     let (call, prompt) = model_call(batch_end(&mut story, 3));
-    let text = "Level 13! Your boots still squeak, though.".to_string();
+    let text = "Level 20. $N earned it.".to_string();
     let output = one(story.handle(Input::ModelAnswered { call, text }).unwrap());
 
     assert!(
-        prompt.contains("The moment:\n<<<\nThe player reached level 13.\n>>>"),
+        prompt.contains("The moment:\n<<<\nThe player reached level 20.\n>>>"),
         "{prompt}"
     );
-    let narrator = Some("Level 13! Your boots still squeak, though.".to_string());
+    let narrator = Some("Level 20. $N earned it.".to_string());
     assert_eq!(
         output,
         Some(Output::EventsSeen {
@@ -622,13 +641,68 @@ fn a_turned_in_class_quest_asks_the_narrator_for_a_line() {
 }
 
 #[test]
-fn a_narrator_line_with_a_number_that_the_moment_lacks_stays_silent() {
-    let mut story = story_with("narrator-numbers", &[]);
-    level(&mut story, 1, 12);
-    level(&mut story, 2, 13);
+fn a_refused_narrator_line_gets_one_retry_with_the_reasons() {
+    let mut story = story_with("narrator-retry", &[]);
+    level(&mut story, 1, 19);
+    level(&mut story, 2, 20);
+    let (call, first_prompt) = model_call(batch_end(&mut story, 3));
+
+    let text = "On the 23rd day, $N reached level 20.".to_string();
+    let (retry, prompt) =
+        model_call(one(story.handle(Input::ModelAnswered { call, text }).unwrap()).unwrap());
+    let text = "Level 20. $N earned it.".to_string();
+    let output = one(story
+        .handle(Input::ModelAnswered { call: retry, text })
+        .unwrap());
+
+    assert!(prompt.starts_with(&first_prompt), "{prompt}");
+    assert!(
+        prompt.contains("The number 23 is not in the moment."),
+        "{prompt}"
+    );
+    assert_eq!(
+        output,
+        Some(Output::EventsSeen {
+            id: MessageId(3),
+            narrator: Some("Level 20. $N earned it.".to_string()),
+            notice: None,
+        })
+    );
+}
+
+#[test]
+fn a_second_refused_narrator_line_is_silence() {
+    let mut story = story_with("narrator-retry-fails", &[]);
+    level(&mut story, 1, 19);
+    level(&mut story, 2, 20);
+    let (call, _) = model_call(batch_end(&mut story, 3));
+    let text = "Our hero moved on.".to_string();
+    let (retry, _) =
+        model_call(one(story.handle(Input::ModelAnswered { call, text }).unwrap()).unwrap());
+
+    let text = "Our hero moved on again.".to_string();
+    let output = one(story
+        .handle(Input::ModelAnswered { call: retry, text })
+        .unwrap());
+
+    assert_eq!(
+        output,
+        Some(Output::EventsSeen {
+            id: MessageId(3),
+            narrator: None,
+            notice: None,
+        })
+    );
+}
+
+#[test]
+fn a_narrator_that_answers_silence_gets_no_retry() {
+    let mut story = story_with("narrator-silence", &[]);
+    level(&mut story, 1, 19);
+    level(&mut story, 2, 20);
     let (call, _) = model_call(batch_end(&mut story, 3));
 
-    let text = "On the 23rd day, our hero reached level 13.".to_string();
+    let text = "SILENCE".to_string();
     let output = one(story.handle(Input::ModelAnswered { call, text }).unwrap());
 
     assert_eq!(
@@ -642,15 +716,70 @@ fn a_narrator_line_with_a_number_that_the_moment_lacks_stays_silent() {
 }
 
 #[test]
-fn a_narrator_line_never_carries_the_hero_sheet() {
-    let mut story = story_with("narrator-no-sheet", &[]);
-    set_field(&mut story, "bond", "An unread letter from my brother.").unwrap();
-    level(&mut story, 1, 12);
-    level(&mut story, 2, 13);
+fn the_narrator_gets_the_lore_of_its_moment_under_the_spoiler_limit() {
+    let westfall = passage(
+        "The Defias Brotherhood holds Westfall.",
+        "the wiki page \"Westfall\"",
+        vec![place("Westfall")],
+    );
+    let duskwood = passage(
+        "Duskwood was called Brightwood once.",
+        "the wiki page \"Duskwood\"",
+        vec![place("Duskwood")],
+    );
+    let mut story = story_with("narrator-lore", &[westfall, duskwood]);
+    enter(&mut story, 1, "Westfall", None);
+
+    let (_, prompt) = model_call(batch_end(&mut story, 2));
+
+    assert!(
+        prompt.contains("The lore:\n<<<\nThe Defias Brotherhood holds Westfall.\n>>>"),
+        "{prompt}"
+    );
+    assert!(!prompt.contains("Brightwood"), "{prompt}");
+}
+
+#[test]
+fn the_narrator_gets_no_lore_of_a_place_that_the_player_never_saw() {
+    let deadmines = passage(
+        "The Deadmines lie beneath Moonbrook.",
+        "the wiki page \"The Deadmines\"",
+        vec![place("The Deadmines"), place("Moonbrook")],
+    );
+    let mut story = story_with("narrator-no-spoiler", &[deadmines]);
+    enter(&mut story, 1, "The Deadmines", None);
+
+    let (_, prompt) = model_call(batch_end(&mut story, 2));
+
+    assert!(prompt.contains("The lore: none"), "{prompt}");
+}
+
+#[test]
+fn the_narrator_names_the_race_and_the_class_of_the_hero() {
+    let mut story = story_with("narrator-who", &[]);
+    let described = Input::CharacterDescribed {
+        at: Tick(1),
+        race: Race::Tauren,
+        class: Class::Druid,
+    };
+    story.handle(described).unwrap();
+    enter(&mut story, 2, "Mulgore", None);
 
     let (_, prompt) = model_call(batch_end(&mut story, 3));
 
-    assert!(prompt.contains("The player reached level 13."), "{prompt}");
+    assert!(prompt.contains("The hero: a tauren druid"), "{prompt}");
+}
+
+#[test]
+fn a_narrator_line_never_carries_the_hero_sheet() {
+    let mut story = story_with("narrator-no-sheet", &[]);
+    set_field(&mut story, "bond", "An unread letter from my brother.").unwrap();
+    level(&mut story, 1, 19);
+    level(&mut story, 2, 20);
+
+    let (_, prompt) = model_call(batch_end(&mut story, 3));
+
+    assert!(prompt.contains("The player reached level 20."), "{prompt}");
     assert!(!prompt.contains("unread letter"), "{prompt}");
 }
 
@@ -688,7 +817,9 @@ fn a_first_dungeon_asks_the_narrator_for_a_line() {
     let (_, prompt) = model_call(batch_end(&mut story, 2));
 
     assert!(
-        prompt.contains("The player entered the dungeon The Deadmines for the first time."),
+        prompt.contains(
+            "The player entered the dungeon The Deadmines. They had never been inside before."
+        ),
         "{prompt}"
     );
 }
@@ -708,14 +839,14 @@ fn a_quest_of_the_game_with_a_bad_title_is_refused() {
 #[test]
 fn a_name_in_no_fact_is_logged_and_the_line_still_shows() {
     let mut story = story_with("unknown-name", &[]);
-    level(&mut story, 1, 12);
-    level(&mut story, 2, 13);
+    level(&mut story, 1, 19);
+    level(&mut story, 2, 20);
     let (call, _) = model_call(batch_end(&mut story, 3));
 
-    let text = "Our hero reached level 13 under the eyes of Varian.".to_string();
+    let text = "Level 20 came to $N under the eyes of Varian.".to_string();
     let output = one(story.handle(Input::ModelAnswered { call, text }).unwrap());
 
-    let shown = Some("Our hero reached level 13 under the eyes of Varian.".to_string());
+    let shown = Some("Level 20 came to $N under the eyes of Varian.".to_string());
     assert!(matches!(output, Some(Output::EventsSeen { narrator, .. }) if narrator == shown));
     assert_eq!(
         story.take_notes(),
@@ -730,17 +861,21 @@ fn a_name_in_no_fact_is_logged_and_the_line_still_shows() {
 #[test]
 fn a_failed_or_bad_narrator_line_is_silence() {
     let mut story = story_with("silent", &[]);
-    level(&mut story, 1, 12);
-    level(&mut story, 2, 13);
+    level(&mut story, 1, 19);
+    level(&mut story, 2, 20);
     let (failed, _) = model_call(batch_end(&mut story, 3));
-    level(&mut story, 3, 14);
+    level(&mut story, 3, 30);
     let (bad, _) = model_call(batch_end(&mut story, 4));
 
     let after_failure = one(story.handle(Input::ModelFailed { call: failed }).unwrap());
     let text = "See you in Shattrath!".to_string();
-    let after_bad_line = one(story
-        .handle(Input::ModelAnswered { call: bad, text })
-        .unwrap());
+    let (retry, _) = model_call(
+        one(story
+            .handle(Input::ModelAnswered { call: bad, text })
+            .unwrap())
+        .unwrap(),
+    );
+    let after_bad_line = one(story.handle(Input::ModelFailed { call: retry }).unwrap());
 
     assert_eq!(
         after_failure,
@@ -764,12 +899,12 @@ fn a_failed_or_bad_narrator_line_is_silence() {
 fn a_spent_budget_asks_no_model() {
     let mut story = story_with("budget", &[]);
     level(&mut story, 1, 10);
-    for (batch, level_now) in [(1, 11), (2, 12), (3, 13)] {
+    for (batch, level_now) in [(1, 20), (2, 30), (3, 40)] {
         level(&mut story, u64::from(level_now), level_now);
         let (call, _) = model_call(batch_end(&mut story, batch));
         story.handle(Input::ModelFailed { call }).unwrap();
     }
-    level(&mut story, 20, 14);
+    level(&mut story, 50, 50);
 
     let output = batch_end(&mut story, 4);
 
@@ -786,8 +921,8 @@ fn a_spent_budget_asks_no_model() {
 #[test]
 fn each_batch_starts_with_no_moments() {
     let mut story = story_with("fresh-batch", &[]);
-    level(&mut story, 1, 12);
-    level(&mut story, 2, 13);
+    level(&mut story, 1, 19);
+    level(&mut story, 2, 20);
     let _ = model_call(batch_end(&mut story, 3));
 
     let output = batch_end(&mut story, 4);
@@ -876,7 +1011,7 @@ fn the_saga_goes_into_its_chapter() {
         panic!("expected a saga call, got {outputs:?}");
     };
 
-    let text = r#"{"saga": "Our hero rode into the golden fields of Westfall."}"#.to_string();
+    let text = r#"{"saga": "$N rode into the golden fields of Westfall."}"#.to_string();
     assert!(
         story
             .handle(Input::ModelAnswered { call, text })
@@ -887,7 +1022,7 @@ fn the_saga_goes_into_its_chapter() {
     let chapters = chapters(&mut story);
     assert_eq!(
         chapters[0].prose.as_deref(),
-        Some("Our hero rode into the golden fields of Westfall.")
+        Some("$N rode into the golden fields of Westfall.")
     );
     assert_eq!(chapters[1].prose, None);
 }
@@ -1016,7 +1151,7 @@ fn a_changed_hero_sheet_goes_into_the_chapter_where_it_changed() {
 fn a_saga_that_repeats_an_earlier_saga_is_refused() {
     let mut story = story_with("saga-repeat", &[]);
     three_chapters(&mut story);
-    let saga = "Our hero walked the long road west and met a farmer by the old mill.";
+    let saga = "$N walked the long road west and met a farmer by the old mill.";
 
     write_saga(&mut story, 3, saga);
     write_saga(&mut story, 4, saga);
@@ -1059,7 +1194,7 @@ fn a_saga_for_another_character_is_dropped() {
     enter(&mut story, HOUR, "Durotar", None);
     enter(&mut story, 5 * HOUR, "The Barrens", None);
 
-    let text = r#"{"saga": "Our hero rode into Westfall."}"#.to_string();
+    let text = r#"{"saga": "$N rode into Westfall."}"#.to_string();
     story.handle(Input::ModelAnswered { call, text }).unwrap();
 
     assert_eq!(chapters(&mut story)[0].prose, None);
@@ -1159,8 +1294,9 @@ fn a_moment_before_a_refusal_still_counts() {
     let (_, prompt) = model_call(batch_end(&mut story, 3));
 
     assert!(
-        prompt
-            .contains("The moment:\n<<<\nThe player arrived in Westfall for the first time.\n>>>"),
+        prompt.contains(
+            "The moment:\n<<<\nThe player arrived in Westfall. They had never been there before.\n>>>"
+        ),
         "{prompt}"
     );
 }
@@ -1502,11 +1638,11 @@ fn a_big_moment_wins_over_a_funny_one() {
     let _ = close_narrator(&mut story, 1);
 
     dance_at(&mut story, 100, 3);
-    level(&mut story, 101, 13);
+    enter(&mut story, 101, "Westfall", None);
     let (_, prompt) = model_call(batch_end(&mut story, 2));
 
     assert!(
-        prompt.contains("The moment:\n<<<\nThe player reached level 13.\n>>>"),
+        prompt.contains("The moment:\n<<<\nThe player arrived in Westfall."),
         "{prompt}"
     );
 }
@@ -1623,7 +1759,7 @@ fn the_saga_gets_the_small_moments_of_its_chapter_and_its_footnotes_are_kept_and
         panic!("expected a saga call, got {outputs:?}");
     };
     assert!(prompt.contains("Small moments:\n<<<\n1. The player used the emote /dance in Goldshire, at 3 o'clock, for the 1st time."), "{prompt}");
-    let text = r#"{"saga": "Our hero came to Goldshire.", "footnotes": [{"moment": 1, "text": "Nobody knows why."}]}"#;
+    let text = r#"{"saga": "$N came to Goldshire.", "footnotes": [{"moment": 1, "text": "A dance, alone."}]}"#;
     story
         .handle(Input::ModelAnswered {
             call: *call,
@@ -1632,7 +1768,7 @@ fn the_saga_gets_the_small_moments_of_its_chapter_and_its_footnotes_are_kept_and
         .unwrap();
 
     let chapters = chapters(&mut story);
-    assert_eq!(chapters[0].footnotes, ["Nobody knows why."]);
+    assert_eq!(chapters[0].footnotes, ["A dance, alone."]);
     dance_at(&mut story, 5 * HOUR + 60, 3);
     assert_eq!(
         close_narrator(&mut story, 4),
@@ -1661,7 +1797,7 @@ fn a_footnote_of_the_chronicle_does_not_hold_back_the_next_flavor_line() {
     let [_, Output::ModelCall { call, .. }] = outputs.as_slice() else {
         panic!("expected a saga call, got {outputs:?}");
     };
-    let text = r#"{"saga": "Our hero came.", "footnotes": [{"moment": 1, "text": "A dance."}]}"#;
+    let text = r#"{"saga": "$N came.", "footnotes": [{"moment": 1, "text": "A dance."}]}"#;
     let saga = Input::ModelAnswered {
         call: *call,
         text: text.to_string(),
@@ -1804,18 +1940,17 @@ fn a_removed_entry_leaves_the_journal() {
 fn the_narrator_may_name_a_later_place_that_the_player_wrote() {
     let mut story = story_with("hero-later-name", &[]);
     set_field(&mut story, "goal", "Find the road to Shattrath.").unwrap();
-    level(&mut story, 10, 12);
-    level(&mut story, 11, 13);
+    enter(&mut story, 10, "Westfall", None);
     let (call, _) = model_call(batch_end(&mut story, 2));
 
-    let text = "Still no road to Shattrath.".to_string();
+    let text = "Westfall has no road to Shattrath.".to_string();
     let output = one(story.handle(Input::ModelAnswered { call, text }).unwrap());
 
     assert_eq!(
         output,
         Some(Output::EventsSeen {
             id: MessageId(2),
-            narrator: Some("Still no road to Shattrath.".to_string()),
+            narrator: Some("Westfall has no road to Shattrath.".to_string()),
             notice: None,
         })
     );
@@ -1824,8 +1959,7 @@ fn the_narrator_may_name_a_later_place_that_the_player_wrote() {
 #[test]
 fn a_narrator_line_may_not_name_what_another_character_wrote() {
     let mut story = story_with("hero-switch-narrator", &[]);
-    level(&mut story, 10, 12);
-    level(&mut story, 11, 13);
+    enter(&mut story, 10, "Westfall", None);
     let (call, _) = model_call(batch_end(&mut story, 2));
     let bren = Input::CharacterEntered {
         realm: "Testrealm".to_string(),
@@ -1834,16 +1968,18 @@ fn a_narrator_line_may_not_name_what_another_character_wrote() {
     story.handle(bren).unwrap();
     set_field(&mut story, "goal", "Find the road to Shattrath.").unwrap();
 
-    let text = "Still no road to Shattrath.".to_string();
+    let text = "Westfall has no road to Shattrath.".to_string();
     let output = one(story.handle(Input::ModelAnswered { call, text }).unwrap());
 
-    assert_eq!(
-        output,
-        Some(Output::EventsSeen {
-            id: MessageId(2),
-            narrator: None,
-            notice: None,
-        })
+    assert!(
+        !matches!(
+            output,
+            Some(Output::EventsSeen {
+                narrator: Some(_),
+                ..
+            })
+        ),
+        "{output:?}"
     );
 }
 

@@ -391,7 +391,7 @@ fn the_saga_survives_a_restart() {
     let Output::ModelCall { call, .. } = outputs[1].clone() else {
         panic!("expected a saga call, got {outputs:?}");
     };
-    let text = r#"{"saga": "Our hero rode west."}"#.to_string();
+    let text = r#"{"saga": "$N rode west."}"#.to_string();
     first.handle(Input::ModelAnswered { call, text }).unwrap();
     drop(first);
 
@@ -408,7 +408,7 @@ fn the_saga_survives_a_restart() {
     };
     assert_eq!(
         page.journal.chapters[0].prose.as_deref(),
-        Some("Our hero rode west.")
+        Some("$N rode west.")
     );
     let second_batch = second.handle(Input::BatchEnd { id: MessageId(4) }).unwrap();
     assert_eq!(second_batch.len(), 1);
@@ -557,7 +557,7 @@ fn the_words_of_a_saga_come_back_after_a_restart() {
     let key = CharacterKey::new("Stormrage", "Ada").unwrap();
     let mut first = Store::Folder(folder.clone()).open(&key).unwrap();
     let written = timeways_story::store::Written {
-        text: "Our hero came.".to_string(),
+        text: "$N came.".to_string(),
         footnotes: Vec::new(),
     };
     first.prose.add(Tick(5), written).unwrap();

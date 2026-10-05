@@ -243,7 +243,7 @@ fn a_later_name_split_across_two_texts_of_the_player_is_not_allowed() {
     ];
     let text = player_text(&hero(&changes));
 
-    let refused = names_after_cutoff_except("Our hero dreams of the Caverns of Time.", &text);
+    let refused = names_after_cutoff_except("$N dreams of the Caverns of Time.", &text);
 
     assert_eq!(refused, ["Caverns of Time"]);
 }
@@ -253,7 +253,7 @@ fn a_later_name_inside_one_text_of_the_player_is_allowed() {
     let changes = [set("origin", "Born near the Caverns of Time.")];
     let text = player_text(&hero(&changes));
 
-    let refused = names_after_cutoff_except("Our hero dreams of the Caverns of Time.", &text);
+    let refused = names_after_cutoff_except("$N dreams of the Caverns of Time.", &text);
 
     assert!(refused.is_empty(), "{refused:?}");
 }

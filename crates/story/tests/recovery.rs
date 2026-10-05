@@ -181,7 +181,7 @@ fn a_saga_after_a_failed_save_reads_only_earlier_calls() {
     let outputs = handled(&mut story, Input::BatchEnd { id: MessageId(3) });
     let draft = call_of(&outputs).expect("a saga draft");
     let other = locked(&folder);
-    let text = r#"{"saga": "Our hero rode into the golden fields of Westfall."}"#;
+    let text = r#"{"saga": "$N rode into the golden fields of Westfall."}"#;
     let failed = story.handle(Input::ModelAnswered {
         call: draft,
         text: text.to_string(),

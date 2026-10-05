@@ -594,7 +594,7 @@ fn a_saga_reads_its_chapter_and_rests_on_its_call() {
     answer(
         &mut story,
         call,
-        r#"{"saga": "Our hero rode into the golden fields of Westfall."}"#,
+        r#"{"saga": "$N rode into the golden fields of Westfall."}"#,
     );
     drop(story);
 

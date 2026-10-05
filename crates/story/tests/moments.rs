@@ -53,15 +53,45 @@ fn a_second_death_to_the_same_npc_is_a_moment_and_the_first_is_not() {
     assert_eq!(second, [again]);
 }
 
+fn level_up(level: i64, zone: Option<&str>) -> Moment {
+    Moment::LevelUp {
+        level,
+        zone: zone.map(str::to_string),
+    }
+}
+
 #[test]
-fn a_level_up_is_a_moment_and_the_first_level_is_not() {
+fn a_plain_level_up_has_nothing_to_tell_and_is_no_moment() {
     let mut character = Character::new();
 
     let login = moments_of(&mut character, |c| c.reach_level(Tick(1), 12).unwrap());
-    let level_up = moments_of(&mut character, |c| c.reach_level(Tick(2), 13).unwrap());
+    let plain = moments_of(&mut character, |c| c.reach_level(Tick(2), 13).unwrap());
 
     assert!(login.is_empty());
-    assert_eq!(level_up, [Moment::LevelUp { level: 13 }]);
+    assert!(plain.is_empty(), "{plain:?}");
+}
+
+#[test]
+fn a_milestone_level_is_a_moment_with_its_zone() {
+    let mut character = Character::new();
+    character.reach_level(Tick(1), 19).unwrap();
+    character
+        .enter_zone(Tick(2), "Westfall", Some("Moonbrook"))
+        .unwrap();
+
+    let milestone = moments_of(&mut character, |c| c.reach_level(Tick(3), 20).unwrap());
+
+    assert_eq!(milestone, [level_up(20, Some("Westfall"))]);
+}
+
+#[test]
+fn a_milestone_level_with_no_zone_yet_is_still_a_moment() {
+    let mut character = Character::new();
+    character.reach_level(Tick(1), 29).unwrap();
+
+    let milestone = moments_of(&mut character, |c| c.reach_level(Tick(2), 30).unwrap());
+
+    assert_eq!(milestone, [level_up(30, None)]);
 }
 
 #[test]
@@ -100,7 +130,7 @@ fn the_best_moment_is_the_last_of_the_highest_rank() {
         Moment::NewZone {
             zone: "Westfall".to_string(),
         },
-        Moment::LevelUp { level: 13 },
+        level_up(20, None),
         Moment::FirstKill {
             foe: "Hogger".to_string(),
         },
@@ -142,14 +172,14 @@ fn a_slap_is_a_moment_with_its_count() {
 
 #[test]
 fn two_level_ups_in_one_batch_speak_of_the_newest_level() {
-    let found = vec![Moment::LevelUp { level: 12 }, Moment::LevelUp { level: 13 }];
+    let found = vec![level_up(10, None), level_up(20, None)];
 
-    assert_eq!(best(found), Some(Moment::LevelUp { level: 13 }));
+    assert_eq!(best(found), Some(level_up(20, None)));
 }
 
 #[test]
 fn a_level_up_wins_over_a_new_zone_that_comes_after_it() {
-    let level = Moment::LevelUp { level: 13 };
+    let level = level_up(20, None);
     let zone = Moment::NewZone {
         zone: "Westfall".to_string(),
     };

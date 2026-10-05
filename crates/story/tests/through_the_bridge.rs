@@ -33,7 +33,7 @@ const MODEL_ANSWERS: [Option<&str>; 6] = [
     Some(
         r#"{"title": "The Hunt", "genre": "errand", "text": "I need you to go.", "steps": [{"goal": "kill", "creature": "Hogger", "count": 2}]}"#,
     ),
-    Some("Our hero walks on."),
+    Some("$N walks on."),
 ];
 
 #[derive(Clone, Debug)]
@@ -355,7 +355,7 @@ fn saga_bridge(name: &str) -> (FakeBridge, Rc<RefCell<Vec<String>>>) {
     let seen = Rc::clone(&prompts);
     let model = Box::new(move |prompt: &str| {
         seen.borrow_mut().push(prompt.to_string());
-        Some("Our hero walks on.".to_string())
+        Some("$N walks on.".to_string())
     });
     (
         FakeBridge::new(story_with_lore(name)).with_model(model),

@@ -1,5 +1,6 @@
-# Golden samples of the words of an NPC (GAMEPLAY.md 3.2.1). One sample per line.
-# A sample shows the manner only. It names no real place or person, so a model has no name to copy.
-A stranger? We get plenty. Pay for your room first, then ask your questions. And keep your hands to yourself this time.
-The road east is clear to the river. Past that, I cannot say. Tell the marshal if you see smoke.
-You came back. Good. The wolves took two more sheep last night. I cannot pay much, but the stew is hot.
+# Golden samples of the words of an NPC (GAMEPLAY.md 3.2.1). One sample per line, at most 60 words.
+# A sample speaks as a person of Azeroth with a job, a problem, and some history. It names real
+# places and people of 25 ADP, before Molten Core.
+The Defias burned the Furlbrows out last week, and the Molsens before them. Stormwind sends no one. Those masked men built that city, and now they take it out on us farmers. If you mean to help, start with the ones in my fields.
+You want the Crossroads to stand? Then kill the raptors at the Lushwater before they eat another caravan. The Warchief built this fort so his people could cross the Barrens alive. Keep your blade close and your coin closer.
+The living ask why we serve the Dark Lady. She gave us back our minds, and the Scourge never will. The Scarlet Crusade burns us anyway. Bring me their armbands, and the apothecaries will find a use for you.

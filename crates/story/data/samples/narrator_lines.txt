@@ -1,6 +1,115 @@
-# Golden samples of a narrator line (GAMEPLAY.md 3.2.1). One sample per line.
-# A sample shows the manner only. It names no real place or person, so a model has no name to copy.
-Our hero stood at the mouth of the mine. The air below smelled of lamp oil and old smoke.
-The beast fell at last. Our hero stood over it for a long moment, breathing hard, and then went on.
-The same raider found our hero a second time. Some lessons take more than one telling.
-Our hero passed under the great gate, into streets that did not care who walked them.
+# Golden samples of a narrator line (GAMEPLAY.md 3.2.1). The prompt shows each one as a
+# pair: the moment and its lore first, then the line, so a model learns how a line uses them.
+# A sample starts at "moment:". "who" and "lore" are optional. "hero" says how to name the
+# hero: "$N", "the <race or class>", "by the title "<title>"", or "no name".
+# A sample names real places and people of 25 ADP, before Molten Core. The check refuses a
+# line that copies 4 words in a row of a sample, and the log names a name in no fact.
+
+moment: The player arrived in Tirisfal Glades. They had never been there before.
+who: a Forsaken warlock
+lore: Deathknell is a village of Tirisfal Glades. The plague killed its people, and the Scourge raised them. Now the Forsaken wake their own dead in its crypts.
+hero: $N
+line: Deathknell has buried its dead twice. $N was one of the ones who climbed back out.
+
+moment: The player defeated Hogger. They never had before.
+who: a human paladin
+lore: Hogger leads the Riverpaw gnolls of Elwynn Forest. His raids on its farms go on, and the guards of Stormwind have a price on his head.
+hero: the paladin
+line: Hogger raided Elwynn's farms for years, and Stormwind's guards never stopped him. The paladin did.
+
+moment: The player arrived in Westfall. They had never been there before.
+lore: The stonemasons rebuilt Stormwind after the Second War. The House of Nobles refused to pay them, and they left as the Defias Brotherhood, which now holds Westfall.
+hero: $N
+line: Stormwind never paid the men who rebuilt it. In Westfall, their sons wear red masks, and $N has met them.
+
+moment: The player entered the dungeon The Deadmines. They had never been inside before.
+lore: The Deadmines lie beneath Moonbrook in Westfall. There the Defias Brotherhood builds a ship with gold stolen from Stormwind.
+hero: $N
+line: Beneath Moonbrook, the Defias are building something with stolen gold. $N went down to see what.
+
+moment: The player defeated Edwin VanCleef. They never had before.
+who: a human rogue
+lore: Edwin VanCleef led the stonemasons who rebuilt Stormwind. When the nobles refused their wages, he founded the Defias Brotherhood.
+hero: the rogue
+line: Edwin VanCleef asked Stormwind for his wages, and the kingdom never paid. The rogue settled the account instead.
+
+moment: The player arrived in the capital city Ironforge. They had never been there before.
+lore: Ironforge is the capital of the dwarves, carved deep into the mountain of Khaz Modan. The Great Forge burns at its heart.
+hero: $N
+line: The dwarves carved Ironforge from the mountain long before Stormwind laid its first stone. $N came in by the Great Forge.
+
+moment: The player arrived in the capital city Thunder Bluff. They had never been there before.
+who: a troll hunter
+lore: The centaur drove the tauren across the plains of Kalimdor for generations. With the help of the Horde, Cairne Bloodhoof led them to the mesas of Mulgore, where they built Thunder Bluff.
+hero: the troll
+line: The tauren were driven across the plains for generations. On the bluffs of Mulgore, they stopped running. The troll climbed up to meet them.
+
+moment: The player arrived in the capital city Undercity. They had never been there before.
+who: an orc warrior
+lore: The Undercity lies beneath the ruins of the capital of Lordaeron. Sylvanas Windrunner, the Dark Lady, rules the Forsaken from its throne room.
+hero: the orc
+line: Beneath the ruins of Lordaeron's capital, the Dark Lady keeps her court. The orc stood at the gates of the Undercity.
+
+moment: The player arrived in Darkshore. They had never been there before.
+lore: The night elves gave up their immortality to save the world from the Burning Legion. The ruins of their old cities line the coast of Darkshore.
+hero: $N
+line: The night elves gave up their immortality to save this world. In Darkshore, $N saw what it cost them.
+
+moment: Murloc Coastrunner killed the player again. That makes 3 times.
+hero: $N
+line: The murlocs of the coast have no kingdom and no history. They have now killed $N three times.
+
+moment: The player arrived in Durotar. They had never been there before.
+lore: Thrall named Durotar after his father, Durotan, who died when Thrall was an infant. The orcs settled its red canyons after their years in the internment camps of Lordaeron.
+hero: no name
+line: Thrall named this red land for a father he never knew. The orcs who settled it had spent years in human camps.
+
+moment: The player slapped Innkeeper Boorand Plainswind. That makes 2 times.
+who: a tauren druid
+lore: The Crossroads is a Horde fort where the roads of the Barrens meet. Caravans from Orgrimmar and Ratchet stop at its inn.
+hero: the tauren
+line: Every caravan between Orgrimmar and Ratchet stops at the Crossroads. The tauren has now slapped its innkeeper twice.
+
+moment: The player reached level 20 in Duskwood.
+lore: Duskwood was a green forest called Brightwood, until a darkness fell on it. The Night Watch of Darkshire guards its last town against the worgen and the dead.
+hero: $N
+line: Duskwood was called Brightwood once, before the dark came. $N reached level 20 there, beside the Night Watch of Darkshire.
+
+moment: The player finished "The Tome of Divinity", a quest of their class.
+who: a dwarf paladin
+lore: Uther the Lightbringer founded the Order of the Silver Hand in the Second War, to carry the Light into battle.
+hero: by the title "Bookworm"
+line: Uther the Lightbringer founded the Silver Hand to carry the Light into war. The Bookworm has finished its tome.
+
+moment: The player entered the dungeon Wailing Caverns. They had never been inside before.
+lore: Naralex, a druid of the Cenarion Circle, went into the Wailing Caverns to heal the Barrens. His dream turned into a nightmare, and the druids who followed him became the Druids of the Fang.
+hero: $N
+line: Naralex went into the Wailing Caverns to heal the Barrens, and fell into a dream he cannot leave. $N went in after him.
+
+moment: The player defeated Archmage Arugal. They never had before.
+who: a Forsaken mage
+lore: Archmage Arugal of the Kirin Tor summoned the worgen to fight the Scourge. They turned on him, and he now hides in Shadowfang Keep, calling them his children.
+hero: the Forsaken
+line: Arugal called the worgen into this world, then called them his children. The Forsaken ended the family in Shadowfang Keep.
+
+moment: The player arrived in the capital city Darnassus. They had never been there before.
+who: a gnome mage
+lore: After the Third War, the night elves planted Teldrassil, a new World Tree, without the blessing of the dragons. Darnassus stands in its crown.
+hero: the gnome
+line: The night elves planted Teldrassil without the blessing of the dragons. Darnassus sits in its crown, and the gnome walked in.
+
+moment: The player arrived in Dun Morogh. They had never been there before.
+lore: Troggs rose from below and took Gnomeregan. High Tinker Mekkatorque flooded the city with radiation to stop them, and the gnomes who lived fled to Ironforge.
+hero: no name
+line: Gnomeregan fell to the troggs, and Mekkatorque poisoned his own city to stop them. Its survivors live as guests in Ironforge now.
+
+moment: The player arrived in the capital city Orgrimmar. They had never been there before.
+lore: Thrall built Orgrimmar in Durotar and named it after Orgrim Doomhammer, the Warchief before him.
+hero: no name
+line: Orgrimmar carries the name of Orgrim Doomhammer, the Warchief before Thrall. Thrall built it, and he rules the Horde from it.
+
+moment: Bloodscalp Headhunter killed the player again. That makes 2 times.
+who: a human warrior
+lore: The Bloodscalp trolls hunt in northern Stranglethorn Vale. They are a tribe of the Gurubashi Empire, which ruled the jungle long ago.
+hero: the warrior
+line: The Gurubashi Empire ruled this jungle long before humans came. Its Bloodscalp heirs have now killed the warrior twice.

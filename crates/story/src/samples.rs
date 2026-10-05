@@ -1,5 +1,7 @@
 //! The golden samples of each voice (GAMEPLAY.md 3.2.1). A prompt carries a few of them,
-//! in turn, so that no one sample sets the words of every answer.
+//! in turn, so that no one sample sets the words of every answer. A sample names real
+//! places and people of 25 ADP. The copy check and the log of names in no fact stop a
+//! model that takes a name of a sample into its answer.
 
 use crate::check::data_lines;
 use crate::house::{bulleted, fenced};
@@ -15,15 +17,27 @@ pub enum Voice {
     NpcReply,
 }
 
+/// A narrator line with what it was told from, so a model sees how a line uses the
+/// moment and its lore.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct LineSample {
+    pub moment: &'static str,
+    /// The race and the class of the hero: "a Forsaken warlock".
+    pub who: Option<&'static str>,
+    pub lore: Option<&'static str>,
+    /// How the line names the hero, as the prompt says it (`narrator::Naming`).
+    pub hero: &'static str,
+    pub line: &'static str,
+}
+
 impl Voice {
     #[must_use]
     pub fn samples(self) -> Vec<&'static str> {
-        let file = match self {
-            Voice::NarratorLine => NARRATOR_LINES,
-            Voice::Chapter => CHAPTERS,
-            Voice::NpcReply => NPC_REPLIES,
-        };
-        data_lines(file).collect()
+        match self {
+            Voice::NarratorLine => line_samples().iter().map(|sample| sample.line).collect(),
+            Voice::Chapter => data_lines(CHAPTERS).collect(),
+            Voice::NpcReply => data_lines(NPC_REPLIES).collect(),
+        }
     }
 
     /// A chapter sample is long, so a chapter prompt carries fewer of them.
@@ -37,7 +51,11 @@ impl Voice {
 
     fn heading(self) -> &'static str {
         match self {
-            Voice::NarratorLine | Voice::Chapter => {
+            Voice::NarratorLine => {
+                "Samples of your voice, about other heroes. Each one shows a moment, its lore, \
+                 how to name the hero, and the line. Copy the manner, never the words:"
+            }
+            Voice::Chapter => {
                 "Samples of your voice, about other heroes. Copy the manner, never the words:"
             }
             Voice::NpcReply => {
@@ -48,11 +66,41 @@ impl Voice {
     }
 }
 
+/// Every narrator sample, in the order of the file. A sample starts at its `moment:` line,
+/// and one with no `line:` is left out.
+#[must_use]
+pub fn line_samples() -> Vec<LineSample> {
+    let mut samples: Vec<LineSample> = Vec::new();
+    for (key, value) in data_lines(NARRATOR_LINES).filter_map(|line| line.split_once(": ")) {
+        if key == "moment" {
+            samples.push(LineSample {
+                moment: value,
+                ..LineSample::default()
+            });
+        }
+        let Some(sample) = samples.last_mut() else {
+            continue;
+        };
+        match key {
+            "who" => sample.who = Some(value),
+            "lore" => sample.lore = Some(value),
+            "hero" => sample.hero = value,
+            "line" => sample.line = value,
+            _ => {}
+        }
+    }
+    samples.retain(|sample| !sample.line.is_empty());
+    samples
+}
+
 /// The samples of one prompt. `turn` picks the first one, so two prompts in a row differ.
 #[must_use]
 pub fn rotated(voice: Voice, turn: usize) -> Vec<&'static str> {
-    let all = voice.samples();
-    let count = voice.per_prompt().min(all.len());
+    in_turn(&voice.samples(), voice.per_prompt(), turn)
+}
+
+fn in_turn<T: Copy>(all: &[T], count: usize, turn: usize) -> Vec<T> {
+    let count = count.min(all.len());
     let start = turn % all.len().max(1);
     (0..count)
         .map(|step| all[(start + step) % all.len()])
@@ -62,8 +110,28 @@ pub fn rotated(voice: Voice, turn: usize) -> Vec<&'static str> {
 /// The samples of one prompt under their heading, fenced as data.
 #[must_use]
 pub fn section(voice: Voice, turn: usize) -> String {
-    let samples = rotated(voice, turn);
-    format!("{}\n{}", voice.heading(), fenced(&bulleted(&samples)))
+    let samples = match voice {
+        Voice::NarratorLine => {
+            let pairs = in_turn(&line_samples(), voice.per_prompt(), turn);
+            pairs
+                .iter()
+                .map(shown_pair)
+                .collect::<Vec<_>>()
+                .join("\n\n")
+        }
+        Voice::Chapter | Voice::NpcReply => bulleted(&rotated(voice, turn)),
+    };
+    format!("{}\n{}", voice.heading(), fenced(&samples))
+}
+
+/// A sample with the same headings as the moment of the prompt.
+fn shown_pair(sample: &LineSample) -> String {
+    let mut lines = vec![format!("Moment: {}", sample.moment)];
+    lines.extend(sample.who.map(|who| format!("The hero: {who}")));
+    lines.push(format!("Lore: {}", sample.lore.unwrap_or("none")));
+    lines.push(format!("Name the hero: {}", sample.hero));
+    lines.push(format!("Line: {}", sample.line));
+    lines.join("\n")
 }
 
 /// Every sample of every voice, for the check against a copy.

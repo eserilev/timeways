@@ -1,0 +1,1 @@
+{"saga": "Our hero rode into Westfall at dusk.", "footnotes": [{"moment": 1, "text": "Nobody knows why."}]}

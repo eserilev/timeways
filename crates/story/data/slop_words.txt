@@ -1,0 +1,72 @@
+# Words and phrases of slop in a narrator line or a saga (GAMEPLAY.md 3.2.1). An NPC can
+# still say them: rain and dusk are fine in the mouth of a farmer.
+# The match ignores case and matches whole words only. A word that the facts or the lore
+# of the moment hold is allowed, so "Ancient Protector" and "Mistvale" still pass.
+# Write each plural form on its own line.
+
+# The old name for the hero
+our hero
+
+# An ending that says nothing
+did not care
+did not look up
+did not stop
+moved on
+went on
+pressed on
+pushed on
+without rest
+and went on
+
+# Scene detail that no fact holds
+for a long moment
+breathing hard
+the air
+smelled of
+smell of
+wind
+rain
+mist
+fog
+dusk
+dawn
+grey morning
+shadow
+shadows
+silence
+echoed
+whispered
+
+# An aphorism
+some lessons
+some things
+such is
+little did
+nobody knows why
+nobody asked
+
+# A grand word
+ancient
+forever
+journey
+destiny
+fate
+legend
+legendary
+eternal
+countless
+untold
+valiant
+mighty
+glorious
+triumphant
+a reminder
+a testament
+
+# The repeat of the trigger, and a vague likeness
+for the first time
+once again
+as if
+as though
+seemed to
+would never be the same

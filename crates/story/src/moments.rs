@@ -1,6 +1,8 @@
 //! The big moments of a batch, found in the events that the batch added to the history
-//! (GAMEPLAY.md 3.2). The narrator speaks about the best one.
+//! (GAMEPLAY.md 3.2). The narrator speaks about the best one. Each moment holds a name or
+//! a milestone, because a line with nothing concrete to tell is slop: silence is better.
 
+use crate::chapters::LEVEL_STEP;
 use crate::character::title_of_game_quest;
 use crate::journal::mark_and_quest;
 use crate::places::{InstanceKind, is_capital};
@@ -13,55 +15,58 @@ use hourglass::{EntityId, Event, EventKind, World};
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Moment {
     /// A small, silly moment in plain words (5.4.1). It speaks only when no big moment does.
-    Flavor {
-        what: String,
-    },
+    Flavor { what: String },
     /// A joke title, the rarest moment of all (5.4.1).
-    Titled {
-        title: String,
-    },
+    Titled { title: String },
     /// The true kill of a rare or a boss (5.13).
-    FirstKill {
-        foe: String,
-    },
+    FirstKill { foe: String },
     /// The same NPC killed you again: "Third time this murloc got you."
-    SlainAgain {
-        killer: String,
-        times: i64,
-    },
+    SlainAgain { killer: String, times: i64 },
     /// "The innkeeper remembers it."
-    Slapped {
-        npc: String,
-        times: i64,
-    },
-    LevelUp {
-        level: i64,
-    },
+    Slapped { npc: String, times: i64 },
+    /// Only a milestone level: 10, 20, 30, and so on. `zone` is where it came.
+    LevelUp { level: i64, zone: Option<String> },
     /// A finished quest of your class: a turn of your own story.
-    ClassQuestDone {
-        title: String,
-    },
+    ClassQuestDone { title: String },
     /// The first visit of a zone, not of a subzone.
-    NewZone {
-        zone: String,
-    },
+    NewZone { zone: String },
     /// The first entry into a dungeon or a raid: a zone that the game called an instance.
-    FirstInstance {
-        zone: String,
-        kind: InstanceKind,
-    },
+    FirstInstance { zone: String, kind: InstanceKind },
     /// A quest of the game left a lasting buff or debuff on you.
-    QuestMarked {
-        mark: String,
-        quest: String,
-    },
+    QuestMarked { mark: String, quest: String },
     /// The first visit of a capital city.
-    FirstCapital {
-        city: String,
-    },
+    FirstCapital { city: String },
 }
 
 impl Moment {
+    /// The place, the foe, the person, or the quest of the moment: what its lore is about.
+    /// A title and a flavor moment have no lore.
+    #[must_use]
+    pub fn subject(&self) -> Option<&str> {
+        match self {
+            Moment::Flavor { .. } | Moment::Titled { .. } => None,
+            Moment::FirstKill { foe } => Some(foe),
+            Moment::SlainAgain { killer, .. } => Some(killer),
+            Moment::Slapped { npc, .. } => Some(npc),
+            Moment::LevelUp { zone, .. } => zone.as_deref(),
+            Moment::ClassQuestDone { title } => Some(title),
+            Moment::NewZone { zone } | Moment::FirstInstance { zone, .. } => Some(zone),
+            Moment::QuestMarked { quest, .. } => Some(quest),
+            Moment::FirstCapital { city } => Some(city),
+        }
+    }
+
+    /// Every name that the moment holds. A line must name one of them, or a name of its
+    /// lore (`check::grounded`).
+    #[must_use]
+    pub fn names(&self) -> Vec<&str> {
+        match self {
+            Moment::Titled { title } => vec![title],
+            Moment::QuestMarked { mark, quest } => vec![quest, mark],
+            _ => self.subject().into_iter().collect(),
+        }
+    }
+
     /// A higher rank wins when one batch holds several moments.
     fn rank(&self) -> u8 {
         match self {
@@ -138,7 +143,10 @@ fn moment(world: &World, you: EntityId, kind: &EventKind) -> Option<Moment> {
         }),
         EventKind::FactUpdate {
             entity, name, to, ..
-        } if *entity == you && name == LEVEL => Some(Moment::LevelUp { level: *to }),
+        } if *entity == you && name == LEVEL && is_milestone(*to) => Some(Moment::LevelUp {
+            level: *to,
+            zone: zone_of(world, you),
+        }),
         EventKind::FactStart {
             entity,
             name,
@@ -198,4 +206,16 @@ fn moment(world: &World, you: EntityId, kind: &EventKind) -> Option<Moment> {
         }
         _ => None,
     }
+}
+
+/// A plain level up has nothing to tell, so only every tenth level speaks.
+fn is_milestone(level: i64) -> bool {
+    level % LEVEL_STEP == 0
+}
+
+/// The zone where you stand: the outermost place around you.
+fn zone_of(world: &World, you: EntityId) -> Option<String> {
+    let here = world.location_of(you)?;
+    let zone = world.ancestry(here).last().copied().unwrap_or(here);
+    world.entity(zone).map(|zone| zone.name.clone())
 }

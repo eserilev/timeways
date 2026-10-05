@@ -1,7 +1,9 @@
-# Golden samples of a chapter saga (GAMEPLAY.md 3.2.1). One sample per line.
-# A sample shows the manner only. It names no real place or person, so a model has no name to copy.
-Our hero left the farms behind and took the west road. At the old mill, a farmer asked for help, and our hero gave it. Two wolves and one long night later, the task was done. Level twelve came before dawn.
-A quiet chapter. Our hero walked the hill roads, slept in the open, and met no one worth naming.
-Our hero went up into the hills twice and came down twice, both times carried. The same raider did it both times. On the third climb our hero took the long path.
-In the deep tunnels, our hero found what the miners had fled. It was large, it was angry, and by the end of the chapter it was dead. Our hero came out with a limp and a story that nobody asked to hear.
-Our hero reached the city at the end of a long road and stayed three days. There were many doors and few answers. When our hero left, the guard at the gate did not look up.
+# Golden samples of a chapter saga (GAMEPLAY.md 3.2.1). One sample per line, at most 80 words.
+# A sample ties the deeds of a chapter to the history of its places and peoples. It names the
+# hero as $N at most twice, or by race or class. It names real places and people of 25 ADP,
+# before Molten Core.
+Stormwind never paid its stonemasons, and Westfall is where the bill came due. $N spent this chapter with the People's Militia at Sentinel Hill, burning Defias camps for Gryan Stoutmantle. Then $N went with four others into the mine under Moonbrook. Edwin VanCleef did not come out of it.
+The Barrens belonged to the centaur before the Horde built the Crossroads. The troll spent this chapter on its roads, carrying errands between the Crossroads and Ratchet. A raptor of the Lushwater Oasis ran the troll down twice, and lost the third fight. The chapter ended on the docks of Ratchet, where the goblins sell passage to anyone who pays.
+A quiet chapter. The night elves built their cities along this coast in an older age, and the sea has taken most of them. $N stayed in Auberdine among the ruins, took no quest worth the name, and met nobody who would say much.
+The dwarves raised the Stonewrought Dam to hold back Loch Modan, and their engineers still guard it. The dwarf spent this chapter below it, in the Silver Stream Mine, where the troggs came up from the deep tunnels. A trogg killed the dwarf there twice. On the third visit, at level 18, the troggs lost the mine.
+Silverpine was the back door of Gilneas until Genn Greymane built his wall. Now the worgen of Arugal hunt in its woods. $N spent this chapter at the Sepulcher, taking orders from the deathstalkers of the Dark Lady, and reached level 20 within sight of Shadowfang Keep.

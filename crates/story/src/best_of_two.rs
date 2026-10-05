@@ -84,6 +84,12 @@ impl Round {
         }
     }
 
+    /// The facts of the chapter, as its prompts show them.
+    #[must_use]
+    pub fn facts(&self) -> &str {
+        &self.facts
+    }
+
     /// The draft that the judge picked.
     #[must_use]
     pub fn picked(&self, pick: Pick) -> Option<Saga> {

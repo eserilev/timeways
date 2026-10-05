@@ -9,8 +9,10 @@ mod common;
 use libfuzzer_sys::fuzz_target;
 use timeways_story::check::{
     check, in_voice, later_names, names_after_cutoff, names_after_cutoff_except, plain_text,
-    same_words,
+    same_words, slop_in,
 };
+use timeways_story::line_check::{Checked, Grounds, checked_line, grounded};
+use timeways_story::moments::Moment;
 use timeways_story::draft;
 use timeways_story::house::without_fence_marks;
 use timeways_story::input::MessageId;
@@ -240,16 +242,34 @@ fn assert_draft(text: &str) {
     assert!(fake_bridge::game_reply(&line).is_some(), "{line}");
 }
 
+/// A narrator line that passes keeps its limits, holds no slop and no bracket, names the
+/// hero at most once, and names something of its moment.
+fn assert_line(text: &str) {
+    let moment = Moment::FirstKill {
+        foe: "Hogger".to_string(),
+    };
+    let grounds = Grounds::of(&moment, Some("Hogger leads the gnolls of Elwynn Forest."));
+    let Checked::Line(line) = checked_line(text, &grounds, "") else {
+        return;
+    };
+    assert_voice(&line, narrator::MAX_LINE_CHARS, narrator::MAX_LINE_BYTES);
+    assert!(slop_in(&line, "").is_empty(), "{line:?}");
+    assert!(line.matches("$N").count() <= 1, "{line:?}");
+    assert!(!line.contains(['[', ']', '{', '}', '<', '>']), "{line:?}");
+    assert!(grounded(&line, &grounds), "{line:?}");
+}
+
 fuzz_target!(|data: &[u8]| {
     let moments = data.first().map_or(0, |byte| usize::from(byte % 9));
     let text = String::from_utf8_lossy(data);
 
-    if let Some(saga) = chronicle::checked_saga(&text, moments, "") {
+    if let Some(saga) = chronicle::checked_saga(&text, moments, "", "") {
         assert_voice(
             &saga.text,
             chronicle::MAX_CHAPTER_CHARS,
             chronicle::MAX_CHAPTER_BYTES,
         );
+        assert!(slop_in(&saga.text, "").is_empty(), "{saga:?}");
         assert!(saga.footnotes.len() <= chronicle::MAX_FOOTNOTES);
         for (moment, footnote) in &saga.footnotes {
             assert!((1..=moments).contains(moment));
@@ -273,9 +293,7 @@ fuzz_target!(|data: &[u8]| {
         assert_eq!(word, word.to_lowercase(), "{word:?}");
     }
     assert_draft(&text);
-    if let Some(line) = narrator::checked_line(&text, "") {
-        assert_voice(&line, narrator::MAX_LINE_CHARS, narrator::MAX_LINE_BYTES);
-    }
+    assert_line(&text);
     if let Some(line) = plain_text(&text, 50, 200) {
         assert_plain(&line, 50, 200);
     }

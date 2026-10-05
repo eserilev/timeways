@@ -1,8 +1,9 @@
 //! The model calls of the story program: each one opens with its row and its reads, waits
 //! for a free slot, and ends with its answer or its failure (GAMEPLAY.md 5.6 and 5.14).
 
-use super::quests::{QuestCall, TalkWork};
-use super::{Active, MAX_OPEN_CALLS, Output, Story, StoryError, drafts, narrator, reads};
+use super::narration::NarratorCall;
+use super::quests::{self, QuestCall, TalkWork};
+use super::{Active, MAX_OPEN_CALLS, Output, Story, StoryError, drafts, reads};
 use crate::hero::Hero;
 use crate::hero_hook::{self, Hook};
 use crate::input::{CallId, MessageId};
@@ -21,13 +22,8 @@ pub(super) enum Pending {
         question: MessageId,
         lore: LoreCall,
     },
-    /// A narrator line for the batch, checked against the hero of this character only.
-    Narrator {
-        batch: MessageId,
-        key: CharacterKey,
-        /// The moment in plain words: a line holds no number that it does not.
-        moment: String,
-    },
+    /// A narrator line for the batch (`NarratorCall`).
+    Narrator(NarratorCall),
     /// A draft of the saga of the chapter that began at `began`, or the pick of the judge,
     /// for this character only. The round of the chapter knows which.
     Chronicle {
@@ -55,7 +51,7 @@ impl Pending {
     fn kind(&self) -> &'static str {
         match self {
             Pending::Lore { .. } => "lore",
-            Pending::Narrator { .. } => "narrator",
+            Pending::Narrator(_) => "narrator",
             Pending::Chronicle { .. } => "saga",
             Pending::Quest(quest) if quest.attempt == Attempt::Retry => QUEST_RETRY,
             Pending::Quest(_) => QUEST,
@@ -69,7 +65,7 @@ impl Pending {
     fn has_row_in(&self, active: &CharacterKey) -> bool {
         match self {
             Pending::Lore { .. } => false,
-            Pending::Narrator { key, .. }
+            Pending::Narrator(NarratorCall { key, .. })
             | Pending::Chronicle { key, .. }
             | Pending::Quest(QuestCall { key, .. })
             | Pending::Draft { key, .. }
@@ -132,17 +128,7 @@ impl Story {
                     accepted_if(!matches!(&next, Next::Done(answer) if answer.text.is_none()));
                 (self.follow(question, next).into_iter().collect(), outcome)
             }
-            Pending::Narrator { batch, key, moment } => {
-                let narrator = narrator::checked_line(text, &self.player_text(&key))
-                    .filter(|line| narrator::numbers_from(line, &moment));
-                let outcome = accepted_if(narrator.is_some());
-                let seen = Output::EventsSeen {
-                    id: batch,
-                    narrator,
-                    notice: None,
-                };
-                (vec![seen], outcome)
-            }
+            Pending::Narrator(narration) => self.narrator_answered(row, narration, &prompt, text),
             Pending::Chronicle { key, began } => self.saga_answered(&key, began, Some(text))?,
             Pending::Talk {
                 question,
@@ -272,11 +258,7 @@ impl Story {
                 answer: lore.failed(),
                 notice: None,
             }],
-            Pending::Narrator { batch, .. } => vec![Output::EventsSeen {
-                id: batch,
-                narrator: None,
-                notice: None,
-            }],
+            Pending::Narrator(narration) => vec![quests::quiet(narration.batch)],
             Pending::Chronicle { key, began } => self.saga_answered(&key, began, None)?.0,
             Pending::Talk { question, npc, .. } => vec![Output::TalkAnswer {
                 id: question,

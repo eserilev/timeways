@@ -5,6 +5,7 @@ use std::fmt;
 
 const LATER_NAMES: &str = include_str!("../data/later_names.txt");
 const BANNED_WORDS: &str = include_str!("../data/banned_words.txt");
+const SLOP_WORDS: &str = include_str!("../data/slop_words.txt");
 
 /// About 150 words. The prompt asks for 80, so this catches only a runaway answer.
 pub const MAX_CHARS: usize = 1000;
@@ -82,6 +83,21 @@ pub fn banned_words() -> impl Iterator<Item = &'static str> {
     data_lines(BANNED_WORDS)
 }
 
+/// The words and phrases of slop in a narrator line or a saga, as the data file holds them.
+pub fn slop_words() -> impl Iterator<Item = &'static str> {
+    data_lines(SLOP_WORDS)
+}
+
+/// The slop words that the text holds and `told` does not: a name of the facts or of the
+/// lore, such as "Shadow Hold", stays allowed (GAMEPLAY.md 3.2.1).
+#[must_use]
+pub fn slop_in(text: &str, told: &str) -> Vec<&'static str> {
+    let words = words_of(text);
+    slop_words()
+        .filter(|slop| contains_phrase(&words, slop) && !mentions(told, slop))
+        .collect()
+}
+
 /// The lines of a data file, without its comments and blank lines.
 pub(crate) fn data_lines(file: &'static str) -> impl Iterator<Item = &'static str> {
     file.lines()
@@ -128,7 +144,12 @@ fn shares_a_phrase(words: &[String], sample: &[String]) -> bool {
 /// (GAMEPLAY.md 3.2.1). Player text never gets this check: it is the player's own voice.
 #[must_use]
 pub fn in_voice(text: &str) -> bool {
-    !text.chars().any(is_emoji) && banned_words_in(text).is_empty()
+    !has_emoji(text) && banned_words_in(text).is_empty()
+}
+
+#[must_use]
+pub fn has_emoji(text: &str) -> bool {
+    text.chars().any(is_emoji)
 }
 
 /// The banned words that the text holds as whole words, in any case.

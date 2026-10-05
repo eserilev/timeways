@@ -12,8 +12,9 @@ use timeways_story::chronicle::{self, Draft, Pick};
 use timeways_story::hero::{self, Entry, Field, Hero, PROMPT_TEXT_CHARS};
 use timeways_story::hero_hook::Hook;
 use timeways_story::journal::{Chapter, Deed};
+use timeways_story::line_check::{Checked, Grounds, LineFault, SILENCE, checked_line};
 use timeways_story::moments::Moment;
-use timeways_story::narrator;
+use timeways_story::narrator::{self, Telling, Who};
 use timeways_story::npc_memory::{self, Memory, QuestEnding, RUMOR_CHARS, Recall};
 use timeways_story::pack::{Link, Origin, Passage};
 use timeways_story::passage_limits::MAX_PASSAGE_BYTES;
@@ -21,17 +22,22 @@ use timeways_story::places::InstanceKind;
 use timeways_story::prompt::{self, Context};
 use timeways_story::quest::variety::{Recent, Shape};
 use timeways_story::quest::{self, AnyOrder, Genre, Known, Step};
+use timeways_story::race_class::{Class, Race};
+use timeways_story::samples::Voice;
 use timeways_story::story::{MAX_NAME_BYTES, MAX_WORDS_BYTES};
 use timeways_story::talk::{self, QuestTalk, Scene};
 use timeways_story::tokens::{Call, estimated_tokens, largest_fit};
 use timeways_story::{check, draft};
+
+/// What the player sees of an answer, or None for nothing.
+type Shown = Box<dyn Fn(&str) -> Option<String>>;
 
 /// One fixed moment, its prompt, and what the player sees of an answer.
 struct TestMoment {
     name: &'static str,
     call: Call,
     prompt: String,
-    shown: fn(&str) -> Option<String>,
+    shown: Shown,
 }
 
 fn hero() -> Hero {
@@ -67,8 +73,22 @@ fn portrait() -> Option<String> {
     hero::portrait(&hero, &hero::newest_texts(&hero.entries, |_| true))
 }
 
-fn line(moment: &Moment) -> String {
-    narrator::prompt(moment, 0)
+/// A hero that the addon described, with a title.
+fn who() -> Who {
+    Who {
+        race: Some(Race::Forsaken),
+        class: Some(Class::Warlock),
+        titles: vec!["Bookworm".to_string()],
+    }
+}
+
+fn line(moment: &Moment, lore: Option<&str>) -> String {
+    let telling = Telling {
+        moment,
+        lore,
+        who: &who(),
+    };
+    narrator::prompt(&telling, 0)
 }
 
 fn level(to: i64, at: u64) -> Deed {
@@ -429,12 +449,16 @@ fn lore_question() -> String {
     prompt::lore("Who are the Defias?", &context, &passages)
 }
 
-fn narrator_shown(answer: &str) -> Option<String> {
-    narrator::checked_line(answer, "")
+fn narrator_shown(grounds: Grounds) -> Shown {
+    Box::new(move |answer| match checked_line(answer, &grounds, "") {
+        Checked::Line(line) => Some(line),
+        Checked::Silent => Some(SILENCE.to_string()),
+        Checked::Refused(faults) => Some(format!("(refused: {faults:?})")),
+    })
 }
 
 fn saga_shown(answer: &str) -> Option<String> {
-    let saga = chronicle::checked_saga(answer, 1, "")?;
+    let saga = chronicle::checked_saga(answer, 1, "", "")?;
     let footnotes: Vec<String> = saga.footnotes.into_iter().map(|(_, text)| text).collect();
     Some(format!(
         "{} | Footnotes: {}",
@@ -448,12 +472,12 @@ fn talk_shown(answer: &str) -> Option<String> {
     Some(format!("{} (trust {:+})", answer.say, answer.trust_change))
 }
 
-fn narrator_moment(name: &'static str, moment: &Moment) -> TestMoment {
+fn narrator_moment(name: &'static str, moment: &Moment, lore: Option<&str>) -> TestMoment {
     TestMoment {
         name,
         call: Call::NarratorLine,
-        prompt: line(moment),
-        shown: narrator_shown,
+        prompt: line(moment, lore),
+        shown: narrator_shown(Grounds::of(moment, lore)),
     }
 }
 
@@ -466,49 +490,62 @@ fn voice_moments() -> Vec<TestMoment> {
         name,
         call: Call::Chapter,
         prompt,
-        shown: saga_shown,
+        shown: Box::new(saga_shown),
     };
     vec![
         narrator_moment(
             "a first dungeon",
             &Moment::FirstInstance {
-                zone: "The Deadmines".to_string(),
+                zone: "Shadowfang Keep".to_string(),
                 kind: InstanceKind::Dungeon,
             },
+            Some(SHADOWFANG),
         ),
         narrator_moment(
             "a world boss",
             &Moment::FirstKill {
                 foe: "Azuregos".to_string(),
             },
+            Some(AZUREGOS),
         ),
         narrator_moment(
             "a death",
             &Moment::SlainAgain {
-                killer: "Defias Pillager".to_string(),
+                killer: "Scarlet Warrior".to_string(),
                 times: 2,
             },
+            Some(SCARLET),
         ),
-        narrator_moment("a level milestone", &Moment::LevelUp { level: 20 }),
+        narrator_moment(
+            "a level milestone",
+            &Moment::LevelUp {
+                level: 20,
+                zone: Some("Silverpine Forest".to_string()),
+            },
+            None,
+        ),
         narrator_moment(
             "a new capital",
             &Moment::FirstCapital {
-                city: "Ironforge".to_string(),
+                city: "Orgrimmar".to_string(),
             },
+            Some(ORGRIMMAR),
         ),
-        narrator_moment("a new zone", &zone("Westfall")),
+        narrator_moment("a new zone", &zone("The Barrens"), None),
         narrator_moment(
             "a finished class quest",
             &Moment::ClassQuestDone {
-                title: "The Tome of Valor".to_string(),
+                title: "Halgar's Summons".to_string(),
             },
+            None,
         ),
         narrator_moment(
             "a quest mark",
             &Moment::QuestMarked {
-                mark: "Blessing of the Light".to_string(),
-                quest: "The Tome of Valor".to_string(),
+                mark: "Touch of Zanzil".to_string(),
+                quest: "Zanzil's Secret".to_string(),
             },
+            None,
         ),
         chapter("a finished side quest", side_quest_chapter(Draft::First)),
         chapter("a quiet chapter", quiet_chapter()),
@@ -516,9 +553,61 @@ fn voice_moments() -> Vec<TestMoment> {
             name: "an NPC talk",
             call: Call::Talk,
             prompt: npc_talk(),
-            shown: talk_shown,
+            shown: Box::new(talk_shown),
         },
     ]
+}
+
+const SHADOWFANG: &str = "Shadowfang Keep stands over Pyrewood in Silverpine Forest. \
+    Archmage Arugal summoned the worgen there to fight the Scourge, and they turned on the \
+    keep and on him.";
+const AZUREGOS: &str = "Azuregos is a blue dragon who guards the ruins of Azshara. He \
+    hunts the magic that the night elves left behind in their fallen city.";
+const SCARLET: &str = "The Scarlet Crusade began as a band of paladins and priests who \
+    swore to burn the plague from Lordaeron. In Tirisfal Glades they kill the Forsaken \
+    on sight.";
+const ORGRIMMAR: &str = "Thrall built Orgrimmar in Durotar and named it after Orgrim \
+    Doomhammer, the Warchief before him.";
+
+/// The longest narrator prompt: the longest names, a lore passage at its limit, the
+/// longest race and class, a title as long as a name, and the longest samples of any turn.
+fn longest_line() -> String {
+    let name = "W".repeat(MAX_NAME_BYTES);
+    let moment = Moment::QuestMarked {
+        mark: name.clone(),
+        quest: name.clone(),
+    };
+    let lore = "w".repeat(narrator::MAX_LORE_CHARS);
+    let who = Who {
+        race: Some(Race::NightElf),
+        class: Some(Class::Warlock),
+        titles: vec![name],
+    };
+    let telling = Telling {
+        moment: &moment,
+        lore: Some(&lore),
+        who: &who,
+    };
+    let turns = 8 * Voice::NarratorLine.samples().len();
+    (0..turns)
+        .map(|turn| narrator::prompt(&telling, turn))
+        .max_by_key(String::len)
+        .unwrap()
+}
+
+/// The longest narrator prompt, a long bad answer, and every fault at its longest.
+fn longest_line_retry() -> String {
+    let faults = [
+        LineFault::LaterName("W".repeat(MAX_NAME_BYTES)),
+        LineFault::Ungrounded,
+        LineFault::Copy("w".repeat(MAX_NAME_BYTES)),
+    ];
+    let reasons: Vec<String> = faults.iter().map(ToString::to_string).collect();
+    prompt::retry(
+        &longest_line(),
+        &"w".repeat(narrator::MAX_LINE_CHARS),
+        &reasons,
+    )
 }
 
 /// The voice moments, and one prompt of each other kind of call.
@@ -547,6 +636,16 @@ fn every_prompt() -> Vec<(&'static str, Call, String)> {
         quiet_chapter_of_a_full_hero(),
     ));
     prompts.push(("an NPC talk with everything", Call::Talk, full_npc_talk()));
+    prompts.push((
+        "a narrator line with a full lore passage",
+        Call::NarratorLine,
+        longest_line(),
+    ));
+    prompts.push((
+        "a narrator retry after a long bad line",
+        Call::NarratorLine,
+        longest_line_retry(),
+    ));
     prompts
 }
 
@@ -634,7 +733,7 @@ const CLAUDE: &str = "claude -p --tools '' --strict-mcp-config --setting-sources
 fn review_best_of_two(command: &str, review: &mut String) {
     let drafts = [Draft::First, Draft::Second].map(|draft| {
         let answer = ask_model(command, &side_quest_chapter(draft));
-        chronicle::checked_saga(&answer, 1, "").map(|saga| saga.text)
+        chronicle::checked_saga(&answer, 1, "", "").map(|saga| saga.text)
     });
     let _ = write!(review, "\n## Best of two: a finished side quest\n");
     for (number, draft) in drafts.iter().enumerate() {

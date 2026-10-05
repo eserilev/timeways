@@ -11,10 +11,10 @@ use crate::journal::{Page, journal, pages};
 use crate::learned::{Read, learned};
 use crate::lore::{Answer, LoreCall, Next};
 use crate::moments::{Moment, best, moments};
-use crate::narrator::{self, Budget};
+use crate::narrator::Budget;
 use crate::npc_memory::{self, Memory, Past};
 use crate::pace::Pace;
-use crate::pack::{Link, Pack, PackError, Passage};
+use crate::pack::{Pack, PackError, Passage};
 use crate::passage_limits;
 use crate::places::InstanceKind;
 use crate::prompt::Context;
@@ -36,6 +36,7 @@ use thiserror::Error;
 mod active;
 mod calls;
 mod drafts;
+mod narration;
 mod quests;
 mod reads;
 mod sagas;
@@ -978,14 +979,11 @@ impl Story {
                 return quiet;
             }
         }
-        let Some(active) = self.active.as_ref() else {
+        let Some((prompt, call)) = self.narration(batch, &moment) else {
             return quiet;
         };
-        let key = active.key.clone();
-        let prompt = narrator::prompt(&moment, self.turn());
-        let moment = narrator::what_happened(&moment);
-        let read = std::mem::take(&mut self.batch_rows);
-        self.open_call(Pending::Narrator { batch, key, moment }, prompt, read)
+        let reads = call.reads.clone();
+        self.open_call(Pending::Narrator(call), prompt, reads)
             .unwrap_or(quiet)
     }
 
@@ -1249,7 +1247,7 @@ fn passages_for(
     found.extend(
         pack.search(&words, CANDIDATES)?
             .into_iter()
-            .filter(|passage| knows_all(character, &passage.links)),
+            .filter(|passage| character.knows_all(&passage.links)),
     );
     let mut passages = Vec::new();
     let mut used = Size::default();
@@ -1277,14 +1275,6 @@ fn checked_seen(seen: SeenText) -> Result<SeenText, StoryError> {
         return Err(StoryError::BadSeenText);
     }
     Ok(seen)
-}
-
-fn knows_all(character: &Character, links: &[Link]) -> bool {
-    links.iter().all(|link| match link {
-        Link::Place(name) => character.has_visited(name),
-        Link::Npc(name) => character.has_met(name),
-        Link::Common => true,
-    })
 }
 
 /// A death is silly when the world killed you, or an NPC far below your level.
