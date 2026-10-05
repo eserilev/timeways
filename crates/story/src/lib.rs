@@ -9,6 +9,7 @@ pub mod check;
 pub mod chronicle;
 pub mod draft;
 pub mod dump;
+pub mod entry_edits;
 pub mod flavor;
 pub mod gear;
 pub mod hero;

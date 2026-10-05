@@ -2,6 +2,7 @@
 //! is due, its call, and its answer.
 
 use super::{Active, Output, Pending, Story, StoryError};
+use crate::check::copies_a_sample;
 use crate::chronicle::deed_fact;
 use crate::hero::{self, Change, FIELDS};
 use crate::journal::{Chapter, Deed, EntryState};
@@ -63,7 +64,16 @@ impl Story {
         text: Option<&str>,
     ) -> Result<(Vec<Output>, Outcome), StoryError> {
         let player_text = self.player_text(key);
-        let checked = text.and_then(|text| summary::checked_summary(text, told, &player_text));
+        let tellings = self
+            .active
+            .as_ref()
+            .map(summary_tellings)
+            .unwrap_or_default();
+        let tellings: Vec<&str> = tellings.iter().map(String::as_str).collect();
+        // A summary that copies 8 words of the player's telling is refused, as a saga is.
+        let checked = text
+            .and_then(|text| summary::checked_summary(text, told, &player_text))
+            .filter(|summary| !copies_a_sample(summary, &tellings));
         let active = self.active.as_mut().filter(|active| &active.key == key);
         let (Some(active), Some(text)) = (active, checked) else {
             return Ok((Vec::new(), Outcome::Refused));
@@ -73,12 +83,24 @@ impl Story {
     }
 }
 
-/// The newest summary, for the title page of the Chronicle.
+/// The player's tellings of every closed chapter, for the copy check of a summary.
+fn summary_tellings(active: &Active) -> Vec<String> {
+    let journal = active.journal();
+    let chapters: Vec<&Chapter> = journal.chapters.iter().collect();
+    chapter_tellings(active, &chapters)
+        .into_iter()
+        .map(|(text, _)| text)
+        .collect()
+}
+
+/// The newest summary, for the title page of the Chronicle, unless the player's own
+/// summary stands in its place.
 pub(super) fn journal_summary(active: &Active) -> Option<Box<str>> {
-    active
-        .summaries
-        .newest()
-        .map(|(_, summary)| summary.text.clone().into_boxed_str())
+    let (row, summary) = active.summaries.newest()?;
+    let shown = super::edits::shown_of(active, super::edits::SUMMARY_KEY, &[row]);
+    shown
+        .narrator
+        .map(|_| summary.text.clone().into_boxed_str())
 }
 
 /// The closed chapters up to the one whose first event is `after`, newest first.
@@ -119,6 +141,7 @@ fn facts_and_read(active: &Active, after: EventId) -> (Facts, Vec<Node>) {
     let world = active.journal();
     let hero = hero::hero(active.hero.changes());
     let chapters = finished_up_to(&world.chapters, after);
+    let tellings = chapter_tellings(active, &chapters);
     let deeds = deeds_of_note(&world.deeds);
     let before = active.summaries.newest();
     let facts = Facts {
@@ -134,6 +157,7 @@ fn facts_and_read(active: &Active, after: EventId) -> (Facts, Vec<Node>) {
             })
             .collect(),
         deeds: deeds.iter().map(|deed| deed_fact(deed)).collect(),
+        tellings: tellings.iter().map(|(text, _)| text.clone()).collect(),
         sample_turn: active.summaries.len(),
     };
     let mut read = question_rows(active);
@@ -152,8 +176,19 @@ fn facts_and_read(active: &Active, after: EventId) -> (Facts, Vec<Node>) {
         deeds.iter().filter_map(|deed| deed_name(deed)),
     ));
     read.extend(super::reads::level_read(active));
+    read.extend(tellings.into_iter().map(|(_, row)| row));
     read.extend(before.map(|(row, _)| Node::Row(Table::Summaries, row)));
     (facts, read)
+}
+
+/// The player's telling of each chapter of the prompt that has one, and its row.
+fn chapter_tellings(active: &Active, chapters: &[&Chapter]) -> Vec<(String, Node)> {
+    chapters
+        .iter()
+        .filter_map(|chapter| {
+            super::edits::telling_of(active, super::edits::chapter_key(chapter.first))
+        })
+        .collect()
 }
 
 fn question_rows(active: &Active) -> Vec<Node> {

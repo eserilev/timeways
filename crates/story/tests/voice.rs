@@ -138,15 +138,13 @@ fn side_quest_chapter(draft: Draft) -> String {
         ["The player used the emote /dance in Sentinel Hill, for the 1st time.".to_string()];
     let told = ["The lantern belonged to my brother."];
     let earlier = earlier_chapters();
-    chronicle::draft_prompt(
-        &[],
-        &side_quest(),
-        &earlier,
-        &moments,
-        portrait().as_deref(),
-        &told,
-        draft,
-    )
+    let portrait = portrait();
+    let own = chronicle::OwnWords {
+        portrait: portrait.as_deref(),
+        told: &told,
+        telling: None,
+    };
+    chronicle::draft_prompt(&[], &side_quest(), &earlier, &moments, &own, draft)
 }
 
 /// Two drafts of the longest size that the checks let through.

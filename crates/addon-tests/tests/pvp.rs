@@ -1,5 +1,6 @@
-//! Battleground wins, the PvP rank, and leaving an inn (docs/plans/chapters.md 9): the
-//! lines that give a tale or a chapter its weight and its breaks.
+//! Battleground wins, the rank in battle against players, and leaving an inn
+//! (docs/plans/chapters.md 9): the lines that give a tale or a chapter its weight and its
+//! breaks.
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 

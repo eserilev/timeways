@@ -16,6 +16,7 @@ use timeways_story::best_of_two::{Next, Round};
 use timeways_story::character::{Character, Item};
 use timeways_story::check::{Fault, check, later_names, mentions, without_citations};
 use timeways_story::chronicle::{Pick, Saga};
+use timeways_story::entry_edits::{EditText, EntryKey, EntryKind};
 use timeways_story::gear::{BIG_UPGRADE_LEVELS, Before, Quality, SLOTS, is_big_upgrade};
 use timeways_story::hero::{Field, LONG, checked_text, cut, limit_of};
 use timeways_story::hero_hook::HOOK_FIELDS;
@@ -90,6 +91,9 @@ enum Play {
     /// "Help me write" with an idea whose players are marked. The model answers with a
     /// draft that names the first player.
     DraftAsk(String),
+    /// An edit of the player's: the kind and the first event of the entry, keep or
+    /// replace, and one paragraph whose players are marked (docs/plans/chapters.md 11).
+    Edit(EntryKind, u64, EditText, String),
     /// The local hour changed.
     HourChanged(u8),
     /// The count of linen in the bags, at a meeting with an NPC.
@@ -486,20 +490,9 @@ use timeways_story::hero::FIELDS;
 
 fn input(play: &Play, at: Tick) -> Option<Input> {
     Some(match play.clone() {
-        Play::Zone(zone, subzone, spot) => Input::ZoneEntered {
-            at,
-            zone,
-            subzone,
-            spot,
-            hour: None,
-            taxi: None,
-        },
+        Play::Zone(zone, subzone, spot) => zone_input(at, zone, subzone, spot),
         Play::Meet(name, spot) => Input::NpcMet { at, name, spot },
-        Play::Defeat(name) => Input::NpcDefeated {
-            at,
-            name,
-            kind: None,
-        },
+        Play::Defeat(name) => defeat_input(at, name),
         Play::Slap(name) => Input::NpcSlapped { at, name },
         Play::Mark(quest, mark) => Input::QuestMarked { at, quest, mark },
         Play::Instance(zone, kind) => Input::InstanceEntered { at, zone, kind },
@@ -565,6 +558,7 @@ fn input(play: &Play, at: Tick) -> Option<Input> {
             paragraphs: vec![text],
         },
         Play::StoryRemove(number) => Input::StoryRemoved { at, number },
+        Play::Edit(kind, first, text, words) => edit_input(at, kind, first, text, words),
         Play::DraftAsk(idea) => Input::DraftAsked {
             id: MessageId(5),
             at,
@@ -2192,6 +2186,8 @@ proptest! {
             4 => play(),
             1 => marked_words().prop_map(Play::DraftAsk),
             1 => (0u64..4, marked_words()).prop_map(|(number, text)| Play::StoryAccept(number, text)),
+            1 => (edit_entry_kind(), edit_first(), edit_text(), marked_words())
+                .prop_map(|(kind, first, text, words)| Play::Edit(kind, first, text, words)),
         ], 0..60)
     ) {
         let folder = fresh("aliases");
@@ -2368,6 +2364,7 @@ fn summary_facts() -> impl Strategy<Value = timeways_story::summary::Facts> {
                 before,
                 chapters: vec!["s".repeat(600); chapters],
                 deeds: vec![format!("Defeated {}, a first kill", "N".repeat(96)); deeds],
+                tellings: vec!["t".repeat(600); chapters],
                 sample_turn,
             }
         })
@@ -3073,5 +3070,132 @@ proptest! {
         let history_budget = timeways_story::tokens::Call::ZoneHistory.prompt_budget();
         prop_assert!(tale_tokens <= tale_budget, "{} of {}", tale_tokens, tale_budget);
         prop_assert!(history_tokens <= history_budget, "{} of {}", history_tokens, history_budget);
+    }
+}
+
+/// A new place on foot.
+fn zone_input(at: Tick, zone: String, subzone: Option<String>, spot: Option<Spot>) -> Input {
+    Input::ZoneEntered {
+        at,
+        zone,
+        subzone,
+        spot,
+        hour: None,
+        taxi: None,
+    }
+}
+
+/// A kill of a rare or a boss that the addon did not see.
+fn defeat_input(at: Tick, name: String) -> Input {
+    Input::NpcDefeated {
+        at,
+        name,
+        kind: None,
+    }
+}
+
+/// An edit of the player as the addon sends it: a restore has no paragraphs.
+fn edit_input(at: Tick, kind: EntryKind, first: u64, text: EditText, words: String) -> Input {
+    let paragraphs = if text == EditText::Narrator {
+        Vec::new()
+    } else {
+        vec![words]
+    };
+    Input::EntryEdited {
+        at,
+        entry: EntryKey {
+            kind,
+            first: (kind != EntryKind::Summary).then_some(first),
+        },
+        title: None,
+        text,
+        paragraphs,
+    }
+}
+
+fn edit_entry_kind() -> impl Strategy<Value = EntryKind> {
+    prop::sample::select(vec![
+        EntryKind::Chapter,
+        EntryKind::Tale,
+        EntryKind::Summary,
+    ])
+}
+
+/// The first events of the first chapters, and of no chapter at all.
+fn edit_first() -> impl Strategy<Value = u64> {
+    prop_oneof![Just(1u64), Just(2), 0u64..200, Just(u64::MAX)]
+}
+
+fn edit_text() -> impl Strategy<Value = EditText> {
+    prop::sample::select(vec![EditText::Keep, EditText::Replace, EditText::Narrator])
+}
+
+/// The chapters and the tales of a journal without the words of the narrator and of the
+/// player: what an edit must never move.
+fn entries_of(journal: &Journal) -> String {
+    // The clock of the test moves for each line, also for an edit, so the ticks differ.
+    // The events do not: an edit makes none.
+    let chapters: Vec<String> = journal
+        .chapters
+        .iter()
+        .map(|chapter| {
+            format!(
+                "{} {} {:?} {:?} {:?} {:?} {:?}",
+                chapter.number,
+                chapter.first,
+                chapter.state,
+                chapter.zones,
+                chapter.people,
+                chapter.deeds.len(),
+                chapter.again
+            )
+        })
+        .collect();
+    let tales: Vec<String> = journal
+        .tales
+        .iter()
+        .map(|tale| {
+            format!(
+                "{} {} {} {}",
+                tale.first,
+                tale.chapter,
+                tale.runs,
+                tale.deeds.len()
+            )
+        })
+        .collect();
+    format!("{chapters:?}\n{tales:?}")
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(32))]
+
+    /// docs/plans/chapters.md 11: an edit is no event, so the same play with and without
+    /// edits gives the same chapters, tales, runs, and lists.
+    #[test]
+    fn edits_never_move_an_entry(
+        plays in prop::collection::vec(play(), 0..60),
+        edits in prop::collection::vec(
+            (any::<prop::sample::Index>(), edit_entry_kind(), edit_first(), edit_text(), marked_words()),
+            0..8,
+        ),
+    ) {
+        let mut edited = plays.clone();
+        for (at, kind, first, text, words) in edits.into_iter().rev() {
+            let place = at.index(edited.len() + 1);
+            edited.insert(place, Play::Edit(kind, first, text, words));
+        }
+        let plain_folder = fresh("edits-plain");
+        let edited_folder = fresh("edits-edited");
+        let mut plain_story = story(&plain_folder, Store::Memory);
+        let mut edited_story = story(&edited_folder, Store::Memory);
+        let (mut plain_clock, mut edited_clock) = (1_000, 1_000);
+
+        run(&mut plain_story, &plays, &mut plain_clock);
+        run(&mut edited_story, &edited, &mut edited_clock);
+
+        let plain = first_page(&mut plain_story);
+        let with_edits = first_page(&mut edited_story);
+        prop_assert_eq!(entries_of(&plain), entries_of(&with_edits));
     }
 }

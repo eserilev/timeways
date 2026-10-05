@@ -3,6 +3,7 @@
 
 use crate::chapters::Book;
 use crate::character::Character;
+use crate::entry_edits::EntryEdit;
 use crate::input::Input;
 use crate::journal::{Journal, TalkQuest, journal_of};
 use crate::seen::SeenIndex;
@@ -71,6 +72,10 @@ pub(super) struct Active {
     pub(super) tales: RowLog<TaleText>,
     /// "Your history here" of each zone (docs/plans/chapters.md 10).
     pub(super) zone_histories: RowLog<ZoneHistory>,
+    /// The player's edits of the chapters, the tales, and the summary.
+    pub(super) entry_edits: RowLog<EntryEdit>,
+    /// Why the last edit of an entry did not stand, until a journal page shows it.
+    pub(super) edit_refused: Option<String>,
     /// The chapters and the tales, folded one event at a time.
     pub(super) book: Book,
     pub(super) seen_index: SeenIndex,
@@ -141,6 +146,7 @@ impl Active {
             (Table::ChapterRules, self.rules.take_unsaved()),
             (Table::Tales, self.tales.take_unsaved()),
             (Table::ZoneHistories, self.zone_histories.take_unsaved()),
+            (Table::EntryEdits, self.entry_edits.take_unsaved()),
         ])
     }
 

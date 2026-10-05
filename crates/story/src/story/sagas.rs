@@ -1,10 +1,10 @@
 //! The saga of each finished chapter in the story program (GAMEPLAY.md 3.3): the drafts,
 //! the judge, and the final saga on the disk.
 
-use super::{Active, CHAPTER_MOMENTS, Output, Pending, Story, StoryError, reads};
+use super::{Active, CHAPTER_MOMENTS, Output, Pending, Story, StoryError, edits, reads};
 use crate::best_of_two::{Next, Round};
 use crate::check;
-use crate::chronicle::{self, Draft, Pick, Saga};
+use crate::chronicle::{self, Draft, OwnWords, Pick, Saga};
 use crate::flavor::{self, Teller, Told};
 use crate::hero::{self, Entry};
 use crate::journal::{Chapter, EntryState};
@@ -71,17 +71,14 @@ impl Story {
         let portrait = sheet_is_news
             .then(|| hero::portrait(&hero, &others))
             .flatten();
-        let draft = |draft| {
-            chronicle::draft_prompt(
-                &journal.places,
-                chapter,
-                earlier,
-                &words,
-                portrait.as_deref(),
-                &written,
-                draft,
-            )
+        let telling = edits::telling_of(active, edits::chapter_key(chapter.first));
+        let own = OwnWords {
+            portrait: portrait.as_deref(),
+            told: &written,
+            telling: telling.as_ref().map(|(text, _)| text.as_str()),
         };
+        let draft =
+            |draft| chronicle::draft_prompt(&journal.places, chapter, earlier, &words, &own, draft);
         let (first_prompt, second) = (draft(Draft::First), draft(Draft::Second));
         let facts = chronicle::facts(&journal.places, chapter);
         let round = Round::new(
@@ -98,7 +95,8 @@ impl Story {
             began: chapter.began,
             next,
         };
-        let read = reads::chapter_read(active, &range);
+        let mut read = reads::chapter_read(active, &range);
+        read.extend(telling.map(|(_, row)| row));
         self.chronicle_asked.insert(first);
         self.saga_round = Some(round);
         self.round_read.clone_from(&read);
@@ -155,10 +153,12 @@ impl Story {
         let active = self.active.as_ref()?;
         let player_text = hero::player_text(&hero::hero(active.hero.changes()));
         let saga = chronicle::checked_saga(text, round.kinds.len(), round.facts(), &player_text)?;
+        let telling = edits::telling_of(active, edits::chapter_key(round.first.0));
         let earlier: Vec<&str> = active
             .prose
             .before(round.first)
             .map(|written| written.text.as_str())
+            .chain(telling.as_ref().map(|(text, _)| text.as_str()))
             .collect();
         (!check::copies_a_sample(&saga.text, &earlier)).then_some(saga)
     }

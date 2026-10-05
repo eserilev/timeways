@@ -1,0 +1,10 @@
+{"type":"character_entered","realm":"Testrealm","name":"Tester"}
+{"type":"zone_entered","at":1790000000,"zone":"Westfall","subzone":null,"hour":14}
+{"type":"npc_met","at":1790000000,"name":"Gryan Stoutmantle"}
+{"type":"entry_edited","at":1790000100,"entry":{"kind":"chapter","first":1},"title":"The Long Night","text":"keep","paragraphs":["{Ada} and $N held the hill.","We sang."]}
+{"type":"entry_edited","at":1790000200,"entry":{"kind":"chapter","first":1},"text":"replace","paragraphs":["Our own words."]}
+{"type":"entry_edited","at":1790000300,"entry":{"kind":"chapter","first":1},"text":"narrator","paragraphs":[]}
+{"type":"entry_edited","at":1790000400,"entry":{"kind":"tale","first":18446744073709551615},"text":"keep","paragraphs":["a | b"]}
+{"type":"entry_edited","at":1790000500,"entry":{"kind":"summary"},"text":"replace","paragraphs":["Who I am."]}
+{"type":"entry_edited","at":1790000600,"entry":{"kind":"summary"},"title":"No","text":"keep","paragraphs":["One.","Two."]}
+{"type":"journal_asked","id":2,"page":0}

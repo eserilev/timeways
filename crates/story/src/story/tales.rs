@@ -86,7 +86,11 @@ impl Story {
         text: Option<&str>,
     ) -> Result<(Vec<Output>, Outcome), StoryError> {
         let player_text = self.player_text(key);
-        let checked = text.and_then(|text| tale::checked_tale(text, told, &player_text, &[]));
+        let telling = self.active.as_ref().and_then(|active| {
+            super::edits::telling_of(active, super::edits::tale_key(run.tale.0))
+        });
+        let telling: Vec<&str> = telling.iter().map(|(text, _)| text.as_str()).collect();
+        let checked = text.and_then(|text| tale::checked_tale(text, told, &player_text, &telling));
         let active = self.active.as_mut().filter(|active| &active.key == key);
         let (Some(active), Some(text)) = (active, checked) else {
             return Ok((Vec::new(), Outcome::Refused));
@@ -109,6 +113,24 @@ fn newest_run_with_gain(span: &TaleSpan) -> Option<VisitSpan> {
         .cloned()
 }
 
+/// The text that the tale shows: its newest text of the narrator, unless the player's own
+/// text stands in its place.
+pub(super) fn shown_text(active: &Active, tale: EventId) -> Option<String> {
+    let rows: Vec<u64> = active
+        .tales
+        .with_rows()
+        .filter(|(_, row)| row.tale == tale)
+        .map(|(row, _)| row)
+        .collect();
+    let shown = super::edits::shown_of(active, super::edits::tale_key(tale.0), &rows);
+    let row = shown.narrator?;
+    active
+        .tales
+        .rows()
+        .get(usize::try_from(row).ok()?)
+        .map(|text| text.text.clone())
+}
+
 /// The newest text of the tale whose first event is `tale`, and its row.
 pub(super) fn newest_text(active: &Active, tale: EventId) -> Option<(u64, &TaleText)> {
     active
@@ -128,13 +150,14 @@ fn facts_and_read(
 ) -> (Facts, Vec<Node>) {
     let before = newest_text(active, span.first);
     let new_run = visit_deeds(&active.character, &active.book, visit);
+    let telling = super::edits::telling_of(active, super::edits::tale_key(span.first.0));
     let facts = Facts {
         instance: tale.kind.described(&tale.instance),
         runs: span.runs,
         deeds: tale.deeds.iter().map(deed_fact).collect(),
         new_run: new_run.iter().map(deed_fact).collect(),
         before: before.map(|(_, row)| row.text.clone()),
-        telling: None,
+        telling: telling.as_ref().map(|(text, _)| text.clone()),
         sample_turn: active.tales.rows().len(),
     };
     let mut read: Vec<Node> = span
@@ -144,5 +167,6 @@ fn facts_and_read(
         .map(|event| Node::Row(Table::Events, event))
         .collect();
     read.extend(before.map(|(row, _)| Node::Row(Table::Tales, row)));
+    read.extend(telling.map(|(_, row)| row));
     (facts, read)
 }

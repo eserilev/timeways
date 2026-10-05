@@ -17,6 +17,7 @@ pub use logs::{
 pub use shared::Shared;
 
 use crate::character::Character;
+use crate::entry_edits::EntryEdit;
 use crate::walk::RuleRow;
 use hourglass::{Event, EventId};
 use logs::{ChapterProse, FlavorLine, LearnedLine};
@@ -152,6 +153,7 @@ pub struct Opened {
     pub rules: RowLog<RuleRow>,
     pub tales: RowLog<TaleText>,
     pub zone_histories: RowLog<ZoneHistory>,
+    pub entry_edits: RowLog<EntryEdit>,
 }
 
 /// Everything of `Opened` but the database, read in one transaction.
@@ -170,6 +172,7 @@ struct Read {
     rules: RowLog<RuleRow>,
     tales: RowLog<TaleText>,
     zone_histories: RowLog<ZoneHistory>,
+    entry_edits: RowLog<EntryEdit>,
 }
 
 impl Store {
@@ -220,6 +223,7 @@ impl Store {
             rules: read.rules,
             tales: read.tales,
             zone_histories: read.zone_histories,
+            entry_edits: read.entry_edits,
         })
     }
 }
@@ -251,6 +255,7 @@ fn read_all(database: &Database, path: PathBuf) -> Result<Read, StoreError> {
     let tales = RowLog::from_rows(database.read_and_repair(Table::Tales, |_, _| true)?);
     let zone_histories =
         RowLog::from_rows(database.read_and_repair(Table::ZoneHistories, |_, _| true)?);
+    let entry_edits = RowLog::from_rows(database.read_and_repair(Table::EntryEdits, |_, _| true)?);
     database.drop_broken_links()?;
     Ok(Read {
         character,
@@ -267,6 +272,7 @@ fn read_all(database: &Database, path: PathBuf) -> Result<Read, StoreError> {
         rules,
         tales,
         zone_histories,
+        entry_edits,
     })
 }
 

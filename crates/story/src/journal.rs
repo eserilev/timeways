@@ -3,6 +3,7 @@
 
 use crate::chapters::{Book, ChapterSpan, SpanState, TaleSpan, VisitSpan};
 use crate::character::{Character, title_of_game_quest, title_of_mark};
+use crate::entry_edits::EditView;
 use crate::gear::title_of_item;
 use crate::hero::{Entry, Field, Hero};
 use crate::learned::Learned;
@@ -28,8 +29,8 @@ const PAGE_LIST_ITEMS: usize = 200;
 /// Room for the type, the id, the page numbers, and the empty lists of a page line. In the
 /// slot, also room for the record and the note of the bridge.
 const FRAME: Size = Size {
-    line: 256,
-    slot: 2048,
+    line: 320,
+    slot: 2112,
 };
 
 /// The entries of each list of one chapter. With names of at most
@@ -57,6 +58,11 @@ pub struct Journal {
     pub stories: Vec<PlayerStory>,
     /// "Your history here" of each zone, the newest one of each (docs/plans/chapters.md 10).
     pub histories: Vec<History>,
+    /// The standing edit of each entry that shows words of the player (11). Each is its
+    /// own item, so a full chapter and a full edit never have to share a page.
+    pub edits: Vec<EditView>,
+    /// Why the last edit of an entry did not stand. It shows once.
+    pub edit_refused: Option<Box<str>>,
     /// Who the character has become, for the title page of the Chronicle
     /// (docs/plans/hero-stories.md 3.5). Only the first page carries it.
     pub summary: Option<Box<str>>,
@@ -303,11 +309,13 @@ pub fn pages(journal: Journal) -> Vec<Page> {
     let mut pages = Vec::new();
     let mut current = Journal {
         hero_refused: journal.hero_refused,
+        edit_refused: journal.edit_refused,
         talk_quest: journal.talk_quest,
         summary: journal.summary,
         ..Journal::default()
     };
     let mut used = Size::of(&current.hero_refused)
+        .plus(Size::of(&current.edit_refused))
         .plus(Size::of(&current.talk_quest))
         .plus(Size::of(&current.summary));
     let budget = Size {
@@ -320,6 +328,7 @@ pub fn pages(journal: Journal) -> Vec<Page> {
     items.extend(journal.chapters.into_iter().map(Item::Chapter));
     items.extend(journal.tales.into_iter().map(Item::Tale));
     items.extend(journal.histories.into_iter().map(Item::History));
+    items.extend(journal.edits.into_iter().map(Item::Edit));
     items.extend(journal.places.into_iter().map(Item::Place));
     items.extend(journal.people.into_iter().map(Item::Person));
     items.extend(journal.deeds.into_iter().map(Item::Deed));
@@ -358,6 +367,7 @@ enum Item {
     Chapter(Chapter),
     Tale(Tale),
     History(History),
+    Edit(EditView),
     Place(Place),
     Person(Person),
     Deed(Deed),
@@ -374,6 +384,7 @@ impl Item {
             Item::Chapter(chapter) => Size::of(chapter),
             Item::Tale(tale) => Size::of(tale),
             Item::History(history) => Size::of(history),
+            Item::Edit(edit) => Size::of(edit),
             Item::Place(place) => Size::of(place),
             Item::Person(person) => Size::of(person),
             Item::Deed(deed) => Size::of(deed),
@@ -391,6 +402,7 @@ impl Item {
             Item::Chapter(_) => journal.chapters.len(),
             Item::Tale(_) => journal.tales.len(),
             Item::History(_) => journal.histories.len(),
+            Item::Edit(_) => journal.edits.len(),
             Item::Place(_) => journal.places.len(),
             Item::Person(_) => journal.people.len(),
             Item::Deed(_) => journal.deeds.len(),
@@ -407,6 +419,7 @@ impl Item {
             Item::Chapter(chapter) => journal.chapters.push(chapter),
             Item::Tale(tale) => journal.tales.push(tale),
             Item::History(history) => journal.histories.push(history),
+            Item::Edit(edit) => journal.edits.push(edit),
             Item::Place(place) => journal.places.push(place),
             Item::Person(person) => journal.people.push(person),
             Item::Deed(deed) => journal.deeds.push(deed),

@@ -115,15 +115,21 @@ pub fn prompt(
     portrait: Option<&str>,
     told: &[&str],
 ) -> String {
-    draft_prompt(
-        places,
-        chapter,
-        earlier,
-        moments,
+    let own = OwnWords {
         portrait,
         told,
-        Draft::First,
-    )
+        telling: None,
+    };
+    draft_prompt(places, chapter, earlier, moments, &own, Draft::First)
+}
+
+/// What the player wrote: the portrait of the hero, the entries of the chapter, and the
+/// player's own telling of the chapter (docs/plans/chapters.md 11).
+#[derive(Clone, Copy, Debug, Default)]
+pub struct OwnWords<'a> {
+    pub portrait: Option<&'a str>,
+    pub told: &'a [&'a str],
+    pub telling: Option<&'a str>,
 }
 
 /// The prompt of one draft. Only the samples differ between the two drafts.
@@ -133,8 +139,7 @@ pub fn draft_prompt(
     chapter: &Chapter,
     earlier: &[Chapter],
     moments: &[String],
-    portrait: Option<&str>,
-    told: &[&str],
+    own: &OwnWords<'_>,
     draft: Draft,
 ) -> String {
     let number = chapter.number;
@@ -149,7 +154,7 @@ pub fn draft_prompt(
         fenced(&facts(places, chapter))
     );
     prompt.push_str(&small_moments(moments));
-    prompt.push_str(&own_words(portrait, told));
+    prompt.push_str(&own_words(own));
     let samples = samples::section(Voice::Chapter, draft.sample_turn(number));
     let _ = write!(prompt, "\n\n{samples}\n\n{NOTE}");
     prompt
@@ -178,20 +183,28 @@ fn small_moments(moments: &[String]) -> String {
     )
 }
 
-fn own_words(portrait: Option<&str>, told: &[&str]) -> String {
+fn own_words(own: &OwnWords<'_>) -> String {
     let mut words = String::new();
-    if let Some(portrait) = portrait {
+    if let Some(portrait) = own.portrait {
         let _ = write!(words, "\n\n{OWN_WORDS}\n{}", fenced(portrait));
     }
-    if !told.is_empty() {
+    if !own.told.is_empty() {
         let _ = write!(
             words,
             "\n\nWhat the player wrote in this chapter:\n{}",
-            fenced(&bulleted(told))
+            fenced(&bulleted(own.told))
         );
+    }
+    if let Some(telling) = own.telling {
+        let _ = write!(words, "\n\n{TELLING}\n{}", fenced(telling));
     }
     words
 }
+
+/// The heading of the player's own telling of an entry. Its rule: the deeds come from the
+/// facts, and the telling is neither repeated nor contradicted.
+pub const TELLING: &str = "The player's telling, not canon. Tell the deeds of the facts, do not \
+repeat the telling, and do not contradict it:";
 
 /// The prompt of the judge: the facts of chapter `number`, and the saga text of each draft.
 #[must_use]

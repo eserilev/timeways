@@ -1,6 +1,6 @@
 use hourglass::Tick;
 use timeways_story::chronicle::{
-    Draft, MAX_CHAPTER_CHARS, MAX_FOOTNOTE_CHARS, Pick, Saga, checked_pick, checked_saga,
+    Draft, MAX_CHAPTER_CHARS, MAX_FOOTNOTE_CHARS, OwnWords, Pick, Saga, checked_pick, checked_saga,
     draft_prompt, facts, judge_prompt, prompt,
 };
 use timeways_story::journal::{Chapter, Deed, Place};
@@ -280,9 +280,10 @@ fn the_facts_say_which_zone_is_a_dungeon_a_raid_or_a_capital() {
 
 #[test]
 fn the_second_draft_carries_the_next_samples_and_the_same_facts() {
-    let first = draft_prompt(&[], &chapter(), &[], &[], None, &[], Draft::First);
+    let own = OwnWords::default();
+    let first = draft_prompt(&[], &chapter(), &[], &[], &own, Draft::First);
 
-    let second = draft_prompt(&[], &chapter(), &[], &[], None, &[], Draft::Second);
+    let second = draft_prompt(&[], &chapter(), &[], &[], &own, Draft::Second);
 
     for sample in rotated(Voice::Chapter, 3) {
         assert!(first.contains(sample), "{sample}");

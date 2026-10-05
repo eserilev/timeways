@@ -41,6 +41,7 @@ mod active;
 mod aliases;
 mod calls;
 mod drafts;
+mod edits;
 mod narration;
 mod quests;
 mod reads;
@@ -598,6 +599,13 @@ impl Story {
                 name, race, class, ..
             } => self.describe_player(&AliasRow { name, race, class }),
             Input::StoryRemoved { at, number } => self.remove_story(at, number),
+            Input::EntryEdited {
+                at,
+                entry,
+                title,
+                text,
+                paragraphs,
+            } => self.edit_entry(at, entry, title.as_deref(), text, &paragraphs),
             Input::BatchEnd { id } => Ok(self.end_batch(id)),
             Input::ModelAnswered { call, text } => self.answered(call, &text),
             Input::ModelFailed { call } => self.failed(call),
@@ -906,6 +914,7 @@ impl Story {
             mut rules,
             tales,
             zone_histories,
+            entry_edits,
         } = self.store.open(&key)?;
         let read: Vec<SeenText> = learned
             .read()
@@ -940,6 +949,8 @@ impl Story {
             rules,
             tales,
             zone_histories,
+            entry_edits,
+            edit_refused: None,
             book,
             seen_index,
             hero_refused: None,
@@ -1200,22 +1211,23 @@ impl Story {
             let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
             let mut journal = active.journal();
             for chapter in &mut journal.chapters {
-                let written = active
-                    .prose
-                    .get(EventId(chapter.first))
-                    .cloned()
-                    .unwrap_or_default();
-                chapter.prose = Some(written.text).filter(|text| !text.is_empty());
+                let first = EventId(chapter.first);
+                let rows: Vec<u64> = active.prose.row_of(first).into_iter().collect();
+                let shown = edits::shown_of(active, edits::chapter_key(chapter.first), &rows);
+                let written = active.prose.get(first).cloned().unwrap_or_default();
+                let prose = shown.narrator.map(|_| written.text);
+                chapter.prose = prose.filter(|text| !text.is_empty());
                 chapter.footnotes = written.footnotes;
             }
+            journal.edits = edits::journal_edits(active);
+            journal.edit_refused = active.edit_refused.take().map(String::into_boxed_str);
             for person in &mut journal.people {
                 person.trust_why = why::trust_why(active, &person.name)?;
             }
             journal.stories = stories::journal_stories(active)?;
             journal.summary = summaries::journal_summary(active);
             for tale in &mut journal.tales {
-                let newest = tales::newest_text(active, EventId(tale.first));
-                tale.text = newest.map(|(_, row)| row.text.clone());
+                tale.text = tales::shown_text(active, EventId(tale.first));
             }
             journal.histories = zone_histories::journal_histories(active);
             journal.hero = hero::hero(active.hero.changes());

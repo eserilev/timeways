@@ -2,6 +2,7 @@
 //! answers to model calls (GAMEPLAY.md 3.1, 5.4, and 5.6).
 
 use crate::character::Resting;
+use crate::entry_edits::{EditText, EntryKey};
 use crate::places::InstanceKind;
 use crate::race_class::{Class, Race};
 use crate::seen::TextKind;
@@ -272,6 +273,17 @@ pub enum Input {
         title: Option<String>,
         paragraphs: Vec<String>,
     },
+    /// The player changed what a chapter, a tale, or the summary says (docs/plans/chapters.md
+    /// 11). Each name of a player is marked: "{Ada}". The line has no reply.
+    EntryEdited {
+        at: Tick,
+        entry: EntryKey,
+        #[serde(default)]
+        title: Option<String>,
+        text: EditText,
+        #[serde(default)]
+        paragraphs: Vec<String>,
+    },
     /// The player removed a story about them.
     StoryRemoved {
         at: Tick,
@@ -376,6 +388,7 @@ impl Input {
                 | Input::HeroAdded { .. }
                 | Input::HeroRemoved { .. }
                 | Input::StoryRemoved { .. }
+                | Input::EntryEdited { .. }
         );
         if matches!(self, Input::StoryAccepted { .. }) {
             return Root::Shared;
@@ -441,6 +454,7 @@ impl Input {
             | Input::HeroRemoved { at, .. }
             | Input::StoryAccepted { at, .. }
             | Input::StoryRemoved { at, .. }
+            | Input::EntryEdited { at, .. }
             | Input::EmoteDone { at, .. }
             | Input::ItemsHeld { at, .. }
             | Input::HourChanged { at, .. }

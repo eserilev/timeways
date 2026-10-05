@@ -55,6 +55,8 @@ pub struct Facts {
     pub chapters: Vec<String>,
     /// The deeds of note, newest first.
     pub deeds: Vec<String>,
+    /// The player's own telling of the chapters of the prompt (docs/plans/chapters.md 11).
+    pub tellings: Vec<String>,
     /// Picks the samples of the voice, so two summaries in a row differ.
     pub sample_turn: usize,
 }
@@ -100,6 +102,20 @@ fn prompt_with(facts: &Facts, count: usize) -> String {
             prompt,
             "\n\nThe newest chapters of the chronicle, newest first:\n{}",
             fenced(&bulleted(&chapters))
+        );
+    }
+    if !facts.tellings.is_empty() && count > 0 {
+        let tellings: Vec<&str> = facts
+            .tellings
+            .iter()
+            .take(count)
+            .map(String::as_str)
+            .collect();
+        let _ = write!(
+            prompt,
+            "\n\n{}\n{}",
+            crate::chronicle::TELLING,
+            fenced(&bulleted(&tellings))
         );
     }
     if !facts.deeds.is_empty() {
