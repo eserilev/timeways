@@ -328,6 +328,10 @@ pub fn deed_fact(deed: &Deed) -> String {
         Deed::Upgraded { item, .. } => {
             format!("Put on {item}, far better than the item it replaced")
         }
+        Deed::WonBattle { battleground, .. } => {
+            format!("Won a battle in {battleground}, a first win")
+        }
+        Deed::PvpRank { rank, .. } => format!("Reached PvP rank {rank}"),
         Deed::Died {
             killer: Some(killer),
             ..

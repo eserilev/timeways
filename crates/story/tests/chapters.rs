@@ -7,10 +7,10 @@ use hourglass::{EventId, Tick};
 use timeways_rules::chapters::{Opening, Track};
 use timeways_rules::weights::RULE_ONE;
 use timeways_story::chapters::{Book, CURRENT_RULE, SpanState, new_epoch};
-use timeways_story::character::Character;
+use timeways_story::character::{Character, Resting};
 use timeways_story::input::GameQuestKind;
 use timeways_story::journal::{Deed, EntryState, OpenedBy, journal};
-use timeways_story::places::InstanceKind;
+use timeways_story::places::{InstanceKind, PlaceKind};
 use timeways_story::walk::RuleRow;
 
 const HOUR: u64 = 3600;
@@ -281,4 +281,98 @@ fn a_world_of_fifty_thousand_events_folds_in_well_under_a_second() {
         journal.chapters.len()
     );
     assert!(folded.as_secs() < 1);
+}
+
+#[test]
+fn a_battleground_opens_a_tale_and_its_first_win_adds_weight_once() {
+    let mut character = Character::new();
+    character
+        .enter_zone(Tick(HOUR), "Warsong Gulch", None)
+        .unwrap();
+    character
+        .mark_instance(Tick(HOUR), "Warsong Gulch", InstanceKind::Battleground)
+        .unwrap();
+
+    character
+        .win_battleground(Tick(HOUR + 600), "Warsong Gulch")
+        .unwrap();
+    character
+        .win_battleground(Tick(HOUR + 1200), "Warsong Gulch")
+        .unwrap();
+    let book = Book::of(&character);
+
+    let visit = book.fold().visit.expect("the run is open");
+    assert_eq!(visit.gain, 3 + 3);
+    assert_eq!(book.fold().open.weight, 0);
+    let journal = journal(&character);
+    assert_eq!(journal.tales[0].kind, PlaceKind::Battleground);
+    assert!(matches!(
+        journal.tales[0].deeds[..],
+        [Deed::WonBattle { .. }]
+    ));
+}
+
+#[test]
+fn a_world_boss_weighs_as_a_raid_boss() {
+    let mut character = Character::new();
+    character.enter_zone(Tick(HOUR), "Azshara", None).unwrap();
+
+    character.mark_world_boss(Tick(HOUR), "Azuregos").unwrap();
+    character.defeat_npc(Tick(HOUR), "Azuregos").unwrap();
+    let book = Book::of(&character);
+
+    assert_eq!(book.fold().open.weight, 5);
+}
+
+#[test]
+fn leaving_an_inn_is_a_break() {
+    let mut character = Character::new();
+    character.enter_zone(Tick(HOUR), "Westfall", None).unwrap();
+    quests(&mut character, HOUR, 15, "Westfall");
+    character.rest(Tick(2 * HOUR), Resting::Yes).unwrap();
+    character.rest(Tick(2 * HOUR + 60), Resting::No).unwrap();
+
+    quests(&mut character, 2 * HOUR + 120, 1, "After");
+    let chapters = journal(&character).chapters;
+
+    assert_eq!(chapters.len(), 2);
+    assert_eq!(chapters[1].opened_by, OpenedBy::Inn);
+}
+
+#[test]
+fn a_subzone_seen_from_a_flight_counts_later_on_foot() {
+    let mut character = Character::new();
+    character.enter_zone(Tick(HOUR), "Duskwood", None).unwrap();
+    quests(&mut character, HOUR, 1, "Duskwood");
+    character
+        .fly_through(Tick(HOUR + 60), "Duskwood", Some("Darkshire"))
+        .unwrap();
+    let flown = Book::of(&character).fold().open.weight;
+
+    character
+        .enter_zone(Tick(HOUR + 120), "Duskwood", Some("Darkshire"))
+        .unwrap();
+    let walked = Book::of(&character).fold().open.weight;
+
+    assert_eq!(flown, 1);
+    assert_eq!(walked, 2);
+}
+
+#[test]
+fn a_new_pvp_rank_weighs_two_and_the_rank_at_the_first_login_nothing() {
+    let mut character = Character::new();
+    character.enter_zone(Tick(HOUR), "Ashenvale", None).unwrap();
+    character.reach_pvp_rank(Tick(HOUR), 2).unwrap();
+
+    character.reach_pvp_rank(Tick(HOUR + 60), 3).unwrap();
+    character.reach_pvp_rank(Tick(HOUR + 120), 1).unwrap();
+    let book = Book::of(&character);
+
+    assert_eq!(book.fold().open.weight, 2);
+    let ranks: Vec<Deed> = journal(&character)
+        .deeds
+        .into_iter()
+        .filter(|deed| matches!(deed, Deed::PvpRank { .. }))
+        .collect();
+    assert_eq!(ranks.len(), 1);
 }

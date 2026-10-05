@@ -36,8 +36,9 @@ function Inputs.PlayerDescribed(at, name, race, class)
 	return { type = "player_described", at = at, name = name, race = race, class = class }
 end
 
--- `spot` is where the player stands, from `Position.Here`, or nil.
-function Inputs.Zone(at, zone, subzone, spot)
+-- `spot` is where the player stands, from `Position.Here`, or nil. `taxi` is "yes" on a
+-- flight path: a place seen from the air is no visit.
+function Inputs.Zone(at, zone, subzone, spot, taxi)
 	return {
 		type = "zone_entered",
 		at = at,
@@ -45,6 +46,7 @@ function Inputs.Zone(at, zone, subzone, spot)
 		subzone = Present(subzone),
 		spot = spot,
 		hour = Inputs.Hour(),
+		taxi = taxi,
 	}
 end
 
@@ -53,7 +55,7 @@ function Inputs.HourChanged(at, hour)
 	return { type = "hour_changed", at = at, hour = hour }
 end
 
--- `kind` is "party" for a dungeon, or "raid".
+-- `kind` is "party" for a dungeon, "raid", or "pvp" for a battleground.
 function Inputs.Instance(at, zone, kind)
 	return { type = "instance_entered", at = at, zone = zone, kind = kind }
 end
@@ -71,8 +73,25 @@ function Inputs.Killed(at, name)
 	return { type = "npc_killed", at = at, name = name }
 end
 
-function Inputs.Defeated(at, name)
-	return { type = "npc_defeated", at = at, name = name }
+-- `kind` is the classification of the game ("rare", "rareelite", "worldboss"), "boss" for
+-- the boss of an encounter, or nil.
+function Inputs.Defeated(at, name, kind)
+	return { type = "npc_defeated", at = at, name = name, kind = kind }
+end
+
+-- You won a battle in this battleground.
+function Inputs.BgWon(at, zone)
+	return { type = "bg_won", at = at, zone = zone }
+end
+
+-- The PvP rank, 0 for none.
+function Inputs.PvpRank(at, rank)
+	return { type = "pvp_rank", at = at, rank = rank }
+end
+
+-- `resting` is "yes" or "no": JSON here has no booleans.
+function Inputs.RestChanged(at, resting)
+	return { type = "rest_changed", at = at, resting = resting }
 end
 
 function Inputs.Slapped(at, name)

@@ -13,10 +13,19 @@ use crate::vocabulary::{
     MARK_OF, MARKED_BY, MET, ON_MAP, QUALITY, QUEST_ACCEPTED, QUEST_DONE, QUEST_OFFERED, RACE,
     RAID, SEEN, SLAPPED, TALLY, TITLE, TRUSTS, UPGRADED, VISITED,
 };
+use crate::vocabulary::{BATTLEGROUND, BG_WON, PVP_RANK, RESTING, WORLD_BOSS};
 use hourglass::{
     Entity, EntityId, EntityType, Event, EventHistory, EventId, EventKind, Fact, LOCATED_IN,
     Rejection, Tick, World,
 };
+
+/// Whether you rest at an inn or in a city. The JSON of the addon has no booleans.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Resting {
+    Yes,
+    No,
+}
 
 /// Every reason at once, as Hourglass gives them.
 pub type Refusal = Vec<Rejection>;
@@ -657,6 +666,105 @@ impl Character {
         self.settle(at, self.you, subzone_id)
     }
 
+    /// A flight over a zone and its subzone: you stand there, and visited nothing. So a
+    /// subzone first seen from the air counts later, on foot (docs/plans/chapters.md 4).
+    ///
+    /// # Errors
+    ///
+    /// Returns the first refusal of Hourglass.
+    pub fn fly_through(
+        &mut self,
+        at: Tick,
+        zone: &str,
+        subzone: Option<&str>,
+    ) -> Result<(), Refusal> {
+        let zone_id = self.place(at, zone, None)?;
+        let Some(subzone) = subzone.filter(|name| *name != zone) else {
+            return self.settle(at, self.you, zone_id);
+        };
+        let subzone_id = self.place(at, subzone, Some(zone_id))?;
+        self.settle(at, self.you, subzone_id)
+    }
+
+    /// You won a battle in this battleground. Only the first win stays a fact.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first refusal of Hourglass.
+    pub fn win_battleground(&mut self, at: Tick, zone: &str) -> Result<(), Refusal> {
+        let zone = self.place(at, zone, None)?;
+        self.start_once(at, self.you, BG_WON, zone)
+    }
+
+    /// A new rank in battle against players. A rank at or below the one held changes nothing, so the end of a
+    /// season never lowers it.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first refusal of Hourglass.
+    pub fn reach_pvp_rank(&mut self, at: Tick, rank: u8) -> Result<(), Refusal> {
+        let rank = i64::from(rank);
+        let held = self
+            .world
+            .entity(self.you)
+            .and_then(|you| you.fact(PVP_RANK, None))
+            .and_then(|fact| fact.value);
+        let kind = match held {
+            Some(held) if held >= rank => return Ok(()),
+            Some(held) => EventKind::FactUpdate {
+                entity: self.you,
+                name: PVP_RANK.to_string(),
+                linked_to: None,
+                from: held,
+                to: rank,
+            },
+            None => EventKind::FactStart {
+                entity: self.you,
+                name: PVP_RANK.to_string(),
+                value: Some(rank),
+                linked_to: None,
+            },
+        };
+        self.propose(at, kind)
+    }
+
+    /// You rest at an inn or in a city, or you left it.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first refusal of Hourglass.
+    pub fn rest(&mut self, at: Tick, resting: Resting) -> Result<(), Refusal> {
+        let held = self
+            .world
+            .entity(self.you)
+            .is_some_and(|you| holds_flag(you, RESTING));
+        let kind = match (resting, held) {
+            (Resting::Yes, false) => EventKind::FactStart {
+                entity: self.you,
+                name: RESTING.to_string(),
+                value: None,
+                linked_to: None,
+            },
+            (Resting::No, true) => EventKind::FactEnd {
+                entity: self.you,
+                name: RESTING.to_string(),
+                linked_to: None,
+            },
+            _ => return Ok(()),
+        };
+        self.propose(at, kind)
+    }
+
+    /// The foe is a world boss. The mark stays.
+    ///
+    /// # Errors
+    ///
+    /// Returns the first refusal of Hourglass.
+    pub fn mark_world_boss(&mut self, at: Tick, name: &str) -> Result<(), Refusal> {
+        let foe = self.find_or_create(at, EntityType::Person, name)?;
+        self.flag_once(at, foe, WORLD_BOSS)
+    }
+
     /// The zone is an instance of the game. The mark stays, because an instance stays one.
     ///
     /// # Errors
@@ -672,6 +780,7 @@ impl Character {
         let name = match kind {
             InstanceKind::Dungeon => DUNGEON,
             InstanceKind::Raid => RAID,
+            InstanceKind::Battleground => BATTLEGROUND,
         };
         if self
             .world

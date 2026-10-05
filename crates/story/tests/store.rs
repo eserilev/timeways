@@ -52,6 +52,7 @@ fn enter(story: &mut Story, at: u64, zone: &str) {
         subzone: None,
         spot: None,
         hour: None,
+        taxi: None,
     };
     one(story.handle(input).unwrap());
 }
@@ -274,6 +275,7 @@ fn a_kill_past_the_cap_still_moves_the_foe_and_is_saved() {
             .handle(Input::NpcDefeated {
                 at: Tick(2),
                 name: "Hogger".to_string(),
+                kind: None,
             })
             .unwrap();
     }
@@ -284,6 +286,7 @@ fn a_kill_past_the_cap_still_moves_the_foe_and_is_saved() {
     let kill = first.handle(Input::NpcDefeated {
         at: Tick(4),
         name: "Hogger".to_string(),
+        kind: None,
     });
 
     let rows_after = bodies(&folder, "events").len();
@@ -317,6 +320,7 @@ fn a_refused_character_switch_leaves_no_character_active() {
         subzone: None,
         spot: None,
         hour: None,
+        taxi: None,
     });
 
     assert!(matches!(result, Err(StoryError::NoCharacter)));
@@ -339,6 +343,7 @@ fn a_failed_save_loses_its_line_and_the_next_line_saves() {
         subzone: None,
         spot: None,
         hour: None,
+        taxi: None,
     });
     other.execute_batch("ROLLBACK").unwrap();
     let after_the_failure = places(&mut story);
@@ -378,6 +383,7 @@ fn the_saga_survives_a_restart() {
         subzone,
         spot: None,
         hour: None,
+        taxi: None,
     };
     let met = |at: u64, name: &str| Input::NpcMet {
         at: Tick(at),
@@ -439,6 +445,7 @@ fn flavor_moments_survive_a_restart_and_keep_counting_toward_a_title() {
             subzone: Some("Goldshire".to_string()),
             spot: None,
             hour: None,
+            taxi: None,
         })
         .unwrap();
     first.handle(dance(2)).unwrap();

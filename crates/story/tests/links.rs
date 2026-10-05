@@ -88,6 +88,7 @@ fn enter(story: &mut Story, at: u64, zone: &str, subzone: Option<&str>) {
             subzone: subzone.map(str::to_string),
             spot: None,
             hour: None,
+            taxi: None,
         })
         .unwrap();
 }
@@ -502,6 +503,7 @@ fn a_game_event_has_game_proof_alone() {
         .handle(Input::NpcDefeated {
             at: Tick(2),
             name: "Hogger".to_string(),
+            kind: None,
         })
         .unwrap();
     drop(story);

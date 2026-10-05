@@ -208,6 +208,7 @@ fn story(name: &str) -> Story {
             subzone: Some("Mill Pond".to_string()),
             spot: None,
             hour: None,
+            taxi: None,
         },
         Input::NpcMet {
             at: Tick(2),

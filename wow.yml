@@ -84,6 +84,15 @@ globals:
       - type: string
   IsInInstance:
     args: []
+  IsResting:
+    args: []
+  UnitOnTaxi:
+    args:
+      - type: string
+  GetBattlefieldWinner:
+    args: []
+  C_MajorFactions:
+    any: true
   InCombatLockdown:
     args: []
   IsMounted:

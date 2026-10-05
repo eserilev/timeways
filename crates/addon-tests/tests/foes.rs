@@ -4,14 +4,15 @@ mod common;
 
 use common::Game;
 use hourglass::Tick;
-use timeways_story::input::Input;
+use timeways_story::input::{FoeKind, Input};
 
 const NOW: Tick = Tick(1_790_000_000);
 
-fn defeated(name: &str) -> Input {
+fn defeated(name: &str, kind: FoeKind) -> Input {
     Input::NpcDefeated {
         at: NOW,
         name: name.to_string(),
+        kind: Some(kind),
     }
 }
 
@@ -45,7 +46,10 @@ fn a_rare_that_you_saw_and_your_group_killed_is_sent() {
 
     game.run("wow.Fire('PARTY_KILL', 'Player-1', 'Creature-1')");
 
-    assert_eq!(sent_after_flush(&game), [defeated("Mother Fang")]);
+    assert_eq!(
+        sent_after_flush(&game),
+        [defeated("Mother Fang", FoeKind::Rare)]
+    );
 }
 
 #[test]
@@ -57,7 +61,10 @@ fn a_rare_on_a_nameplate_counts_as_seen() {
          wow.Fire('PARTY_KILL', 'Player-1', 'Creature-1')",
     );
 
-    assert_eq!(sent_after_flush(&game), [defeated("Mother Fang")]);
+    assert_eq!(
+        sent_after_flush(&game),
+        [defeated("Mother Fang", FoeKind::RareElite)]
+    );
 }
 
 #[test]
@@ -108,7 +115,7 @@ fn a_won_encounter_is_a_boss_kill() {
 
     game.run("wow.Fire('ENCOUNTER_END', 1084, 'Onyxia', 9, 40, 1)");
 
-    assert_eq!(sent_after_flush(&game), [defeated("Onyxia")]);
+    assert_eq!(sent_after_flush(&game), [defeated("Onyxia", FoeKind::Boss)]);
 }
 
 #[test]
@@ -131,7 +138,10 @@ fn a_raid_boss_that_fires_both_events_counts_once() {
          wow.Fire('ENCOUNTER_END', 1084, 'Onyxia', 9, 40, 1)",
     );
 
-    assert_eq!(sent_after_flush(&game), [defeated("Onyxia")]);
+    assert_eq!(
+        sent_after_flush(&game),
+        [defeated("Onyxia", FoeKind::WorldBoss)]
+    );
 }
 
 #[test]
@@ -147,8 +157,12 @@ fn the_same_boss_after_the_next_reset_counts_again() {
     let later = Input::NpcDefeated {
         at: Tick(NOW.0 + 7 * 24 * 3600),
         name: "Onyxia".to_string(),
+        kind: Some(FoeKind::Boss),
     };
-    assert_eq!(sent_after_flush(&game), [defeated("Onyxia"), later]);
+    assert_eq!(
+        sent_after_flush(&game),
+        [defeated("Onyxia", FoeKind::Boss), later]
+    );
 }
 
 #[test]

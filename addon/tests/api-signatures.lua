@@ -191,6 +191,15 @@ return {
 				{ Name = "stackCount", Type = "number", Nilable = false },
 			},
 		},
+		["C_MajorFactions.GetMajorFactionProgressionInfo"] = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "majorFactionID", Type = "number", Nilable = false },
+			},
+			Returns = {
+				{ Name = "data", Type = "MajorFactionProgressionInfo", Nilable = true },
+			},
+		},
 		["C_Map.GetBestMapForUnit"] = {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {
@@ -404,6 +413,11 @@ return {
 				{ Name = "result", Type = "bool", Nilable = false },
 			},
 		},
+		IsResting = {
+			Returns = {
+				{ Name = "result", Type = "bool", Nilable = false },
+			},
+		},
 		Screenshot = {},
 		UnitCanAttack = {
 			SecretArguments = "AllowedWhenUntainted",
@@ -535,6 +549,15 @@ return {
 			Returns = {
 				{ Name = "unitName", Type = "cstring", Nilable = false },
 				{ Name = "unitServer", Type = "cstring", Nilable = false },
+			},
+		},
+		UnitOnTaxi = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "unit", Type = "UnitToken", Nilable = false },
+			},
+			Returns = {
+				{ Name = "result", Type = "bool", Nilable = false },
 			},
 		},
 		UnitPlayerControlled = {
@@ -1501,6 +1524,14 @@ return {
 		ITEM_TEXT_READY = {
 			SynchronousEvent = true,
 		},
+		MAJOR_FACTION_RENOWN_LEVEL_CHANGED = {
+			SynchronousEvent = true,
+			Payload = {
+				{ Name = "majorFactionID", Type = "number", Nilable = false },
+				{ Name = "newRenownLevel", Type = "number", Nilable = false },
+				{ Name = "oldRenownLevel", Type = "number", Nilable = false },
+			},
+		},
 		NAME_PLATE_UNIT_ADDED = {
 			SynchronousEvent = true,
 			Payload = {
@@ -1574,6 +1605,9 @@ return {
 			SynchronousEvent = true,
 		},
 		PLAYER_TARGET_CHANGED = {
+			SynchronousEvent = true,
+		},
+		PLAYER_UPDATE_RESTING = {
 			SynchronousEvent = true,
 		},
 		QUEST_ACCEPTED = {
@@ -1660,6 +1694,12 @@ return {
 				{ Name = "updateInfo", Type = "UnitAuraUpdateInfo", Nilable = false },
 			},
 		},
+		UPDATE_BATTLEFIELD_STATUS = {
+			SynchronousEvent = true,
+			Payload = {
+				{ Name = "battleFieldIndex", Type = "number", Nilable = false },
+			},
+		},
 		UPDATE_MOUSEOVER_UNIT = {
 			SynchronousEvent = true,
 		},
@@ -1675,6 +1715,7 @@ return {
 	},
 	undocumented = {
 		"CreateFrame",
+		"GetBattlefieldWinner",
 		"GetGreetingText",
 		"GetGuildRosterInfo",
 		"GetInventoryItemLink",

@@ -249,6 +249,28 @@ This test needs a model.
 2. Play until a chapter ends and its saga shows, and play a little more, so a batch ends. Open the first row again. A paragraph shows with your name in it, and never "our hero".
 3. In the world file, run `sqlite3 c_<name>.sqlite "SELECT prompt FROM calls WHERE kind = 'summary'"`. The prompt holds your answers of Your Story, and no story and no title of the Roleplay Profile.
 
+### 23. The Chronicle book
+
+The chapters, the tales, and the contents (`docs/plans/chapters.md`).
+
+1. Open `/journal` on the Chronicle. The list on the left groups the chapters by level band, such as "Levels 10 to 19", newest first. The open chapter shows "· now".
+2. Click a chapter that is over. The page shows "Chapter N", its title, the dates and the levels, the story when a model wrote one, and "In this chapter" with one line for places, people, defeated, quests, deaths, and stories.
+3. Take a flight path across two or three zones and land. No new chapter starts for the flight.
+4. Run a dungeon, leave it, and wait 30 minutes or more of play. Under the chapter where you entered it, the list shows the dungeon with "Dungeon · 1 run". Its page shows what you defeated inside. After the next batch, it shows a short story of the dungeon, when a model runs.
+5. Run the same dungeon again with nothing new. The count says "2 runs", and the story does not change.
+6. Die and run back to the dungeon in less than 30 minutes. The count stays the same: a wipe and a corpse run are one run.
+
+### 24. Battlegrounds, PvP rank, inns, and world bosses
+
+These lines use calls of the game that no test can check. Each step answers an open question.
+
+1. Enter a battleground. In the world file, run `sqlite3 c_<name>.sqlite "SELECT body FROM inputs WHERE kind = 'instance_entered'"`. The newest row says `"kind":"pvp"`.
+2. Win a battle. Run `sqlite3 c_<name>.sqlite "SELECT body FROM inputs WHERE kind = 'bg_won'"`. One row shows, with the zone of the battleground. Lose a battle: no row comes. Send back whether a win made a row, and whether a loss made one.
+3. Run `sqlite3 c_<name>.sqlite "SELECT body FROM inputs WHERE kind = 'pvp_rank'"`. A row of the login shows your rank, or 0. Compare it with the rank of your character sheet. Send back both numbers. If they differ, faction 2800 is not the rank.
+4. Log out in an inn and log in again. Run `sqlite3 c_<name>.sqlite "SELECT body FROM inputs WHERE kind = 'rest_changed'"`. Send back whether a row with `"resting":"yes"` came at the login. Walk out of the inn: a row with `"resting":"no"` comes.
+5. Take a flight path. Run `sqlite3 c_<name>.sqlite "SELECT body FROM inputs WHERE kind = 'zone_entered' ORDER BY position DESC LIMIT 3"`. The rows of the flight hold `"taxi":"yes"`.
+6. Kill a world boss, if you can. Its `npc_defeated` row holds `"kind":"worldboss"`.
+
 ## What to send back
 
 - Each Lua error, as text.
@@ -265,6 +287,8 @@ This test needs a model.
 - For test 18: a screenshot of the window with a quest card, and of a window with an earlier talk.
 - For test 19: each narrator line of the session, as text, and the output of the review tool.
 - For test 20: the draft, and the output of the two `sqlite3` commands.
+- For test 23: a screenshot of the contents, of a chapter page, and of a tale page.
+- For test 24: the answer to each step.
 
 ## After the test
 

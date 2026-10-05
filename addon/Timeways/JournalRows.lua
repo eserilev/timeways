@@ -95,6 +95,10 @@ function JournalRows.DeedTitle(deed)
 		return "Equipped your first epic item, " .. JournalRows.Name(deed.item)
 	elseif deed.kind == "upgraded" then
 		return "Equipped " .. JournalRows.Name(deed.item) .. ", a big upgrade"
+	elseif deed.kind == "won_battle" then
+		return "Won a battle in " .. JournalRows.Name(deed.battleground)
+	elseif deed.kind == "pvp_rank" and type(deed.rank) == "number" then
+		return string.format("Reached PvP rank %d", deed.rank)
 	elseif deed.kind == "died" then
 		return deed.killer and ("Killed by " .. JournalRows.Name(deed.killer)) or "Died"
 	end

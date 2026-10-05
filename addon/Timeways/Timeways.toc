@@ -27,6 +27,7 @@ Outbox.lua
 Watch.lua
 Seen.lua
 Foes.lua
+Pvp.lua
 QuestSteps.lua
 Carry.lua
 Sightings.lua

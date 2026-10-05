@@ -1,0 +1,14 @@
+{"type":"character_entered","realm":"Testrealm","name":"Tester"}
+{"type":"zone_entered","at":1790000000,"zone":"Warsong Gulch","subzone":null,"hour":14}
+{"type":"instance_entered","at":1790000000,"zone":"Warsong Gulch","kind":"pvp"}
+{"type":"bg_won","at":1790000600,"zone":"Warsong Gulch"}
+{"type":"pvp_rank","at":1790000600,"rank":0}
+{"type":"pvp_rank","at":1790000700,"rank":3}
+{"type":"pvp_rank","at":1790000800,"rank":255}
+{"type":"rest_changed","at":1790000900,"resting":"yes"}
+{"type":"rest_changed","at":1790001000,"resting":"no"}
+{"type":"zone_entered","at":1790001100,"zone":"Duskwood","subzone":"Darkshire","hour":14,"taxi":"yes"}
+{"type":"npc_defeated","at":1790001200,"name":"Azuregos","kind":"worldboss"}
+{"type":"npc_defeated","at":1790001300,"name":"Mother Fang","kind":"rareelite"}
+{"type":"npc_defeated","at":1790001400,"name":"Onyxia","kind":"boss"}
+{"type":"batch_end","id":1}

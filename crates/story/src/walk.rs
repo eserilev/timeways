@@ -6,8 +6,9 @@
 
 use crate::places::is_capital;
 use crate::vocabulary::{
-    CLASS_QUEST, DEATHS, DEFEATED, DUNGEON, FIRST_EPIC_ITEM, FIRST_EPIC_MOUNT, FIRST_MOUNT,
-    GAME_QUEST_DONE, LEVEL, MARKED_BY, MET, QUALITY, QUEST_DONE, RAID, TITLE, UPGRADED, VISITED,
+    BATTLEGROUND, BG_WON, CLASS_QUEST, DEATHS, DEFEATED, DUNGEON, FIRST_EPIC_ITEM,
+    FIRST_EPIC_MOUNT, FIRST_MOUNT, GAME_QUEST_DONE, LEVEL, MARKED_BY, MET, PVP_RANK, QUALITY,
+    QUEST_DONE, RAID, RESTING, TITLE, UPGRADED, VISITED, WORLD_BOSS,
 };
 use hourglass::{EntityId, EntityType, Event, EventId, EventKind, LOCATED_IN};
 use std::collections::{HashMap, HashSet};
@@ -46,6 +47,8 @@ enum KeyName {
     EpicItem,
     Upgrade { slot: i64, quality: i64 },
     Instance(EntityId),
+    BgWin(EntityId),
+    PvpRank(i64),
 }
 
 /// The state of the walk. It keeps what it saw of the world so far.
@@ -66,6 +69,7 @@ pub struct Walk {
     parents: HashMap<EntityId, EntityId>,
     instances: HashSet<EntityId>,
     raids: HashSet<EntityId>,
+    world_bosses: HashSet<EntityId>,
     class_quests: HashSet<EntityId>,
     qualities: HashMap<EntityId, i64>,
     here: Option<EntityId>,
@@ -97,6 +101,7 @@ impl Walk {
             parents: HashMap::new(),
             instances: HashSet::new(),
             raids: HashSet::new(),
+            world_bosses: HashSet::new(),
             class_quests: HashSet::new(),
             qualities: HashMap::new(),
             here: None,
@@ -200,11 +205,17 @@ impl Walk {
                 linked_to: Some(place),
                 ..
             } if name == LOCATED_IN => self.locate(*entity, *place, mark),
-            EventKind::FactStart { entity, name, .. } if name == DUNGEON || name == RAID => {
+            EventKind::FactStart { entity, name, .. } if is_instance_mark(name) => {
                 self.instances.insert(*entity);
                 if name == RAID {
                     self.raids.insert(*entity);
                 }
+            }
+            EventKind::FactStart { entity, name, .. } if name == WORLD_BOSS => {
+                self.world_bosses.insert(*entity);
+            }
+            EventKind::FactEnd { entity, name, .. } if *entity == self.you && name == RESTING => {
+                *mark = Some(Break::Inn);
             }
             EventKind::FactStart { entity, name, .. } if name == CLASS_QUEST => {
                 self.class_quests.insert(*entity);
@@ -322,11 +333,11 @@ impl Walk {
         linked_to: Option<EntityId>,
         value: Option<i64>,
     ) -> Option<(Key, Counts)> {
-        if name == DUNGEON || name == RAID {
-            let kind = if name == RAID {
-                KeyKind::Raid
-            } else {
-                KeyKind::Dungeon
+        if is_instance_mark(name) {
+            let kind = match name {
+                RAID => KeyKind::Raid,
+                BATTLEGROUND => KeyKind::Battleground,
+                _ => KeyKind::Dungeon,
             };
             return Some((
                 self.key(KeyName::Instance(entity), kind, None),
@@ -352,6 +363,7 @@ impl Walk {
             }
             (FIRST_EPIC_ITEM, _) => self.key(KeyName::EpicItem, KeyKind::EpicItem, None),
             (UPGRADED, Some(item)) => self.upgrade_key(item, value?),
+            (BG_WON, Some(zone)) => self.key(KeyName::BgWin(zone), KeyKind::BgWin, None),
             (_, Some(thing)) => self.thing_key(name, thing)?,
             _ => return None,
         };
@@ -379,6 +391,7 @@ impl Walk {
             (DEATHS, _) => self.death_key(),
             (DEFEATED, Some(foe)) => self.kill_key(foe),
             (UPGRADED, Some(item)) => self.upgrade_key(item, to),
+            (PVP_RANK, _) => self.key(KeyName::PvpRank(to), KeyKind::PvpRank, None),
             _ => return None,
         };
         Some((key, Counts::Here))
@@ -421,7 +434,7 @@ impl Walk {
 
     fn kill_key(&mut self, foe: EntityId) -> Key {
         let in_raid = self.zone().is_some_and(|zone| self.raids.contains(&zone));
-        let kind = if in_raid {
+        let kind = if in_raid || self.world_bosses.contains(&foe) {
             KeyKind::RaidKill
         } else {
             KeyKind::Kill
@@ -444,6 +457,11 @@ impl Walk {
         let quality = self.qualities.get(&item).copied().unwrap_or_default();
         self.key(KeyName::Upgrade { slot, quality }, KeyKind::Upgrade, None)
     }
+}
+
+/// The fact that marks a zone as an instance of the game.
+fn is_instance_mark(name: &str) -> bool {
+    name == DUNGEON || name == RAID || name == BATTLEGROUND
 }
 
 /// Where a key counts. A level and a mount belong to the leveling story, so they count in

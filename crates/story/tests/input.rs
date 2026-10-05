@@ -19,6 +19,7 @@ fn a_zone_input_reads_with_its_subzone() {
         subzone: Some("Goldshire".to_string()),
         spot: None,
         hour: None,
+        taxi: None,
     };
     assert_eq!(input, expected);
 }
@@ -35,6 +36,7 @@ fn a_zone_input_reads_with_no_subzone() {
         subzone: None,
         spot: None,
         hour: None,
+        taxi: None,
     };
     assert_eq!(input, expected);
 }
@@ -182,7 +184,8 @@ fn a_kill_input_reads() {
         parse(line).unwrap(),
         Input::NpcDefeated {
             at: Tick(100),
-            name: "Hogger".to_string()
+            name: "Hogger".to_string(),
+            kind: None,
         }
     );
 }
@@ -334,10 +337,41 @@ fn an_instance_reads_as_a_dungeon_or_a_raid() {
 }
 
 #[test]
-fn a_battleground_is_no_instance_of_the_story() {
+fn a_battleground_is_an_instance_of_its_own_kind() {
     let line = r#"{"type":"instance_entered","at":5,"zone":"Warsong Gulch","kind":"pvp"}"#;
 
+    assert_eq!(
+        parse(line).unwrap(),
+        Input::InstanceEntered {
+            at: Tick(5),
+            zone: "Warsong Gulch".to_string(),
+            kind: InstanceKind::Battleground,
+        }
+    );
+}
+
+#[test]
+fn an_arena_is_no_instance_of_the_story() {
+    let line = r#"{"type":"instance_entered","at":5,"zone":"Nagrand Arena","kind":"arena"}"#;
+
     assert!(parse(line).is_err());
+}
+
+#[test]
+fn the_lines_of_a_win_a_rank_and_a_rest_read() {
+    let won = r#"{"type":"bg_won","at":5,"zone":"Warsong Gulch"}"#;
+    let rank = r#"{"type":"pvp_rank","at":5,"rank":3}"#;
+    let rest = r#"{"type":"rest_changed","at":5,"resting":"no"}"#;
+
+    assert!(matches!(parse(won).unwrap(), Input::BgWon { .. }));
+    assert_eq!(
+        parse(rank).unwrap(),
+        Input::PvpRank {
+            at: Tick(5),
+            rank: 3
+        }
+    );
+    assert!(matches!(parse(rest).unwrap(), Input::RestChanged { .. }));
 }
 
 #[test]

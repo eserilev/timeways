@@ -36,6 +36,9 @@ local HANDLERS = {
 	ZONE_CHANGED = ns.Watch.Zone,
 	ZONE_CHANGED_INDOORS = ns.Watch.Zone,
 	PLAYER_LEVEL_UP = ns.Watch.Level,
+	PLAYER_UPDATE_RESTING = ns.Watch.Rest,
+	UPDATE_BATTLEFIELD_STATUS = ns.Pvp.BattlefieldStatus,
+	MAJOR_FACTION_RENOWN_LEVEL_CHANGED = ns.Pvp.RankChanged,
 	GOSSIP_SHOW = function()
 		ns.Watch.Npc()
 		ns.Seen.Gossip()
@@ -88,6 +91,9 @@ frame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 frame:RegisterEvent("ZONE_CHANGED")
 frame:RegisterEvent("ZONE_CHANGED_INDOORS")
 frame:RegisterEvent("PLAYER_LEVEL_UP")
+frame:RegisterEvent("PLAYER_UPDATE_RESTING")
+frame:RegisterEvent("UPDATE_BATTLEFIELD_STATUS")
+frame:RegisterEvent("MAJOR_FACTION_RENOWN_LEVEL_CHANGED")
 frame:RegisterEvent("GOSSIP_SHOW")
 frame:RegisterEvent("QUEST_GREETING")
 frame:RegisterEvent("QUEST_DETAIL")

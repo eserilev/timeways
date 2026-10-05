@@ -20,16 +20,30 @@ function Watch.Zone()
 		return
 	end
 	lastZone, lastSubzone = zone, subzone
-	ns.Outbox.Add(ns.Inputs.Zone(time(), zone, subzone, ns.Position.Here()))
+	local taxi = UnitOnTaxi("player") and "yes" or nil
+	ns.Outbox.Add(ns.Inputs.Zone(time(), zone, subzone, ns.Position.Here(), taxi))
 	local kind = Watch.InstanceKind()
 	if kind then
 		ns.Outbox.Add(ns.Inputs.Instance(time(), zone, kind))
 	end
 end
 
--- "party" for a dungeon and "raid" for a raid. A battleground or an arena is no story
--- place, so it counts as none.
-local INSTANCE_KINDS = { party = true, raid = true }
+-- "party" for a dungeon, "raid" for a raid, and "pvp" for a battleground. An arena is no
+-- story place, so it counts as none.
+local INSTANCE_KINDS = { party = true, raid = true, pvp = true }
+
+-- Whether you rest, as it went out last.
+local restSent
+
+-- At login and at PLAYER_UPDATE_RESTING. Leaving an inn is a break of the chronicle.
+function Watch.Rest()
+	local resting = IsResting() and "yes" or "no"
+	if resting == restSent then
+		return
+	end
+	restSent = resting
+	ns.Outbox.Add(ns.Inputs.RestChanged(time(), resting))
+end
 
 function Watch.InstanceKind()
 	local inside, kind = IsInInstance()
@@ -75,6 +89,8 @@ function Watch.Login()
 	Watch.Describe()
 	Watch.Level(UnitLevel("player"))
 	Watch.Zone()
+	Watch.Rest()
+	ns.Pvp.RankChanged()
 	-- The tooltips need the people before the book ever opens.
 	ns.Journal.Request(0)
 end

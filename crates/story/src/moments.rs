@@ -9,7 +9,7 @@ use crate::mounts::{people_of, title_of_mount};
 use crate::places::{InstanceKind, is_capital};
 use crate::race_class::Race;
 use crate::vocabulary::{
-    CLASS_QUEST, DEFEATED, DUNGEON, FIRST_EPIC_ITEM, FIRST_EPIC_MOUNT, FIRST_MOUNT,
+    BATTLEGROUND, CLASS_QUEST, DEFEATED, DUNGEON, FIRST_EPIC_ITEM, FIRST_EPIC_MOUNT, FIRST_MOUNT,
     GAME_QUEST_DONE, LEVEL, MARKED_BY, RACE, RAID, SLAPPED, TITLE, UPGRADED, VISITED,
 };
 use crate::walk::LEVEL_STEP;
@@ -243,7 +243,9 @@ fn moment(world: &World, you: EntityId, kind: &EventKind) -> Option<Moment> {
             name,
             linked_to: None,
             ..
-        } if name == DUNGEON || name == RAID => first_instance(world, *place, name),
+        } if name == DUNGEON || name == RAID || name == BATTLEGROUND => {
+            first_instance(world, *place, name)
+        }
         EventKind::FactStart {
             entity,
             name,
@@ -275,10 +277,10 @@ fn moment(world: &World, you: EntityId, kind: &EventKind) -> Option<Moment> {
 }
 
 fn first_instance(world: &World, place: EntityId, fact: &str) -> Option<Moment> {
-    let kind = if fact == RAID {
-        InstanceKind::Raid
-    } else {
-        InstanceKind::Dungeon
+    let kind = match fact {
+        RAID => InstanceKind::Raid,
+        BATTLEGROUND => InstanceKind::Battleground,
+        _ => InstanceKind::Dungeon,
     };
     let zone = world.entity(place)?.name.clone();
     Some(Moment::FirstInstance { zone, kind })

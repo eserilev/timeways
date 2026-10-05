@@ -1,6 +1,7 @@
 //! What the bridge sends, one JSON object per line: game events from the addon, and the
 //! answers to model calls (GAMEPLAY.md 3.1, 5.4, and 5.6).
 
+use crate::character::Resting;
 use crate::places::InstanceKind;
 use crate::race_class::{Class, Race};
 use crate::seen::TextKind;
@@ -47,6 +48,9 @@ pub enum Input {
         /// The local hour of the player, from 0 to 23.
         #[serde(default)]
         hour: Option<u8>,
+        /// "yes" when you flew over the place on a flight path (docs/plans/chapters.md 9).
+        #[serde(default)]
+        taxi: Option<Taxi>,
     },
     /// The local hour changed while a time-of-day step is open (docs/plans/quest-variety.md
     /// 4.5).
@@ -86,9 +90,27 @@ pub enum Input {
         level: u8,
     },
     /// The player killed a rare or a boss. Common mobs never come (GAMEPLAY.md 5.13).
+    /// `kind` is the classification of the game, when the addon saw the unit.
     NpcDefeated {
         at: Tick,
         name: String,
+        #[serde(default)]
+        kind: Option<FoeKind>,
+    },
+    /// You won a battle in a battleground (docs/plans/chapters.md 9).
+    BgWon {
+        at: Tick,
+        zone: String,
+    },
+    /// Your rank in battle against players, at each login and when it grows. 0 is no rank.
+    PvpRank {
+        at: Tick,
+        rank: u8,
+    },
+    /// You started or stopped resting at an inn or in a city.
+    RestChanged {
+        at: Tick,
+        resting: Resting,
     },
     /// You slapped an NPC with `/slap`. Never a player (5.11).
     NpcSlapped {
@@ -275,6 +297,26 @@ pub enum Input {
     },
 }
 
+/// You flew over a place: a flight path of the game.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Taxi {
+    Yes,
+}
+
+/// The classification of a foe in the game. A world boss weighs as a raid boss.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FoeKind {
+    Rare,
+    #[serde(rename = "rareelite")]
+    RareElite,
+    #[serde(rename = "worldboss")]
+    WorldBoss,
+    /// The boss of an encounter.
+    Boss,
+}
+
 /// What an inventory slot held before an item. The JSON of the addon has no booleans.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -378,6 +420,9 @@ impl Input {
             | Input::InstanceEntered { at, .. }
             | Input::LevelReached { at, .. }
             | Input::NpcDefeated { at, .. }
+            | Input::BgWon { at, .. }
+            | Input::PvpRank { at, .. }
+            | Input::RestChanged { at, .. }
             | Input::NpcSlapped { at, .. }
             | Input::GameQuestAccepted { at, .. }
             | Input::GameQuestDone { at, .. }

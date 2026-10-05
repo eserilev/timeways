@@ -9,7 +9,7 @@ use crate::draft::Draft;
 use crate::flavor::{self, Flavor, HUMBLING_GAP, Kind, Teller, Told};
 use crate::gear::{self, Before, Quality};
 use crate::hero::{self, Change, Entry};
-use crate::input::{CallId, GameQuestKind, Input, MessageId, Reaction, SlotWas};
+use crate::input::{CallId, FoeKind, GameQuestKind, Input, MessageId, Reaction, SlotWas, Taxi};
 use crate::journal::{Page, pages};
 use crate::learned::{Read, learned};
 use crate::lore::{Answer, LoreCall, Next};
@@ -472,7 +472,23 @@ impl Story {
                 subzone,
                 spot,
                 hour,
+                taxi: Some(Taxi::Yes),
+            } => self.fly_through(at, &zone, subzone.as_deref(), spot, hour),
+            Input::ZoneEntered {
+                at,
+                zone,
+                subzone,
+                spot,
+                hour,
+                taxi: None,
             } => self.enter_zone(at, &zone, subzone.as_deref(), spot, hour),
+            Input::BgWon { at, zone } => self.win_battleground(at, &zone),
+            Input::PvpRank { at, rank } => {
+                self.change(|character| character.reach_pvp_rank(at, rank))
+            }
+            Input::RestChanged { at, resting } => {
+                self.change(|character| character.rest(at, resting))
+            }
             // An hour is no fact of the world. It only moves a step (`advance_quests`).
             Input::HourChanged { hour, .. } => checked_hour(Some(hour)).map(|()| Vec::new()),
             Input::InstanceEntered { at, zone, kind } => self.mark_instance(at, &zone, kind),
@@ -487,7 +503,7 @@ impl Story {
                 self.count_kill(at, checked_name(&name)?)?;
                 Ok(Vec::new())
             }
-            Input::NpcDefeated { at, name } => self.defeat_npc(at, &name),
+            Input::NpcDefeated { at, name, kind } => self.defeat_npc(at, &name, kind),
             Input::GameQuestAccepted { at, title, kind } => self.take_game_quest(at, &title, kind),
             Input::GameQuestDone { at, title, kind } => self.finish_game_quest(at, &title, kind),
             Input::QuestMarked { at, quest, mark } => self.take_quest_mark(at, &quest, &mark),
@@ -623,9 +639,43 @@ impl Story {
         })
     }
 
-    fn defeat_npc(&mut self, at: Tick, name: &str) -> Result<Vec<Output>, StoryError> {
+    /// A world boss gets its mark before the kill, so the kill weighs as a raid boss.
+    fn defeat_npc(
+        &mut self,
+        at: Tick,
+        name: &str,
+        kind: Option<FoeKind>,
+    ) -> Result<Vec<Output>, StoryError> {
         checked_name(name)?;
-        self.change(|character| character.defeat_npc(at, name))
+        self.change(|character| {
+            if kind == Some(FoeKind::WorldBoss) {
+                character.mark_world_boss(at, name)?;
+            }
+            character.defeat_npc(at, name)
+        })
+    }
+
+    fn win_battleground(&mut self, at: Tick, zone: &str) -> Result<Vec<Output>, StoryError> {
+        checked_name(zone)?;
+        self.change(|character| character.win_battleground(at, zone))
+    }
+
+    /// A flight path: you stand in the place, and visited nothing.
+    fn fly_through(
+        &mut self,
+        at: Tick,
+        zone: &str,
+        subzone: Option<&str>,
+        spot: Option<Spot>,
+        hour: Option<u8>,
+    ) -> Result<Vec<Output>, StoryError> {
+        checked_hour(hour)?;
+        checked_name(zone)?;
+        subzone.map(checked_name).transpose()?;
+        self.change(|character| {
+            character.fly_through(at, zone, subzone)?;
+            spot.map_or(Ok(()), |spot| character.mark_here(at, spot))
+        })
     }
 
     fn see_npc(

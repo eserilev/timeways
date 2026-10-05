@@ -873,3 +873,18 @@ fn a_chapter_that_is_not_over_says_when_its_story_comes() {
         "help: This chapter isn't over yet. Its story comes when the next one starts."
     );
 }
+
+#[test]
+fn a_battleground_win_and_a_pvp_rank_show_as_deeds() {
+    let game = Game::new();
+
+    game.reply(concat!(
+        r#"{"type":"journal","page":0,"pages":1,"deeds":["#,
+        r#"{"kind":"won_battle","battleground":"Warsong Gulch","at":1790000000},"#,
+        r#"{"kind":"pvp_rank","rank":3,"at":1790000000}]}"#,
+    ));
+
+    let lines = lines(&game, "deeds");
+    assert_eq!(lines[0], "entry: Won a battle in Warsong Gulch");
+    assert_eq!(lines[2], "entry: Reached PvP rank 3");
+}

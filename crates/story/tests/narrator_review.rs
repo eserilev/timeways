@@ -188,6 +188,7 @@ fn saved_world(folder: &Path) -> std::path::PathBuf {
             subzone: None,
             spot: None,
             hour: None,
+            taxi: None,
         },
     ];
     for line in lines {

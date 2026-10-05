@@ -65,6 +65,7 @@ fn zone(at: u64, subzone: &str) -> Input {
         subzone: Some(subzone.to_string()),
         spot: None,
         hour: None,
+        taxi: None,
     }
 }
 
@@ -825,6 +826,7 @@ fn the_prompt_lists_the_people_and_places_of_the_zone_of_the_giver_first() {
         subzone: Some("Far Farm".to_string()),
         spot: None,
         hour: None,
+        taxi: None,
     };
     story.handle(far).unwrap();
     story.handle(meet(11, "Farmer Fen")).unwrap();
@@ -1453,6 +1455,7 @@ fn zone_at_hour(at: u64, subzone: &str, hour: Option<u8>) -> Input {
         subzone: Some(subzone.to_string()),
         spot: None,
         hour,
+        taxi: None,
     }
 }
 
@@ -1551,6 +1554,7 @@ fn after_a_dungeon(name: &str) -> Story {
     let boss = Input::NpcDefeated {
         at: Tick(6),
         name: "Edwin VanCleef".to_string(),
+        kind: None,
     };
     story.handle(boss).unwrap();
     story.handle(zone(7, "Old Tower")).unwrap();
@@ -1564,6 +1568,7 @@ fn zone_in(zone: &str, at: u64) -> Input {
         subzone: None,
         spot: None,
         hour: None,
+        taxi: None,
     }
 }
 
@@ -1602,6 +1607,7 @@ fn a_boss_defeated_does_a_defeat_step() {
     let boss = Input::NpcDefeated {
         at: Tick(20),
         name: "Edwin VanCleef".to_string(),
+        kind: None,
     };
     story.handle(boss).unwrap();
 

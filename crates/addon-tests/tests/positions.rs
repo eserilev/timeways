@@ -54,6 +54,7 @@ fn a_new_place_sends_where_the_player_stands() {
         subzone: Some("Brill".to_string()),
         spot: Some(spot(TIRISFAL, 500, 250)),
         hour: Some(14),
+        taxi: None,
     };
     assert_eq!(game.sent_inputs(), [expected]);
 }

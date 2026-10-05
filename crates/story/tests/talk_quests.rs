@@ -54,6 +54,7 @@ fn zone(at: u64, subzone: &str) -> Input {
         subzone: Some(subzone.to_string()),
         spot: None,
         hour: None,
+        taxi: None,
     }
 }
 

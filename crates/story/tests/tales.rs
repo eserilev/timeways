@@ -45,6 +45,7 @@ fn enter(story: &mut Story, at: u64, zone: &str, subzone: Option<&str>) {
         subzone: subzone.map(str::to_string),
         spot: None,
         hour: None,
+        taxi: None,
     };
     story.handle(input).unwrap();
 }
@@ -62,6 +63,7 @@ fn defeat(story: &mut Story, at: u64, name: &str) {
     let input = Input::NpcDefeated {
         at: Tick(at),
         name: name.to_string(),
+        kind: None,
     };
     story.handle(input).unwrap();
 }

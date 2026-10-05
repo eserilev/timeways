@@ -91,6 +91,7 @@ fn a_spot_off_the_map_counts_as_no_spot_and_the_visit_still_counts() {
         subzone: None,
         spot: None,
         hour: None,
+        taxi: None,
     };
     for input in inputs {
         assert_eq!(input, expected);

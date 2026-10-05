@@ -5,7 +5,7 @@ use hourglass::EntityType::{Faction, Person, Place, Thing};
 use hourglass::{Band, Count, Direction, EntityType, FactRules, FactVocabulary, Shape};
 
 /// A change to a declared name needs a new version and a migration (`hourglass::migrate`).
-pub const VERSION: u32 = 9;
+pub const VERSION: u32 = 10;
 
 pub const MET: &str = "met";
 /// You saw this NPC, by a hover or a target. Talking is meeting; seeing is not.
@@ -37,6 +37,16 @@ pub const MARKED_BY: &str = "marked_by";
 /// The quest that put the mark. The mark holds it.
 pub const MARK_OF: &str = "mark_of";
 pub const RAID: &str = "raid";
+/// A battleground of the game. The place holds it.
+pub const BATTLEGROUND: &str = "battleground";
+/// You won a battle in this battleground. Only the first win is kept.
+pub const BG_WON: &str = "bg_won";
+/// Your rank in battle against players: 0 for none. It only grows.
+pub const PVP_RANK: &str = "pvp_rank";
+/// You rest at an inn or in a city. Leaving it ends the fact.
+pub const RESTING: &str = "resting";
+/// The foe is a world boss: its kill weighs as a raid boss.
+pub const WORLD_BOSS: &str = "world_boss";
 pub const LEVEL: &str = "level";
 pub const SLAPPED: &str = "slapped";
 pub const TITLE: &str = "title";
@@ -69,6 +79,8 @@ pub const TRUST: Band = Band {
 };
 /// The levels of the game.
 pub const LEVELS: Band = Band { min: 1, max: 60 };
+/// The ranks in battle against players, with 0 for none.
+pub const PVP_RANKS: Band = Band { min: 0, max: 14 };
 /// The inventory slots of the game.
 pub const SLOT_NUMBERS: Band = Band { min: 1, max: 19 };
 /// The item qualities of Classic, from poor (0) to legendary (5).
@@ -104,6 +116,14 @@ pub fn vocabulary() -> FactVocabulary {
         .declare(MARKED_BY, linked(up_flag(), Person, &[Thing]))
         .declare(MARK_OF, linked(up_flag(), Thing, &[Thing]))
         .declare(RAID, FactRules::solo(up_flag()))
+        .declare(BATTLEGROUND, FactRules::solo(up_flag()))
+        .declare(BG_WON, linked(up_flag(), Person, &[Place]))
+        .declare(
+            PVP_RANK,
+            FactRules::solo(Shape::number(PVP_RANKS).moving(Direction::Up)),
+        )
+        .declare(RESTING, FactRules::solo(Shape::flag()))
+        .declare(WORLD_BOSS, FactRules::solo(up_flag()))
         .declare(
             LEVEL,
             FactRules::solo(Shape::number(LEVELS).moving(Direction::Up)),

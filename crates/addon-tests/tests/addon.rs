@@ -4,6 +4,7 @@ mod common;
 
 use common::Game;
 use hourglass::Tick;
+use timeways_story::character::Resting;
 use timeways_story::input::{Input, MessageId};
 use timeways_story::race_class::{Class, Race};
 
@@ -16,6 +17,7 @@ fn zone(zone: &str, subzone: Option<&str>) -> Input {
         subzone: subzone.map(str::to_string),
         spot: None,
         hour: Some(14),
+        taxi: None,
     }
 }
 
@@ -37,6 +39,10 @@ fn login_sends_the_race_the_level_and_the_zone_and_asks_for_the_journal() {
         },
         Input::LevelReached { at: NOW, level: 12 },
         zone("Elwynn Forest", Some("Goldshire")),
+        Input::RestChanged {
+            at: NOW,
+            resting: Resting::No,
+        },
         Input::JournalAsked {
             id: MessageId(1),
             page: 0,
@@ -326,9 +332,9 @@ fn every_registered_event_has_a_handler() {
          return count",
     );
 
-    // 30 of Timeways, 26 of player tasks, 2 of MSP, and the 2 screenshot events of the
+    // 33 of Timeways, 26 of player tasks, 2 of MSP, and the 2 screenshot events of the
     // shared Strip.lua.
-    assert_eq!(registered, 60);
+    assert_eq!(registered, 63);
 }
 
 #[test]

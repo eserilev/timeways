@@ -14,7 +14,7 @@ local NOTABLE = { rare = true, rareelite = true, worldboss = true }
 local SAME_KILL_SECONDS = 120
 
 -- Only in memory, and never sent: the names of players that you saw, the levels of NPCs,
--- and the rares and bosses by GUID.
+-- and the rares and bosses by GUID, each with its classification.
 local players, notable, levels = {}, {}, {}
 local lastKill = {}
 -- The creatures of the open kill steps of each task in progress, and the units of them that
@@ -48,8 +48,9 @@ function Foes.See(unit)
 	if hunted[name] and UnitCanAttack("player", unit) then
 		prey[guid] = name
 	end
-	if NOTABLE[UnitClassification(unit)] then
-		notable[guid] = name
+	local kind = UnitClassification(unit)
+	if NOTABLE[kind] then
+		notable[guid] = { name = name, kind = kind }
 	end
 end
 
@@ -61,13 +62,13 @@ function Foes.SeeMouseover()
 	Foes.See("mouseover")
 end
 
-local function Defeated(name)
+local function Defeated(name, kind)
 	local now = time()
 	if lastKill[name] and now - lastKill[name] < SAME_KILL_SECONDS then
 		return
 	end
 	lastKill[name] = now
-	ns.Outbox.Add(ns.Inputs.Defeated(now, name))
+	ns.Outbox.Add(ns.Inputs.Defeated(now, name, kind))
 end
 
 -- The creatures of the open kill steps (`QuestSteps`). A unit of a creature that no task
@@ -97,16 +98,16 @@ function Foes.PartyKill(_, targetGUID)
 		return
 	end
 	CountKill(targetGUID)
-	local name = notable[targetGUID]
-	if name then
+	local foe = notable[targetGUID]
+	if foe then
 		notable[targetGUID] = nil
-		Defeated(name)
+		Defeated(foe.name, foe.kind)
 	end
 end
 
 function Foes.EncounterEnd(_, name, _, _, success)
 	if success == 1 and Readable(name) and type(name) == "string" then
-		Defeated(name)
+		Defeated(name, "boss")
 	end
 end
 

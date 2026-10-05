@@ -1,7 +1,7 @@
 //! What kind of place a zone is: a plain zone, a dungeon, a raid, or a capital city
 //! (GAMEPLAY.md 3.3). The kind goes into the facts of a saga and the narrator line.
 
-use crate::vocabulary::{DUNGEON, RAID};
+use crate::vocabulary::{BATTLEGROUND, DUNGEON, RAID};
 use hourglass::{EntityId, World};
 use serde::{Deserialize, Serialize};
 
@@ -22,6 +22,8 @@ pub enum InstanceKind {
     Dungeon,
     #[serde(rename = "raid")]
     Raid,
+    #[serde(rename = "pvp")]
+    Battleground,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
@@ -31,6 +33,7 @@ pub enum PlaceKind {
     Zone,
     Dungeon,
     Raid,
+    Battleground,
     Capital,
 }
 
@@ -42,6 +45,7 @@ impl PlaceKind {
             PlaceKind::Zone => name.to_string(),
             PlaceKind::Dungeon => format!("{name} (a dungeon)"),
             PlaceKind::Raid => format!("{name} (a raid)"),
+            PlaceKind::Battleground => format!("{name} (a battleground)"),
             PlaceKind::Capital => format!("{name} (a capital city)"),
         }
     }
@@ -63,6 +67,9 @@ pub fn kind_of(world: &World, place: EntityId) -> PlaceKind {
     }
     if entity.fact(DUNGEON, None).is_some() {
         return PlaceKind::Dungeon;
+    }
+    if entity.fact(BATTLEGROUND, None).is_some() {
+        return PlaceKind::Battleground;
     }
     let is_zone = world.location_of(place).is_none();
     if is_zone && is_capital(&entity.name) {

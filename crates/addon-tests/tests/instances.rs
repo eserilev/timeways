@@ -1,5 +1,5 @@
-//! Dungeons and raids: the zone input, then a mark that the zone is an instance
-//! (GAMEPLAY.md 3.3 and 5.4).
+//! Dungeons, raids, and battlegrounds: the zone input, then a mark that the zone is an
+//! instance (GAMEPLAY.md 3.3 and 5.4), and the flag of a flight path.
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
@@ -7,7 +7,7 @@ mod common;
 
 use common::Game;
 use hourglass::Tick;
-use timeways_story::input::Input;
+use timeways_story::input::{Input, Taxi};
 use timeways_story::places::InstanceKind;
 
 const NOW: Tick = Tick(1_790_000_000);
@@ -28,6 +28,7 @@ fn zone(name: &str) -> Input {
         subzone: None,
         spot: None,
         hour: Some(14),
+        taxi: None,
     }
 }
 
@@ -64,12 +65,44 @@ fn a_raid_sends_its_kind() {
 }
 
 #[test]
-fn a_battleground_or_the_open_world_sends_only_the_zone() {
+fn a_battleground_sends_its_zone_and_then_its_kind() {
     let game = Game::new();
 
     let sent = enter(&game, "Warsong Gulch", "pvp");
+
+    let kind = Input::InstanceEntered {
+        at: NOW,
+        zone: "Warsong Gulch".to_string(),
+        kind: InstanceKind::Battleground,
+    };
+    assert_eq!(sent, [zone("Warsong Gulch"), kind]);
+}
+
+#[test]
+fn an_arena_or_the_open_world_sends_only_the_zone() {
+    let game = Game::new();
+
+    let sent = enter(&game, "Nagrand Arena", "arena");
     let more = enter(&game, "Westfall", "none");
 
-    assert_eq!(sent[..1], [zone("Warsong Gulch")]);
-    assert_eq!(more, [zone("Warsong Gulch"), zone("Westfall")]);
+    assert_eq!(sent[..1], [zone("Nagrand Arena")]);
+    assert_eq!(more, [zone("Nagrand Arena"), zone("Westfall")]);
+}
+
+#[test]
+fn a_flight_path_marks_the_zone_as_seen_from_the_air() {
+    let game = Game::new();
+    game.run("wow.taxi = true");
+
+    let sent = enter(&game, "Duskwood", "none");
+
+    let flown = Input::ZoneEntered {
+        at: NOW,
+        zone: "Duskwood".to_string(),
+        subzone: None,
+        spot: None,
+        hour: Some(14),
+        taxi: Some(Taxi::Yes),
+    };
+    assert_eq!(sent, [flown]);
 }

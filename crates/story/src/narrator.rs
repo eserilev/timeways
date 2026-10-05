@@ -271,6 +271,12 @@ pub fn what_happened(moment: &Moment) -> String {
             zone,
             kind: InstanceKind::Raid,
         } => format!("The player entered the raid {zone}. They had never been inside before."),
+        Moment::FirstInstance {
+            zone,
+            kind: InstanceKind::Battleground,
+        } => format!(
+            "The player entered the battleground {zone}. They had never fought there before."
+        ),
         Moment::QuestMarked { mark, quest } => {
             format!(
                 "During the quest \"{quest}\", a lasting effect came on the player: \"{mark}\"."

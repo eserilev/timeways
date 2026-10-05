@@ -13,6 +13,7 @@ use crate::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use crate::spot::{Spot, spot_of};
 use crate::stories::PlayerStory;
 use crate::story::why::TrustWhy;
+use crate::vocabulary::{BG_WON, PVP_RANK};
 use crate::vocabulary::{
     CLASS_QUEST, DEATHS, DEFEATED, FIRST_EPIC_ITEM, FIRST_EPIC_MOUNT, FIRST_MOUNT, GAME_QUEST_DONE,
     LEVEL, MARK_OF, MARKED_BY, MET, QUEST_DONE, SLAPPED, TITLE, TRUSTS, UPGRADED, VISITED,
@@ -256,6 +257,18 @@ pub enum Deed {
     /// An item far better than what its slot held.
     Upgraded {
         item: String,
+        at: Tick,
+        place: Option<String>,
+    },
+    /// The first win in a battleground.
+    WonBattle {
+        battleground: String,
+        at: Tick,
+        place: Option<String>,
+    },
+    /// A new rank in battle against players.
+    PvpRank {
+        rank: i64,
         at: Tick,
         place: Option<String>,
     },
@@ -708,6 +721,8 @@ impl Deed {
             | Deed::Mounted { at, .. }
             | Deed::EpicItem { at, .. }
             | Deed::Upgraded { at, .. }
+            | Deed::WonBattle { at, .. }
+            | Deed::PvpRank { at, .. }
             | Deed::Died { at, .. } => *at,
         }
     }
@@ -770,28 +785,13 @@ pub(crate) fn deeds_with_events(world: &World, you: EntityId) -> Vec<DeedRow> {
             } if *entity == you && name == LOCATED_IN => {
                 here = *linked_to;
             }
-            EventKind::FactStart {
-                entity,
-                name,
-                value: Some(to),
-                ..
-            } if *entity == you && name == LEVEL => {
-                deeds.push(row(
-                    level_deed(world, None, *to, event.tick, here),
-                    vec![event.id],
-                ));
-            }
-            EventKind::FactUpdate {
-                entity,
-                name,
-                from,
-                to,
-                ..
-            } if *entity == you && name == LEVEL => {
-                deeds.push(row(
-                    level_deed(world, Some(*from), *to, event.tick, here),
-                    vec![event.id],
-                ));
+            EventKind::FactStart { entity, name, .. }
+            | EventKind::FactUpdate { entity, name, .. }
+                if *entity == you && name == LEVEL =>
+            {
+                let level = level_change(&event.kind);
+                let deed = level.map(|(from, to)| level_deed(world, from, to, event.tick, here));
+                deeds.extend(deed.map(|deed| row(deed, vec![event.id])));
             }
             EventKind::FactStart {
                 entity,
@@ -842,6 +842,14 @@ pub(crate) fn deeds_with_events(world: &World, you: EntityId) -> Vec<DeedRow> {
             }
             EventKind::FactStart { entity, name, .. }
             | EventKind::FactUpdate { entity, name, .. }
+                if *entity == you && (name == BG_WON || name == PVP_RANK) =>
+            {
+                let place = here.map(|place| name_of(world, place));
+                let deed = battle_deed(world, &event.kind, event.tick, place);
+                deeds.extend(deed.map(|deed| row(deed, vec![event.id])));
+            }
+            EventKind::FactStart { entity, name, .. }
+            | EventKind::FactUpdate { entity, name, .. }
                 if *entity == you && name == DEATHS =>
             {
                 let place = here.map(|place| name_of(world, place));
@@ -851,6 +859,39 @@ pub(crate) fn deeds_with_events(world: &World, you: EntityId) -> Vec<DeedRow> {
         }
     }
     deeds
+}
+
+/// The level before and after a change of level. The first level that the world saw has no
+/// level before it.
+fn level_change(kind: &EventKind) -> Option<(Option<i64>, i64)> {
+    match kind {
+        EventKind::FactStart {
+            value: Some(to), ..
+        } => Some((None, *to)),
+        EventKind::FactUpdate { from, to, .. } => Some((Some(*from), *to)),
+        _ => None,
+    }
+}
+
+/// The first win in a battleground, or a new rank. The rank that the world first knew is
+/// no deed: it came at a login.
+fn battle_deed(world: &World, kind: &EventKind, at: Tick, place: Option<String>) -> Option<Deed> {
+    match kind {
+        EventKind::FactStart {
+            linked_to: Some(battleground),
+            ..
+        } => Some(Deed::WonBattle {
+            battleground: name_of(world, *battleground),
+            at,
+            place,
+        }),
+        EventKind::FactUpdate { to, .. } => Some(Deed::PvpRank {
+            rank: *to,
+            at,
+            place,
+        }),
+        _ => None,
+    }
 }
 
 /// A death holds the kill of its killer, when the world knows one.

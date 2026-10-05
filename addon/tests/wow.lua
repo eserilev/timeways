@@ -44,6 +44,40 @@ end
 -- "none" outside, or "party", "raid", "pvp", "arena".
 wow.instance = "none"
 
+-- On a flight path.
+wow.taxi = false
+
+function UnitOnTaxi(unit)
+	return unit == "player" and wow.taxi
+end
+
+-- At an inn or in a city.
+wow.resting = false
+
+function IsResting()
+	return wow.resting
+end
+
+-- 0 for the Horde and 1 for the Alliance once a battleground ends, nil while it runs.
+wow.battlefieldWinner = nil
+
+function GetBattlefieldWinner()
+	return wow.battlefieldWinner
+end
+
+-- The renown of each major faction. Faction 2800 is the PvP rank.
+wow.renown = {}
+
+C_MajorFactions = {
+	GetMajorFactionProgressionInfo = function(faction)
+		local level = wow.renown[faction]
+		if level == nil then
+			return nil
+		end
+		return { renownLevel = level, renownReputationEarned = 0, renownLevelThreshold = 1 }
+	end,
+}
+
 function IsInInstance()
 	return wow.instance ~= "none", wow.instance
 end

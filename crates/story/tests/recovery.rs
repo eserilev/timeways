@@ -129,6 +129,7 @@ fn enter(story: &mut Story, at: u64, zone: &str, subzone: Option<&str>) {
             subzone: subzone.map(str::to_string),
             spot: None,
             hour: None,
+            taxi: None,
         },
     );
 }
