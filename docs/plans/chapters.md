@@ -235,44 +235,73 @@ Each open-world zone page in the atlas gets "Your history here": one narrated pa
 
 ## 11. Player edits
 
-It is the player's story. A player can change what a chapter or a tale **says**, never which events it holds.
+It is the player's story. A player can change what a chapter, a tale, or the summary **says**, never which events it holds.
 
 **What a player can do:**
 
-- **Edit the text** of a chapter or a tale: rewrite the narrator's text, or replace it.
+- **Edit** the text of a chapter or a tale: add paragraphs after the narrator's text, or rewrite it.
 - **Rename** a chapter or a tale.
-- **Add paragraphs** to any chapter, past or open.
-- **Restore** the narrator's text with one button.
+- **Edit the summary** on the title page. It is one paragraph, because it can go out as the History of the Roleplay Profile.
+- **Restore** the narrator's text and title.
 
-**What stays fixed:** the range of events, the weight, and the "In this chapter" list. These are what the game saw. The proofs of section 8 and the atlas depend on them.
+**What stays fixed:** the range of events, the weight, the count of runs, and the "In this chapter" list. The game saw them. The proofs of section 8 and the atlas depend on them.
 
-**How it works:**
+**The row.** An edit is a new row of `entry_edits`, never a change of an old row: `{entry, title, text, at}`.
 
-- An edit is a new row, never a change of an old row. A row table `chapter_edits` holds `{entry, after: EventId, title, paragraphs, at}`. The `entry` is a chapter or a tale, by its first `EventId`. The newest row of an entry stands. A row with no title and no paragraphs is a restore.
-- Edited text is the player's text. In the proof graph its root is `Player`, as a hero answer.
-- An edit makes no model call.
-- The limits are the limits of a story (`docs/plans/hero-stories.md`): a title of 60 letters, and at most 20 paragraphs and 1200 bytes. Player names go through the alias table first.
-- A saga that comes after an edit never overwrites it. The newest row stands: a player row over a model row.
+- `entry` is `Chapter(EventId)`, `Tale(EventId)`, or `Summary`, with the first `EventId` of the chapter or the tale. The kind is part of the key, because a chapter and a tale can start at one event.
+- `title` is the player's title, or none for the title of the code.
+- `text` is one of three:
+  - `Keep(paragraphs)`: the narrator's text stays, and the player's paragraphs follow it.
+  - `Replace(paragraphs)`: the player's paragraphs stand in place of the narrator's text.
+  - `Narrator`: the narrator's text alone.
+- **Restore** is a row with no title and `Narrator`.
+- The newest row of an entry, by row id, stands. A row equal to the standing one is not written.
+
+**The editor.** One Edit button opens one box with the title and the shown text. On Save, the addon sends `Keep` when the box starts with the narrator's paragraphs unchanged, with only the paragraphs after them. Else it sends `Replace`. An entry with no narrator text yet, such as the open chapter or a chapter whose saga still waits, always gives `Keep`. So the saga that comes later shows above the player's paragraphs.
+
+**What the narrator text is.** The newest model text of the entry: the saga of a chapter, the newest text of a tale, or the newest summary. With none, the page shows the plain list.
+
+**Limits.** The rules of a story (`hero-stories.md` 3.1): a title of 60 letters and 72 bytes; 1 to 20 paragraphs of the player, with no control character and no `|`, and at most 1000 letters and 1200 bytes together. The narrator's text does not count. A summary has no title and takes only `Replace` with 1 paragraph: the limit of Background, so it can stand as the History.
+
+**The line.** `entry_edited`, with no reply, as a hero edit:
+
+```json
+{"type":"entry_edited","at":1790000000,"entry":{"kind":"chapter","first":4211},"title":"The Long Night","text":"keep","paragraphs":["..."]}
+```
+
+- `text` is `"keep"`, `"replace"`, or `"narrator"`. With `"narrator"`, `paragraphs` is empty.
+- An `EventId` stays below 2^53, so Lua reads it exactly.
+- The addon marks player names as in a story (5.11): `{Name}`, and `$N` for your own name. The story program swaps them to IDs before it writes the row (`aliases::with_ids`). So the row holds no known name.
+- The longest line without names is about 2650 bytes, under the strip room of about 2730. Marks add 2 bytes for each name. So `Outbox.Fits` gates Save. A text that does not fit stays in the box with "Too long to save. Shorten it a little."
+- The line goes out with a journal request. The page shows "Saving..." until the journal comes. A refused edit leaves its reason for the next journal, as a hero edit does.
+- The edit is no event. It writes its input and its row, and nothing in the history. So the walk never sees it.
+
+**Proof.** An edit rests on its input: the root is `Player`. A call that reads an edit rests on `Player` too.
 
 **What the narrator does with an edit:**
 
-- The prompts of the next saga, the summary, the zone history, and a tale read the edited text as "the player's telling, not canon", fenced as player text.
-- The narrator never contradicts the edit and never copies it back as its own.
-- The deeds of the chapter stay the facts of the prompt. The edit adds a telling. It never adds a fact.
+- **Who reads it.** A saga reads the standing edit of its own chapter. A tale text reads the edit of its tale. The summary reads the edits of the chapters in its prompt. The zone history reads no edit. Each call adds the edit rows to its reads (5.14).
+- **How.** The prompt holds the player's paragraphs and title under "The player's telling, not canon", fenced with `house::fenced` as all outside text, and cut to the first 600 characters. Its rule: tell the deeds of the facts, do not repeat the telling, and do not contradict it.
+- **The facts stay the facts.** The deeds come from the chapter. An edit adds no fact, and the narrator's own text before is the text of the model, never the edit.
+- **Checks.** A model text that holds 8 words in a row of an edit in its prompt is refused, as for a saga. An edit gives no allowed word to the check of the cutoff (3.7). So a later name in an edit never reaches a model text.
+- An edit makes no model call. The narrator keeps writing under `Replace`, so Restore shows its newest text. That changes no bound of section 7.
 
-**In the journal:** each chapter and tale page gets Edit and, when edited, Restore. The box edits in place, as the Hero cards do. An edited entry shows a small "Edited" mark in the contents.
+**In the journal:** each edit is its own item, as a story is. `journal::pages` puts it on any page with room. So a full chapter and a full edit never have to share one page. The chapter page shows Edit, and Restore when edited. Restore asks first: "Restore the narrator's version? Yours is removed." The contents list shows the player's title and a small "Edited".
 
-**Sharing:** when the player shares the Chronicle summary as the History of the Roleplay Profile (later, `hero-stories.md`), an edited summary goes as the player wrote it.
+**Sharing:** an edited summary goes out as the History of the Roleplay Profile as the player wrote it, with the real names of the alias table. The player saw each name before Save. A summary that the player did not edit shows each other player as their card (5.11, rule 8).
 
-**Proofs** (section 8 gets these):
+**Rule epochs.** A rule step closes the open chapter and keeps its first `EventId` (section 13), and a `from` is never before the newest event. So the key of an edit always names a chapter or a tale. An edit whose key names none stays in the table and shows nowhere.
+
+**Growth.** The addon keeps no edit: the outbox is in memory, and the journal brings the edits back. A row is at most about 1.4 KB, and a no-op edit writes none. So 10,000 saves are about 14 MB. Old rows stay, as hero rows do.
+
+**Proofs** (section 8 gets these). `shown(narrator_rows, edit_rows)` is a small pure function in `crates/rules`. It works over row ids and the three kinds of `text`, never over strings, so Aeneas extracts it.
 
 | # | Theorem | In plain words |
 |---|---|---|
-| 20 | `an_edit_never_moves_a_chapter` | No edit row changes the range, the weight, or the gains of any chapter, visit, or tale. The fold never reads `chapter_edits`. |
-| 21 | `the_newest_edit_stands` | The text shown for an entry is the text of its newest edit row, or else the narrator's newest text. A restore shows the narrator's text again. |
-| 22 | `an_edit_is_never_lost` | A model text that arrives after an edit never replaces it. |
+| 20 | `the_newest_edit_decides` | `shown` of the whole lists equals `shown` of only the newest row of each. After a restore, the shown text is the newest narrator text, also one that came after the edit. |
+| 21 | `a_model_text_never_hides_player_words` | A new narrator row never changes the shown title, never removes the shown player paragraphs, and changes nothing under `Replace`. |
 
-Theorem 20 is a property of the code structure: `crates/rules` has no input for edits. A property test checks it on the real story program. Theorems 21 and 22 are a small pure function in `crates/rules`, `shown_text(narrator_rows, edit_rows)`, extracted and proved in Lean.
+**Edits never move an entry.** This is no Lean theorem: the fold has no input for an edit, and an edit is no event. The property test `edits_never_move_an_entry` runs the same plays with and without random edits, and compares every range, gain, visit, and count of runs.
 
 ## 12. Tests
 
@@ -282,14 +311,15 @@ Theorem 20 is a property of the code structure: `crates/rules` has no input for 
   - 100 deaths to one mob weigh at most 3;
   - folding one line at a time gives the same entries as folding the whole log;
   - the walk gives dense ids, and the steps of a prefix are a prefix of the steps.
-- **Edits:** `an_edit_keeps_the_chapter_list`, `restore_shows_the_narrator_text`, `a_saga_after_an_edit_does_not_replace_it`, and a property test that any edits leave every chapter range as it was.
-- **Fuzz:** seeds for each new line, the `chapter_edits` rows, the edit line from the addon, the `tales` and `zone_histories` rows, and the model answers of a tale and a zone history.
+- **Edits:** `an_edit_keeps_the_chapter_list`, `restore_shows_the_newest_narrator_text`, `a_saga_after_a_replace_does_not_show`, `a_saga_after_a_note_on_the_open_chapter_shows_above_it`, `a_tale_rewrite_keeps_the_players_paragraphs`, `an_edit_that_does_not_fit_the_strip_stays_in_the_box`, `a_model_text_that_copies_an_edit_is_refused`, `a_later_name_in_an_edit_is_not_allowed_in_a_saga`, and `the_largest_chapter_and_its_largest_edit_fit_the_journal`.
+- **Edit properties:** `edits_never_move_an_entry` (section 11). `no_prompt_holds_a_known_player_name` gets a new play: an edit of marked words, as `StoryAccept` has. Without it, the test never sees an edit.
+- **Fuzz:** seeds for each new line, the `entry_edits` rows, the `entry_edited` line, the `tales` and `zone_histories` rows, and the model answers of a tale and a zone history.
 
 ## 13. Migration
 
 A new rule, or new values of MIN and MAX, re-cut the log. That orphans old sagas.
 
-**Rule epochs fix it.** A row table `chapter_rules` holds `{rule, from: EventId}` for each change. The walk puts a `Rule` step at each `from`. The fold keeps its whole state across the step: seen keys, foe records, settled zones, tales, and visits. Only the open chapter closes, even below MIN. Theorems 6 and 7 name this exception. Old chapters and their sagas never move.
+**Rule epochs fix it.** A row table `chapter_rules` holds `{rule, from: EventId}` for each change. The walk puts a `Rule` step at each `from`. The fold keeps its whole state across the step: seen keys, foe records, settled zones, tales, and visits. Only the open chapter closes, even below MIN. Theorems 6 and 7 name this exception. A `from` is the next event after the change, never an older one, so the key of an edit or a saga never loses its entry. Old chapters and their sagas never move.
 
 Nothing is live, so no world needs a migration before the first release (5.7). After it, each change needs one:
 
@@ -299,7 +329,7 @@ Nothing is live, so no world needs a migration before the first release (5.7). A
 | `summaries.after` becomes an `EventId` | The same map. |
 | New tables `chapter_rules`, `tales`, `zone_histories` | Create them. `chapter_rules` gets `{rule: 1, from: 0}`. A `tales` row is `{instance, visit: EventId, text}`. |
 | Old instance visits get tales | The fold finds them. They show the plain list. Only a visit that closes after the upgrade calls a model, so no backlog of calls. |
-| New table `chapter_edits` | Create it, empty. |
+| New table `entry_edits` | Create it, empty. |
 | New facts `resting`, `battleground` | A vocabulary version. No old event changes. |
 | New fields `taxi`, `kind` on old lines | None. Both are optional. |
 
@@ -313,7 +343,7 @@ Nothing is live, so no world needs a migration before the first release (5.7). A
 6. Property tests and fuzz seeds.
 7. Tale texts and the zone history.
 8. The new events: battleground entry, win, and rank first, then rest, taxi, and the kind of a kill.
-9. Player edits: `chapter_edits`, `shown_text` and its proofs, the edit line, the prompts, and Edit and Restore in the addon.
+9. Player edits: `entry_edits`, `shown` and its proofs, the `entry_edited` line, the prompts and their checks, and Edit and Restore in the addon.
 
 ## 15. Open questions
 
@@ -331,6 +361,10 @@ Proposed answers wait for the user.
 | Does a level up count for the chapter, also inside an instance? | Yes. |
 | One call for a tale text, with no second draft? | Yes. A tale can change many times. |
 | Does an edited summary go to the shared History? | Yes (user, 2026-10-05). |
+| Can a player edit the zone history too? | Later, with the same rows and `entry` `Zone(zone)`. |
+| Undo after Restore? | Not now. The old rows stay, so an Undo can come later. |
+| Cap the edit rows of one entry? | No. A row is small, and hero rows have no cap either. |
+| Does an edited summary share other players by their real names? | Yes: the player saw each name before Save (section 11). |
 
 ## 16. Review notes
 
@@ -346,3 +380,16 @@ Proposed answers wait for the user.
 - **Gaps filled:** tale text and its calls, its page size, migration of old visits, world bosses, levels inside instances, revenge across tracks, PvP deaths, and arenas.
 - **Restored from the long draft:** the subzone stay rule, keys as `EventId`, the title order, the first-level rule, `Reachable`, and the cap of 20 tally lines.
 - **The saga count of deaths** comes from the world. The fold counts only to 2.
+
+### 16.1 Review of player edits
+
+- **"Add paragraphs" froze the narrator.** A note on the open chapter was the newest row, so the saga that came at its close never showed, and each tale rewrite hid too. Now `Keep` puts the player's paragraphs after the newest narrator text, and only `Replace` stands in its place.
+- **Theorem 20 was no Lean theorem.** "The fold never reads edits" is a fact of its input type. It is now a property test, and the edit is no event, so the walk cannot see it.
+- **`shown_text` over strings** does not extract well with Aeneas. `shown` now works over row ids and the kind of `text`. Theorem 21 says which narrator text shows after a restore: the newest, also one that came after the edit.
+- **The key of an entry** was a bare `EventId`. A chapter and a tale can start at one event, and the summary has none. `entry` is now tagged.
+- **The summary edit was not in the list,** but the sharing rule needed it. It is now one paragraph with `Replace` only, to fit History.
+- **The limits** left out 1000 letters and 72 title bytes. They now name the story rules.
+- **Names.** The addon marks names as in a story, and the story program stores IDs. The property test of known names gets an edit play.
+- **Prompts.** The edit goes through `house::fenced` and a cut of 600 characters. A model text that copies 8 words of an edit is refused. An edit gives no allowed word to the cutoff check.
+- **The wire.** The line has a shape, fits the strip without names, and `Outbox.Fits` gates Save. Each edit is its own journal item, so the largest chapter still fits a page.
+- **Gaps closed:** the reads of each call, the proof root, rule epochs, Restore asks first, no-op rows, and growth. The row `after` is gone: nothing read it.
