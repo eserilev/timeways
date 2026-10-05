@@ -78,10 +78,18 @@ Most lore comes from play. You learn what your character read or heard: quests, 
 
 ### 3.2 The narrator
 
-No invented companion rides along. A narrator tells the big moments as they happen, in one short line about "our hero". The same narrator writes each finished chapter of the chronicle (3.3). There is no other storyteller, and no bard.
+No invented companion rides along. A narrator tells the big moments as they happen, in one short line. The line ties the moment to the history of its place, its foe, or its people, and then tells the deed. The same narrator writes each finished chapter of the chronicle (3.3). There is no other storyteller, and no bard.
 
-**Who it is.** The narrator is a keeper of time, and nobody knows more than that. It never names itself or what it serves. It has seen how things end, and it never tells the future: that is the spoiler rule. Its voice is serious, concrete, and sparing, with a dry edge at most. It makes no jokes and no silly lines.
+**Who it is.** The narrator is a keeper of time, and nobody knows more than that. It never names itself or what it serves. It has seen how things end, and it never tells the future: that is the spoiler rule. It is a chronicler: it knows the history of Azeroth, its kingdoms, its wars, and its peoples. Its voice is serious, concrete, and sparing, with a dry edge at most. It makes no jokes and no silly lines.
 
+**What a line sounds like.** The player approved these lines as the voice (October 2026). `$N` is the name of the character (5.11):
+
+- "Deathknell has buried its dead twice. $N was one of the ones who climbed back out."
+- "Hogger raided Elwynn's farms for years, and Stormwind's guards never stopped him. The paladin did."
+- "Stormwind never paid the men who rebuilt it. In Westfall, their sons wear red masks, and $N has met them."
+- "The murlocs of the coast have no kingdom and no history. They have now killed $N three times."
+
+The player rejected two kinds of line as slop. Mood with no facts: "Level six came on a grey morning. Our hero moved on without rest." A ledger of facts: the zone, the level, and the count of mobs and quests, with no history.
 
 - It reacts to big moments. The story program finds them in the events that each batch adds to the world. From the highest rank down (`moments.rs`):
   - a finished class quest (5.4),
@@ -89,14 +97,16 @@ No invented companion rides along. A narrator tells the big moments as they happ
   - the first kill of a rare or a boss (the echo of a later kill is not a big moment), or the first entry into a dungeon or a raid (3.3),
   - a second or later death to the same NPC: "The third death to the same murloc.",
   - a slap of an NPC, which it remembers (5.4.1), or a lasting buff or debuff of a quest (5.4),
-  - a level up, or the first visit of a capital city (3.3),
+  - a milestone level (10, 20, 30, and so on), with the zone where it came, or the first visit of a capital city (3.3),
   - the first visit of a zone.
+- **Silence over slop** (built). A moment needs something concrete to tell: a named place, foe, person, quest, or title, or a milestone. A plain level up has nothing to tell, so it is no moment, and the player sees no line. Only every tenth level speaks. The model can also answer `SILENCE` when the moment and its lore give it nothing true to tell. Silence gets no retry.
 - It speaks at most once for each batch, about the best moment. The moments on one line of the list have the same rank. Of two moments of one rank, the later one wins, because it holds the newer count. A flavor moment (5.4.1) speaks only when no big moment does.
+- **The lore of a moment** (built). Each moment gets one short passage about its place, its foe, its person, or its quest (`narrator_lore.rs`). The search is the search of `/lore` (5.10): the text that the player read comes first, then the lore pack. The spoiler limit and the lore cutoff hold, as for `/lore`. A passage that links to the subject wins, then a passage that names it. The prompt keeps at most 400 characters of it, cut after a sentence, between fence marks. With no passage, the prompt says "The lore: none", and the line uses the facts of the moment alone. A joke title and a flavor moment get no lore.
 - **The narrator stays quiet while a saga is written** (3.3). The bridge runs at most 2 model calls of the story program at once, so a question of the player always gets a call. The moments of the batch wait for the next batch.
 - A batch that ends with a question gets no `batch_end` (5.5), so its moments wait for the next batch.
 - It stays quiet while a saga is written, and when both model slots of the bridge are taken, so the player keeps a slot.
 - It has a budget: at most 3 lines in one hour of game time. The budget lives in memory, so a restart of the story program starts it again. That costs at most 3 more lines once.
-- A model writes each line through the bridge, with no tools. The line must be plain text, at most 300 characters, and hold no name from after the cutoff (5.9), except a name that the player wrote first (3.7). It holds no number that its moment lacks: a small model invents dates and counts, and the narrator tells only facts. A line that breaks a rule gets no retry, and the player sees nothing.
+- A model writes each line through the bridge, with no tools. The checks of a line are in 3.2.1. A line that fails them gets one retry with the reasons, when a model slot is free. A second failure is silence, and so is a failed call.
 - It remembers your history across sessions, because the world does.
 - It speaks in the chat window now. A window of its own, and a voice (Gnomish Relay SPEC 13.3), come later.
 
@@ -105,22 +115,54 @@ No invented companion rides along. A narrator tells the big moments as they happ
 The prompts of the narrator, the chronicle, a talk, and a quest share one plan (built):
 
 - **House rules** are the same for every call: the format, the lore cutoff (5.9), safety, and the rule that the input is data. The input goes between fence marks. The code removes each fence mark from the input text first, so an input cannot close its fence. A hidden mark goes too: the code drops invisible characters, and it removes each run of 3 angles of one direction, also wide or look-alike angles such as `＞` and `›`, with only spaces between them. Names from the game are input too: the name and the place of an NPC in a persona, and the places and the target of a `/lore` question, go between fence marks.
-- **The persona goes first.** The persona of the narrator is a short text in `crates/story/data/narrator.txt`: its manner, what it does and never does, and the spoiler rule. It holds no lore.
+- **The persona goes first.** The persona of the narrator is a short text in `crates/story/data/narrator.txt`: its manner, what it does and never does, and the spoiler rule. It says that the narrator knows the history of Azeroth, and that each deed ties to the history of its place, foe, or people. It holds no lore itself: the lore comes with each moment.
+- **The parts of a narrator prompt**, in order: the persona, the house rules, the task (one or two sentences, at most 30 words: the history first, then the deed), the samples, the moment, the race and the class of the hero, the lore, how to name the hero, and the author's note.
+- **How a line names the hero** (built). A line never says "our hero". The code picks the naming of each line in turn, from the number of the call, so the lines mix:
+  - the name: the model writes `$N`, and the addon puts the name of the character there, on the player's screen only. No model ever sees the name (5.11);
+  - the race or the class: "the Forsaken", "the night elf", "the paladin";
+  - no name at all;
+  - now and then an earned title (5.4.1), the newest one.
+  - Each 8 lines hold 3 names, 2 races or classes, 2 lines with no name, and 1 title. A hero with no title, or with no race or class yet, gets the name in their place. A line names the hero at most once.
+- **The race and the class** come from the addon at each login (`character_described`, 5.4), and stay in the world as facts (5.1). The prompt says "The hero: a Forsaken warlock". A world from before this line has none, and the prompt leaves the line out.
 - **An NPC never gets the persona of the narrator.** It gets a short persona of its own from the facts: its name, its place, and its trust in you as words ("You are wary of the player"), never as a number.
-- **Golden samples.** Each prompt of the narrator or of a talk carries 2 or 3 short samples of the voice, in turn: 5 for a narrator line, 5 for a chapter, and 3 for an NPC reply. The samples are data in `crates/story/data/samples/`. A test checks that each sample passes each check.
+- **Golden samples.** Each prompt of the narrator, a chapter, or a talk carries 2 or 3 short samples of the voice, in turn: 20 for a narrator line, 5 for a chapter, and 3 for an NPC reply. The samples are data in `crates/story/data/samples/`. A test checks that each sample passes each check.
+  - **A narrator sample is a pair.** It shows the moment, the race and class of its hero, its lore, how to name the hero, and then the line. So a model learns how a line uses the lore and the facts, and how it follows the naming. A sample of the same moment as the prompt is left out, because a model copies the line of a moment that it sees twice.
+  - **Samples name real places and people of 25 ADP.** This reverses an older rule, which kept every real name out of the samples. A sample with no names taught the model mood with no facts. Now the copy check stops a copied run of words, and the log of names in no fact shows a name that the moment does not hold. Every sample stays within the lore cutoff (5.9): nothing from Molten Core or later.
+  - The narrator samples cover both factions, many zones, foes, and races, and many sentence shapes.
 - **The author's note goes last:** 2 or 3 lines on the tone and the format, because a model follows the end of a prompt best.
-- **The checks** refuse an emoji, modern slang, a stock phrase such as "the sands of time" or an hourglass, and a copy of a long phrase of a sample. The banned words are data in `crates/story/data/banned_words.txt`. No banned word is a word that the facts use, such as "level".
+- **The checks of every voice** refuse an emoji, modern slang, a stock phrase such as "the sands of time" or an hourglass, and a copy of 8 words in a row of a sample. The banned words are data in `crates/story/data/banned_words.txt`. No banned word is a word that the facts use, such as "level".
+- **The checks of a narrator line** (built, `line_check.rs`). Each fault has a reason in words, and the reasons go to the one retry:
+  - the line is one line of at most 300 characters, with no control character;
+  - no name from after the cutoff (5.9), except a name that the player wrote first (3.7);
+  - no emoji, and no banned word;
+  - **no slop:** the words of `crates/story/data/slop_words.txt`. They are "our hero", empty endings ("moved on", "did not stop"), scene detail that no fact holds ("dusk", "mist", "smelled of", "for a long moment"), aphorisms ("some lessons"), and grand words ("journey", "destiny", "legendary"). A slop word that the moment or its lore holds is allowed, so a name such as "Shadow Hold" still passes;
+  - **no copy:** no run of 4 words in a row of any sample. A run that the moment or its lore holds itself is allowed;
+  - no number that the moment and its lore lack: a small model invents dates and counts;
+  - **grounded:** the line names something of the moment or of its lore. A word of the line counts when it starts with a name word of 4 letters or more ("murlocs" for "Murloc Coastrunner"), or with a number of the moment;
+  - no bracket, so no "[name]" or "{name}";
+  - at most one `$N`.
+- **The checks of a saga** also refuse slop, with the facts of the chapter in place of the moment. A footnote with slop is dropped alone. The saga gets no retry: its second draft is its second chance (3.3).
 - **Names in no fact.** The code logs each proper name of an answer that its prompt does not hold. It refuses nothing yet.
-- **The size.** Each prompt fits a local model with a context of 2048 tokens, with room for the longest reply. A test measures the prompts of fixed test moments, at about 4 characters for each token. The tests include the longest prompts: full lists of a quest offer and its retry, a full hero sheet in a chapter, and a talk with every part at full length. A part of open length (the names of a quest offer, the passages of a talk) keeps only as much as fits.
-- **The voice regression set.** Fixed test moments: a first dungeon, a world boss, a death, a level milestone, a new capital, a finished side quest, a quiet chapter, and an NPC talk. A live test, ignored by default, sends them to a real model through the same prompt code. It writes the answers to a file for review. It also runs the best of two (3.3) for the side quest chapter: two drafts and the judge. It runs the model as the bridge does: `claude -p` with no tools, no MCP servers, and no settings.
+- **The size.** Each prompt fits a local model with a context of 2048 tokens, with room for the longest reply. A test measures the prompts of fixed test moments, at about 4 characters for each token. The tests include the longest prompts: full lists of a quest offer and its retry, a full hero sheet in a chapter, a talk with every part at full length, and a narrator line with the longest names, a full lore passage, the longest samples of any turn, and its retry. A part of open length (the names of a quest offer, the passages of a talk) keeps only as much as fits.
+- **The voice regression set.** Fixed test moments: a first dungeon, a world boss, a death, a level milestone, a new capital, a new zone, a finished class quest, a quest mark, a finished side quest, a quiet chapter, and an NPC talk. Most narrator moments carry a lore passage. A live test, ignored by default, sends them to a real model through the same prompt code. It writes the answers to a file for review. It also runs the best of two (3.3) for the side quest chapter: two drafts and the judge. It runs the model as the bridge does: `claude -p` with no tools, no MCP servers, and no settings.
+- **The review tool** (built). `timeways-narrator-review` prints the narrator prompt of each big moment of a real world, so a person can review the lines in batches. It reads a copy of the world file, never the file itself, and each moment gets the world, the lore, and the read text of its own time. The story program itself never calls a network. The command:
+
+  ```sh
+  cargo run -p timeways-story --bin timeways-narrator-review -- \
+    ~/.local/share/gnomish-relay/timeways/story/worlds/r_<realm>/c_<name>.sqlite \
+    --pack ~/.local/share/timeways/lore.sqlite --race Scourge --class WARLOCK
+  ```
+
+  `--race` and `--class` take the tokens of the game, for a world from before the addon sent them. With `--claude`, the tool also sends each prompt to Claude Code (`claude -p` with no tools), and prints the answer, the reasons of a refusal, the retry, and the line that the player sees. `--model "<shell command>"` does the same with any command that reads a prompt on stdin.
 - **What the live runs found** (Claude, September 2026, four runs):
-  - A chapter said "our hero" in almost every sentence. The note of a chapter now asks for "our hero" at most twice, and each chapter sample holds it at most twice.
+  - A chapter said "our hero" in almost every sentence. The note of a chapter then asked for it at most twice. Since October 2026, no prompt says "our hero", and the checks of a line and a saga refuse it.
   - A chapter listed the facts in order ("There was a task, and our hero finished it."). A quiet chapter padded itself out ("Nothing more of this chapter is known."). The note now asks for a story, not a list, and for two or three sentences when the facts are few.
   - A model copied the aphorism of a sample ("Some days are only a road" became "Some chapters are only a road"). That sample lost its aphorism, and the first sample lost "Nothing else of note happened".
   - Each footnote ended like the example of the prompt ("Nobody knows why" became "Nobody asked why"). The example is now a plain fact with a dry detail.
   - A narrator line brought in the hero sheet at every moment, with Claude and with small local models alike. So the narrator prompt holds no hero sheet at all: a line is about one moment. The chapters and NPC talk still get the hero.
-  - A push for "one concrete detail" made the narrator invent places and dropped the level number. The note now asks to name the place, foe, or number plainly, and to add nothing.
-  - Still open: a line often repeats "for the first time" from the moment, and a line can name a place from the knowledge of the model ("Azshara" for Azuregos). The NPC talk was the best part in every run.
+  - A push for "one concrete detail" made the narrator invent places and dropped the level number. Since October 2026, the lore of the moment gives the detail, and the note asks to add nothing.
+  - A line often repeated "for the first time" from the moment. The moment no longer says it ("They had never been there before."), and the check refuses it. A line can still name a place from the knowledge of the model ("Azshara" for Azuregos): the log of names in no fact shows it. The NPC talk was the best part in every run.
+  - The player played to level 6 and saw "Level six came on a grey morning. Our hero moved on without rest." (October 2026). That line led to the lore voice, the naming of the hero, the lore of each moment, the silence rule, and the checks above.
 - **Best of two only for a chapter** (3.3). A narrator line, a talk, and a quest cost one call each.
 - `/lore` keeps the voice of a historian (3.1), with the same house rules.
 
@@ -139,7 +181,7 @@ A chapter follows the progress of the character, not the clock. The narrator (3.
   - A finished class quest is a milestone too (5.4).
   - A dungeon, a raid, and a capital city are zones of their own, so the first entry into one is already the first visit of a zone.
 - **The kind of a place** (built): after the zone of an instance, the addon sends `instance_entered` with "party" for a dungeon or "raid" (from `IsInInstance`). A battleground and an arena send nothing. The story program marks the zone, and the six capitals are known by name. The facts of a saga name the kind ("The Deadmines (a dungeon)"). A first dungeon or raid is a big moment for the narrator, as high as a first kill, and a first capital ranks above a new zone.
-- **The saga** (built): after a batch, the story program asks a model for the saga, and the footnotes (5.4.1), of the oldest finished chapter that has none yet, one chapter at a time. The last chapter can still grow, so it waits for the next milestone. The facts of the prompt come from the chapter alone. The saga must be plain text in one paragraph, at most 600 characters, with no name from after the cutoff (5.9). A saga that fails keeps the plain list, and gets no retry in the same run. A saga is stored by the tick where its chapter begins. A change of these rules moves the beginnings, so an old saga can lose its chapter.
+- **The saga** (built): after a batch, the story program asks a model for the saga, and the footnotes (5.4.1), of the oldest finished chapter that has none yet, one chapter at a time. The last chapter can still grow, so it waits for the next milestone. The facts of the prompt come from the chapter alone. The saga ties the deeds of the chapter to the history of its places and peoples, in the voice of the narrator (3.2). It names the hero as `$N` at most twice, and else says "they" or names no one. It never says "our hero". The saga must be plain text in one paragraph, at most 600 characters, with no name from after the cutoff (5.9), and with no slop that the facts of the chapter lack (3.2.1). A saga that fails keeps the plain list, and gets no retry in the same run: the second draft is its second chance. A saga is stored by the tick where its chapter begins. A change of these rules moves the beginnings, so an old saga can lose its chapter.
 - **Best of two** (built): a chapter gets two drafts, one after the other. The second draft has the same facts and the next samples in turn, so the two drafts differ.
   - Each draft goes through the checks of a saga: the voice, the banned words, the cutoff, and no repeats.
   - When both drafts pass, a short judge call picks one. Its prompt holds the persona, the facts, and the two drafts. It answers `{"pick": 1}` or `{"pick": 2}`. A bad answer or a failed call picks draft 1.
@@ -556,7 +598,7 @@ Small, silly moments are often the best part of a story. The addon collects them
 
 - **Counted locally.** A tally is tiny, for example `dance Goldshire 3`, and it goes out with the next batch. No moment costs a strip of its own.
 - **Marked when it is funny:** a first time, a streak ("12 squirrels in a row"), an odd place or time (a dance in Goldshire at 3 AM), or a contrast (a level 60 that dies to a cow).
-- **Used rarely.** The narrator picks one now and then, with a cooldown: "The fourth rabbit today." The chronicle gets footnotes: "On the fourth day, our hero danced in Goldshire. Nobody knows why." The journal gets joke titles: "Scourge of Squirrels", "Lord of the Goldshire Dance Floor".
+- **Used rarely.** The narrator picks one now and then, with a cooldown: "The fourth rabbit today." The chronicle gets footnotes: "On the fourth day, $N danced in Goldshire, alone, at three in the morning." The journal gets joke titles: "Scourge of Squirrels", "Lord of the Goldshire Dance Floor".
 - **With consequences.** A slap is an event in the world: the `trusts` value of the NPC drops, and a `slapped` fact starts. The innkeeper then remembers it. His rumors get shorter, and the narrator brings it up. Hourglass keeps the joke consistent for weeks. Built: each slap costs 10 trust, down to -100. The tooltip of the NPC shows the slaps and the trust in words (3.5), and a slap is a big moment for the narrator (3.2).
 
 **Picking the moments.** Code scores each moment, and the model picks only among the best ones. The model never sees the whole pile, so the choice is predictable, testable, and free.
@@ -618,7 +660,7 @@ The work divides in three:
 2. **The scoring code decides** which moments are worth a line.
 3. **The model writes** the words, only for the moments that the code gave it.
 
-An example. A cow kills you in Goldshire at 3 AM. You are level 60, and no critter killed you before. The score: first time +5, contrast +4, famous place +3, odd hour +2, so 14. The 30th rabbit of the same evening scores 1. At the end of the session, the code sorts the moments and gives the top 5 to the model. The chapter then says: "On the ninth night, a cow in Goldshire ended the career of our hero. It was not recorded as a battle."
+An example. A cow kills you in Goldshire at 3 AM. You are level 60, and no critter killed you before. The score: first time +5, contrast +4, famous place +3, odd hour +2, so 14. The 30th rabbit of the same evening scores 1. At the end of the session, the code sorts the moments and gives the top 5 to the model. The chapter then says: "On the ninth night, a cow in Goldshire ended the career of $N. It was not recorded as a battle."
 
 Hourglass plans a generic salience ranking for its briefing. If that ranking takes weights from the caller, Timeways can move its weights into it later.
 
@@ -709,7 +751,7 @@ Models know all of WoW's lore up to today, and they leak it. A line in the promp
 1. **The game text is canon.** The addon collects the text of the Forever client itself: quest text, NPC gossip, books, and item text. This text is always exactly Forever's lore, also when Forever adds content of its own. It grows as you play, and it also feeds the spoiler limit.
 2. **Sources with a cutoff.** The sources are, in order: the game text, the Forever pages of warcraft.wiki.gg and Wowhead, and Blizzard's Forever news. A Classic page counts only for events before Molten Core. A page about a later raid, a later patch, or a later expansion is refused.
 3. **Canon is read-only.** The canon characters, places, and factions go into the world with their facts as of Forever, for example `leader_of` Thrall and the Horde. Only game events change them. The director can change only your own story: the NPCs of your rumors, and your quests. The story module refuses a proposal that touches a canon entity before `World::propose` sees it. So "Varian Wrynn returns" can never become true.
-4. **A check on every answer.** Before an answer shows, the story module checks it against a list of names and events past the cutoff: for example the defeat of Ragnaros, the opening of the Scarab Wall, Naxxramas over the Plaguelands, Shattrath, the fall of the Lich King, the Cataclysm, and Pandaria. The check reads words in any case, and the last word of a name also counts at the start of a longer word: "Pandarian" counts as Pandaria. For `/lore`, a hit means one retry with the reason, and a second hit drops the answer. The retry holds the first answer and its reasons as fenced data, because the model wrote them. Only `/lore` retries: a narrator line, a chapter, a talk, or a quest offer that fails the checks gets no retry, and shows nothing. A narrator line, a chapter, and a talk can name what the player's own text of the hero names (3.7): the player wrote it first. The player's own text gets no check of the cutoff. Names that already exist in the lore of 25 ADP, such as Ragnaros, Arthas, Illidan, and Deathwing, stay allowed with their story up to that year only.
+4. **A check on every answer.** Before an answer shows, the story module checks it against a list of names and events past the cutoff: for example the defeat of Ragnaros, the opening of the Scarab Wall, Naxxramas over the Plaguelands, Shattrath, the fall of the Lich King, the Cataclysm, and Pandaria. The check reads words in any case, and the last word of a name also counts at the start of a longer word: "Pandarian" counts as Pandaria. For `/lore`, a hit means one retry with the reason, and a second hit drops the answer. The retry holds the first answer and its reasons as fenced data, because the model wrote them. A narrator line (3.2.1) and a quest offer (3.4) also get one retry with the reasons. A chapter and a talk that fail the checks get no retry, and show nothing. A narrator line, a chapter, and a talk can name what the player's own text of the hero names (3.7): the player wrote it first. The player's own text gets no check of the cutoff. Names that already exist in the lore of 25 ADP, such as Ragnaros, Arthas, Illidan, and Deathwing, stay allowed with their story up to that year only.
 
 The list of later names is data in the repo, with a test for each entry. When Forever moves forward in the story, the cutoff moves with one change to that list and to the canon seed.
 
@@ -789,6 +831,8 @@ The name of a real player never goes to a model, local or cloud. The model does 
    - On your own screen, the real name. You saw it in the game.
    - In anything shared with the guild, the real name only for a member who has the addon and allows it. Every other player shows as their card: "the Undead Rogue", "a brave Dwarf Priest".
    - A member can turn on "keep me out of the saga", and then shows as their card too.
+
+**Your own name is `$N`** (built). A model never sees the name of your character. It writes `$N` in its place, as the quest text of the game does. The addon puts the name back on your own screen only: in a narrator line, a saga and its footnotes, the words of an NPC, and a lore page. The text that you read keeps its `$N` too (5.10).
 
 A memory of an NPC (3.5) calls you "the player", never by name. A rumor that holds the name of your character is no memory.
 

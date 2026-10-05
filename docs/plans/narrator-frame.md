@@ -83,9 +83,9 @@ The frame remembers the first step that works for the session, so it does the ch
 ```
 +--------------------------------------------------------+
 | +----------+                                           |
-| |          |  Our hero falls for the third time to the |
-| | (bronze  |  same murloc. The murloc does not know    |
-| |  dragon, |  it is a legend now.                      |
+| |          |  The murlocs of the coast have no kingdom |
+| | (bronze  |  and no history. They have now killed     |
+| |  dragon, |  Kobee three times.                       |
 | |   3D)    |                                           |
 | +----------+                                       ... |
 +--------------------------------------------------------+

@@ -198,6 +198,23 @@ This test needs a model.
 7. `/reload`, then `/talk` the NPC again. The earlier talk is still there.
 8. Open the Knowledge tab of `/journal`. It shows no "A rumor from ..." lines.
 
+### 19. The narrator
+
+This test needs a model. The narrator speaks at most 3 times in an hour.
+
+1. Log in, and go into a zone that you never visited. A line shows in the chat after "Narrator:". It tells a piece of the history of the zone, then what you did. It never says "our hero".
+2. Read the lines of the next hour. Some lines use the name of your character, some your race or class ("the Forsaken"), and some name nobody. No line shows `$N`.
+3. Reach a level that is not a tenth level, such as 13. No line comes. Reach level 20, or another tenth level: a line can come.
+4. After the session, print the prompts of your world for review. The tool reads a copy of the world, and the game can stay open:
+
+   ```sh
+   cargo run -p timeways-story --bin timeways-narrator-review -- \
+     ~/.local/share/gnomish-relay/timeways/story/worlds/r_<realm>/c_<name>.sqlite \
+     --pack ~/.local/share/timeways/lore.sqlite --claude
+   ```
+
+   With `--claude`, each prompt also goes to Claude Code, and the tool prints the line that you would see. Without it, the tool prints the prompts only.
+
 ## What to send back
 
 - Each Lua error, as text.
@@ -212,6 +229,7 @@ This test needs a model.
 - For test 14: the name of the Support button.
 - For tests 15 to 17: a screenshot of each tooltip line and of the install line.
 - For test 18: a screenshot of the window with a quest card, and of a window with an earlier talk.
+- For test 19: each narrator line of the session, as text, and the output of the review tool.
 
 ## After the test
 

@@ -792,7 +792,7 @@ A title stays for good, as every title does. Standing can recover; a title is a 
 
 - **A big moment.** `Moment::Sided { quest, with, against }`, rank 3, with a slap. `what_happened`: "The player ended the quest "{quest}" on the side of {with}, against {against}."
 - **The deed.** `Deed::QuestDone` gets `sided_with: Option<String>` and `against: Option<String>`. The facts of a chapter say: "The Missing Ledger (a quest for Innkeeper Farley; the player sided with Marshal Dughan against Farley)".
-- **The tone of a chapter.** The chapter prompt gets the standing line of each town of the chapter that is not neutral, under the facts: "People in Goldshire are wary of our hero." The persona and the note do not change. The narrator stays serious and tells the facts; the facts carry the tone.
+- **The tone of a chapter.** The chapter prompt gets the standing line of each town of the chapter that is not neutral, under the facts: "People in Goldshire are wary of the hero." The persona and the note do not change. The narrator stays serious and tells the facts; the facts carry the tone.
 
 ### 9.6 The journal
 
