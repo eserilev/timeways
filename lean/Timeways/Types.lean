@@ -47,6 +47,208 @@ inductive aliases.Piece where
 structure budget.Budget where
   spoken : Array (Option Std.U64) 3#usize
 
+/-- [timeways_rules::weights::KeyKind]
+    Source: 'crates/rules/src/weights.rs', lines 19:0-39:1
+    Visibility: public -/
+@[discriminant isize]
+inductive weights.KeyKind where
+| GameQuest : weights.KeyKind
+| SideQuest : weights.KeyKind
+| ClassQuest : weights.KeyKind
+| Subzone : weights.KeyKind
+| Level : weights.KeyKind
+| Talk : weights.KeyKind
+| Kill : weights.KeyKind
+| RaidKill : weights.KeyKind
+| Death : weights.KeyKind
+| Mark : weights.KeyKind
+| Title : weights.KeyKind
+| PvpRank : weights.KeyKind
+| Dungeon : weights.KeyKind
+| Raid : weights.KeyKind
+| Battleground : weights.KeyKind
+| BgWin : weights.KeyKind
+
+/-- [timeways_rules::chapters::Key]
+    Source: 'crates/rules/src/chapters.rs', lines 24:0-28:1
+    Visibility: public -/
+structure chapters.Key where
+  id : Std.Usize
+  kind : weights.KeyKind
+  foe : Option Std.Usize
+
+/-- [timeways_rules::chapters::Track]
+    Source: 'crates/rules/src/chapters.rs', lines 32:0-35:1
+    Visibility: public -/
+@[discriminant isize]
+inductive chapters.Track where
+| World : chapters.Track
+| Instance : Std.Usize → chapters.Track
+
+/-- [timeways_rules::chapters::Break]
+    Source: 'crates/rules/src/chapters.rs', lines 39:0-46:1
+    Visibility: public -/
+@[discriminant isize]
+inductive chapters.Break where
+| Return : chapters.Break
+| NewZone : chapters.Break
+| Level : chapters.Break
+| Capital : chapters.Break
+| Inn : chapters.Break
+| Away : chapters.Break
+
+/-- [timeways_rules::chapters::Play]
+    Source: 'crates/rules/src/chapters.rs', lines 50:0-57:1
+    Visibility: public -/
+structure chapters.Play where
+  key : Option chapters.Key
+  zone : Std.Usize
+  track : chapters.Track
+  mark : Option chapters.Break
+  «at» : Std.U64
+
+/-- [timeways_rules::chapters::Step]
+    Source: 'crates/rules/src/chapters.rs', lines 61:0-64:1
+    Visibility: public -/
+@[discriminant isize]
+inductive chapters.Step where
+| Play : chapters.Play → chapters.Step
+| Rule : Std.U8 → chapters.Step
+
+/-- [timeways_rules::chapters::Opening]
+    Source: 'crates/rules/src/chapters.rs', lines 68:0-74:1
+    Visibility: public -/
+@[discriminant isize]
+inductive chapters.Opening where
+| First : chapters.Opening
+| Break : chapters.Break → chapters.Opening
+| Max : chapters.Opening
+| Rule : chapters.Opening
+
+/-- [timeways_rules::chapters::Close]
+    Source: 'crates/rules/src/chapters.rs', lines 78:0-82:1
+    Visibility: public -/
+@[discriminant isize]
+inductive chapters.Close where
+| Break : chapters.Close
+| Max : chapters.Close
+| Rule : chapters.Close
+
+/-- [timeways_rules::chapters::Chapter]
+    Source: 'crates/rules/src/chapters.rs', lines 86:0-93:1
+    Visibility: public -/
+structure chapters.Chapter where
+  first : Std.Usize
+  weight : Std.U16
+  opening : chapters.Opening
+  zone : Option Std.Usize
+  rule : Std.U8
+
+/-- [timeways_rules::chapters::ClosedChapter]
+    Source: 'crates/rules/src/chapters.rs', lines 97:0-101:1
+    Visibility: public -/
+structure chapters.ClosedChapter where
+  chapter : chapters.Chapter
+  last : Std.Usize
+  close : chapters.Close
+
+/-- [timeways_rules::chapters::KeyRecord]
+    Source: 'crates/rules/src/chapters.rs', lines 105:0-111:1
+    Visibility: public -/
+structure chapters.KeyRecord where
+  seen : Bool
+  deaths : Std.U8
+  gain : Std.U16
+
+/-- [timeways_rules::chapters::FoeRecord]
+    Source: 'crates/rules/src/chapters.rs', lines 115:0-119:1
+    Visibility: public -/
+structure chapters.FoeRecord where
+  beaten : Bool
+  deaths : Std.U8
+
+/-- [timeways_rules::chapters::ZoneRecord]
+    Source: 'crates/rules/src/chapters.rs', lines 123:0-127:1
+    Visibility: public -/
+structure chapters.ZoneRecord where
+  settled : Bool
+  last_chapter : Std.Usize
+
+/-- [timeways_rules::chapters::Tale]
+    Source: 'crates/rules/src/chapters.rs', lines 131:0-138:1
+    Visibility: public -/
+structure chapters.Tale where
+  «instance» : Std.Usize
+  first : Std.Usize
+  weight : Std.U32
+  runs : Std.U32
+
+/-- [timeways_rules::chapters::Visit]
+    Source: 'crates/rules/src/chapters.rs', lines 142:0-150:1
+    Visibility: public -/
+structure chapters.Visit where
+  tale : Std.Usize
+  first : Std.Usize
+  last : Std.Usize
+  left_at : Std.U64
+  gain : Std.U32
+
+/-- [timeways_rules::chapters::Gain]
+    Source: 'crates/rules/src/chapters.rs', lines 154:0-159:1
+    Visibility: public -/
+structure chapters.Gain where
+  amount : Std.U16
+  track : chapters.Track
+  revenge : Bool
+
+/-- [timeways_rules::chapters::Fold]
+    Source: 'crates/rules/src/chapters.rs', lines 163:0-177:1
+    Visibility: public -/
+structure chapters.Fold where
+  keys : alloc.vec.Vec chapters.KeyRecord
+  foes : alloc.vec.Vec chapters.FoeRecord
+  zones : alloc.vec.Vec chapters.ZoneRecord
+  closed : alloc.vec.Vec chapters.ClosedChapter
+  «open» : chapters.Chapter
+  pending : Option chapters.Break
+  tales : alloc.vec.Vec chapters.Tale
+  visits : alloc.vec.Vec chapters.Visit
+  visit : Option chapters.Visit
+  last_at : Option Std.U64
+  gains : alloc.vec.Vec chapters.Gain
+
+/-- [timeways_rules::weights::Limits]
+    Source: 'crates/rules/src/weights.rs', lines 43:0-46:1
+    Visibility: public -/
+structure weights.Limits where
+  min : Std.U16
+  max : Std.U16
+
+/-- [timeways_rules::entry_edits::EditText]
+    Source: 'crates/rules/src/entry_edits.rs', lines 9:0-16:1
+    Visibility: public -/
+@[discriminant isize]
+inductive entry_edits.EditText where
+| Keep : entry_edits.EditText
+| Replace : entry_edits.EditText
+| Narrator : entry_edits.EditText
+
+/-- [timeways_rules::entry_edits::EditRow]
+    Source: 'crates/rules/src/entry_edits.rs', lines 20:0-25:1
+    Visibility: public -/
+structure entry_edits.EditRow where
+  row : Std.U64
+  has_title : Bool
+  text : entry_edits.EditText
+
+/-- [timeways_rules::entry_edits::Shown]
+    Source: 'crates/rules/src/entry_edits.rs', lines 29:0-36:1
+    Visibility: public -/
+structure entry_edits.Shown where
+  title : Option Std.U64
+  narrator : Option Std.U64
+  player : Option Std.U64
+
 /-- [timeways_rules::quest_log::Goal]
     Source: 'crates/rules/src/quest_log.rs', lines 14:0-18:1
     Visibility: public -/

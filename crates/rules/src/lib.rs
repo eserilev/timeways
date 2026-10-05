@@ -15,8 +15,11 @@
 
 pub mod aliases;
 pub mod budget;
+pub mod chapters;
+pub mod entry_edits;
 pub mod hero_hook;
 pub mod prompts;
 pub mod quest_log;
 pub mod story_shelf;
 pub mod trust;
+pub mod weights;
