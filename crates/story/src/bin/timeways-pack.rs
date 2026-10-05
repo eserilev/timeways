@@ -122,7 +122,19 @@ fn print_report(built: &Built) {
     }
     for line in &built.report {
         match line.outcome {
-            Outcome::Read { passages } => println!("{passages:>7}  {}", line.title),
+            Outcome::Read {
+                passages,
+                later: 0,
+                game: 0,
+            } => println!("{passages:>7}  {}", line.title),
+            Outcome::Read {
+                passages,
+                later,
+                game,
+            } => println!(
+                "{passages:>7}  {}  (dropped: {later} later, {game} game)",
+                line.title
+            ),
             Outcome::Missing => println!("missing  {}", line.title),
             Outcome::NoBook => println!("no book  {}", line.title),
         }
@@ -133,5 +145,25 @@ fn print_report(built: &Built) {
         .filter(|line| matches!(line.outcome, Outcome::Read { .. }))
         .count();
     let skipped = built.report.len() - read;
-    println!("read {read} pages, skipped {skipped}");
+    let later: usize = built
+        .report
+        .iter()
+        .map(|line| dropped(&line.outcome).0)
+        .sum();
+    let game: usize = built
+        .report
+        .iter()
+        .map(|line| dropped(&line.outcome).1)
+        .sum();
+    println!(
+        "read {read} pages, skipped {skipped}, dropped {later} later paragraphs and {game} game paragraphs"
+    );
+}
+
+/// The paragraphs that the later terms and the game terms dropped from one page.
+fn dropped(outcome: &Outcome) -> (usize, usize) {
+    match outcome {
+        Outcome::Read { later, game, .. } => (*later, *game),
+        Outcome::Missing | Outcome::NoBook => (0, 0),
+    }
 }

@@ -35,10 +35,14 @@ fn texts(passages: &[Passage]) -> Vec<&str> {
         .collect()
 }
 
-fn read(title: &str, passages: usize) -> PageReport {
+fn read(title: &str, passages: usize, later: usize, game: usize) -> PageReport {
     PageReport {
         title: title.to_string(),
-        outcome: Outcome::Read { passages },
+        outcome: Outcome::Read {
+            passages,
+            later,
+            game,
+        },
     }
 }
 
@@ -75,8 +79,8 @@ fn the_books_of_the_chosen_chapters_become_common_passages() {
     assert_eq!(
         built.report,
         [
-            read("The Dawn Book (Test History)", 1),
-            read("The Noon Book", 1)
+            read("The Dawn Book (Test History)", 1, 0, 0),
+            read("The Noon Book", 1, 0, 0)
         ]
     );
 }
@@ -266,6 +270,68 @@ fn a_paragraph_with_a_later_term_is_dropped() {
 }
 
 #[test]
+fn the_report_counts_the_paragraphs_that_a_later_term_dropped() {
+    let dump = testvale_dump("sources-later-count");
+
+    let built = from_dump(&dump, &sources(TESTVALE)).unwrap();
+
+    assert_eq!(built.report[1], read("Test Folk", 1, 2, 0));
+}
+
+#[test]
+fn a_paragraph_that_talks_about_the_game_is_dropped_and_counted() {
+    let page = format!(
+        "{}\n{}\n{}\n",
+        long("Testvale lies under the old tower."),
+        long("Testvale is a quest hub for testers."),
+        long("Testers of the Mock Expansion quest hub came later."),
+    );
+    let index = index("===Chapter I: Dawn===\n===Chapter II: Noon===\n");
+    let dump = write_dump(
+        "sources-game",
+        &[article(INDEX, &index), article("Testvale", &page)],
+    );
+    let list = "[[pages]]\ntitle = \"Testvale\"\nlead = true\nsections = []\n\
+                places = [\"Testvale\"]\n[later]\nterms = [\"Mock Expansion\"]\n\
+                [game]\nterms = [\"quest hub\"]\n";
+
+    let built = from_dump(&dump, &sources(list)).unwrap();
+
+    assert_eq!(
+        texts(&built.passages),
+        [long("Testvale lies under the old tower.")]
+    );
+    assert_eq!(built.report, [read("Testvale", 1, 1, 1)]);
+}
+
+#[test]
+fn a_listed_subsection_goes_in_only_under_a_parent_that_goes_in() {
+    let page = format!(
+        "Lead.\n==History==\n{}\n===Early days===\n{}\n==Quotes==\n===Early days===\n{}\n",
+        long("Testvale was founded by testers."),
+        long("The first testers slept in tents."),
+        long("A quote under Quotes stays out."),
+    );
+    let index = index("===Chapter I: Dawn===\n===Chapter II: Noon===\n");
+    let dump = write_dump(
+        "sources-nested",
+        &[article(INDEX, &index), article("Testvale", &page)],
+    );
+    let list = "[[pages]]\ntitle = \"Testvale\"\nsections = [\"History\", \"Early days\"]\n\
+                places = [\"Testvale\"]\n";
+
+    let built = from_dump(&dump, &sources(list)).unwrap();
+
+    assert_eq!(
+        texts(&built.passages),
+        [
+            long("Testvale was founded by testers."),
+            long("The first testers slept in tents.")
+        ]
+    );
+}
+
+#[test]
 fn a_page_with_a_place_links_to_it_and_a_common_page_is_common() {
     let dump = testvale_dump("sources-links");
 
@@ -292,8 +358,8 @@ fn a_missing_page_is_reported_and_skipped() {
     assert_eq!(
         built.report,
         [
-            read("Testvale", 2),
-            read("Test Folk", 1),
+            read("Testvale", 2, 0, 0),
+            read("Test Folk", 1, 2, 0),
             PageReport {
                 title: "Nowhere".to_string(),
                 outcome: Outcome::Missing
@@ -319,7 +385,7 @@ fn a_broken_later_term_is_an_error() {
     let result = from_dump(&dump, &sources("[later]\nterms = [\"(open\"]\n"));
 
     assert!(
-        matches!(result, Err(SourcesError::LaterTerm(_))),
+        matches!(result, Err(SourcesError::BadTerm(_))),
         "{result:?}"
     );
 }
@@ -365,11 +431,22 @@ fn every_bundled_page_has_a_place_an_npc_or_is_common() {
 #[test]
 fn short_lines_and_list_lines_are_no_paragraphs() {
     let text = format!(
-        "Too short.\n{}\n* {}\n: {}\n",
+        "Too short.\n{}\n* {}\n; {}\n",
         long("A   line   of   prose."),
         long("A list line."),
-        long("An indent.")
+        long("A term of a list.")
     );
 
     assert_eq!(paragraphs(&text), [long("A line of prose.")]);
+}
+
+/// A wiki page quotes the description of a dungeon as an indented line.
+#[test]
+fn an_indented_quote_is_a_paragraph() {
+    let text = format!("::{}\n: {}\n", long("A quote."), long("Another quote."));
+
+    assert_eq!(
+        paragraphs(&text),
+        [long("A quote."), long("Another quote.")]
+    );
 }

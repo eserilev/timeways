@@ -27,6 +27,7 @@ fuzz_target!(|data: &[u8]| {
     }
     for section in sections(text) {
         assert!(text.contains(section.body));
+        assert_eq!(section.heading.is_none(), section.level == 0);
         for paragraph in paragraphs(&plain(section.body)) {
             assert!(paragraph.len() <= MAX_PASSAGE_BYTES, "{}", paragraph.len());
         }

@@ -801,13 +801,15 @@ A web request for each question is slow, depends on one website, and sends whole
 - **The list is data:** `crates/story/data/pack_sources.toml` holds the pages, and the repo holds no lore text.
   - The index page "History of Warcraft" and its chapters I to V. Each `* [[Page]]` line of a chapter is a book. The builder takes the `content=` argument of the `{{Book}}` call of the page, and no other argument. A template with a longer name, such as `{{Bookshelf}}`, is no book. A copy from a website, with "(site)" in its title, comes only when the page has no other copy. Each book passage is common.
   - Wiki pages, each with its kept sections, and its places, its NPCs, or `common`. A page with none of them is refused when the list is read, before the dump.
-  - Later terms: regular expressions for the names of later expansions and of their people and places. A paragraph of a wiki page that matches one goes out.
+  - A subsection goes in only when its parent section goes in too. A page can hold "World of Warcraft" under "History" and again under "Quotes".
+  - Later terms: regular expressions for the names of later expansions and of their people and places, and for the raids from Molten Core on. A paragraph of a wiki page that matches one goes out.
+  - Game terms: regular expressions for talk about the game, not the world, such as players, levels, instances, quests, and loot. A paragraph of a wiki page that matches one goes out.
 - **A title** gets an upper case first letter, as in MediaWiki: `[[night elf]]` is the page "Night elf".
 - **A redirect** is followed one step. Two titles that lead to one book give its passages once.
-- **Plain text:** references, comments, HTML tags, templates, tables, pictures, and bold and italic marks go. A link keeps its label. Broken markup leaves no marks.
-- **A passage** is one line of plain text with at least 80 characters. A list line, a table line, or an indented line is no passage. The source is `the book "<title>"` or `the wiki page "<title>"`.
+- **Plain text:** references, comments, HTML tags, templates, tables, pictures, and bold and italic marks go. A link keeps its label. A template that names a thing keeps the name: `{{npc|Horde|Thrall}}` gives "Thrall". A named HTML entity, such as `&mdash;`, becomes its character. Broken markup leaves no marks.
+- **A passage** is one line of plain text with at least 80 characters. A list line or a table line is no passage. An indented line is a quote, such as the description of a dungeon, and counts without its indent. The source is `the book "<title>"` or `the wiki page "<title>"`.
 - **The limits of the bridge:** a passage has at most 4096 bytes of text, and a source of at most 512 bytes with no control character. A longer paragraph becomes several passages, each cut after a sentence. A line of passages past a limit is refused with its number, and no pack is written.
-- **The report** gives the number of passages of each page, and names each missing chapter and each missing page. A missing page is skipped. A dump without the index page, or with broken XML, is an error, and no pack is written.
+- **The report** gives the number of passages of each page and the number of paragraphs that the later terms and the game terms dropped, and names each missing chapter and each missing page. A missing page is skipped. A dump without the index page, or with broken XML, is an error, and no pack is written.
 - **The same dump gives the same pack**, in the order of the list.
 - **From lines:** `timeways-pack <passages.jsonl> <pack>` reads passages as JSON lines, each with its text, source, places, NPCs, and `common`. It is for tests and for passages by hand.
 

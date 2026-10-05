@@ -19,6 +19,24 @@ fn a_template_goes_with_its_nested_templates() {
 }
 
 #[test]
+fn a_template_that_names_a_thing_keeps_the_name() {
+    let text = "Led by {{npc|Horde|Keeper Stubbs}} and {{NPC||Old Bram (tactics)||Old Bram|icon=Bram}}, \
+                they fought {{mob|Test Ooze}}{{Alliance}}.";
+
+    assert_eq!(
+        plain(text),
+        "Led by Keeper Stubbs and Old Bram, they fought Test Ooze."
+    );
+}
+
+#[test]
+fn a_named_html_entity_becomes_its_character() {
+    let text = "Testvale&nbsp;&mdash; the tower &amp;mdash; &#91;&#91;";
+
+    assert_eq!(plain(text), "Testvale — the tower &mdash; &#91;&#91;");
+}
+
+#[test]
 fn a_reference_goes_with_its_words() {
     let text =
         "Stubbs lit the lamp.<ref name=\"a\">Test book, page 3</ref> Then<ref name=\"a\" /> slept.";
@@ -84,14 +102,17 @@ fn a_heading_splits_the_sections_at_any_level() {
         [
             Section {
                 heading: None,
+                level: 0,
                 body: "Lead line.\n"
             },
             Section {
                 heading: Some("History"),
+                level: 2,
                 body: "Old times.\n"
             },
             Section {
                 heading: Some("Early days"),
+                level: 3,
                 body: "Early.\n"
             },
         ]

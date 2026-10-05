@@ -6,10 +6,27 @@ const MARKUP_MARKS: [&str; 5] = ["[[", "]]", "{{", "}}", "''"];
 /// A link to one of these is a picture or a list of pages, not a word of the text.
 const NO_TEXT_LINKS: [&str; 3] = ["File:", "Image:", "Category:"];
 
+/// Templates that show the name of a character, a creature, a quest, or an item.
+const NAME_TEMPLATES: [&str; 6] = ["npc", "mob", "quest", "loot", "item", "spell"];
+
+/// `&amp;` goes last, so `&amp;mdash;` stays the text "&mdash;".
+const ENTITIES: [(&str, &str); 8] = [
+    ("&nbsp;", " "),
+    ("&mdash;", "—"),
+    ("&ndash;", "–"),
+    ("&hellip;", "…"),
+    ("&quot;", "\""),
+    ("&lt;", "<"),
+    ("&gt;", ">"),
+    ("&amp;", "&"),
+];
+
 /// The part of a page under one heading. The text before the first heading has no heading.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Section<'a> {
     pub heading: Option<&'a str>,
+    /// The number of `=` marks on each side of the heading, and 0 with no heading.
+    pub level: usize,
     pub body: &'a str,
 }
 
@@ -18,31 +35,35 @@ pub struct Section<'a> {
 pub fn sections(text: &str) -> Vec<Section<'_>> {
     let mut sections = Vec::new();
     let mut heading = None;
+    let mut level = 0;
     let mut start = 0;
     let mut offset = 0;
     for line in text.split_inclusive('\n') {
         // The first line of a page is never a heading, as in the prototype of the builder.
         if offset > 0
-            && let Some(next) = heading_of(line)
+            && let Some((next_level, next)) = heading_of(line)
         {
             sections.push(Section {
                 heading,
+                level,
                 body: &text[start..offset],
             });
             heading = Some(next);
+            level = next_level;
             start = offset + line.len();
         }
         offset += line.len();
     }
     sections.push(Section {
         heading,
+        level,
         body: &text[start..],
     });
     sections
 }
 
 /// `== Name ==` at any level, with the same number of marks on each side.
-fn heading_of(line: &str) -> Option<&str> {
+fn heading_of(line: &str) -> Option<(usize, &str)> {
     let line = line.trim_end_matches(['\n', '\r', ' ', '\t']);
     let opening = line.len() - line.trim_start_matches('=').len();
     let closing = line.len() - line.trim_end_matches('=').len();
@@ -53,7 +74,7 @@ fn heading_of(line: &str) -> Option<&str> {
     if name.is_empty() || name.contains('=') {
         return None;
     }
-    Some(name)
+    Some((opening, name))
 }
 
 /// The page that a `#REDIRECT [[Page]]` page points to.
@@ -195,18 +216,47 @@ fn book_title(block: &str) -> &str {
 }
 
 /// The words of wikitext with the markup gone: references, comments, HTML tags,
-/// templates, tables, pictures, and bold and italic marks. A link keeps its label.
+/// templates, tables, pictures, and bold and italic marks. A link keeps its label, and a
+/// template that names a thing keeps the name. An HTML entity becomes its character.
 #[must_use]
 pub fn plain(text: &str) -> String {
     let text = remove_spans(text, "<ref", reference_end);
     let text = remove_spans(&text, "<!--", |span| span_end(span, "<!--", "-->"));
     let text = remove_spans(&text, "<", tag_end);
-    let text = replace_innermost(&text, "{{", "}}", |_| Some(String::new()));
+    let text = replace_innermost(&text, "{{", "}}", |inside| Some(template_text(inside)));
     let text = remove_spans(&text, "{|", |span| span_end(span, "{|", "|}"));
     let text = replace_innermost(&text, "[[", "]]", |inside| Some(link_text(inside)));
     let text = replace_innermost(&text, "[", "]", external_link_text);
     let text = remove_quote_runs(&text);
-    remove_marks(text)
+    decode_entities(&remove_marks(text))
+}
+
+/// `{{npc|Horde|Thrall}}` shows "Thrall": the last argument with words and no `=`. Any
+/// other template shows nothing.
+fn template_text(inside: &str) -> String {
+    let mut parts = inside.split('|');
+    let name = parts.next().unwrap_or_default().trim();
+    if !NAME_TEMPLATES
+        .iter()
+        .any(|template| template.eq_ignore_ascii_case(name))
+    {
+        return String::new();
+    }
+    parts
+        .map(str::trim)
+        .rev()
+        .find(|part| !part.is_empty() && !part.contains('='))
+        .unwrap_or_default()
+        .to_string()
+}
+
+/// Only named entities: a number entity can spell a markup mark.
+fn decode_entities(text: &str) -> String {
+    ENTITIES
+        .iter()
+        .fold(text.to_string(), |text, (entity, character)| {
+            text.replace(entity, character)
+        })
 }
 
 /// Removes each span that `span_len` measures from an `open` mark. A mark with no

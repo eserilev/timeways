@@ -1,0 +1,1 @@
+Led by {{npc|Horde|Keeper Stubbs}} and {{NPC||Old Bram (tactics)||Old Bram|icon=Bram}}, they fought {{mob|[[Test Ooze|the ooze]]}} &amp;mdash; &nbsp;&lt;ref&gt; {{quest|}} {{item|a=b}}

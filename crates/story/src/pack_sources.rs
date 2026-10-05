@@ -16,8 +16,8 @@ const BUNDLED: &str = include_str!("../data/pack_sources.toml");
 /// A shorter line is a caption, a heading, or a scrap of a list.
 const MIN_PARAGRAPH_CHARS: usize = 80;
 
-/// A line that starts with one of these is a list, a table, or an indent, not prose.
-const NOT_PROSE_STARTS: [char; 7] = ['*', '#', ':', ';', '|', '!', '{'];
+/// A line that starts with one of these is a list or a table, not prose.
+const NOT_PROSE_STARTS: [char; 6] = ['*', '#', ';', '|', '!', '{'];
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -25,8 +25,13 @@ pub struct Sources {
     pub books: Books,
     #[serde(default)]
     pub pages: Vec<WikiPage>,
+    /// A paragraph that tells of a time after 25 ADP goes out.
     #[serde(default)]
-    pub later: Later,
+    pub later: Terms,
+    /// A paragraph that talks about the game, not the world, goes out: players, levels,
+    /// instances, and loot.
+    #[serde(default)]
+    pub game: Terms,
 }
 
 #[derive(Debug, Deserialize)]
@@ -55,9 +60,10 @@ pub struct WikiPage {
     pub common: bool,
 }
 
+/// Regular expressions. The match ignores case.
 #[derive(Debug, Default, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Later {
+pub struct Terms {
     pub terms: Vec<String>,
 }
 
@@ -65,8 +71,8 @@ pub struct Later {
 pub enum SourcesError {
     #[error("pack sources: {0}")]
     Toml(#[from] toml::de::Error),
-    #[error("pack sources: a later term is no regular expression: {0}")]
-    LaterTerm(#[from] regex::Error),
+    #[error("pack sources: a term is no regular expression: {0}")]
+    BadTerm(#[from] regex::Error),
     #[error(transparent)]
     Dump(#[from] DumpError),
     #[error("pack sources: the dump has no page \"{0}\"")]
@@ -99,7 +105,13 @@ impl Sources {
 /// What the builder did with one page.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Outcome {
-    Read { passages: usize },
+    /// `later` counts the paragraphs that a later term dropped, and `game` the other
+    /// paragraphs that a game term dropped.
+    Read {
+        passages: usize,
+        later: usize,
+        game: usize,
+    },
     Missing,
     NoBook,
 }
@@ -127,9 +139,12 @@ pub struct Built {
 /// # Errors
 ///
 /// Returns an error when the dump cannot be read, when it lacks the index page, or when a
-/// later term is broken. A missing book or page is only reported.
+/// term is broken. A missing book or page is only reported.
 pub fn from_dump(path: &Path, sources: &Sources) -> Result<Built, SourcesError> {
-    let later = later_terms(&sources.later.terms)?;
+    let filters = Filters {
+        later: one_pattern(&sources.later.terms)?,
+        game: one_pattern(&sources.game.terms)?,
+    };
     let page_titles: Vec<String> = sources
         .pages
         .iter()
@@ -154,13 +169,32 @@ pub fn from_dump(path: &Path, sources: &Sources) -> Result<Built, SourcesError> 
     };
     add_books(&mut built, &book_titles, &found, &sources.books);
     for page in &sources.pages {
-        add_page(&mut built, page, found.get(&page.title), later.as_ref());
+        add_page(&mut built, page, found.get(&page.title), &filters);
     }
     Ok(built)
 }
 
+/// The paragraphs of a wiki page that go out. A book needs no filter: the books end
+/// before the later expansions, and they never talk about the game.
+struct Filters {
+    later: Option<Regex>,
+    game: Option<Regex>,
+}
+
+impl Filters {
+    fn is_later(&self, text: &str) -> bool {
+        self.later
+            .as_ref()
+            .is_some_and(|later| later.is_match(text))
+    }
+
+    fn is_game(&self, text: &str) -> bool {
+        self.game.as_ref().is_some_and(|game| game.is_match(text))
+    }
+}
+
 /// One pattern for all terms, so a paragraph is searched once.
-fn later_terms(terms: &[String]) -> Result<Option<Regex>, regex::Error> {
+fn one_pattern(terms: &[String]) -> Result<Option<Regex>, regex::Error> {
     if terms.is_empty() {
         return Ok(None);
     }
@@ -214,30 +248,65 @@ fn add_books(built: &mut Built, titles: &[String], books: &BTreeMap<String, Page
             .unwrap_or(&page.title);
         let source = format!("the book \"{name}\"");
         let texts = paragraphs(&plain(content));
-        push_passages(built, &page.title, texts, &source, &[Link::Common]);
+        let outcome = Outcome::Read {
+            passages: texts.len(),
+            later: 0,
+            game: 0,
+        };
+        push_passages(built, &page.title, outcome, texts, &source, &[Link::Common]);
     }
 }
 
-fn add_page(built: &mut Built, wanted: &WikiPage, page: Option<&Page>, later: Option<&Regex>) {
+fn add_page(built: &mut Built, wanted: &WikiPage, page: Option<&Page>, filters: &Filters) {
     let Some(page) = page else {
         built.report.push(missing(&wanted.title));
         return;
     };
-    let mut texts = Vec::new();
-    for section in sections(&page.text) {
-        let kept = match section.heading {
-            None => wanted.lead,
-            Some(heading) => wanted.sections.iter().any(|name| name == heading),
+    let mut texts: Vec<String> = kept_bodies(&page.text, wanted)
+        .into_iter()
+        .flat_map(|body| paragraphs(&plain(body)))
+        .collect();
+    let read = texts.len();
+    texts.retain(|text| !filters.is_later(text));
+    let not_later = texts.len();
+    texts.retain(|text| !filters.is_game(text));
+    let outcome = Outcome::Read {
+        passages: texts.len(),
+        later: read - not_later,
+        game: not_later - texts.len(),
+    };
+    let source = format!("the wiki page \"{}\"", page.title);
+    push_passages(built, &page.title, outcome, texts, &source, &links(wanted));
+}
+
+/// The bodies of the listed sections, in page order. A subsection goes in only when its
+/// parent goes in too: a page can hold "World of Warcraft" under "History" and again
+/// under "Quotes".
+fn kept_bodies<'a>(text: &'a str, wanted: &WikiPage) -> Vec<&'a str> {
+    let mut bodies = Vec::new();
+    // The headings above the section, each with its level and whether it went in.
+    let mut parents: Vec<(usize, bool)> = Vec::new();
+    for section in sections(text) {
+        let Some(heading) = section.heading else {
+            if wanted.lead {
+                bodies.push(section.body);
+            }
+            continue;
         };
+        while parents
+            .last()
+            .is_some_and(|&(level, _)| level >= section.level)
+        {
+            parents.pop();
+        }
+        let parent_kept = parents.last().is_none_or(|&(_, kept)| kept);
+        let kept = parent_kept && wanted.sections.iter().any(|name| name == heading);
+        parents.push((section.level, kept));
         if kept {
-            texts.extend(paragraphs(&plain(section.body)));
+            bodies.push(section.body);
         }
     }
-    if let Some(later) = later {
-        texts.retain(|text| !later.is_match(text));
-    }
-    let source = format!("the wiki page \"{}\"", page.title);
-    push_passages(built, &page.title, texts, &source, &links(wanted));
+    bodies
 }
 
 fn links(page: &WikiPage) -> Vec<Link> {
@@ -247,12 +316,17 @@ fn links(page: &WikiPage) -> Vec<Link> {
     places.chain(npcs).chain(common).collect()
 }
 
-fn push_passages(built: &mut Built, title: &str, texts: Vec<String>, source: &str, links: &[Link]) {
+fn push_passages(
+    built: &mut Built,
+    title: &str,
+    outcome: Outcome,
+    texts: Vec<String>,
+    source: &str,
+    links: &[Link],
+) {
     built.report.push(PageReport {
         title: title.to_string(),
-        outcome: Outcome::Read {
-            passages: texts.len(),
-        },
+        outcome,
     });
     built.passages.extend(texts.into_iter().map(|text| Passage {
         text,
@@ -269,8 +343,9 @@ fn missing(title: &str) -> PageReport {
     }
 }
 
-/// Each line of plain text is a paragraph. Runs of spaces become one space. A paragraph
-/// past the limit of the bridge becomes several.
+/// Each line of plain text is a paragraph. Runs of spaces become one space. An indented
+/// line is a quote, such as the description of a dungeon, so it counts without its indent.
+/// A paragraph past the limit of the bridge becomes several.
 #[must_use]
 pub fn paragraphs(plain: &str) -> Vec<String> {
     let prose = plain.lines().map(one_line).filter(|line| is_prose(line));
@@ -278,7 +353,8 @@ pub fn paragraphs(plain: &str) -> Vec<String> {
 }
 
 fn one_line(line: &str) -> String {
-    line.split_whitespace().collect::<Vec<_>>().join(" ")
+    let unindented = line.trim_start_matches(':');
+    unindented.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 fn is_prose(line: &str) -> bool {

@@ -95,6 +95,7 @@ The builder reads only the pages in `crates/story/data/pack_sources.toml`:
 - The History of Warcraft books of chapters I to V. Each book passage is common knowledge.
 - Some wiki pages, only the listed sections. A page links to its place, or is common knowledge.
 - A paragraph of a wiki page that names a later expansion, or a person or place of one, goes out.
+- A paragraph of a wiki page that talks about the game, such as players, levels, or loot, goes out.
 
 It prints the number of passages from each page, and names each page that the dump lacks. A missing page is skipped, not an error. The same dump always gives the same pack. The builder streams the dump, so it needs little memory, and it takes less than a minute.
 
