@@ -1,9 +1,11 @@
 use timeways_story::line_check::{
-    COPIED_LINE_WORDS, Checked, Grounds, LineFault, checked_line, grounded,
+    COPIED_LINE_WORDS, Checked, Grounds, LineFault, MOST_SENTENCES, callback_in, checked_line,
+    grounded,
 };
 use timeways_story::moments::Moment;
 use timeways_story::narrator::{MAX_LINE_CHARS, Telling, Who};
-use timeways_story::race_class::Race;
+use timeways_story::prose::ProseFault;
+use timeways_story::race_class::{Class, Race};
 use timeways_story::samples::Voice;
 
 /// The grounds of the first turn, whose naming of a deed is `$N`.
@@ -19,7 +21,8 @@ fn westfall() -> Grounds {
     let moment = Moment::NewZone {
         zone: "Westfall".to_string(),
     };
-    let lore = "Stormwind never paid the men who rebuilt it.";
+    let lore = "Stormwind never paid the men who rebuilt it. Westfall's rich fields have lain \
+        fallow since the Second War.";
     grounds_of(&moment, Some(lore))
 }
 
@@ -49,7 +52,8 @@ fn faults(line: &str, grounds: &Grounds) -> Vec<LineFault> {
 
 #[test]
 fn a_line_that_ties_the_lore_to_the_deed_passes() {
-    let line = "Stormwind put a price on Hogger's head, and Elwynn waited years. $N collected it.";
+    let line =
+        "The guards of Stormwind put a price on Hogger's head years ago. $N has collected it now.";
 
     assert_eq!(
         checked_line(line, &hogger(), ""),
@@ -74,7 +78,7 @@ fn the_line_that_the_player_called_slop_is_refused() {
 
 #[test]
 fn our_hero_is_refused() {
-    let line = "Hogger raided Elwynn for years. Our hero ended it.";
+    let line = "Hogger raided Elwynn for years, until our hero stopped him.";
 
     assert_eq!(
         faults(line, &hogger()),
@@ -84,7 +88,7 @@ fn our_hero_is_refused() {
 
 #[test]
 fn a_banned_word_of_the_old_list_is_refused_too() {
-    let line = "Hogger raided Elwynn, guys. $N ended it.";
+    let line = "Hogger raided Elwynn for years, guys, and $N stopped him.";
 
     assert_eq!(
         faults(line, &hogger()),
@@ -200,7 +204,8 @@ fn three_words_of_a_sample_are_no_copy() {
 
 #[test]
 fn a_run_that_the_moment_itself_holds_is_no_copy() {
-    let line = "Stormwind never paid the men who rebuilt it. Westfall still pays.";
+    let line = "Westfall's rich fields have lain fallow since the Second War, and its farmers pay \
+        the Defias now.";
 
     assert_eq!(
         checked_line(line, &westfall(), ""),
@@ -233,6 +238,7 @@ fn the_stranger_who_came_into_the_fields_is_refused() {
         faults(line, &westfall()),
         [
             LineFault::Banned("one more stranger".to_string()),
+            LineFault::Banned("came into".to_string()),
             LineFault::Arrival("stranger came".to_string())
         ]
     );
@@ -240,7 +246,7 @@ fn the_stranger_who_came_into_the_fields_is_refused() {
 
 #[test]
 fn a_deed_line_that_spends_a_clause_on_an_arrival_is_refused() {
-    let line = "Hogger raided Elwynn for years. $N came to his camp and ended it.";
+    let line = "Hogger raided Elwynn for years. $N came to his camp and stopped him.";
 
     assert_eq!(
         faults(line, &hogger()),
@@ -303,14 +309,14 @@ fn a_number_that_the_moment_lacks_is_refused() {
 
 #[test]
 fn a_bracket_is_refused() {
-    let line = "Hogger raided Elwynn for years. [name] ended it.";
+    let line = "Hogger raided Elwynn for years. [name] stopped him there.";
 
     assert_eq!(faults(line, &hogger()), [LineFault::Bracket]);
 }
 
 #[test]
 fn a_line_names_the_hero_at_most_once() {
-    let line = "Hogger met $N, and $N ended him.";
+    let line = "Hogger raided Elwynn for years, until $N met him and $N stopped him.";
 
     assert_eq!(faults(line, &hogger()), [LineFault::NamedTwice]);
 }
@@ -323,7 +329,7 @@ fn silence_is_a_valid_answer() {
 
 #[test]
 fn a_later_name_is_refused_unless_the_player_wrote_it() {
-    let line = "Hogger never saw Shattrath. $N will.";
+    let line = "Hogger never saw Shattrath, and $N has not seen it yet.";
 
     assert_eq!(
         faults(line, &hogger()),
@@ -427,5 +433,179 @@ fn an_item_name_never_allows_a_name_after_the_cutoff() {
     assert!(
         refused.contains(&LineFault::LaterName("Shattrath".to_string())),
         "{refused:?}"
+    );
+}
+
+fn level_twenty() -> Grounds {
+    let moment = Moment::LevelUp {
+        level: 20,
+        zone: Some("Duskwood".to_string()),
+    };
+    let lore = "The Night Watch of Darkshire guards the last town of Duskwood against the dead.";
+    grounds_of(&moment, Some(lore))
+}
+
+#[test]
+fn a_ledger_of_counts_is_refused() {
+    let line = "The Night Watch of Darkshire holds Duskwood. $N has reached level 20 and killed 20 \
+        foes there.";
+
+    assert_eq!(faults(line, &level_twenty()), [LineFault::Ledger]);
+}
+
+#[test]
+fn one_number_and_a_count_in_words_pass() {
+    for line in [
+        "The Night Watch of Darkshire holds Duskwood against the dead. $N has reached level 20.",
+        "The Night Watch of Darkshire held Duskwood through the Second War, twice over. $N has \
+         reached level 20.",
+    ] {
+        assert_eq!(
+            checked_line(line, &level_twenty(), ""),
+            Checked::Line(line.to_string())
+        );
+    }
+}
+
+#[test]
+fn a_line_of_more_than_three_sentences_is_refused() {
+    let line = "The Night Watch guards Darkshire. The dead walk in Raven Hill. The worgen roam \
+        its woods. $N has reached level 20 in Duskwood.";
+
+    assert_eq!(
+        faults(line, &level_twenty()),
+        [LineFault::TooManySentences(MOST_SENTENCES + 1)]
+    );
+}
+
+#[test]
+fn a_line_of_three_sentences_passes() {
+    let line = "The Night Watch guards Darkshire from the dead of Raven Hill. The worgen roam \
+        its woods. $N has reached level 20 in Duskwood.";
+
+    assert_eq!(
+        checked_line(line, &level_twenty(), ""),
+        Checked::Line(line.to_string())
+    );
+}
+
+#[test]
+fn a_fault_of_the_style_guide_refuses_a_line() {
+    let druid = Who {
+        class: Some(Class::Druid),
+        ..Who::default()
+    };
+    let moment = Moment::LevelUp {
+        level: 20,
+        zone: None,
+    };
+    let grounds = told_by(
+        &moment,
+        Some("The Cenarion Circle keeps the balance of nature."),
+        &druid,
+    );
+
+    let refused = faults(
+        "The Cenarion Circle keeps the balance of nature, and its power grows in the druid at \
+         level 20.",
+        &grounds,
+    );
+
+    assert_eq!(
+        refused,
+        [LineFault::Prose(ProseFault::InsideHero(
+            "grows in the druid".to_string()
+        ))]
+    );
+}
+
+#[test]
+fn a_callback_to_the_players_own_story_is_refused() {
+    let story = "My sister Mara raised horses near Goldshire.";
+    let line = "Hogger burned the farm where the sister Mara raised horses, and $N stopped him.";
+
+    let refused = match checked_line(line, &hogger(), story) {
+        Checked::Refused(faults) => faults,
+        other => panic!("{other:?}"),
+    };
+
+    assert_eq!(
+        refused,
+        [LineFault::Callback("sister mara raised".to_string())]
+    );
+}
+
+#[test]
+fn a_run_that_the_lore_holds_or_two_shared_words_are_no_callback() {
+    let story = "The Riverpaw gnolls of Elwynn Forest burned my farm.\nI grew up in Elwynn Forest.";
+    let lore = "Hogger leads the Riverpaw gnolls of Elwynn Forest.";
+
+    assert_eq!(
+        callback_in(
+            "For years Hogger led the Riverpaw gnolls of Elwynn Forest.",
+            story,
+            lore
+        ),
+        None
+    );
+    assert_eq!(
+        callback_in("The farms in Elwynn Forest fed Stormwind.", story, ""),
+        None
+    );
+}
+
+#[test]
+fn a_callback_never_spans_two_lines_of_the_players_story() {
+    let story = "My sister Mara\nraised horses.";
+
+    assert_eq!(
+        callback_in("The sister Mara raised horses in Elwynn.", story, ""),
+        None
+    );
+}
+
+#[test]
+fn each_new_fault_of_a_line_tells_the_model_what_to_fix() {
+    let reasons = [
+        LineFault::TooManySentences(4).to_string(),
+        LineFault::Ledger.to_string(),
+        LineFault::Callback("sister mara raised".to_string()).to_string(),
+        LineFault::Prose(ProseFault::LevelOpener).to_string(),
+    ];
+
+    assert!(reasons[0].contains("Use 1 to 3"));
+    assert!(reasons[1].contains("one number at most"));
+    assert!(reasons[2].contains("the player's own story"));
+    assert!(reasons[3].contains("opens with the level"));
+}
+
+#[test]
+fn a_run_that_only_names_what_the_lore_names_is_no_copy() {
+    let moment = Moment::NewZone {
+        zone: "Searing Gorge".to_string(),
+    };
+    let lore = "Dark Iron dwarves dominate the Searing Gorge, as Blackrock orcs hold the Burning \
+        Steppes.";
+    let line = "As the Blackrock orcs hold the Burning Steppes, the Dark Iron dwarves hold the \
+        Searing Gorge with their golems.";
+
+    assert_eq!(
+        checked_line(line, &grounds_of(&moment, Some(lore)), ""),
+        Checked::Line(line.to_string())
+    );
+}
+
+#[test]
+fn a_run_of_a_sample_beyond_the_names_of_the_lore_is_still_a_copy() {
+    let moment = Moment::FirstKill {
+        foe: "Edwin VanCleef".to_string(),
+    };
+    let lore = "Edwin VanCleef founded the Defias Brotherhood.";
+    let line = "Edwin VanCleef founded the Defias Brotherhood, and the Brotherhood has lost its \
+        founder.";
+
+    assert_eq!(
+        faults(line, &grounds_of(&moment, Some(lore))),
+        [LineFault::Copy("and the brotherhood has".to_string())]
     );
 }

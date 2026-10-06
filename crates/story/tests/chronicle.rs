@@ -142,13 +142,12 @@ fn a_prompt_numbers_the_small_moments_for_footnotes() {
 
 #[test]
 fn a_saga_reads_with_its_footnotes() {
-    let text =
-        r#"{"saga": "$N rode west.", "footnotes": [{"moment": 2, "text": "A dance, alone."}]}"#;
+    let text = r#"{"saga": "$N rode west from Goldshire to the farms of Westfall.", "footnotes": [{"moment": 2, "text": "A dance, alone."}]}"#;
 
     let read = checked_saga(text, 2, "", "");
 
     let expected = Saga {
-        text: "$N rode west.".to_string(),
+        text: "$N rode west from Goldshire to the farms of Westfall.".to_string(),
         footnotes: vec![(2, "A dance, alone.".to_string())],
     };
     assert_eq!(read, Some(expected));
@@ -178,8 +177,7 @@ fn a_slop_word_that_the_facts_of_the_chapter_hold_passes() {
 
 #[test]
 fn a_footnote_of_slop_is_dropped_alone() {
-    let text =
-        r#"{"saga": "$N rode west.", "footnotes": [{"moment": 1, "text": "Nobody knows why."}]}"#;
+    let text = r#"{"saga": "$N rode west from Goldshire to the farms of Westfall.", "footnotes": [{"moment": 1, "text": "Nobody knows why."}]}"#;
 
     let read = checked_saga(text, 1, "", "").unwrap();
 
@@ -189,8 +187,15 @@ fn a_footnote_of_slop_is_dropped_alone() {
 #[test]
 fn a_saga_with_no_footnotes_reads() {
     assert_eq!(
-        checked_saga(r#"{"saga": "  $N\n rode west.  "}"#, 0, "", ""),
-        Some(saga("$N rode west."))
+        checked_saga(
+            r#"{"saga": "  $N\n rode west from Goldshire to the farms of Westfall.  "}"#,
+            0,
+            "",
+            ""
+        ),
+        Some(saga(
+            "$N rode west from Goldshire to the farms of Westfall."
+        ))
     );
 }
 
@@ -198,7 +203,7 @@ fn a_saga_with_no_footnotes_reads() {
 fn a_footnote_of_no_listed_moment_twice_the_same_or_too_long_is_dropped_alone() {
     let long = "a".repeat(MAX_FOOTNOTE_CHARS + 1);
     let text = format!(
-        r#"{{"saga": "$N rode west.", "footnotes": [{{"moment": 3, "text": "x"}}, {{"moment": 1, "text": "Why?"}}, {{"moment": 1, "text": "Again?"}}, {{"moment": 2, "text": "{long}"}}]}}"#
+        r#"{{"saga": "$N rode west from Goldshire to the farms of Westfall.", "footnotes": [{{"moment": 3, "text": "x"}}, {{"moment": 1, "text": "Why?"}}, {{"moment": 1, "text": "Again?"}}, {{"moment": 2, "text": "{long}"}}]}}"#
     );
 
     let read = checked_saga(&text, 2, "", "").unwrap();
@@ -208,7 +213,7 @@ fn a_footnote_of_no_listed_moment_twice_the_same_or_too_long_is_dropped_alone() 
 
 #[test]
 fn a_saga_out_of_voice_is_dropped_and_a_footnote_out_of_voice_is_dropped_alone() {
-    let footnote = r#"{"saga": "$N rode west.", "footnotes": [{"moment": 1, "text": "lol"}, {"moment": 2, "text": "Why?"}]}"#;
+    let footnote = r#"{"saga": "$N rode west from Goldshire to the farms of Westfall.", "footnotes": [{"moment": 1, "text": "lol"}, {"moment": 2, "text": "Why?"}]}"#;
 
     assert_eq!(
         checked_saga(r#"{"saga": "Like sand in an hourglass."}"#, 0, "", ""),
@@ -220,7 +225,7 @@ fn a_saga_out_of_voice_is_dropped_and_a_footnote_out_of_voice_is_dropped_alone()
 
 #[test]
 fn a_saga_keeps_at_most_three_footnotes() {
-    let text = r#"{"saga": "S", "footnotes": [{"moment": 1, "text": "a"}, {"moment": 2, "text": "b"}, {"moment": 3, "text": "c"}, {"moment": 4, "text": "d"}]}"#;
+    let text = r#"{"saga": "The farms of Westfall fell to the Defias Brotherhood.", "footnotes": [{"moment": 1, "text": "a"}, {"moment": 2, "text": "b"}, {"moment": 3, "text": "c"}, {"moment": 4, "text": "d"}]}"#;
 
     assert_eq!(checked_saga(text, 5, "", "").unwrap().footnotes.len(), 3);
 }
@@ -230,7 +235,15 @@ fn a_broken_empty_long_late_or_wide_saga_is_dropped() {
     let long = format!(r#"{{"saga": "{}"}}"#, "a".repeat(MAX_CHAPTER_CHARS + 1));
     let wide = format!(r#"{{"saga": "{}"}}"#, "日".repeat(MAX_CHAPTER_CHARS));
 
-    assert_eq!(checked_saga("$N rode west.", 0, "", ""), None);
+    assert_eq!(
+        checked_saga(
+            "$N rode west from Goldshire to the farms of Westfall.",
+            0,
+            "",
+            ""
+        ),
+        None
+    );
     assert_eq!(checked_saga(r#"{"saga": "  "}"#, 0, "", ""), None);
     assert_eq!(checked_saga(&long, 0, "", ""), None);
     assert_eq!(

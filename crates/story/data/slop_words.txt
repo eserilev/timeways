@@ -77,3 +77,105 @@ as if
 as though
 seemed to
 would never be the same
+
+# The ban list of the style guide (docs/plans/narrator-style.md 6). A pattern of the guide
+# lives in prose.rs, inside_hero.rs, and line_check.rs.
+
+# A stock figure: a sound that is not there
+whispers of
+echoes of
+echo of
+
+# Fake drama
+to the end
+until the end
+to the last
+to their hunger
+
+# A fame claim
+knows the name
+know the name
+knows your name
+remembers the name
+will remember
+speak of $N
+songs of
+
+# A class unlock is game mechanics, not lore
+will now teach
+can now learn
+now teach
+
+# A lame deed verb
+ended him
+ended her
+ended it
+
+# The line cites its source
+spoke of
+speaks of
+told of
+tells of
+wrote of
+writes of
+said that
+as the tome
+according to
+it is said
+legend says
+they say
+some say
+
+# The "not X, but Y" pivot and its kin
+in its own way
+in their own way
+more than just
+not just
+not merely
+
+# A body or a feeling for a place or a group
+heart of
+soul of
+weight of
+scars of
+bears the scars
+the hunger of
+lost to their hunger
+
+# A place that acts like a person
+looms
+loom
+beckons
+awaits
+calls to
+stands watch
+stands as
+
+# A callback joke
+would not try it now
+
+# A grand verb for a plain deed
+felled
+vanquished
+laid low
+slain by $N
+
+# The arrival shape, also for a people that stands for the hero
+came into
+walked among
+
+# Signs of AI writing, and the irony of the future
+serves as
+stands as a
+pivotal
+legacy
+enduring
+nestled
+in the heart of
+vibrant
+bustling
+realm
+newfound
+palpable
+barely above a whisper
+would never know

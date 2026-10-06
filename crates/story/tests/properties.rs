@@ -22,13 +22,17 @@ use timeways_story::hero::{Field, LONG, checked_text, cut, limit_of};
 use timeways_story::hero_hook::HOOK_FIELDS;
 use timeways_story::house::fenced;
 use timeways_story::input::{CallId, GameQuestKind, Input, MessageId, Reaction, SlotWas};
+use timeways_story::inside_hero::{inside_hero_in, recognition_in};
 use timeways_story::journal::{Journal, TalkQuestState, journal, pages};
+use timeways_story::line_check::{Checked, Grounds, LineFault, callback_in, checked_line};
 use timeways_story::mounts::{EPIC_MOUNT_SPEED, is_epic};
+use timeways_story::narrator::Naming;
 use timeways_story::npc_memory::{MAX_MEMORIES, MAX_MEMORY_CHARS, when};
 use timeways_story::pace::{Pace, WINDOW_SECONDS};
 use timeways_story::pack::Pack;
 use timeways_story::passage_limits::{MAX_PASSAGE_BYTES, pieces};
 use timeways_story::places::InstanceKind;
+use timeways_story::prose::{FEWEST_WORDS, MOST_WORDS, ProseFault, prose_faults};
 use timeways_story::quest::variety::{Recent, SHAPES_TO_AVOID, Shape, TITLES_TO_AVOID, main_words};
 use timeways_story::quest::{
     AnyOrder, DAY_SECONDS, Known, MAX_KILLS, MAX_OPEN_QUESTS, MAX_WAIT_DAYS, QuestChange, Status,
@@ -36,6 +40,7 @@ use timeways_story::quest::{
 };
 use timeways_story::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use timeways_story::seen::TextKind;
+use timeways_story::sentences::{sentences, word_count};
 use timeways_story::spot::{MAP_IDS, Spot, THOUSANDTHS, spot_of};
 use timeways_story::store::{
     CallEnd, CharacterKey, Database, Line, NewCall, Node, Outcome, Root, Store, Table, safe_id,
@@ -3197,5 +3202,199 @@ proptest! {
         let plain = first_page(&mut plain_story);
         let with_edits = first_page(&mut edited_story);
         prop_assert_eq!(entries_of(&plain), entries_of(&with_edits));
+    }
+}
+
+/// A plain word of four to eight letters: no stop word, no "not", and no "but".
+fn plain_word() -> impl Strategy<Value = String> {
+    "[a-z]{4,8}"
+}
+
+/// A sentence of plain words, with a capital and a period.
+fn sentence_of(words: &[String]) -> String {
+    let sentence = format!("{}.", words.join(" "));
+    let mut chars = sentence.chars();
+    chars
+        .next()
+        .map(|first| first.to_uppercase().chain(chars).collect())
+        .unwrap_or_default()
+}
+
+fn has_fault(text: &str, is_it: fn(&ProseFault) -> bool) -> bool {
+    prose_faults(text, &[]).iter().any(is_it)
+}
+
+/// A word for the hero, with the race and the class words that the check is told.
+fn hero_word() -> impl Strategy<Value = (String, Vec<String>)> {
+    let kinds = vec!["paladin".to_string(), "forsaken".to_string()];
+    prop_oneof![
+        Just(("$N".to_string(), Vec::new())),
+        Just(("the hero".to_string(), Vec::new())),
+        Just(("the paladin".to_string(), kinds.clone())),
+        Just(("the Forsaken".to_string(), kinds)),
+    ]
+}
+
+/// The grounds of a level line, so a line about Duskwood is grounded.
+fn level_grounds() -> Grounds {
+    Grounds {
+        moment: "The player reached level 20.".to_string(),
+        names: Vec::new(),
+        lore: Some("The Night Watch of Darkshire guards Duskwood.".to_string()),
+        naming: Naming::Name,
+        hero_words: Vec::new(),
+        outside: Vec::new(),
+    }
+}
+
+fn line_faults(line: &str) -> Vec<LineFault> {
+    match checked_line(line, &level_grounds(), "") {
+        Checked::Refused(faults) => faults,
+        Checked::Line(_) | Checked::Silent => Vec::new(),
+    }
+}
+
+proptest! {
+    /// docs/plans/narrator-style.md 10.1: a sentence splits only at a space, so no word is
+    /// lost or cut.
+    #[test]
+    fn sentences_never_lose_a_word(text in ".{0,200}") {
+        let sentences = sentences(&text);
+
+        let counted: usize = sentences.iter().map(|sentence| word_count(sentence)).sum();
+        prop_assert_eq!(counted, word_count(&text));
+        prop_assert!(sentences.iter().all(|sentence| !sentence.is_empty()));
+        prop_assert!(sentences.iter().all(|sentence| sentence.trim() == *sentence));
+    }
+
+    #[test]
+    fn a_sentence_of_fewer_than_four_words_is_a_fragment(
+        words in prop::collection::vec(plain_word(), 1..FEWEST_WORDS),
+    ) {
+        let text = sentence_of(&words);
+
+        let fragment = has_fault(&text, |fault| matches!(fault, ProseFault::Fragment(_)));
+        prop_assert!(fragment, "{}", text);
+    }
+
+    #[test]
+    fn a_sentence_of_four_to_thirty_words_is_whole(
+        count in prop_oneof![Just(FEWEST_WORDS), Just(MOST_WORDS), FEWEST_WORDS..=MOST_WORDS],
+        word in plain_word(),
+    ) {
+        let text = sentence_of(&vec![word; count]);
+
+        let shape = |fault: &ProseFault| {
+            matches!(fault, ProseFault::Fragment(_) | ProseFault::LongSentence(_))
+        };
+        prop_assert!(!has_fault(&text, shape), "{}", text);
+    }
+
+    #[test]
+    fn a_sentence_of_more_than_thirty_words_is_long(
+        count in prop_oneof![Just(MOST_WORDS + 1), MOST_WORDS + 1..200],
+        word in plain_word(),
+    ) {
+        let text = sentence_of(&vec![word; count]);
+
+        let long = has_fault(&text, |fault| matches!(fault, ProseFault::LongSentence(_)));
+        prop_assert!(long, "{}", text);
+    }
+
+    /// A power never grows inside the hero, whatever the verb, the words between, and the
+    /// word for the hero.
+    #[test]
+    fn a_power_inside_the_hero_is_always_refused(
+        verb in prop::sample::select(vec!["grows", "grew", "lives", "burns", "stirs", "rose", "stronger"]),
+        between in prop::collection::vec(plain_word(), 0..=2),
+        inside in prop::sample::select(vec!["in", "within", "inside", "through"]),
+        (hero, kinds) in hero_word(),
+    ) {
+        let text = format!("Its power {verb} {} {inside} {hero}.", between.join(" "));
+
+        prop_assert!(inside_hero_in(&text, &kinds).is_some(), "{}", text);
+    }
+
+    /// A race or a class word before a name is a person of the lore, never the hero.
+    #[test]
+    fn a_kind_before_a_name_is_never_the_hero(
+        verb in prop::sample::select(vec!["grows", "burns", "lives"]),
+        name in "[A-Z][a-z]{3,8}",
+    ) {
+        let kinds = vec!["paladin".to_string()];
+        let text = format!(
+            "The Light {verb} in the paladin {name}, and Stormwind honors the paladin {name}."
+        );
+
+        prop_assert_eq!(inside_hero_in(&text, &kinds), None);
+        prop_assert_eq!(recognition_in(&text, &kinds), None);
+    }
+
+    #[test]
+    fn a_people_that_knows_the_hero_is_always_refused(
+        verb in prop::sample::select(vec!["knows", "remember", "fears", "greets", "honored", "thank"]),
+        (hero, kinds) in hero_word(),
+    ) {
+        let text = format!("The Riverpaw of Elwynn {verb} {hero} now.");
+
+        prop_assert!(recognition_in(&text, &kinds).is_some(), "{}", text);
+    }
+
+    /// The "not X, but Y" pivot within 3 to 60 characters is refused, and a wider or a
+    /// narrower one passes.
+    #[test]
+    fn a_pivot_is_refused_only_within_three_to_sixty_characters(
+        gap in prop_oneof![Just(2usize), Just(3), Just(60), Just(61), 1usize..80],
+    ) {
+        let text = format!(
+            "The Defias are not {} but the stonemasons of Stormwind.",
+            "x".repeat(gap)
+        );
+
+        let pivot = has_fault(&text, |fault| matches!(fault, ProseFault::Pivot(_)));
+        prop_assert_eq!(pivot, (3..=60).contains(&gap));
+    }
+
+    #[test]
+    fn a_text_that_opens_with_a_level_is_always_refused(
+        level in prop_oneof![Just(0u64), Just(u64::MAX), any::<u64>()],
+    ) {
+        let text = format!("Level {level} came to the Night Watch of Darkshire.");
+
+        prop_assert!(has_fault(&text, |fault| *fault == ProseFault::LevelOpener));
+    }
+
+    /// One number is the number of the moment. A second one makes a ledger.
+    #[test]
+    fn a_second_number_always_makes_a_ledger(
+        first in prop_oneof![Just(0u32), Just(u32::MAX), any::<u32>()],
+        second in prop_oneof![Just(0u32), Just(u32::MAX), any::<u32>()],
+    ) {
+        let one = format!(
+            "The Night Watch of Darkshire guards Duskwood, and $N has reached level {first}."
+        );
+        let two = format!(
+            "The Night Watch of Darkshire guards Duskwood, and $N has reached level {first} \
+             after {second} fights."
+        );
+
+        prop_assert!(!line_faults(&one).contains(&LineFault::Ledger));
+        prop_assert!(line_faults(&two).contains(&LineFault::Ledger));
+    }
+
+    /// Three words of the player's own story in a row are a callback, unless the lore holds
+    /// them too.
+    #[test]
+    fn a_run_of_the_players_story_is_a_callback_unless_the_lore_holds_it(
+        run in prop::collection::vec("[a-z]{5,9}", 3),
+        told in any::<bool>(),
+    ) {
+        let story = format!("I once {} by the river.", run.join(" "));
+        let line = format!("Duskwood fell dark, and {} there.", run.join(" "));
+        let lore = if told { run.join(" ") } else { String::new() };
+
+        let callback = callback_in(&line, &story, &lore);
+
+        prop_assert_eq!(callback.is_some(), !told, "{}", line);
     }
 }

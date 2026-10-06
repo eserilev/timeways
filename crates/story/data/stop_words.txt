@@ -1,5 +1,7 @@
-# Words that never make two quest titles the same (docs/plans/quest-variety.md 3.3). Whole
-# words, lower case. A word of one letter is a stop word too, and needs no line here.
+# Words that tell nothing alone. They never make two quest titles the same
+# (docs/plans/quest-variety.md 3.3), and a narrator line can share them with the player's
+# own story (docs/plans/narrator-style.md 10.1). Whole words, lower case. A word of one
+# letter is a stop word too, and needs no line here.
 the
 an
 of

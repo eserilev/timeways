@@ -2,10 +2,8 @@
 //! against the newest offers (docs/plans/quest-variety.md 3).
 
 use super::{AnyOrder, Genre, Quest, QuestFault, Step, Tracked};
-use crate::check::{data_lines, words_of};
+use crate::check::content_words;
 use std::fmt;
-
-const STOP_WORDS: &str = include_str!("../../data/stop_words.txt");
 
 /// The newest offers that the prompt shows.
 pub const RECENT_IN_PROMPT: usize = 3;
@@ -99,11 +97,7 @@ pub fn recent_quests(quests: &[Tracked], count: usize) -> Vec<Recent> {
 /// main word too.
 #[must_use]
 pub fn main_words(title: &str) -> Vec<String> {
-    let stop: Vec<&str> = data_lines(STOP_WORDS).collect();
-    words_of(title)
-        .into_iter()
-        .filter(|word| word.chars().count() > 1 && !stop.contains(&word.as_str()))
-        .collect()
+    content_words(title)
 }
 
 /// The genre in a few words for the prompt: "An errand."

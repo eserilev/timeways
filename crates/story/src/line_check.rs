@@ -3,15 +3,25 @@
 
 use crate::arrival::arrival_in;
 use crate::check::{
-    banned_words_in, has_emoji, mentions, names_after_cutoff_except, one_line, slop_in, words_of,
+    banned_words_in, content_words, has_emoji, mentions, names_after_cutoff_except, one_line,
+    slop_in, words_of,
 };
 use crate::house::NAME_MARK;
 use crate::narrator::{MAX_LINE_BYTES, MAX_LINE_CHARS, Naming, Telling, naming, what_happened};
+use crate::prose::{ProseFault, prose_faults};
 use crate::samples;
+use crate::sentences::sentences;
 use std::fmt;
 
 /// A narrator line is short, so 4 words in a row of a sample already make a copy.
 pub const COPIED_LINE_WORDS: usize = 4;
+
+/// A narrator line holds at most this many sentences (docs/plans/narrator-style.md 3).
+pub const MOST_SENTENCES: usize = 3;
+
+/// A line that shares this many words that tell something, in a row, with the player's own
+/// story calls back to it.
+pub const CALLBACK_WORDS: usize = 3;
 
 /// The answer of a model that has nothing true to tell.
 pub const SILENCE: &str = "SILENCE";
@@ -113,6 +123,13 @@ pub enum LineFault {
     Arrival(String),
     /// The moment is about a place, and the line names the hero.
     HeroAtAPlace,
+    /// A fault of the style guide that every narrator text can have.
+    Prose(ProseFault),
+    TooManySentences(usize),
+    /// More than one number: a count of levels, kills, or quests.
+    Ledger,
+    /// A run of words of the player's own story.
+    Callback(String),
 }
 
 impl fmt::Display for LineFault {
@@ -160,6 +177,20 @@ impl fmt::Display for LineFault {
             LineFault::HeroAtAPlace => write!(
                 f,
                 "This moment is about the place. Leave the hero out, and tell the place alone."
+            ),
+            LineFault::Prose(fault) => fault.fmt(f),
+            LineFault::TooManySentences(count) => write!(
+                f,
+                "The line has {count} sentences. Use 1 to {MOST_SENTENCES}."
+            ),
+            LineFault::Ledger => write!(
+                f,
+                "The line counts more than one number. Keep one number at most, the number of \
+                 the moment."
+            ),
+            LineFault::Callback(words) => write!(
+                f,
+                "\"{words}\" repeats the player's own story. Leave it out, and tell the moment."
             ),
         }
     }
@@ -227,7 +258,41 @@ fn faults(line: &str, grounds: &Grounds, player_text: &str) -> Vec<LineFault> {
         faults.push(LineFault::HeroAtAPlace);
     }
     faults.extend(arrival_in(line, &grounds.hero_words).map(LineFault::Arrival));
+    let prose = prose_faults(line, &grounds.hero_words);
+    faults.extend(prose.into_iter().map(LineFault::Prose));
+    let sentence_count = sentences(line).len();
+    if sentence_count > MOST_SENTENCES {
+        faults.push(LineFault::TooManySentences(sentence_count));
+    }
+    if number_count(line) > 1 {
+        faults.push(LineFault::Ledger);
+    }
+    faults.extend(callback_in(line, player_text, &told).map(LineFault::Callback));
     faults
+}
+
+/// The words between spaces that hold a digit: "20," and "1,000" count once each.
+fn number_count(line: &str) -> usize {
+    line.split_whitespace()
+        .filter(|word| word.chars().any(|c| c.is_ascii_digit()))
+        .count()
+}
+
+/// The first run of `CALLBACK_WORDS` words that tell something, which the line shares with
+/// one line of the player's own story, and the moment and its lore do not hold. Small
+/// words between them do not count, so "a farm in Elwynn" is the run "farm elwynn".
+#[must_use]
+pub fn callback_in(line: &str, player_text: &str, told: &str) -> Option<String> {
+    let words = content_words(line);
+    let told = content_words(told);
+    let shared = |run: &[String]| {
+        let in_story = player_text
+            .lines()
+            .any(|story| holds_run(&content_words(story), run));
+        in_story && !holds_run(&told, run)
+    };
+    let run = words.windows(CALLBACK_WORDS).find(|run| shared(run))?;
+    Some(run.join(" "))
 }
 
 /// True when a word of the line starts with an anchor of the moment, so "murlocs" counts
@@ -243,18 +308,25 @@ pub fn grounded(line: &str, grounds: &Grounds) -> bool {
 }
 
 /// The first run of `COPIED_LINE_WORDS` words that the line shares with a sample, and
-/// that the moment and its lore do not hold themselves.
+/// that the moment and its lore do not hold themselves. A run whose words that tell
+/// something the lore holds in a row is no copy: "and the Defias Brotherhood" only names
+/// what the lore names.
 fn copied_phrase(line: &str, told: &str) -> Option<String> {
     let words = words_of(line);
-    let told = words_of(told);
+    let told_words = words_of(told);
+    let told_content = content_words(told);
     let shared = |phrase: &[String]| {
         samples::every_sample()
             .iter()
             .any(|sample| holds_run(&words_of(sample), phrase))
     };
+    let names_the_lore = |phrase: &[String]| {
+        let content = content_words(&phrase.join(" "));
+        content.is_empty() || holds_run(&told_content, &content)
+    };
     words
         .windows(COPIED_LINE_WORDS)
-        .find(|phrase| shared(phrase) && !holds_run(&told, phrase))
+        .find(|phrase| shared(phrase) && !holds_run(&told_words, phrase) && !names_the_lore(phrase))
         .map(|phrase| phrase.join(" "))
 }
 

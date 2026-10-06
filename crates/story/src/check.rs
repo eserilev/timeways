@@ -6,6 +6,10 @@ use std::fmt;
 const LATER_NAMES: &str = include_str!("../data/later_names.txt");
 const BANNED_WORDS: &str = include_str!("../data/banned_words.txt");
 const SLOP_WORDS: &str = include_str!("../data/slop_words.txt");
+const STOP_WORDS: &str = include_str!("../data/stop_words.txt");
+
+/// A slop phrase holds within one clause: "The war ended, it" is no "ended it".
+const CLAUSE_MARKS: [char; 6] = ['.', ',', ';', ':', '!', '?'];
 
 /// About 150 words. The prompt asks for 80, so this catches only a runaway answer.
 pub const MAX_CHARS: usize = 1000;
@@ -88,13 +92,25 @@ pub fn slop_words() -> impl Iterator<Item = &'static str> {
     data_lines(SLOP_WORDS)
 }
 
-/// The slop words that the text holds and `told` does not: a name of the facts or of the
-/// lore, such as "Shadow Hold", stays allowed (GAMEPLAY.md 3.2.1).
+/// The words of a text that tell something, in lower case: every word except a stop word,
+/// such as "the" or "of", and a word of one letter.
+#[must_use]
+pub fn content_words(text: &str) -> Vec<String> {
+    let stop: Vec<&str> = data_lines(STOP_WORDS).collect();
+    words_of(text)
+        .into_iter()
+        .filter(|word| word.chars().count() > 1 && !stop.contains(&word.as_str()))
+        .collect()
+}
+
+/// The slop words that one clause of the text holds and `told` does not: a name of the
+/// facts or of the lore, such as "Shadow Hold", stays allowed (GAMEPLAY.md 3.2.1).
 #[must_use]
 pub fn slop_in(text: &str, told: &str) -> Vec<&'static str> {
-    let words = words_of(text);
+    let clauses: Vec<Vec<String>> = text.split(CLAUSE_MARKS).map(words_of).collect();
+    let in_a_clause = |slop: &str| clauses.iter().any(|words| contains_phrase(words, slop));
     slop_words()
-        .filter(|slop| contains_phrase(&words, slop) && !mentions(told, slop))
+        .filter(|slop| in_a_clause(slop) && !mentions(told, slop))
         .collect()
 }
 

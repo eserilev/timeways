@@ -10,7 +10,7 @@ use crate::check::words_of;
 use crate::house::NAME_MARK;
 
 /// The words for the hero in any text. A race, a class, or a title comes on top.
-const HERO_WORDS: [&str; 4] = [NAME_MARK, "stranger", "newcomer", "hero"];
+pub(crate) const HERO_WORDS: [&str; 4] = [NAME_MARK, "stranger", "newcomer", "hero"];
 
 /// Small words that can stand between the hero and the verb: "$N has now come".
 const BETWEEN: [&str; 10] = [

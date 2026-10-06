@@ -1,0 +1,1 @@
+{"saga": "A quiet chapter. $N rode west from Goldshire to the farms of Westfall."}

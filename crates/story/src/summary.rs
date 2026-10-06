@@ -8,6 +8,7 @@ use crate::check::{json_object, slop_in, voice_text};
 use crate::hero::OWN_WORDS;
 use crate::house::{HOUSE_RULES, bulleted, fenced};
 use crate::narrator::PERSONA;
+use crate::prose::prose_faults;
 use crate::samples::{self, Voice};
 use crate::tokens::{Call, largest_fit};
 use serde::Deserialize;
@@ -164,7 +165,9 @@ pub fn checked_summary(text: &str, told: &str, player_text: &str) -> Option<Stri
     )?;
     let names = summary.matches("$N").count();
     let our_hero = summary.to_lowercase().contains("our hero");
-    let clean = slop_in(&summary, told).is_empty() && arrival_in(&summary, &[]).is_none();
+    let clean = slop_in(&summary, told).is_empty()
+        && arrival_in(&summary, &[]).is_none()
+        && prose_faults(&summary, &[]).is_empty();
     (names <= MAX_NAMES && !our_hero && clean).then_some(summary)
 }
 

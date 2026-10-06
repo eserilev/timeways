@@ -9,6 +9,7 @@ use crate::journal::{Chapter, Deed, Place};
 use crate::memory;
 use crate::narrator::PERSONA;
 use crate::places::PlaceKind;
+use crate::prose::prose_faults;
 use crate::samples::{self, Voice};
 use serde::Deserialize;
 use std::fmt::Write;
@@ -262,7 +263,9 @@ fn numbered(moments: &[String]) -> String {
 /// a rule, or names no moment of the list, is dropped alone. A chapter that fails keeps
 /// its plain list; its second draft is its second chance (GAMEPLAY.md 3.3). `facts` are
 /// the facts of the chapter: a slop word that they hold, such as a name, stays allowed.
-/// `player_text` is the hero in the player's own words.
+/// `player_text` is the hero in the player's own words. A footnote is one short line of a
+/// small moment, so the checks of the style guide (`prose_faults`) hold for the saga text
+/// alone.
 #[must_use]
 pub fn checked_saga(
     text: &str,
@@ -277,7 +280,7 @@ pub fn checked_saga(
         MAX_CHAPTER_BYTES,
         player_text,
     )
-    .filter(|saga| is_clean(saga, facts))?;
+    .filter(|saga| is_clean(saga, facts) && prose_faults(saga, &[]).is_empty())?;
     let mut footnotes: Vec<(usize, String)> = Vec::new();
     for footnote in reply.footnotes {
         let known = (1..=moment_count).contains(&footnote.moment);

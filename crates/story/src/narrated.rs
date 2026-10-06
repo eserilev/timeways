@@ -8,6 +8,7 @@ use crate::check::{
     slop_in,
 };
 use crate::house::NAME_MARK;
+use crate::prose::prose_faults;
 use crate::samples;
 
 /// The hero's name, `$N`, comes at most this often.
@@ -52,6 +53,7 @@ pub fn checked(text: &str, limits: &Limits<'_>) -> Result<String, Vec<String>> {
     if let Some(arrival) = arrival_in(&line, &[]) {
         faults.push(format!("It only tells that the hero came: \"{arrival}\"."));
     }
+    faults.extend(prose_faults(&line, &[]).iter().map(ToString::to_string));
     if line.matches(NAME_MARK).count() > MAX_NAMES {
         faults.push(format!("It names the hero more than {MAX_NAMES} times."));
     }

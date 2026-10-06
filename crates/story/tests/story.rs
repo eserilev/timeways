@@ -604,14 +604,15 @@ fn a_big_moment_asks_the_model_for_a_narrator_line() {
     level(&mut story, 2, 20);
 
     let (call, prompt) = model_call(batch_end(&mut story, 3));
-    let text = "Level 20. $N earned it.".to_string();
+    let text = "After many hard roads and many fights, $N has reached level 20.".to_string();
     let output = one(story.handle(Input::ModelAnswered { call, text }).unwrap());
 
     assert!(
         prompt.contains("The moment:\n<<<\nThe player reached level 20.\n>>>"),
         "{prompt}"
     );
-    let narrator = Some("Level 20. $N earned it.".to_string());
+    let narrator =
+        Some("After many hard roads and many fights, $N has reached level 20.".to_string());
     assert_eq!(
         output,
         Some(Output::EventsSeen {
@@ -652,7 +653,7 @@ fn a_refused_narrator_line_gets_one_retry_with_the_reasons() {
     let text = "On the 23rd day, $N reached level 20.".to_string();
     let (retry, prompt) =
         model_call(one(story.handle(Input::ModelAnswered { call, text }).unwrap()).unwrap());
-    let text = "Level 20. $N earned it.".to_string();
+    let text = "After many hard roads and many fights, $N has reached level 20.".to_string();
     let output = one(story
         .handle(Input::ModelAnswered { call: retry, text })
         .unwrap());
@@ -666,7 +667,9 @@ fn a_refused_narrator_line_gets_one_retry_with_the_reasons() {
         output,
         Some(Output::EventsSeen {
             id: MessageId(3),
-            narrator: Some("Level 20. $N earned it.".to_string()),
+            narrator: Some(
+                "After many hard roads and many fights, $N has reached level 20.".to_string()
+            ),
             notice: None,
         })
     );
@@ -845,10 +848,10 @@ fn a_name_in_no_fact_is_logged_and_the_line_still_shows() {
     level(&mut story, 2, 20);
     let (call, _) = model_call(batch_end(&mut story, 3));
 
-    let text = "Level 20 came to $N under the eyes of Varian.".to_string();
+    let text = "Under the eyes of Varian, $N has reached level 20 at last.".to_string();
     let output = one(story.handle(Input::ModelAnswered { call, text }).unwrap());
 
-    let shown = Some("Level 20 came to $N under the eyes of Varian.".to_string());
+    let shown = Some("Under the eyes of Varian, $N has reached level 20 at last.".to_string());
     assert!(matches!(output, Some(Output::EventsSeen { narrator, .. }) if narrator == shown));
     assert_eq!(
         story.take_notes(),

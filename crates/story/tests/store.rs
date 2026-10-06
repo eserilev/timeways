@@ -405,7 +405,7 @@ fn the_saga_survives_a_restart() {
     let Output::ModelCall { call, .. } = outputs[1].clone() else {
         panic!("expected a saga call, got {outputs:?}");
     };
-    let text = r#"{"saga": "$N rode west."}"#.to_string();
+    let text = r#"{"saga": "$N rode west from Goldshire to the farms of Westfall."}"#.to_string();
     first.handle(Input::ModelAnswered { call, text }).unwrap();
     drop(first);
 
@@ -422,7 +422,7 @@ fn the_saga_survives_a_restart() {
     };
     assert_eq!(
         page.journal.chapters[0].prose.as_deref(),
-        Some("$N rode west.")
+        Some("$N rode west from Goldshire to the farms of Westfall.")
     );
     let second_batch = second.handle(Input::BatchEnd { id: MessageId(4) }).unwrap();
     assert_eq!(second_batch.len(), 1);

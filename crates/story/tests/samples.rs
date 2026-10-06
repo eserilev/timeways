@@ -7,6 +7,7 @@ use timeways_story::line_check::{
 };
 use timeways_story::moments::Moment;
 use timeways_story::narrator::{ABSENT, Naming, Telling, Who};
+use timeways_story::prose::prose_faults;
 use timeways_story::samples::{LineSample, Voice, every_sample, line_samples, rotated};
 use timeways_story::talk::{self, Scene};
 use timeways_story::{chronicle, narrator, summary};
@@ -358,4 +359,50 @@ fn a_narrator_prompt_leaves_out_the_sample_of_its_own_moment() {
     let prompt = narrator::prompt(&telling, 0);
 
     assert!(!prompt.contains(first.line), "{prompt}");
+}
+
+/// The race and the class of a sample hero, as words for the hero: "a Forsaken warlock"
+/// gives "Forsaken" and "warlock".
+fn hero_words(sample: &LineSample) -> Vec<String> {
+    let who = sample.who.unwrap_or_default();
+    who.split_whitespace().skip(1).map(str::to_string).collect()
+}
+
+#[test]
+fn every_sample_follows_the_guide() {
+    for sample in line_samples() {
+        let grounds = Grounds {
+            naming: if sample.hero == ABSENT {
+                Naming::Absent
+            } else {
+                Naming::Name
+            },
+            hero_words: hero_words(&sample),
+            ..grounds_of(&sample)
+        };
+
+        let faults = match checked_line(sample.line, &grounds, "") {
+            Checked::Refused(faults) => faults,
+            Checked::Line(_) | Checked::Silent => Vec::new(),
+        };
+
+        let not_a_copy: Vec<&LineFault> = faults
+            .iter()
+            .filter(|fault| !matches!(fault, LineFault::Copy(_)))
+            .collect();
+        assert!(not_a_copy.is_empty(), "{}: {not_a_copy:?}", sample.line);
+    }
+    let paragraphs = [Voice::Chapter.samples(), Voice::Summary.samples()].concat();
+    for sample in paragraphs {
+        assert_eq!(prose_faults(sample, &[]), [], "{sample}");
+    }
+}
+
+#[test]
+fn no_deed_sample_ends_on_a_contrast_with_the_hero() {
+    for sample in line_samples() {
+        for ending in ["The paladin did.", "settled the account instead."] {
+            assert!(!sample.line.ends_with(ending), "{}", sample.line);
+        }
+    }
 }

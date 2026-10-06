@@ -15,13 +15,15 @@ use timeways_story::check::{
 use timeways_story::draft;
 use timeways_story::house::without_fence_marks;
 use timeways_story::input::MessageId;
-use timeways_story::line_check::{Checked, Grounds, checked_line, grounded};
+use timeways_story::line_check::{Checked, Grounds, MOST_SENTENCES, checked_line, grounded};
 use timeways_story::moments::Moment;
 use timeways_story::narrator::{Telling, Who};
+use timeways_story::prose::prose_faults;
 use timeways_story::quest::variety::{Recent, Shape, main_words};
 use timeways_story::quest::{self, Genre, Known, Step};
 use timeways_story::race_class::Race;
 use timeways_story::seen::{SeenText, TextKind};
+use timeways_story::sentences::sentences;
 use timeways_story::story::Output;
 use timeways_story::{chronicle, hero, narrator, summary, tale, talk, zone_history};
 
@@ -47,6 +49,7 @@ fn assert_entry_text(text: &str, max_chars: usize, max_bytes: usize) {
     assert_eq!(arrival_in(text, &[]), None, "{text:?}");
     assert!(text.matches("$N").count() <= 2, "{text:?}");
     assert!(!text.to_lowercase().contains("our hero"), "{text:?}");
+    assert_eq!(prose_faults(text, &[]), [], "{text:?}");
 }
 
 fn known(seen: &[SeenText]) -> Known<'_> {
@@ -254,9 +257,9 @@ fn assert_draft(text: &str) {
     assert!(fake_bridge::game_reply(&line).is_some(), "{line}");
 }
 
-/// A narrator line that passes keeps its limits, holds no slop, no bracket, and no arrival
-/// of the hero, names the hero at most once, and names something of its moment. A line of
-/// a place never names the hero.
+/// A narrator line that passes keeps its limits, holds no slop, no bracket, no arrival of
+/// the hero, and no fault of the style guide, names the hero at most once, and names
+/// something of its moment. A line of a place never names the hero.
 fn assert_line(text: &str) {
     let orc = Who {
         race: Some(Race::Orc),
@@ -285,6 +288,8 @@ fn assert_line(text: &str) {
         assert!(grounded(&line, &grounds), "{line:?}");
         assert_eq!(arrival_in(&line, &grounds.hero_words), None, "{line:?}");
         assert!(!moment.is_arrival() || !line.contains("$N"), "{line:?}");
+        assert_eq!(prose_faults(&line, &grounds.hero_words), [], "{line:?}");
+        assert!(sentences(&line).len() <= MOST_SENTENCES, "{line:?}");
     }
 }
 
@@ -300,6 +305,7 @@ fuzz_target!(|data: &[u8]| {
         );
         assert!(slop_in(&saga.text, "").is_empty(), "{saga:?}");
         assert_eq!(arrival_in(&saga.text, &[]), None, "{saga:?}");
+        assert_eq!(prose_faults(&saga.text, &[]), [], "{saga:?}");
         assert!(saga.footnotes.len() <= chronicle::MAX_FOOTNOTES);
         for (moment, footnote) in &saga.footnotes {
             assert!((1..=moments).contains(moment));
@@ -314,6 +320,7 @@ fuzz_target!(|data: &[u8]| {
         );
         assert!(slop_in(&summary, "").is_empty(), "{summary:?}");
         assert_eq!(arrival_in(&summary, &[]), None, "{summary:?}");
+        assert_eq!(prose_faults(&summary, &[]), [], "{summary:?}");
         assert!(
             summary.matches("$N").count() <= summary::MAX_NAMES,
             "{summary:?}"

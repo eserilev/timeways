@@ -1,6 +1,6 @@
 # Plan: the style guide of the narrator
 
-Status: spec, 2026-10-05. The guide holds now for every new sample, template, and prompt text. The code changes of section 9 and the prompt changes of section 8 wait for the approval of the user.
+Status: approved by the user, 2026-10-05, and built the same day. The guide holds for every sample, template, and prompt text. The prompt of section 8, the samples, the templates plan of section 9, and the checks of section 10.1 are done.
 
 ## 0. Why this guide exists
 
@@ -266,6 +266,17 @@ These are exact. Each one goes into `line_check.rs` or `slop_words.txt`. Every p
 | A Hero-page callback | a run of 3 words in a row from the player's Hero answers, in a narrator line | new, for the saga and the summary check only when the narrator line holds no sheet |
 
 A sentence ends at `.`, `!`, or `?` followed by a space or the end. The tests: one unit test for each pattern with a hated line, and one that each loved line passes.
+
+**As built** (2026-10-05). The patterns live in `prose.rs`, `inside_hero.rs`, and `line_check.rs`, and the phrases in `slop_words.txt`:
+
+- **Every narrator text** (a line, a saga, the summary, a tale, the history of a zone) takes the ban list, nothing inside the hero, NPC recognition, the source shape, a fragment, a long sentence, the pivot, and the level opener.
+- **A narrator line only** takes too many sentences, the ledger, and the Hero-page callback. A saga is a paragraph that tells levels and counts, and the saga and the summary use the hero sheet by design (GAMEPLAY.md 3.3 and 3.7).
+- **A footnote** of a saga is one short line of a small moment, so it keeps only the ban list and the arrival check.
+- **A ban phrase counts within one clause**, so "When the war ended, it..." holds no "ended it".
+- **A race, a class, or a title** names the hero only when it stands alone: "the paladin Uther", "the Forsaken's crypts", and "the Forsaken of the Undercity" are no hero.
+- **The callback** counts only words that tell something: a stop word of `stop_words.txt` and a word of one letter do not count. So "the farms in Elwynn Forest" does not call back to "I grew up in Elwynn Forest". A run that the moment or its lore holds is no callback.
+- **The ledger** counts a word with a digit as one number. "Twice" and "the Second War" are no number.
+- One phrase came on top of the list: "to their hunger", because the hated line says "lost them to their hunger".
 
 ### 10.2 What only the guide can enforce
 
