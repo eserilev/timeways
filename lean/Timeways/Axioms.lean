@@ -9,6 +9,7 @@ import Timeways.Aliases
 import Timeways.StoryShelf
 import Timeways.EntryEdits
 import Timeways.Chapters
+import Timeways.NarratorShapes
 
 open timeways_rules
 
@@ -263,3 +264,79 @@ open timeways_rules
 /-- info: 'timeways_rules.chapters.advance_one_line_at_a_time' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs (whitespace := lax) in
 #print axioms chapters.advance_one_line_at_a_time
+
+/-- info: 'timeways_rules.narrator_shapes.skeleton.spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms narrator_shapes.skeleton.spec
+
+/-- info: 'timeways_rules.narrator_shapes.assemble.spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms narrator_shapes.assemble.spec
+
+/-- info: 'timeways_rules.narrator_shapes.fits.spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms narrator_shapes.fits.spec
+
+/-- info: 'timeways_rules.narrator_shapes.pick.spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms narrator_shapes.pick.spec
+
+/-- info: 'timeways_rules.narrator_shapes.table_ok.spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms narrator_shapes.table_ok.spec
+
+/-- info: 'timeways_rules.narrator_shapes.distinct_skeletons.spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms narrator_shapes.distinct_skeletons.spec
+
+/-- info: 'timeways_rules.narrator_shapes.a_line_is_one_shape' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms narrator_shapes.a_line_is_one_shape
+
+/-- info: 'timeways_rules.narrator_shapes.the_lore_comes_first' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms narrator_shapes.the_lore_comes_first
+
+/-- info: 'timeways_rules.narrator_shapes.the_hero_stands_only_in_a_deed' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms narrator_shapes.the_hero_stands_only_in_a_deed
+
+/-- info: 'timeways_rules.narrator_shapes.an_arrival_holds_no_hero' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms narrator_shapes.an_arrival_holds_no_hero
+
+/-- info: 'timeways_rules.narrator_shapes.no_group_clause_holds_the_hero' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms narrator_shapes.no_group_clause_holds_the_hero
+
+/-- info: 'timeways_rules.narrator_shapes.nothing_is_inside_the_hero' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms narrator_shapes.nothing_is_inside_the_hero
+
+/-- info: 'timeways_rules.narrator_shapes.the_hero_is_named_at_most_once' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms narrator_shapes.the_hero_is_named_at_most_once
+
+/-- info: 'timeways_rules.narrator_shapes.a_fitting_shape_builds_a_line' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms narrator_shapes.a_fitting_shape_builds_a_line
+
+/-- info: 'timeways_rules.narrator_shapes.every_slot_has_a_value' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms narrator_shapes.every_slot_has_a_value
+
+/-- info: 'timeways_rules.narrator_shapes.a_pick_fits' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms narrator_shapes.a_pick_fits
+
+/-- info: 'timeways_rules.narrator_shapes.no_main_repeats_within_n' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms narrator_shapes.no_main_repeats_within_n
+
+/-- info: 'timeways_rules.narrator_shapes.a_run_never_repeats' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms narrator_shapes.a_run_never_repeats
+
+/-- info: 'timeways_rules.narrator_shapes.the_pick_is_deterministic_from_the_turn' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms narrator_shapes.the_pick_is_deterministic_from_the_turn

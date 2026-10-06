@@ -5,8 +5,8 @@ Lean functions. The theorems in `Timeways/QuestLog.lean`,
 `Timeways/HeroHook.lean`, `Timeways/Budget.lean`,
 `Timeways/TrustBand.lean`, `Timeways/Prompts.lean`,
 `Timeways/Aliases.lean`, `Timeways/StoryShelf.lean`,
-`Timeways/EntryEdits.lean`, and `Timeways/Chapters.lean` are about those
-functions. A theorem holds for every input, with no bound. The
+`Timeways/EntryEdits.lean`, `Timeways/Chapters.lean`, and
+`Timeways/NarratorShapes.lean` are about those functions. A theorem holds for every input, with no bound. The
 property tests in `crates/story/tests/properties.rs` check the same
 rules on random input, and they stay as a second check.
 
@@ -263,6 +263,60 @@ theorems 6, 8, and 13 then name the constants of each rule.
 The property tests of the story program (`crates/story/tests/properties.rs`)
 check the walk from events to steps, which no proof reads: dense ids,
 and the steps of a prefix are a prefix of the steps.
+
+## What is proved: the shapes of a narrator line
+
+The model writes the lore of a narrator line, and the code writes the
+hero (`docs/plans/narrator-templates.md`). `narrator_shapes` in
+`crates/rules/src/narrator_shapes.rs` builds a line of tokens from a
+shape of template parts, decides if the shape fits a moment, checks the
+table of parts when it loads, and picks a shape in turn. It reads token
+ids, never a string. The story program renders the text. The theorems
+are in `Timeways/NarratorShapes.lean`.
+
+| Theorem | The law | Test |
+|---|---|---|
+| `skeleton.spec`, `assemble.spec`, `fits.spec`, `pick.spec`, `table_ok.spec`, `distinct_skeletons.spec` | The functions never panic, never overflow, and always end. A built line is the lore, then tokens of parts of the shape that are in the table, with at most `MOST_TOKENS` tokens. | the unit tests of `narrator_shapes.rs` |
+| `a_line_is_one_shape` | With distinct skeletons, two shapes that build the same tokens are the same shape. | `two_shapes_of_one_line_fail_the_table` |
+| `the_lore_comes_first` | When the table passes its checks, a built line starts with the lore slot, and holds it once. | `a_line_starts_with_the_lore` |
+| `the_hero_stands_only_in_a_deed` | When the table passes its checks, each hero slot of a built line is in a deed part or a coda part of the shape. | `a_group_that_holds_the_hero_fails_the_table` |
+| `an_arrival_holds_no_hero` | The line of an arrival is the lore slot alone. | `an_arrival_is_the_lore_alone` |
+| `no_group_clause_holds_the_hero` | When the table passes its checks, no group part and no grow part holds a hero slot. | `a_group_that_holds_the_hero_fails_the_table` |
+| `nothing_is_inside_the_hero` | When the table passes its checks, no word of `inside_words` stands right before a hero slot in a line of its shapes. | `the_hero_after_in_fails_the_table` |
+| `the_hero_is_named_at_most_once` | A fitting shape builds a line with one hero slot on a named turn, and none on another turn. | `an_unnamed_turn_takes_no_part_with_the_hero` |
+| `a_fitting_shape_builds_a_line` | A shape that fits always builds a line. | none |
+| `every_slot_has_a_value` | Each slot of a built line has a value in the facts, and a hero slot comes only on a named turn. | `a_slot_with_no_value_builds_nothing` |
+| `a_pick_fits` | The pick returns a shape that fits, and it returns one whenever a shape fits. | `nothing_fits_picks_nothing` |
+| `no_main_repeats_within_n` | When a fitting shape has a main part outside the window, the pick takes such a shape. | `the_pick_starts_at_the_turn_and_skips_recent_mains` |
+| `a_run_never_repeats` | In a run of picks where more than 8 distinct main parts fit at each pick, each pick takes a shape, and two picks at most 8 apart never share a main part. | the same |
+| `the_pick_is_deterministic_from_the_turn` | When a fitting shape has a fresh main part, the pick is the first such shape from `turn mod count`. | the same |
+
+These laws differ in form from the plan. Each keeps its intent:
+
+- **The specs** give the skeleton as "the lore, then tokens of parts of
+  the shape" (`SkelOk`), not as an exact concatenation. The laws need
+  no more.
+- **`the_lore_comes_first` and `the_hero_stands_only_in_a_deed`** need
+  no `s ∈ ss`: the checks of the parts hold for every shape. Law 4
+  says that the hero slot is in the tokens of a deed or coda part of
+  the shape. The plan named the kind of the part at each position. That
+  form needs a map from a position to its part, and says the same.
+- **`every_slot_has_a_value`** writes `f.has k` as the value of
+  `has` at `k`, in range.
+- **`a_pick_fits`, `no_main_repeats_within_n`, and
+  `the_pick_is_deterministic_from_the_turn`** need `mains` and `fits`
+  to have one length. The Rust returns no shape when they differ, so the
+  plan's form of law 10 is false without it. Law 13 needs a fitting
+  shape with a fresh main part: with none, the pick takes the main part
+  that was used longest ago, and law 10 covers that case.
+- **`a_run_never_repeats`** is a Hoare triple over `runPicks`, a run
+  that this file defines from the Rust `pick`. Each pick reads the main
+  parts of the last 8 picks, oldest first, as the story program reads
+  them from the calls of a character. "More than 8 fitting main parts"
+  is `Wide`: a list of more than 8 distinct main parts, each the main
+  part of a fitting shape. The window is the Rust `WINDOW`. The file
+  writes it as `windowSize`, because no translated function reads
+  `WINDOW`, so Aeneas does not translate it.
 
 ## What you trust
 

@@ -12,4 +12,5 @@ import Timeways.EntryEdits
 import Timeways.ChaptersModel
 import Timeways.ChaptersBridge
 import Timeways.Chapters
+import Timeways.NarratorShapes
 import Timeways.Axioms
