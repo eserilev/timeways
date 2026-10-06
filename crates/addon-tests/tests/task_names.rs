@@ -35,6 +35,19 @@ fn a_name_in_any_case_or_with_its_realm_gets_a_mark_in_the_form_of_the_game() {
 }
 
 #[test]
+fn a_sign_past_ascii_ends_a_name() {
+    let idea = marked(
+        "",
+        "Corvin’s axe, Corvin—again, «Corvin» Corvin… Corvin，Corvin🙂",
+    );
+
+    assert_eq!(
+        idea,
+        "{Corvin}’s axe, {Corvin}—again, «{Corvin}» {Corvin}… {Corvin}，{Corvin}🙂"
+    );
+}
+
+#[test]
 fn a_word_that_holds_a_name_stays() {
     let idea = marked("", "Corvinus and Adamant stay");
 
@@ -123,14 +136,16 @@ fn name() -> impl Strategy<Value = String> {
 }
 
 /// The ways that a player types a name: as the game shows it, in lowercase, in uppercase,
-/// with its realm, and with a mark after it.
+/// with its realm, and with a sign after it, in ASCII or past it.
 fn typed(name: &str, form: u8) -> String {
-    match form % 5 {
+    match form % 7 {
         0 => name.to_string(),
         1 => name.to_lowercase(),
         2 => name.to_uppercase(),
         3 => format!("{name}-Stormrage"),
-        _ => format!("{name}!"),
+        4 => format!("{name}!"),
+        5 => format!("{name}’s"),
+        _ => format!("{name}—"),
     }
 }
 

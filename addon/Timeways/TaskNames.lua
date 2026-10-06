@@ -8,8 +8,52 @@ local _, ns = ...
 local TaskNames = {}
 ns.TaskNames = TaskNames
 
--- A word: ASCII letters and digits, and every byte of a UTF-8 letter such as "é".
-local WORD = "[%w\128-\255]+"
+-- One character of UTF-8: an ASCII byte, or a lead byte and its continuation bytes.
+local CHAR = "[%z\1-\127\194-\244][\128-\191]*"
+
+-- The signs past ASCII that end a word, as the desktop's `char::is_alphanumeric` does. A
+-- name before a curly apostrophe, a dash, or an emoji still gets its mark.
+local NOT_LETTERS = {
+	"^\194", -- U+0080 to U+00BF: the no-break space, « », ¡, ¿, ·
+	"^\195[\151\183]", -- × and ÷
+	"^\226", -- U+2000 to U+2FFF: ’, —, …, and other signs
+	"^\227\128", -- U+3000 to U+303F: the signs of CJK, such as 、 and 。
+	"^\239\188[\128-\143\154-\160\187-\191]", -- full-width signs, such as ，
+	"^\239\189[\128\155-\165]",
+	"^[\240-\244]", -- emoji
+}
+
+local function IsWordChar(char)
+	if #char == 1 then
+		return char:find("^%w$") ~= nil
+	end
+	for _, sign in ipairs(NOT_LETTERS) do
+		if char:find(sign) then
+			return false
+		end
+	end
+	return true
+end
+
+-- The first and the last byte of the next word at or after `at`, or nil. A word is a run of
+-- ASCII letters and digits and of letters past ASCII, such as "é".
+local function NextWord(text, at)
+	local first, last
+	local from = at
+	while true do
+		local start, stop = text:find(CHAR, from)
+		-- A broken byte ends a word too.
+		if not start or (first and start > from) then
+			return first, last
+		end
+		if IsWordChar(text:sub(start, stop)) then
+			first, last = first or start, stop
+		elseif first then
+			return first, last
+		end
+		from = stop + 1
+	end
+end
 
 -- Latin-1 capitals are U+00C0 to U+00DE, less ×, and each small letter is 32 above.
 local function FoldLatin1(trail)
@@ -108,8 +152,11 @@ end
 
 -- The end of a realm right after a word that ends at `last`, as in "Ada-Stormrage".
 local function RealmEnd(text, last)
-	local _, realmEnd = text:find("^%-" .. WORD, last + 1)
-	return realmEnd or last
+	if text:sub(last + 1, last + 1) ~= "-" then
+		return last
+	end
+	local first, realmEnd = NextWord(text, last + 2)
+	return first == last + 2 and realmEnd or last
 end
 
 -- Each player that the addon knows becomes "{Name}", as the game writes the name, and your
@@ -120,7 +167,7 @@ function TaskNames.Marked(text)
 	local names, me = KnownNames(), MyName()
 	local parts, players, seen, at = {}, {}, {}, 1
 	while true do
-		local first, last = text:find(WORD, at)
+		local first, last = NextWord(text, at)
 		if not first then
 			break
 		end
