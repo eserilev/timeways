@@ -4,8 +4,8 @@
 //! gets the name back.
 //!
 //! The proved rules live in `timeways_rules::aliases`. This module cuts a text into their
-//! pieces and joins the pieces again. A word here is what `TaskNames.lua` calls a word: a
-//! run of ASCII letters and digits and of letters outside ASCII.
+//! pieces and joins the pieces again. A word here is a run of letters and digits, in any
+//! script.
 
 use crate::race_class::{Class, Race};
 use serde::{Deserialize, Serialize};
@@ -141,8 +141,10 @@ fn is_realm(realm: &str) -> bool {
     !realm.is_empty() && realm.chars().all(is_word_char)
 }
 
+/// Stricter than `TaskNames.lua`, which reads every byte past ASCII as a letter: a curly
+/// apostrophe or a dash after a name ends the word, so "Ada’s" still loses its name.
 fn is_word_char(c: char) -> bool {
-    c.is_ascii_alphanumeric() || !c.is_ascii()
+    c.is_alphanumeric()
 }
 
 /// The text cut into words and the rest. A word with a realm, "Ada-Stormrage", is one
@@ -269,6 +271,13 @@ pub fn ids_in(text: &str) -> Vec<PlayerId> {
         }
     }
     ids
+}
+
+/// True when the text holds an ID. The journal shows a text of the narrator as it is, so
+/// such a text would show `{P1}` to the player.
+#[must_use]
+pub fn holds_an_id(text: &str) -> bool {
+    !ids_in(text).is_empty()
 }
 
 /// The text for the player's own screen: each ID becomes the name of its player.

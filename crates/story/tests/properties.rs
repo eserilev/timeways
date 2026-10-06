@@ -2079,7 +2079,7 @@ fn text_part(names: Vec<String>) -> impl Strategy<Value = String> {
         1 => name.clone().prop_map(|name| format!("x{name}")),
         1 => name.prop_map(|name| format!("{name}s")),
         1 => prop::sample::select(vec![
-            " ", ", ", ".", "-", "'", "{P1}", "P7", "{", "}", "é", "—", " and ", "$N",
+            " ", ", ", ".", "-", "'", "’", "«", "{P1}", "P7", "{", "}", "é", "—", " and ", "$N",
         ])
         .prop_map(String::from),
         1 => "[a-z]{1,6}",
@@ -2101,9 +2101,9 @@ fn alias_table(names: &[String]) -> Vec<Alias> {
     table
 }
 
-/// The words of a text, as `TaskNames.lua` cuts them.
+/// The words of a text as a reader sees them: a curly apostrophe or a dash ends a word.
 fn text_words(text: &str) -> Vec<&str> {
-    text.split(|c: char| c.is_ascii() && !c.is_ascii_alphanumeric())
+    text.split(|c: char| !c.is_alphanumeric())
         .filter(|word| !word.is_empty())
         .collect()
 }
