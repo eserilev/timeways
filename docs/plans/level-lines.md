@@ -1,6 +1,6 @@
 # Plan: the narrator line of a tenth level
 
-Status: direction set by the user, 2026-10-05. Nothing is built.
+Status: direction set by the user, 2026-10-05. Built 2026-10-06 with the templates (`narrator-templates.md`): the groups of a pairing, the tension note, and one passage of the people for each tenth level. The class order pages are not in the pack, so the lore is the lore of the people (its capital and its land), and a tenth level with no such passage is silent.
 
 ## The idea
 

@@ -1,6 +1,20 @@
 # Plan: slots and templates for narrator lines
 
-Status: spec only, 2026-10-05. Nothing is built. The templates in section 9 wait for the approval of the user. The plan follows the style guide of the narrator (`narrator-style.md`, approved 2026-10-05): its section 9 dropped 8 parts, added 2 outcomes with no hero, and made the lore end on the present.
+Status: built 2026-10-06. The template parts wait for the approval of the user (the review flag `--templates` prints every line of a pairing). The plan follows the style guide of the narrator (`narrator-style.md`, approved 2026-10-05): its section 9 dropped 8 parts, added 2 outcomes with no hero, and made the lore end on the present.
+
+**What the build changed from this spec:**
+
+- **Frames are the order of the parts**, not parts of their own. The rules put the lore slot first, and no part holds it. Each part holds its own punctuation, and the joined coda starts with ", and".
+- **The killer phrases are values**, not parts: "one {killer} or another" is the value of the slot `killer`. So a death has fewer skeletons than 3.6 counts, with the same lines.
+- **An arrival takes up to three sentences** of history, not two, because the loved Deadmines line has three.
+- **The tag `past`** keeps "Now," away from a deed in the past tense ("Now, Hogger fell to $N." reads wrong).
+- **The need `repeat`** keeps "That makes {count_num} slaps" away from a first slap.
+- **The foe types.** The world holds only the beast type today (the `animal` fact of a sighting). The undead, demon, dragonkin, and elemental parts wait for the creature type of `npc_defeated`, and never fit until then.
+- **The first epic item** knows its slot only when it is also a big upgrade. Else no item part fits, and the moment is silent.
+- **The Earthen Ring and the Shattered Hand** wait for question 5.
+- **The theorems.** Section 5.2 holds, with the restatements in `lean/README.md`: the hero of theorem 4 lies in a part of the shape that is a deed or a coda (a member form, not a position), theorems 3 and 4 need no `s ∈ ss`, theorems 10, 11, and 13 need `mains` and `fits` of one length (the code returns no shape when they differ), and theorem 12 is a triple over a run that the Lean file defines.
+- **The window** lives in the column `shape` of the calls. A file of the version before takes the column and keeps its rows.
+- **Questions answered by the build, for review:** titles keep their parts, but a title has no lore, so the thin lore rule keeps it silent (question 2); flavor moments keep free text (question 3); an item with no story of its own is silent (question 4); `co.makes_u` stays (question 8); N = 8 (question 7).
 
 ## 0. The decision
 
