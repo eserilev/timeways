@@ -239,7 +239,7 @@ fn faults(line: &str, grounds: &Grounds, player_text: &str) -> Vec<LineFault> {
         .filter(|word| !mentions(&told, word));
     let banned = banned.chain(slop_in(line, &told));
     faults.extend(banned.map(|word| LineFault::Banned(word.to_string())));
-    faults.extend(copied_phrase(line, &told).map(LineFault::Copy));
+    faults.extend(copied_phrase(line, &told, &grounds.moment).map(LineFault::Copy));
     let known = numbers(&told);
     let new_numbers = numbers(line)
         .into_iter()
@@ -310,13 +310,13 @@ pub fn grounded(line: &str, grounds: &Grounds) -> bool {
 /// The first run of `COPIED_LINE_WORDS` words that the line shares with a sample, and
 /// that the moment and its lore do not hold themselves. A run whose words that tell
 /// something the lore holds in a row is no copy: "and the Defias Brotherhood" only names
-/// what the lore names.
-fn copied_phrase(line: &str, told: &str) -> Option<String> {
+/// what the lore names. A sample of the same moment is no source: the prompt left it out.
+fn copied_phrase(line: &str, told: &str, moment: &str) -> Option<String> {
     let words = words_of(line);
     let told_words = words_of(told);
     let told_content = content_words(told);
     let shared = |phrase: &[String]| {
-        samples::every_sample()
+        samples::every_sample_shown_with(moment)
             .iter()
             .any(|sample| holds_run(&words_of(sample), phrase))
     };

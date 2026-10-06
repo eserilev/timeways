@@ -151,6 +151,21 @@ fn shown_pair(sample: &LineSample) -> String {
     lines.join("\n")
 }
 
+/// Every sample that a narrator prompt of `moment` can show: the narrator samples of the
+/// same moment stay out of it (`line_section`), so a line cannot copy them.
+#[must_use]
+pub fn every_sample_shown_with(moment: &str) -> Vec<&'static str> {
+    let left_out: Vec<&str> = line_samples()
+        .into_iter()
+        .filter(|sample| sample.moment == moment)
+        .map(|sample| sample.line)
+        .collect();
+    every_sample()
+        .into_iter()
+        .filter(|sample| !left_out.contains(sample))
+        .collect()
+}
+
 /// Every sample of every voice, for the check against a copy.
 #[must_use]
 pub fn every_sample() -> Vec<&'static str> {

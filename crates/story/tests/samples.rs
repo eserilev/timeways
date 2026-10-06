@@ -296,7 +296,8 @@ fn a_copy_of_a_sample_is_refused() {
     let sample = line_samples()[0];
     let say = Voice::NpcReply.samples()[0];
 
-    let checked = checked_line(sample.line, &grounds_of(&sample), "");
+    let other_moment = grounds_of(&line_samples()[1]);
+    let checked = checked_line(sample.line, &other_moment, "");
 
     assert!(
         matches!(&checked, Checked::Refused(faults) if faults.iter().any(|fault| matches!(fault, LineFault::Copy(_)))),

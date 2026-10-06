@@ -178,7 +178,7 @@ fn the_number_of_a_milestone_grounds_its_line() {
 
 #[test]
 fn a_line_that_copies_four_words_of_a_sample_is_refused() {
-    let sample = Voice::NarratorLine.samples()[1];
+    let sample = Voice::NarratorLine.samples()[0];
     let copied: Vec<&str> = sample.split(' ').take(COPIED_LINE_WORDS).collect();
     let line = format!("{} $N came.", copied.join(" "));
 
@@ -607,5 +607,28 @@ fn a_run_of_a_sample_beyond_the_names_of_the_lore_is_still_a_copy() {
     assert_eq!(
         faults(line, &grounds_of(&moment, Some(lore))),
         [LineFault::Copy("and the brotherhood has".to_string())]
+    );
+}
+
+#[test]
+fn a_line_never_copies_the_sample_of_its_own_moment_because_the_prompt_left_it_out() {
+    let westfall = Moment::NewZone {
+        zone: "Westfall".to_string(),
+    };
+    let darkshore = Moment::NewZone {
+        zone: "Darkshore".to_string(),
+    };
+    let line = "The farmers of Westfall left, and the Defias Brotherhood holds it now.";
+
+    assert_eq!(
+        checked_line(line, &grounds_of(&westfall, None), ""),
+        Checked::Line(line.to_string())
+    );
+    assert_eq!(
+        faults(
+            line,
+            &grounds_of(&darkshore, Some("Westfall lies south of Elwynn."))
+        ),
+        [LineFault::Copy("and the defias brotherhood".to_string())]
     );
 }
