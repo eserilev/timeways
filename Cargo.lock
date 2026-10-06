@@ -793,6 +793,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "timeways-dev"
+version = "0.1.0"
+dependencies = [
+ "fake-bridge",
+ "proptest",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "timeways-story",
+ "toml",
+]
+
+[[package]]
 name = "timeways-rules"
 version = "0.1.0"
 

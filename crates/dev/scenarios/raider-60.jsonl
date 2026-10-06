@@ -1,0 +1,183 @@
+# An orc warrior who reached level 60 and raids: Blackrock Depths four times, Upper Blackrock
+# Spire three times as a raid, and Azuregos as a world boss. The tales count their runs, and
+# repeat kills show as tally lines. An epic mount and an epic weapon, and a big upgrade.
+
+# Burning Steppes and Western Plaguelands, levels 58 to 60.
+
+{"type": "character_described", "at": 30, "race": "Orc", "class": "WARRIOR"}
+{"type": "zone_entered", "at": 60, "zone": "Orgrimmar", "subzone": "Valley of Strength", "hour": 14}
+{"type": "npc_met", "at": 90, "name": "Thrall"}
+{"type": "zone_entered", "at": 3690, "zone": "Burning Steppes", "subzone": "Flame Crest", "hour": 14}
+{"type": "npc_met", "at": 3720, "name": "Vaelan"}
+{"type": "game_quest_accepted", "at": 3740, "title": "Broodling Essence", "kind": "normal"}
+{"type": "game_quest_done", "at": 4340, "title": "Broodling Essence", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 4360, "title": "Tablet of the Seven", "kind": "normal"}
+
+{"type": "game_quest_done", "at": 4960, "title": "Tablet of the Seven", "kind": "normal"}
+{"type": "zone_entered", "at": 4990, "zone": "Burning Steppes", "subzone": "Ruins of Thaurissan", "hour": 14}
+{"type": "game_quest_accepted", "at": 5010, "title": "Dragonkin Menace", "kind": "normal"}
+{"type": "game_quest_done", "at": 5610, "title": "Dragonkin Menace", "kind": "normal"}
+{"type": "level_reached", "at": 6510, "level": 58}
+
+{"type": "game_quest_accepted", "at": 6530, "title": "Extinguish the Firegut", "kind": "normal"}
+{"type": "game_quest_done", "at": 7130, "title": "Extinguish the Firegut", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 7150, "title": "FIFTY! YEP!", "kind": "normal"}
+{"type": "game_quest_done", "at": 7750, "title": "FIFTY! YEP!", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 7770, "title": "Gor'tesh the Brute Lord", "kind": "normal"}
+{"type": "game_quest_done", "at": 8370, "title": "Gor'tesh the Brute Lord", "kind": "normal"}
+{"type": "zone_entered", "at": 8400, "zone": "Burning Steppes", "subzone": "Draco'dar", "hour": 14}
+{"type": "game_quest_accepted", "at": 8420, "title": "The True Masters", "kind": "normal"}
+
+{"type": "game_quest_done", "at": 9020, "title": "The True Masters", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 9040, "title": "Yuka Screwspigot", "kind": "normal"}
+{"type": "game_quest_done", "at": 9640, "title": "Yuka Screwspigot", "kind": "normal"}
+{"type": "item_equipped", "at": 9700, "slot": 16, "item": "Blackhand Doomsaw", "quality": 3, "level": 60, "replaced": 45, "was": "worn"}
+
+{"type": "level_reached", "at": 10600, "level": 59}
+
+{"type": "zone_entered", "at": 17800, "zone": "Western Plaguelands", "subzone": "Chillwind Camp", "hour": 14}
+{"type": "zone_entered", "at": 17860, "zone": "Western Plaguelands", "subzone": "The Bulwark", "hour": 14}
+{"type": "npc_met", "at": 17890, "name": "High Executor Derrington"}
+{"type": "game_quest_accepted", "at": 17910, "title": "A Plague Upon Thee", "kind": "normal"}
+{"type": "game_quest_done", "at": 18510, "title": "A Plague Upon Thee", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 18530, "title": "Better Late Than Never", "kind": "normal"}
+{"type": "game_quest_done", "at": 19130, "title": "Better Late Than Never", "kind": "normal"}
+{"type": "zone_entered", "at": 19160, "zone": "Western Plaguelands", "subzone": "Andorhal", "hour": 14}
+
+{"type": "game_quest_accepted", "at": 19180, "title": "Unfinished Business", "kind": "normal"}
+{"type": "game_quest_done", "at": 19780, "title": "Unfinished Business", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 19800, "title": "Mission Accomplished!", "kind": "normal"}
+{"type": "game_quest_done", "at": 20400, "title": "Mission Accomplished!", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 20420, "title": "The Scourge Cauldrons", "kind": "normal"}
+{"type": "game_quest_done", "at": 21020, "title": "The Scourge Cauldrons", "kind": "normal"}
+{"type": "zone_entered", "at": 21050, "zone": "Western Plaguelands", "subzone": "Felstone Field", "hour": 14}
+{"type": "game_quest_accepted", "at": 21070, "title": "Target: Felstone Field", "kind": "normal"}
+
+{"type": "game_quest_done", "at": 21670, "title": "Target: Felstone Field", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 21690, "title": "Return to the Bulwark", "kind": "normal"}
+{"type": "game_quest_done", "at": 22290, "title": "Return to the Bulwark", "kind": "normal"}
+{"type": "level_reached", "at": 23190, "level": 60}
+
+{"type": "game_quest_accepted", "at": 23210, "title": "All Along the Watchtowers", "kind": "normal"}
+{"type": "game_quest_done", "at": 23810, "title": "All Along the Watchtowers", "kind": "normal"}
+
+# An epic mount in Orgrimmar.
+
+{"type": "zone_entered", "at": 31010, "zone": "Orgrimmar", "subzone": "Valley of Honor", "hour": 14}
+{"type": "rest_changed", "at": 31040, "resting": "yes"}
+{"type": "mount_ridden", "at": 31100, "mount": "Swift Brown Wolf", "speed": 200}
+
+{"type": "rest_changed", "at": 31700, "resting": "no"}
+
+# Blackrock Depths, run 1.
+
+{"type": "zone_entered", "at": 35300, "zone": "Searing Gorge", "subzone": "Firewatch Ridge", "hour": 14}
+{"type": "zone_entered", "at": 35900, "zone": "Blackrock Depths", "hour": 14}
+{"type": "instance_entered", "at": 35901, "zone": "Blackrock Depths", "kind": "party"}
+{"type": "npc_defeated", "at": 36801, "name": "Lord Roccor", "kind": "boss"}
+{"type": "npc_defeated", "at": 37701, "name": "High Interrogator Gerstahn", "kind": "boss"}
+{"type": "npc_defeated", "at": 39201, "name": "General Angerforge", "kind": "boss"}
+{"type": "died", "at": 39801, "killer": "Bael'Gar", "hour": 14}
+
+{"type": "npc_defeated", "at": 41001, "name": "Emperor Dagran Thaurissan", "kind": "boss"}
+{"type": "zone_entered", "at": 41601, "zone": "Searing Gorge", "subzone": "Firewatch Ridge", "hour": 14}
+{"type": "game_quest_accepted", "at": 41621, "title": "Disharmony of Fire", "kind": "normal"}
+{"type": "game_quest_done", "at": 43421, "title": "Disharmony of Fire", "kind": "normal"}
+
+# Blackrock Depths, run 2.
+
+{"type": "zone_entered", "at": 54221, "zone": "Searing Gorge", "subzone": "Firewatch Ridge", "hour": 14}
+{"type": "zone_entered", "at": 54821, "zone": "Blackrock Depths", "hour": 14}
+{"type": "instance_entered", "at": 54822, "zone": "Blackrock Depths", "kind": "party"}
+{"type": "npc_defeated", "at": 55722, "name": "Lord Roccor", "kind": "boss"}
+{"type": "npc_defeated", "at": 56622, "name": "High Interrogator Gerstahn", "kind": "boss"}
+{"type": "npc_defeated", "at": 58122, "name": "General Angerforge", "kind": "boss"}
+{"type": "npc_defeated", "at": 59322, "name": "Emperor Dagran Thaurissan", "kind": "boss"}
+{"type": "zone_entered", "at": 59922, "zone": "Searing Gorge", "subzone": "Firewatch Ridge", "hour": 14}
+
+{"type": "item_equipped", "at": 59982, "slot": 16, "item": "Ironfoe", "quality": 4, "level": 63, "replaced": 60, "was": "worn"}
+
+{"type": "game_quest_accepted", "at": 60002, "title": "The Heart of the Mountain", "kind": "normal"}
+{"type": "game_quest_done", "at": 61802, "title": "The Heart of the Mountain", "kind": "normal"}
+
+# Blackrock Depths, run 3.
+
+{"type": "zone_entered", "at": 72602, "zone": "Searing Gorge", "subzone": "Firewatch Ridge", "hour": 14}
+{"type": "zone_entered", "at": 73202, "zone": "Blackrock Depths", "hour": 14}
+{"type": "instance_entered", "at": 73203, "zone": "Blackrock Depths", "kind": "party"}
+{"type": "npc_defeated", "at": 74103, "name": "Lord Roccor", "kind": "boss"}
+{"type": "npc_defeated", "at": 75003, "name": "High Interrogator Gerstahn", "kind": "boss"}
+{"type": "npc_defeated", "at": 76503, "name": "General Angerforge", "kind": "boss"}
+{"type": "npc_defeated", "at": 77703, "name": "Emperor Dagran Thaurissan", "kind": "boss"}
+{"type": "zone_entered", "at": 78303, "zone": "Searing Gorge", "subzone": "Firewatch Ridge", "hour": 14}
+
+{"type": "game_quest_accepted", "at": 78323, "title": "KILL ON SIGHT: High Ranking Dark Iron Officials", "kind": "normal"}
+{"type": "game_quest_done", "at": 80123, "title": "KILL ON SIGHT: High Ranking Dark Iron Officials", "kind": "normal"}
+
+# Blackrock Depths, run 4.
+
+{"type": "zone_entered", "at": 90923, "zone": "Searing Gorge", "subzone": "Firewatch Ridge", "hour": 14}
+{"type": "zone_entered", "at": 91523, "zone": "Blackrock Depths", "hour": 14}
+{"type": "instance_entered", "at": 91524, "zone": "Blackrock Depths", "kind": "party"}
+{"type": "npc_defeated", "at": 92424, "name": "Lord Roccor", "kind": "boss"}
+{"type": "npc_defeated", "at": 93324, "name": "High Interrogator Gerstahn", "kind": "boss"}
+{"type": "npc_defeated", "at": 94824, "name": "General Angerforge", "kind": "boss"}
+{"type": "npc_defeated", "at": 96024, "name": "Emperor Dagran Thaurissan", "kind": "boss"}
+{"type": "zone_entered", "at": 96624, "zone": "Searing Gorge", "subzone": "Firewatch Ridge", "hour": 14}
+
+{"type": "game_quest_accepted", "at": 96644, "title": "Ribbly Screwspigot", "kind": "normal"}
+{"type": "game_quest_done", "at": 98444, "title": "Ribbly Screwspigot", "kind": "normal"}
+
+# Upper Blackrock Spire as a raid, run 1.
+
+{"type": "zone_entered", "at": 120044, "zone": "Burning Steppes", "subzone": "Blackrock Mountain", "hour": 14}
+{"type": "zone_entered", "at": 120344, "zone": "Blackrock Spire", "hour": 14}
+{"type": "instance_entered", "at": 120345, "zone": "Blackrock Spire", "kind": "raid"}
+{"type": "npc_defeated", "at": 121545, "name": "Pyroguard Emberseer", "kind": "boss"}
+{"type": "npc_defeated", "at": 123045, "name": "Warchief Rend Blackhand", "kind": "boss"}
+{"type": "npc_defeated", "at": 124245, "name": "The Beast", "kind": "boss"}
+{"type": "npc_defeated", "at": 125745, "name": "General Drakkisath", "kind": "boss"}
+{"type": "zone_entered", "at": 126345, "zone": "Burning Steppes", "subzone": "Blackrock Mountain", "hour": 14}
+
+{"type": "game_quest_accepted", "at": 126365, "title": "Warlord's Command", "kind": "normal"}
+{"type": "game_quest_done", "at": 128165, "title": "Warlord's Command", "kind": "normal"}
+
+# Upper Blackrock Spire as a raid, run 2.
+
+{"type": "zone_entered", "at": 149765, "zone": "Burning Steppes", "subzone": "Blackrock Mountain", "hour": 14}
+{"type": "zone_entered", "at": 150065, "zone": "Blackrock Spire", "hour": 14}
+{"type": "instance_entered", "at": 150066, "zone": "Blackrock Spire", "kind": "raid"}
+{"type": "npc_defeated", "at": 151266, "name": "Pyroguard Emberseer", "kind": "boss"}
+{"type": "npc_defeated", "at": 152766, "name": "Warchief Rend Blackhand", "kind": "boss"}
+{"type": "npc_defeated", "at": 153966, "name": "The Beast", "kind": "boss"}
+{"type": "npc_defeated", "at": 155466, "name": "General Drakkisath", "kind": "boss"}
+{"type": "zone_entered", "at": 156066, "zone": "Burning Steppes", "subzone": "Blackrock Mountain", "hour": 14}
+
+{"type": "item_equipped", "at": 156126, "slot": 1, "item": "Lionheart Helm", "quality": 4, "level": 62, "replaced": 58, "was": "worn"}
+
+{"type": "game_quest_accepted", "at": 156146, "title": "General Drakkisath's Demise", "kind": "normal"}
+{"type": "game_quest_done", "at": 157946, "title": "General Drakkisath's Demise", "kind": "normal"}
+
+# Upper Blackrock Spire as a raid, run 3.
+
+{"type": "zone_entered", "at": 179546, "zone": "Burning Steppes", "subzone": "Blackrock Mountain", "hour": 14}
+{"type": "zone_entered", "at": 179846, "zone": "Blackrock Spire", "hour": 14}
+{"type": "instance_entered", "at": 179847, "zone": "Blackrock Spire", "kind": "raid"}
+{"type": "npc_defeated", "at": 181047, "name": "Pyroguard Emberseer", "kind": "boss"}
+{"type": "npc_defeated", "at": 182547, "name": "Warchief Rend Blackhand", "kind": "boss"}
+{"type": "npc_defeated", "at": 183747, "name": "The Beast", "kind": "boss"}
+{"type": "npc_defeated", "at": 185247, "name": "General Drakkisath", "kind": "boss"}
+{"type": "zone_entered", "at": 185847, "zone": "Burning Steppes", "subzone": "Blackrock Mountain", "hour": 14}
+
+{"type": "game_quest_accepted", "at": 185867, "title": "For The Horde!", "kind": "normal"}
+{"type": "game_quest_done", "at": 187667, "title": "For The Horde!", "kind": "normal"}
+
+# Azshara: Azuregos, a world boss.
+
+{"type": "zone_entered", "at": 191267, "zone": "Azshara", "subzone": "Valormok", "hour": 14}
+{"type": "zone_entered", "at": 191297, "zone": "Azshara", "subzone": "Bay of Storms", "hour": 14}
+{"type": "npc_seen", "at": 191307, "name": "Azuregos", "reaction": "hostile", "creature": "dragonkin"}
+{"type": "npc_defeated", "at": 193107, "name": "Azuregos", "kind": "worldboss"}
+{"type": "game_quest_accepted", "at": 193127, "title": "Arcane Refreshment", "kind": "normal"}
+{"type": "game_quest_done", "at": 194327, "title": "Arcane Refreshment", "kind": "normal"}
+{"type": "zone_entered", "at": 201527, "zone": "Orgrimmar", "subzone": "Valley of Strength", "hour": 14}

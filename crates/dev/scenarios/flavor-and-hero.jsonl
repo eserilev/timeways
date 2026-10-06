@@ -1,0 +1,121 @@
+# A troll shaman at level 25 with a full Hero sheet, notes of the player, and every joke title:
+# falls, drownings, lava, a humbling death, slaps, and books. Also a class quest with a lasting
+# mark, a battleground won, a PvP rank, an inn, a flight, a /lore question, and "Help me write".
+
+# Durotar and the sheet of the hero.
+
+{"type": "character_described", "at": 30, "race": "Troll", "class": "SHAMAN"}
+{"type": "zone_entered", "at": 60, "zone": "Durotar", "subzone": "Valley of Trials", "hour": 14}
+{"type": "hero_set", "at": 90, "field": "origin", "text": "Born on the Echo Isles, under the eye of Vol'jin."}
+{"type": "hero_set", "at": 120, "field": "background", "text": "I fished the reef until the sea witch came. Now I follow the spirits."}
+{"type": "hero_set", "at": 150, "field": "goal", "text": "Find the spirit that spoke to me on the reef."}
+{"type": "hero_set", "at": 180, "field": "bond", "text": "My brother Zan'tu, who stayed on the isles."}
+{"type": "hero_set", "at": 210, "field": "flaw", "text": "I laugh at the wrong time, even at funerals."}
+{"type": "hero_set", "at": 240, "field": "traits", "text": "Patient with beasts, short with orcs who boast."}
+
+{"type": "hero_set", "at": 270, "field": "title", "text": "Speaker of the Reef"}
+{"type": "hero_set", "at": 300, "field": "currently", "text": "Looking for a good fishing spot."}
+{"type": "hero_set", "at": 330, "field": "appearance", "text": "Blue skin painted with white tide marks, tusks bound in copper."}
+{"type": "hero_set", "at": 360, "field": "age", "text": "Young for a troll"}
+{"type": "hero_set", "at": 390, "field": "motto", "text": "The tide always comes back."}
+
+{"type": "npc_met", "at": 420, "name": "Master Gadrin"}
+{"type": "hero_added", "at": 450, "text": "Master Gadrin knew my mother's name.", "npc": "Master Gadrin"}
+{"type": "hero_added", "at": 480, "text": "The spirits went quiet when I left the isles."}
+{"type": "hero_added", "at": 510, "text": "A note that I took back."}
+{"type": "hero_removed", "at": 540, "number": 2}
+{"type": "game_quest_accepted", "at": 560, "title": "Sarkoth", "kind": "normal"}
+{"type": "game_quest_done", "at": 1160, "title": "Sarkoth", "kind": "normal"}
+{"type": "level_reached", "at": 2060, "level": 5}
+
+# Sen'jin Village and Razor Hill: books, slaps, and the class quest with its mark.
+
+{"type": "zone_entered", "at": 5660, "zone": "Durotar", "subzone": "Sen'jin Village", "hour": 14}
+{"type": "npc_met", "at": 5690, "name": "Master Vornal"}
+{"type": "npc_met", "at": 5720, "name": "Lar Prowltusk"}
+{"type": "text_seen", "at": 5780, "kind": "book", "title": "The Kaldorei and the Well of Eternity", "zone": "Durotar", "text": "A page of the History of Warcraft, volume 1. The trolls of Zul'Aman remember it differently."}
+{"type": "text_seen", "at": 5840, "kind": "book", "title": "The Founding of Quel'Thalas", "zone": "Durotar", "text": "A page of the History of Warcraft, volume 2. The trolls of Zul'Aman remember it differently."}
+{"type": "text_seen", "at": 5900, "kind": "book", "title": "Arathor and the Troll Wars", "zone": "Durotar", "text": "A page of the History of Warcraft, volume 3. The trolls of Zul'Aman remember it differently."}
+{"type": "text_seen", "at": 5960, "kind": "book", "title": "The Guardians of Tirisfal", "zone": "Durotar", "text": "A page of the History of Warcraft, volume 4. The trolls of Zul'Aman remember it differently."}
+{"type": "text_seen", "at": 6020, "kind": "book", "title": "The Seven Kingdoms", "zone": "Durotar", "text": "A page of the History of Warcraft, volume 5. The trolls of Zul'Aman remember it differently."}
+
+{"type": "text_seen", "at": 6080, "kind": "book", "title": "The Dark Portal and the Fall of Stormwind", "zone": "Durotar", "text": "A page of the History of Warcraft, volume 6. The trolls of Zul'Aman remember it differently."}
+{"type": "text_seen", "at": 6140, "kind": "book", "title": "The Alliance of Lordaeron", "zone": "Durotar", "text": "A page of the History of Warcraft, volume 7. The trolls of Zul'Aman remember it differently."}
+{"type": "text_seen", "at": 6200, "kind": "book", "title": "The Invasion of Draenor", "zone": "Durotar", "text": "A page of the History of Warcraft, volume 8. The trolls of Zul'Aman remember it differently."}
+{"type": "text_seen", "at": 6260, "kind": "book", "title": "Aftermath of the Second War", "zone": "Durotar", "text": "A page of the History of Warcraft, volume 9. The trolls of Zul'Aman remember it differently."}
+{"type": "text_seen", "at": 6320, "kind": "book", "title": "Rise of the Horde", "zone": "Durotar", "text": "A page of the History of Warcraft, volume 10. The trolls of Zul'Aman remember it differently."}
+{"type": "zone_entered", "at": 9920, "zone": "Durotar", "subzone": "Razor Hill", "hour": 14}
+{"type": "npc_met", "at": 9950, "name": "Innkeeper Grosk"}
+{"type": "emote_done", "at": 9980, "emote": "slap", "target": "Innkeeper Grosk", "hour": 14}
+
+{"type": "npc_slapped", "at": 9981, "name": "Innkeeper Grosk"}
+{"type": "emote_done", "at": 10011, "emote": "slap", "target": "Innkeeper Grosk", "hour": 14}
+{"type": "npc_slapped", "at": 10012, "name": "Innkeeper Grosk"}
+{"type": "emote_done", "at": 10042, "emote": "slap", "target": "Innkeeper Grosk", "hour": 14}
+{"type": "npc_slapped", "at": 10043, "name": "Innkeeper Grosk"}
+{"type": "emote_done", "at": 10073, "emote": "slap", "target": "Innkeeper Grosk", "hour": 14}
+{"type": "npc_slapped", "at": 10074, "name": "Innkeeper Grosk"}
+{"type": "emote_done", "at": 10104, "emote": "slap", "target": "Innkeeper Grosk", "hour": 14}
+
+{"type": "npc_slapped", "at": 10105, "name": "Innkeeper Grosk"}
+
+{"type": "zone_entered", "at": 10135, "zone": "Durotar", "subzone": "Razor Hill", "hour": 14}
+{"type": "game_quest_accepted", "at": 10155, "title": "Call of Earth", "kind": "class"}
+{"type": "quest_marked", "at": 10215, "quest": "Call of Earth", "mark": "Earth Sapta"}
+{"type": "game_quest_done", "at": 10815, "title": "Call of Earth", "kind": "class"}
+{"type": "level_reached", "at": 11715, "level": 10}
+
+# The Barrens: falls, drownings, lava, and a humbling death.
+
+{"type": "zone_entered", "at": 15315, "zone": "The Barrens", "subzone": "The Crossroads", "hour": 14}
+{"type": "rest_changed", "at": 15345, "resting": "yes"}
+{"type": "rest_changed", "at": 16245, "resting": "no"}
+{"type": "died", "at": 16545, "cause": "falling", "hour": 14}
+
+{"type": "died", "at": 16845, "cause": "falling", "hour": 14}
+
+{"type": "died", "at": 17145, "cause": "falling", "hour": 14}
+
+{"type": "zone_entered", "at": 17175, "zone": "The Barrens", "subzone": "Lushwater Oasis", "hour": 14}
+{"type": "died", "at": 17475, "cause": "drowning", "hour": 14}
+
+{"type": "died", "at": 17775, "cause": "drowning", "hour": 14}
+
+{"type": "died", "at": 18075, "cause": "drowning", "hour": 14}
+
+{"type": "zone_entered", "at": 18105, "zone": "The Barrens", "subzone": "Boulder Lode Mine", "hour": 14}
+{"type": "died", "at": 18405, "cause": "lava", "hour": 14}
+
+{"type": "died", "at": 18705, "cause": "fire", "hour": 14}
+
+{"type": "npc_seen", "at": 18715, "name": "Kolkar Bloodcharger", "reaction": "hostile", "creature": "humanoid"}
+{"type": "game_quest_accepted", "at": 18735, "title": "Disrupt the Attacks", "kind": "normal"}
+{"type": "game_quest_done", "at": 19335, "title": "Disrupt the Attacks", "kind": "normal"}
+{"type": "level_reached", "at": 20235, "level": 16}
+
+{"type": "zone_entered", "at": 20265, "zone": "The Barrens", "subzone": "Ratchet", "hour": 14}
+{"type": "npc_seen", "at": 20275, "name": "Sickly Gazelle", "reaction": "hostile", "creature": "beast"}
+{"type": "died", "at": 20395, "killer": "Sickly Gazelle", "killer_level": 3, "hour": 14}
+
+{"type": "game_quest_accepted", "at": 20415, "title": "Raptor Thieves", "kind": "normal"}
+{"type": "game_quest_done", "at": 21015, "title": "Raptor Thieves", "kind": "normal"}
+{"type": "level_reached", "at": 21915, "level": 20}
+
+# Warsong Gulch: a win, and a rank.
+
+{"type": "zone_entered", "at": 25515, "zone": "Warsong Gulch", "hour": 14}
+{"type": "instance_entered", "at": 25516, "zone": "Warsong Gulch", "kind": "pvp"}
+{"type": "bg_won", "at": 26716, "zone": "Warsong Gulch"}
+{"type": "pvp_rank", "at": 26776, "rank": 1}
+
+{"type": "zone_entered", "at": 27076, "zone": "The Barrens", "subzone": "The Crossroads", "hour": 14}
+{"type": "zone_entered", "at": 27196, "zone": "Durotar", "subzone": "Razor Hill", "hour": 14, "taxi": "yes"}
+{"type": "zone_entered", "at": 27316, "zone": "Orgrimmar", "subzone": "Valley of Strength", "hour": 14}
+{"type": "rest_changed", "at": 27346, "resting": "yes"}
+{"type": "level_reached", "at": 30946, "level": 25}
+
+# A /lore question, and an idea for a player quest.
+
+{"type": "lore_asked", "at": 30976, "question": "Who is Vol'jin?"}
+
+{"type": "draft_asked", "at": 31006, "idea": "help me catch the biggest fish in Durotar"}

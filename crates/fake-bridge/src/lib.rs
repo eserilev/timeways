@@ -38,9 +38,13 @@ pub enum Reply {
 /// The words of the model for a prompt, or None for a failed call.
 pub type Model = Box<dyn FnMut(&str) -> Option<String>>;
 
+/// The words of the model for the kind of a call ("narrator", "quest", ...) and its
+/// prompt, or None for a failed call.
+pub type ModelByKind = Box<dyn FnMut(&str, &str) -> Option<String>>;
+
 pub struct FakeBridge {
     story: Story,
-    model: Option<Model>,
+    model: Option<ModelByKind>,
     next_id: u64,
     /// Each batch that the story program has and did not answer yet, with whether it
     /// holds a request line.
@@ -73,7 +77,13 @@ impl FakeBridge {
 
     /// With a model, a call stays open until `settle`.
     #[must_use]
-    pub fn with_model(mut self, model: Model) -> FakeBridge {
+    pub fn with_model(self, mut model: Model) -> FakeBridge {
+        self.with_model_by_kind(Box::new(move |_, prompt| model(prompt)))
+    }
+
+    /// A model that also reads the kind of each call.
+    #[must_use]
+    pub fn with_model_by_kind(mut self, model: ModelByKind) -> FakeBridge {
         self.model = Some(model);
         self
     }
@@ -121,7 +131,11 @@ impl FakeBridge {
         let Some((call, prompt)) = self.open_calls.pop_front() else {
             return false;
         };
-        let words = self.model.as_mut().and_then(|model| model(&prompt));
+        let kind = self
+            .story
+            .call_kind(timeways_story::input::CallId(call.0))
+            .unwrap_or_default();
+        let words = self.model.as_mut().and_then(|model| model(kind, &prompt));
         match words {
             // The bridge cleans every answer of a model before the story program sees it.
             Some(words) => self.write_line(&model_answered_line(call, &clean_answer(&words))),
@@ -139,6 +153,12 @@ impl FakeBridge {
                 self.errors
             )
         })
+    }
+
+    /// What the story program wrote to stderr: each refused line, with its reason.
+    #[must_use]
+    pub fn errors(&self) -> &[String] {
+        &self.errors
     }
 
     /// Model calls that failed because 2 others were open.

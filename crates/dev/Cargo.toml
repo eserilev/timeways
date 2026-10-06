@@ -1,0 +1,24 @@
+[package]
+name = "timeways-dev"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Dev mode of Timeways: worlds from scenario files, and snapshots of worlds, for tests with no hours of play."
+publish = false
+
+[dependencies]
+# The real checks of the bridge around the real story program, as in the game.
+fake-bridge = { path = "../fake-bridge" }
+timeways-story = { path = "../story" }
+rusqlite.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+toml.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
+
+[lints]
+workspace = true

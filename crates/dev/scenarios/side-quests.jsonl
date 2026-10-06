@@ -1,0 +1,116 @@
+# A dwarf hunter at level 18 with side quests in every state and of every step kind: visit,
+# visit at an hour, meet, talk, emote, slap, kill, carry, defeat, enter, level, a quest of
+# the game, a wait, and steps in any order. Two are done, two are in progress (one a
+# mystery with hidden steps), one offer waits, one was declined, and one was abandoned.
+# The model answers are fixed, so the quests are the same with no model.
+
+# Dun Morogh and Loch Modan, levels 1 to 17: the places, people, and foes of the quests.
+
+{"type": "character_described", "at": 30, "race": "Dwarf", "class": "HUNTER"}
+{"type": "zone_entered", "at": 60, "zone": "Dun Morogh", "subzone": "Coldridge Valley", "hour": 14}
+{"type": "game_quest_accepted", "at": 80, "title": "Dwarven Outfitters", "kind": "normal"}
+{"type": "game_quest_done", "at": 680, "title": "Dwarven Outfitters", "kind": "normal"}
+{"type": "zone_entered", "at": 710, "zone": "Dun Morogh", "subzone": "Kharanos", "hour": 14}
+{"type": "npc_met", "at": 740, "name": "Senir Whitebeard"}
+{"type": "npc_met", "at": 770, "name": "Innkeeper Belm"}
+{"type": "npc_met", "at": 800, "name": "Rejold Barleybrew"}
+
+{"type": "zone_entered", "at": 830, "zone": "Dun Morogh", "subzone": "Thunderbrew Distillery", "hour": 14}
+{"type": "zone_entered", "at": 860, "zone": "Dun Morogh", "subzone": "Gol'Bolar Quarry", "hour": 14}
+{"type": "game_quest_accepted", "at": 880, "title": "The Boar Hunter", "kind": "normal"}
+{"type": "game_quest_done", "at": 1480, "title": "The Boar Hunter", "kind": "normal"}
+{"type": "level_reached", "at": 2380, "level": 8}
+
+{"type": "zone_entered", "at": 5980, "zone": "Loch Modan", "subzone": "Thelsamar", "hour": 14}
+{"type": "npc_met", "at": 6010, "name": "Mountaineer Kadrell"}
+{"type": "npc_met", "at": 6040, "name": "Innkeeper Hearthstove"}
+{"type": "npc_met", "at": 6070, "name": "Captain Rugelfuss"}
+{"type": "npc_met", "at": 6100, "name": "Mountaineer Gravelgaw"}
+{"type": "npc_met", "at": 6130, "name": "Prospector Ironband"}
+{"type": "zone_entered", "at": 6160, "zone": "Loch Modan", "subzone": "Stonewrought Dam", "hour": 14}
+{"type": "npc_seen", "at": 6170, "name": "Mangy Mountain Boar", "reaction": "hostile", "creature": "beast"}
+
+{"type": "npc_seen", "at": 6180, "name": "Stonesplinter Trogg", "reaction": "hostile", "creature": "humanoid"}
+{"type": "zone_entered", "at": 6210, "zone": "Loch Modan", "subzone": "Ironband's Excavation Site", "hour": 14}
+{"type": "game_quest_accepted", "at": 6230, "title": "Ironband's Excavation", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 6250, "title": "Rat Catching", "kind": "normal"}
+{"type": "game_quest_done", "at": 6850, "title": "Rat Catching", "kind": "normal"}
+{"type": "level_reached", "at": 7750, "level": 12}
+
+{"type": "zone_entered", "at": 11350, "zone": "Dun Morogh", "subzone": "Gnomeregan", "hour": 14}
+{"type": "zone_entered", "at": 11650, "zone": "Gnomeregan", "hour": 14}
+{"type": "instance_entered", "at": 11651, "zone": "Gnomeregan", "kind": "party"}
+{"type": "npc_defeated", "at": 13451, "name": "Mekgineer Thermaplugg", "kind": "boss"}
+{"type": "zone_entered", "at": 14051, "zone": "Dun Morogh", "subzone": "Gnomeregan", "hour": 14}
+{"type": "zone_entered", "at": 17651, "zone": "Loch Modan", "subzone": "Thelsamar", "hour": 14}
+{"type": "level_reached", "at": 18551, "level": 17}
+
+# Errand, done: a visit, a wait of one day, and a meeting.
+
+{"type": "zone_entered", "at": 22151, "zone": "Dun Morogh", "subzone": "Kharanos", "hour": 14}
+{"model": "quest", "answer": {"title": "Word from the Quarry", "genre": "errand", "text": "My cousin works the quarry and sends no word. Go and look, give him a day to write, then tell Rejold that I am worried.", "steps": [{"goal": "visit", "place": "Gol'Bolar Quarry"}, {"goal": "wait", "days": 1}, {"goal": "meet", "npc": "Rejold Barleybrew"}]}}
+{"type": "quest_asked", "at": 22181, "npc": "Senir Whitebeard"}
+
+{"type": "quest_accepted", "at": 22211}
+{"type": "zone_entered", "at": 22241, "zone": "Dun Morogh", "subzone": "Gol'Bolar Quarry", "hour": 14}
+
+{"type": "zone_entered", "at": 108671, "zone": "Dun Morogh", "subzone": "Kharanos", "hour": 14}
+{"type": "npc_met", "at": 108701, "name": "Rejold Barleybrew"}
+
+# Hunt, done: kill, then a visit and a talk in any order.
+
+{"type": "zone_entered", "at": 112301, "zone": "Loch Modan", "subzone": "Thelsamar", "hour": 14}
+{"model": "quest", "answer": {"title": "Boars in the Barley", "genre": "hunt", "text": "My fields are torn up by boars every night. Cull a few, then walk the dam and ask the innkeeper what she heard.", "steps": [{"goal": "kill", "creature": "Mangy Mountain Boar", "count": 4}, {"goal": "any_order", "steps": [{"goal": "visit", "place": "Stonewrought Dam"}, {"goal": "talk", "npc": "Innkeeper Hearthstove", "topic": "the boars"}]}]}}
+{"type": "quest_asked", "at": 112331, "npc": "Mountaineer Kadrell"}
+
+{"type": "quest_accepted", "at": 112361}
+{"type": "npc_killed", "at": 112541, "name": "Mangy Mountain Boar"}
+{"type": "npc_killed", "at": 112721, "name": "Mangy Mountain Boar"}
+{"type": "npc_killed", "at": 112901, "name": "Mangy Mountain Boar"}
+{"type": "npc_killed", "at": 113081, "name": "Mangy Mountain Boar"}
+{"type": "talk_asked", "at": 113111, "npc": "Innkeeper Hearthstove", "text": "Heard anything about the boars?"}
+
+{"type": "zone_entered", "at": 113141, "zone": "Loch Modan", "subzone": "Stonewrought Dam", "hour": 14}
+
+# Comic, declined: an emote in a place and a slap.
+
+{"type": "zone_entered", "at": 116741, "zone": "Dun Morogh", "subzone": "Kharanos", "hour": 14}
+{"model": "quest", "answer": {"title": "A Jig for the Brewers", "genre": "comic", "text": "My brewers are glum. Dance in the distillery to cheer them, then slap Rejold awake. He sleeps on the job.", "steps": [{"goal": "emote", "emote": "dance", "place": "Thunderbrew Distillery"}, {"goal": "slap", "npc": "Rejold Barleybrew"}]}}
+{"type": "quest_asked", "at": 116771, "npc": "Innkeeper Belm"}
+
+{"type": "quest_declined", "at": 116801}
+
+# Rivalry, in progress: enter the dungeon (done), defeat its boss (open).
+
+{"type": "zone_entered", "at": 120401, "zone": "Loch Modan", "subzone": "Thelsamar", "hour": 14}
+{"model": "quest", "answer": {"title": "The Mekgineer's Shame", "genre": "rivalry", "text": "I swore that I would see Thermaplugg fall for what he did to my friends. Go back down, and do what I could not.", "steps": [{"goal": "enter", "dungeon": "Gnomeregan"}, {"goal": "defeat", "boss": "Mekgineer Thermaplugg"}]}}
+{"type": "quest_asked", "at": 120431, "npc": "Captain Rugelfuss"}
+
+{"type": "quest_accepted", "at": 120461}
+{"type": "zone_entered", "at": 124061, "zone": "Gnomeregan", "hour": 14}
+{"type": "instance_entered", "at": 124062, "zone": "Gnomeregan", "kind": "party"}
+{"type": "zone_entered", "at": 124962, "zone": "Dun Morogh", "subzone": "Gnomeregan", "hour": 14}
+
+# Mystery, in progress: a visit at night (done), a level (open), a quest of the game (hidden).
+
+{"type": "zone_entered", "at": 128562, "zone": "Loch Modan", "subzone": "Thelsamar", "hour": 14}
+{"model": "quest", "answer": {"title": "Lights over the Loch", "genre": "mystery", "text": "My watchmen see lights in Thelsamar at night, and I trust none of them. Keep watch there after dark, and we will see.", "steps": [{"goal": "visit_at", "place": "Thelsamar", "time": "night"}, {"goal": "level", "level": 18}, {"goal": "game_quest", "title": "Ironband's Excavation"}]}}
+{"type": "quest_asked", "at": 128592, "npc": "Mountaineer Gravelgaw"}
+
+{"type": "quest_accepted", "at": 128622}
+{"type": "hour_changed", "at": 130422, "hour": 22}
+
+# Abandoned: a carry step that the player gave up.
+
+{"model": "quest", "answer": {"title": "Rations for the Dig", "genre": "errand", "text": "My diggers eat nothing but dust. Bring the innkeeper cloth for their packs, and I will send her bread with it.", "steps": [{"goal": "carry", "item": "Linen Cloth", "count": 10, "npc": "Innkeeper Hearthstove"}, {"goal": "visit", "place": "Ironband's Excavation Site"}]}}
+{"type": "quest_asked", "at": 130452, "npc": "Prospector Ironband"}
+
+{"type": "quest_accepted", "at": 130482}
+{"type": "items_held", "at": 131082, "npc": "Innkeeper Hearthstove", "item": "Linen Cloth", "count": 3}
+{"type": "quest_abandoned", "at": 131112, "number": 6}
+
+# An offer that waits for an answer: a carry step.
+
+{"type": "zone_entered", "at": 134712, "zone": "Dun Morogh", "subzone": "Kharanos", "hour": 14}
+{"model": "quest", "answer": {"title": "Wool for Winter", "genre": "errand", "text": "Winter comes early to my village. Ask at the distillery who has wool, then bring it to the innkeeper, so we can stitch cloaks.", "steps": [{"goal": "visit", "place": "Thunderbrew Distillery"}, {"goal": "carry", "item": "Wool Cloth", "count": 5, "npc": "Innkeeper Belm"}]}}
+{"type": "quest_asked", "at": 134742, "npc": "Senir Whitebeard"}

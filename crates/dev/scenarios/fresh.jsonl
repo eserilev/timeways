@@ -1,0 +1,9 @@
+# A new character: a human paladin who just left Northshire Abbey at level 2.
+# The first chapter is open, and nothing else happened yet.
+
+{"type":"character_described","at":0,"race":"Human","class":"PALADIN"}
+{"type":"zone_entered","at":5,"zone":"Elwynn Forest","subzone":"Northshire Valley","hour":14}
+{"type":"npc_met","at":40,"name":"Marshal McBride"}
+{"type":"game_quest_accepted","at":45,"title":"A Threat Within","kind":"normal"}
+{"type":"game_quest_done","at":120,"title":"A Threat Within","kind":"normal"}
+{"type":"level_reached","at":600,"level":2}

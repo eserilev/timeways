@@ -84,7 +84,8 @@ impl CharacterKey {
     }
 
     /// The prefixes keep a name such as "Con" or "Aux" from naming a Windows device.
-    fn relative_path(&self) -> PathBuf {
+    #[must_use]
+    pub fn relative_path(&self) -> PathBuf {
         let file = format!("c_{}.sqlite", safe_id(&self.name));
         Path::new("worlds")
             .join(format!("r_{}", safe_id(&self.realm)))

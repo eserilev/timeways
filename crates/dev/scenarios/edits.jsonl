@@ -1,0 +1,105 @@
+# A night elf druid at level 20 whose player edited the Chronicle: a chapter with a line added
+# after the story, a chapter with its own title and text, a chapter restored to the narrator,
+# a tale in the player's words, and the title page in the player's words.
+
+# Teldrassil, levels 1 to 11.
+
+{"type": "character_described", "at": 30, "race": "NightElf", "class": "DRUID"}
+{"type": "zone_entered", "at": 60, "zone": "Teldrassil", "subzone": "Shadowglen", "hour": 14}
+{"type": "npc_met", "at": 90, "name": "Conservator Ilthalaine"}
+{"type": "game_quest_accepted", "at": 110, "title": "The Balance of Nature", "kind": "normal"}
+{"type": "game_quest_done", "at": 710, "title": "The Balance of Nature", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 730, "title": "Etched Sigil", "kind": "normal"}
+{"type": "game_quest_done", "at": 1330, "title": "Etched Sigil", "kind": "normal"}
+{"type": "level_reached", "at": 2230, "level": 4}
+
+{"type": "zone_entered", "at": 2260, "zone": "Teldrassil", "subzone": "Dolanaar", "hour": 14}
+{"type": "npc_met", "at": 2290, "name": "Innkeeper Keldamyr"}
+{"type": "game_quest_accepted", "at": 2310, "title": "Zenn's Bidding", "kind": "normal"}
+{"type": "game_quest_done", "at": 2910, "title": "Zenn's Bidding", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 2930, "title": "The Emerald Dreamcatcher", "kind": "normal"}
+{"type": "game_quest_done", "at": 3530, "title": "The Emerald Dreamcatcher", "kind": "normal"}
+{"type": "level_reached", "at": 4430, "level": 6}
+
+{"type": "zone_entered", "at": 4460, "zone": "Teldrassil", "subzone": "Ban'ethil Hollow", "hour": 14}
+{"type": "game_quest_accepted", "at": 4480, "title": "Webwood Venom", "kind": "normal"}
+{"type": "game_quest_done", "at": 5080, "title": "Webwood Venom", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 5100, "title": "Seek Redemption!", "kind": "normal"}
+{"type": "game_quest_done", "at": 5700, "title": "Seek Redemption!", "kind": "normal"}
+{"type": "level_reached", "at": 6600, "level": 8}
+
+{"type": "zone_entered", "at": 6630, "zone": "Teldrassil", "subzone": "Lake Al'Ameth", "hour": 14}
+{"type": "game_quest_accepted", "at": 6650, "title": "The Enchanted Glade", "kind": "normal"}
+{"type": "game_quest_done", "at": 7250, "title": "The Enchanted Glade", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 7270, "title": "Teldrassil", "kind": "normal"}
+{"type": "game_quest_done", "at": 7870, "title": "Teldrassil", "kind": "normal"}
+{"type": "level_reached", "at": 8770, "level": 10}
+
+{"type": "zone_entered", "at": 8800, "zone": "Teldrassil", "subzone": "Starbreeze Village", "hour": 14}
+{"type": "game_quest_accepted", "at": 8820, "title": "Mist", "kind": "normal"}
+{"type": "game_quest_done", "at": 9420, "title": "Mist", "kind": "normal"}
+{"type": "level_reached", "at": 10320, "level": 11}
+
+# Darkshore, levels 11 to 17.
+
+{"type": "zone_entered", "at": 13920, "zone": "Darkshore", "subzone": "Auberdine", "hour": 14}
+{"type": "npc_met", "at": 13950, "name": "Sentinel Glynda Nal'Shea"}
+{"type": "game_quest_accepted", "at": 13970, "title": "Washed Ashore", "kind": "normal"}
+{"type": "game_quest_done", "at": 14570, "title": "Washed Ashore", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 14590, "title": "Buzzbox 827", "kind": "normal"}
+{"type": "game_quest_done", "at": 15190, "title": "Buzzbox 827", "kind": "normal"}
+{"type": "level_reached", "at": 16090, "level": 12}
+
+{"type": "zone_entered", "at": 16120, "zone": "Darkshore", "subzone": "Bashal'Aran", "hour": 14}
+{"type": "game_quest_accepted", "at": 16140, "title": "Bashal'Aran", "kind": "normal"}
+{"type": "game_quest_done", "at": 16740, "title": "Bashal'Aran", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 16760, "title": "The Fall of Ameth'Aran", "kind": "normal"}
+{"type": "game_quest_done", "at": 17360, "title": "The Fall of Ameth'Aran", "kind": "normal"}
+{"type": "level_reached", "at": 18260, "level": 14}
+
+{"type": "zone_entered", "at": 18290, "zone": "Darkshore", "subzone": "Cliffspring River", "hour": 14}
+{"type": "game_quest_accepted", "at": 18310, "title": "The Absent Minded Prospector", "kind": "normal"}
+{"type": "game_quest_done", "at": 18910, "title": "The Absent Minded Prospector", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 18930, "title": "Beached Sea Creature", "kind": "normal"}
+{"type": "game_quest_done", "at": 19530, "title": "Beached Sea Creature", "kind": "normal"}
+{"type": "level_reached", "at": 20430, "level": 16}
+
+{"type": "zone_entered", "at": 20460, "zone": "Darkshore", "subzone": "Grove of the Ancients", "hour": 14}
+{"type": "game_quest_accepted", "at": 20480, "title": "Grove of the Ancients", "kind": "normal"}
+{"type": "game_quest_done", "at": 21080, "title": "Grove of the Ancients", "kind": "normal"}
+{"type": "level_reached", "at": 21980, "level": 17}
+
+# The Wailing Caverns: one run.
+
+{"type": "zone_entered", "at": 25580, "zone": "The Barrens", "subzone": "The Crossroads", "hour": 14}
+{"type": "zone_entered", "at": 26180, "zone": "Wailing Caverns", "hour": 14}
+{"type": "instance_entered", "at": 26181, "zone": "Wailing Caverns", "kind": "party"}
+{"type": "npc_defeated", "at": 27081, "name": "Lady Anacondra", "kind": "boss"}
+{"type": "npc_defeated", "at": 27981, "name": "Lord Cobrahn", "kind": "boss"}
+{"type": "npc_defeated", "at": 29181, "name": "Mutanus the Devourer", "kind": "boss"}
+{"type": "zone_entered", "at": 29781, "zone": "The Barrens", "subzone": "Lushwater Oasis", "hour": 14}
+{"type": "level_reached", "at": 30681, "level": 18}
+
+# Ashenvale, levels 18 to 20.
+
+{"type": "zone_entered", "at": 37881, "zone": "Ashenvale", "subzone": "Astranaar", "hour": 14}
+{"type": "npc_met", "at": 37911, "name": "Shindrell Swiftfire"}
+{"type": "game_quest_accepted", "at": 37931, "title": "Raene's Cleansing", "kind": "normal"}
+{"type": "game_quest_done", "at": 38531, "title": "Raene's Cleansing", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 38551, "title": "Bathran's Hair", "kind": "normal"}
+{"type": "game_quest_done", "at": 39151, "title": "Bathran's Hair", "kind": "normal"}
+{"type": "level_reached", "at": 40051, "level": 19}
+
+{"type": "zone_entered", "at": 40081, "zone": "Ashenvale", "subzone": "Thistlefur Village", "hour": 14}
+{"type": "game_quest_accepted", "at": 40101, "title": "Culling the Furbolg", "kind": "normal"}
+{"type": "game_quest_done", "at": 40701, "title": "Culling the Furbolg", "kind": "normal"}
+{"type": "level_reached", "at": 41601, "level": 20}
+
+# The player's own words.
+
+{"type": "entry_edited", "at": 42201, "entry": {"kind": "chapter", "first": 1}, "text": "keep", "paragraphs": ["I still dream of the glade where the sigil glowed."]}
+{"type": "entry_edited", "at": 42231, "entry": {"kind": "chapter", "first": 56}, "text": "replace", "title": "The Drowned Coast", "paragraphs": ["Darkshore smelled of salt and old ruins.", "I read the stones of Ameth'Aran and left the dead in peace."]}
+{"type": "entry_edited", "at": 42261, "entry": {"kind": "tale", "first": 120}, "text": "replace", "paragraphs": ["The caverns were all teeth and green water. Mutanus did not wake gently."]}
+{"type": "entry_edited", "at": 42291, "entry": {"kind": "summary"}, "text": "replace", "paragraphs": ["A druid of Dolanaar who keeps the old groves, and keeps her word."]}
+{"type": "entry_edited", "at": 42321, "entry": {"kind": "chapter", "first": 134}, "text": "keep", "paragraphs": ["A note that I took back."]}
+{"type": "entry_edited", "at": 42351, "entry": {"kind": "chapter", "first": 134}, "text": "narrator"}

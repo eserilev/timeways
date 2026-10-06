@@ -1,0 +1,58 @@
+# A Forsaken priest at level 16 with two stories accepted from other players, for the Stories
+# tab and the Hero page. The five stories that wait come from the game: type /twdev inbox
+# there (TESTING.md, "Dev mode"). The tellers are invented players: Kobee, Morvane, and Brokka.
+
+# Tirisfal Glades and Brill, levels 1 to 12.
+
+{"type": "character_described", "at": 30, "race": "Scourge", "class": "PRIEST"}
+{"type": "zone_entered", "at": 60, "zone": "Tirisfal Glades", "subzone": "Deathknell", "hour": 14}
+{"type": "npc_met", "at": 90, "name": "Undertaker Mordo"}
+{"type": "game_quest_accepted", "at": 110, "title": "Rude Awakening", "kind": "normal"}
+{"type": "game_quest_done", "at": 710, "title": "Rude Awakening", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 730, "title": "The Mindless Ones", "kind": "normal"}
+{"type": "game_quest_done", "at": 1330, "title": "The Mindless Ones", "kind": "normal"}
+{"type": "level_reached", "at": 2230, "level": 5}
+
+{"type": "zone_entered", "at": 2260, "zone": "Tirisfal Glades", "subzone": "Brill", "hour": 14}
+{"type": "npc_met", "at": 2290, "name": "Executor Zygand"}
+{"type": "npc_met", "at": 2320, "name": "Innkeeper Renee"}
+{"type": "game_quest_accepted", "at": 2340, "title": "A Rogue's Deal", "kind": "normal"}
+{"type": "game_quest_done", "at": 2940, "title": "A Rogue's Deal", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 2960, "title": "Fields of Grief", "kind": "normal"}
+{"type": "game_quest_done", "at": 3560, "title": "Fields of Grief", "kind": "normal"}
+{"type": "level_reached", "at": 4460, "level": 8}
+
+{"type": "zone_entered", "at": 4490, "zone": "Tirisfal Glades", "subzone": "Agamand Mills", "hour": 14}
+{"type": "game_quest_accepted", "at": 4510, "title": "Wanted: Maggot Eye", "kind": "normal"}
+{"type": "game_quest_done", "at": 5110, "title": "Wanted: Maggot Eye", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 5130, "title": "Graverobbers", "kind": "normal"}
+{"type": "game_quest_done", "at": 5730, "title": "Graverobbers", "kind": "normal"}
+{"type": "level_reached", "at": 6630, "level": 10}
+
+{"type": "zone_entered", "at": 6660, "zone": "Tirisfal Glades", "subzone": "Scarlet Watch Post", "hour": 14}
+{"type": "game_quest_accepted", "at": 6680, "title": "Proof of Demise", "kind": "normal"}
+{"type": "game_quest_done", "at": 7280, "title": "Proof of Demise", "kind": "normal"}
+{"type": "level_reached", "at": 8180, "level": 12}
+
+# Silverpine Forest with two players of the party, levels 12 to 16.
+
+{"type": "zone_entered", "at": 11780, "zone": "Silverpine Forest", "subzone": "The Sepulcher", "hour": 14}
+{"type": "npc_met", "at": 11810, "name": "High Executor Hadrec"}
+{"type": "game_quest_accepted", "at": 11830, "title": "The Dead Fields", "kind": "normal"}
+{"type": "game_quest_done", "at": 12430, "title": "The Dead Fields", "kind": "normal"}
+{"type": "player_described", "at": 12460, "name": "Kobee", "race": "Tauren", "class": "WARRIOR"}
+{"type": "player_described", "at": 12490, "name": "Morvane", "race": "Scourge", "class": "MAGE"}
+{"type": "zone_entered", "at": 12520, "zone": "Silverpine Forest", "subzone": "Pyrewood Village", "hour": 14}
+{"type": "game_quest_accepted", "at": 12540, "title": "The Engraved Ring", "kind": "normal"}
+
+{"type": "game_quest_done", "at": 13140, "title": "The Engraved Ring", "kind": "normal"}
+{"type": "level_reached", "at": 14040, "level": 14}
+
+{"type": "story_accepted", "at": 14070, "number": 1, "title": "The Bridge at Pyrewood", "paragraphs": ["{Kobee} held the bridge while $N kept us standing.", "When the worgen ran, the priest only said it was a long night."]}
+{"type": "zone_entered", "at": 17670, "zone": "Silverpine Forest", "subzone": "Ambermill", "hour": 14}
+{"type": "game_quest_accepted", "at": 17690, "title": "Prove Your Worth", "kind": "normal"}
+{"type": "game_quest_done", "at": 18290, "title": "Prove Your Worth", "kind": "normal"}
+{"type": "story_accepted", "at": 18320, "number": 2, "paragraphs": ["{Morvane} still owes $N a silver for the bandages."]}
+{"type": "story_accepted", "at": 18350, "number": 3, "title": "A Story I Took Back", "paragraphs": ["{Brokka} says $N snores."]}
+{"type": "story_removed", "at": 18380, "number": 3}
+{"type": "level_reached", "at": 19280, "level": 16}

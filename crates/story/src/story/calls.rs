@@ -136,6 +136,13 @@ pub(super) fn hook_for<'h>(
 }
 
 impl Story {
+    /// The kind of an open call, as the `calls` table names it: "narrator", "quest", and so
+    /// on. A tool of dev mode answers some kinds with fixed words (`timeways-dev`).
+    #[must_use]
+    pub fn call_kind(&self, call: CallId) -> Option<&'static str> {
+        self.calls.get(&call).map(|open| open.pending.kind())
+    }
+
     /// The call ends in its row, and the rows of the line rest on it.
     pub(super) fn answered(&mut self, call: CallId, text: &str) -> Result<Vec<Output>, StoryError> {
         let OpenCall {

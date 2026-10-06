@@ -1,0 +1,311 @@
+//! The built-in scenarios build the worlds that they promise (TESTING.md, "Dev mode").
+
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
+mod common;
+
+use common::{NAME, REALM, folder, journal, list, seed, texts};
+use serde_json::Value;
+use std::collections::BTreeSet;
+use timeways_dev::scenario::{BUILT_IN, Scenario};
+use timeways_story::moments::Moment;
+use timeways_story::narrator::Who;
+use timeways_story::narrator_review::{Sources, reviews};
+use timeways_story::pack::Pack;
+use timeways_story::store::{CharacterKey, Store};
+
+/// For a person who writes a scenario: `SCENARIO=<name> cargo test -p timeways-dev --test
+/// scenarios -- --ignored --nocapture` prints what its world holds.
+#[test]
+#[ignore = "prints a world for a person"]
+fn print_the_world_of_a_scenario() {
+    let name = std::env::var("SCENARIO").unwrap_or_else(|_| "fresh".to_string());
+    let folder = folder("print");
+    let report = seed(&name, &folder);
+    println!("{report:#?}");
+    let journal = journal(&folder);
+    for key in [
+        "chapters", "tales", "deeds", "quests", "learned", "stories", "edits",
+    ] {
+        println!("== {key}");
+        for item in list(&journal, key) {
+            println!("{item}");
+        }
+    }
+    println!("== summary {:?}", journal.get("summary"));
+}
+
+fn numbers(items: &[Value], key: &str) -> Vec<u64> {
+    items
+        .iter()
+        .filter_map(|item| item.get(key).and_then(Value::as_u64))
+        .collect()
+}
+
+fn with_kind<'a>(items: &'a [Value], kind: &str) -> Vec<&'a Value> {
+    items.iter().filter(|item| item["kind"] == kind).collect()
+}
+
+#[test]
+fn every_built_in_scenario_plays_with_no_refused_line() {
+    for (name, _, _) in BUILT_IN {
+        let report = seed(name, &folder(name));
+
+        assert!(report.is_clean(), "{name}: {report:#?}");
+    }
+}
+
+#[test]
+fn every_built_in_scenario_reads_as_a_scenario() {
+    for (name, about, text) in BUILT_IN {
+        let scenario = Scenario::parse(text).unwrap();
+
+        assert!(!scenario.batches.is_empty(), "{name}");
+        assert!(about.len() <= 90, "{name}: one short line about it");
+    }
+}
+
+#[test]
+fn the_fresh_scenario_is_one_open_chapter() {
+    let folder = folder("fresh");
+
+    seed("fresh", &folder);
+
+    let chapters = list(&journal(&folder), "chapters");
+    assert_eq!(texts(&chapters, "state"), ["open"]);
+}
+
+#[test]
+fn the_level_30_paladin_has_about_ten_chapters_two_tales_a_revenge_and_a_mount() {
+    let folder = folder("paladin");
+
+    seed("level-30-paladin", &folder);
+
+    let journal = journal(&folder);
+    let chapters = list(&journal, "chapters");
+    assert!((8..=12).contains(&chapters.len()), "{}", chapters.len());
+    let tales = list(&journal, "tales");
+    assert_eq!(texts(&tales, "kind"), ["dungeon", "dungeon"]);
+    let deeds = list(&journal, "deeds");
+    let deaths = with_kind(&deeds, "died");
+    let killers: Vec<_> = deaths
+        .iter()
+        .filter(|deed| deed["killer"] == "Mor'Ladim")
+        .collect();
+    assert_eq!(killers.len(), 2);
+    assert!(
+        with_kind(&deeds, "defeated")
+            .iter()
+            .any(|deed| deed["foe"] == "Mor'Ladim")
+    );
+    assert_eq!(with_kind(&deeds, "mounted").len(), 1);
+    assert_eq!(with_kind(&deeds, "class_quest_done").len(), 1);
+    let quests = list(&journal, "quests");
+    assert_eq!(texts(&quests, "status"), ["done", "accepted"]);
+}
+
+#[test]
+fn the_raider_60_has_tales_with_run_counts_an_epic_mount_and_an_epic_item() {
+    let folder = folder("raider");
+
+    seed("raider-60", &folder);
+
+    let journal = journal(&folder);
+    let tales = list(&journal, "tales");
+    assert_eq!(texts(&tales, "kind"), ["dungeon", "raid"]);
+    assert_eq!(numbers(&tales, "runs"), [4, 3]);
+    let deeds = list(&journal, "deeds");
+    assert!(
+        with_kind(&deeds, "mounted")
+            .iter()
+            .any(|deed| deed["epic"] == true)
+    );
+    assert_eq!(with_kind(&deeds, "epic_item").len(), 1);
+    assert_eq!(with_kind(&deeds, "upgraded").len(), 1);
+    assert!(
+        with_kind(&deeds, "defeated")
+            .iter()
+            .any(|deed| deed["foe"] == "Azuregos")
+    );
+}
+
+#[test]
+fn the_story_inbox_holds_two_accepted_stories_and_no_removed_one() {
+    let folder = folder("inbox");
+
+    seed("story-inbox", &folder);
+
+    let stories = list(&journal(&folder), "stories");
+    assert_eq!(numbers(&stories, "number"), [1, 2]);
+    let text = stories[0]["paragraphs"][0].as_str().unwrap();
+    assert!(text.starts_with("Kobee held the bridge"), "{text}");
+}
+
+#[test]
+fn the_edits_scenario_holds_edits_of_chapters_a_tale_and_the_title_page() {
+    let folder = folder("edits");
+
+    seed("edits", &folder);
+
+    let edits = list(&journal(&folder), "edits");
+    let kinds: Vec<_> = edits
+        .iter()
+        .map(|edit| edit["entry"]["kind"].as_str().unwrap().to_string())
+        .collect();
+    assert_eq!(kinds, ["chapter", "chapter", "tale", "summary"]);
+    assert_eq!(
+        texts(&edits, "text"),
+        ["keep", "replace", "replace", "replace"]
+    );
+}
+
+#[test]
+fn the_side_quests_cover_every_state_and_every_kind_of_step() {
+    let folder = folder("side-quests");
+
+    seed("side-quests", &folder);
+
+    let quests = list(&journal(&folder), "quests");
+    assert_eq!(
+        texts(&quests, "status"),
+        ["done", "done", "accepted", "accepted", "offered"]
+    );
+    assert_eq!(quests[3]["hidden_steps"], 1);
+    let scenario = common::scenario("side-quests");
+    let goals: BTreeSet<String> = scenario
+        .batches
+        .iter()
+        .flat_map(|batch| &batch.answers)
+        .flat_map(|answer| goals_of(&serde_json::from_str(&answer.text).unwrap()))
+        .collect();
+    let every_goal = [
+        "any_order",
+        "carry",
+        "defeat",
+        "emote",
+        "enter",
+        "game_quest",
+        "kill",
+        "level",
+        "meet",
+        "slap",
+        "talk",
+        "visit",
+        "visit_at",
+        "wait",
+    ];
+    assert_eq!(goals, every_goal.map(String::from).into());
+}
+
+fn goals_of(answer: &Value) -> Vec<String> {
+    let mut goals = Vec::new();
+    for step in answer["steps"].as_array().unwrap() {
+        goals.push(step["goal"].as_str().unwrap().to_string());
+        if step.get("steps").is_some() {
+            goals.extend(goals_of(step));
+        }
+    }
+    goals
+}
+
+#[test]
+fn the_flavor_and_hero_scenario_earns_every_joke_title_of_the_horde() {
+    let folder = folder("flavor");
+
+    seed("flavor-and-hero", &folder);
+
+    let journal = journal(&folder);
+    let deeds = list(&journal, "deeds");
+    let titles: BTreeSet<_> = with_kind(&deeds, "titled")
+        .iter()
+        .map(|deed| deed["title"].as_str().unwrap().to_string())
+        .collect();
+    let earned = [
+        "Bookworm",
+        "Friend of Gravity",
+        "Lava Enthusiast",
+        "Slap Happy",
+        "Student of the Deep",
+        "The Humbled",
+    ];
+    assert_eq!(titles, earned.map(String::from).into());
+    let sheet = journal["hero"]["sheet"].as_array().unwrap();
+    assert_eq!(sheet.len(), 11);
+    assert_eq!(with_kind(&deeds, "won_battle").len(), 1);
+}
+
+/// The name of each kind of narrator moment. A new kind fails to compile here until it
+/// gets a name, and then fails `every_kind_of_narrator_moment_comes_in_a_scenario` until
+/// a scenario makes it.
+fn kind_of(moment: &Moment) -> &'static str {
+    match moment {
+        Moment::Flavor { .. } => "flavor",
+        Moment::Titled { .. } => "titled",
+        Moment::FirstKill { .. } => "first_kill",
+        Moment::Revenge { .. } => "revenge",
+        Moment::SlainAgain { .. } => "slain_again",
+        Moment::Slapped { .. } => "slapped",
+        Moment::LevelUp { .. } => "level_up",
+        Moment::ClassQuestDone { .. } => "class_quest_done",
+        Moment::QuestDone { .. } => "quest_done",
+        Moment::NewZone { .. } => "new_zone",
+        Moment::FirstInstance { .. } => "first_instance",
+        Moment::QuestMarked { .. } => "quest_marked",
+        Moment::FirstCapital { .. } => "first_capital",
+        Moment::FirstMount { .. } => "first_mount",
+        Moment::FirstEpicMount { .. } => "first_epic_mount",
+        Moment::FirstEpicItem { .. } => "first_epic_item",
+        Moment::BigUpgrade { .. } => "big_upgrade",
+    }
+}
+
+const MOMENT_KINDS: [&str; 17] = [
+    "flavor",
+    "titled",
+    "first_kill",
+    "revenge",
+    "slain_again",
+    "slapped",
+    "level_up",
+    "class_quest_done",
+    "quest_done",
+    "new_zone",
+    "first_instance",
+    "quest_marked",
+    "first_capital",
+    "first_mount",
+    "first_epic_mount",
+    "first_epic_item",
+    "big_upgrade",
+];
+
+#[test]
+fn every_kind_of_narrator_moment_comes_in_a_scenario() {
+    let mut found = BTreeSet::new();
+    for (name, _, _) in BUILT_IN {
+        let folder = folder(name);
+        seed(name, &folder);
+        let key = CharacterKey::new(REALM, NAME).unwrap();
+        let opened = Store::Folder(folder).open(&key).unwrap();
+        let events: Vec<_> = opened.character.world().history().iter().cloned().collect();
+        let pack = Pack::empty().unwrap();
+        let sources = Sources {
+            pack: &pack,
+            reads: &[],
+            fallback: &Who::default(),
+        };
+        for review in reviews(&events, &sources).unwrap() {
+            found.insert(kind_of(&review.moment));
+        }
+    }
+    // A flavor moment comes from the score of an emote or a book, never from an event
+    // of the world, so the review finds none. The emotes and books of
+    // flavor-and-hero make it.
+    found.insert("flavor");
+
+    let missing: Vec<_> = MOMENT_KINDS
+        .iter()
+        .filter(|kind| !found.contains(*kind))
+        .collect();
+    assert!(missing.is_empty(), "no scenario makes {missing:?}");
+}

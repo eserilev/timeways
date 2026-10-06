@@ -1,0 +1,404 @@
+# A human paladin at level 30, after about ten chapters of play: Elwynn Forest to Stranglethorn Vale.
+# Two dungeon tales (The Deadmines, Blackfathom Deeps), a nemesis with a revenge (Mor'Ladim),
+# quests of the game and a class quest, two side quests (one done, one in progress), a mount,
+# books and gossip for Knowledge, and a few flavor moments.
+
+# Northshire and Elwynn Forest, levels 1 to 10.
+
+{"type": "character_described", "at": 30, "race": "Human", "class": "PALADIN"}
+{"type": "zone_entered", "at": 60, "zone": "Elwynn Forest", "subzone": "Northshire Valley", "hour": 14}
+{"type": "npc_met", "at": 90, "name": "Marshal McBride"}
+{"type": "game_quest_accepted", "at": 110, "title": "A Threat Within", "kind": "normal"}
+{"type": "game_quest_done", "at": 410, "title": "A Threat Within", "kind": "normal"}
+{"type": "text_seen", "at": 470, "kind": "quest", "title": "Kobold Camp Cleanup", "npc": "Marshal McBride", "zone": "Elwynn Forest", "text": "Kobolds have been seen in the vineyards and near the mine. Clear them out, $N."}
+{"type": "game_quest_accepted", "at": 490, "title": "Kobold Camp Cleanup", "kind": "normal"}
+{"type": "game_quest_done", "at": 1090, "title": "Kobold Camp Cleanup", "kind": "normal"}
+
+{"type": "level_reached", "at": 1990, "level": 2}
+
+{"type": "game_quest_accepted", "at": 2010, "title": "Investigate Echo Ridge", "kind": "normal"}
+{"type": "game_quest_done", "at": 2610, "title": "Investigate Echo Ridge", "kind": "normal"}
+{"type": "npc_met", "at": 2640, "name": "Brother Sammuel"}
+{"type": "level_reached", "at": 3540, "level": 3}
+
+{"type": "game_quest_accepted", "at": 3560, "title": "Brotherhood of Thieves", "kind": "normal"}
+{"type": "game_quest_done", "at": 4160, "title": "Brotherhood of Thieves", "kind": "normal"}
+{"type": "level_reached", "at": 5060, "level": 4}
+
+{"type": "zone_entered", "at": 5660, "zone": "Elwynn Forest", "subzone": "Goldshire", "hour": 14}
+{"type": "rest_changed", "at": 5690, "resting": "yes"}
+{"type": "npc_met", "at": 5720, "name": "Innkeeper Farley"}
+{"type": "text_seen", "at": 5780, "kind": "gossip", "npc": "Innkeeper Farley", "zone": "Elwynn Forest", "text": "Welcome to the Lion's Pride Inn. Rest a while, $N, and mind the kobolds in the mines."}
+{"type": "npc_met", "at": 5810, "name": "Marshal Dughan"}
+{"type": "emote_done", "at": 5870, "emote": "dance", "hour": 14}
+{"type": "emote_done", "at": 5890, "emote": "dance", "hour": 14}
+{"type": "emote_done", "at": 5910, "emote": "dance", "hour": 14}
+
+{"type": "rest_changed", "at": 5940, "resting": "no"}
+{"type": "zone_entered", "at": 5970, "zone": "Elwynn Forest", "subzone": "Fargodeep Mine", "hour": 14}
+{"type": "game_quest_accepted", "at": 5990, "title": "Gold Dust Exchange", "kind": "normal"}
+{"type": "game_quest_done", "at": 6590, "title": "Gold Dust Exchange", "kind": "normal"}
+{"type": "level_reached", "at": 7490, "level": 5}
+
+{"type": "zone_entered", "at": 7520, "zone": "Elwynn Forest", "subzone": "Jasperlode Mine", "hour": 14}
+{"type": "game_quest_accepted", "at": 7540, "title": "Kobold Candles", "kind": "normal"}
+{"type": "game_quest_done", "at": 8140, "title": "Kobold Candles", "kind": "normal"}
+{"type": "level_reached", "at": 9040, "level": 6}
+
+{"type": "npc_seen", "at": 9050, "name": "Hogger", "reaction": "hostile", "creature": "humanoid"}
+{"type": "died", "at": 9170, "killer": "Hogger", "hour": 14}
+
+{"type": "zone_entered", "at": 9200, "zone": "Elwynn Forest", "subzone": "Eastvale Logging Camp", "hour": 14}
+{"type": "game_quest_accepted", "at": 9220, "title": "Princess Must Die!", "kind": "normal"}
+{"type": "game_quest_done", "at": 9820, "title": "Princess Must Die!", "kind": "normal"}
+{"type": "level_reached", "at": 10720, "level": 7}
+
+{"type": "game_quest_accepted", "at": 10740, "title": "Wolves Across the Border", "kind": "normal"}
+{"type": "game_quest_done", "at": 11340, "title": "Wolves Across the Border", "kind": "normal"}
+{"type": "level_reached", "at": 12240, "level": 8}
+
+{"type": "game_quest_accepted", "at": 12260, "title": "Bounty on Garrick Padfoot", "kind": "normal"}
+{"type": "game_quest_done", "at": 12860, "title": "Bounty on Garrick Padfoot", "kind": "normal"}
+{"type": "level_reached", "at": 13760, "level": 9}
+
+{"type": "text_seen", "at": 13820, "kind": "book", "title": "The Kingdom of Stormwind", "zone": "Elwynn Forest", "text": "The Kingdom of Stormwind stood for centuries, until the Horde burned it in the First War. Its people rebuilt it, stone by stone."}
+{"type": "level_reached", "at": 14720, "level": 10}
+
+# Stormwind City, the first capital, and the class quest.
+
+{"type": "zone_entered", "at": 16520, "zone": "Stormwind City", "subzone": "Cathedral Square", "hour": 14}
+{"type": "npc_met", "at": 16550, "name": "Duthorian Rall"}
+{"type": "game_quest_accepted", "at": 16570, "title": "The Tome of Divinity", "kind": "class"}
+{"type": "text_seen", "at": 16630, "kind": "book", "title": "The Tome of Divinity", "zone": "Stormwind City", "text": "The Holy Light asks nothing of those who wield it but that they stand for those who cannot."}
+{"type": "game_quest_done", "at": 17830, "title": "The Tome of Divinity", "kind": "class"}
+{"type": "zone_entered", "at": 17860, "zone": "Stormwind City", "subzone": "Trade District", "hour": 14}
+{"type": "npc_met", "at": 17890, "name": "Baros Alexston"}
+{"type": "game_quest_accepted", "at": 17910, "title": "Elmore's Task", "kind": "normal"}
+
+{"type": "game_quest_done", "at": 18510, "title": "Elmore's Task", "kind": "normal"}
+{"type": "zone_entered", "at": 18540, "zone": "Stormwind City", "subzone": "Old Town", "hour": 14}
+{"type": "game_quest_accepted", "at": 18560, "title": "The Stockade Riots", "kind": "normal"}
+{"type": "game_quest_done", "at": 18860, "title": "The Stockade Riots", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 18880, "title": "Stormwind Rendezvous", "kind": "normal"}
+{"type": "game_quest_done", "at": 19480, "title": "Stormwind Rendezvous", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 19500, "title": "A Warrior's Training", "kind": "normal"}
+{"type": "game_quest_done", "at": 20100, "title": "A Warrior's Training", "kind": "normal"}
+
+{"type": "zone_entered", "at": 20130, "zone": "Stormwind City", "subzone": "The Canals", "hour": 14}
+{"type": "game_quest_accepted", "at": 20150, "title": "Fishing in Stormwind", "kind": "normal"}
+{"type": "game_quest_done", "at": 20750, "title": "Fishing in Stormwind", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 20770, "title": "Deliver Thomas' Report", "kind": "normal"}
+{"type": "game_quest_done", "at": 21370, "title": "Deliver Thomas' Report", "kind": "normal"}
+{"type": "zone_entered", "at": 21400, "zone": "Stormwind City", "subzone": "Dwarven District", "hour": 14}
+{"type": "game_quest_accepted", "at": 21420, "title": "The Jasperlode Mine", "kind": "normal"}
+{"type": "game_quest_done", "at": 22020, "title": "The Jasperlode Mine", "kind": "normal"}
+
+# Westfall, levels 11 to 16.
+
+{"type": "zone_entered", "at": 25620, "zone": "Westfall", "subzone": "Sentinel Hill", "hour": 14}
+{"type": "npc_met", "at": 25650, "name": "Gryan Stoutmantle"}
+{"type": "text_seen", "at": 25710, "kind": "quest", "title": "The People's Militia", "npc": "Gryan Stoutmantle", "zone": "Westfall", "text": "The People's Militia keeps Westfall alive while Stormwind looks away. We need every blade, $N."}
+{"type": "game_quest_accepted", "at": 25730, "title": "The People's Militia", "kind": "normal"}
+{"type": "game_quest_done", "at": 26330, "title": "The People's Militia", "kind": "normal"}
+{"type": "zone_entered", "at": 26360, "zone": "Westfall", "subzone": "Saldean's Farm", "hour": 14}
+{"type": "npc_met", "at": 26390, "name": "Farmer Saldean"}
+{"type": "npc_met", "at": 26420, "name": "Salma Saldean"}
+
+{"type": "game_quest_accepted", "at": 26440, "title": "Westfall Stew", "kind": "normal"}
+{"type": "game_quest_done", "at": 27040, "title": "Westfall Stew", "kind": "normal"}
+{"type": "level_reached", "at": 27940, "level": 11}
+
+{"type": "zone_entered", "at": 27970, "zone": "Westfall", "subzone": "Moonbrook", "hour": 14}
+{"type": "game_quest_accepted", "at": 27990, "title": "Red Leather Bandanas", "kind": "normal"}
+{"type": "game_quest_done", "at": 28590, "title": "Red Leather Bandanas", "kind": "normal"}
+{"type": "npc_seen", "at": 28600, "name": "Defias Pillager", "reaction": "hostile", "creature": "humanoid"}
+{"type": "npc_seen", "at": 28610, "name": "Harvest Watcher", "reaction": "hostile", "creature": "mechanical"}
+{"type": "game_quest_accepted", "at": 28630, "title": "Patrolling Westfall", "kind": "normal"}
+{"type": "game_quest_done", "at": 29230, "title": "Patrolling Westfall", "kind": "normal"}
+{"type": "level_reached", "at": 30130, "level": 12}
+
+# A side quest from Gryan Stoutmantle, done.
+
+{"type": "zone_entered", "at": 30160, "zone": "Westfall", "subzone": "Sentinel Hill", "hour": 14}
+{"model": "quest", "answer": {"title": "Bandanas in the Night", "genre": "hunt", "text": "My scouts lose sleep over the Defias who raid our fields at night. Thin their numbers, then tell Farmer Saldean his farm is safe.", "steps": [{"goal": "kill", "creature": "Defias Pillager", "count": 3}, {"goal": "meet", "npc": "Farmer Saldean"}]}}
+{"type": "quest_asked", "at": 30190, "npc": "Gryan Stoutmantle"}
+
+{"type": "quest_accepted", "at": 30220}
+{"type": "zone_entered", "at": 30250, "zone": "Westfall", "subzone": "Moonbrook", "hour": 14}
+{"type": "npc_killed", "at": 30370, "name": "Defias Pillager"}
+{"type": "npc_killed", "at": 30490, "name": "Defias Pillager"}
+{"type": "npc_killed", "at": 30610, "name": "Defias Pillager"}
+{"type": "zone_entered", "at": 30640, "zone": "Westfall", "subzone": "Saldean's Farm", "hour": 14}
+{"type": "npc_met", "at": 30670, "name": "Farmer Saldean"}
+
+{"type": "zone_entered", "at": 30700, "zone": "Westfall", "subzone": "Jangolode Mine", "hour": 14}
+{"type": "game_quest_accepted", "at": 30720, "title": "The Defias Brotherhood", "kind": "normal"}
+{"type": "game_quest_done", "at": 31620, "title": "The Defias Brotherhood", "kind": "normal"}
+{"type": "level_reached", "at": 32520, "level": 13}
+
+{"type": "npc_seen", "at": 32530, "name": "Sergeant Brashclaw", "reaction": "hostile", "creature": "humanoid"}
+{"type": "npc_defeated", "at": 32650, "name": "Sergeant Brashclaw", "kind": "rare"}
+{"type": "zone_entered", "at": 32680, "zone": "Westfall", "subzone": "The Dead Acre", "hour": 14}
+{"type": "game_quest_accepted", "at": 32700, "title": "Keeper of the Flame", "kind": "normal"}
+{"type": "game_quest_done", "at": 33300, "title": "Keeper of the Flame", "kind": "normal"}
+{"type": "level_reached", "at": 34200, "level": 14}
+
+{"type": "emote_done", "at": 34220, "emote": "slap", "target": "Farmer Saldean", "hour": 14}
+{"type": "npc_slapped", "at": 34221, "name": "Farmer Saldean"}
+{"type": "game_quest_accepted", "at": 34241, "title": "Goretusk Liver Pie", "kind": "normal"}
+{"type": "game_quest_done", "at": 34841, "title": "Goretusk Liver Pie", "kind": "normal"}
+{"type": "level_reached", "at": 35741, "level": 15}
+
+{"type": "zone_entered", "at": 35771, "zone": "Westfall", "subzone": "Sentinel Hill", "hour": 14}
+{"type": "npc_met", "at": 35801, "name": "Thor"}
+{"type": "level_reached", "at": 36701, "level": 16}
+
+# The Deadmines: one run, its bosses.
+
+{"type": "zone_entered", "at": 37901, "zone": "Westfall", "subzone": "Moonbrook", "hour": 14}
+{"type": "zone_entered", "at": 38201, "zone": "The Deadmines", "hour": 14}
+{"type": "instance_entered", "at": 38202, "zone": "The Deadmines", "kind": "party"}
+{"type": "npc_defeated", "at": 38802, "name": "Rhahk'Zor", "kind": "boss"}
+{"type": "npc_defeated", "at": 39402, "name": "Sneed", "kind": "boss"}
+{"type": "npc_defeated", "at": 40002, "name": "Gilnid", "kind": "boss"}
+{"type": "died", "at": 40302, "killer": "Defias Strip Miner", "hour": 14}
+
+{"type": "npc_defeated", "at": 41202, "name": "Mr. Smite", "kind": "boss"}
+{"type": "npc_defeated", "at": 41602, "name": "Captain Greenskin", "kind": "boss"}
+{"type": "npc_defeated", "at": 41902, "name": "Edwin VanCleef", "kind": "boss"}
+{"type": "npc_defeated", "at": 42022, "name": "Cookie", "kind": "boss"}
+{"type": "zone_entered", "at": 42622, "zone": "Westfall", "subzone": "Moonbrook", "hour": 14}
+{"type": "level_reached", "at": 43522, "level": 17}
+
+{"type": "zone_entered", "at": 45922, "zone": "Westfall", "subzone": "Sentinel Hill", "hour": 14}
+{"type": "game_quest_done", "at": 46222, "title": "The Defias Brotherhood", "kind": "normal"}
+
+# A flight over Elwynn Forest to Redridge Mountains, levels 17 to 21.
+
+{"type": "zone_entered", "at": 49822, "zone": "Elwynn Forest", "subzone": "Eastvale Logging Camp", "hour": 14, "taxi": "yes"}
+{"type": "zone_entered", "at": 50122, "zone": "Redridge Mountains", "subzone": "Lakeshire", "hour": 14}
+{"type": "npc_met", "at": 50152, "name": "Magistrate Solomon"}
+{"type": "npc_met", "at": 50182, "name": "Foreman Oslow"}
+{"type": "game_quest_accepted", "at": 50202, "title": "The Lost Tools", "kind": "normal"}
+{"type": "game_quest_done", "at": 50802, "title": "The Lost Tools", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 50822, "title": "Selling Fish", "kind": "normal"}
+{"type": "game_quest_done", "at": 51422, "title": "Selling Fish", "kind": "normal"}
+
+{"type": "level_reached", "at": 52322, "level": 18}
+
+{"type": "game_quest_accepted", "at": 52342, "title": "Redridge Goulash", "kind": "normal"}
+{"type": "game_quest_done", "at": 52942, "title": "Redridge Goulash", "kind": "normal"}
+{"type": "level_reached", "at": 53842, "level": 19}
+
+{"type": "game_quest_accepted", "at": 53862, "title": "A Free Lunch", "kind": "normal"}
+{"type": "game_quest_done", "at": 54462, "title": "A Free Lunch", "kind": "normal"}
+{"type": "level_reached", "at": 55362, "level": 20}
+
+{"type": "zone_entered", "at": 55392, "zone": "Redridge Mountains", "subzone": "Three Corners", "hour": 14}
+{"type": "game_quest_accepted", "at": 55412, "title": "Blackrock Menace", "kind": "normal"}
+{"type": "game_quest_done", "at": 56012, "title": "Blackrock Menace", "kind": "normal"}
+{"type": "zone_entered", "at": 56042, "zone": "Redridge Mountains", "subzone": "Lake Everstill", "hour": 14}
+{"type": "game_quest_accepted", "at": 56062, "title": "Underbelly Scales", "kind": "normal"}
+{"type": "game_quest_done", "at": 56662, "title": "Underbelly Scales", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 56682, "title": "Murloc Poachers", "kind": "normal"}
+{"type": "game_quest_done", "at": 57282, "title": "Murloc Poachers", "kind": "normal"}
+
+{"type": "game_quest_accepted", "at": 57302, "title": "Visit the Herbalist", "kind": "normal"}
+{"type": "game_quest_done", "at": 57902, "title": "Visit the Herbalist", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 57922, "title": "Solomon's Law", "kind": "normal"}
+{"type": "game_quest_done", "at": 58522, "title": "Solomon's Law", "kind": "normal"}
+{"type": "zone_entered", "at": 58552, "zone": "Redridge Mountains", "subzone": "Render's Valley", "hour": 14}
+{"type": "npc_seen", "at": 58562, "name": "Ribchaser", "reaction": "hostile", "creature": "humanoid"}
+{"type": "npc_defeated", "at": 58682, "name": "Ribchaser", "kind": "rare"}
+{"type": "game_quest_accepted", "at": 58702, "title": "Shadow Magic", "kind": "normal"}
+
+{"type": "game_quest_done", "at": 59302, "title": "Shadow Magic", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 59322, "title": "Wanted: Lieutenant Fangore", "kind": "normal"}
+{"type": "game_quest_done", "at": 59922, "title": "Wanted: Lieutenant Fangore", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 59942, "title": "Howling in the Hills", "kind": "normal"}
+{"type": "game_quest_done", "at": 60542, "title": "Howling in the Hills", "kind": "normal"}
+{"type": "level_reached", "at": 61442, "level": 21}
+
+{"type": "game_quest_accepted", "at": 61462, "title": "Blackrock Bounty", "kind": "normal"}
+{"type": "game_quest_done", "at": 62062, "title": "Blackrock Bounty", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 62082, "title": "Messenger to Darkshire", "kind": "normal"}
+{"type": "game_quest_done", "at": 62382, "title": "Messenger to Darkshire", "kind": "normal"}
+
+# Duskwood, levels 21 to 24. Mor'Ladim kills the paladin twice.
+
+{"type": "zone_entered", "at": 65982, "zone": "Duskwood", "subzone": "Darkshire", "hour": 14}
+{"type": "npc_met", "at": 66012, "name": "Commander Althea Ebonlock"}
+{"type": "npc_met", "at": 66042, "name": "Madame Eva"}
+{"type": "text_seen", "at": 66102, "kind": "gossip", "npc": "Madame Eva", "zone": "Duskwood", "text": "The dead do not rest in Duskwood, child. Mor'Ladim walks the road by the Raven Hill Cemetery still."}
+{"type": "game_quest_accepted", "at": 66122, "title": "The Night Watch", "kind": "normal"}
+{"type": "game_quest_done", "at": 66722, "title": "The Night Watch", "kind": "normal"}
+{"type": "zone_entered", "at": 66752, "zone": "Duskwood", "subzone": "Raven Hill Cemetery", "hour": 14}
+{"type": "npc_seen", "at": 66762, "name": "Mor'Ladim", "reaction": "hostile", "creature": "undead"}
+
+{"type": "died", "at": 66882, "killer": "Mor'Ladim", "killer_level": 35, "hour": 14}
+
+{"type": "game_quest_accepted", "at": 66902, "title": "Worgen in the Woods", "kind": "normal"}
+{"type": "game_quest_done", "at": 67502, "title": "Worgen in the Woods", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 67522, "title": "Look To The Stars", "kind": "normal"}
+{"type": "game_quest_done", "at": 68122, "title": "Look To The Stars", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 68142, "title": "The Legend of Stalvan", "kind": "normal"}
+{"type": "game_quest_done", "at": 68742, "title": "The Legend of Stalvan", "kind": "normal"}
+{"type": "zone_entered", "at": 68772, "zone": "Duskwood", "subzone": "Raven Hill Cemetery", "hour": 14}
+{"type": "died", "at": 68892, "killer": "Mor'Ladim", "killer_level": 35, "hour": 14}
+
+{"type": "zone_entered", "at": 68922, "zone": "Duskwood", "subzone": "The Darkened Bank", "hour": 14}
+{"type": "game_quest_accepted", "at": 68942, "title": "The Totem of Infliction", "kind": "normal"}
+{"type": "game_quest_done", "at": 69542, "title": "The Totem of Infliction", "kind": "normal"}
+{"type": "level_reached", "at": 70442, "level": 22}
+
+{"type": "zone_entered", "at": 70472, "zone": "Duskwood", "subzone": "Manor Mistmantle", "hour": 14}
+{"type": "game_quest_accepted", "at": 70492, "title": "Mistmantle's Revenge", "kind": "normal"}
+{"type": "game_quest_done", "at": 71092, "title": "Mistmantle's Revenge", "kind": "normal"}
+{"type": "level_reached", "at": 71992, "level": 23}
+
+{"type": "game_quest_accepted", "at": 72012, "title": "Sven's Revenge", "kind": "normal"}
+{"type": "game_quest_done", "at": 72612, "title": "Sven's Revenge", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 72632, "title": "Deliveries to Sven", "kind": "normal"}
+{"type": "game_quest_done", "at": 73232, "title": "Deliveries to Sven", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 73252, "title": "Eight-Legged Menaces", "kind": "normal"}
+{"type": "game_quest_done", "at": 73852, "title": "Eight-Legged Menaces", "kind": "normal"}
+{"type": "level_reached", "at": 74752, "level": 24}
+
+# A side quest from Commander Althea Ebonlock, in progress: the cloth is short.
+
+{"type": "zone_entered", "at": 74782, "zone": "Duskwood", "subzone": "Darkshire", "hour": 14}
+{"type": "npc_met", "at": 74812, "name": "Commander Althea Ebonlock"}
+{"model": "quest", "answer": {"title": "Bandages for the Watch", "genre": "errand", "text": "My Night Watch bleeds every night on the road to Raven Hill. Walk the Darkened Bank for me, then bring Madame Eva cloth for bandages.", "steps": [{"goal": "visit", "place": "The Darkened Bank"}, {"goal": "carry", "item": "Wool Cloth", "count": 10, "npc": "Madame Eva"}]}}
+{"type": "quest_asked", "at": 74842, "npc": "Commander Althea Ebonlock"}
+
+{"type": "quest_accepted", "at": 74872}
+{"type": "zone_entered", "at": 74902, "zone": "Duskwood", "subzone": "The Darkened Bank", "hour": 14}
+{"type": "zone_entered", "at": 74932, "zone": "Duskwood", "subzone": "Darkshire", "hour": 14}
+{"type": "npc_met", "at": 74962, "name": "Madame Eva"}
+{"type": "items_held", "at": 74992, "npc": "Madame Eva", "item": "Wool Cloth", "count": 4}
+
+# Wetlands, levels 24 to 26.
+
+{"type": "zone_entered", "at": 82192, "zone": "Wetlands", "subzone": "Menethil Harbor", "hour": 14}
+{"type": "npc_met", "at": 82222, "name": "Captain Stoutfist"}
+{"type": "rest_changed", "at": 82252, "resting": "yes"}
+{"type": "rest_changed", "at": 83452, "resting": "no"}
+{"type": "game_quest_accepted", "at": 83472, "title": "Young Crocolisk Skins", "kind": "normal"}
+{"type": "game_quest_done", "at": 84072, "title": "Young Crocolisk Skins", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 84092, "title": "Claws from the Deep", "kind": "normal"}
+{"type": "game_quest_done", "at": 84692, "title": "Claws from the Deep", "kind": "normal"}
+
+{"type": "game_quest_accepted", "at": 84712, "title": "Reclaiming Goods", "kind": "normal"}
+{"type": "game_quest_done", "at": 85312, "title": "Reclaiming Goods", "kind": "normal"}
+{"type": "zone_entered", "at": 85342, "zone": "Wetlands", "subzone": "Thelgen Rock", "hour": 14}
+{"type": "game_quest_accepted", "at": 85362, "title": "The Absent Minded Prospector", "kind": "normal"}
+{"type": "game_quest_done", "at": 85962, "title": "The Absent Minded Prospector", "kind": "normal"}
+{"type": "npc_seen", "at": 85972, "name": "Leech Widow", "reaction": "hostile", "creature": "beast"}
+{"type": "npc_defeated", "at": 86092, "name": "Leech Widow", "kind": "rare"}
+{"type": "level_reached", "at": 86992, "level": 25}
+
+{"type": "zone_entered", "at": 87022, "zone": "Wetlands", "subzone": "Dun Modr", "hour": 14}
+{"type": "game_quest_accepted", "at": 87042, "title": "Daily Delivery", "kind": "normal"}
+{"type": "game_quest_done", "at": 87642, "title": "Daily Delivery", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 87662, "title": "Defeat Nek'rosh", "kind": "normal"}
+{"type": "game_quest_done", "at": 88262, "title": "Defeat Nek'rosh", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 88282, "title": "The Third Fleet", "kind": "normal"}
+{"type": "game_quest_done", "at": 88882, "title": "The Third Fleet", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 88902, "title": "Fall of Dun Modr", "kind": "normal"}
+
+{"type": "game_quest_done", "at": 89502, "title": "Fall of Dun Modr", "kind": "normal"}
+{"type": "level_reached", "at": 90402, "level": 26}
+
+# Ashenvale and Blackfathom Deeps: one run.
+
+{"type": "zone_entered", "at": 97602, "zone": "Ashenvale", "subzone": "Astranaar", "hour": 14}
+{"type": "npc_met", "at": 97632, "name": "Raene Wolfrunner"}
+{"type": "game_quest_accepted", "at": 97652, "title": "Raene's Cleansing", "kind": "normal"}
+{"type": "game_quest_done", "at": 98252, "title": "Raene's Cleansing", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 98272, "title": "Bathran's Hair", "kind": "normal"}
+{"type": "game_quest_done", "at": 98872, "title": "Bathran's Hair", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 98892, "title": "Elune's Tear", "kind": "normal"}
+{"type": "game_quest_done", "at": 99492, "title": "Elune's Tear", "kind": "normal"}
+
+{"type": "zone_entered", "at": 99522, "zone": "Ashenvale", "subzone": "Fallen Sky Lake", "hour": 14}
+{"type": "game_quest_accepted", "at": 99542, "title": "Fallen Sky Lake", "kind": "normal"}
+{"type": "game_quest_done", "at": 100142, "title": "Fallen Sky Lake", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 100162, "title": "The Tower of Althalaxx", "kind": "normal"}
+{"type": "game_quest_done", "at": 100762, "title": "The Tower of Althalaxx", "kind": "normal"}
+{"type": "zone_entered", "at": 100792, "zone": "Ashenvale", "subzone": "Zoram Strand", "hour": 14}
+{"type": "game_quest_accepted", "at": 100812, "title": "The Ruins of Stardust", "kind": "normal"}
+{"type": "game_quest_done", "at": 101412, "title": "The Ruins of Stardust", "kind": "normal"}
+
+{"type": "zone_entered", "at": 102012, "zone": "Blackfathom Deeps", "hour": 14}
+{"type": "instance_entered", "at": 102013, "zone": "Blackfathom Deeps", "kind": "party"}
+{"type": "npc_defeated", "at": 102913, "name": "Ghamoo-ra", "kind": "boss"}
+{"type": "npc_defeated", "at": 103613, "name": "Lady Sarevess", "kind": "boss"}
+{"type": "npc_defeated", "at": 104213, "name": "Gelihast", "kind": "boss"}
+{"type": "npc_defeated", "at": 105113, "name": "Twilight Lord Kelris", "kind": "boss"}
+{"type": "npc_defeated", "at": 106013, "name": "Aku'mai", "kind": "boss"}
+{"type": "zone_entered", "at": 106313, "zone": "Ashenvale", "subzone": "Zoram Strand", "hour": 14}
+
+{"type": "level_reached", "at": 107213, "level": 27}
+
+{"type": "zone_entered", "at": 109613, "zone": "Ashenvale", "subzone": "Astranaar", "hour": 14}
+{"type": "game_quest_accepted", "at": 109633, "title": "Knowledge in the Deeps", "kind": "normal"}
+{"type": "game_quest_done", "at": 109933, "title": "Knowledge in the Deeps", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 109953, "title": "Researching the Corruption", "kind": "normal"}
+{"type": "game_quest_done", "at": 110253, "title": "Researching the Corruption", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 110273, "title": "Culling the Furbolg", "kind": "normal"}
+{"type": "game_quest_done", "at": 110873, "title": "Culling the Furbolg", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 110893, "title": "Ordanus", "kind": "normal"}
+
+{"type": "game_quest_done", "at": 111493, "title": "Ordanus", "kind": "normal"}
+
+# Return to Duskwood: revenge on Mor'Ladim.
+
+{"type": "zone_entered", "at": 118693, "zone": "Duskwood", "subzone": "Darkshire", "hour": 14}
+{"type": "game_quest_accepted", "at": 118713, "title": "Morbent Fel", "kind": "normal"}
+{"type": "game_quest_done", "at": 119313, "title": "Morbent Fel", "kind": "normal"}
+{"type": "zone_entered", "at": 119343, "zone": "Duskwood", "subzone": "Raven Hill Cemetery", "hour": 14}
+{"type": "npc_defeated", "at": 119943, "name": "Mor'Ladim", "kind": "rareelite"}
+{"type": "game_quest_accepted", "at": 119963, "title": "Mor'Ladim", "kind": "normal"}
+{"type": "game_quest_done", "at": 120563, "title": "Mor'Ladim", "kind": "normal"}
+{"type": "level_reached", "at": 121463, "level": 28}
+
+{"type": "game_quest_accepted", "at": 121483, "title": "The Weathered Grave", "kind": "normal"}
+{"type": "game_quest_done", "at": 122083, "title": "The Weathered Grave", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 122103, "title": "Embalming Ichor", "kind": "normal"}
+{"type": "game_quest_done", "at": 122703, "title": "Embalming Ichor", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 122723, "title": "Roland's Doom", "kind": "normal"}
+{"type": "game_quest_done", "at": 123323, "title": "Roland's Doom", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 123343, "title": "Translate Abercrombie's Note", "kind": "normal"}
+{"type": "game_quest_done", "at": 123943, "title": "Translate Abercrombie's Note", "kind": "normal"}
+
+{"type": "level_reached", "at": 124843, "level": 29}
+
+{"type": "mount_ridden", "at": 124903, "mount": "Brown Horse", "speed": 160}
+
+# Stranglethorn Vale and level 30.
+
+{"type": "zone_entered", "at": 128503, "zone": "Stranglethorn Vale", "subzone": "Rebel Camp", "hour": 14}
+{"type": "npc_met", "at": 128533, "name": "Lieutenant Doren"}
+{"type": "game_quest_accepted", "at": 128553, "title": "The Second Rebellion", "kind": "normal"}
+{"type": "game_quest_done", "at": 129153, "title": "The Second Rebellion", "kind": "normal"}
+{"type": "zone_entered", "at": 129183, "zone": "Stranglethorn Vale", "subzone": "Nesingwary's Expedition", "hour": 14}
+{"type": "npc_met", "at": 129213, "name": "Hemet Nesingwary Jr."}
+{"type": "game_quest_accepted", "at": 129233, "title": "Welcome to the Jungle", "kind": "normal"}
+{"type": "game_quest_done", "at": 129833, "title": "Welcome to the Jungle", "kind": "normal"}
+
+{"type": "game_quest_accepted", "at": 129853, "title": "Raptor Mastery", "kind": "normal"}
+{"type": "game_quest_done", "at": 130453, "title": "Raptor Mastery", "kind": "normal"}
+{"type": "level_reached", "at": 131353, "level": 30}
+
+{"type": "game_quest_accepted", "at": 131373, "title": "Panther Mastery", "kind": "normal"}
+{"type": "game_quest_done", "at": 131973, "title": "Panther Mastery", "kind": "normal"}
+{"type": "zone_entered", "at": 132003, "zone": "Stranglethorn Vale", "subzone": "Kurzen's Compound", "hour": 14}
+{"type": "game_quest_accepted", "at": 132023, "title": "Bloodscalp Ears", "kind": "normal"}
+{"type": "game_quest_done", "at": 132623, "title": "Bloodscalp Ears", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 132643, "title": "Tiger Mastery", "kind": "normal"}
+{"type": "game_quest_done", "at": 133243, "title": "Tiger Mastery", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 133263, "title": "Hostile Takeover", "kind": "normal"}
+
+{"type": "game_quest_done", "at": 133863, "title": "Hostile Takeover", "kind": "normal"}
+{"type": "game_quest_accepted", "at": 133883, "title": "Singing Blue Shards", "kind": "normal"}
+{"type": "game_quest_done", "at": 134483, "title": "Singing Blue Shards", "kind": "normal"}
