@@ -84,8 +84,17 @@ pub(super) fn shown_of(active: &Active, entry: EntryKey, narrator_rows: &[u64]) 
     shown(narrator_rows, &edits_of(active, entry))
 }
 
-/// The standing edit of each entry that shows words of the player, with the names of the
-/// players. A restore shows none, so it gives no view.
+/// The edit of an entry whose words show, with its row: the one whose title or paragraphs
+/// the proved rule shows. A narrator row never changes either (theorem 21), so none is
+/// read. A restore shows no words of the player, so it gives none.
+fn shown_edit(active: &Active, entry: EntryKey) -> Option<(u64, &EntryEdit)> {
+    let edits = edits_of(active, entry);
+    let shown = shown(&[], &edits);
+    let row = shown.player.or(shown.title)?;
+    edits.into_iter().find(|(id, _)| *id == row)
+}
+
+/// The edit of each entry that shows words of the player, with the names of the players.
 pub(super) fn journal_edits(active: &Active) -> Vec<EditView> {
     let mut entries: Vec<EntryKey> = Vec::new();
     for edit in active.entry_edits.rows() {
@@ -96,8 +105,7 @@ pub(super) fn journal_edits(active: &Active) -> Vec<EditView> {
     let table = active.aliases.table();
     entries
         .into_iter()
-        .filter_map(|entry| standing_edit(active, entry))
-        .filter(|(_, edit)| edit.text != EditText::Narrator || edit.title.is_some())
+        .filter_map(|entry| shown_edit(active, entry))
         .map(|(_, edit)| EditView {
             entry: edit.entry,
             title: edit.title.as_ref().map(|title| with_names(table, title)),
@@ -112,14 +120,10 @@ pub(super) fn journal_edits(active: &Active) -> Vec<EditView> {
 }
 
 /// The player's telling of an entry for a prompt, with the IDs of the players, cut short,
-/// and the row behind it. None when the standing edit shows no words of the player. The
-/// swap runs again, because the table can know a name now that it did not know at the
-/// edit.
+/// and the row behind it. None when the entry shows no words of the player. The swap runs
+/// again, because the table can know a name now that it did not know at the edit.
 pub(super) fn telling_of(active: &Active, entry: EntryKey) -> Option<(String, Node)> {
-    let (row, edit) = standing_edit(active, entry)?;
-    if edit.text == EditText::Narrator && edit.title.is_none() {
-        return None;
-    }
+    let (row, edit) = shown_edit(active, entry)?;
     let mut parts: Vec<&str> = edit.title.iter().map(String::as_str).collect();
     parts.extend(edit.paragraphs.iter().map(String::as_str));
     let with_ids = aliases::with_ids(active, &parts.join("\n"));
