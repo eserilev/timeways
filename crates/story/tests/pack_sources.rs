@@ -304,6 +304,32 @@ fn a_paragraph_that_talks_about_the_game_is_dropped_and_counted() {
     assert_eq!(built.report, [read("Testvale", 1, 1, 1)]);
 }
 
+/// A paragraph past the limit of the bridge becomes several passages. A later term in one
+/// piece drops every piece, because the rest of the paragraph tells the same later story.
+#[test]
+fn a_later_term_drops_every_piece_of_a_long_paragraph() {
+    let later_story = "The folk then sailed to a land that only later players reach. ".repeat(80);
+    let page = format!(
+        "{}\nIn the Mock Expansion the folk changed. {later_story}\n",
+        long("Testvale lies under the old tower."),
+    );
+    let index = index("===Chapter I: Dawn===\n===Chapter II: Noon===\n");
+    let dump = write_dump(
+        "sources-later-pieces",
+        &[article(INDEX, &index), article("Testvale", &page)],
+    );
+    let list = "[[pages]]\ntitle = \"Testvale\"\nlead = true\nsections = []\n\
+                places = [\"Testvale\"]\n[later]\nterms = [\"Mock Expansion\"]\n";
+
+    let built = from_dump(&dump, &sources(list)).unwrap();
+
+    assert_eq!(
+        texts(&built.passages),
+        [long("Testvale lies under the old tower.")]
+    );
+    assert_eq!(built.report, [read("Testvale", 1, 1, 0)]);
+}
+
 #[test]
 fn a_listed_subsection_goes_in_only_under_a_parent_that_goes_in() {
     let page = format!(

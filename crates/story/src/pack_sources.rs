@@ -267,18 +267,21 @@ fn add_page(built: &mut Built, wanted: &WikiPage, page: Option<&Page>, filters: 
         built.report.push(missing(&wanted.title));
         return;
     };
-    let mut texts: Vec<String> = kept_bodies(&page.text, wanted)
+    // The terms read whole paragraphs: the rest of a long paragraph tells the same story.
+    let mut whole: Vec<String> = kept_bodies(&page.text, wanted)
         .into_iter()
-        .flat_map(|body| paragraphs(&plain(body)))
+        .flat_map(|body| prose_lines(&plain(body)))
         .collect();
-    let read = texts.len();
-    texts.retain(|text| !filters.is_later(text));
-    let not_later = texts.len();
-    texts.retain(|text| !filters.is_game(text));
+    let read = whole.len();
+    whole.retain(|text| !filters.is_later(text));
+    let not_later = whole.len();
+    whole.retain(|text| !filters.is_game(text));
+    let game = not_later - whole.len();
+    let texts: Vec<String> = whole.iter().flat_map(|text| pieces(text)).collect();
     let outcome = Outcome::Read {
         passages: texts.len(),
         later: read - not_later,
-        game: not_later - texts.len(),
+        game,
     };
     let source = format!("the wiki page \"{}\"", page.title);
     let links = links(wanted);
@@ -388,8 +391,19 @@ fn missing(title: &str) -> PageReport {
 /// A paragraph past the limit of the bridge becomes several.
 #[must_use]
 pub fn paragraphs(plain: &str) -> Vec<String> {
-    let prose = plain.lines().map(one_line).filter(|line| is_prose(line));
-    prose.flat_map(|line| pieces(&line)).collect()
+    prose_lines(plain)
+        .iter()
+        .flat_map(|line| pieces(line))
+        .collect()
+}
+
+/// The lines of prose, each whole, however long.
+fn prose_lines(plain: &str) -> Vec<String> {
+    plain
+        .lines()
+        .map(one_line)
+        .filter(|line| is_prose(line))
+        .collect()
 }
 
 fn one_line(line: &str) -> String {
