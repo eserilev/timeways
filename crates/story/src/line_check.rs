@@ -140,6 +140,8 @@ pub enum LineFault {
     HeroInHistory,
     /// The sentence of history is longer than its budget of characters.
     OverBudget(usize),
+    /// The history has more sentences than the moment allows: the count, and the most.
+    HistorySentences(usize, usize),
 }
 
 impl fmt::Display for LineFault {
@@ -220,6 +222,14 @@ impl fmt::Display for LineFault {
             LineFault::HeroInHistory => write!(
                 f,
                 "The history names the hero. Leave the hero out: the game adds the deed."
+            ),
+            LineFault::HistorySentences(count, 1) => write!(
+                f,
+                "The history has {count} sentences. Write one sentence of history."
+            ),
+            LineFault::HistorySentences(count, most) => write!(
+                f,
+                "The history has {count} sentences. Write at most {most}."
             ),
             LineFault::OverBudget(chars) => write!(
                 f,
@@ -335,7 +345,7 @@ pub fn lore_faults(
     }
     let count = sentences(&lore).len();
     if count > most_sentences {
-        found.push(LineFault::TooManySentences(count));
+        found.push(LineFault::HistorySentences(count, most_sentences));
     }
     found
 }

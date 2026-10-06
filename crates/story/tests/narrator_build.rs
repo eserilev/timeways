@@ -95,6 +95,27 @@ fn a_kill_prefers_an_unnamed_part_on_a_named_turn() {
     assert!(built.line.starts_with(HOGGER), "{}", built.line);
 }
 
+/// A review run told a deed history of 2 sentences "Use 1 to 3." (2026-10-06): the reason
+/// must name the limit that the check holds.
+#[test]
+fn a_deed_history_of_two_sentences_is_told_to_write_one() {
+    let answer = "{\"lore\": \"Hogger and his gnolls raided Elwynn Forest for years. Stormwind still offers gold for his head.\", \"there\": false, \"leads\": \"none\", \"leads_number\": \"one\"}";
+
+    let (_, verdict) = told(&setup(hogger(), Who::default(), 0), HOGGER_LORE, answer);
+
+    let faults = faults(verdict);
+    assert!(
+        faults.contains(&LineFault::HistorySentences(2, 1)),
+        "{faults:?}"
+    );
+    let reasons: Vec<String> = faults.iter().map(ToString::to_string).collect();
+    assert!(
+        reasons
+            .contains(&"The history has 2 sentences. Write one sentence of history.".to_string()),
+        "{reasons:?}"
+    );
+}
+
 #[test]
 fn the_model_never_names_the_hero() {
     let answer = "{\"lore\": \"Hogger raided the farms of Elwynn until $N came.\", \"there\": false, \"leads\": \"none\", \"leads_number\": \"one\"}";
