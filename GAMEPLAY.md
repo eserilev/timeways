@@ -1058,6 +1058,16 @@ Each row of a world answers three questions: what proves it, which model call wr
 - **"Why?" shows only for trust** (3.5). The reads of a call hold far more than its cause, so the journal never shows them. Trust is the one value that a player cannot explain alone, and its cause is exact: the line or the call that made the newest change.
 - **Prompts.** The newest 500 calls keep their prompts. An older call keeps its row, its answer, and its links.
 
+### 5.15 Dev mode
+
+Dev mode lets a person test each feature with no hours of play (the user, 2026-10-06). TESTING.md, "Dev mode", has the commands. Built.
+
+- **Off by default.** It is on only while `settings.toml` in the story folder holds `dev = true`. `timeways-dev on` writes it, and the story program reads it at its start. A player can't turn it on in the game.
+- **The journal tells the addon.** While dev mode is on, each journal carries `"dev": true`. `/twdev` works only while the newest journal had it. Else it says "Dev mode is off." and sends nothing.
+- **Each fake line is marked.** An event line of `/twdev` carries `"dev": true`, and the story program refuses any line with a `dev` key while dev mode is off. A line with a reply has no mark yet, because the bridge reads it in a fixed shape.
+- **Fake players stay in the game.** A fake player of `/twdev peer` has the realm `Devrealm`, counts as a member of your group, and sends its messages through the real receive path. A message to it never goes on the wire.
+- **Worlds from scenarios.** `timeways-dev seed` plays a scenario file through the real story program, behind the checks of the bridge, into the world of one character. It writes over a world only with `--replace`, and then it keeps the old file as a backup. A scenario can fix the answer of a model call of one kind, so its side quests are the same with no model.
+
 ## 6. Build order
 
 1. **Lore on demand** (3.1): the world of a character, the spoiler limit, the lore cutoff (5.9), a model, and one window.

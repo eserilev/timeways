@@ -280,6 +280,133 @@ These lines use calls of the game that no test can check. Each step answers an o
 5. On the title page, click Edit, write one paragraph, and Save. Turn on sharing in the Roleplay Profile. A friend with Total RP 3 sees your paragraph as your History.
 6. Type a very long text, or a `|`, and click Save. The text stays in the box with the reason under it.
 
+## Dev mode
+
+Dev mode makes the moments of hours of play in seconds. It runs the real code: the addon, the bridge, and the story program. Only the moment itself is fake.
+
+### Turn it on and off
+
+Dev mode is off by default. The switch is a file on the desktop, so no player can turn it on in the game by accident.
+
+```sh
+timeways-dev on        # writes dev = true into <data>/gnomish-relay/timeways/story/settings.toml
+gnomish-relay restart  # the story program reads the file at its start
+timeways-dev status
+timeways-dev off       # writes dev = false
+```
+
+The story program then puts `"dev": true` on each journal. The addon reads it at login and after each journal: `/twdev` works only while it is there. With dev mode off, `/twdev` says "Dev mode is off." and sends nothing.
+
+### What keeps it safe
+
+- Each fake event line carries `"dev": true`. While dev mode is off, the story program refuses every line with a `dev` key (`crates/story/tests/dev_mode.rs`, the property test `a_dev_line_never_changes_a_world_while_dev_mode_is_off`, and the fuzz seeds `fuzz/seeds/input/dev.txt`).
+- A line with a reply (`talk_asked`, `lore_asked`, `journal_asked`, `draft_asked`) carries no mark yet, because the bridge reads these lines in a fixed shape. Only `/twdev talk` sends one, and only while the addon knows that dev mode is on.
+- A fake player gets its messages in the game itself. Nothing goes on the wire to it (`crates/addon-tests/tests/dev_peer.rs`). Its realm is `Devrealm`, which no server has.
+- The code ships in each release, and does nothing until the desktop turns dev mode on.
+
+### Worlds from scenarios
+
+`timeways-dev seed` builds the world of a character from a scenario: invented lines of the addon, in batches, through the real story program and the checks of the bridge. Model calls go to the model of your config (`[story]` in `~/.config/gnomish-relay/config.toml`). `--no-model` fails each call, as the bridge does with no model.
+
+```sh
+timeways-dev scenarios
+timeways-dev seed Testpal --realm "Classic Beta PvP 2" --scenario level-30-paladin
+timeways-dev seed Testpal --realm "Classic Beta PvP 2" --scenario raider-60 --replace --no-model
+timeways-dev snapshot Testpal before-raid --realm "Classic Beta PvP 2"
+timeways-dev restore Testpal before-raid --realm "Classic Beta PvP 2"
+gnomish-relay restart
+```
+
+- The seed refuses a world that exists. With `--replace`, it moves the old file to `<file>.bak-<seconds>` first. It never touches another character.
+- A snapshot goes to `<data>/gnomish-relay/timeways/story/dev-snapshots/`. A restore moves the world that exists to a backup first.
+- After a seed or a restore, run `gnomish-relay restart`, and log in as that character. The story program keeps the world of the active character open, so it sees the new file only after a restart.
+- The times of a scenario end a minute before the seed, so the world reads as play of today.
+- A scenario file of your own works too: `--scenario my-test.jsonl`. The format is at the top of `crates/dev/src/scenario.rs`.
+
+| Scenario | What the world holds |
+|---|---|
+| `fresh` | A human paladin at level 2, in the first open chapter. |
+| `level-30-paladin` | 9 chapters from Elwynn Forest to Stranglethorn Vale, tales of the Deadmines and Blackfathom Deeps, deaths to Mor'Ladim and the revenge, a class quest, a side quest done and one in progress, a mount, books and gossip. |
+| `raider-60` | An orc warrior at 60: Blackrock Depths 4 runs, Upper Blackrock Spire 3 runs as a raid, Azuregos, a swift wolf, Ironfoe, and a big upgrade. |
+| `story-inbox` | A Forsaken priest with two accepted stories from Kobee and Morvane. `/twdev inbox` in the game adds five stories that wait. |
+| `edits` | A night elf druid whose chapters, tale, and title page hold the player's own words, and a restore. |
+| `side-quests` | A dwarf hunter with side quests of every step kind and in every state: done, in progress, a mystery with a hidden step, an offer, declined, and abandoned. The model answers are fixed in the file. |
+| `flavor-and-hero` | A troll shaman with a full Hero sheet and notes, every joke title of the Horde, a quest mark, a battleground won, a PvP rank, an inn, and a flight. |
+
+### Commands in the game
+
+Type `/twdev help` for the list. A name with spaces needs no quotes. A slash separates two parts: `/twdev zone Westfall / Moonbrook`.
+
+| Command | What it fakes |
+|---|---|
+| `level <n>` | You reach level n. |
+| `zone <zone> [/ subzone]` | You walk into a place. |
+| `taxi` | A flight over Elwynn Forest and Westfall to Duskwood. |
+| `dungeon <name>`, `raid <name>` | You enter an instance of that kind. |
+| `bg-win` | You win in Warsong Gulch. |
+| `pvp-rank <n>` | Your PvP rank grows. |
+| `rest` | You rest at an inn, and walk out. |
+| `mount <name> [epic]` | You ride a mount (160), or a swift one (200). |
+| `kill <name> [rare\|boss\|worldboss]` | You defeat a rare or a boss. With no kind, a kill for a kill step of a quest. |
+| `seen <name> [friendly] [beast]` | You hover an NPC. |
+| `death <killer>`, `fall`, `drown`, `lava` | You die to an NPC or to the world. |
+| `item <name> epic\|rare` | You put on an item 12 levels above the one before. |
+| `game-quest <title> [class]` | You take a quest of the game and turn it in. |
+| `mark <quest> / <buff>` | A quest of the game leaves a lasting buff. |
+| `chapter-end [new zone]` | 16 errands where you stand, then a quest in a new zone: the open chapter closes. Use it outside an instance. |
+| `hour <h>` | The hour of your computer changes, for a "visit at night" step. |
+| `meet <npc>` | You open the window of an NPC. |
+| `gossip <npc> / <text>`, `quest-text <npc> / <title>`, `book <title> [/ text]` | You read a text of the game. |
+| `talk <npc> [/ words]` | `/talk` to that NPC, as if you targeted it. Ask "Any work for me?" for the quest card. |
+| `quest <npc>` | `/quest` to that NPC. |
+| `slap <npc>`, `emote <emote> [/ npc]` | An emote, with its slap and its trust. |
+| `carry <count> <item> / <npc>` | You show an NPC what your bags hold, for a carry step. |
+| `journal` | The desktop sends the journal now, and the book opens. |
+| `welcome setup\|files\|offline` | The setup window for that reason. |
+| `peer <name> story [title]` | A fake player of your group tells a story about you. |
+| `peer <name> quest` | A fake player sends you a quest. |
+| `peer <name> open\|full\|blocked\|waiting` | The room of its story box, for its answer to your `/story`. |
+| `peer <name> write` | The story scroll for that fake player. |
+| `peer <name> accept\|decline` | Its answer to the story that you told it. |
+| `peer <name> near\|far` | It stands next to you, or not, for the proof of a step. |
+| `peer <name> step <n>`, `peer <name> turnin [steps]` | It does a step of the quest that you gave it, and turns it in. |
+| `inbox` | Five fake players each tell a story that waits. |
+| `msp <name> / <title>` | A fake player shares a roleplay profile. Turn on Share first. |
+| `remember <name> friendly\|neutral\|avoid`, `note <name>` | You remember a fake player, and write a note. |
+| `tooltip <name>` | The tooltip of a fake player: its profile and your note. |
+
+### Each long-play test, fast
+
+| Test | How to reach it fast | What to look for |
+|---|---|---|
+| 3. The text that you read | `/twdev book The Kingdom of Stormwind`, `/twdev gossip Innkeeper Farley / Rest a while.`, then `/lore` | The answer cites the text. Knowledge lists it. |
+| 5. A side quest | `/twdev seen Prowler beast`, `/twdev meet Thor`, `/twdev quest Thor`, then the step commands: `kill`, `zone`, `meet`, `talk`, `emote`, `slap`, `carry`, `hour`, `level`, `game-quest`, `dungeon` | The offer, the steps that complete, "Prowler slain: 1/3". The `side-quests` scenario shows every step kind with no model. |
+| 6. Player quests | `/twdev peer Kobee near`, open New quest, send it to Kobee, then `/twdev peer Kobee step 1` and `/twdev peer Kobee turnin 1`. For a quest to you: `/twdev peer Kobee quest`. | Kobee in "Send to", the turn-in card with Witnessed or Seen, Complete quest. |
+| 8. Kills and deaths on Deeds | `/twdev kill Hogger rare`, `/twdev death Mor'Ladim` | The Deeds tab. |
+| 9. NPCs remember you | `/twdev talk Innkeeper Farley / Any news?` twice; `/twdev death Hogger`, then `/twdev talk` an NPC of that zone | The second answer recalls the first. |
+| 10. Hero hooks | Answer Goal, then `/twdev talk <npc>` three times | The third answer ties in the goal. |
+| 11. New kinds of quests | The `side-quests` scenario, then `/twdev hour 22` or `/twdev carry 10 Wool Cloth / Innkeeper Belm` | Waits, sets, carry counts, night visits, a mystery. |
+| 12. Why an NPC trusts you | `/twdev slap <an NPC near you>`, then hover it | "Went down when you slapped them." |
+| 13. Stories about each other | `/twdev peer Kobee story The Bridge`, `/twdev inbox`, `/twdev peer Kobee full`, `/twdev peer Kobee write` | The badge, Accept, Decline, Block, and the lines of a full or blocked box. |
+| 15. Roleplay profiles | Turn on Share, `/twdev msp Kobee / Keeper of the Flame`, `/twdev tooltip Kobee` | "Kobee of the Reef, Keeper of the Flame". |
+| 16. Remembered players | `/twdev remember Kobee avoid`, `/twdev note Kobee`, `/twdev tooltip Kobee` | "Avoid: " and the note. |
+| 17. The welcome window | `/twdev welcome setup`, `files`, or `offline` | The heading of each reason. |
+| 18. The talk window | `/twdev talk Innkeeper Farley / Any work for me?` | The quest card, with a model. |
+| 19. The narrator | `/twdev level 20`, `/twdev zone Duskwood`, `/twdev kill Mor'Ladim rare`, `/twdev mount Swift Brown Wolf epic`, `/twdev item Ironfoe epic` | A line for each kind of moment, with a model. |
+| 22. The Chronicle title page | `/twdev chapter-end`, then a few more batches | The summary, with a model. |
+| 23. The Chronicle book | The `level-30-paladin` or `raider-60` scenario, or `/twdev chapter-end`, `/twdev dungeon The Deadmines`, `/twdev kill Edwin VanCleef boss` | Chapters, tales, run counts, tally lines. |
+| 24. Battlegrounds, rank, inns, bosses | `/twdev bg-win`, `/twdev pvp-rank 3`, `/twdev rest`, `/twdev taxi`, `/twdev kill Azuregos worldboss` | The rows of `inputs`, with `"dev":true`. |
+| 25. Your own words | The `edits` scenario, or Edit on a chapter of any scenario | Edited, Restore, and the title page. |
+
+Each scenario and each command has a named test. Three tests fail when a new feature has no way in dev mode: `every_input_line_has_a_dev_command_or_a_scenario` and `every_section_of_the_journal_has_a_scenario_that_fills_it` (`crates/addon-tests/tests/dev_mode.rs`), and `every_kind_of_narrator_moment_comes_in_a_scenario` (`crates/dev/tests/scenarios.rs`).
+
+### What dev mode can't fake
+
+- **The answers of a model.** A narrator line, a saga, a tale, a summary, a history of a zone, a talk, a quest offer of `/quest`, and "Help me write" need a model. The scenarios fix the answers of side quests only.
+- **The positions on the map.** A fake place has no point on a map of the game, so it gets no pin.
+- **The hooks of the game itself:** the menu of a right click on a real player, the tooltip of a real unit, and the real `PARTY_KILL`, auras, and death recap. The commands start right after them.
+- **A real second game.** The logged channel, the rate limits of the server, and trades between two players need two characters (tests 6 and 13 in full).
+
 ## What to send back
 
 - Each Lua error, as text.
