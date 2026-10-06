@@ -182,6 +182,10 @@ SlashCmdList.TIMEWAYSSTORIES = function()
 	ns.JournalFrame.Open("stories")
 end
 
+-- Dev mode (TESTING.md): it does nothing unless the desktop turned it on.
+SLASH_TIMEWAYSDEV1 = "/twdev"
+SlashCmdList.TIMEWAYSDEV = ns.Dev.Command
+
 SLASH_TIMEWAYSJOURNAL1 = "/journal"
 SLASH_TIMEWAYSJOURNAL2 = "/timeways"
 SlashCmdList.TIMEWAYSJOURNAL = function(message)

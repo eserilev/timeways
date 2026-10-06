@@ -27,6 +27,16 @@ fn encode_sorts_the_keys() {
 }
 
 #[test]
+fn encode_writes_a_boolean_for_the_mark_of_a_fake_line() {
+    let game = Game::new();
+
+    assert_eq!(
+        encode(&game, "{ dev = true, other = false }"),
+        r#"{"dev":true,"other":false}"#
+    );
+}
+
+#[test]
 fn encode_writes_a_table_as_an_object() {
     let game = Game::new();
 

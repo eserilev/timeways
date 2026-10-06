@@ -89,7 +89,9 @@ local function Cut(text)
 	return text:sub(1, stop)
 end
 
-local function Add(kind, title, npc, text)
+-- A text that the player read: "quest", "gossip", or "book". The events below read it from
+-- the game, and dev mode fakes it here (Dev.lua).
+function Seen.Read(kind, title, npc, text)
 	if not Readable(text) then
 		return
 	end
@@ -111,11 +113,11 @@ local function Speaker()
 end
 
 function Seen.Gossip()
-	Add("gossip", nil, Speaker(), C_GossipInfo.GetText())
+	Seen.Read("gossip", nil, Speaker(), C_GossipInfo.GetText())
 end
 
 function Seen.QuestGreeting()
-	Add("gossip", nil, Speaker(), GetGreetingText())
+	Seen.Read("gossip", nil, Speaker(), GetGreetingText())
 end
 
 function Seen.QuestDetail()
@@ -123,15 +125,15 @@ function Seen.QuestDetail()
 	if Readable(text) and Readable(objectives) then
 		text = text .. " " .. objectives
 	end
-	Add("quest", GetTitleText(), Speaker(), text)
+	Seen.Read("quest", GetTitleText(), Speaker(), text)
 end
 
 function Seen.QuestProgress()
-	Add("quest", GetTitleText(), Speaker(), GetProgressText())
+	Seen.Read("quest", GetTitleText(), Speaker(), GetProgressText())
 end
 
 function Seen.QuestComplete()
-	Add("quest", GetTitleText(), Speaker(), GetRewardText())
+	Seen.Read("quest", GetTitleText(), Speaker(), GetRewardText())
 end
 
 -- A letter that a player wrote has a creator. Its words are theirs, so they stay out.
@@ -139,5 +141,5 @@ function Seen.Book()
 	if ItemTextGetCreator() then
 		return
 	end
-	Add("book", ItemTextGetItem(), nil, ItemTextGetText())
+	Seen.Read("book", ItemTextGetItem(), nil, ItemTextGetText())
 end

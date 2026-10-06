@@ -85,6 +85,11 @@ function TaskPeople.GroupUnit(name)
 	end
 end
 
+-- A player of your group, or a fake player of dev mode (DevPeer.lua), who counts as one.
+function TaskPeople.InGroup(name)
+	return TaskPeople.GroupUnit(name) ~= nil or ns.DevPeer.Has(name)
+end
+
 -- Every player of your group, as full names.
 function TaskPeople.GroupNames()
 	local names = {}
@@ -146,7 +151,7 @@ end
 -- "party", "guild", or "friend": the ways that a peer can send you a task. Nil for a
 -- stranger.
 function TaskPeople.Relation(name)
-	if TaskPeople.GroupUnit(name) then
+	if TaskPeople.InGroup(name) then
 		return "party"
 	end
 	if Roster()[name] ~= nil then
@@ -191,6 +196,9 @@ end
 -- guild nor your friends list is unknown. A whisper to a player who is offline puts an
 -- error in the chat, so a message to an offline player waits.
 function TaskPeople.Presence(name)
+	if ns.DevPeer.Has(name) then
+		return "online"
+	end
 	local unit = TaskPeople.UnitOf(name)
 	if unit then
 		return UnitIsConnected(unit) == true and "online" or "offline"
@@ -236,12 +244,18 @@ end
 
 -- Face to face: close enough to trade.
 function TaskPeople.IsNear(name)
+	if ns.DevPeer.Has(name) then
+		return ns.DevPeer.IsNear(name)
+	end
 	local unit = TaskPeople.UnitOf(name)
 	return unit ~= nil and CheckInteractDistance(unit, TRADE_DISTANCE) == true
 end
 
 -- Close enough that your addon sees what happens around the player: a kill, a talk, a place.
 function TaskPeople.IsClose(name)
+	if ns.DevPeer.Has(name) then
+		return ns.DevPeer.IsNear(name)
+	end
 	local unit = TaskPeople.UnitOf(name)
 	return unit ~= nil and CheckInteractDistance(unit, FOLLOW_DISTANCE) == true
 end

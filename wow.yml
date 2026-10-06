@@ -34,6 +34,8 @@ globals:
     property: full-write
   SLASH_TIMEWAYSJOURNAL2:
     property: full-write
+  SLASH_TIMEWAYSDEV1:
+    property: full-write
   date:
     args: [{type: string}, {type: number, required: false}]
   GetRealmName:

@@ -98,6 +98,11 @@ function TaskChannel.Flush()
 end
 
 local function Queue(to, channel, message)
+	-- A fake player of dev mode gets the message in the game itself, never on the wire.
+	if to and ns.DevPeer.Has(to) then
+		ns.DevPeer.Heard(to, message)
+		return
+	end
 	number = ns.TaskChunks.NextNumber(number)
 	local parts = ns.TaskChunks.Split(ns.TaskWire.Encode(message), number)
 	if not parts then
@@ -127,6 +132,7 @@ end
 
 -- To your group and your guild at once.
 function TaskChannel.Broadcast(message)
+	ns.DevPeer.HeardByAll(message)
 	if IsInGroup() then
 		Queue(nil, GroupChannel(), message)
 	end

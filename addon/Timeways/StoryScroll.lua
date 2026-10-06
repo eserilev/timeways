@@ -38,7 +38,7 @@ local function Short(player)
 end
 
 local function InGroup()
-	return ns.TaskPeople.GroupUnit(to) ~= nil
+	return ns.TaskPeople.InGroup(to)
 end
 
 -- A typed `|` reads as "||" in a box, as the game keeps it.
@@ -397,7 +397,7 @@ end
 
 -- `/story` opens the scroll for your target, with its draft.
 function StoryScroll.OpenFor(player)
-	if not player or not ns.TaskPeople.GroupUnit(player) then
+	if not player or not ns.TaskPeople.InGroup(player) then
 		Say("Target a player in your group first.")
 		return
 	end

@@ -69,6 +69,11 @@ end
 -- `failed` runs with the error text when a question gets an error reply instead of its answer.
 function Outbox.Add(input, failed)
 	local reply = REPLIES[input.type] == true
+	-- The bridge takes a line with a reply only in its fixed shape, so only an event line
+	-- carries the mark of a fake line.
+	if not reply then
+		ns.Dev.Mark(input)
+	end
 	waiting[#waiting + 1] = { line = ns.Json.Encode(input), reply = reply, failed = failed }
 	Bound()
 	if IsBig(input) then

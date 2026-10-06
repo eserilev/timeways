@@ -12,6 +12,7 @@ dependencies = [
  "protocol",
  "rusty-hourglass",
  "serde_json",
+ "timeways-dev",
  "timeways-story",
 ]
 

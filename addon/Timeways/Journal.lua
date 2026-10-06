@@ -100,6 +100,7 @@ function Journal.Receive(value)
 		return
 	end
 	if page == 0 then
+		ns.Dev.DesktopSays(value.dev)
 		collecting = Started()
 		collecting.talk_quest = value.talk_quest
 		collecting.summary = value.summary

@@ -82,7 +82,7 @@ end
 
 -- Only a player of your group gets an answer.
 local function Asked(sender)
-	if ns.TaskPeople.GroupUnit(sender) then
+	if ns.TaskPeople.InGroup(sender) then
 		Answer(sender, PlayerStories.RoomFor(sender))
 	end
 end
@@ -95,7 +95,7 @@ local function ArrivedLine(sender, title)
 end
 
 local function Heard(sender, message)
-	if not ns.TaskPeople.GroupUnit(sender) then
+	if not ns.TaskPeople.InGroup(sender) then
 		return
 	end
 	local index = WaitingFrom(sender)
@@ -215,7 +215,7 @@ end
 -- A quick story from the chat: one paragraph and no title, after the same question.
 function PlayerStories.Tell(to, words)
 	local body = ns.StoryText.Body(words)
-	if not to or not ns.TaskPeople.GroupUnit(to) then
+	if not to or not ns.TaskPeople.InGroup(to) then
 		Say("Target a player in your group first.")
 		return
 	end

@@ -15,6 +15,7 @@ mlua = { version = "0.12", features = ["lua51", "vendored"] }
 proptest.workspace = true
 serde_json.workspace = true
 timeways-story = { path = "../story" }
+timeways-dev = { path = "../dev" }
 rusty-hourglass.workspace = true
 
 [lints]

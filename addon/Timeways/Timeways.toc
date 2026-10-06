@@ -23,6 +23,7 @@ Focus.lua
 Position.lua
 Json.lua
 Inputs.lua
+Dev.lua
 Link.lua
 Outbox.lua
 Watch.lua
@@ -91,4 +92,6 @@ JournalFrame.lua
 SelfTest.lua
 Welcome.lua
 TalkWindow.lua
+DevTriggers.lua
+DevPeer.lua
 Core.lua

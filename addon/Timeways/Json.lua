@@ -45,10 +45,12 @@ EncodeValue = function(value, key)
 		return EncodeString(value)
 	elseif type(value) == "number" and value % 1 == 0 then
 		return string.format("%d", value)
+	elseif type(value) == "boolean" then
+		return value and "true" or "false"
 	elseif type(value) == "table" then
 		return value[1] ~= nil and EncodeArray(value) or EncodeObject(value)
 	end
-	error("Json.Encode: " .. key .. " is not a string, a whole number, a list, or an object")
+	error("Json.Encode: " .. key .. " is not a string, a whole number, a boolean, a list, or an object")
 end
 
 function Json.Encode(object)
