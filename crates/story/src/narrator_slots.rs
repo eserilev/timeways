@@ -121,7 +121,8 @@ pub fn parse(text: &str, kind: Kind, groups: &[String]) -> Result<Parsed, SlotFa
     }
     let Entries(entries) = serde_json::from_str(body).map_err(|_| SlotFault::BadAnswer)?;
     let lore = match find(&entries, "lore") {
-        Some(Value::String(lore)) => lore.trim().to_string(),
+        // The line shows on one line, as the checks read it.
+        Some(Value::String(lore)) => lore.split_whitespace().collect::<Vec<_>>().join(" "),
         _ => return Err(SlotFault::BadAnswer),
     };
     if lore == SILENCE {

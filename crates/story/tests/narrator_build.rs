@@ -78,6 +78,27 @@ fn an_arrival_answer_becomes_its_lore_alone() {
     assert_eq!(built.shape, "f.place");
 }
 
+/// The checks read the history on one line, so the line that the player sees must be
+/// that line too, with no line break and no run of spaces.
+#[test]
+fn a_history_with_a_line_break_shows_on_one_line() {
+    let durotar = Moment::NewZone {
+        zone: "Durotar".to_string(),
+    };
+    let lore = "Thrall named Durotar after his father, Durotan. The orcs settled its red canyons.";
+    let answer = "{\"lore\": \"Thrall named Durotar for a father he never knew.\\n\\nThe orcs who \
+                  spent years in human camps  hold its red canyons now.\"}";
+
+    let (_, verdict) = told(&setup(durotar, Who::default(), 0), lore, answer);
+
+    let built = line(verdict);
+    assert_eq!(
+        built.line,
+        "Thrall named Durotar for a father he never knew. The orcs who spent years in human \
+         camps hold its red canyons now."
+    );
+}
+
 #[test]
 fn a_kill_prefers_an_unnamed_part_on_a_named_turn() {
     let answer = format!(
