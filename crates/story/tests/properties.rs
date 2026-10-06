@@ -8,10 +8,12 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use timeways_rules::aliases::{Alias, PlayerId, find, learn_all};
+use timeways_rules::narrator_shapes::WINDOW;
 use timeways_story::aliases::{
     AliasRow, MAX_PLAYER_NAME_BYTES, alias_of, joined, key_of, knows_every_id, text_pieces,
     unmarked, with_names, without_names,
 };
+use timeways_story::arrival::arrival_in;
 use timeways_story::best_of_two::{Next, Round};
 use timeways_story::character::{Character, Item};
 use timeways_story::check::{Fault, check, later_names, mentions, without_citations};
@@ -24,11 +26,18 @@ use timeways_story::house::fenced;
 use timeways_story::input::{CallId, GameQuestKind, Input, MessageId, Reaction, SlotWas};
 use timeways_story::inside_hero::{inside_hero_in, recognition_in};
 use timeways_story::journal::{Journal, TalkQuestState, journal, pages};
-use timeways_story::line_check::{Checked, Grounds, LineFault, callback_in, checked_line};
-use timeways_story::moments::Moment;
+use timeways_story::line_check::{
+    Checked, Grounds, LineFault, built_faults, callback_in, checked_line,
+};
+use timeways_story::moments::{Creature, Moment, SlotKind};
 use timeways_story::mounts::{EPIC_MOUNT_SPEED, is_epic};
+use timeways_story::narrator::Telling;
 use timeways_story::narrator::{Naming, Who};
+use timeways_story::narrator_build::{Built, Offer, Setup, build, every_line, offer};
+use timeways_story::narrator_groups::groups_of;
 use timeways_story::narrator_lore::{is_silent, is_thin, lore_subjects};
+use timeways_story::narrator_slots::{ChoiceField, Choices, KillerKind, Tone, fields_of};
+use timeways_story::narrator_templates::{Number, TEMPLATES};
 use timeways_story::npc_memory::{MAX_MEMORIES, MAX_MEMORY_CHARS, when};
 use timeways_story::pace::{Pace, WINDOW_SECONDS};
 use timeways_story::pack::{Link, Origin, Pack, Passage};
@@ -40,6 +49,7 @@ use timeways_story::quest::{
     AnyOrder, DAY_SECONDS, Known, MAX_KILLS, MAX_OPEN_QUESTS, MAX_WAIT_DAYS, QuestChange, Status,
     Step, Tracked, checked_quest, quest_log,
 };
+use timeways_story::race_class::{Class, Race};
 use timeways_story::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use timeways_story::seen::TextKind;
 use timeways_story::sentences::{sentences, word_count};
@@ -3499,4 +3509,356 @@ fn deed_moment() -> impl Strategy<Value = Moment> {
             slot: None,
         },
     })
+}
+
+/// The longest names of the game, names with an apostrophe or a hyphen, and short ones.
+fn edge_name() -> impl Strategy<Value = String> {
+    prop_oneof![
+        Just("Grand Inquisitor Isillien of the Scarlet Crusade at Tyr's Hand Gate".to_string()),
+        Just("Gath'Ilzogg".to_string()),
+        Just("Mor'Ladim".to_string()),
+        Just("Hogger".to_string()),
+        Just("Ur".to_string()),
+        Just("Edwin VanCleef".to_string()),
+        Just("Old Ironbark-Grove Keeper".to_string()),
+        "[A-Z][a-z]{2,12}( [A-Z][a-z]{2,12}){0,2}",
+    ]
+}
+
+/// The counts at the edges of the words and of the ordinals.
+fn edge_count() -> impl Strategy<Value = i64> {
+    prop_oneof![
+        Just(1),
+        Just(2),
+        Just(3),
+        Just(10),
+        Just(11),
+        Just(12),
+        Just(13),
+        Just(21),
+        Just(22),
+        Just(60),
+        Just(101),
+        Just(111),
+        Just(i64::MAX),
+        2..1000i64,
+    ]
+}
+
+fn edge_title() -> impl Strategy<Value = String> {
+    prop_oneof![
+        Just("Bookworm".to_string()),
+        Just("Lord of the Goldshire Dance Floor".to_string()),
+        Just("Explorer".to_string()),
+    ]
+}
+
+/// Any pairing of Classic, with a title or none.
+fn any_hero() -> impl Strategy<Value = Who> {
+    let races = [
+        Race::Human,
+        Race::Orc,
+        Race::Dwarf,
+        Race::NightElf,
+        Race::Forsaken,
+        Race::Tauren,
+        Race::Gnome,
+        Race::Troll,
+    ];
+    let classes = [
+        Class::Warrior,
+        Class::Paladin,
+        Class::Hunter,
+        Class::Rogue,
+        Class::Priest,
+        Class::Shaman,
+        Class::Mage,
+        Class::Warlock,
+        Class::Druid,
+    ];
+    (
+        prop::sample::select(races.to_vec()),
+        prop::sample::select(classes.to_vec()),
+        prop::option::of(edge_title()),
+    )
+        .prop_map(|(race, class, title)| Who {
+            race: Some(race),
+            class: Some(class),
+            titles: title.into_iter().collect(),
+        })
+}
+
+/// A deed moment of every kind that has templates, with edge values.
+fn templated_moment() -> impl Strategy<Value = Moment> {
+    (
+        edge_name(),
+        edge_count(),
+        edge_title(),
+        0..13u8,
+        prop::option::of(prop::sample::select(vec![
+            Creature::Beast,
+            Creature::Undead,
+            Creature::Demon,
+        ])),
+        any::<bool>(),
+    )
+        .prop_map(|(name, count, title, kind, creature, weapon)| {
+            let zone = Some("Stranglethorn Vale".to_string());
+            let slot = Some(if weapon {
+                SlotKind::Weapon
+            } else {
+                SlotKind::Worn
+            });
+            match kind {
+                0 => Moment::FirstKill {
+                    foe: name,
+                    zone,
+                    creature,
+                },
+                1 => Moment::Revenge {
+                    foe: name,
+                    deaths: count,
+                    zone,
+                },
+                2 => Moment::SlainAgain {
+                    killer: name,
+                    times: count.max(2),
+                    zone,
+                },
+                3 => Moment::Slapped {
+                    npc: name,
+                    times: count,
+                    zone,
+                },
+                4 => Moment::QuestDone {
+                    title: name,
+                    giver: None,
+                },
+                5 => Moment::ClassQuestDone { title: name },
+                6 => Moment::Titled { title },
+                7 => Moment::QuestMarked {
+                    mark: title,
+                    quest: name,
+                },
+                8 => Moment::FirstMount {
+                    mount: format!("{name} Ram"),
+                    people: Some("Ironforge".to_string()),
+                },
+                9 => Moment::FirstEpicMount {
+                    mount: name,
+                    people: None,
+                },
+                10 => Moment::BigUpgrade {
+                    item: name,
+                    zone,
+                    slot,
+                },
+                11 => Moment::FirstEpicItem {
+                    item: name,
+                    zone,
+                    slot,
+                },
+                _ => Moment::LevelUp {
+                    level: count.clamp(1, 60),
+                    zone,
+                },
+            }
+        })
+}
+
+/// A lore sentence that names every choice: the zone, the group that the foe led, the
+/// breed, and the anchor of the group, in plain words of the guide.
+fn lore_naming(setup: &Setup, offer: &Offer, group: Option<&str>) -> String {
+    let anchor = group
+        .and_then(|id| offer.groups.iter().find(|known| known.id == id))
+        .and_then(|group| group.anchors.first().cloned())
+        .unwrap_or_else(|| "Riverpaw".to_string());
+    let breed = match &setup.moment {
+        Moment::FirstMount { mount, .. } | Moment::FirstEpicMount { mount, .. } => mount
+            .split_whitespace()
+            .last()
+            .unwrap_or("ram")
+            .to_lowercase(),
+        _ => "ram".to_string(),
+    };
+    format!(
+        "The {anchor} and the Riverpaw hold Stranglethorn Vale, and they keep {breed}s there now."
+    )
+}
+
+/// The choices of an answer that use every closed field the moment offers.
+fn rich_choices(offer: &Offer, pick: usize, dry: bool, one: bool) -> Choices {
+    let offered = fields_of(offer.kind);
+    let has = |field: ChoiceField| offered.contains(&field);
+    let group = (has(ChoiceField::Group) && !offer.groups.is_empty())
+        .then(|| offer.groups[pick % offer.groups.len()].id.clone());
+    Choices {
+        group,
+        there: has(ChoiceField::There).then_some(true),
+        leads: has(ChoiceField::Leads).then(|| "the Riverpaw".to_string()),
+        leads_number: has(ChoiceField::LeadsNumber).then_some(if one {
+            Number::One
+        } else {
+            Number::Many
+        }),
+        tone: has(ChoiceField::Tone).then_some(if dry { Tone::Dry } else { Tone::Plain }),
+        killer: has(ChoiceField::Killer).then_some(if one {
+            KillerKind::One
+        } else {
+            KillerKind::Kind
+        }),
+        breed: has(ChoiceField::Breed).then_some(true),
+    }
+}
+
+fn template_setup(moment: Moment, who: Who, turn: usize) -> Setup {
+    Setup {
+        moment,
+        who,
+        turn,
+        recent: Vec::new(),
+    }
+}
+
+proptest! {
+    /// Every shape that fits any moment, any naming, and edge values renders a line that
+    /// passes every check of a built line, fits 300 characters and 1000 bytes, and names
+    /// the hero at most once (docs/plans/narrator-templates.md 6.1).
+    #[test]
+    fn every_shape_renders_a_line_that_passes_every_check(
+        moment in templated_moment(),
+        who in any_hero(),
+        turn in 0..64usize,
+        pick in 0..8usize,
+        dry in any::<bool>(),
+        one in any::<bool>(),
+    ) {
+        let setup = template_setup(moment, who, turn);
+        let offer = offer(&setup).unwrap();
+        let choices = rich_choices(&offer, pick, dry, one);
+        let lore = lore_naming(&setup, &offer, choices.group.as_deref());
+        // A budget too small for the names of the lore makes the moment skip.
+        prop_assume!(lore.chars().count() <= offer.budget);
+        let telling = Telling { moment: &setup.moment, lore: Some(&lore), who: &setup.who };
+        let grounds = Grounds::of(&telling, turn);
+
+        let lines = every_line(&setup, &offer, &lore, &choices).unwrap();
+
+        prop_assert!(!lines.is_empty(), "{:?}", setup.moment);
+        for built in &lines {
+            let with_full_lore =
+                built.line.chars().count() - lore.chars().count() + offer.budget;
+            prop_assert!(with_full_lore <= 300, "{}", built.line);
+            prop_assert!(built.line.len() <= 1000, "{}", built.line);
+            prop_assert!(built.line.matches("$N").count() <= 1, "{}", built.line);
+            prop_assert_eq!(built_faults(&built.line, &lore, &grounds), [], "{}", built.line);
+            prop_assert!(arrival_in(&built.line, &grounds.hero_words).is_none(), "{}", built.line);
+        }
+    }
+
+    /// With fixed values, two shapes of one moment never render one line.
+    #[test]
+    fn two_shapes_never_render_one_line(
+        moment in templated_moment(),
+        who in any_hero(),
+        pick in 0..8usize,
+    ) {
+        let setup = template_setup(moment, who, 0);
+        let offer = offer(&setup).unwrap();
+        let choices = rich_choices(&offer, pick, true, false);
+        let lore = lore_naming(&setup, &offer, choices.group.as_deref());
+
+        let lines = every_line(&setup, &offer, &lore, &choices).unwrap();
+
+        let mut seen: HashMap<&str, &Built> = HashMap::new();
+        for built in &lines {
+            if let Some(other) = seen.insert(&built.line, built) {
+                prop_assert_eq!(&other.parts, &built.parts, "{}", built.line);
+            }
+        }
+    }
+
+    /// For any moment, any naming, and any valid choices, a shape fits: silence comes only
+    /// from the model.
+    #[test]
+    fn every_moment_has_a_fitting_shape(
+        moment in templated_moment(),
+        who in any_hero(),
+        turn in 0..64usize,
+        pick in 0..8usize,
+        dry in any::<bool>(),
+        one in any::<bool>(),
+        leads in any::<bool>(),
+        breed in any::<bool>(),
+    ) {
+        let setup = template_setup(moment, who, turn);
+        let offer = offer(&setup).unwrap();
+        let mut choices = rich_choices(&offer, pick, dry, one);
+        choices.there = choices.there.map(|_| false);
+        if !leads {
+            choices.leads = None;
+        }
+        choices.breed = choices.breed.map(|_| breed);
+        let lore = lore_naming(&setup, &offer, choices.group.as_deref());
+
+        let built = build(&setup, &offer, &lore, &choices);
+
+        prop_assert!(built.is_ok(), "{:?} {:?}", setup.moment, built);
+    }
+
+    /// Over a run of lines of one character, a main part comes back within 8 lines only
+    /// when no fitting shape of that naming had a main part outside the window.
+    #[test]
+    fn no_main_part_repeats_within_eight_lines(
+        moments in prop::collection::vec(templated_moment(), 1..30),
+        who in any_hero(),
+        start in 0..64usize,
+    ) {
+        let mut recent: Vec<String> = Vec::new();
+        for (step, moment) in moments.into_iter().enumerate() {
+            let mut setup = template_setup(moment, who.clone(), start + step);
+            setup.recent.clone_from(&recent);
+            let offer = offer(&setup).unwrap();
+            let choices = rich_choices(&offer, step, false, false);
+            let lore = lore_naming(&setup, &offer, choices.group.as_deref());
+
+            let built = build(&setup, &offer, &lore, &choices).unwrap();
+
+            if recent.contains(&built.shape) {
+                let lines = every_line(&setup, &offer, &lore, &choices).unwrap();
+                let fresh = lines
+                    .iter()
+                    .filter(|line| line.named == built.named)
+                    .any(|line| !recent.contains(&line.shape));
+                prop_assert!(!fresh, "{} came back with a fresh shape left", built.shape);
+            }
+            recent.push(built.shape);
+            if recent.len() > WINDOW {
+                recent.remove(0);
+            }
+        }
+    }
+
+    /// A group of any pairing never holds a word for the hero: `$N`, "hero", "stranger",
+    /// or the race or the class of the hero. A word that is also its own plural ("the
+    /// Forsaken", "the tauren of Mulgore", "the shaman of the Horde") names the group.
+    #[test]
+    fn a_group_never_holds_a_hero_word(who in any_hero()) {
+        let templates = TEMPLATES.as_ref().unwrap();
+        let race = who.race.unwrap();
+        let class = who.class.unwrap();
+        let people_plural = ["Forsaken", "tauren"];
+
+        for group in groups_of(templates, race, class) {
+            let text = group.text.clone();
+            prop_assert!(!text.contains("$N"), "{}", text);
+            prop_assert!(!mentions(&text, "hero") && !mentions(&text, "stranger"), "{}", text);
+            if class != Class::Shaman {
+                prop_assert!(!mentions(&text, class.word()), "{}", text);
+            }
+            if !people_plural.contains(&race.word()) {
+                prop_assert!(!mentions(&text, race.word()), "{}", text);
+            }
+        }
+    }
 }

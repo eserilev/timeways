@@ -130,6 +130,16 @@ pub enum LineFault {
     Ledger,
     /// A run of words of the player's own story.
     Callback(String),
+    /// The answer is no single JSON object with the fields of the prompt.
+    BadAnswer,
+    /// A choice holds a value that the prompt did not offer.
+    UnknownChoice(String),
+    /// A choice says that the history names something, and it does not.
+    ChoiceNotInLore(String),
+    /// The sentence of history names the hero. The code adds the deed.
+    HeroInHistory,
+    /// The sentence of history is longer than its budget of characters.
+    OverBudget(usize),
 }
 
 impl fmt::Display for LineFault {
@@ -191,6 +201,29 @@ impl fmt::Display for LineFault {
             LineFault::Callback(words) => write!(
                 f,
                 "\"{words}\" repeats the player's own story. Leave it out, and tell the moment."
+            ),
+            LineFault::BadAnswer => write!(
+                f,
+                "The answer is not one JSON object with exactly the fields of the prompt. \
+                 Answer with the JSON only."
+            ),
+            LineFault::UnknownChoice(field) => write!(
+                f,
+                "\"{field}\" holds a value that the prompt did not offer. Choose one of its \
+                 list."
+            ),
+            LineFault::ChoiceNotInLore(field) => write!(
+                f,
+                "\"{field}\" says that the history names it, and the history does not. Name it \
+                 in the history, or change the choice."
+            ),
+            LineFault::HeroInHistory => write!(
+                f,
+                "The history names the hero. Leave the hero out: the game adds the deed."
+            ),
+            LineFault::OverBudget(chars) => write!(
+                f,
+                "The history is longer than {chars} characters. Make it shorter."
             ),
         }
     }
@@ -271,11 +304,104 @@ fn faults(line: &str, grounds: &Grounds, player_text: &str) -> Vec<LineFault> {
     faults
 }
 
-/// The words between spaces that hold a digit: "20," and "1,000" count once each.
+/// The faults of the sentence of history of a templated answer
+/// (docs/plans/narrator-templates.md 8.3): every check of a line, on the lore alone, with
+/// no hero, at most `most_sentences` sentences, and at most `budget` characters.
+#[must_use]
+pub fn lore_faults(
+    lore: &str,
+    grounds: &Grounds,
+    player_text: &str,
+    most_sentences: usize,
+    budget: usize,
+) -> Vec<LineFault> {
+    if lore.chars().count() > budget {
+        return vec![LineFault::OverBudget(budget)];
+    }
+    let Some(lore) = one_line(lore, MAX_LINE_CHARS, MAX_LINE_BYTES) else {
+        return vec![LineFault::Unreadable];
+    };
+    let mut found: Vec<LineFault> = faults(&lore, grounds, player_text)
+        .into_iter()
+        .filter(|fault| {
+            !matches!(
+                fault,
+                LineFault::NamedTwice | LineFault::HeroAtAPlace | LineFault::TooManySentences(_)
+            )
+        })
+        .collect();
+    if lore.contains(NAME_MARK) {
+        found.push(LineFault::HeroInHistory);
+    }
+    let count = sentences(&lore).len();
+    if count > most_sentences {
+        found.push(LineFault::TooManySentences(count));
+    }
+    found
+}
+
+/// The faults of a line that the code built from templates: the second guard. The lore
+/// passed its own checks, so the copy, the numbers, the grounds, and the callback read
+/// it alone. A sentence of a template can be short ("Hogger is dead."), so no fragment
+/// counts, and the number of the template counts once in the ledger.
+#[must_use]
+pub fn built_faults(line: &str, lore: &str, grounds: &Grounds) -> Vec<LineFault> {
+    let Some(line) = one_line(line, MAX_LINE_CHARS, MAX_LINE_BYTES) else {
+        return vec![LineFault::Unreadable];
+    };
+    let told = format!("{}\n{lore}", grounds.text());
+    let mut found: Vec<LineFault> = names_after_cutoff_except(&line, lore)
+        .into_iter()
+        .map(|name| LineFault::LaterName(name.to_string()))
+        .collect();
+    if has_emoji(&line) {
+        found.push(LineFault::Emoji);
+    }
+    let banned = banned_words_in(&line)
+        .into_iter()
+        .filter(|word| !mentions(&told, word));
+    let banned = banned.chain(slop_in(&line, &told));
+    found.extend(banned.map(|word| LineFault::Banned(word.to_string())));
+    if line.contains(['[', ']', '{', '}', '<', '>']) {
+        found.push(LineFault::Bracket);
+    }
+    if line.matches(NAME_MARK).count() > 1 {
+        found.push(LineFault::NamedTwice);
+    }
+    if grounds.naming == Naming::Absent && line.contains(NAME_MARK) {
+        found.push(LineFault::HeroAtAPlace);
+    }
+    found.extend(arrival_in(&line, &grounds.hero_words).map(LineFault::Arrival));
+    let prose = prose_faults(&line, &grounds.hero_words)
+        .into_iter()
+        .filter(|fault| !matches!(fault, ProseFault::Fragment(_)));
+    found.extend(prose.map(LineFault::Prose));
+    let count = sentences(&line).len();
+    if count > MOST_SENTENCES {
+        found.push(LineFault::TooManySentences(count));
+    }
+    let template_numbers = number_count(&line).saturating_sub(number_count(lore));
+    if number_count(lore) + template_numbers.min(1) > 1 {
+        found.push(LineFault::Ledger);
+    }
+    found
+}
+
+/// The words between spaces that are a number: "20," "1,000", and "11th" count once each.
+/// A name with a digit, such as "SI:7", is no number.
 fn number_count(line: &str) -> usize {
     line.split_whitespace()
-        .filter(|word| word.chars().any(|c| c.is_ascii_digit()))
+        .filter(|word| is_number(word))
         .count()
+}
+
+fn is_number(word: &str) -> bool {
+    let bare = word.trim_end_matches(|c: char| !c.is_alphanumeric());
+    let bare = ["st", "nd", "rd", "th"]
+        .iter()
+        .find_map(|suffix| bare.strip_suffix(suffix))
+        .unwrap_or(bare);
+    bare.chars().any(|c| c.is_ascii_digit()) && !bare.chars().any(char::is_alphabetic)
 }
 
 /// The first run of `CALLBACK_WORDS` words that tell something, which the line shares with

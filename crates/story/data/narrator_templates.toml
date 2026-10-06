@@ -1,0 +1,578 @@
+# The template parts of a narrator line (docs/plans/narrator-templates.md, built
+# 2026-10-06). The model writes one sentence of history, and the code builds the deed from
+# these parts. The user approves every part, as with the samples. Every part follows the
+# style guide (docs/plans/narrator-style.md).
+#
+# A slot is a word in braces: {hero}, {foe}, {killer}, {zone}, {item}, {mount_a}, {breed},
+# {group}, {order}, {count}, {count_num}, {ordinal}, {level}, {quest}, {title}, {npc},
+# {mark}, {led}. The renderer puts a capital at the start of each sentence, so "{Hero}"
+# and "{hero}" are the same slot.
+#
+# The moments: kill, revenge_before, revenge, death, side_quest, class_quest, title, slap,
+# mark, mount, epic_mount, item, level.
+#
+# A tag stops a doubled word: two parts of one line never share a tag. A need is a fact
+# that the part requires: there, order, dry, beast, undead, demon, dragonkin, elemental,
+# weapon, worn, leads, breed, repeat, one, many. "one" and "many" are the number of the
+# group, or of the group that the foe led.
+
+# Names of a mount or an item that start with a vowel and take "a": "a Unicorn".
+article_a = ["Uni", "Use", "One"]
+
+# --- Connectives: an opener of the deed sentence. No connective is a shape of its own.
+
+[[connective]]
+id = "c.now"
+text = "Now,"
+tags = ["now", "opener"]
+moments = ["kill", "class_quest", "side_quest", "title", "mount", "epic_mount", "item", "level"]
+
+[[connective]]
+id = "c.there"
+text = "There,"
+tags = ["place", "opener"]
+needs = ["there"]
+moments = ["kill", "death", "slap", "item"]
+
+[[connective]]
+id = "c.in_zone"
+text = "In {zone},"
+tags = ["place", "opener"]
+moments = ["kill", "death", "item"]
+
+[[connective]]
+id = "c.in_the_end"
+text = "In the end,"
+tags = ["end", "opener"]
+moments = ["kill"]
+
+[[connective]]
+id = "c.at_last"
+text = "At last,"
+tags = ["last", "opener"]
+moments = ["class_quest"]
+
+# --- Deeds. A part with no {hero} is an unnamed part. A kill prefers an unnamed part.
+
+[[deed]]
+id = "k.fell"
+moments = ["kill"]
+text = "{Foe} fell to {hero}."
+
+[[deed]]
+id = "k.defeated"
+moments = ["kill"]
+text = "{Hero} defeated {foe}."
+
+[[deed]]
+id = "k.brought"
+moments = ["kill"]
+text = "{Hero} brought {foe} down."
+
+[[deed]]
+id = "k.fallen"
+moments = ["kill"]
+text = "{Foe} has fallen to {hero}."
+
+[[deed]]
+id = "k.hunted"
+moments = ["kill"]
+text = "{Hero} hunted {foe} down."
+needs = ["beast"]
+
+[[deed]]
+id = "k.rest"
+moments = ["kill"]
+text = "{Hero} laid {foe} to rest."
+needs = ["undead"]
+
+[[deed]]
+id = "k.dragon"
+moments = ["kill"]
+text = "{Hero} brought down the dragon {foe}."
+needs = ["dragonkin"]
+
+[[deed]]
+id = "k.broke"
+moments = ["kill"]
+text = "{Hero} broke {foe} apart."
+needs = ["elemental"]
+
+[[deed]]
+id = "k.demon"
+moments = ["kill"]
+text = "{Hero} slew the demon {foe}."
+needs = ["demon"]
+
+[[deed]]
+id = "k.fallen_u"
+moments = ["kill"]
+text = "{Foe} has fallen."
+
+[[deed]]
+id = "k.dead_u"
+moments = ["kill"]
+text = "{Foe} is dead."
+
+[[deed]]
+id = "k.lost_u"
+moments = ["kill"]
+one = "{Led} has lost its leader."
+many = "{Led} have lost their leader."
+needs = ["leads"]
+
+[[deed]]
+id = "d.killed"
+moments = ["death"]
+text = "{Killer} has now killed {hero} {count}."
+tags = ["now"]
+
+[[deed]]
+id = "d.died"
+moments = ["death"]
+text = "{Hero} has now died to {killer} {count}."
+tags = ["now"]
+
+[[deed]]
+id = "d.ordinal"
+moments = ["death"]
+text = "For the {ordinal} time, {killer} killed {hero}."
+
+[[deed]]
+id = "d.won_u"
+moments = ["death"]
+text = "{Killer} has won this fight {count}."
+
+[[deed]]
+id = "r.had_killed"
+moments = ["revenge_before"]
+text = "{Foe} had killed {hero} {count}."
+
+[[deed]]
+id = "r.had_died"
+moments = ["revenge_before"]
+text = "{Hero} had died to {foe} {count}."
+
+[[deed]]
+id = "r.had_won_u"
+moments = ["revenge_before"]
+text = "{Foe} had won {count}."
+
+[[deed]]
+id = "rb.this_time"
+moments = ["revenge"]
+text = "This time, the fight went the other way."
+
+[[deed]]
+id = "rb.ordinal"
+moments = ["revenge"]
+text = "The {ordinal} fight went the other way."
+
+[[deed]]
+id = "rb.at_last"
+moments = ["revenge"]
+text = "At last, {foe} fell."
+
+[[deed]]
+id = "rb.dry"
+moments = ["revenge"]
+text = "{Foe} did not win the {ordinal}."
+needs = ["dry"]
+
+[[deed]]
+id = "rb.in_the_end"
+moments = ["revenge"]
+text = "In the end, {foe} fell to {hero}."
+
+[[deed]]
+id = "q.finished"
+moments = ["side_quest", "class_quest"]
+text = "{Hero} has finished {quest}."
+
+[[deed]]
+id = "q.saw"
+moments = ["side_quest", "class_quest"]
+text = "{Hero} saw {quest} through."
+
+[[deed]]
+id = "q.done_u"
+moments = ["side_quest", "class_quest"]
+text = "{Quest} is finished."
+
+[[deed]]
+id = "cq.for"
+moments = ["class_quest"]
+text = "{Hero} finished {quest} for {order}."
+needs = ["order"]
+
+[[deed]]
+id = "cq.for_front"
+moments = ["class_quest"]
+text = "For {order}, {hero} finished {quest}."
+needs = ["order"]
+tags = ["opener"]
+
+[[deed]]
+id = "cq.work_u"
+moments = ["class_quest"]
+text = "The work of {quest} is done."
+
+[[deed]]
+id = "t.earned"
+moments = ["title"]
+text = "{Hero} has earned the title {title}."
+
+[[deed]]
+id = "t.goes"
+moments = ["title"]
+text = "The title {title} goes to {hero}."
+
+[[deed]]
+id = "s.slapped"
+moments = ["slap"]
+text = "{Hero} has now slapped {npc} {count}."
+tags = ["now"]
+
+[[deed]]
+id = "s.been_u"
+moments = ["slap"]
+text = "{Npc} has now been slapped {count}."
+tags = ["now"]
+
+[[deed]]
+id = "s.makes_u"
+moments = ["slap"]
+text = "That makes {count_num} slaps for {npc}."
+needs = ["dry", "repeat"]
+
+[[deed]]
+id = "m.carries"
+moments = ["mark"]
+text = "{Hero} still carries {mark} from {quest}."
+
+[[deed]]
+id = "m.left"
+moments = ["mark"]
+text = "{Quest} left {mark} on {hero}."
+
+[[deed]]
+id = "m.lingers_u"
+moments = ["mark"]
+text = "{Mark} lingers after {quest}."
+
+[[deed]]
+id = "mt.rides"
+moments = ["mount", "epic_mount"]
+text = "{Hero} rides {mount_a}."
+
+[[deed]]
+id = "mt.carries"
+moments = ["mount", "epic_mount"]
+text = "{Mount_a} carries {hero}."
+
+[[deed]]
+id = "mt.such"
+moments = ["mount"]
+text = "One such {breed} now carries {hero}."
+needs = ["breed"]
+tags = ["now"]
+
+[[deed]]
+id = "mt.such_u"
+moments = ["mount"]
+text = "One such {breed} has a new rider."
+needs = ["breed"]
+
+[[deed]]
+id = "i.in_hand"
+moments = ["item"]
+text = "{Item} is in the hand of {hero}."
+needs = ["weapon"]
+
+[[deed]]
+id = "i.carries"
+moments = ["item"]
+text = "{Hero} carries {item}."
+needs = ["weapon"]
+
+[[deed]]
+id = "i.wears"
+moments = ["item"]
+text = "{Hero} wears {item}."
+needs = ["worn"]
+
+# --- The killer of a death: one named person, or one of many.
+
+[[killer]]
+id = "kr.one"
+text = "{killer}"
+
+[[killer]]
+id = "kr.kind"
+text = "one {killer} or another"
+
+# --- Grow verbs of a group, in the singular and the plural.
+
+[[grow]]
+id = "v.stronger"
+one = "grows stronger"
+many = "grow stronger"
+
+[[grow]]
+id = "v.strength"
+one = "gains strength"
+many = "gain strength"
+
+[[grow]]
+id = "v.now"
+one = "is stronger now"
+many = "are stronger now"
+tags = ["now"]
+
+[[grow]]
+id = "v.little"
+one = "stands a little stronger"
+many = "stand a little stronger"
+
+[[grow]]
+id = "v.grown"
+one = "has grown stronger"
+many = "have grown stronger"
+
+# --- Codas: the level fact. "joined" follows ", and" after the grow verb.
+
+[[coda]]
+id = "co.reached"
+alone = "{Hero} has reached level {level}."
+joined = "{hero} has reached level {level}."
+
+[[coda]]
+id = "co.is_now"
+alone = "{Hero} is level {level} now."
+joined = "{hero} is level {level} now."
+tags = ["now"]
+
+[[coda]]
+id = "co.makes_u"
+alone = "That makes level {level}."
+
+# A level line with no coda is the shape with no coda part ("co.none_u" of the plan).
+
+# --- The peoples of Classic: the people group of a tenth level, the plural of the race,
+# the faction, and the words of the lore that name the people.
+
+[[people]]
+race = "human"
+text = "Stormwind"
+number = "one"
+plural = "humans"
+faction = "Alliance"
+anchors = ["Stormwind"]
+
+[[people]]
+race = "dwarf"
+text = "Ironforge"
+number = "one"
+plural = "dwarves"
+faction = "Alliance"
+anchors = ["Ironforge", "dwarves"]
+
+[[people]]
+race = "night elf"
+text = "the night elves"
+number = "many"
+plural = "night elves"
+faction = "Alliance"
+anchors = ["night elves", "Darnassus", "Teldrassil"]
+
+[[people]]
+race = "gnome"
+text = "the gnomes of Gnomeregan"
+number = "many"
+plural = "gnomes"
+faction = "Alliance"
+anchors = ["gnomes", "Gnomeregan"]
+
+[[people]]
+race = "orc"
+text = "the orcs of Durotar"
+number = "many"
+plural = "orcs"
+faction = "Horde"
+anchors = ["orcs", "Durotar", "Orgrimmar"]
+
+[[people]]
+race = "Forsaken"
+text = "the Forsaken"
+number = "many"
+plural = "Forsaken"
+faction = "Horde"
+anchors = ["Forsaken", "Undercity"]
+
+[[people]]
+race = "tauren"
+text = "the tauren of Mulgore"
+number = "many"
+plural = "tauren"
+faction = "Horde"
+anchors = ["tauren", "Mulgore", "Thunder Bluff"]
+
+[[people]]
+race = "troll"
+text = "the Darkspear"
+number = "many"
+plural = "trolls"
+faction = "Horde"
+anchors = ["Darkspear", "Sen'jin", "Echo Isles"]
+
+# --- The classes: their plural, and the races that Classic gave them. Any other race of
+# the class is a pairing that the lore finds strange (docs/plans/level-lines.md 2).
+
+[[class]]
+class = "warrior"
+plural = "warriors"
+races = ["human", "dwarf", "night elf", "gnome", "orc", "Forsaken", "tauren", "troll"]
+
+[[class]]
+class = "paladin"
+plural = "paladins"
+races = ["human", "dwarf"]
+
+[[class]]
+class = "hunter"
+plural = "hunters"
+races = ["dwarf", "night elf", "orc", "tauren", "troll"]
+
+[[class]]
+class = "rogue"
+plural = "rogues"
+races = ["human", "dwarf", "night elf", "gnome", "orc", "Forsaken", "troll"]
+
+[[class]]
+class = "priest"
+plural = "priests"
+races = ["human", "dwarf", "night elf", "Forsaken", "troll"]
+
+[[class]]
+class = "shaman"
+plural = "shaman"
+races = ["orc", "tauren", "troll"]
+
+[[class]]
+class = "mage"
+plural = "mages"
+races = ["human", "gnome", "Forsaken", "troll"]
+
+[[class]]
+class = "warlock"
+plural = "warlocks"
+races = ["human", "gnome", "orc", "Forsaken"]
+
+[[class]]
+class = "druid"
+plural = "druids"
+races = ["night elf", "tauren"]
+
+# --- Groups of a tenth level and of a class quest, beyond the class of the faction
+# ("the paladins of the Horde") and the people, which every pairing has. A named order
+# lists the classes, factions, and races that it fits. A strange pairing gets its phrase,
+# and never a named order of the other faction. {people_pl} is the plural of the race.
+# The Earthen Ring and the Shattered Hand wait for question 5 of the plan (the cutoff).
+
+[[group]]
+id = "o.silver_hand"
+text = "the Silver Hand"
+short = "the order"
+number = "one"
+anchors = ["Silver Hand"]
+classes = ["paladin"]
+factions = ["Alliance"]
+races = ["human", "dwarf"]
+
+[[group]]
+id = "o.church"
+text = "the Church of the Holy Light"
+short = "the Church"
+number = "one"
+anchors = ["Holy Light", "Church"]
+classes = ["priest"]
+races = ["human", "dwarf", "gnome"]
+
+[[group]]
+id = "o.kirin_tor"
+text = "the Kirin Tor"
+number = "one"
+anchors = ["Kirin Tor", "Dalaran"]
+classes = ["mage"]
+factions = ["Alliance"]
+
+[[group]]
+id = "o.cenarion"
+text = "the Cenarion Circle"
+short = "the Circle"
+number = "one"
+anchors = ["Cenarion Circle"]
+classes = ["druid"]
+
+[[group]]
+id = "o.si7"
+text = "SI:7"
+number = "one"
+anchors = ["SI:7"]
+classes = ["rogue"]
+factions = ["Alliance"]
+
+[[group]]
+id = "o.ravenholdt"
+text = "the rogues of Ravenholdt"
+number = "many"
+anchors = ["Ravenholdt"]
+classes = ["rogue"]
+
+[[group]]
+id = "o.elune"
+text = "the priests of Elune"
+number = "many"
+anchors = ["Elune"]
+classes = ["priest"]
+races = ["night elf"]
+
+[[group]]
+id = "s.dead_light"
+text = "the dead who wield the Light"
+number = "many"
+anchors = ["Light"]
+classes = ["paladin"]
+races = ["Forsaken"]
+
+[[group]]
+id = "s.light"
+text = "the {people_pl} who wield the Light"
+number = "many"
+anchors = ["Light"]
+classes = ["paladin"]
+races = ["orc", "tauren", "troll", "night elf", "gnome"]
+
+[[group]]
+id = "s.elements"
+text = "the {people_pl} who speak to the elements"
+number = "many"
+anchors = ["elements"]
+classes = ["shaman"]
+factions = ["Alliance"]
+
+[[group]]
+id = "s.demons"
+text = "the {people_pl} who bind demons"
+number = "many"
+anchors = ["demons"]
+classes = ["warlock"]
+races = ["dwarf", "night elf", "tauren", "troll"]
+
+[[group]]
+id = "s.circle"
+text = "the {people_pl} who walk with the Circle"
+number = "many"
+anchors = ["Cenarion Circle"]
+classes = ["druid"]
+races = ["human", "dwarf", "gnome", "orc", "Forsaken", "troll"]
