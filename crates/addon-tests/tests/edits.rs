@@ -341,3 +341,76 @@ fn the_narrators_summary_stays_private() {
     let history: Option<String> = game.eval("return TimewaysProfile.fields.HI");
     assert_eq!(history, None);
 }
+
+fn cursor_at_end_of_box(game: &Game) -> bool {
+    game.eval("return wow.CursorAtEnd(wow.MultiLineBox())")
+}
+
+fn editor_shown(game: &Game) -> bool {
+    game.eval("return ns.Editor.IsShown()")
+}
+
+/// The line of the page with this text.
+fn page_text(text: &str) -> String {
+    format!(
+        "(function()
+             for _, widget in ipairs(wow.widgets) do
+                 if widget.kind == 'FontString' and widget.text == '{text}'
+                     and widget.parent == TimewaysJournalFrameScroll:GetScrollChild() then
+                     return widget
+                 end
+             end
+         end)()"
+    )
+}
+
+#[test]
+fn clicking_edit_on_a_chapter_puts_the_cursor_at_the_end_of_its_text() {
+    let game = book(NOTE);
+
+    press(&game, "Edit");
+
+    assert_eq!(box_text(&game), format!("{SAGA}\nWe sang."));
+    assert!(cursor_at_end_of_box(&game));
+}
+
+#[test]
+fn clicking_a_closed_chapter_text_opens_it_with_the_cursor() {
+    let game = book("");
+
+    game.run(&format!("wow.MouseDown({})", page_text(SAGA)));
+
+    assert!(editor_shown(&game));
+    assert_eq!(box_text(&game), SAGA);
+    assert!(cursor_at_end_of_box(&game));
+}
+
+#[test]
+fn a_press_on_restore_does_not_open_the_chapter_for_writing() {
+    let game = book(NOTE);
+
+    game.run("wow.MouseDown(wow.Button('Restore'))");
+
+    assert!(!editor_shown(&game));
+}
+
+#[test]
+fn clicking_below_the_text_of_the_box_puts_the_cursor_there() {
+    let game = book("");
+    press(&game, "Edit");
+    game.run("wow.MultiLineBox():ClearFocus()");
+
+    game.run("wow.MouseDown(wow.MultiLineBox(), false)");
+
+    assert!(game.eval::<bool>("return wow.MultiLineBox():HasFocus()"));
+}
+
+#[test]
+fn closing_the_book_while_editing_a_chapter_gives_the_cursor_back() {
+    let game = book("");
+    press(&game, "Edit");
+
+    game.run("TimewaysJournalFrame:Hide()");
+
+    assert!(game.eval::<bool>("return wow.focus == nil"));
+}

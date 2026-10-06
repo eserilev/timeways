@@ -19,6 +19,7 @@ Messages.lua
 Text.lua
 Utf8.lua
 Units.lua
+Focus.lua
 Position.lua
 Json.lua
 Inputs.lua

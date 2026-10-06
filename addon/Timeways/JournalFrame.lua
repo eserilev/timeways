@@ -54,6 +54,8 @@ local BUTTON_HEIGHT, BUTTON_PADDING, BUTTON_MIN = 22, 20, 48
 local frame, detail, scroll, page, crumb, footer, footerText
 local strings, bullets, actions, buttons, tabs = {}, {}, {}, {}, {}
 local section = "chapters"
+-- The edit of the page that shows, or nil: a press on its text opens it for writing.
+local pageEdit
 
 local function Band(top, height)
 	local band = frame:CreateTexture(nil, "BORDER")
@@ -117,6 +119,11 @@ local function BuildSides()
 	scroll:SetPoint("TOPLEFT", detail, "TOPLEFT", 0, -8)
 	page = CreateFrame("Frame", nil, scroll)
 	page:SetSize(SCROLL_WIDTH, 1)
+	page:SetScript("OnMouseDown", function()
+		if pageEdit then
+			pageEdit()
+		end
+	end)
 	scroll:SetScrollChild(page)
 end
 
@@ -353,6 +360,8 @@ function JournalFrame.Refresh()
 	end
 	local journalPage = ns.Journal.Page(section)
 	local writing = ns.Editor.IsShown()
+	pageEdit = journalPage.edit
+	page:EnableMouse(pageEdit ~= nil)
 	DrawLines(journalPage.lines)
 	DrawButtons(journalPage.buttons)
 	footerText:SetText(journalPage.footer)
@@ -371,13 +380,17 @@ function JournalFrame.Edit(edit)
 	JournalFrame.Refresh()
 end
 
--- Opens an item of the list of the open section.
+-- Opens an item of the list of the open section. An item with boxes, such as a new quest,
+-- opens with the cursor in its first empty box.
 function JournalFrame.Select(key)
 	ns.Journal.Select(section, key)
 	if scroll then
 		scroll:SetVerticalScroll(0)
 	end
 	JournalFrame.Refresh()
+	if frame and frame:IsShown() then
+		ns.JournalInputs.FocusFirstEmpty()
+	end
 end
 
 function JournalFrame.Open(name)

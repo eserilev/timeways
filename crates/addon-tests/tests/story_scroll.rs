@@ -368,6 +368,52 @@ fn continue_opens_the_scroll_for_the_player_of_the_draft() {
     assert_eq!(box_text(&ada, false), "For Bram");
 }
 
+fn cursor_at_end(ada: &Player, multi_line: bool) -> bool {
+    ada.eval(&format!("return wow.CursorAtEnd({})", box_of(multi_line)))
+}
+
+#[test]
+fn a_blank_scroll_opens_with_the_cursor_in_the_title() {
+    let (ada, corvin) = party();
+
+    open(&ada, &corvin);
+
+    assert!(cursor_at_end(&ada, false));
+}
+
+#[test]
+fn a_draft_with_a_title_opens_with_the_cursor_at_the_end_of_the_body() {
+    let (ada, _corvin) = party();
+    ada.run("ns.StoryDrafts.Save('Corvin-Stormrage', 'The Bridge', 'We held it.')");
+
+    ada.run("ns.StoryScroll.OpenDraft('Corvin-Stormrage')");
+
+    assert_eq!(box_text(&ada, true), "We held it.");
+    assert!(cursor_at_end(&ada, true));
+}
+
+#[test]
+fn clicking_below_the_text_of_the_body_puts_the_cursor_there() {
+    let (ada, corvin) = party();
+    open(&ada, &corvin);
+    ada.run("wow.focus = nil");
+
+    ada.run(&format!("wow.MouseDown({}, false)", box_of(true)));
+
+    let has_focus: bool = ada.eval(&format!("return {}:HasFocus()", box_of(true)));
+    assert!(has_focus);
+}
+
+#[test]
+fn hiding_the_interface_while_writing_a_story_gives_the_cursor_back() {
+    let (ada, corvin) = party();
+    open(&ada, &corvin);
+
+    ada.run("UIParent:Hide()");
+
+    assert!(ada.eval::<bool>("return wow.focus == nil"));
+}
+
 #[test]
 fn an_error_keeps_the_text_and_selects_the_bad_sign() {
     let (ada, corvin) = party();

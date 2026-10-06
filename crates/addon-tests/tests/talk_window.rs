@@ -163,6 +163,71 @@ fn the_reply_box_shows_only_after_an_answer() {
     assert_eq!(hint, "Say something...");
 }
 
+fn cursor_at_end(game: &Game) -> bool {
+    game.eval("return wow.CursorAtEnd(TimewaysTalkFrameReply)")
+}
+
+fn nothing_has_the_cursor(game: &Game) -> bool {
+    game.eval("return wow.focus == nil")
+}
+
+#[test]
+fn the_reply_box_has_the_cursor_when_the_answer_comes() {
+    let game = Game::new();
+
+    farley_answered(&game);
+
+    assert!(cursor_at_end(&game));
+}
+
+#[test]
+fn the_reply_box_leaves_the_keys_to_a_moving_player() {
+    let game = Game::new();
+    game.run("wow.speed = 7");
+
+    farley_answered(&game);
+
+    assert!(box_shown(&game));
+    assert!(nothing_has_the_cursor(&game));
+}
+
+#[test]
+fn the_reply_box_leaves_the_keys_to_a_player_in_combat() {
+    let game = Game::new();
+    target(&game, FARLEY);
+    talk(&game, "Any news?");
+    combat(&game, true);
+    answer(&game, FARLEY, Some("Nothing but rain."));
+
+    combat(&game, false);
+
+    assert!(box_shown(&game));
+    assert!(nothing_has_the_cursor(&game));
+}
+
+#[test]
+fn no_words_from_the_npc_put_the_cursor_after_the_words_of_the_player() {
+    let game = Game::new();
+    target(&game, FARLEY);
+    talk(&game, "Any news?");
+
+    answer(&game, FARLEY, None);
+
+    assert_eq!(box_text(&game), "Any news?");
+    assert!(cursor_at_end(&game));
+}
+
+#[test]
+fn goodbye_gives_the_cursor_back() {
+    let game = Game::new();
+    farley_answered(&game);
+    game.run("TimewaysTalkFrameReply:SetFocus()");
+
+    click(&game, "Goodbye");
+
+    assert!(nothing_has_the_cursor(&game));
+}
+
 #[test]
 fn enter_sends_the_reply_to_the_same_npc_after_the_target_changed() {
     let game = Game::new();
@@ -273,7 +338,7 @@ fn no_words_from_the_npc_keep_the_words_of_the_player_in_the_box() {
 }
 
 #[test]
-fn an_error_reply_says_no_answer_came_and_keeps_the_words() {
+fn an_error_reply_says_no_answer_came_and_keeps_the_words_with_the_cursor() {
     let game = Game::new();
     game.run(
         "ns.Link.Send = function(text)
@@ -295,6 +360,7 @@ fn an_error_reply_says_no_answer_came_and_keeps_the_words() {
         ["You: Any news?", "No answer came back. Try again."]
     );
     assert_eq!(box_text(&game), "Any news?");
+    assert!(cursor_at_end(&game));
 }
 
 #[test]

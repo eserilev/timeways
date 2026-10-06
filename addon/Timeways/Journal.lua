@@ -256,6 +256,8 @@ Journal.USAGE = {
 --     text, detail, mark, key }. A click on an item selects its key.
 --   selected: the key of the open item.
 --   buttons: the buttons at the bottom, each { label, run, disabled }.
+--   edit: the run of the Edit button when the player can edit the text of the page, or nil.
+--     A press anywhere on the text runs it too.
 --   footer: the text at the bottom left.
 --   crumb: the last step of the path at the top, or nil for the name of the map.
 --   zone: the zone that the map shows, or nil for the zone of the player.

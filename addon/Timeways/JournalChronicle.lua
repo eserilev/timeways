@@ -469,7 +469,8 @@ function JournalChronicle.Page(journal)
 	else
 		result.lines = TitleLines(journal, AnyClosed(journal), open.edit)
 	end
-	result.buttons = ns.JournalEdits.Buttons(EditOf(journal, open), open.edit)
+	result.edit = EditOf(journal, open)
+	result.buttons = ns.JournalEdits.Buttons(result.edit, open.edit)
 	for _, step in ipairs(Steps(keys, index)) do
 		result.buttons[#result.buttons + 1] = step
 	end

@@ -291,6 +291,96 @@ fn clicking_anywhere_on_an_open_card_puts_the_cursor_in_its_box() {
     assert!(box_has_focus(&game));
 }
 
+/// The closed card with this label, as the page shows it. The open card has no button of its
+/// own, only Save and Cancel.
+fn closed_card(label: &str) -> String {
+    format!(
+        "(function()
+             for _, widget in ipairs(wow.widgets) do
+                 if widget.kind == 'Frame' and widget.label and widget.label.text == '{label}'
+                     and widget.shown and widget.button then
+                     return widget
+                 end
+             end
+         end)()"
+    )
+}
+
+fn open_card_label(game: &Game) -> String {
+    game.eval("return TimewaysHeroCardBox.parent.label.text")
+}
+
+fn cursor_at_end_of_card(game: &Game) -> bool {
+    game.eval("return wow.CursorAtEnd(TimewaysHeroCardBox)")
+}
+
+#[test]
+fn clicking_edit_on_an_answer_puts_the_cursor_at_the_end_of_it() {
+    let game = open_book(FILLED);
+
+    click(&game, GOAL);
+
+    assert_eq!(editor_text(&game), "Find my brother.");
+    assert!(cursor_at_end_of_card(&game));
+}
+
+#[test]
+fn clicking_a_closed_answer_card_opens_it_with_the_cursor() {
+    let game = open_book(FILLED);
+    click(&game, BOND);
+    cancel_writing(&game);
+
+    game.run(&format!("wow.MouseDown({}.text)", closed_card("Goal")));
+
+    assert!(card_is_open(&game));
+    assert_eq!(open_card_label(&game), "Goal");
+    assert!(cursor_at_end_of_card(&game));
+}
+
+#[test]
+fn clicking_a_closed_profile_card_opens_it_with_the_cursor() {
+    let game = open_book(FILLED);
+    game.run("ns.Journal.Select('hero', 'profile') ns.JournalFrame.Refresh()");
+
+    game.run(&format!("wow.MouseDown({}.label)", closed_card("Age")));
+
+    assert!(card_is_open(&game));
+    assert_eq!(open_card_label(&game), "Age");
+    assert!(cursor_at_end_of_card(&game));
+}
+
+#[test]
+fn a_press_on_the_button_of_a_closed_card_is_left_to_the_button() {
+    let game = open_book(FILLED);
+    click(&game, BOND);
+    cancel_writing(&game);
+
+    game.run(&format!("wow.MouseDown({}.button)", closed_card("Goal")));
+
+    assert!(!card_is_open(&game));
+}
+
+#[test]
+fn closing_the_book_while_writing_in_a_card_gives_the_cursor_back() {
+    let game = open_book(FILLED);
+    click(&game, GOAL);
+
+    game.run("TimewaysJournalFrame:Hide()");
+
+    assert!(game.eval::<bool>("return wow.focus == nil"));
+    assert!(!game.eval::<bool>("return wow.Type('w')"));
+}
+
+#[test]
+fn add_a_note_opens_the_writing_page_with_the_cursor() {
+    let game = open_book(FILLED);
+
+    click(&game, "Your Notes");
+
+    let has_cursor: bool = game.eval(&format!("{OPEN_BOX} return wow.CursorAtEnd(box)"));
+    assert!(has_cursor);
+}
+
 #[test]
 fn a_box_that_grows_moves_the_cards_below_it() {
     let game = open_book(FILLED);

@@ -251,6 +251,7 @@ local function Ink(box)
 	box:SetTextColor(ink[1], ink[2], ink[3])
 	box:SetScript("OnTextChanged", TextChanged)
 	box:SetScript("OnEscapePressed", StoryScroll.Close)
+	ns.Focus.ReleaseOnHide(box)
 end
 
 -- A hint in faded ink stands in the box while it is empty.
@@ -304,9 +305,7 @@ local function BuildBody()
 	bodyBox:SetScript("OnTabPressed", function()
 		titleBox:SetFocus()
 	end)
-	bodyScroll:SetScript("OnMouseDown", function()
-		bodyBox:SetFocus()
-	end)
+	ns.Focus.OnAreaClick(bodyScroll, bodyBox)
 	bodyHint = Hint(bodyBox, "")
 end
 
@@ -392,7 +391,8 @@ local function Open(player)
 	frame:Show()
 	TextChanged()
 	Check()
-	bodyBox:SetFocus()
+	-- A blank scroll starts at the title, and a draft with a title goes on with the body.
+	ns.Focus.AtEnd(opened.title == "" and titleBox or bodyBox)
 end
 
 -- `/story` opens the scroll for your target, with its draft.

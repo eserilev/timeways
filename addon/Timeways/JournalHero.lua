@@ -139,6 +139,7 @@ local function Card(field, texts, unsaved, empty)
 		empty = text == nil,
 		wide = WIDE[field],
 		note = unsaved.fields[field] and SAVING or nil,
+		writable = true,
 	}
 	card.action = {
 		label = text and "Edit" or empty,

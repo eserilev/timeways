@@ -84,9 +84,7 @@ local function BuildScroll()
 	scroll:SetScript("OnSizeChanged", function(_, width)
 		box:SetWidth(width)
 	end)
-	scroll:SetScript("OnMouseDown", function()
-		box:SetFocus()
-	end)
+	ns.Focus.OnAreaClick(scroll, box)
 end
 
 local function BuildBox()
@@ -104,6 +102,7 @@ local function BuildBox()
 	box:SetScript("OnEnterPressed", Editor.Save)
 	box:SetScript("OnEscapePressed", Editor.Cancel)
 	box:SetScript("OnTextChanged", ShowCount)
+	ns.Focus.ReleaseOnHide(box)
 	count = view:CreateFontString(nil, "ARTWORK", "QuestFontNormalSmall")
 	count:SetPoint("TOPRIGHT", view, "TOPRIGHT", -(INSET - 6), BOX_TOP - BOX_HEIGHT - 6)
 end
@@ -120,6 +119,7 @@ local function BuildHeading()
 		box:SetFocus()
 	end)
 	heading:SetScript("OnEscapePressed", Editor.Cancel)
+	ns.Focus.ReleaseOnHide(heading)
 end
 
 local function Build(parent)
@@ -163,7 +163,7 @@ function Editor.Open(parent, edit, onClose)
 	scroll:SetVerticalScroll(0)
 	ShowCount()
 	view:Show()
-	box:SetFocus()
+	ns.Focus.AtEnd(box)
 end
 
 -- A text that can't be saved stays in the box, with the reason under it. The reason takes

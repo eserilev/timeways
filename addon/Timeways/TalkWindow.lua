@@ -217,11 +217,16 @@ local function LastTurn()
 	return talk.turns[#talk.turns]
 end
 
--- The box shows once an answer came, so the player answers the NPC, not the void.
+-- The box shows once an answer came, so the player answers the NPC, not the void. The
+-- answer comes by itself, so the box takes the cursor only from a player who stands still.
 local function ShowBox()
 	local last = LastTurn()
+	local was = box:IsShown()
 	box:SetShown(last ~= nil and last.state ~= "thinking")
 	hint:SetShown(box:IsShown() and (box:GetText() or "") == "")
+	if box:IsShown() and not was and frame:IsShown() then
+		ns.Focus.AtEndIfIdle(box)
+	end
 end
 
 local function ShowCardButtons()
@@ -328,6 +333,7 @@ local function BuildBox()
 	box:SetScript("OnTextChanged", function()
 		hint:SetShown((box:GetText() or "") == "")
 	end)
+	ns.Focus.ReleaseOnHide(box)
 	hint = box:CreateFontString(nil, "ARTWORK", "GameFontDisable")
 	hint:SetPoint("LEFT", box, "LEFT", 4, 0)
 	hint:SetText(COPY.hint)

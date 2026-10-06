@@ -725,3 +725,61 @@ fn the_step_box_empties_after_add() {
     assert_eq!(text, "");
     assert!(lines(&ada).contains(&"entry: wave at me. [Remove]".to_string()));
 }
+
+/// The box of the form whose empty text is `placeholder`.
+fn field_box(placeholder: &str) -> String {
+    format!(
+        "(function()
+             for _, widget in ipairs(wow.widgets) do
+                 if widget.kind == 'EditBox' and widget.placeholder
+                     and widget.placeholder.text == '{placeholder}' then
+                     return widget
+                 end
+             end
+         end)()"
+    )
+}
+
+fn cursor_at_end_of(player: &Player, placeholder: &str) -> bool {
+    player.eval(&format!(
+        "return wow.CursorAtEnd({})",
+        field_box(placeholder)
+    ))
+}
+
+#[test]
+fn the_form_opens_with_the_cursor_in_the_title() {
+    let (ada, _corvin) = form();
+
+    assert!(cursor_at_end_of(&ada, "Title"));
+}
+
+#[test]
+fn a_saved_quest_with_a_title_opens_with_the_cursor_in_the_step_box() {
+    let (ada, _corvin) = saved_lantern();
+    click(&ada, "Cancel");
+    let key: String = ada.eval("'draft:' .. next(ns.TaskStore.Data().drafts)");
+
+    ada.run(&format!("ns.JournalFrame.Select('{key}')"));
+
+    assert!(cursor_at_end_of(&ada, "Add a step, like: kill 5 bats"));
+}
+
+#[test]
+fn add_on_the_description_opens_the_writing_page_with_the_cursor() {
+    let (ada, _corvin) = form();
+
+    click_line(&ada, "Description", "Add");
+
+    assert!(ada.eval::<bool>("return wow.CursorAtEnd(wow.MultiLineBox())"));
+}
+
+#[test]
+fn leaving_the_form_for_another_page_gives_the_cursor_back() {
+    let (ada, _corvin) = form();
+    ada.run(&format!("{}:SetFocus()", field_box("Title")));
+
+    ada.run("ns.JournalFrame.Open('chapters')");
+
+    assert!(ada.eval::<bool>("return wow.focus == nil"));
+}

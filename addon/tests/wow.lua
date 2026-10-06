@@ -587,13 +587,6 @@ local function Visible(widget)
 	return true
 end
 
--- A hidden edit box loses the focus, as in the game.
-local function ForgetHiddenFocus()
-	if wow.focus and not Visible(wow.focus) then
-		wow.focus = nil
-	end
-end
-
 -- A widget keeps what the tests read: its text, scripts, events, size, anchor, and whether
 -- it shows.
 -- Any other capitalized method is a no-op, like the layout calls.
@@ -669,12 +662,18 @@ function Widget:Show()
 	end
 end
 
+-- A box keeps the focus when it hides, the worst case of the game: the addon gives it
+-- back itself. The game tells each child that hides with its parent, and the fake tells
+-- only the box with the focus.
 function Widget:Hide()
 	local was = self.shown
+	local focus = wow.focus ~= self and wow.focus and Visible(wow.focus) and wow.focus
 	self.shown = false
-	ForgetHiddenFocus()
 	if was and self.scripts.OnHide then
 		self.scripts.OnHide(self)
+	end
+	if focus and not Visible(focus) and focus.scripts.OnHide then
+		focus.scripts.OnHide(focus)
 	end
 end
 
@@ -694,16 +693,29 @@ function Widget:IsVisible()
 	return Visible(self)
 end
 
+local function FireFocus(box, script)
+	if box.scripts[script] then
+		box.scripts[script](box)
+	end
+end
+
 -- A hidden edit box does not take the focus.
 function Widget:SetFocus()
-	if Visible(self) then
-		wow.focus = self
+	if not Visible(self) or wow.focus == self then
+		return
 	end
+	local before = wow.focus
+	wow.focus = self
+	if before then
+		FireFocus(before, "OnEditFocusLost")
+	end
+	FireFocus(self, "OnEditFocusGained")
 end
 
 function Widget:ClearFocus()
 	if wow.focus == self then
 		wow.focus = nil
+		FireFocus(self, "OnEditFocusLost")
 	end
 end
 
@@ -734,6 +746,11 @@ function wow.Type(text)
 		box.scripts.OnTextChanged(box, true)
 	end
 	return true
+end
+
+-- True when `box` has the focus and its cursor stands at the end of its text, ready to type.
+function wow.CursorAtEnd(box)
+	return wow.focus == box and box:GetCursorPosition() == #(box.text or "")
 end
 
 -- A multi-line edit box is only as tall as its lines of text, so a press below them
@@ -779,11 +796,22 @@ local function FirstLetters(text, count)
 end
 
 -- An edit box cuts a longer text at its limit in letters, as the game does.
+-- The cursor goes to the end of the new text, as in the game.
 function Widget:SetText(text)
 	if self.maxLetters and self.maxLetters > 0 then
 		text = FirstLetters(text, self.maxLetters)
 	end
 	self.text = text
+	self.cursor = #tostring(text or "")
+end
+
+-- The fake counts the cursor position in bytes, and a position past the end stops there.
+function Widget:SetCursorPosition(position)
+	self.cursor = math.min(position, #(self.text or ""))
+end
+
+function Widget:GetCursorPosition()
+	return self.cursor or 0
 end
 
 function Widget:SetTextColor(r, g, b)
@@ -808,9 +836,11 @@ function Widget:HighlightText(start, stop)
 	self.highlighted = start and { start, stop } or true
 end
 
--- The fake cursor stands at the end of the text.
 function Widget:Insert(text)
-	self:SetText((self.text or "") .. text)
+	local before = self.text or ""
+	local at = math.min(self.cursor or #before, #before)
+	self:SetText(before:sub(1, at) .. text .. before:sub(at + 1))
+	self.cursor = math.min(at + #text, #self.text)
 end
 
 function Widget:SetNumeric(numeric)
@@ -1325,8 +1355,11 @@ function IsMounted()
 	return wow.mounted
 end
 
+-- The speed of the player now, in yards a second: above 0 while the player moves.
+wow.speed = 0
+
 function GetUnitSpeed()
-	return 0, wow.runSpeed, wow.runSpeed, 4.72
+	return wow.speed, wow.runSpeed, wow.runSpeed, 4.72
 end
 
 return wow

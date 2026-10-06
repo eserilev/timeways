@@ -98,6 +98,26 @@ fn a_note_goes_on_one_line_with_the_mark() {
 }
 
 #[test]
+fn add_a_note_opens_the_writing_page_with_the_cursor() {
+    let game = game();
+
+    click(&game, "Add a note");
+
+    assert!(game.eval::<bool>("return wow.CursorAtEnd(wow.EditBox())"));
+}
+
+#[test]
+fn edit_note_puts_the_cursor_at_the_end_of_the_note() {
+    let game = game();
+    click(&game, "Add a note");
+    write(&game, "Good healer.");
+
+    click(&game, "Edit note");
+
+    assert!(game.eval::<bool>("return wow.CursorAtEnd(wow.EditBox())"));
+}
+
+#[test]
 fn the_editor_starts_with_the_note_and_an_empty_note_clears_it() {
     let game = game();
     click(&game, "Add a note");

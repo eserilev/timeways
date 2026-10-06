@@ -24,8 +24,8 @@ local tabs, lines, cards, linked = {}, {}, {}, {}
 -- The card that is open for writing, the key that it opened for, the spec that it drew,
 -- and the last spec of the page, to draw it again when the box grows.
 local writer, writerKey, writing, drawn
--- True from the moment a card opens until its box shows and takes the focus. A hidden box
--- does not keep the focus.
+-- True from the moment a card opens until its box shows and takes the focus. The game drops
+-- a SetFocus on a hidden box.
 local focusDue = false
 
 function JournalCards.Build(parent, width, height)
@@ -173,6 +173,10 @@ local function DrawCard(n, row, x, y, width)
 	card.tag:ClearAllPoints()
 	card.tag:SetPoint("LEFT", card.label, "RIGHT", 6, 0)
 	local room = Action(card, card, row.action)
+	-- A press anywhere on a card that the player writes opens it. Its button takes its own press.
+	local open = row.writable and row.action and row.action.run or nil
+	card:EnableMouse(open ~= nil)
+	card:SetScript("OnMouseDown", open)
 	if room > 0 then
 		card.button:ClearAllPoints()
 		card.button:SetPoint("TOPRIGHT", card, "TOPRIGHT", -4, -3)
@@ -248,6 +252,7 @@ local function BuildWriter()
 	edit:SetScript("OnTextChanged", Grew)
 	edit:SetScript("OnEnterPressed", SaveWriting)
 	edit:SetScript("OnEscapePressed", CancelWriting)
+	ns.Focus.ReleaseOnHide(edit)
 	writer.box = edit
 	-- The shade shows where to write: the box itself is only as tall as its text.
 	writer.field = writer:CreateTexture(nil, "BORDER")
@@ -257,11 +262,7 @@ local function BuildWriter()
 	writer.save = ns.JournalFrame.SmallButton(writer)
 	Fit(writer.save, "Save")
 	writer.save:SetScript("OnClick", SaveWriting)
-	-- A multi-line box is only as tall as its text, so a click below the text lands on the card.
-	writer:EnableMouse(true)
-	writer:SetScript("OnMouseDown", function()
-		edit:SetFocus()
-	end)
+	ns.Focus.OnAreaClick(writer, edit)
 	writer.cancel = ns.JournalFrame.SmallButton(writer)
 	Fit(writer.cancel, "Cancel")
 	writer.cancel:SetScript("OnClick", CancelWriting)
@@ -374,9 +375,9 @@ end
 
 -- `spec` is { tabs = { { key, label, run } }, tab = the open key, rows = { ... } }. A row is
 -- { kind = "line" | "heading", text, ink, action }, { kind = "card", label, tag, text, empty,
--- note, wide, action, editing }, or { kind = "linked", label, text, note, empty }. A card with
--- `editing` = { key, text, limit, bytes, problem, save, cancel } is open for writing. Nil
--- hides the cards.
+-- note, wide, action, writable, editing }, or { kind = "linked", label, text, note, empty }.
+-- A press anywhere on a `writable` card runs its action. A card with `editing` = { key, text,
+-- limit, bytes, problem, save, cancel } is open for writing. Nil hides the cards.
 function JournalCards.Draw(spec)
 	if not spec then
 		box:Hide()
@@ -393,6 +394,6 @@ function JournalCards.Draw(spec)
 	box:Show()
 	if focusDue and writerKey then
 		focusDue = false
-		writer.box:SetFocus()
+		ns.Focus.AtEnd(writer.box)
 	end
 end

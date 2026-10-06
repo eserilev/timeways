@@ -82,6 +82,7 @@ local function CommandBox(parent, command, top)
 	end)
 	box:SetScript("OnEscapePressed", box.ClearFocus)
 	box:SetScript("OnEnterPressed", box.ClearFocus)
+	ns.Focus.ReleaseOnHide(box)
 	return box
 end
 

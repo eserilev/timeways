@@ -52,6 +52,7 @@ local function Box(parent)
 	box:SetTextColor(ink[1], ink[2], ink[3])
 	box:SetTextInsets(BOX_PADDING, BOX_PADDING, 0, 0)
 	box:SetScript("OnEscapePressed", box.ClearFocus)
+	ns.Focus.ReleaseOnHide(box)
 	return box
 end
 
@@ -224,6 +225,18 @@ function JournalInputs.Finish()
 	for kind, pool in pairs(pools) do
 		for n = used[kind] + 1, #pool do
 			pool[n]:Hide()
+		end
+	end
+end
+
+-- Puts the cursor in the first box of the page that is still empty, such as the title of a
+-- new quest. Call it after the page draws.
+function JournalInputs.FocusFirstEmpty()
+	for n = 1, used.field do
+		local box = pools.field[n]
+		if (box:GetText() or "") == "" then
+			ns.Focus.AtEnd(box)
+			return
 		end
 	end
 end

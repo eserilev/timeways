@@ -238,6 +238,39 @@ fn a_click_on_an_install_line_selects_it_for_copying() {
     assert!(highlighted);
 }
 
+#[test]
+fn a_press_on_an_install_line_gives_it_the_cursor_and_selects_it() {
+    let game = game_with_no_key();
+    game.run("ns.Welcome.Open('setup')");
+
+    game.run("wow.MouseDown(wow.EditBox())");
+
+    assert!(game.eval::<bool>("return wow.EditBox():HasFocus()"));
+    assert!(game.eval::<bool>("return wow.EditBox().highlighted == true"));
+}
+
+#[test]
+fn the_setup_window_at_login_takes_no_cursor() {
+    let game = game_with_no_key();
+
+    login(&game);
+    wait(&game, 1);
+
+    assert!(shown(&game));
+    assert!(game.eval::<bool>("return wow.focus == nil"));
+}
+
+#[test]
+fn close_gives_the_cursor_of_an_install_line_back() {
+    let game = game_with_no_key();
+    game.run("ns.Welcome.Open('setup')");
+    game.run("wow.MouseDown(wow.EditBox())");
+
+    game.run("wow.Button('Close'):Click()");
+
+    assert!(game.eval::<bool>("return wow.focus == nil"));
+}
+
 /// The text of each edit box of the window, as the method `get` gives it.
 fn boxes(game: &Game, get: &str) -> Vec<String> {
     game.eval(&format!(
