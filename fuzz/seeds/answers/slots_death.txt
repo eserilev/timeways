@@ -1,0 +1,1 @@
+{"lore": "The murlocs of the Westfall coast have no kingdom and no history, and they raid its camps now.", "killer": "kind", "tone": "dry", "there": true}

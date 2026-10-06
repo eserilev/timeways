@@ -1,0 +1,1 @@
+{"lore": "Hogger led the Riverpaw gnolls of Elwynn 🐺 and they raid it now.", "there": false, "leads": "the Riverpaw", "leads_number": "many"}

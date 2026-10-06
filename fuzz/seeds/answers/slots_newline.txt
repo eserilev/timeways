@@ -1,0 +1,1 @@
+{"lore": "Hogger led the gnolls.\nThe Riverpaw raid now.", "there": false, "leads": "the Riverpaw", "leads_number": "many"}

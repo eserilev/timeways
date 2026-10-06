@@ -1,0 +1,1 @@
+{"lore": "Uther founded the Silver Hand to carry the Light into war, and its paladins still guard Stormwind now.", "group": "o.silver_hand"}

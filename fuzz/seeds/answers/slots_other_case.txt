@@ -1,0 +1,1 @@
+{"lore": "The Silver Hand guards Stormwind with the Light now.", "group": "Silver_Hand"}

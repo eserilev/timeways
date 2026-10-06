@@ -1,0 +1,1 @@
+{"lore": {"lore": "For years Hogger led the Riverpaw gnolls in raids on the farms of Elwynn, and Stormwind still has a price on his head."}, "there": false, "leads": "none", "leads_number": "one"}

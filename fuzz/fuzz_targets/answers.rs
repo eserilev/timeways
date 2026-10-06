@@ -21,7 +21,9 @@ use timeways_story::narrator::{Telling, Who};
 use timeways_story::prose::prose_faults;
 use timeways_story::quest::variety::{Recent, Shape, main_words};
 use timeways_story::quest::{self, Genre, Known, Step};
-use timeways_story::race_class::Race;
+use timeways_story::narrator_build::{Answered, Setup, answered, offer};
+use timeways_story::narrator_slots::parse;
+use timeways_story::race_class::{Class, Race};
 use timeways_story::seen::{SeenText, TextKind};
 use timeways_story::sentences::sentences;
 use timeways_story::story::Output;
@@ -295,6 +297,75 @@ fn assert_line(text: &str) {
     }
 }
 
+/// The moments of the slot JSON, each with its lore and its hero.
+fn slot_moments() -> Vec<(Moment, Who, &'static str)> {
+    let paladin = Who {
+        race: Some(Race::Human),
+        class: Some(Class::Paladin),
+        titles: vec!["Bookworm".to_string()],
+    };
+    let hogger = Moment::FirstKill {
+        foe: "Hogger".to_string(),
+        zone: Some("Elwynn Forest".to_string()),
+        creature: None,
+    };
+    let level = Moment::LevelUp {
+        level: 20,
+        zone: None,
+    };
+    let elwynn = Moment::NewZone {
+        zone: "Elwynn Forest".to_string(),
+    };
+    let murloc = Moment::SlainAgain {
+        killer: "Murloc Coastrunner".to_string(),
+        times: 3,
+        zone: Some("Westfall".to_string()),
+    };
+    let ram = Moment::FirstMount {
+        mount: "Gray Ram".to_string(),
+        people: Some("Ironforge".to_string()),
+    };
+    vec![
+        (hogger, paladin.clone(), "Hogger leads the Riverpaw gnolls of Elwynn Forest."),
+        (level, paladin.clone(), "The Silver Hand guards Stormwind with the Light."),
+        (elwynn, paladin.clone(), "Northshire Abbey stands in Elwynn Forest."),
+        (murloc, paladin.clone(), "Murlocs raid the coast of Westfall."),
+        (ram, paladin, "The Mountaineers of Ironforge ride rams."),
+    ]
+}
+
+/// A slot answer never panics the parser. A line that the code builds from it keeps the
+/// limits of a line, holds no slop and no fault of the style guide, names the hero at most
+/// once, and never names the hero at a place (docs/plans/narrator-templates.md 6.2).
+fn assert_slots(text: &str) {
+    for (moment, who, lore) in slot_moments() {
+        let setup = Setup {
+            moment,
+            who,
+            turn: text.len(),
+            recent: vec!["k.fell".to_string(), "v.stronger".to_string()],
+        };
+        let offer = offer(&setup).unwrap();
+        let _ = parse(text, offer.kind, &offer.group_ids());
+        let telling = Telling {
+            moment: &setup.moment,
+            lore: Some(lore),
+            who: &setup.who,
+        };
+        let grounds = Grounds::of(&telling, setup.turn);
+        let Answered::Line(built) = answered(text, &setup, &offer, &grounds, "") else {
+            continue;
+        };
+        assert_voice(&built.line, narrator::MAX_LINE_CHARS, narrator::MAX_LINE_BYTES);
+        assert!(slop_in(&built.line, "").is_empty(), "{built:?}");
+        assert!(built.line.matches("$N").count() <= 1, "{built:?}");
+        assert!(!built.line.contains(['[', ']', '{', '}', '<', '>']), "{built:?}");
+        assert_eq!(arrival_in(&built.line, &grounds.hero_words), None, "{built:?}");
+        assert!(!setup.moment.is_arrival() || !built.line.contains("$N"), "{built:?}");
+        assert!(!built.shape.is_empty(), "{built:?}");
+    }
+}
+
 fuzz_target!(|data: &[u8]| {
     let moments = data.first().map_or(0, |byte| usize::from(byte % 9));
     let text = String::from_utf8_lossy(data);
@@ -357,6 +428,7 @@ fuzz_target!(|data: &[u8]| {
     }
     assert_draft(&text);
     assert_line(&text);
+    assert_slots(&text);
     if let Some(line) = plain_text(&text, 50, 200) {
         assert_plain(&line, 50, 200);
     }

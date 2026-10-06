@@ -1,0 +1,1 @@
+{"lore": "The Mountaineers of Ironforge ride rams bred in the snows of Dun Morogh, and they hold its passes now.", "breed": true}

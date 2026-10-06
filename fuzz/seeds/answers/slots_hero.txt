@@ -1,0 +1,1 @@
+{"lore": "Hogger raided Elwynn until $N came, and Stormwind still pays for his head.", "there": false, "leads": "the Riverpaw", "leads_number": "many"}
