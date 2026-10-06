@@ -220,6 +220,18 @@ fn a_text_that_opens_with_the_level_is_refused() {
     }
 }
 
+/// A saga and a tale tell every level, not only each tenth.
+#[test]
+fn a_text_that_opens_with_any_level_in_words_is_refused() {
+    for line in [
+        "Level fifteen came on the road to the farms of Westfall.",
+        "Level thirteen found the paladin in the mines of Redridge.",
+        "Level fifty-five came in the Burning Steppes, below Blackrock Spire.",
+    ] {
+        assert!(faults(line).contains(&ProseFault::LevelOpener), "{line}");
+    }
+}
+
 #[test]
 fn a_level_later_in_the_text_passes() {
     for line in [

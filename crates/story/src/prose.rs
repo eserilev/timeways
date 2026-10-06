@@ -21,8 +21,9 @@ const PIVOT_GAP: RangeInclusive<usize> = 3..=60;
 /// The verbs of a sentence that cites its source: "Renferrel spoke of the plague".
 const CITES: [&str; 4] = ["spoke of", "speaks of", "told of", "tells of"];
 
-/// The words for a number after "Level" at the start of a text: "Level ten came".
-const NUMBER_WORDS: [&str; 20] = [
+/// The words for a number after "Level" at the start of a text: "Level ten came". A
+/// saga tells every level up to 60, and "fifty-five" starts with "fifty".
+const NUMBER_WORDS: [&str; 27] = [
     "one",
     "two",
     "three",
@@ -35,6 +36,13 @@ const NUMBER_WORDS: [&str; 20] = [
     "ten",
     "eleven",
     "twelve",
+    "thirteen",
+    "fourteen",
+    "fifteen",
+    "sixteen",
+    "seventeen",
+    "eighteen",
+    "nineteen",
     "twenty",
     "thirty",
     "forty",
