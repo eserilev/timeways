@@ -637,23 +637,30 @@ fn a_big_moment_asks_the_model_for_a_narrator_line() {
     level(&mut story, 2, 20);
 
     let (call, prompt) = model_call(batch_end(&mut story, 3));
-    let text = "After many hard roads and many fights, $N has reached level 20.".to_string();
+    let text = HISTORY_ANSWER.to_string();
     let output = one(story.handle(Input::ModelAnswered { call, text }).unwrap());
 
     assert!(
         prompt.contains("The moment:\n<<<\nThe player reached level 20.\n>>>"),
         "{prompt}"
     );
-    let narrator =
-        Some("After many hard roads and many fights, $N has reached level 20.".to_string());
-    assert_eq!(
-        output,
+    let line = shown_line(output);
+    assert!(line.starts_with(STORMWIND_HISTORY), "{line}");
+    assert!(line.contains("Stormwind"), "{line}");
+}
+
+/// A sentence of history about the people of a human hero, and its answer.
+const STORMWIND_HISTORY: &str = "King Barathen Wrynn scattered the gnoll packs of Elwynn, and his line still rules Stormwind City now.";
+const HISTORY_ANSWER: &str = "{\"lore\": \"King Barathen Wrynn scattered the gnoll packs of Elwynn, and his line still rules Stormwind City now.\", \"group\": \"g.people\"}";
+
+fn shown_line(output: Option<Output>) -> String {
+    match output {
         Some(Output::EventsSeen {
-            id: MessageId(3),
-            narrator,
-            notice: None,
-        })
-    );
+            narrator: Some(line),
+            ..
+        }) => line,
+        other => panic!("expected a narrator line, got {other:?}"),
+    }
 }
 
 #[test]
@@ -683,10 +690,10 @@ fn a_refused_narrator_line_gets_one_retry_with_the_reasons() {
     level(&mut story, 2, 20);
     let (call, first_prompt) = model_call(batch_end(&mut story, 3));
 
-    let text = "On the 23rd day, $N reached level 20.".to_string();
+    let text = "{\"lore\": \"On the 23rd day King Barathen Wrynn scattered the gnolls of Elwynn, and his line rules Stormwind.\", \"group\": \"g.people\"}".to_string();
     let (retry, prompt) =
         model_call(one(story.handle(Input::ModelAnswered { call, text }).unwrap()).unwrap());
-    let text = "After many hard roads and many fights, $N has reached level 20.".to_string();
+    let text = HISTORY_ANSWER.to_string();
     let output = one(story
         .handle(Input::ModelAnswered { call: retry, text })
         .unwrap());
@@ -696,16 +703,7 @@ fn a_refused_narrator_line_gets_one_retry_with_the_reasons() {
         prompt.contains("The number 23 is not in the moment."),
         "{prompt}"
     );
-    assert_eq!(
-        output,
-        Some(Output::EventsSeen {
-            id: MessageId(3),
-            narrator: Some(
-                "After many hard roads and many fights, $N has reached level 20.".to_string()
-            ),
-            notice: None,
-        })
-    );
+    assert!(shown_line(output).starts_with(STORMWIND_HISTORY));
 }
 
 #[test]
@@ -794,18 +792,30 @@ fn the_narrator_gets_no_lore_of_a_place_that_the_player_never_saw() {
 
 #[test]
 fn the_narrator_names_the_race_and_the_class_of_the_hero() {
-    let mut story = story_with("narrator-who", &[]);
+    let thunder_bluff = Passage {
+        about: Some("Thunder Bluff".to_string()),
+        ..passage(
+            "Cairne Bloodhoof built Thunder Bluff on the mesas of Mulgore.",
+            "the wiki page \"Thunder Bluff\"",
+            vec![Link::Common],
+        )
+    };
+    let mut story = story_with("narrator-who", &[thunder_bluff]);
     let described = Input::CharacterDescribed {
         at: Tick(1),
         race: Race::Tauren,
         class: Class::Druid,
     };
     story.handle(described).unwrap();
-    enter(&mut story, 2, "Mulgore", None);
+    level(&mut story, 2, 19);
+    level(&mut story, 3, 20);
 
-    let (_, prompt) = model_call(batch_end(&mut story, 3));
+    let (_, prompt) = model_call(batch_end(&mut story, 4));
 
-    assert!(prompt.contains("The hero: a tauren druid"), "{prompt}");
+    assert!(
+        prompt.contains(">>>\n\nThe hero: a tauren druid"),
+        "{prompt}"
+    );
 }
 
 #[test]
@@ -881,11 +891,11 @@ fn a_name_in_no_fact_is_logged_and_the_line_still_shows() {
     level(&mut story, 2, 20);
     let (call, _) = model_call(batch_end(&mut story, 3));
 
-    let text = "Under the eyes of Varian, $N has reached level 20 at last.".to_string();
+    let text = "{\"lore\": \"Under the eyes of Varian, the line of King Barathen Wrynn still rules Stormwind City now.\", \"group\": \"g.people\"}".to_string();
     let output = one(story.handle(Input::ModelAnswered { call, text }).unwrap());
 
-    let shown = Some("Under the eyes of Varian, $N has reached level 20 at last.".to_string());
-    assert!(matches!(output, Some(Output::EventsSeen { narrator, .. }) if narrator == shown));
+    let line = shown_line(output);
+    assert!(line.starts_with("Under the eyes of Varian"), "{line}");
     assert_eq!(
         story.take_notes(),
         [format!(
@@ -1985,7 +1995,7 @@ fn the_narrator_may_name_a_later_place_that_the_player_wrote() {
     enter(&mut story, 10, "Westfall", None);
     let (call, _) = model_call(batch_end(&mut story, 2));
 
-    let text = "Westfall has no road to Shattrath.".to_string();
+    let text = "{\"lore\": \"Westfall has no road to Shattrath.\"}".to_string();
     let output = one(story.handle(Input::ModelAnswered { call, text }).unwrap());
 
     assert_eq!(

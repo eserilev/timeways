@@ -19,24 +19,49 @@ pub enum Voice {
     Summary,
 }
 
-/// A narrator line with what it was told from, so a model sees how a line uses the
-/// moment and its lore.
+/// A narrator answer with what it was told from, so a model sees how a sentence of
+/// history uses the moment and its lore (docs/plans/narrator-templates.md 8.1).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct LineSample {
     pub moment: &'static str,
     /// The race and the class of the hero: "a Forsaken warlock".
     pub who: Option<&'static str>,
     pub lore: Option<&'static str>,
-    /// How the line names the hero, as the prompt says it (`narrator::Naming`).
+    /// How the line names the hero (`narrator::Naming`).
     pub hero: &'static str,
+    /// The sentence of history of the answer.
+    pub history: &'static str,
+    /// The closed choices of the answer, as a JSON object: `{"there": false}`.
+    pub choices: &'static str,
+    /// The keys of the template parts of the deed: "c.now + mt.rides".
+    pub shape: &'static str,
+    /// The line that the player sees.
     pub line: &'static str,
+}
+
+impl LineSample {
+    /// The answer of the model, as the prompt shows it: `{"lore": ..., "there": false}`.
+    #[must_use]
+    pub fn answer(&self) -> String {
+        let lore = serde_json::Value::String(self.history.to_string());
+        let choices = self.choices.trim();
+        let rest = choices
+            .strip_prefix('{')
+            .and_then(|inner| inner.strip_suffix('}'))
+            .map(str::trim)
+            .unwrap_or_default();
+        if rest.is_empty() {
+            return format!("{{\"lore\": {lore}}}");
+        }
+        format!("{{\"lore\": {lore}, {rest}}}")
+    }
 }
 
 impl Voice {
     #[must_use]
     pub fn samples(self) -> Vec<&'static str> {
         match self {
-            Voice::NarratorLine => line_samples().iter().map(|sample| sample.line).collect(),
+            Voice::NarratorLine => line_samples().iter().map(|sample| sample.history).collect(),
             Voice::Chapter => data_lines(CHAPTERS).collect(),
             Voice::NpcReply => data_lines(NPC_REPLIES).collect(),
             Voice::Summary => data_lines(SUMMARIES).collect(),
@@ -56,7 +81,7 @@ impl Voice {
         match self {
             Voice::NarratorLine => {
                 "Samples of your voice, about other heroes. Each one shows a moment, its lore, \
-                 how to name the hero, and the line. Copy the manner, never the words:"
+                 and the answer. Copy the manner, never the words:"
             }
             Voice::Chapter | Voice::Summary => {
                 "Samples of your voice, about other heroes. Copy the manner, never the words:"
@@ -88,6 +113,9 @@ pub fn line_samples() -> Vec<LineSample> {
             "who" => sample.who = Some(value),
             "lore" => sample.lore = Some(value),
             "hero" => sample.hero = value,
+            "history" => sample.history = value,
+            "choices" => sample.choices = value,
+            "shape" => sample.shape = value,
             "line" => sample.line = value,
             _ => {}
         }
@@ -146,19 +174,19 @@ fn shown_pair(sample: &LineSample) -> String {
     let mut lines = vec![format!("Moment: {}", sample.moment)];
     lines.extend(sample.who.map(|who| format!("The hero: {who}")));
     lines.push(format!("Lore: {}", sample.lore.unwrap_or("none")));
-    lines.push(format!("Name the hero: {}", sample.hero));
-    lines.push(format!("Line: {}", sample.line));
+    lines.push(format!("Answer: {}", sample.answer()));
     lines.join("\n")
 }
 
 /// Every sample that a narrator prompt of `moment` can show: the narrator samples of the
-/// same moment stay out of it (`line_section`), so a line cannot copy them.
+/// same moment stay out of it (`line_section`), so a line cannot copy them. A narrator
+/// sample counts as its history.
 #[must_use]
 pub fn every_sample_shown_with(moment: &str) -> Vec<&'static str> {
     let left_out: Vec<&str> = line_samples()
         .into_iter()
         .filter(|sample| sample.moment == moment)
-        .map(|sample| sample.line)
+        .map(|sample| sample.history)
         .collect();
     every_sample()
         .into_iter()

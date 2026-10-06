@@ -3,9 +3,12 @@
 
 use timeways_story::arrival::arrival_in;
 use timeways_story::check::{banned_words_in, slop_in};
-use timeways_story::line_check::{Checked, Grounds, checked_line};
+use timeways_story::line_check::{
+    Checked, Grounds, MOST_SENTENCES, built_faults, checked_line, lore_faults,
+};
 use timeways_story::narrator::Naming;
 use timeways_story::prose::prose_faults;
+use timeways_story::sentences::sentences;
 
 /// The lines that the user loved, and the "do" lines of the new pairs (7.2).
 const LOVED: [&str; 26] = [
@@ -222,6 +225,29 @@ fn every_loved_line_passes_every_check() {
             "{line}"
         );
         assert_eq!(prose_faults(line, &every_kind), [], "{line}");
+    }
+}
+
+/// With templates, the model writes the history and the code builds the rest
+/// (docs/plans/narrator-templates.md 8.3). Each loved line still passes: its sentences
+/// with no hero as the history, and the whole line as a built line.
+#[test]
+fn every_loved_line_still_passes_the_checks_of_the_templates() {
+    for line in LOVED {
+        let every_kind = kinds(&EVERY_KIND);
+        let grounds = grounds_of(line, every_kind);
+        let history: Vec<&str> = sentences(line)
+            .into_iter()
+            .take_while(|sentence| !sentence.contains("$N"))
+            .collect();
+        let history = history.join(" ");
+
+        assert_eq!(
+            lore_faults(&history, &grounds, "", MOST_SENTENCES, 300),
+            [],
+            "{line}"
+        );
+        assert_eq!(built_faults(line, &history, &grounds), [], "{line}");
     }
 }
 

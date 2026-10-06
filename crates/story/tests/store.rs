@@ -9,7 +9,8 @@ use timeways_story::narrator::Budget;
 use timeways_story::pace::Pace;
 use timeways_story::pack::Pack;
 use timeways_story::store::{
-    CharacterKey, Line, Store, StoreError, Table, name_of_safe_id, safe_id,
+    CallEnd, CharacterKey, Database, Line, NewCall, Outcome, Store, StoreError, Table,
+    name_of_safe_id, safe_id,
 };
 use timeways_story::story::{Output, Story, StoryError};
 
@@ -848,4 +849,72 @@ fn a_safe_id_gives_back_its_name() {
     }
     assert_eq!(name_of_safe_id("bad_Z"), None);
     assert_eq!(name_of_safe_id("cut_4"), None);
+}
+
+/// An accepted narrator call with the main part of its shape.
+fn narrator_line(position: u64, shape: Option<&str>, outcome: Outcome) -> Line {
+    Line {
+        calls: vec![NewCall {
+            position,
+            kind: "narrator",
+            pack: "test".to_string(),
+            prompt: "prompt".to_string(),
+            reads: Vec::new(),
+        }],
+        ended: vec![CallEnd {
+            position,
+            answer: Some("answer".to_string()),
+            outcome,
+            shape: shape.map(str::to_string),
+        }],
+        ..Line::default()
+    }
+}
+
+#[test]
+fn the_shape_of_a_line_is_stored_with_its_call() {
+    let mut database = Database::in_memory().unwrap();
+    database
+        .save(&narrator_line(0, Some("k.fell"), Outcome::Accepted))
+        .unwrap();
+    database
+        .save(&narrator_line(1, Some("k.dead_u"), Outcome::Refused))
+        .unwrap();
+    database
+        .save(&narrator_line(2, Some("v.stronger"), Outcome::Accepted))
+        .unwrap();
+    database
+        .save(&narrator_line(3, None, Outcome::Accepted))
+        .unwrap();
+
+    let newest = database.newest_shapes(8).unwrap();
+
+    assert_eq!(newest, ["v.stronger", "k.fell"]);
+    assert_eq!(database.newest_shapes(1).unwrap(), ["v.stronger"]);
+}
+
+#[test]
+fn a_world_of_the_version_before_takes_the_shape_column_and_keeps_its_rows() {
+    let folder = fresh_folder("version-8");
+    fs::create_dir_all(&folder).unwrap();
+    let path = folder.join("world.sqlite");
+    {
+        let database = Database::open(&path).unwrap();
+        drop(database);
+        let connection = Connection::open(&path).unwrap();
+        connection
+            .execute_batch(
+                "ALTER TABLE calls DROP COLUMN shape; PRAGMA user_version = 8; \
+                 INSERT INTO calls (position, kind, pack, result) VALUES (0, 'narrator', 'p', 'accepted');",
+            )
+            .unwrap();
+    }
+
+    let mut database = Database::open(&path).unwrap();
+    database
+        .save(&narrator_line(1, Some("k.fell"), Outcome::Accepted))
+        .unwrap();
+
+    assert_eq!(database.newest_shapes(8).unwrap(), ["k.fell"]);
+    assert!(database.call(0).unwrap().is_some());
 }

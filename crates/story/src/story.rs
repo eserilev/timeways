@@ -294,6 +294,9 @@ pub struct Story {
     program_notice: Option<String>,
     /// After this time, the bridge drops the `events_seen` of a batch.
     events_deadline: Duration,
+    /// The main part of the shape of the narrator line that the answer just accepted. The
+    /// end of its call keeps it, for the window of the rotation.
+    told_shape: Option<String>,
 }
 
 impl Story {
@@ -327,6 +330,7 @@ impl Story {
             notice: None,
             program_notice: None,
             events_deadline: EVENTS_DEADLINE,
+            told_shape: None,
         }
     }
 

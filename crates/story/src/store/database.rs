@@ -11,7 +11,11 @@ use timeways_rules::prompts::oldest_prompt_kept;
 
 /// A file of another version is refused, never changed. Nothing is live, so a new version
 /// starts with new worlds.
-const VERSION: i64 = 8;
+const VERSION: i64 = 9;
+
+/// Version 9 only added the column `shape` to `calls`, so a file of version 8 takes the
+/// column and keeps its rows.
+const ADD_SHAPE: &str = "ALTER TABLE calls ADD COLUMN shape TEXT; PRAGMA user_version = 9;";
 
 /// WAL syncs the disk once for each line, and a reader such as `sqlite3` never blocks a
 /// save.
@@ -40,7 +44,8 @@ CREATE TABLE calls (
     pack TEXT NOT NULL,
     prompt TEXT,
     answer TEXT,
-    result TEXT NOT NULL
+    result TEXT NOT NULL,
+    shape TEXT
 );
 CREATE TABLE reads (
     call INTEGER NOT NULL REFERENCES calls (position),
@@ -221,6 +226,9 @@ pub struct CallEnd {
     pub position: u64,
     pub answer: Option<String>,
     pub outcome: Outcome,
+    /// The main part of the shape of an accepted narrator line (docs/plans/narrator-templates.md
+    /// 3.5).
+    pub shape: Option<String>,
 }
 
 /// Everything that one line from the bridge saves, in one transaction.
@@ -302,6 +310,12 @@ impl Database {
             .map_err(|source| self.error(source))?;
         if version == VERSION {
             return Ok(());
+        }
+        if version == VERSION - 1 {
+            return self
+                .connection
+                .execute_batch(ADD_SHAPE)
+                .map_err(|source| self.error(source));
         }
         let tables: i64 = self
             .connection
@@ -575,6 +589,27 @@ impl Database {
         Ok(u64::try_from(found).unwrap_or_default())
     }
 
+    /// The shapes of the newest accepted calls that hold one, newest first.
+    ///
+    /// # Errors
+    ///
+    /// Returns the error of SQLite.
+    pub fn newest_shapes(&self, most: usize) -> Result<Vec<String>, StoreError> {
+        let select = "SELECT shape FROM calls WHERE shape IS NOT NULL AND result = 'accepted' \
+                      ORDER BY position DESC LIMIT ?1";
+        let mut statement = self
+            .connection
+            .prepare_cached(select)
+            .map_err(|source| self.error(source))?;
+        let rows = statement
+            .query_map(params![i64::try_from(most).unwrap_or(i64::MAX)], |row| {
+                row.get(0)
+            })
+            .map_err(|source| self.error(source))?;
+        rows.collect::<Result<Vec<String>, _>>()
+            .map_err(|source| self.error(source))
+    }
+
     /// The prompt, the answer, and how a call ended.
     ///
     /// # Errors
@@ -666,8 +701,13 @@ fn write_line(transaction: &rusqlite::Transaction<'_>, line: &Line) -> rusqlite:
     }
     for end in &line.ended {
         transaction.execute(
-            "UPDATE calls SET answer = ?2, result = ?3 WHERE position = ?1",
-            params![as_sql(end.position), end.answer, end.outcome.name()],
+            "UPDATE calls SET answer = ?2, result = ?3, shape = ?4 WHERE position = ?1",
+            params![
+                as_sql(end.position),
+                end.answer,
+                end.outcome.name(),
+                end.shape
+            ],
         )?;
     }
     for (table, rows) in &line.rows {

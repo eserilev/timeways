@@ -7,6 +7,7 @@ use crate::learned::Read;
 use crate::line_check::Grounds;
 use crate::moments::{Moment, moments};
 use crate::narrator::{self, Telling, Who};
+use crate::narrator_build::{Offer, Setup, kind_of, offer};
 use crate::narrator_lore::{LoreError, is_silent, lore_of_moment, lore_subjects};
 use crate::pack::Pack;
 use crate::seen::{SeenIndex, SeenText};
@@ -40,6 +41,9 @@ pub struct Review {
     pub prompt: String,
     /// Why the moment gets no call, as the story program decides it.
     pub silence: Option<String>,
+    /// What the templates build the line from. None for a flavor moment. The tool sets
+    /// `recent` of the setup from the lines that it showed before.
+    pub templated: Option<(Setup, Offer)>,
 }
 
 /// Each event is a batch of its own, so a big moment never hides a smaller one.
@@ -80,7 +84,8 @@ fn review(
     let who = with_fallback(Who::of(character), sources.fallback);
     let passage = lore_of_moment(sources.pack, &seen, character, &moment, &who)?;
     let subjects = lore_subjects(&moment, &who);
-    let silence = is_silent(&moment, &subjects, passage.as_ref()).then(|| thin_reason(&subjects));
+    let mut silence =
+        is_silent(&moment, &subjects, passage.as_ref()).then(|| thin_reason(&subjects));
     let lore = passage.map(|passage| narrator::lore_excerpt(&passage.text));
     let telling = Telling {
         moment: &moment,
@@ -89,12 +94,27 @@ fn review(
     };
     let prompt = narrator::prompt(&telling, turn);
     let grounds = Grounds::of(&telling, turn);
+    let setup = Setup {
+        moment: moment.clone(),
+        who: who.clone(),
+        turn,
+        recent: Vec::new(),
+    };
+    let templated = match (kind_of(&moment), offer(&setup)) {
+        (None, _) => None,
+        (Some(_), Some(offer)) => Some((setup, offer)),
+        (Some(_), None) => {
+            silence.get_or_insert_with(|| "no template fits the moment".to_string());
+            None
+        }
+    };
     Ok(Review {
         at,
         moment,
         grounds,
         prompt,
         silence,
+        templated,
     })
 }
 

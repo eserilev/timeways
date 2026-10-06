@@ -188,7 +188,7 @@ impl Story {
             }
         };
         if let (Some(active), Some(row)) = (self.active.as_mut(), row) {
-            active.end_call_row(row, Some(text), outcome);
+            active.end_call_row(row, Some(text), outcome, self.told_shape.take());
         }
         Ok(outputs)
     }
@@ -284,7 +284,7 @@ impl Story {
         self.pace.failed(self.newest);
         let row = self.answer_with(&pending, row);
         if let (Some(active), Some(row)) = (self.active.as_mut(), row) {
-            active.end_call_row(row, None, Outcome::Failed);
+            active.end_call_row(row, None, Outcome::Failed, None);
         }
         Ok(match pending {
             Pending::Lore { question, lore } => vec![Output::LoreAnswer {

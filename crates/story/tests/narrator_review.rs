@@ -124,8 +124,10 @@ fn a_world_from_before_the_race_and_the_class_takes_them_from_the_review() {
 
     let found = reviews(&events_of(&character), &sources).unwrap();
 
+    let (setup, _) = found[0].templated.as_ref().unwrap();
+    assert_eq!(setup.who, fallback);
     assert!(
-        found[0].prompt.contains("The hero: a Forsaken warlock"),
+        found[0].prompt.contains("Answer with JSON only"),
         "{}",
         found[0].prompt
     );
@@ -215,7 +217,7 @@ fn the_review_tool_prints_the_prompt_of_each_moment_and_leaves_the_world_as_it_w
         printed.contains("=== 1 of 1, at 1700000000: The player arrived in Westfall."),
         "{printed}"
     );
-    assert!(printed.contains("The hero: a human paladin"), "{printed}");
+    assert!(printed.contains("Answer with JSON only"), "{printed}");
     assert_eq!(std::fs::read(&world).unwrap(), before);
 }
 
@@ -228,7 +230,7 @@ fn the_review_tool_with_a_model_prints_the_line_that_the_player_sees() {
         .arg(&world)
         .args([
             "--model",
-            "echo 'Westfall was farmland once, before the Defias.'",
+            "echo '{\"lore\": \"Westfall was farmland once, before the Defias.\"}'",
         ])
         .output()
         .unwrap();
@@ -247,12 +249,15 @@ fn the_review_tool_shows_the_retry_of_a_refused_line() {
 
     let output = Command::new(env!("CARGO_BIN_EXE_timeways-narrator-review"))
         .arg(&world)
-        .args(["--model", "echo 'Our hero moved on.'"])
+        .args(["--model", "echo '{\"lore\": \"Our hero moved on.\"}'"])
         .output()
         .unwrap();
 
     let printed = String::from_utf8_lossy(&output.stdout);
     assert!(printed.contains("Refused: \"our hero\""), "{printed}");
-    assert!(printed.contains("Retry: Our hero moved on."), "{printed}");
+    assert!(
+        printed.contains("Retry: {\"lore\": \"Our hero moved on.\"}"),
+        "{printed}"
+    );
     assert!(printed.contains("Shown: (silence:"), "{printed}");
 }

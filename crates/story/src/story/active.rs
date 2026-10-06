@@ -13,6 +13,7 @@ use crate::store::{
     StoryLog, SummaryLog, Table, TaleText, ZoneHistory,
 };
 use crate::walk::RuleRow;
+use timeways_rules::narrator_shapes::WINDOW;
 
 /// A line from the bridge as the database keeps it, after the clock check.
 pub(super) struct Kept {
@@ -191,11 +192,34 @@ impl Active {
         Ok(saved + u64::try_from(opened.count()).unwrap_or_default())
     }
 
-    pub(super) fn end_call_row(&mut self, position: u64, answer: Option<&str>, outcome: Outcome) {
+    pub(super) fn end_call_row(
+        &mut self,
+        position: u64,
+        answer: Option<&str>,
+        outcome: Outcome,
+        shape: Option<String>,
+    ) {
         self.ended.push(CallEnd {
             position,
             answer: answer.map(str::to_string),
             outcome,
+            shape,
         });
+    }
+
+    /// The main parts of the last accepted narrator lines, oldest first: the window of the
+    /// rotation (docs/plans/narrator-templates.md 3.5). A line that is not saved yet counts.
+    pub(super) fn recent_shapes(&self) -> Result<Vec<String>, StoreError> {
+        let pending = self
+            .ended
+            .iter()
+            .rev()
+            .filter(|end| end.outcome == Outcome::Accepted)
+            .filter_map(|end| end.shape.clone());
+        let mut newest: Vec<String> = pending.collect();
+        newest.extend(self.database.newest_shapes(WINDOW)?);
+        newest.truncate(WINDOW);
+        newest.reverse();
+        Ok(newest)
     }
 }

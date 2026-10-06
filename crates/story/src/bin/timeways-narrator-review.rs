@@ -12,9 +12,11 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode, Stdio};
+use timeways_rules::narrator_shapes::WINDOW;
 use timeways_story::learned::Read;
 use timeways_story::line_check::{Checked, checked_line};
 use timeways_story::narrator::{Who, what_happened};
+use timeways_story::narrator_build::{Answered, Built, Setup, answered};
 use timeways_story::narrator_review::{Review, Sources, reviews};
 use timeways_story::pack::Pack;
 use timeways_story::prompt;
@@ -105,6 +107,7 @@ fn review_copy(options: &Options, copy: &Path) -> Result<(), Box<dyn Error>> {
         fallback: &options.who,
     };
     let found = reviews(&events, &sources)?;
+    let mut recent: Vec<String> = Vec::new();
     for (number, review) in found.iter().enumerate() {
         println!(
             "=== {} of {}, at {}: {}",
@@ -118,7 +121,14 @@ fn review_copy(options: &Options, copy: &Path) -> Result<(), Box<dyn Error>> {
             continue;
         }
         match &options.model {
-            Some(model) => told(model, review)?,
+            Some(model) => {
+                if let Some(shape) = told(model, review, &recent)? {
+                    recent.push(shape);
+                    if recent.len() > WINDOW {
+                        recent.remove(0);
+                    }
+                }
+            }
             None => println!("{}\n", review.prompt),
         }
     }
@@ -164,33 +174,55 @@ fn copy_world(world: &Path, copy: &Path) -> Result<CharacterKey, Box<dyn Error>>
 }
 
 /// The line as the player would see it: one retry with the reasons, as the story program
-/// does, and silence after a second refusal.
-fn told(model: &str, review: &Review) -> Result<(), Box<dyn Error>> {
+/// does, and silence after a second refusal. Returns the main part of a shown line.
+fn told(model: &str, review: &Review, recent: &[String]) -> Result<Option<String>, Box<dyn Error>> {
     let answer = ask(model, &review.prompt)?;
     println!("Answer: {answer}");
-    let Checked::Refused(faults) = checked_line(&answer, &review.grounds, "") else {
-        println!(
-            "Shown: {}\n",
-            shown(&checked_line(&answer, &review.grounds, ""))
-        );
-        return Ok(());
+    let Answered::Refused(faults) = verdict(review, &answer, recent) else {
+        return Ok(shown(&verdict(review, &answer, recent)));
     };
     let reasons: Vec<String> = faults.iter().map(ToString::to_string).collect();
     println!("Refused: {}", reasons.join(" "));
     let retry = ask(model, &prompt::retry(&review.prompt, &answer, &reasons))?;
     println!("Retry: {retry}");
-    println!(
-        "Shown: {}\n",
-        shown(&checked_line(&retry, &review.grounds, ""))
-    );
-    Ok(())
+    Ok(shown(&verdict(review, &retry, recent)))
 }
 
-fn shown(checked: &Checked) -> String {
-    match checked {
-        Checked::Line(line) => line.clone(),
-        Checked::Silent => "(silence: the model had nothing to tell)".to_string(),
-        Checked::Refused(faults) => format!("(silence: {faults:?})"),
+fn verdict(review: &Review, answer: &str, recent: &[String]) -> Answered {
+    if let Some((setup, offer)) = &review.templated {
+        let setup = Setup {
+            recent: recent.to_vec(),
+            ..setup.clone()
+        };
+        return answered(answer, &setup, offer, &review.grounds, "");
+    }
+    match checked_line(answer, &review.grounds, "") {
+        Checked::Line(line) => Answered::Line(Built {
+            line,
+            shape: String::new(),
+            parts: Vec::new(),
+            named: false,
+        }),
+        Checked::Silent => Answered::Silent,
+        Checked::Refused(faults) => Answered::Refused(faults),
+    }
+}
+
+fn shown(verdict: &Answered) -> Option<String> {
+    match verdict {
+        Answered::Line(built) => {
+            println!("Shown: {}", built.line);
+            println!("Shape: {}\n", built.parts.join(" + "));
+            (!built.shape.is_empty()).then(|| built.shape.clone())
+        }
+        Answered::Silent => {
+            println!("Shown: (silence: the model had nothing to tell)\n");
+            None
+        }
+        Answered::Refused(faults) => {
+            println!("Shown: (silence: {faults:?})\n");
+            None
+        }
     }
 }
 

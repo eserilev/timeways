@@ -2278,6 +2278,7 @@ fn a_call_reads_row(folder: &Path, position: u64, row: u64) {
             position,
             answer: Some("answer".to_string()),
             outcome: Outcome::Accepted,
+            shape: None,
         }],
         ..Line::default()
     };

@@ -238,7 +238,7 @@ fn a_forsaken_paladin_gets_the_dead_who_wield_the_light() {
 
 #[test]
 fn a_group_takes_its_short_form_when_the_lore_names_it() {
-    let lore = "The paladins of the Silver Hand took their vows from Uther in the Second War, and they still carry the Light against the Scourge.";
+    let lore = "The paladins of the Silver Hand took their vows from Uther, and they still carry the Light against the Scourge.";
     let answer = format!("{{\"lore\": \"{lore}\", \"group\": \"o.silver_hand\"}}");
 
     let (_, verdict) = told(

@@ -1,7 +1,7 @@
 use hourglass::Tick;
 use timeways_story::moments::Moment;
 use timeways_story::narrator::{
-    ABSENT, Budget, MAX_LORE_CHARS, Naming, PERSONA, Telling, Who, lore_excerpt, naming, prompt,
+    Budget, MAX_LORE_CHARS, Naming, PERSONA, Telling, Who, lore_excerpt, naming, prompt,
     what_happened,
 };
 use timeways_story::places::InstanceKind;
@@ -66,7 +66,7 @@ fn a_prompt_starts_with_the_persona_and_ends_with_the_note() {
     let prompt = prompt_of(&murloc(), None, &Who::default(), 0);
 
     assert!(prompt.starts_with(PERSONA), "{prompt}");
-    assert!(prompt.ends_with("Answer with the line only."), "{prompt}");
+    assert!(prompt.ends_with("Answer with the JSON only."), "{prompt}");
 }
 
 #[test]
@@ -86,22 +86,85 @@ fn a_prompt_with_no_lore_says_so() {
 }
 
 #[test]
-fn a_prompt_tells_the_race_and_the_class_of_the_hero() {
-    let prompt = prompt_of(&murloc(), None, &forsaken_warlock(), 0);
+fn a_level_prompt_tells_the_race_and_the_class_of_the_hero() {
+    let level = Moment::LevelUp {
+        level: 20,
+        zone: None,
+    };
 
-    assert!(prompt.contains("The hero: a Forsaken warlock"), "{prompt}");
+    let leveled = prompt_of(&level, None, &forsaken_warlock(), 0);
+    let died = prompt_of(&murloc(), None, &forsaken_warlock(), 0);
+
+    assert!(
+        leveled.contains(">>>\n\nThe hero: a Forsaken warlock"),
+        "{leveled}"
+    );
+    assert!(!died.contains(">>>\n\nThe hero:"), "{died}");
 }
 
 #[test]
-fn a_prompt_says_how_to_name_the_hero() {
+fn a_level_prompt_offers_the_groups_of_the_pairing() {
+    let level = Moment::LevelUp {
+        level: 20,
+        zone: None,
+    };
+
+    let prompt = prompt_of(&level, None, &forsaken_warlock(), 0);
+
+    assert!(
+        prompt.contains("\"g.class_faction\" for the warlocks of the Horde"),
+        "{prompt}"
+    );
+    assert!(prompt.contains("\"g.people\" for the Forsaken"), "{prompt}");
+    assert!(
+        prompt.contains("{\"lore\": \"<your history>\", \"group\": "),
+        "{prompt}"
+    );
+}
+
+#[test]
+fn a_strange_pairing_gets_its_tension_note() {
+    let level = Moment::LevelUp {
+        level: 20,
+        zone: None,
+    };
+    let paladin = Who {
+        race: Some(Race::Forsaken),
+        class: Some(Class::Paladin),
+        titles: Vec::new(),
+    };
+
+    let strange = prompt_of(&level, None, &paladin, 0);
+    let plain = prompt_of(&level, None, &forsaken_warlock(), 0);
+
+    assert!(
+        strange.contains("The lore finds a Forsaken paladin strange."),
+        "{strange}"
+    );
+    assert!(!plain.contains("strange."), "{plain}");
+}
+
+#[test]
+fn a_deed_prompt_never_asks_the_model_to_name_the_hero() {
     let who = forsaken_warlock();
 
-    assert!(prompt_of(&murloc(), None, &who, 0).contains("Name the hero: $N\n"));
-    assert!(prompt_of(&murloc(), None, &who, 1).contains("Name the hero: the warlock\n"));
-    assert!(prompt_of(&murloc(), None, &who, 2).contains("Name the hero: no name\n"));
-    assert!(
-        prompt_of(&murloc(), None, &who, 7).contains("Name the hero: by the title \"Slap Happy\"")
-    );
+    for turn in 0..8 {
+        let prompt = prompt_of(&murloc(), None, &who, turn);
+        assert!(!prompt.contains("Name the hero:"), "{prompt}");
+        assert!(prompt.contains("do not name the hero"), "{prompt}");
+    }
+}
+
+#[test]
+fn a_flavor_prompt_still_says_how_to_name_the_hero() {
+    let flavor = Moment::Flavor {
+        what: "The player danced on a table in Goldshire.".to_string(),
+    };
+    let who = forsaken_warlock();
+
+    assert!(prompt_of(&flavor, None, &who, 0).contains("Name the hero: $N\n"));
+    assert!(prompt_of(&flavor, None, &who, 1).contains("Name the hero: the warlock\n"));
+    assert!(prompt_of(&flavor, None, &who, 2).contains("Name the hero: no name\n"));
 }
 
 #[test]
@@ -188,21 +251,31 @@ fn a_place_prompt_asks_for_the_place_alone() {
 
     let prompt = prompt_of(&westfall, None, &forsaken_warlock(), 0);
 
+    assert!(prompt.contains("the hero is not in it"), "{prompt}");
     assert!(
-        prompt.contains(&format!("Name the hero: {ABSENT}\n")),
+        prompt.contains("End on what holds in the place now."),
         "{prompt}"
     );
-    assert!(prompt.contains("the hero is not in it"), "{prompt}");
-    assert!(prompt.contains("Never tell that the hero came"), "{prompt}");
-    assert!(!prompt.contains("$N stands for"), "{prompt}");
+    assert!(
+        prompt.contains("{\"lore\": \"<your history>\"}"),
+        "{prompt}"
+    );
+    assert!(!prompt.contains("Your choices:"), "{prompt}");
 }
 
 #[test]
 fn a_deed_prompt_keeps_the_world_the_subject() {
     let prompt = prompt_of(&murloc(), None, &forsaken_warlock(), 0);
 
-    assert!(prompt.contains("Keep the place, the foe, or the people the subject"));
-    assert!(prompt.contains("$N stands for the name of the hero"));
+    assert!(
+        prompt.contains("its place, its foe, its people, or its order"),
+        "{prompt}"
+    );
+    assert!(
+        prompt.contains("the game adds both after your sentence"),
+        "{prompt}"
+    );
+    assert!(prompt.contains("- \"killer\": "), "{prompt}");
 }
 
 #[test]
@@ -309,9 +382,11 @@ fn the_author_notes_ask_to_end_on_the_present_and_to_leave_the_hero_out() {
         arrival.contains("End on what holds in the place now."),
         "{arrival}"
     );
-    let unnamed =
-        "When the deed reads well without the hero, say what changed and leave the hero out.";
-    assert!(deed.contains(unnamed), "{deed}");
+    assert!(deed.contains("End on what holds now."), "{deed}");
+    assert!(
+        deed.contains("Never name the hero, and never tell the deed."),
+        "{deed}"
+    );
 }
 
 #[test]

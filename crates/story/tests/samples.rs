@@ -1,12 +1,18 @@
+#![allow(clippy::unwrap_used)]
+
+use timeways_rules::narrator_shapes::{Token, skeleton};
 use timeways_story::arrival::arrival_in;
 use timeways_story::check::{
     COPIED_WORDS, copies_a_sample, in_voice, names_after_cutoff, plain_text, slop_in,
 };
 use timeways_story::line_check::{
-    COPIED_LINE_WORDS, Checked, Grounds, LineFault, checked_line, grounded,
+    COPIED_LINE_WORDS, Checked, Grounds, LineFault, built_faults, checked_line, grounded,
+    lore_faults,
 };
 use timeways_story::moments::Moment;
 use timeways_story::narrator::{ABSENT, Naming, Telling, Who};
+use timeways_story::narrator_render::{Values, render};
+use timeways_story::narrator_templates::{DEED_KINDS, TEMPLATES};
 use timeways_story::prose::prose_faults;
 use timeways_story::samples::{LineSample, Voice, every_sample, line_samples, rotated};
 use timeways_story::talk::{self, Scene};
@@ -90,9 +96,9 @@ fn every_sample_passes_every_check() {
 fn every_narrator_sample_is_grounded_in_its_moment_or_its_lore() {
     for sample in line_samples() {
         assert!(
-            grounded(sample.line, &grounds_of(&sample)),
+            grounded(sample.history, &grounds_of(&sample)),
             "{}",
-            sample.line
+            sample.history
         );
     }
 }
@@ -115,12 +121,12 @@ fn no_narrator_sample_shares_four_words_with_another_sample() {
     for sample in line_samples() {
         for other in every_sample()
             .into_iter()
-            .filter(|other| *other != sample.line)
+            .filter(|other| *other != sample.history)
         {
             assert!(
-                !shares_a_run(sample.line, other, COPIED_LINE_WORDS),
+                !shares_a_run(sample.history, other, COPIED_LINE_WORDS),
                 "{} / {other}",
-                sample.line
+                sample.history
             );
         }
     }
@@ -214,7 +220,7 @@ fn a_chapter_or_summary_sample_names_the_hero_at_most_twice() {
 }
 
 #[test]
-fn a_narrator_prompt_shows_each_sample_as_a_pair_of_moment_and_line() {
+fn a_narrator_prompt_shows_each_sample_as_a_pair_of_moment_and_answer() {
     let moment = Moment::NewZone {
         zone: "Ashenvale".to_string(),
     };
@@ -228,38 +234,87 @@ fn a_narrator_prompt_shows_each_sample_as_a_pair_of_moment_and_line() {
 
     let first = line_samples()[0];
     let pair = format!(
-        "Moment: {}\nThe hero: {}\nLore: {}\nName the hero: {}\nLine: {}",
+        "Moment: {}\nThe hero: {}\nLore: {}\nAnswer: {{\"lore\": \"{}\"}}",
         first.moment,
         first.who.unwrap(),
         first.lore.unwrap(),
-        first.hero,
-        first.line
+        first.history
     );
     assert!(prompt.contains(&pair), "{prompt}");
 }
 
 #[test]
-fn a_sample_with_no_lore_shows_none() {
-    let murlocs = line_samples()
+fn every_deed_sample_has_lore_of_its_own() {
+    for sample in line_samples()
         .into_iter()
-        .find(|sample| sample.lore.is_none())
+        .filter(|sample| !is_arrival(sample))
+    {
+        assert!(sample.lore.is_some(), "{}", sample.moment);
+    }
+}
+
+#[test]
+fn a_sample_answer_shows_its_choices_as_json() {
+    let hogger = line_samples()
+        .into_iter()
+        .find(|sample| sample.moment.contains("Hogger"))
         .unwrap();
-    let index = line_samples()
+
+    let answer: serde_json::Value = serde_json::from_str(&hogger.answer()).unwrap();
+
+    assert_eq!(answer["lore"], hogger.history);
+    assert_eq!(answer["leads"], "the Riverpaw");
+}
+
+/// True when `deed` is the text of `tokens`, where a slot or the hero stands for any words.
+fn matches_skeleton(deed: &str, tokens: &[Token]) -> bool {
+    let templates = TEMPLATES.as_ref().unwrap();
+    let words: Vec<Token> = tokens
         .iter()
-        .position(|sample| *sample == murlocs)
-        .unwrap();
-    let moment = Moment::NewZone {
-        zone: "Ashenvale".to_string(),
+        .map(|token| match token {
+            Token::Slot(_) => Token::Hero,
+            other => *other,
+        })
+        .collect();
+    let values = Values {
+        hero: Some("\u{1}".to_string()),
+        ..Values::default()
     };
-    let telling = Telling {
-        moment: &moment,
-        lore: None,
-        who: &Who::default(),
-    };
+    let pattern = render(templates, &words, &values);
+    let pieces: Vec<&str> = pattern.split('\u{1}').collect();
+    let lowered = deed.to_lowercase();
+    let mut rest = lowered.as_str();
+    for piece in pieces {
+        let piece = piece.trim().to_lowercase();
+        let Some(at) = rest.find(piece.as_str()) else {
+            return false;
+        };
+        rest = &rest[at + piece.len()..];
+    }
+    true
+}
 
-    let prompt = narrator::prompt(&telling, index);
+#[test]
+fn a_sample_answer_builds_its_sample_line() {
+    let templates = TEMPLATES.as_ref().unwrap();
+    for sample in line_samples()
+        .into_iter()
+        .filter(|sample| !is_arrival(sample))
+    {
+        let deed = sample.line.strip_prefix(sample.history).unwrap().trim();
+        let shape = DEED_KINDS
+            .iter()
+            .flat_map(|kind| templates.shapes(*kind))
+            .find(|info| info.parts.join(" + ") == sample.shape)
+            .unwrap_or_else(|| panic!("no shape {}", sample.shape));
+        let tokens = skeleton(&templates.table, &shape.shape).unwrap();
 
-    assert!(prompt.contains(&format!("Moment: {}\nLore: none\n", murlocs.moment)));
+        assert!(
+            matches_skeleton(deed, &tokens[1..]),
+            "{deed} / {}",
+            sample.shape
+        );
+    }
 }
 
 #[test]
@@ -381,11 +436,10 @@ fn every_sample_follows_the_guide() {
             hero_words: hero_words(&sample),
             ..grounds_of(&sample)
         };
+        let most = if is_arrival(&sample) { 3 } else { 1 };
 
-        let faults = match checked_line(sample.line, &grounds, "") {
-            Checked::Refused(faults) => faults,
-            Checked::Line(_) | Checked::Silent => Vec::new(),
-        };
+        let mut faults = lore_faults(sample.history, &grounds, "", most, 300);
+        faults.extend(built_faults(sample.line, sample.history, &grounds));
 
         let not_a_copy: Vec<&LineFault> = faults
             .iter()

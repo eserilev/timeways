@@ -404,6 +404,7 @@ fn a_call_reads_the_story(folder: &Path, outcome: Outcome) {
             position: 0,
             answer: Some("answer".to_string()),
             outcome,
+            shape: None,
         }],
         ..Line::default()
     };

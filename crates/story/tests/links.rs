@@ -871,6 +871,7 @@ fn call_line(position: u64) -> Line {
             position,
             answer: None,
             outcome: Outcome::Failed,
+            shape: None,
         }],
         ..Line::default()
     }

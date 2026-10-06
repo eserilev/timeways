@@ -1,11 +1,13 @@
 //! The narrator line of a batch in the story program (GAMEPLAY.md 3.2): its lore, its
-//! prompt, its check, and its one retry.
+//! prompt, its check, and its one retry. A moment with templates asks the model for the
+//! history and its choices, and the code builds the line (docs/plans/narrator-templates.md).
 
 use super::{Output, Story, quests, reads};
 use crate::input::MessageId;
 use crate::line_check::{Checked, Grounds, LineFault, checked_line};
 use crate::moments::Moment;
 use crate::narrator::{self, Telling, Who};
+use crate::narrator_build::{self, Answered, Built, Offer, Setup, answered, kind_of};
 use crate::narrator_lore::{is_silent, lore_of_moment, lore_subjects};
 use crate::prompt::{self, Attempt};
 use crate::store::{CharacterKey, Node, Outcome};
@@ -19,6 +21,9 @@ pub(in crate::story) struct NarratorCall {
     pub(super) grounds: Grounds,
     pub(super) attempt: Attempt,
     pub(super) reads: Vec<Node>,
+    /// What the templates build the line from. None for a flavor moment, whose line is
+    /// free text.
+    pub(super) templated: Option<Box<(Setup, Offer)>>,
 }
 
 impl Story {
@@ -53,7 +58,24 @@ impl Story {
             who: &who,
         };
         let turn = self.turn();
-        let prompt = narrator::prompt(&telling, turn);
+        let templated = match kind_of(moment) {
+            Some(_) => {
+                let setup = Setup {
+                    moment: moment.clone(),
+                    who: who.clone(),
+                    turn,
+                    recent: active.recent_shapes().ok()?,
+                };
+                // No shape fits the moment whatever the model says, so no call.
+                let offer = narrator_build::offer(&setup)?;
+                Some(Box::new((setup, offer)))
+            }
+            None => None,
+        };
+        let prompt = match templated.as_deref() {
+            Some((_, offer)) => narrator::lore_prompt(&telling, turn, offer),
+            None => narrator::line_prompt(&telling, turn),
+        };
         let grounds = Grounds::of(&telling, turn);
         let mut reads = std::mem::take(&mut self.batch_rows);
         reads.extend(reads::passages_read(active, passage.as_slice()));
@@ -63,6 +85,7 @@ impl Story {
             grounds,
             attempt: Attempt::First,
             reads,
+            templated,
         };
         Some((prompt, call))
     }
@@ -77,13 +100,20 @@ impl Story {
         text: &str,
     ) -> (Vec<Output>, Outcome) {
         let player_text = self.player_text(&call.key);
-        match checked_line(text, &call.grounds, &player_text) {
-            Checked::Line(line) => (vec![said(call.batch, line)], Outcome::Accepted),
-            Checked::Refused(faults) if call.attempt == Attempt::First && self.has_free_slot() => {
+        let verdict = match call.templated.as_deref() {
+            Some((setup, offer)) => answered(text, setup, offer, &call.grounds, &player_text),
+            None => free_line(text, &call.grounds, &player_text),
+        };
+        match verdict {
+            Answered::Line(built) => {
+                self.told_shape = (!built.shape.is_empty()).then_some(built.shape);
+                (vec![said(call.batch, built.line)], Outcome::Accepted)
+            }
+            Answered::Refused(faults) if call.attempt == Attempt::First && self.has_free_slot() => {
                 let retry = self.retry_narrator(row, call, prompt, text, &faults);
                 (retry, Outcome::Refused)
             }
-            Checked::Silent | Checked::Refused(_) => {
+            Answered::Silent | Answered::Refused(_) => {
                 (vec![quests::quiet(call.batch)], Outcome::Refused)
             }
         }
@@ -114,6 +144,20 @@ impl Story {
             self.open_call(pending, prompt, reads)
                 .unwrap_or_else(|| quests::quiet(batch)),
         ]
+    }
+}
+
+/// The verdict on a line of free text, for a flavor moment. It has no shape.
+fn free_line(text: &str, grounds: &Grounds, player_text: &str) -> Answered {
+    match checked_line(text, grounds, player_text) {
+        Checked::Line(line) => Answered::Line(Built {
+            line,
+            shape: String::new(),
+            parts: Vec::new(),
+            named: false,
+        }),
+        Checked::Silent => Answered::Silent,
+        Checked::Refused(faults) => Answered::Refused(faults),
     }
 }
 

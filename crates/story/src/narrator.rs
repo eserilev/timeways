@@ -4,6 +4,9 @@
 use crate::character::Character;
 use crate::house::{HOUSE_RULES, NAME_MARK, fenced, first_chars};
 use crate::moments::Moment;
+use crate::narrator_build::{self, Offer, Setup};
+use crate::narrator_slots::{ChoiceField, fields_of};
+use crate::narrator_templates::Kind;
 use crate::places::InstanceKind;
 use crate::race_class::{Class, Race};
 use crate::samples;
@@ -199,11 +202,167 @@ pub struct Telling<'a> {
     pub who: &'a Who,
 }
 
-/// `turn` picks the golden samples and the naming of the prompt. The hero sheet stays out:
-/// a line is about one moment, and models pulled the sheet into every line (GAMEPLAY.md
-/// 3.2.1).
+/// The task of an arrival with templates: the history of the place, which is the whole line.
+const PLACE_LORE_TASK: &str = "Write one or two sentences of history about the place of the \
+moment below, from the lore. The place is the subject, and the hero is not in it. End on \
+what holds in the place now.";
+
+/// The task of a deed with templates. The code adds the deed, so the model never names the
+/// hero (docs/plans/narrator-templates.md 8.2).
+const DEED_LORE_TASK: &str = "Write one sentence of history about the moment below, from \
+the lore: its place, its foe, its people, or its order. Do not tell the deed, and do not \
+name the hero: the game adds both after your sentence. End on what holds now.";
+
+/// The task of a tenth level with templates (docs/plans/level-lines.md).
+const LEVEL_LORE_TASK: &str = "Write one sentence of history about one of the groups below, \
+from the lore. Tell of the group as a whole. The game adds after your sentence that the \
+group grows stronger, and the level of the hero, so leave both out, and never name the \
+hero. End on what holds now.";
+
+const LORE_NOTE: &str = "\
+Remember: history only, from the lore. Add nothing. Never name the hero, and never tell \
+the deed. When the lore gives you nothing true to tell, answer {\"lore\": \"SILENCE\"}.
+Answer with the JSON only.";
+
+/// A word is about 6 characters, with its space.
+const CHARS_PER_WORD: usize = 6;
+
+/// The prompt of the moment. A moment with templates asks for the slot JSON; a flavor
+/// moment keeps a line of free text.
 #[must_use]
 pub fn prompt(telling: &Telling<'_>, turn: usize) -> String {
+    let setup = Setup {
+        moment: telling.moment.clone(),
+        who: telling.who.clone(),
+        turn,
+        recent: Vec::new(),
+    };
+    match narrator_build::offer(&setup) {
+        Some(offer) => lore_prompt(telling, turn, &offer),
+        None => line_prompt(telling, turn),
+    }
+}
+
+/// The prompt that asks for the history and the choices as JSON
+/// (docs/plans/narrator-templates.md 8.2).
+#[must_use]
+pub fn lore_prompt(telling: &Telling<'_>, turn: usize, offer: &Offer) -> String {
+    let task = match offer.kind {
+        Kind::Arrival => PLACE_LORE_TASK,
+        Kind::Level => LEVEL_LORE_TASK,
+        _ => DEED_LORE_TASK,
+    };
+    let words = (offer.budget / CHARS_PER_WORD).max(1);
+    let mut prompt = format!("{PERSONA}\n{HOUSE_RULES}\n\n{task} Use at most {words} words.");
+    let what = what_happened(telling.moment);
+    let samples = samples::line_section(turn, &what);
+    let _ = write!(prompt, "\n\n{samples}\n\nThe moment:\n{}", fenced(&what));
+    if matches!(offer.kind, Kind::Level | Kind::ClassQuest)
+        && let Some(who) = telling.who.described()
+    {
+        let _ = write!(prompt, "\n\nThe hero: {who}");
+        if offer.strange {
+            let _ = write!(
+                prompt,
+                "\nThe lore finds {who} strange. Tell the group as it is, and never as if \
+                 the hero fought their own faction."
+            );
+        }
+    }
+    match telling.lore {
+        Some(lore) => {
+            let _ = write!(prompt, "\n\nThe lore:\n{}", fenced(lore));
+        }
+        None => prompt.push_str("\n\nThe lore: none"),
+    }
+    let choices = choice_lines(telling.moment, offer);
+    if !choices.is_empty() {
+        let _ = write!(prompt, "\n\nYour choices:\n{}", choices.join("\n"));
+    }
+    let _ = write!(
+        prompt,
+        "\n\nAnswer with JSON only, in this form:\n{}\n\n{LORE_NOTE}",
+        answer_form(offer)
+    );
+    prompt
+}
+
+/// One line of meaning for each closed field of the moment (2.2).
+fn choice_lines(moment: &Moment, offer: &Offer) -> Vec<String> {
+    let mut lines = Vec::new();
+    for field in fields_of(offer.kind) {
+        let line = match field {
+            ChoiceField::Group => {
+                let groups: Vec<String> = offer
+                    .groups
+                    .iter()
+                    .map(|group| format!("\"{}\" for {}", group.id, group.text))
+                    .collect();
+                format!(
+                    "- \"group\": the group that your history tells of, and names. One of: {}.",
+                    groups.join(", ")
+                )
+            }
+            ChoiceField::There => format!(
+                "- \"there\": true when your history names {}, where it happened. Else false.",
+                zone_words(moment)
+            ),
+            ChoiceField::Leads => "- \"leads\": the group that the foe led, in the words of \
+                your history, such as \"the Riverpaw\". Else \"none\"."
+                .to_string(),
+            ChoiceField::LeadsNumber => "- \"leads_number\": \"one\" when that group is one \
+                body, such as \"the Brotherhood\", and \"many\" when it is many, such as \
+                \"the Riverpaw\"."
+                .to_string(),
+            ChoiceField::Tone => "- \"tone\": \"plain\", or \"dry\" for a dry edge.".to_string(),
+            ChoiceField::Killer => "- \"killer\": \"one\" when the killer is one named \
+                person, and \"kind\" when it is one of many of its kind."
+                .to_string(),
+            ChoiceField::Breed => "- \"breed\": true when your history tells of the breed \
+                of the mount, such as its rams or its wolves. Else false."
+                .to_string(),
+        };
+        lines.push(line);
+    }
+    lines
+}
+
+fn zone_words(moment: &Moment) -> String {
+    match moment {
+        Moment::FirstKill { zone, .. }
+        | Moment::Revenge { zone, .. }
+        | Moment::SlainAgain { zone, .. }
+        | Moment::Slapped { zone, .. }
+        | Moment::FirstEpicItem { zone, .. }
+        | Moment::BigUpgrade { zone, .. } => zone.clone().unwrap_or_else(|| "the zone".to_string()),
+        _ => "the zone".to_string(),
+    }
+}
+
+/// The JSON form of an answer, with the first value of each list.
+fn answer_form(offer: &Offer) -> String {
+    let mut fields = vec!["\"lore\": \"<your history>\"".to_string()];
+    for field in fields_of(offer.kind) {
+        let value = match field {
+            ChoiceField::Group => offer
+                .groups
+                .first()
+                .map_or_else(|| "\"\"".to_string(), |group| format!("\"{}\"", group.id)),
+            ChoiceField::There | ChoiceField::Breed => "false".to_string(),
+            ChoiceField::Leads => "\"none\"".to_string(),
+            ChoiceField::LeadsNumber | ChoiceField::Killer => "\"one\"".to_string(),
+            ChoiceField::Tone => "\"plain\"".to_string(),
+        };
+        fields.push(format!("\"{}\": {value}", field.name()));
+    }
+    format!("{{{}}}", fields.join(", "))
+}
+
+/// The prompt of a line of free text, for a flavor moment. `turn` picks the golden samples
+/// and the naming of the prompt. The hero sheet stays out: a line is about one moment, and
+/// models pulled the sheet into every line (GAMEPLAY.md 3.2.1).
+#[must_use]
+pub fn line_prompt(telling: &Telling<'_>, turn: usize) -> String {
     let arrival = telling.moment.is_arrival();
     let task = if arrival { PLACE_TASK } else { DEED_TASK };
     let mut prompt = format!("{PERSONA}\n{HOUSE_RULES}\n\n{task}");

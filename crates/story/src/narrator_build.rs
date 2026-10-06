@@ -4,7 +4,7 @@
 //! pick of a shape in turn, the render, and the checks of the built line.
 
 use crate::check::{mentions, words_of};
-use crate::line_check::{Grounds, LineFault, built_faults, lore_faults};
+use crate::line_check::{Grounds, LineFault, MOST_SENTENCES, built_faults, lore_faults};
 use crate::moments::{Creature, Moment, SlotKind};
 use crate::narrator::{MAX_LINE_CHARS, Naming, Who, naming};
 use crate::narrator_groups::{Group, groups_of, is_strange, order_of};
@@ -24,8 +24,9 @@ const MOST_LEADS_WORDS: usize = 4;
 /// The longest group name that the budget plans for, before the model names one.
 const LEADS_ROOM: &str = "the Defias Brotherhood of Westfall";
 
-/// An arrival may take two sentences of history; a deed takes one.
-const ARRIVAL_SENTENCES: usize = 2;
+/// An arrival may take as many sentences as a line, because the loved Deadmines line has
+/// three; a deed takes one.
+const ARRIVAL_SENTENCES: usize = MOST_SENTENCES;
 const DEED_SENTENCES: usize = 1;
 
 /// What one call knows of its moment.
@@ -108,11 +109,13 @@ pub fn offer(setup: &Setup) -> Option<Offer> {
     let templates = TEMPLATES.as_ref().ok()?;
     let kind = kind_of(&setup.moment)?;
     let (groups, strange) = match kind {
-        Kind::Level | Kind::ClassQuest => {
-            let (race, class) = (setup.who.race?, setup.who.class?);
-            let strange = is_strange(templates, race, class);
-            (groups_of(templates, race, class), strange)
-        }
+        Kind::Level | Kind::ClassQuest => match (setup.who.race, setup.who.class) {
+            (Some(race), Some(class)) => (
+                groups_of(templates, race, class),
+                is_strange(templates, race, class),
+            ),
+            _ => (Vec::new(), false),
+        },
         _ => (Vec::new(), false),
     };
     if kind == Kind::Level && groups.is_empty() {
