@@ -494,6 +494,9 @@ impl Builder {
     }
 
     /// The tokens of a text: words, marks, and slots in braces.
+    /// The first word of a part is a word of the middle of a sentence, so "That makes"
+    /// after "There," renders "There, that makes". The render puts the capital back at the
+    /// start of a sentence.
     fn tokens(&mut self, part: &str, text: &str) -> Result<Vec<Token>, TemplateError> {
         let mut tokens = Vec::new();
         for piece in text.split_whitespace() {
@@ -504,7 +507,12 @@ impl Builder {
             {
                 tokens.push(slot_token(part, name)?);
             } else if !body.is_empty() {
-                tokens.push(Token::Word(self.word_id(body)?));
+                let word = if tokens.is_empty() {
+                    body.to_lowercase()
+                } else {
+                    body.to_string()
+                };
+                tokens.push(Token::Word(self.word_id(&word)?));
             }
             if let Some(mark) = mark {
                 tokens.push(Token::Word(self.word_id(mark)?));

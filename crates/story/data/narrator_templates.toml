@@ -11,7 +11,8 @@
 # The moments: kill, revenge_before, revenge, death, side_quest, class_quest, title, slap,
 # mark, mount, epic_mount, item, level.
 #
-# A tag stops a doubled word: two parts of one line never share a tag. A need is a fact
+# A tag stops a doubled word: two parts of one line never share a tag. The tag "past"
+# keeps "Now," away from a deed in the past tense ("Now, Hogger fell" reads wrong). A need is a fact
 # that the part requires: there, order, dry, beast, undead, demon, dragonkin, elemental,
 # weapon, worn, leads, breed, repeat, one, many. "one" and "many" are the number of the
 # group, or of the group that the foe led.
@@ -24,7 +25,7 @@ article_a = ["Uni", "Use", "One"]
 [[connective]]
 id = "c.now"
 text = "Now,"
-tags = ["now", "opener"]
+tags = ["now", "opener", "past"]
 moments = ["kill", "class_quest", "side_quest", "title", "mount", "epic_mount", "item", "level"]
 
 [[connective]]
@@ -58,16 +59,19 @@ moments = ["class_quest"]
 id = "k.fell"
 moments = ["kill"]
 text = "{Foe} fell to {hero}."
+tags = ["past"]
 
 [[deed]]
 id = "k.defeated"
 moments = ["kill"]
 text = "{Hero} defeated {foe}."
+tags = ["past"]
 
 [[deed]]
 id = "k.brought"
 moments = ["kill"]
 text = "{Hero} brought {foe} down."
+tags = ["past"]
 
 [[deed]]
 id = "k.fallen"
@@ -79,30 +83,35 @@ id = "k.hunted"
 moments = ["kill"]
 text = "{Hero} hunted {foe} down."
 needs = ["beast"]
+tags = ["past"]
 
 [[deed]]
 id = "k.rest"
 moments = ["kill"]
 text = "{Hero} laid {foe} to rest."
 needs = ["undead"]
+tags = ["past"]
 
 [[deed]]
 id = "k.dragon"
 moments = ["kill"]
 text = "{Hero} brought down the dragon {foe}."
 needs = ["dragonkin"]
+tags = ["past"]
 
 [[deed]]
 id = "k.broke"
 moments = ["kill"]
 text = "{Hero} broke {foe} apart."
 needs = ["elemental"]
+tags = ["past"]
 
 [[deed]]
 id = "k.demon"
 moments = ["kill"]
 text = "{Hero} slew the demon {foe}."
 needs = ["demon"]
+tags = ["past"]
 
 [[deed]]
 id = "k.fallen_u"
@@ -137,6 +146,7 @@ tags = ["now"]
 id = "d.ordinal"
 moments = ["death"]
 text = "For the {ordinal} time, {killer} killed {hero}."
+tags = ["past"]
 
 [[deed]]
 id = "d.won_u"
@@ -193,6 +203,7 @@ text = "{Hero} has finished {quest}."
 id = "q.saw"
 moments = ["side_quest", "class_quest"]
 text = "{Hero} saw {quest} through."
+tags = ["past"]
 
 [[deed]]
 id = "q.done_u"
@@ -204,6 +215,7 @@ id = "cq.for"
 moments = ["class_quest"]
 text = "{Hero} finished {quest} for {order}."
 needs = ["order"]
+tags = ["past"]
 
 [[deed]]
 id = "cq.for_front"

@@ -17,13 +17,14 @@ use timeways_story::learned::Read;
 use timeways_story::line_check::{Checked, checked_line};
 use timeways_story::narrator::{Who, what_happened};
 use timeways_story::narrator_build::{Answered, Built, Setup, answered};
-use timeways_story::narrator_review::{Review, Sources, reviews};
+use timeways_story::narrator_review::{Review, Sources, reviews, template_lines};
 use timeways_story::pack::Pack;
 use timeways_story::prompt;
 use timeways_story::store::{CharacterKey, Store, name_of_safe_id};
 
 const USAGE: &str = "usage: timeways-narrator-review <world .sqlite> [--pack <lore pack>] \
 [--race <token>] [--class <token>] [--model <shell command> | --claude]
+       timeways-narrator-review --templates [--race <token>] [--class <token>]
   The world lives in <data folder>/worlds/r_<realm>/c_<name>.sqlite.
   A token is the one of the game: --race Scourge --class WARLOCK.
   --model runs the shell command with each prompt on stdin, and prints its line.
@@ -42,6 +43,9 @@ struct Options {
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.first().map(String::as_str) == Some("--templates") {
+        return print_templates(&args[1..]);
+    }
     let Some(options) = options(&args) else {
         eprintln!("{USAGE}");
         return ExitCode::FAILURE;
@@ -78,6 +82,23 @@ fn options(args: &[String]) -> Option<Options> {
         rest = after;
     }
     Some(options)
+}
+
+/// Every line of the templates for a pairing, with fixed values (the flag `--templates`).
+fn print_templates(args: &[String]) -> ExitCode {
+    let Some(options) = options(
+        &[String::new()]
+            .into_iter()
+            .chain(args.iter().cloned())
+            .collect::<Vec<_>>(),
+    ) else {
+        eprintln!("{USAGE}");
+        return ExitCode::FAILURE;
+    };
+    for line in template_lines(&options.who) {
+        println!("{line}");
+    }
+    ExitCode::SUCCESS
 }
 
 fn token<T: serde::de::DeserializeOwned>(value: &str) -> Option<T> {

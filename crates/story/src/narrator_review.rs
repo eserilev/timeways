@@ -5,10 +5,13 @@
 use crate::character::Character;
 use crate::learned::Read;
 use crate::line_check::Grounds;
+use crate::moments::{Creature, SlotKind};
 use crate::moments::{Moment, moments};
 use crate::narrator::{self, Telling, Who};
-use crate::narrator_build::{Offer, Setup, kind_of, offer};
+use crate::narrator_build::{Offer, Setup, every_line, kind_of, offer};
 use crate::narrator_lore::{LoreError, is_silent, lore_of_moment, lore_subjects};
+use crate::narrator_slots::{ChoiceField, Choices, KillerKind, Tone, fields_of};
+use crate::narrator_templates::Number;
 use crate::pack::Pack;
 use crate::seen::{SeenIndex, SeenText};
 use hourglass::{Event, Tick};
@@ -130,5 +133,131 @@ fn with_fallback(who: Who, fallback: &Who) -> Who {
         race: who.race.or(fallback.race),
         class: who.class.or(fallback.class),
         titles: who.titles,
+    }
+}
+
+/// The fixed moments of the review of the templates: one of each kind with templates.
+fn fixed_moments() -> Vec<Moment> {
+    let zone = Some("Westfall".to_string());
+    vec![
+        Moment::FirstKill {
+            foe: "Edwin VanCleef".to_string(),
+            zone: zone.clone(),
+            creature: Some(Creature::Beast),
+        },
+        Moment::Revenge {
+            foe: "Gath'Ilzogg".to_string(),
+            deaths: 2,
+            zone: zone.clone(),
+        },
+        Moment::SlainAgain {
+            killer: "Defias Pillager".to_string(),
+            times: 3,
+            zone: zone.clone(),
+        },
+        Moment::QuestDone {
+            title: "The Lost Plow".to_string(),
+            giver: Some("Farmer Saldean".to_string()),
+        },
+        Moment::ClassQuestDone {
+            title: "The Tome of Divinity".to_string(),
+        },
+        Moment::Titled {
+            title: "Bookworm".to_string(),
+        },
+        Moment::Slapped {
+            npc: "Innkeeper Heather".to_string(),
+            times: 2,
+            zone: zone.clone(),
+        },
+        Moment::QuestMarked {
+            mark: "Rediscovered Light".to_string(),
+            quest: "The Tome of Divinity".to_string(),
+        },
+        Moment::FirstMount {
+            mount: "Gray Ram".to_string(),
+            people: Some("Ironforge".to_string()),
+        },
+        Moment::FirstEpicMount {
+            mount: "Swift Brown Steed".to_string(),
+            people: None,
+        },
+        Moment::BigUpgrade {
+            item: "Cruel Barb".to_string(),
+            zone,
+            slot: Some(SlotKind::Weapon),
+        },
+        Moment::LevelUp {
+            level: 30,
+            zone: None,
+        },
+    ]
+}
+
+/// Every line that the templates can build for a pairing, with fixed values, so a person
+/// reviews the templates in one list (docs/plans/narrator-templates.md 4). Each line names
+/// its parts.
+#[must_use]
+pub fn template_lines(who: &Who) -> Vec<String> {
+    let mut printed = Vec::new();
+    for moment in fixed_moments() {
+        let setup = Setup {
+            moment,
+            who: who.clone(),
+            turn: 0,
+            recent: Vec::new(),
+        };
+        printed.push(format!("=== {}", narrator::what_happened(&setup.moment)));
+        let Some(offer) = offer(&setup) else {
+            printed.push("(no shape fits)".to_string());
+            continue;
+        };
+        let groups = if offer.groups.is_empty() {
+            vec![None]
+        } else {
+            offer.groups.iter().map(Some).collect()
+        };
+        for group in groups {
+            let anchor = group.and_then(|group| group.anchors.first().cloned());
+            let lore = format!(
+                "{} and the Defias hold Westfall and its rams now.",
+                anchor.as_deref().unwrap_or("The Brotherhood")
+            );
+            let choices = Choices {
+                group: group.map(|group| group.id.clone()),
+                there: Some(true),
+                leads: Some("the Defias".to_string()),
+                leads_number: Some(Number::Many),
+                tone: Some(Tone::Dry),
+                killer: Some(KillerKind::Kind),
+                breed: Some(true),
+            };
+            let offered = fields_of(offer.kind);
+            let choices = only_offered(choices, offered);
+            match every_line(&setup, &offer, &lore, &choices) {
+                Ok(lines) => printed.extend(
+                    lines
+                        .into_iter()
+                        .map(|built| format!("{}  [{}]", built.line, built.parts.join(" + "))),
+                ),
+                Err(faults) => printed.push(format!("(refused: {faults:?})")),
+            }
+        }
+    }
+    printed
+}
+
+fn only_offered(choices: Choices, offered: &[ChoiceField]) -> Choices {
+    let has = |field: ChoiceField| offered.contains(&field);
+    Choices {
+        group: choices.group.filter(|_| has(ChoiceField::Group)),
+        there: choices.there.filter(|_| has(ChoiceField::There)),
+        leads: choices.leads.filter(|_| has(ChoiceField::Leads)),
+        leads_number: choices
+            .leads_number
+            .filter(|_| has(ChoiceField::LeadsNumber)),
+        tone: choices.tone.filter(|_| has(ChoiceField::Tone)),
+        killer: choices.killer.filter(|_| has(ChoiceField::Killer)),
+        breed: choices.breed.filter(|_| has(ChoiceField::Breed)),
     }
 }
