@@ -13,7 +13,7 @@ fewer. -/
 theorem the_newest_prompts_are_always_kept (newest : U64) :
     oldest_prompt_kept newest ⦃ oldest =>
       oldest.val ≤ newest.val ∧ newest.val - oldest.val < 500 ∧
-      (newest.val < 500 ∨ newest.val - oldest.val = 499) ⦄ := by
+      (oldest.val = 0 ∨ newest.val - oldest.val = 499) ⦄ := by
   unfold oldest_prompt_kept
   have hk : PROMPTS_KEPT.val = 500 := by simp [PROMPTS_KEPT]
   step as ⟨i, hi⟩
