@@ -177,7 +177,7 @@ The fold lives in `crates/rules/src/chapters.rs`, in loop style: index loops, `p
 
 - `advance(state, steps)` folds steps onto a state. `chapters(steps)` is `advance(start(), steps)`.
 - The fold also gives the **gain of each step**, as a `Vec<u16>`. The journal needs it to leave repeats out, and the proofs get simpler.
-- `cutsOf` and `advanceOf` are the Lean functions of the fold. `Reachable st` means that `start` and `advance` built `st`. A law that holds from any reachable state lets the story program fold one line at a time.
+- `cutsOf` and `advanceOf` are the Lean functions of the fold. A reachable state is `runM ss`: the fold of one log from `start`. A law that holds from any reachable state lets the story program fold one line at a time.
 - A rule change is a step: `Rule(n)`. The walk puts it at the `from` of each row of `chapter_rules`. The constants of each rule are a `match` on `n`. An old rule is never edited and never deleted.
 - A key is **spent** when it can gain nothing more: a seen key of any kind but a death, or a death key whose foe is beaten or whose deaths reached 2.
 

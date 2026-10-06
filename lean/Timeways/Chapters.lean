@@ -60,9 +60,6 @@ theorem runM_gains (ss : List Step) (s : Step) (h : ss.length + 1 ≤ Usize.max)
   rw [(runM_sized ss (by omega)).1]
   omega
 
-/-- A fold that `start` and `advance` built from one log. -/
-def Reachable (st : Fold) : Prop := ∃ ss : List Step, ss.length ≤ Usize.max ∧ st = runM ss
-
 /-- Folding one line at a time gives the same fold as folding the whole log. -/
 theorem folding_line_by_line (a b : List Step) : b.foldl applyM (runM a) = runM (a ++ b) := by
   simp [runM, List.foldl_append]

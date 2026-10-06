@@ -210,7 +210,8 @@ The keys, the foes, and the zones need no room: the fold checks it
 (`has_slot`).
 
 **Reachable.** A law of the form "from a reachable fold" is a law about
-`runM ss` for a log `ss` that fits a `usize`. Folding one line at a time
+`runM ss` for a log `ss` that fits a `usize`. No predicate names it: the
+law says `runM ss`. Folding one line at a time
 gives the same fold as folding the whole log
 (`advance_one_line_at_a_time`), so the story program can fold each new
 line.
