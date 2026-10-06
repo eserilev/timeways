@@ -155,6 +155,24 @@ fn the_header_names_the_target_with_level_race_and_class() {
     }
 }
 
+/// The game can hide the race of the target (`SecretWhenUnitIdentityRestricted`). A test of
+/// a hidden value is a Lua error, so the header leaves it out.
+#[test]
+fn the_header_leaves_out_a_race_that_the_game_hides() {
+    let (ada, corvin) = party();
+    ada.run("wow.secrets['Undead'] = true");
+
+    open(&ada, &corvin);
+
+    let shown: bool = ada.eval(
+        "for _, widget in ipairs(wow.widgets) do
+             if widget.kind == 'FontString' and widget.text == 'Level 11 Mage' then return true end
+         end
+         return false",
+    );
+    assert!(shown);
+}
+
 #[test]
 fn send_stays_off_until_the_room_is_open() {
     let (ada, corvin) = party();

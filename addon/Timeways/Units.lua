@@ -37,3 +37,10 @@ function Units.FriendlyNpcName(unit)
 		return name
 	end
 end
+
+-- A word that the game shows, such as a race or a class, or nil for none or a hidden one.
+function Units.Shown(word)
+	if type(word) == "string" and not issecretvalue(word) then
+		return word
+	end
+end

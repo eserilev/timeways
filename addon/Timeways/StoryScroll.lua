@@ -354,11 +354,13 @@ local function Build()
 	frame:Hide()
 end
 
--- "Level 11 Undead Mage", from the game, while the player is your target.
+-- "Level 11 Undead Mage", from the game, while the player is your target. A word that the
+-- game hides stays out.
 local function LevelLine(unit)
-	local race = UnitRace(unit)
-	local class = UnitClass(unit)
-	return string.format("Level %d %s %s", UnitLevel(unit) or 0, race or "", class or "")
+	local words = { "Level " .. (UnitLevel(unit) or 0) }
+	words[#words + 1] = ns.Units.Shown(UnitRace(unit))
+	words[#words + 1] = ns.Units.Shown(UnitClass(unit))
+	return table.concat(words, " ")
 end
 
 -- A draft for a player who is not your target shows the name only.
