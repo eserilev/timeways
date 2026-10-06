@@ -122,3 +122,23 @@ fn a_full_update_or_a_broken_aura_raises_no_error_and_sends_nothing() {
 
     assert!(rides(&game).is_empty());
 }
+
+/// While the game restricts auras, the whole `UNIT_AURA` update is secret
+/// (`SecretWhenAurasRestricted`). A test of a secret field is a Lua error in the game, so
+/// the addon reads none of it.
+#[test]
+fn a_hidden_aura_update_names_no_mount_and_raises_no_error() {
+    let game = Game::new();
+
+    game.run(&format!(
+        "local added = {{ {RAM} }}
+         wow.secrets[added] = true
+         wow.Fire('UNIT_AURA', 'player', {{ isFullUpdate = false, addedAuras = added }})
+         wow.mounted = true
+         wow.runSpeed = 11.2
+         wow.Fire('PLAYER_MOUNT_DISPLAY_CHANGED')
+         for _, timer in ipairs(wow.after) do timer.callback() end"
+    ));
+
+    assert!(rides(&game).is_empty(), "{:?}", rides(&game));
+}

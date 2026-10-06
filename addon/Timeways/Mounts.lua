@@ -38,15 +38,17 @@ local function IsSelfAura(aura)
 	return named and aura.duration == 0 and aura.sourceUnit == "player"
 end
 
--- A full update is the state at login or after a load screen, not a new aura.
+-- A full update is the state at login or after a load screen, not a new aura. While the game
+-- restricts auras, it hides the whole update, and a test of a hidden field is a Lua error.
 function Mounts.AuraChanged(unit, info)
-	if unit ~= "player" or type(info) ~= "table" or info.isFullUpdate then
+	if unit ~= "player" or type(info) ~= "table" then
 		return
 	end
-	if type(info.addedAuras) ~= "table" then
+	local full, added = info.isFullUpdate, info.addedAuras
+	if issecretvalue(full) or issecretvalue(added) or full or type(added) ~= "table" then
 		return
 	end
-	for _, aura in ipairs(info.addedAuras) do
+	for _, aura in ipairs(added) do
 		if IsSelfAura(aura) then
 			lastSelfAura = { name = aura.name, at = time() }
 		end
