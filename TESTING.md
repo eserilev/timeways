@@ -302,6 +302,7 @@ The story program then puts `"dev": true` on each journal. The addon reads it at
 - Each fake event line carries `"dev": true`. While dev mode is off, the story program refuses every line with a `dev` key (`crates/story/tests/dev_mode.rs`, the property test `a_dev_line_never_changes_a_world_while_dev_mode_is_off`, and the fuzz seeds `fuzz/seeds/input/dev.txt`).
 - A line with a reply (`talk_asked`, `lore_asked`, `journal_asked`, `draft_asked`) carries no mark yet, because the bridge reads these lines in a fixed shape. Only `/twdev talk` sends one, and only while the addon knows that dev mode is on.
 - A fake player gets its messages in the game itself. Nothing goes on the wire to it (`crates/addon-tests/tests/dev_peer.rs`). Its realm is `Devrealm`, which no server has.
+- While dev mode is on, the addon sends nothing to real players and ignores their messages. The chat says "Dev mode is on. Nothing is shared with other players.", and the Roleplay Profile says "Sharing is off in dev mode." The Share setting stays as you set it, and works again when dev mode turns off. Each send goes through `ToPlayers.lua`, and a test fails when a file sends past it (`crates/addon-tests/tests/dev_mode_sharing.rs`).
 - The code ships in each release, and does nothing until the desktop turns dev mode on.
 
 ### Worlds from scenarios

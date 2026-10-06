@@ -24,6 +24,7 @@ local PERMANENT = {
 	[RESULT.TargetRequired] = true,
 	[RESULT.InvalidChannel] = true,
 	[RESULT.NotInGuild] = true,
+	[ns.ToPlayers.DEV_MODE] = true,
 }
 
 -- A random start: after a reload, a counter from 1 joins old parts of a peer to new ones.
@@ -58,9 +59,9 @@ end
 -- The logged channel can answer nil. Nil gives no reason to wait, so it counts as Success.
 local function SendPart(entry)
 	local target = entry.channel == "WHISPER" and entry.to or nil
-	local send = C_ChatInfo.SendAddonMessage
+	local send = ns.ToPlayers.Send
 	if entry.log == ns.TaskWire.LOGGED then
-		send = C_ChatInfo.SendAddonMessageLogged
+		send = ns.ToPlayers.SendLogged
 	end
 	return send(TaskChannel.PREFIX, entry.parts[1], entry.channel, target) or RESULT.Success
 end
@@ -145,6 +146,10 @@ function TaskChannel.Waiting()
 	return #waiting
 end
 
+function TaskChannel.DropWaiting()
+	waiting = {}
+end
+
 -- `log` is the channel that the part came on. The rest is the payload of CHAT_MSG_ADDON. The
 -- game names the sender, so the sender is known.
 function TaskChannel.Received(log, prefix, text, channel, sender)
@@ -153,7 +158,10 @@ function TaskChannel.Received(log, prefix, text, channel, sender)
 	end
 	sender = ns.TaskPeople.Full(sender)
 	local now = GetTime()
-	if not sender or sender == ns.TaskPeople.Me() or not ns.PeerAllowance.Take(allowance, sender, now) then
+	if not sender or sender == ns.TaskPeople.Me() or not ns.ToPlayers.Hears(sender) then
+		return
+	end
+	if not ns.PeerAllowance.Take(allowance, sender, now) then
 		return
 	end
 	ns.TaskPeople.Heard(sender)

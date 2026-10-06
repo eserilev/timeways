@@ -211,7 +211,7 @@ end
 local function StoryPage(hero, texts, unsaved)
 	local cards = Tabs("story")
 	cards.rows[1] = { kind = "line", text = JournalHero.USAGE, ink = "faded" }
-	local shared = ns.MspProfile.IsSharing()
+	local shared = ns.MspProfile.IsSharing() and ns.Dev.CanTalkToPlayers()
 	local summary = ns.JournalEdits.SharedSummary()
 	for _, field in ipairs(ns.Hero.FIELDS) do
 		local card = Card(field, texts, unsaved, "Answer")
@@ -241,6 +241,9 @@ local function ShareRow()
 		-- The owner can be "your roleplay addon", which starts in lower case.
 		local subject = owner:gsub("^%l", string.upper)
 		return { kind = "line", text = subject .. " shares your profile. Change it there." }
+	end
+	if not ns.Dev.CanTalkToPlayers() then
+		return { kind = "line", text = "Sharing is off in dev mode." }
 	end
 	local sharing = ns.MspProfile.IsSharing()
 	return {

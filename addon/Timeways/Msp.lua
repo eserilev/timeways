@@ -47,7 +47,7 @@ end
 
 -- The logged channel can answer nil. Nil gives no reason to wait, so it counts as Success.
 local function Send(part, entry)
-	local send = entry.logged and C_ChatInfo.SendAddonMessageLogged or C_ChatInfo.SendAddonMessage
+	local send = entry.logged and ns.ToPlayers.SendLogged or ns.ToPlayers.Send
 	return send(ns.MspWire.PREFIX, part, "WHISPER", entry.to) or RESULT.Success
 end
 
@@ -88,6 +88,10 @@ end
 
 function Msp.Waiting()
 	return #waiting
+end
+
+function Msp.DropWaiting()
+	waiting = {}
 end
 
 local function ForgetOldestPlayer()
@@ -203,7 +207,10 @@ function Msp.Received(prefix, text, sender, logged)
 	end
 	sender = ns.TaskPeople.Full(sender)
 	local now = GetTime()
-	if not sender or sender == ns.TaskPeople.Me() or not ns.PeerAllowance.Take(allowance, sender, now) then
+	if not sender or sender == ns.TaskPeople.Me() or not ns.ToPlayers.Hears(sender) then
+		return
+	end
+	if not ns.PeerAllowance.Take(allowance, sender, now) then
 		return
 	end
 	local whole, allLogged = ns.MspParts.Add(collector, sender, text, logged, now)

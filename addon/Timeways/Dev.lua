@@ -21,13 +21,28 @@ function Dev.Say(text)
 	DEFAULT_CHAT_FRAME:AddMessage(PREFIX .. text)
 end
 
--- From the first page of each journal. A journal with no `dev` mark turns it off.
+-- From the first page of each journal. A journal with no `dev` mark turns it off. A
+-- message that waits to go out belongs to the world before the change, so it goes nowhere.
 function Dev.DesktopSays(value)
-	desktopOn = value == true
+	local on = value == true
+	if on == desktopOn then
+		return
+	end
+	desktopOn = on
+	ns.TaskChannel.DropWaiting()
+	ns.Msp.DropWaiting()
+	if on then
+		DEFAULT_CHAT_FRAME:AddMessage("|cffc8a064Timeways|r: Dev mode is on. Nothing is shared with other players.")
+	end
 end
 
 function Dev.IsOn()
 	return desktopOn
+end
+
+-- A dev world holds fake data, so no message goes to a real player while dev mode is on.
+function Dev.CanTalkToPlayers()
+	return not desktopOn
 end
 
 -- Every fake line carries `dev = true`, so the desktop refuses it while dev mode is off.

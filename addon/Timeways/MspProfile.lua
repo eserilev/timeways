@@ -92,8 +92,12 @@ function MspProfile.IsSharing()
 end
 
 -- Your own summary of the Chronicle, when you wrote one, goes out as the History in place
--- of Background (docs/plans/chapters.md 11).
+-- of Background (docs/plans/chapters.md 11). The copy answers real players, so the fake
+-- sheet of a dev world never goes into it.
 local function CopySheet()
+	if not ns.Dev.CanTalkToPlayers() then
+		return
+	end
 	local fields = {}
 	for field, code in pairs(MspProfile.CODES) do
 		fields[code] = Shareable(sheet[field])
@@ -187,6 +191,9 @@ function MspProfile.State()
 	local owner = MspProfile.Owner()
 	if owner then
 		return "From " .. owner
+	end
+	if Data().share and not ns.Dev.CanTalkToPlayers() then
+		return "Off in dev mode"
 	end
 	return Data().share and "Shared" or "Not shared"
 end
