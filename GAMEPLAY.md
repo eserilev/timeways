@@ -862,7 +862,7 @@ A web request for each question is slow, depends on one website, and sends whole
   - The index page "History of Warcraft" and its chapters I to V. Each `* [[Page]]` line of a chapter is a book. The builder takes the `content=` argument of the `{{Book}}` call of the page, and no other argument. A template with a longer name, such as `{{Bookshelf}}`, is no book. A copy from a website, with "(site)" in its title, comes only when the page has no other copy. Each book passage is common.
   - Wiki pages, each with its kept sections, and its places, its NPCs, or `common`. A page with none of them is refused when the list is read, before the dump.
   - A subsection goes in only when its parent section goes in too. A page can hold "World of Warcraft" under "History" and again under "Quotes".
-  - Later terms: regular expressions for the names of later expansions and of their people and places, and for the raids from Molten Core on. A paragraph of a wiki page that matches one goes out.
+  - Later terms: regular expressions for the names of later expansions and of their people and places, and for the raids from Molten Core on. Each name of the cutoff list (5.9) is a later term too. A paragraph of a wiki page that matches one goes out, with every piece of it.
   - Game terms: regular expressions for talk about the game, not the world, such as players, levels, instances, quests, and loot. A paragraph of a wiki page that matches one goes out.
 - **A title** gets an upper case first letter, as in MediaWiki: `[[night elf]]` is the page "Night elf".
 - **A redirect** is followed one step. Two titles that lead to one book give its passages once.

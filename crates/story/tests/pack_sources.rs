@@ -304,6 +304,32 @@ fn a_paragraph_that_talks_about_the_game_is_dropped_and_counted() {
     assert_eq!(built.report, [read("Testvale", 1, 1, 1)]);
 }
 
+/// The lead of "Brackenwall Village" tells of "the Pandaria campaign", and no later term
+/// held it. A name that a narrator line may never say is no lore of 25 ADP either.
+#[test]
+fn a_paragraph_with_a_name_past_the_cutoff_is_dropped() {
+    let page = format!(
+        "{}\n{}\n",
+        long("Testvale lies under the old tower."),
+        long("Throughout the Pandaria campaign, the folk of Testvale stayed home."),
+    );
+    let index = index("===Chapter I: Dawn===\n===Chapter II: Noon===\n");
+    let dump = write_dump(
+        "sources-cutoff-name",
+        &[article(INDEX, &index), article("Testvale", &page)],
+    );
+    let list = "[[pages]]\ntitle = \"Testvale\"\nlead = true\nsections = []\n\
+                places = [\"Testvale\"]\n";
+
+    let built = from_dump(&dump, &sources(list)).unwrap();
+
+    assert_eq!(
+        texts(&built.passages),
+        [long("Testvale lies under the old tower.")]
+    );
+    assert_eq!(built.report, [read("Testvale", 1, 1, 0)]);
+}
+
 /// A paragraph past the limit of the bridge becomes several passages. A later term in one
 /// piece drops every piece, because the rest of the paragraph tells the same later story.
 #[test]

@@ -1,6 +1,7 @@
 //! The passages of the lore pack, built from a wiki dump on the computer of the player
 //! (GAMEPLAY.md 5.10). The repo holds only the list of pages in `data/pack_sources.toml`.
 
+use crate::check::later_names;
 use crate::dump::{self, DumpError, Page};
 use crate::pack::{Link, Origin, Passage};
 use crate::passage_limits::pieces;
@@ -142,7 +143,7 @@ pub struct Built {
 /// term is broken. A missing book or page is only reported.
 pub fn from_dump(path: &Path, sources: &Sources) -> Result<Built, SourcesError> {
     let filters = Filters {
-        later: one_pattern(&sources.later.terms)?,
+        later: one_pattern(&later_terms(sources))?,
         game: one_pattern(&sources.game.terms)?,
     };
     let page_titles: Vec<String> = sources
@@ -191,6 +192,13 @@ impl Filters {
     fn is_game(&self, text: &str) -> bool {
         self.game.as_ref().is_some_and(|game| game.is_match(text))
     }
+}
+
+/// The later terms of the list, and each name of the cutoff list (GAMEPLAY.md 5.9): a name
+/// that no answer may say is no lore of 25 ADP. "Pandaria" also holds "Pandarian".
+fn later_terms(sources: &Sources) -> Vec<String> {
+    let names = later_names().map(|name| format!(r"\b{}", regex::escape(name)));
+    sources.later.terms.iter().cloned().chain(names).collect()
 }
 
 /// One pattern for all terms, so a paragraph is searched once.
