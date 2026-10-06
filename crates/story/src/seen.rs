@@ -39,7 +39,15 @@ impl SeenText {
             source: self.source(),
             links,
             origin: Origin::Read,
-            about: None,
+            about: self.own_subject(),
+        }
+    }
+
+    /// A quest or a book is about itself: the narrator line of a class quest tells its text.
+    fn own_subject(&self) -> Option<String> {
+        match self.kind {
+            TextKind::Quest | TextKind::Book => self.title.clone(),
+            TextKind::Gossip => None,
         }
     }
 

@@ -550,6 +550,39 @@ fn batch_end(story: &mut Story, id: u64) -> Output {
     one(story.handle(Input::BatchEnd { id: MessageId(id) }).unwrap()).unwrap()
 }
 
+/// The lore of a class quest that a paladin turns in.
+fn light() -> Passage {
+    passage(
+        "In Rediscovering the Light, the paladins of the Silver Hand send their novices to Stormwind.",
+        "the wiki page \"Rediscovering the Light\"",
+        vec![Link::Common],
+    )
+}
+
+/// The lore of the people of a human hero: a tenth level speaks only with it.
+fn stormwind() -> Passage {
+    Passage {
+        about: Some("Stormwind City".to_string()),
+        ..passage(
+            "King Barathen Wrynn scattered the gnolls, and his line rules Stormwind City.",
+            "the wiki page \"Stormwind City\"",
+            vec![Link::Common],
+        )
+    }
+}
+
+/// A human paladin with the lore of Stormwind, so a tenth level has lore to tell.
+fn paladin_story(name: &str) -> Story {
+    let mut story = story_with(name, &[stormwind()]);
+    let described = Input::CharacterDescribed {
+        at: Tick(1),
+        race: Race::Human,
+        class: Class::Paladin,
+    };
+    story.handle(described).unwrap();
+    story
+}
+
 fn level(story: &mut Story, at: u64, level: u8) {
     assert_eq!(
         one(story
@@ -599,7 +632,7 @@ fn a_plain_level_up_gets_no_narrator_line() {
 
 #[test]
 fn a_big_moment_asks_the_model_for_a_narrator_line() {
-    let mut story = story_with("big-moment", &[]);
+    let mut story = paladin_story("big-moment");
     level(&mut story, 1, 19);
     level(&mut story, 2, 20);
 
@@ -625,7 +658,7 @@ fn a_big_moment_asks_the_model_for_a_narrator_line() {
 
 #[test]
 fn a_turned_in_class_quest_asks_the_narrator_for_a_line() {
-    let mut story = story_with("class-quest", &[]);
+    let mut story = story_with("class-quest", &[light()]);
     let done = Input::GameQuestDone {
         at: Tick(1),
         title: "Rediscovering the Light".to_string(),
@@ -645,7 +678,7 @@ fn a_turned_in_class_quest_asks_the_narrator_for_a_line() {
 
 #[test]
 fn a_refused_narrator_line_gets_one_retry_with_the_reasons() {
-    let mut story = story_with("narrator-retry", &[]);
+    let mut story = paladin_story("narrator-retry");
     level(&mut story, 1, 19);
     level(&mut story, 2, 20);
     let (call, first_prompt) = model_call(batch_end(&mut story, 3));
@@ -677,7 +710,7 @@ fn a_refused_narrator_line_gets_one_retry_with_the_reasons() {
 
 #[test]
 fn a_second_refused_narrator_line_is_silence() {
-    let mut story = story_with("narrator-retry-fails", &[]);
+    let mut story = paladin_story("narrator-retry-fails");
     level(&mut story, 1, 19);
     level(&mut story, 2, 20);
     let (call, _) = model_call(batch_end(&mut story, 3));
@@ -702,7 +735,7 @@ fn a_second_refused_narrator_line_is_silence() {
 
 #[test]
 fn a_narrator_that_answers_silence_gets_no_retry() {
-    let mut story = story_with("narrator-silence", &[]);
+    let mut story = paladin_story("narrator-silence");
     level(&mut story, 1, 19);
     level(&mut story, 2, 20);
     let (call, _) = model_call(batch_end(&mut story, 3));
@@ -777,7 +810,7 @@ fn the_narrator_names_the_race_and_the_class_of_the_hero() {
 
 #[test]
 fn a_narrator_line_never_carries_the_hero_sheet() {
-    let mut story = story_with("narrator-no-sheet", &[]);
+    let mut story = paladin_story("narrator-no-sheet");
     set_field(&mut story, "bond", "An unread letter from my brother.").unwrap();
     level(&mut story, 1, 19);
     level(&mut story, 2, 20);
@@ -790,7 +823,7 @@ fn a_narrator_line_never_carries_the_hero_sheet() {
 
 #[test]
 fn a_quest_mark_asks_the_narrator_for_a_line() {
-    let mut story = story_with("quest-mark", &[]);
+    let mut story = story_with("quest-mark", &[light()]);
     let marked = Input::QuestMarked {
         at: Tick(1),
         quest: "Rediscovering the Light".to_string(),
@@ -843,7 +876,7 @@ fn a_quest_of_the_game_with_a_bad_title_is_refused() {
 
 #[test]
 fn a_name_in_no_fact_is_logged_and_the_line_still_shows() {
-    let mut story = story_with("unknown-name", &[]);
+    let mut story = paladin_story("unknown-name");
     level(&mut story, 1, 19);
     level(&mut story, 2, 20);
     let (call, _) = model_call(batch_end(&mut story, 3));
@@ -865,7 +898,7 @@ fn a_name_in_no_fact_is_logged_and_the_line_still_shows() {
 
 #[test]
 fn a_failed_or_bad_narrator_line_is_silence() {
-    let mut story = story_with("silent", &[]);
+    let mut story = paladin_story("silent");
     level(&mut story, 1, 19);
     level(&mut story, 2, 20);
     let (failed, _) = model_call(batch_end(&mut story, 3));
@@ -902,7 +935,7 @@ fn a_failed_or_bad_narrator_line_is_silence() {
 
 #[test]
 fn a_spent_budget_asks_no_model() {
-    let mut story = story_with("budget", &[]);
+    let mut story = paladin_story("budget");
     level(&mut story, 1, 10);
     for (batch, level_now) in [(1, 20), (2, 30), (3, 40)] {
         level(&mut story, u64::from(level_now), level_now);
@@ -925,7 +958,7 @@ fn a_spent_budget_asks_no_model() {
 
 #[test]
 fn each_batch_starts_with_no_moments() {
-    let mut story = story_with("fresh-batch", &[]);
+    let mut story = paladin_story("fresh-batch");
     level(&mut story, 1, 19);
     level(&mut story, 2, 20);
     let _ = model_call(batch_end(&mut story, 3));
@@ -1479,7 +1512,7 @@ fn deeds(story: &mut Story) -> Vec<timeways_story::journal::Deed> {
 }
 
 #[test]
-fn a_third_dance_in_goldshire_earns_a_title_and_the_narrator_speaks_of_it() {
+fn a_third_dance_in_goldshire_earns_a_title_and_the_narrator_stays_silent() {
     let mut story = story_with("title-earned", &[]);
     enter(&mut story, 1, "Elwynn Forest", Some("Goldshire"));
     let _ = batch_end(&mut story, 1);
@@ -1487,15 +1520,15 @@ fn a_third_dance_in_goldshire_earns_a_title_and_the_narrator_speaks_of_it() {
     for at in 2..=4 {
         assert!(emote(&mut story, at, "dance").unwrap().is_empty());
     }
-    let (_, prompt) = model_call(batch_end(&mut story, 2));
+    let output = batch_end(&mut story, 2);
 
     let titled = deeds(&mut story).into_iter().any(|deed| {
         matches!(deed, timeways_story::journal::Deed::Titled { ref title, .. } if title == "Lord of the Goldshire Dance Floor")
     });
     assert!(titled);
     assert!(
-        prompt.contains("Lord of the Goldshire Dance Floor"),
-        "{prompt}"
+        matches!(output, Output::EventsSeen { narrator: None, .. }),
+        "a title has no lore, so it gets no line: {output:?}"
     );
 }
 

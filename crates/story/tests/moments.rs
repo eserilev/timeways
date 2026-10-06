@@ -439,13 +439,14 @@ fn an_epic_upgrade_tells_the_first_epic_item() {
 }
 
 #[test]
-fn the_lore_of_an_item_is_about_the_item_then_its_zone() {
+fn the_lore_of_an_item_is_about_the_item_alone() {
     let moment = Moment::BigUpgrade {
         item: "Cruel Barb".to_string(),
         zone: Some("Westfall".to_string()),
     };
 
-    assert_eq!(moment.subjects(), ["Cruel Barb", "Westfall"]);
+    assert_eq!(moment.subjects(), ["Cruel Barb"]);
+    assert_eq!(moment.names(), ["Cruel Barb", "Westfall"]);
     assert_eq!(moment.outside_names(), ["Cruel Barb"]);
     assert!(!moment.is_arrival());
 }

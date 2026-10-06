@@ -25,11 +25,13 @@ use timeways_story::input::{CallId, GameQuestKind, Input, MessageId, Reaction, S
 use timeways_story::inside_hero::{inside_hero_in, recognition_in};
 use timeways_story::journal::{Journal, TalkQuestState, journal, pages};
 use timeways_story::line_check::{Checked, Grounds, LineFault, callback_in, checked_line};
+use timeways_story::moments::Moment;
 use timeways_story::mounts::{EPIC_MOUNT_SPEED, is_epic};
-use timeways_story::narrator::Naming;
+use timeways_story::narrator::{Naming, Who};
+use timeways_story::narrator_lore::{is_thin, lore_subjects};
 use timeways_story::npc_memory::{MAX_MEMORIES, MAX_MEMORY_CHARS, when};
 use timeways_story::pace::{Pace, WINDOW_SECONDS};
-use timeways_story::pack::Pack;
+use timeways_story::pack::{Link, Origin, Pack, Passage};
 use timeways_story::passage_limits::{MAX_PASSAGE_BYTES, pieces};
 use timeways_story::places::InstanceKind;
 use timeways_story::prose::{FEWEST_WORDS, MOST_WORDS, ProseFault, prose_faults};
@@ -3397,4 +3399,72 @@ proptest! {
 
         prop_assert_eq!(callback.is_some(), !told, "{}", line);
     }
+
+    /// A deed speaks only with lore about it: a passage whose page, link, or shown text
+    /// names a subject of the moment. Any other passage, and no passage, is thin.
+    #[test]
+    fn a_deed_with_lore_about_another_subject_is_always_thin(
+        deed in deed_moment(),
+        other in "[A-Z][a-z]{3,9}( [A-Z][a-z]{3,9})?",
+        filler in prop::collection::vec("[a-z]{3,8}", 0..40),
+        tie in 0..4u8,
+    ) {
+        let who = Who::default();
+        let subjects = lore_subjects(&deed, &who);
+        prop_assume!(subjects.iter().all(|subject| !mentions(&other, subject)));
+        let subject = subjects[0].clone();
+        let text = format!("{other} {}.", filler.join(" "));
+        let unrelated = Passage {
+            text: text.clone(),
+            source: "a test".to_string(),
+            links: vec![Link::Place(other.clone())],
+            origin: Origin::Pack,
+            about: Some(other.clone()),
+        };
+        let related = match tie {
+            0 => Passage { about: Some(subject.clone()), ..unrelated.clone() },
+            1 => Passage { links: vec![Link::Npc(subject.clone())], ..unrelated.clone() },
+            _ => Passage { text: format!("{subject} {text}"), ..unrelated.clone() },
+        };
+
+        prop_assert!(is_thin(&subjects, None));
+        prop_assert!(is_thin(&subjects, Some(&unrelated)), "{:?}", unrelated);
+        prop_assert!(!is_thin(&subjects, Some(&related)), "{:?}", related);
+    }
+}
+
+/// A deed moment with a subject of its own, with names at the edges: short, long, with an
+/// apostrophe, and with words of several kinds.
+fn deed_moment() -> impl Strategy<Value = Moment> {
+    let name = prop_oneof![
+        Just("Gath'Ilzogg".to_string()),
+        Just("Mor'Ladim".to_string()),
+        Just("Hogger".to_string()),
+        "[A-Z][a-z]{3,20}( [A-Z][a-z]{2,20}){0,3}",
+    ];
+    (name, 2..i64::MAX, 0..8u8).prop_map(|(name, times, kind)| match kind {
+        0 => Moment::FirstKill { foe: name },
+        1 => Moment::SlainAgain {
+            killer: name,
+            times,
+        },
+        2 => Moment::Slapped { npc: name, times },
+        3 => Moment::ClassQuestDone { title: name },
+        4 => Moment::QuestMarked {
+            mark: "Mark".to_string(),
+            quest: name,
+        },
+        5 => Moment::FirstMount {
+            mount: "Gray Ram".to_string(),
+            people: Some(name),
+        },
+        6 => Moment::FirstEpicItem {
+            item: name,
+            zone: Some("Westfall".to_string()),
+        },
+        _ => Moment::BigUpgrade {
+            item: name,
+            zone: Some("Westfall".to_string()),
+        },
+    })
 }

@@ -1137,6 +1137,9 @@ impl Story {
                 None => return quiet,
             },
         };
+        let Some((prompt, call)) = self.narration(batch, &moment) else {
+            return quiet;
+        };
         if !self.budget.take(now) {
             return quiet;
         }
@@ -1149,9 +1152,6 @@ impl Story {
                 return quiet;
             }
         }
-        let Some((prompt, call)) = self.narration(batch, &moment) else {
-            return quiet;
-        };
         let reads = call.reads.clone();
         self.open_call(Pending::Narrator(call), prompt, reads)
             .unwrap_or(quiet)

@@ -113,6 +113,10 @@ fn review_copy(options: &Options, copy: &Path) -> Result<(), Box<dyn Error>> {
             review.at.0,
             what_happened(&review.moment)
         );
+        if let Some(reason) = &review.silence {
+            println!("Shown: (silence: {reason})\n");
+            continue;
+        }
         match &options.model {
             Some(model) => told(model, review)?,
             None => println!("{}\n", review.prompt),

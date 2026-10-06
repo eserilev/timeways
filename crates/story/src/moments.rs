@@ -57,17 +57,14 @@ pub enum Moment {
 }
 
 impl Moment {
-    /// What the lore of the moment is about, best first. An item comes first, because the
-    /// text that the player read can tell where it came from. Its zone comes next.
+    /// What the lore of the moment must be about, best first. An item needs a story of its
+    /// own: the lore of its zone tells of another subject (docs/plans/item-stories.md). A
+    /// tenth level takes the lore of the order or the people of the hero, which
+    /// `narrator_lore` finds from the race and the class (docs/plans/level-lines.md).
     #[must_use]
     pub fn subjects(&self) -> Vec<&str> {
         match self {
-            Moment::FirstEpicItem { item, zone } | Moment::BigUpgrade { item, zone } => {
-                [Some(item.as_str()), zone.as_deref()]
-                    .into_iter()
-                    .flatten()
-                    .collect()
-            }
+            Moment::LevelUp { .. } => Vec::new(),
             _ => self.subject().into_iter().collect(),
         }
     }
@@ -106,7 +103,12 @@ impl Moment {
                     .flatten()
                     .collect()
             }
-            Moment::FirstEpicItem { .. } | Moment::BigUpgrade { .. } => self.subjects(),
+            Moment::FirstEpicItem { item, zone } | Moment::BigUpgrade { item, zone } => {
+                [Some(item.as_str()), zone.as_deref()]
+                    .into_iter()
+                    .flatten()
+                    .collect()
+            }
             _ => self.subject().into_iter().collect(),
         }
     }
@@ -122,6 +124,13 @@ impl Moment {
             Moment::FirstEpicItem { item, .. } | Moment::BigUpgrade { item, .. } => vec![item],
             _ => Vec::new(),
         }
+    }
+
+    /// A moment where the hero did something: every moment but an arrival and a flavor
+    /// moment. A deed with thin lore is silence (`narrator_lore::is_thin`).
+    #[must_use]
+    pub fn is_deed(&self) -> bool {
+        !self.is_arrival() && !matches!(self, Moment::Flavor { .. })
     }
 
     /// The hero only came to a place: a zone, a capital, a dungeon, or a raid. Such a

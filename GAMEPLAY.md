@@ -112,7 +112,16 @@ The player rejected three kinds of line as slop. Mood with no facts: "Level six 
 - It speaks at most once for each batch, about the best moment. The moments on one line of the list have the same rank. Of two moments of one rank, the later one wins, because it holds the newer count. A flavor moment (5.4.1) speaks only when no big moment does.
 - **The lore of a moment** (built). Each moment gets one short passage about its place, its foe, its person, or its quest (`narrator_lore.rs`). The spoiler limit and the lore cutoff hold, as for `/lore`. The order:
   1. The own page of the subject, in page order, so the lead or the history comes first. The pack marks each passage with the place or person that its page is about (5.10). So the Deadmines get the history of the mine, not the page of Mr. Smite, a boss that links to the mine.
-  2. Else the search of `/lore` (5.10): the text that the player read comes first, then the lore pack. A passage that links to the subject wins, then a passage that names it. The prompt keeps at most 400 characters of it, cut after a sentence, between fence marks. With no passage, the prompt says "The lore: none", and the line uses the facts of the moment alone. A joke title and a flavor moment get no lore.
+  2. Else the search of `/lore` (5.10): the text that the player read comes first, then the lore pack. A passage that links to the subject wins, then a passage that names it. The prompt keeps at most 400 characters of it, cut after a sentence, between fence marks. A joke title and a flavor moment get no lore.
+  3. **Silence when the lore is thin** (built 2026-10-06, `narrator_lore::is_thin`). A deed gets no call at all when its lore is thin. A deed is every moment but an arrival and a flavor moment. The lore is thin when the prompt holds no passage, or a passage about none of the subjects of the moment. A passage is about a subject when its page is about it, when it links to it, or when the part that the prompt shows names it. So a kill of Gath'Ilzogg with only the lore of Redridge is silence, never "$N has defeated Gath'Ilzogg." The subjects:
+     - a kill, a revenge, or a death: the foe;
+     - a slap: the NPC;
+     - a class quest or a quest mark: the quest. The text of a quest or a book that the player read is about its title;
+     - a first mount: the people who breed it;
+     - a first epic item or a big upgrade: the item alone. The lore of its zone is about another subject, and the four item stories of `docs/plans/item-stories.md` are not built, so an item is mostly silent;
+     - a tenth level: the people of the hero, by the pages of its capital and its land (`docs/plans/level-lines.md`). Level 10 takes the first passage of those pages, level 20 the second, and so on, so two tenth levels tell two passages. A hero with no race, or a people with no passage, is silent;
+     - a joke title: none, so it is silent.
+     An arrival keeps its rule: with no passage, the prompt says "The lore: none".
 - **The narrator stays quiet while a saga is written** (3.3). The bridge runs at most 2 model calls of the story program at once, so a question of the player always gets a call. The moments of the batch wait for the next batch.
 - A batch that ends with a question gets no `batch_end` (5.5), so its moments wait for the next batch.
 - It stays quiet while a saga is written, and when both model slots of the bridge are taken, so the player keeps a slot.

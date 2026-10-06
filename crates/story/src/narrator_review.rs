@@ -7,7 +7,7 @@ use crate::learned::Read;
 use crate::line_check::Grounds;
 use crate::moments::{Moment, moments};
 use crate::narrator::{self, Telling, Who};
-use crate::narrator_lore::{LoreError, lore_of_moment};
+use crate::narrator_lore::{LoreError, is_thin, lore_of_moment, lore_subjects};
 use crate::pack::Pack;
 use crate::seen::{SeenIndex, SeenText};
 use hourglass::{Event, Tick};
@@ -38,6 +38,8 @@ pub struct Review {
     pub moment: Moment,
     pub grounds: Grounds,
     pub prompt: String,
+    /// Why the moment gets no call, as the story program decides it.
+    pub silence: Option<String>,
 }
 
 /// Each event is a batch of its own, so a big moment never hides a smaller one.
@@ -75,9 +77,12 @@ fn review(
         .map(|read| read.text.clone())
         .collect();
     let seen = SeenIndex::new(&read_then)?;
-    let passage = lore_of_moment(sources.pack, &seen, character, &moment)?;
-    let lore = passage.map(|passage| narrator::lore_excerpt(&passage.text));
     let who = with_fallback(Who::of(character), sources.fallback);
+    let passage = lore_of_moment(sources.pack, &seen, character, &moment, &who)?;
+    let subjects = lore_subjects(&moment, &who);
+    let silence =
+        (moment.is_deed() && is_thin(&subjects, passage.as_ref())).then(|| thin_reason(&subjects));
+    let lore = passage.map(|passage| narrator::lore_excerpt(&passage.text));
     let telling = Telling {
         moment: &moment,
         lore: lore.as_deref(),
@@ -90,7 +95,15 @@ fn review(
         moment,
         grounds,
         prompt,
+        silence,
     })
+}
+
+fn thin_reason(subjects: &[String]) -> String {
+    if subjects.is_empty() {
+        return "the moment has no subject that lore can tell of".to_string();
+    }
+    format!("no passage about {}", subjects.join(" or "))
 }
 
 fn with_fallback(who: Who, fallback: &Who) -> Who {
