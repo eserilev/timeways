@@ -115,8 +115,10 @@ each time of the list, from `fresh`, the budget of `Budget::default()`.
 
 The alias table gives each player an ID (`GAMEPLAY.md` 5.11). The
 story program cuts a text into pieces: words with their keys, other
-text, and IDs. The rules compare keys only. `learnLines` applies
-`learn_all` one line after the other, as the story program does.
+text, and IDs. The rules compare keys only. `learnLines` learns each
+name of each line in turn, with the model of `learn`. The story program
+does the same: `AliasLog::learn` calls `learn` once for each new name.
+`learn.spec` and `learn_all.spec` tie the model to the Rust.
 
 | Theorem | The law | Test |
 |---|---|---|
@@ -313,12 +315,26 @@ These laws differ in form from the plan. Each keeps its intent:
   that was used longest ago, and law 10 covers that case.
 - **`a_run_never_repeats`** is a Hoare triple over `runPicks`, a run
   that this file defines from the Rust `pick`. Each pick reads the main
-  parts of the last 8 picks, oldest first, as the story program reads
-  them from the calls of a character. "More than 8 fitting main parts"
+  parts of the last 8 picks, oldest first. "More than 8 fitting main parts"
   is `Wide`: a list of more than 8 distinct main parts, each the main
   part of a fitting shape. The window is the Rust `WINDOW`. The file
   writes it as `windowSize`, because no translated function reads
   `WINDOW`, so Aeneas does not translate it.
+- **The window of the story program is not the window of the run.**
+  The story program reads the last 8 accepted lines of a character. An
+  arrival line takes a place in that window but has no main part, and
+  a refused line takes none. So the program keeps "no repeat within 8
+  accepted lines", and two picks with an arrival between them can be
+  further apart than in `runPicks`. The property test
+  `no_main_part_repeats_within_eight_lines` checks the window of the
+  program.
+- **The choice of the shape is glue.** Laws 10 to 13 hold for each call
+  of `pick`. `pick_shape` in `crates/story/src/narrator_build.rs` calls
+  `pick` up to three times: a kill on a named turn first tries the
+  shapes with no hero, and a naming that fits no shape tries the other
+  naming. No proof reads that order. The test
+  `a_kill_prefers_an_unnamed_part_on_a_named_turn` and the property test
+  above check it.
 
 ## What is proved: silence when the lore is thin
 
