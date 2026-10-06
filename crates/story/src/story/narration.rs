@@ -6,7 +6,7 @@ use crate::input::MessageId;
 use crate::line_check::{Checked, Grounds, LineFault, checked_line};
 use crate::moments::Moment;
 use crate::narrator::{self, Telling, Who};
-use crate::narrator_lore::{is_thin, lore_of_moment, lore_subjects};
+use crate::narrator_lore::{is_silent, lore_of_moment, lore_subjects};
 use crate::prompt::{self, Attempt};
 use crate::store::{CharacterKey, Node, Outcome};
 
@@ -24,7 +24,7 @@ pub(in crate::story) struct NarratorCall {
 impl Story {
     /// The prompt and the call of the line about `moment`. The batch rows and the lore
     /// passage are what it read. A failed search gives no lore. A deed with thin lore gets
-    /// no call: silence is better than a bare deed (`narrator_lore::is_thin`).
+    /// no call: silence is better than a bare deed (`narrator_lore::is_silent`).
     pub(super) fn narration(
         &mut self,
         batch: MessageId,
@@ -41,7 +41,7 @@ impl Story {
         )
         .ok()
         .flatten();
-        if moment.is_deed() && is_thin(&lore_subjects(moment, &who), passage.as_ref()) {
+        if is_silent(moment, &lore_subjects(moment, &who), passage.as_ref()) {
             return None;
         }
         let lore = passage

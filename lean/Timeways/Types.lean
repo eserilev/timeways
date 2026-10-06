@@ -377,4 +377,13 @@ inductive story_shelf.ShelfLine where
 | Accepted : Std.U64 → story_shelf.ShelfLine
 | Removed : Std.U64 → story_shelf.ShelfLine
 
+/-- [timeways_rules::thin_lore::MomentKind]
+    Source: 'crates/rules/src/thin_lore.rs', lines 10:0-17:1
+    Visibility: public -/
+@[discriminant isize]
+inductive thin_lore.MomentKind where
+| Arrival : thin_lore.MomentKind
+| Flavor : thin_lore.MomentKind
+| Deed : thin_lore.MomentKind
+
 end timeways_rules

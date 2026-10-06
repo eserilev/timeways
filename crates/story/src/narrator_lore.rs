@@ -12,6 +12,7 @@ use crate::race_class::Race;
 use crate::seen::SeenIndex;
 use crate::walk::LEVEL_STEP;
 use thiserror::Error;
+use timeways_rules::thin_lore::{self, MomentKind};
 
 /// Enough candidates that the spoiler limit still leaves one about the subject.
 const CANDIDATES: u32 = 20;
@@ -83,25 +84,78 @@ fn people_pages(race: Race) -> &'static [&'static str] {
     }
 }
 
+/// True when the moment gets no line: a deed whose lore is thin. The rule lives in
+/// `timeways_rules::thin_lore`, where Lean proves it.
+#[must_use]
+pub fn is_silent(moment: &Moment, subjects: &[String], passage: Option<&Passage>) -> bool {
+    let kind = if moment.is_arrival() {
+        MomentKind::Arrival
+    } else if moment.is_deed() {
+        MomentKind::Deed
+    } else {
+        MomentKind::Flavor
+    };
+    let ids = SubjectIds::of(subjects, passage);
+    thin_lore::is_silent(kind, &ids.moment, &ids.lore)
+}
+
 /// True when a deed has no lore of its own to tell: no passage, or a passage about none
 /// of its subjects. A passage is about a subject when its page is, when it links to the
 /// subject, or when the part that the prompt shows names it. The rule reads only what
 /// the prompt holds, so a test can check it, and a model never decides it.
 #[must_use]
 pub fn is_thin(subjects: &[String], passage: Option<&Passage>) -> bool {
-    let Some(passage) = passage else {
-        return true;
-    };
-    let shown = lore_excerpt(&passage.text);
-    !subjects
-        .iter()
-        .any(|subject| is_about(passage, &shown, subject))
+    let ids = SubjectIds::of(subjects, passage);
+    thin_lore::is_silent(MomentKind::Deed, &ids.moment, &ids.lore)
 }
 
-fn is_about(passage: &Passage, shown: &str, subject: &str) -> bool {
-    passage.about.as_deref() == Some(subject)
-        || is_linked(passage, subject)
-        || mentions(shown, subject)
+/// The names of the moment and of its passage, as ids: one id for each distinct name.
+struct SubjectIds {
+    moment: Vec<u32>,
+    lore: Vec<u32>,
+}
+
+impl SubjectIds {
+    fn of(subjects: &[String], passage: Option<&Passage>) -> SubjectIds {
+        let mut names: Vec<&str> = Vec::new();
+        let moment = subjects
+            .iter()
+            .map(|subject| id_of(&mut names, subject))
+            .collect();
+        let mut lore = Vec::new();
+        if let Some(passage) = passage {
+            for name in passage_subjects(passage, subjects) {
+                lore.push(id_of(&mut names, name));
+            }
+        }
+        SubjectIds { moment, lore }
+    }
+}
+
+/// What a passage is about: its page, its links, and each subject that its shown part
+/// names.
+fn passage_subjects<'a>(passage: &'a Passage, subjects: &'a [String]) -> Vec<&'a str> {
+    let shown = lore_excerpt(&passage.text);
+    let mut about: Vec<&str> = passage.about.iter().map(String::as_str).collect();
+    for link in &passage.links {
+        if let Link::Place(name) | Link::Npc(name) = link {
+            about.push(name);
+        }
+    }
+    let named = subjects.iter().filter(|subject| mentions(&shown, subject));
+    about.extend(named.map(String::as_str));
+    about
+}
+
+fn id_of<'a>(names: &mut Vec<&'a str>, name: &'a str) -> u32 {
+    let index = names
+        .iter()
+        .position(|known| *known == name)
+        .unwrap_or_else(|| {
+            names.push(name);
+            names.len() - 1
+        });
+    u32::try_from(index).unwrap_or(u32::MAX)
 }
 
 /// The passages of the own pages of a people, in page order, that pass the spoiler limit.

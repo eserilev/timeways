@@ -28,7 +28,7 @@ use timeways_story::line_check::{Checked, Grounds, LineFault, callback_in, check
 use timeways_story::moments::Moment;
 use timeways_story::mounts::{EPIC_MOUNT_SPEED, is_epic};
 use timeways_story::narrator::{Naming, Who};
-use timeways_story::narrator_lore::{is_thin, lore_subjects};
+use timeways_story::narrator_lore::{is_silent, is_thin, lore_subjects};
 use timeways_story::npc_memory::{MAX_MEMORIES, MAX_MEMORY_CHARS, when};
 use timeways_story::pace::{Pace, WINDOW_SECONDS};
 use timeways_story::pack::{Link, Origin, Pack, Passage};
@@ -3430,6 +3430,27 @@ proptest! {
         prop_assert!(is_thin(&subjects, None));
         prop_assert!(is_thin(&subjects, Some(&unrelated)), "{:?}", unrelated);
         prop_assert!(!is_thin(&subjects, Some(&related)), "{:?}", related);
+        prop_assert!(is_silent(&deed, &subjects, Some(&unrelated)));
+    }
+
+    /// The thin lore rule never silences an arrival, with lore or without.
+    #[test]
+    fn an_arrival_is_never_silenced_by_the_thin_lore_rule(
+        zone in "[A-Z][a-z]{3,9}( [A-Z][a-z]{3,9})?",
+        other in "[A-Z][a-z]{3,9}",
+        lore in any::<bool>(),
+    ) {
+        let arrival = Moment::NewZone { zone: zone.clone() };
+        let passage = Passage {
+            text: format!("{other} rules here."),
+            source: "a test".to_string(),
+            links: vec![Link::Place(other.clone())],
+            origin: Origin::Pack,
+            about: Some(other),
+        };
+        let passage = lore.then_some(&passage);
+
+        prop_assert!(!is_silent(&arrival, &[zone], passage));
     }
 }
 

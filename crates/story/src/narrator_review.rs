@@ -7,7 +7,7 @@ use crate::learned::Read;
 use crate::line_check::Grounds;
 use crate::moments::{Moment, moments};
 use crate::narrator::{self, Telling, Who};
-use crate::narrator_lore::{LoreError, is_thin, lore_of_moment, lore_subjects};
+use crate::narrator_lore::{LoreError, is_silent, lore_of_moment, lore_subjects};
 use crate::pack::Pack;
 use crate::seen::{SeenIndex, SeenText};
 use hourglass::{Event, Tick};
@@ -80,8 +80,7 @@ fn review(
     let who = with_fallback(Who::of(character), sources.fallback);
     let passage = lore_of_moment(sources.pack, &seen, character, &moment, &who)?;
     let subjects = lore_subjects(&moment, &who);
-    let silence =
-        (moment.is_deed() && is_thin(&subjects, passage.as_ref())).then(|| thin_reason(&subjects));
+    let silence = is_silent(&moment, &subjects, passage.as_ref()).then(|| thin_reason(&subjects));
     let lore = passage.map(|passage| narrator::lore_excerpt(&passage.text));
     let telling = Telling {
         moment: &moment,

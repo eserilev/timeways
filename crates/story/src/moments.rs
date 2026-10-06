@@ -203,7 +203,7 @@ impl Moment {
     }
 
     /// A moment where the hero did something: every moment but an arrival and a flavor
-    /// moment. A deed with thin lore is silence (`narrator_lore::is_thin`).
+    /// moment. A deed with thin lore is silence (`narrator_lore::is_silent`).
     #[must_use]
     pub fn is_deed(&self) -> bool {
         !self.is_arrival() && !matches!(self, Moment::Flavor { .. })

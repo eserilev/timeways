@@ -5,8 +5,8 @@ Lean functions. The theorems in `Timeways/QuestLog.lean`,
 `Timeways/HeroHook.lean`, `Timeways/Budget.lean`,
 `Timeways/TrustBand.lean`, `Timeways/Prompts.lean`,
 `Timeways/Aliases.lean`, `Timeways/StoryShelf.lean`,
-`Timeways/EntryEdits.lean`, `Timeways/Chapters.lean`, and
-`Timeways/NarratorShapes.lean` are about those functions. A theorem holds for every input, with no bound. The
+`Timeways/EntryEdits.lean`, `Timeways/Chapters.lean`,
+`Timeways/NarratorShapes.lean`, and `Timeways/ThinLore.lean` are about those functions. A theorem holds for every input, with no bound. The
 property tests in `crates/story/tests/properties.rs` check the same
 rules on random input, and they stay as a second check.
 
@@ -317,6 +317,24 @@ These laws differ in form from the plan. Each keeps its intent:
   part of a fitting shape. The window is the Rust `WINDOW`. The file
   writes it as `windowSize`, because no translated function reads
   `WINDOW`, so Aeneas does not translate it.
+
+## What is proved: silence when the lore is thin
+
+`is_silent` in `crates/rules/src/thin_lore.rs` decides if a narrator
+moment gets no line (GAMEPLAY.md 3.2). It reads ids, never strings.
+`subjects` holds the ids of what the moment is about. `lore` holds the
+ids of what the passages of the prompt are about: the page, the links,
+and each subject that the shown text names. The glue in
+`crates/story/src/narrator_lore.rs` gives one id to each distinct name.
+No proof reads the glue. Its named tests and property tests check it.
+
+| Theorem | The law | Test |
+|---|---|---|
+| `is_silent.spec` | The rule ends and gives its pure model: it is true exactly for a deed with no id of `lore` in `subjects`. | the unit tests of `thin_lore.rs` |
+| `the_rule_never_panics` | For every kind and every two lists of ids, the rule gives a value. | none |
+| `a_deed_with_no_lore_of_its_own_is_silent` | A deed whose passages have no subject among its subjects is silent. No passage is the empty list. | `a_deed_with_lore_about_another_subject_is_always_thin` |
+| `a_deed_with_lore_of_its_own_speaks` | A deed with a passage about one of its subjects is not silent. | the same |
+| `an_arrival_is_never_silenced_by_this_rule` | An arrival is never silent by this rule, with lore or without. | `an_arrival_is_never_silenced_by_the_thin_lore_rule` |
 
 ## What you trust
 

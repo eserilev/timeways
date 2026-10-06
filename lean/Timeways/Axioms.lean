@@ -10,6 +10,7 @@ import Timeways.StoryShelf
 import Timeways.EntryEdits
 import Timeways.Chapters
 import Timeways.NarratorShapes
+import Timeways.ThinLore
 
 open timeways_rules
 
@@ -340,3 +341,23 @@ open timeways_rules
 /-- info: 'timeways_rules.narrator_shapes.the_pick_is_deterministic_from_the_turn' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs (whitespace := lax) in
 #print axioms narrator_shapes.the_pick_is_deterministic_from_the_turn
+
+/-- info: 'timeways_rules.thin_lore.is_silent.spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms thin_lore.is_silent.spec
+
+/-- info: 'timeways_rules.thin_lore.the_rule_never_panics' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms thin_lore.the_rule_never_panics
+
+/-- info: 'timeways_rules.thin_lore.a_deed_with_no_lore_of_its_own_is_silent' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms thin_lore.a_deed_with_no_lore_of_its_own_is_silent
+
+/-- info: 'timeways_rules.thin_lore.a_deed_with_lore_of_its_own_speaks' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms thin_lore.a_deed_with_lore_of_its_own_speaks
+
+/-- info: 'timeways_rules.thin_lore.an_arrival_is_never_silenced_by_this_rule' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms thin_lore.an_arrival_is_never_silenced_by_this_rule
