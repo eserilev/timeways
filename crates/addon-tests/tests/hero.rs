@@ -222,6 +222,75 @@ fn a_card_opens_for_writing_in_place_and_cancel_closes_it() {
     assert_eq!(game.sent().len(), 1);
 }
 
+/// The question of the bond, the card after the goal.
+const BOND: &str = "Who or what does your character care about most?";
+
+fn cancel_writing(game: &Game) {
+    game.run(
+        "for _, widget in ipairs(wow.widgets) do
+             if widget.kind == 'Button' and widget.parent == TimewaysHeroCardBox.parent
+                 and widget.text == 'Cancel' then widget:Click() end
+         end",
+    );
+}
+
+fn box_has_focus(game: &Game) -> bool {
+    game.eval("return TimewaysHeroCardBox:HasFocus()")
+}
+
+#[test]
+fn opening_an_answer_card_puts_the_cursor_in_its_box() {
+    let game = open_book(FILLED);
+    click(&game, GOAL);
+    let first = box_has_focus(&game);
+    cancel_writing(&game);
+
+    click(&game, BOND);
+
+    assert!(first);
+    assert!(box_has_focus(&game));
+}
+
+#[test]
+fn typing_in_an_answer_card_keeps_the_text_when_the_box_grows() {
+    let game = open_book(FILLED);
+    click(&game, GOAL);
+    let before: f64 = game.eval("return TimewaysHeroCardBox:GetHeight()");
+
+    for _ in 0..80 {
+        assert!(game.eval::<bool>("return wow.Type(' and more')"));
+    }
+
+    let after: f64 = game.eval("return TimewaysHeroCardBox:GetHeight()");
+    assert!(after > before, "{before} {after}");
+    let typed = format!("Find my brother.{}", " and more".repeat(80));
+    assert_eq!(editor_text(&game), typed);
+    assert!(box_has_focus(&game));
+}
+
+#[test]
+fn clicking_the_box_of_an_open_card_puts_the_cursor_there() {
+    let game = open_book(FILLED);
+    click(&game, GOAL);
+    game.run("TimewaysHeroCardBox:ClearFocus()");
+
+    // The press lands below the one line of text, where the box is not.
+    game.run("wow.MouseDown(TimewaysHeroCardBox, false)");
+
+    assert!(box_has_focus(&game));
+}
+
+#[test]
+fn clicking_anywhere_on_an_open_card_puts_the_cursor_in_its_box() {
+    let game = open_book(FILLED);
+    click(&game, GOAL);
+    game.run("TimewaysHeroCardBox:ClearFocus()");
+
+    game.run("wow.MouseDown(TimewaysHeroCardBox.parent.label)");
+
+    assert!(box_has_focus(&game));
+}
+
 #[test]
 fn a_box_that_grows_moves_the_cards_below_it() {
     let game = open_book(FILLED);

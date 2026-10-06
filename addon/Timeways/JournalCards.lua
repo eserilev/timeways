@@ -24,6 +24,9 @@ local tabs, lines, cards, linked = {}, {}, {}, {}
 -- The card that is open for writing, the key that it opened for, the spec that it drew,
 -- and the last spec of the page, to draw it again when the box grows.
 local writer, writerKey, writing, drawn
+-- True from the moment a card opens until its box shows and takes the focus. A hidden box
+-- does not keep the focus.
+local focusDue = false
 
 function JournalCards.Build(parent, width, height)
 	pane, paneWidth, paneHeight = parent, width, height
@@ -246,11 +249,19 @@ local function BuildWriter()
 	edit:SetScript("OnEnterPressed", SaveWriting)
 	edit:SetScript("OnEscapePressed", CancelWriting)
 	writer.box = edit
+	-- The shade shows where to write: the box itself is only as tall as its text.
+	writer.field = writer:CreateTexture(nil, "BORDER")
+	writer.field:SetColorTexture(ink[1], ink[2], ink[3], 0.12)
 	writer.measure = Label(writer, "QuestFont", "text")
 	writer.measure:Hide()
 	writer.save = ns.JournalFrame.SmallButton(writer)
 	Fit(writer.save, "Save")
 	writer.save:SetScript("OnClick", SaveWriting)
+	-- A multi-line box is only as tall as its text, so a click below the text lands on the card.
+	writer:EnableMouse(true)
+	writer:SetScript("OnMouseDown", function()
+		edit:SetFocus()
+	end)
 	writer.cancel = ns.JournalFrame.SmallButton(writer)
 	Fit(writer.cancel, "Cancel")
 	writer.cancel:SetScript("OnClick", CancelWriting)
@@ -268,7 +279,7 @@ local function DrawWriter(row, x, y, width)
 		writerKey = writing.key
 		writer.box:SetMaxLetters(writing.limit)
 		writer.box:SetText(writing.text)
-		writer.box:SetFocus()
+		focusDue = true
 	end
 	writer:ClearAllPoints()
 	writer:SetPoint("TOPLEFT", child, "TOPLEFT", x, -y)
@@ -284,6 +295,9 @@ local function DrawWriter(row, x, y, width)
 	writer.box:SetSize(inner, boxHeight)
 	writer.box:ClearAllPoints()
 	writer.box:SetPoint("TOPLEFT", writer, "TOPLEFT", CARD_PADDING, -top)
+	writer.field:ClearAllPoints()
+	writer.field:SetPoint("TOPLEFT", writer, "TOPLEFT", CARD_PADDING - 4, -top + 4)
+	writer.field:SetSize(inner + 8, boxHeight + 8)
 	local bottom = top + boxHeight + 6
 	writer.save:ClearAllPoints()
 	writer.save:SetPoint("TOPRIGHT", writer, "TOPRIGHT", -CARD_PADDING, -bottom)
@@ -377,4 +391,8 @@ function JournalCards.Draw(spec)
 		bar:SetShown(height > paneHeight - TABS_HEIGHT - 2 * PADDING)
 	end
 	box:Show()
+	if focusDue and writerKey then
+		focusDue = false
+		writer.box:SetFocus()
+	end
 end

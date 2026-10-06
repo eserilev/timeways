@@ -573,6 +573,27 @@ C_MapExplorationInfo = {
 	end,
 }
 
+-- The edit box that takes the keys of the player, or nil.
+wow.focus = nil
+
+-- True when the widget and each of its parents show.
+local function Visible(widget)
+	while widget do
+		if not widget.shown then
+			return false
+		end
+		widget = widget.parent
+	end
+	return true
+end
+
+-- A hidden edit box loses the focus, as in the game.
+local function ForgetHiddenFocus()
+	if wow.focus and not Visible(wow.focus) then
+		wow.focus = nil
+	end
+end
+
 -- A widget keeps what the tests read: its text, scripts, events, size, anchor, and whether
 -- it shows.
 -- Any other capitalized method is a no-op, like the layout calls.
@@ -651,6 +672,7 @@ end
 function Widget:Hide()
 	local was = self.shown
 	self.shown = false
+	ForgetHiddenFocus()
 	if was and self.scripts.OnHide then
 		self.scripts.OnHide(self)
 	end
@@ -665,6 +687,81 @@ function Widget:SetShown(shown)
 		self:Show()
 	else
 		self:Hide()
+	end
+end
+
+function Widget:IsVisible()
+	return Visible(self)
+end
+
+-- A hidden edit box does not take the focus.
+function Widget:SetFocus()
+	if Visible(self) then
+		wow.focus = self
+	end
+end
+
+function Widget:ClearFocus()
+	if wow.focus == self then
+		wow.focus = nil
+	end
+end
+
+function Widget:HasFocus()
+	return wow.focus == self
+end
+
+function Widget:EnableMouse(enabled)
+	self.mouse = enabled
+end
+
+-- A button and an edit box take the mouse from the start. A frame takes it after EnableMouse.
+function Widget:IsMouseEnabled()
+	if self.mouse ~= nil then
+		return self.mouse
+	end
+	return self.kind == "Button" or self.kind == "EditBox"
+end
+
+-- The keys of the player go to the edit box with the focus. Returns false when no box has it.
+function wow.Type(text)
+	local box = wow.focus
+	if not box then
+		return false
+	end
+	box:Insert(text)
+	if box.scripts.OnTextChanged then
+		box.scripts.OnTextChanged(box, true)
+	end
+	return true
+end
+
+-- A multi-line edit box is only as tall as its lines of text, so a press below them
+-- (`onText` false) lands on the frame under it.
+local function TakesPress(widget, onText)
+	if widget.kind == "EditBox" and widget.multiLine and not onText then
+		return false
+	end
+	return widget:IsMouseEnabled()
+end
+
+-- The player presses the mouse over `widget`. The press goes to the first frame, from the
+-- widget out through its parents, that takes the mouse. An edit box takes the focus then.
+function wow.MouseDown(widget, onText)
+	if not Visible(widget) then
+		return
+	end
+	while widget and not TakesPress(widget, onText) do
+		widget = widget.parent
+	end
+	if not widget then
+		return
+	end
+	if widget.kind == "EditBox" then
+		widget:SetFocus()
+	end
+	if widget.scripts.OnMouseDown then
+		widget.scripts.OnMouseDown(widget, "LeftButton")
 	end
 end
 
