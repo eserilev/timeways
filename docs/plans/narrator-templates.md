@@ -1,6 +1,6 @@
 # Plan: slots and templates for narrator lines
 
-Status: spec only, 2026-10-05. Nothing is built. The templates in section 9 wait for the approval of the user.
+Status: spec only, 2026-10-05. Nothing is built. The templates in section 9 wait for the approval of the user. The plan follows the style guide of the narrator (`narrator-style.md`, approved 2026-10-05): its section 9 dropped 8 parts, added 2 outcomes with no hero, and made the lore end on the present.
 
 ## 0. The decision
 
@@ -44,10 +44,11 @@ Today the model writes the whole line, and `line_check.rs` refuses the bad ones.
 
 | Field | Kind | Check |
 |---|---|---|
-| `lore` | Free text: the history | All the checks of a line today, on this sentence alone: cutoff, emoji, banned words, slop, copy of a sample, new numbers, grounded, brackets. New: no `$N`, at most one sentence (two for an arrival), at most the char budget of the moment (2.4). |
+| `lore` | Free text: the history | All the checks of a line today, on this sentence alone: cutoff, emoji, banned words, slop, copy of a sample, new numbers, grounded, brackets, and the checks of the style guide (`prose.rs`). New: no `$N`, at most one sentence (two for an arrival), at most the char budget of the moment (2.4). |
 | other fields | Closed choices | Each value must be in the list that the prompt offered. Some choices also need the lore to name a word (below). |
 
 - `lore` comes first in the JSON. So the model writes the history first and chooses after it.
+- `lore` follows the style guide (`narrator-style.md` 3 and 5): one turn of history, no hero, and no source. It **ends on the present**: what holds in the place, the people, or the order now. The template adds the deed after it.
 - `{"lore": "SILENCE"}` is silence. A bare `SILENCE` answer stays silence too.
 - The parser is strict: one JSON object, no unknown field, no missing field. It allows one code fence around the object, because small models add one. Anything else is the fault `BadAnswer`.
 - A fault gets one retry with the reasons, as today. A second fault is silence.
@@ -58,7 +59,7 @@ Today the model writes the whole line, and `line_check.rs` refuses the bad ones.
 |---|---|---|---|
 | Arrival | none | | `lore` holds at most 2 sentences. The code adds no hero and no deed. |
 | Tenth level | `group` | the group ids of the pairing (3.4) | The lore names an anchor of the group, such as "Silver Hand" or "Light". |
-| Kill | `there` | `true`, `false` | `true` needs the lore to name the zone of the moment. |
+| Kill | `there`, `leads`, `leads_number` | `true`, `false`; a group that the lore names, or `none`; `one`, `many` | `true` needs the lore to name the zone of the moment. `leads` needs the lore to name the group, as whole words, in at most 4 words. |
 | Revenge | `tone` | `plain`, `dry` | none |
 | Death | `killer`, `tone`, `there` | `one`, `kind`; `plain`, `dry`; `true`, `false` | `there` as for a kill. |
 | Side quest | none | | |
@@ -76,15 +77,17 @@ What each choice means, in the words of the prompt:
 - `killer`: `one` when the killer is one named person ("Hogger"), `kind` when it is one of many ("Murloc Coastrunner").
 - `tone`: `dry` allows the dry parts. If no dry shape fits, the code takes a plain one.
 - `breed`: the history tells of the breed of the mount.
+- `leads`: the group that the foe led, as the lore names it: "the Riverpaw". `leads_number` says if the group is one ("the Brotherhood") or many ("the Riverpaw"), so the outcome takes the right verb.
 
 **The model never picks the verb, the frame, or the naming.** The code picks them by rotation (3.5). A model choice is only a fact about the lore that the code cannot see. So a wrong choice gives a line that is still grammatical, and at worst plain.
 
 Examples:
 
 ```json
-{"lore": "Uther the Lightbringer founded the Silver Hand in the Second War, to carry the Light into battle.", "group": "o.silver_hand"}
+{"lore": "Uther the Lightbringer founded the Silver Hand in the Second War, and its paladins still carry the Light against the Scourge.", "group": "o.silver_hand"}
 {"lore": "The murlocs of the Westfall coast have no kingdom and no history.", "killer": "kind", "tone": "plain", "there": false}
-{"lore": "Thrall named Durotar for a father he never knew. The orcs who settled it had spent years in human camps."}
+{"lore": "Thrall named Durotar for a father he never knew. The orcs who spent years in human camps hold its red canyons now."}
+{"lore": "For years Hogger led the Riverpaw gnolls in raids on the farms of Elwynn, and Stormwind still has a price on his head.", "there": false, "leads": "the Riverpaw", "leads_number": "many"}
 ```
 
 ### 2.3 What the moments need
@@ -96,7 +99,6 @@ Some fields need facts that the moments do not hold today:
 | `there` for a kill, a death, a slap | A `zone` on `FirstKill`, `SlainAgain`, and `Slapped`, as `LevelUp` has. |
 | Foe-type parts | The creature type on `npc_defeated` (`UnitCreatureType`): beast, undead, demon, dragonkin, elemental. An event line with no reply, so the relay needs no message. |
 | Revenge | A moment `Revenge { foe, deaths, zone }` from the foe record of `chapters.md` 4. |
-| `d.leads_u` | An `unbeaten` flag: the hero never killed this foe. The foe record holds it. |
 | Item parts | The slot class of the item: weapon (slots 16 to 18), or worn (every other slot). `upgraded` holds the slot. The first epic item needs it too. |
 | Side quest | A moment for a finished Timeways quest (3.4). |
 
@@ -168,35 +170,36 @@ Each shape has one **main part**: the deed part, the grow part of a level, or th
 - The pick walks the shapes from `start`, and takes the first shape that fits and whose main part is not in the window.
 - If every fitting shape has a recent main part, the pick takes the fitting shape whose main part was used longest ago.
 - If no shape fits, the moment is silence and the log says why. A test proves that this cannot happen with the approved data for any moment that has a lore sentence (section 6).
+- **A kill prefers no hero** (`narrator-style.md` 4 and 9). A dead foe is news, and who killed it is mostly not. So on a named turn, the pick of a kill first walks the unnamed kill parts (`k.fallen_u`, `k.dead_u`, `k.lost_u`), and takes a named part only when no unnamed one fits and is fresh. A quest, a title, a level, a mount, and an item still take the naming of their turn.
 - The window is the main parts of the last 8 accepted narrator lines of the character, in any moment. It lives in a new column `shape` of the `calls` row of each accepted line. The SQLite store starts fresh, so no migration (memory: "SQLite, fresh start").
 
 ### 3.6 The count of shapes
 
-With the draft of section 9 (89 parts):
+With the draft of section 9 (83 parts):
 
 | Moment | Formula | Shapes |
 |---|---|---|
-| Kill | 11 deeds x 5 connectives, minus 1 tag clash | 54 |
-| Death | 5 deeds x 3 connectives x 2 killer phrases | 30 |
+| Kill | 12 deeds x 5 connectives | 60 |
+| Death | 4 deeds x 3 connectives x 2 killer phrases | 24 |
 | Revenge | 3 before-clauses x 5 turn-clauses, minus 2 with two heroes | 13 |
-| Tenth level | 2 frames x 2 connectives x 6 grow verbs x 4 codas, minus tag clashes and unnamed joined codas | 54 |
+| Tenth level | 2 frames x 2 connectives x 5 grow verbs x 4 codas, minus tag clashes and unnamed joined codas | 44 |
 | Class quest | 5 deeds x 3 connectives, minus 2 | 13 |
 | Side quest | 3 deeds x 2 connectives | 6 |
 | Title | 2 deeds x 2 connectives | 4 |
 | Slap | 3 deeds x 2 connectives | 6 |
 | Quest mark | 3 deeds x 1 connective | 3 |
-| First mount | 5 deeds x 2 connectives, minus 1 | 9 |
-| First epic mount | 4 deeds x 2 connectives | 8 |
-| Epic item, upgrade (each) | 5 deeds x 4 connectives | 20 |
+| First mount | 4 deeds x 2 connectives, minus 1 tag clash | 7 |
+| First epic mount | 2 deeds x 2 connectives | 4 |
+| Epic item, upgrade (each) | 3 deeds x 4 connectives | 12 |
 | Arrival | lore alone | 1 |
 
-That is **213 distinct skeletons**, and 241 pairs of moment and shape (some parts serve two moments). A skeleton counts no slot value and no naming. On top:
+That is **187 distinct skeletons**, and 209 pairs of moment and shape (some parts serve two moments). A skeleton counts no slot value and no naming. On top:
 
 - A tenth level takes 2 or 3 groups for each pairing, so a pairing has 108 to 162 level forms.
 - The naming gives 4 renders of each named shape: name, race, class, title.
 - The foe type picks 1 of 5 type-specific kill parts.
 
-Each new part multiplies. One more connective for kills adds 11 shapes. The data grows without code.
+Each new part multiplies. One more connective for kills adds 12 shapes. The data grows without code.
 
 ### 3.7 Rendering
 
@@ -394,6 +397,9 @@ The target parses any bytes as an answer, with any offered choices, and checks i
 - `a_choice_outside_the_list_is_refused`
 - `there_needs_the_lore_to_name_the_zone`
 - `breed_needs_the_lore_to_name_the_breed`
+- `leads_needs_the_lore_to_name_the_group`
+- `a_kill_prefers_an_unnamed_part_on_a_named_turn`
+- `every_assembled_example_passes_the_checks_of_the_style_guide`
 - `a_group_needs_the_lore_to_name_its_anchor`
 - `a_horde_paladin_never_gets_the_silver_hand`
 - `a_forsaken_paladin_gets_the_dead_who_wield_the_light`
@@ -447,11 +453,11 @@ The schema is built for each call, because the offered values differ: a level of
 
 | Old line | New `lore` | Built deed |
 |---|---|---|
-| "Hogger raided Elwynn's farms for years, and Stormwind's guards never stopped him. The paladin did." | the first sentence | "In the end, Hogger fell to the paladin." |
+| "For years Hogger led the Riverpaw gnolls in raids on the farms of Elwynn. The Riverpaw have no leader now." | the first sentence | "The Riverpaw have lost their leader." |
 | "The murlocs of the coast have no kingdom and no history. They have now killed $N three times." | the first sentence | "One Murloc Coastrunner or another has now killed $N three times." |
 | "Ironforge's Mountaineers hold the passes of Khaz Modan on ramback. Now the dwarf has a ram of their own." | the first sentence, with "rams" for "ramback" | "One such ram now carries the dwarf." |
 
-The cost: the contrast endings go ("The paladin did.", "The rogue settled the account instead."). They need the lore to end on a failure, and no closed choice can promise that (question 9).
+The contrast endings ("The paladin did.", "The rogue settled the account instead.") are gone already: the style guide replaced those samples on 2026-10-05 with lines that end on the world (question 9).
 
 ### 8.2 The prompt
 
@@ -483,7 +489,7 @@ New faults: `BadAnswer`, `UnknownChoice(field)`, `ChoiceNotInLore(field)`, `TooM
 
 ## 9. A first draft of templates, for approval
 
-89 parts. The text of the parts is in the narrator's voice.
+83 parts. The text of the parts is in the narrator's voice, and follows the style guide.
 
 ### 9.1 Frames (5)
 
@@ -500,9 +506,9 @@ New faults: `BadAnswer`, `UnknownChoice(field)`, `ChoiceNotInLore(field)`, `TooM
 | `c.in_the_end` | In the end, | end | |
 | `c.at_last` | At last, | last | |
 
-### 9.3 Deeds (42)
+### 9.3 Deeds (37)
 
-**Kill (11).** "Named" parts hold the hero.
+**Kill (12).** "Named" parts hold the hero. The unnamed parts tell what changed, and a kill prefers them (3.5).
 
 | Id | Text | Needs |
 |---|---|---|
@@ -516,9 +522,10 @@ New faults: `BadAnswer`, `UnknownChoice(field)`, `ChoiceNotInLore(field)`, `TooM
 | `k.broke` | {Hero} broke {foe} apart. | elemental |
 | `k.demon` | {Hero} slew the demon {foe}. | demon |
 | `k.fallen_u` | {Foe} has fallen. | |
-| `k.end_u` | That was the end of {foe}. (tag: end) | |
+| `k.dead_u` | {Foe} is dead. | |
+| `k.lost_u` | One: {Led} has lost its leader. Many: {Led} have lost their leader. | leads |
 
-**Death (5)**, with a killer phrase (2): `kr.one` "{killer}", `kr.kind` "one {killer} or another".
+**Death (4)**, with a killer phrase (2): `kr.one` "{killer}", `kr.kind` "one {killer} or another".
 
 | Id | Text | Needs |
 |---|---|---|
@@ -526,7 +533,6 @@ New faults: `BadAnswer`, `UnknownChoice(field)`, `ChoiceNotInLore(field)`, `TooM
 | `d.died` | {Hero} has now died to {killer} {count}. (tag: now) | |
 | `d.ordinal` | For the {ordinal} time, {killer} killed {hero}. | |
 | `d.won_u` | {Killer} has won this fight {count}. | |
-| `d.leads_u` | {Killer} leads, {count_num} to none. | unbeaten, dry |
 
 **Revenge (8):** a before-clause, then a turn-clause.
 
@@ -558,29 +564,24 @@ New faults: `BadAnswer`, `UnknownChoice(field)`, `ChoiceNotInLore(field)`, `TooM
 
 **Quest mark (3):** `m.carries` "{Hero} still carries {mark} from {quest}.", `m.left` "{Quest} left {mark} on {hero}.", `m.lingers_u` "{Mark} lingers after {quest}."
 
-**Mounts (7):** `mt.*` serve the first mount. `em.runs`, `em.swift`, `mt.rides`, and `mt.rider_u` serve the epic mount.
+**Mounts (4):** `mt.*` serve the first mount. `mt.rides` and `mt.carries` serve the epic mount too.
 
 | Id | Text | Needs |
 |---|---|---|
 | `mt.rides` | {Hero} rides {mount_a}. | |
 | `mt.carries` | {Mount_a} carries {hero}. | |
 | `mt.such` | One such {breed} now carries {hero}. | breed |
-| `mt.rider_u` | {Mount_a} has a rider. | |
 | `mt.such_u` | One such {breed} has a new rider. | breed |
-| `em.runs` | {Mount_a} runs under {hero}. | |
-| `em.swift` | A swift {breed} runs under {hero}. | breed |
 
-**Items (5):** for the first epic item and a big upgrade.
+**Items (3):** for the first epic item and a big upgrade. No item part is unnamed: an item never acts like a person, so an unnamed turn of an item takes the name.
 
 | Id | Text | Needs |
 |---|---|---|
-| `i.hand_u` | {Item} found a new hand. | weapon |
 | `i.in_hand` | {Item} is in the hand of {hero}. | weapon |
 | `i.carries` | {Hero} carries {item}. | weapon |
 | `i.wears` | {Hero} wears {item}. | worn |
-| `i.wearer_u` | {Item} has a new wearer. | worn |
 
-### 9.4 Grow verbs (6)
+### 9.4 Grow verbs (5)
 
 | Id | One | Many |
 |---|---|---|
@@ -589,7 +590,6 @@ New faults: `BadAnswer`, `UnknownChoice(field)`, `ChoiceNotInLore(field)`, `TooM
 | `v.now` | is stronger now (tag: now) | are stronger now |
 | `v.little` | stands a little stronger | stand a little stronger |
 | `v.grown` | has grown stronger | have grown stronger |
-| `v.ranks` | counts one more {class} in its ranks (named orders only) | (none) |
 
 ### 9.5 Codas (4)
 
@@ -641,45 +641,45 @@ A Horde paladin and an Alliance paladin differ by construction: the Silver Hand 
 The lore sentences come from the model, so these show the voice that the samples teach. Each names its shape.
 
 1. Human paladin, level 30. `f.level`, `o.silver_hand` (short), `v.stronger`, `co.reached`, name.
-   "Uther the Lightbringer founded the Silver Hand in the Second War, to carry the Light into battle. The order grows stronger. $N has reached level 30."
+   "Uther the Lightbringer founded the Silver Hand in the Second War, and its paladins still carry the Light against the Scourge. The order grows stronger. $N has reached level 30."
 2. Orc paladin, level 10. `f.level_joined`, `c.now`, `s.light`, `v.strength`, `co.reached`, class.
-   "In the Second War, the Silver Hand rode against the Horde of Orgrim Doomhammer. Now, the orcs who wield the Light gain strength, and the paladin has reached level 10."
+   "The Silver Hand rode against the Horde of Orgrim Doomhammer in the Second War, and Thrall leads a new Horde from Orgrimmar today. Now, the orcs who wield the Light gain strength, and the paladin has reached level 10."
 3. Forsaken paladin, level 20. `f.level`, `s.dead_light`, `v.grown`, `co.is_now`, name.
-   "The Silver Hand fought the Scourge as it raised the dead of Lordaeron. The dead who wield the Light have grown stronger. $N is level 20 now."
+   "The Silver Hand fought the Scourge as it raised the dead of Lordaeron, and the Forsaken hold those lands now. The dead who wield the Light have grown stronger. $N is level 20 now."
 4. Tauren druid, level 20. `f.level`, `o.cenarion` (short), `v.stronger`, `co.reached`, class.
    "The Cenarion Circle keeps the balance of nature from Moonglade, where tauren and night elf druids study side by side. The Circle grows stronger. The druid has reached level 20."
 5. Orc warlock, level 40. `f.level`, `g.class_faction`, `v.now`, `co.none_u`, unnamed.
-   "The Shadow Council first taught the orcs to bargain with demons, on Draenor. The warlocks of the Horde are stronger now."
+   "The Shadow Council taught the orcs to bargain with demons on Draenor, and the Burning Blade still serves those demons in Ragefire Chasm. The warlocks of the Horde are stronger now."
 6. Dwarf shaman, level 30. `f.level_joined`, `s.elements`, `v.grown`, `co.reached`, name.
-   "In the vaults of Uldaman, the dwarves learned that their forefathers were earthen, shaped from living stone by the titans. The dwarves who speak to the elements have grown stronger, and $N has reached level 30."
+   "In the vaults of Uldaman, the dwarves learned that the titans shaped their forefathers from living stone, and the Explorers' League still digs there. The dwarves who speak to the elements have grown stronger, and $N has reached level 30."
 7. Night elf priest, level 30. `f.level`, `c.now`, `o.elune`, `v.stronger`, `co.reached`, race.
    "Tyrande Whisperwind leads the night elves as the high priestess of Elune. Now, the priests of Elune grow stronger. The night elf has reached level 30."
-8. Gnome mage, level 20. `f.level`, `o.kirin_tor`, `v.ranks`, `co.reached`, name.
-   "Dalaran lies behind a violet dome in the hills above Hillsbrad, where its magi rebuild their city. The Kirin Tor counts one more mage in its ranks. $N has reached level 20."
-9. Kill, unnamed. `f.deed`, `k.end_u`.
-   "Hogger raided the farms of Elwynn for years, and the guards of Stormwind never caught him. That was the end of Hogger."
+8. Gnome mage, level 20. `f.level`, `o.kirin_tor`, `v.grown`, `co.reached`, name.
+   "Dalaran lies behind a violet dome in the hills above Hillsbrad, where its magi rebuild their city. The Kirin Tor has grown stronger. $N has reached level 20."
+9. Kill, unnamed. `f.deed`, `k.lost_u` (many).
+   "For years Hogger led the Riverpaw gnolls in raids on the farms of Elwynn, and Stormwind still has a price on his head. The Riverpaw have lost their leader."
 10. Kill, undead. `f.deed`, `k.rest`, name.
-    "Baron Silverlaine held Shadowfang Keep until Arugal's worgen overran it. $N laid Baron Silverlaine to rest."
+    "Baron Silverlaine held Shadowfang Keep until Arugal's worgen overran it, and his ghost still walks its halls. $N laid Baron Silverlaine to rest."
 11. Revenge. `f.revenge`, `r.had_killed`, `rb.this_time`, name.
     "Gath'Ilzogg holds Stonewatch Keep for the Blackrock orcs, above the town of Lakeshire. Gath'Ilzogg had killed $N twice. This time, the fight went the other way."
 12. Death, a kind. `f.deed`, `kr.kind`, `d.killed`, name.
     "The murlocs of the Westfall coast have no kingdom and no history. One Murloc Coastrunner or another has now killed $N three times."
-13. Death, dry. `f.deed`, `kr.kind`, `d.leads_u`, unnamed.
-    "The Defias took Westfall farm by farm, and the militia of Sentinel Hill could not hold them all. One Defias Pillager or another leads, two to none."
+13. Death, a kind. `f.deed`, `kr.kind`, `d.won_u`, unnamed.
+    "The Defias took Westfall farm by farm, and the militia of Sentinel Hill holds little more than its hill now. One Defias Pillager or another has won this fight twice."
 14. Class quest, dwarf paladin. `f.deed`, `cq.for` (short), race.
-    "Uther the Lightbringer founded the Silver Hand to carry the Light into war. The dwarf finished \"The Tome of Divinity\" for the order."
+    "Uther the Lightbringer founded the Silver Hand to carry the Light into war, and its paladins still train in Ironforge. The dwarf finished \"The Tome of Divinity\" for the order."
 15. First mount. `f.deed`, `mt.such`, race.
     "The Mountaineers of Ironforge patrol the passes of Khaz Modan on rams bred in the snows of Dun Morogh. One such ram now carries the dwarf."
-16. First epic mount. `f.deed`, `c.now`, `em.runs`, name.
-    "When Lordaeron fell, the Scourge raised the warhorses of its knights along with their riders. Now, a Green Skeletal Warhorse runs under $N."
-17. First epic item. `f.deed`, `c.there`, `i.hand_u`, unnamed.
-    "The Dark Iron dwarves mine Searing Gorge for Ragnaros, who rules them from the depths of Blackrock Mountain. There, Gutwrencher found a new hand."
-18. Big upgrade. `f.deed`, `c.now`, `i.in_hand`, title.
-    "Gryan Stoutmantle arms the People's Militia of Sentinel Hill with blades taken from the Defias. Now, Cruel Barb is in the hand of the Bookworm."
+16. First epic mount. `f.deed`, `c.now`, `mt.rides`, name.
+    "The warhorses of Lordaeron died of the plague, and the Royal Apothecary Society raises them again as mounts for the Forsaken. Now, $N rides a Green Skeletal Warhorse."
+17. First epic item. `f.deed`, `c.there`, `i.carries`, class.
+    "The summoning of Ragnaros blackened Searing Gorge, and the Dark Iron dwarves work its mines with slaves. There, the rogue carries Gutwrencher."
+18. Big upgrade. `f.deed`, `c.in_zone`, `i.carries`, title.
+    "Gryan Stoutmantle left the Third War to save the farms of Westfall, and his militia holds Sentinel Hill. In Westfall, the Bookworm carries Cruel Barb."
 19. Slap. `f.deed`, `s.slapped`, race.
     "Every caravan between Orgrimmar and Ratchet stops at the Crossroads. The tauren has now slapped Innkeeper Boorand Plainswind twice."
 20. Arrival. `f.place`.
-    "Thrall named Durotar for a father he never knew. The orcs who settled it had spent years in human camps."
+    "Thrall named Durotar for a father he never knew. The orcs who spent years in human camps hold its red canyons now."
 
 ## 10. Open questions
 
@@ -688,10 +688,10 @@ The lore sentences come from the model, so these show the voice that the samples
 3. **Flavor moments.** Keep them as free text with checks, or give them templates too?
 4. **Items.** `item-stories.md` waits. Until it is built, does a big upgrade keep a templated line, or go silent?
 5. **The cutoff of orders.** Are the Earthen Ring and the Shattered Hand known in 25 ADP? Without them, a Horde shaman and a Horde rogue keep the class and people groups.
-6. **`v.ranks`.** "The Kirin Tor counts one more mage in its ranks." Is it too close to a fame claim?
+6. **`v.ranks`.** "The Kirin Tor counts one more mage in its ranks." Is it too close to a fame claim? **Answered** (2026-10-05, `narrator-style.md` 9): yes, a fame claim. `v.ranks` is dropped.
 7. **The window.** Is N = 8 right? A smaller N gives more freedom, and a larger N more variety.
 8. **Unnamed level codas.** Keep "That makes level 40.", or leave the level out of every unnamed line?
-9. **Contrast endings.** "The paladin did." needs the lore to end on a failure. Add a closed choice `contrast` with a check, or drop the shape?
-10. **New phrases.** Do you approve "one {killer} or another", "leads, two to none", and the four strange-pairing phrases?
+9. **Contrast endings.** "The paladin did." needs the lore to end on a failure. Add a closed choice `contrast` with a check, or drop the shape? The style guide dropped the two contrast samples (2026-10-05), so no part needs it.
+10. **New phrases.** Do you approve "one {killer} or another" and the four strange-pairing phrases? ("leads, two to none" is dropped by the style guide.)
 11. **Revenge and the side quest.** Both need new moments. What rank does each take in `moments.rs`?
 12. **The relay schema.** Send the `schema` request to the relay session now, or after the first build with plain JSON?
