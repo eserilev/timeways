@@ -112,7 +112,9 @@ pub(super) fn journal_edits(active: &Active) -> Vec<EditView> {
 }
 
 /// The player's telling of an entry for a prompt, with the IDs of the players, cut short,
-/// and the row behind it. None when the standing edit shows no words of the player.
+/// and the row behind it. None when the standing edit shows no words of the player. The
+/// swap runs again, because the table can know a name now that it did not know at the
+/// edit.
 pub(super) fn telling_of(active: &Active, entry: EntryKey) -> Option<(String, Node)> {
     let (row, edit) = standing_edit(active, entry)?;
     if edit.text == EditText::Narrator && edit.title.is_none() {
@@ -120,7 +122,8 @@ pub(super) fn telling_of(active: &Active, entry: EntryKey) -> Option<(String, No
     }
     let mut parts: Vec<&str> = edit.title.iter().map(String::as_str).collect();
     parts.extend(edit.paragraphs.iter().map(String::as_str));
-    let telling = first_chars(&parts.join("\n"), TELLING_CHARS).to_string();
+    let with_ids = aliases::with_ids(active, &parts.join("\n"));
+    let telling = first_chars(&with_ids, TELLING_CHARS).to_string();
     Some((telling, Node::Row(Table::EntryEdits, row)))
 }
 

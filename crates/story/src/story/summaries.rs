@@ -2,6 +2,7 @@
 //! is due, its call, and its answer.
 
 use super::{Active, Output, Pending, Story, StoryError};
+use crate::aliases::holds_an_id;
 use crate::check::copies_a_sample;
 use crate::chronicle::deed_fact;
 use crate::hero::{self, Change, FIELDS};
@@ -70,10 +71,11 @@ impl Story {
             .map(summary_tellings)
             .unwrap_or_default();
         let tellings: Vec<&str> = tellings.iter().map(String::as_str).collect();
-        // A summary that copies 8 words of the player's telling is refused, as a saga is.
+        // A summary that copies 8 words of the player's telling is refused, as a saga is,
+        // and so is one that holds the ID of a player.
         let checked = text
             .and_then(|text| summary::checked_summary(text, told, &player_text))
-            .filter(|summary| !copies_a_sample(summary, &tellings));
+            .filter(|summary| !copies_a_sample(summary, &tellings) && !holds_an_id(summary));
         let active = self.active.as_mut().filter(|active| &active.key == key);
         let (Some(active), Some(text)) = (active, checked) else {
             return Ok((Vec::new(), Outcome::Refused));

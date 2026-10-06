@@ -252,6 +252,23 @@ fn a_refused_tale_keeps_the_text_before() {
     );
 }
 
+#[test]
+fn a_tale_that_holds_the_id_of_a_player_is_refused() {
+    let mut story = started("tale-with-id");
+    run(&mut story, HOUR, &["Edwin VanCleef"]);
+    enter(&mut story, 2 * HOUR, "Westfall", None);
+    let with_id = |kind: &str| {
+        (kind == "tale").then(|| {
+            r#"{"tale": "The Defias dug a fleet out of the rock. {P1} saw Edwin VanCleef fall."}"#
+                .to_string()
+        })
+    };
+
+    settle(&mut story, 1, &with_id);
+
+    assert_eq!(journal(&mut story).tales[0].text, None);
+}
+
 /// A chapter in Westfall: a meeting and 14 camps on foot. Then a meeting in Duskwood
 /// closes it.
 fn a_chapter_in_westfall(story: &mut Story) {

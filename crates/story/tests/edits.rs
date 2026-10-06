@@ -341,3 +341,71 @@ fn the_largest_chapter_and_its_largest_edit_fit_the_journal() {
         assert!(line.len() <= MAX_LINE, "{} bytes", line.len());
     }
 }
+
+#[test]
+fn a_marked_name_before_a_curly_apostrophe_never_reaches_a_saga() {
+    let mut story = started("curly-apostrophe");
+    a_chapter_in_westfall(&mut story);
+    let (_, key) = first_chapter(&mut story);
+
+    edit(
+        &mut story,
+        key,
+        EditText::Keep,
+        &["{Ada}’s shield held the hill."],
+    );
+    close_it(&mut story);
+    let sagas = settle(&mut story, SAGA);
+
+    assert!(!sagas[0].contains("Ada"), "{}", sagas[0]);
+    assert!(sagas[0].contains("{P1}’s shield"), "{}", sagas[0]);
+}
+
+#[test]
+fn a_saga_never_shows_the_id_of_a_player() {
+    let mut story = started("id-in-saga");
+    a_chapter_in_westfall(&mut story);
+    let (_, key) = first_chapter(&mut story);
+    edit(
+        &mut story,
+        key,
+        EditText::Keep,
+        &["{Ada} held the hill with me."],
+    );
+
+    close_it(&mut story);
+    settle(
+        &mut story,
+        "Westfall burned while Stormwind looked away, and {P1} held Sentinel Hill.",
+    );
+
+    let (chapter, _) = first_chapter(&mut story);
+    let prose = chapter.prose.unwrap_or_default();
+    assert!(!prose.contains("{P1}"), "{prose}");
+}
+
+#[test]
+fn a_name_learned_after_an_edit_never_reaches_a_saga() {
+    let mut story = started("name-learned-later");
+    a_chapter_in_westfall(&mut story);
+    let (_, key) = first_chapter(&mut story);
+    edit(
+        &mut story,
+        key,
+        EditText::Keep,
+        &["Ada held the hill with me."],
+    );
+
+    let in_sight = Input::PlayerDescribed {
+        at: Tick(3 * HOUR),
+        name: "Ada".to_string(),
+        race: None,
+        class: None,
+    };
+    story.handle(in_sight).unwrap();
+    close_it(&mut story);
+    let sagas = settle(&mut story, SAGA);
+
+    assert!(!sagas[0].contains("Ada"), "{}", sagas[0]);
+    assert!(sagas[0].contains("{P1} held the hill"), "{}", sagas[0]);
+}

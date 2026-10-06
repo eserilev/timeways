@@ -2,6 +2,7 @@
 //! the judge, and the final saga on the disk.
 
 use super::{Active, CHAPTER_MOMENTS, Output, Pending, Story, StoryError, edits, reads};
+use crate::aliases::holds_an_id;
 use crate::best_of_two::{Next, Round};
 use crate::check;
 use crate::chronicle::{self, Draft, OwnWords, Pick, Saga};
@@ -148,11 +149,16 @@ impl Story {
         Ok((self.advance_round()?.into_iter().collect(), outcome))
     }
 
-    /// A draft that repeats an earlier saga of the character is refused (3.3).
+    /// A draft that repeats an earlier saga of the character is refused (3.3), and so is
+    /// one that holds the ID of a player (5.11).
     fn checked_draft(&self, round: &Round, text: &str) -> Option<Saga> {
         let active = self.active.as_ref()?;
         let player_text = hero::player_text(&hero::hero(active.hero.changes()));
         let saga = chronicle::checked_saga(text, round.kinds.len(), round.facts(), &player_text)?;
+        let footnote_ids = saga.footnotes.iter().any(|(_, note)| holds_an_id(note));
+        if holds_an_id(&saga.text) || footnote_ids {
+            return None;
+        }
         let telling = edits::telling_of(active, edits::chapter_key(round.first.0));
         let earlier: Vec<&str> = active
             .prose

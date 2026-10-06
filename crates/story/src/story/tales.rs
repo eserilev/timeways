@@ -3,6 +3,7 @@
 //! summary waits behind them.
 
 use super::{Active, Output, Pending, Story, StoryError};
+use crate::aliases::holds_an_id;
 use crate::chapters::{SpanState, TaleSpan, VisitSpan};
 use crate::chronicle::deed_fact;
 use crate::journal::{Tale, visit_deeds};
@@ -90,7 +91,9 @@ impl Story {
             super::edits::telling_of(active, super::edits::tale_key(run.tale.0))
         });
         let telling: Vec<&str> = telling.iter().map(|(text, _)| text.as_str()).collect();
-        let checked = text.and_then(|text| tale::checked_tale(text, told, &player_text, &telling));
+        let checked = text
+            .and_then(|text| tale::checked_tale(text, told, &player_text, &telling))
+            .filter(|text| !holds_an_id(text));
         let active = self.active.as_mut().filter(|active| &active.key == key);
         let (Some(active), Some(text)) = (active, checked) else {
             return Ok((Vec::new(), Outcome::Refused));
