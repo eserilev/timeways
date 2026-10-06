@@ -6,34 +6,36 @@
 # the place alone: the world is the main character.
 # A sample names real places and people of 25 ADP, before Molten Core. The check refuses a
 # line that copies 4 words in a row of a sample, and the log names a name in no fact.
+# Each sample follows the style guide (docs/plans/narrator-style.md): one turn of history
+# that ends on the present, and the hero only where the deed needs a doer.
 
 moment: The player arrived in Tirisfal Glades. They had never been there before.
 who: a Forsaken warlock
 lore: Deathknell is a village of Tirisfal Glades. The plague killed its people, and the Scourge raised them. Now the Forsaken wake their own dead in its crypts.
 hero: not at all, the line is about the place
-line: Deathknell has twice buried its dead. The second time, they climbed back out.
+line: The plague killed the people of Deathknell, and the Scourge raised them. The Forsaken hold the village now, and they wake their own dead in its crypts.
 
 moment: The player defeated Hogger. They never had before.
 who: a human paladin
 lore: Hogger leads the Riverpaw gnolls of Elwynn Forest. His raids on its farms go on, and the guards of Stormwind have a price on his head.
-hero: the paladin
-line: Hogger raided Elwynn's farms for years, and Stormwind's guards never stopped him. The paladin did.
+hero: no name
+line: For years Hogger led the Riverpaw gnolls in raids on the farms of Elwynn. The Riverpaw have no leader now.
 
 moment: The player arrived in Westfall. They had never been there before.
-lore: The stonemasons rebuilt Stormwind after the Second War. The House of Nobles refused to pay them, and they left as the Defias Brotherhood, which now holds Westfall.
+lore: The region was stolen right under the Alliance's nose by its own bitter people. This rich land has lain fallow since the Second War, but it is now held by the Defias Brotherhood.
 hero: not at all, the line is about the place
-line: Stormwind never paid the men who rebuilt it. In Westfall, their sons wear red masks.
+line: Westfall's rich fields have lain fallow since the Second War. Its own bitter people took it from Stormwind, and the Defias Brotherhood holds it now.
 
 moment: The player entered the dungeon The Deadmines. They had never been inside before.
-lore: The Deadmines lie beneath Moonbrook in Westfall. There the Defias Brotherhood builds a ship with gold stolen from Stormwind.
+lore: For a time, the Miners' League was partly in charge of the Deadmines under Foreman Thistlenettle. One day the Defias Brotherhood attacked them, and the mine tunnel collapsed. Only Wilder escaped, while the rest died and began to roam as restless undead.
 hero: not at all, the line is about the place
-line: Beneath Moonbrook, the Defias are building something with the gold they stole from Stormwind.
+line: The Miners' League once worked the Deadmines under Foreman Thistlenettle. The Defias attacked, the tunnel collapsed, and only Wilder escaped. The rest still roam there, undead.
 
 moment: The player defeated Edwin VanCleef. They never had before.
 who: a human rogue
 lore: Edwin VanCleef led the stonemasons who rebuilt Stormwind. When the nobles refused their wages, he founded the Defias Brotherhood.
-hero: the rogue
-line: Edwin VanCleef asked Stormwind for his wages, and the kingdom never paid. The rogue settled the account instead.
+hero: no name
+line: Edwin VanCleef built the Defias Brotherhood from the stonemasons Stormwind never paid. The Brotherhood has lost its founder.
 
 moment: The player arrived in the capital city Ironforge. They had never been there before.
 lore: Ironforge is the capital of the dwarves, carved deep into the mountain of Khaz Modan. The Great Forge burns at its heart.
@@ -44,13 +46,13 @@ moment: The player arrived in the capital city Thunder Bluff. They had never bee
 who: a troll hunter
 lore: The centaur drove the tauren across the plains of Kalimdor for generations. With the help of the Horde, Cairne Bloodhoof led them to the mesas of Mulgore, where they built Thunder Bluff.
 hero: not at all, the line is about the place
-line: The tauren were driven across the plains for generations. On the bluffs of Mulgore, they stopped running.
+line: For generations the centaur hunted the tauren across Kalimdor. Cairne Bloodhoof built Thunder Bluff on the mesas of Mulgore, and the tauren hold its grasslands now.
 
 moment: The player arrived in the capital city Undercity. They had never been there before.
 who: an orc warrior
-lore: The Undercity lies beneath the ruins of the capital of Lordaeron. Sylvanas Windrunner, the Dark Lady, rules the Forsaken from its throne room.
+lore: Under Sylvanas Windrunner, the Forsaken established the Undercity beneath the ruins of Lordaeron's capital. The Dark Lady rules them from its throne room.
 hero: not at all, the line is about the place
-line: The capital of Lordaeron lies in ruins. Beneath it, the Dark Lady keeps her court.
+line: The Forsaken took the royal crypts beneath the ruins of Lordaeron's capital and built the Undercity there. Sylvanas Windrunner rules them from its throne room now.
 
 moment: The player arrived in Darkshore. They had never been there before.
 lore: The night elves gave up their immortality to save the world from the Burning Legion. The ruins of their old cities line the coast of Darkshore.
@@ -64,7 +66,7 @@ line: The murlocs of the coast have no kingdom and no history. They have now kil
 moment: The player arrived in Durotar. They had never been there before.
 lore: Thrall named Durotar after his father, Durotan, who died when Thrall was an infant. The orcs settled its red canyons after their years in the internment camps of Lordaeron.
 hero: not at all, the line is about the place
-line: Thrall named this red land for a father he never knew. The orcs who settled it had spent years in human camps.
+line: Thrall named Durotar for a father he never knew. The orcs who spent years in human camps hold its red canyons now.
 
 moment: The player slapped Innkeeper Boorand Plainswind. That makes 2 times.
 who: a tauren druid
@@ -75,7 +77,7 @@ line: Every caravan between Orgrimmar and Ratchet stops at the Crossroads. The t
 moment: The player reached level 20 in Duskwood.
 lore: Duskwood was a green forest called Brightwood, until a darkness fell on it. The Night Watch of Darkshire guards its last town against the worgen and the dead.
 hero: $N
-line: Duskwood was called Brightwood once, before the dark came. $N reached level 20 there, beside the Night Watch of Darkshire.
+line: Duskwood was a green forest called Brightwood until a darkness fell on it. The Night Watch holds Darkshire against the dead now, and $N stands with them at level 20.
 
 moment: The player finished "The Tome of Divinity", a quest of their class.
 who: a dwarf paladin
@@ -84,15 +86,15 @@ hero: by the title "Bookworm"
 line: Uther the Lightbringer founded the Silver Hand to carry the Light into war. The Bookworm has finished its tome.
 
 moment: The player entered the dungeon Wailing Caverns. They had never been inside before.
-lore: Naralex, a druid of the Cenarion Circle, went into the Wailing Caverns to heal the Barrens. His dream turned into a nightmare, and the druids who followed him became the Druids of the Fang.
+lore: Naralex, a night elf druid of the Cenarion Circle, led his disciples into the Wailing Caverns to make the Barrens green through the Emerald Dream. The Emerald Nightmare corrupted them, and they became the Druids of the Fang.
 hero: not at all, the line is about the place
-line: Naralex went into the Wailing Caverns to heal the Barrens. His dream turned on him, and his own druids became the Druids of the Fang.
+line: Naralex went into the Wailing Caverns to make the Barrens green again. The Emerald Nightmare took his mind, and his own Druids of the Fang serve it now.
 
 moment: The player defeated Archmage Arugal. They never had before.
 who: a Forsaken mage
 lore: Archmage Arugal of the Kirin Tor summoned the worgen to fight the Scourge. They turned on him, and he now hides in Shadowfang Keep, calling them his children.
-hero: the Forsaken
-line: Arugal called the worgen into this world, then called them his children. The Forsaken ended the family in Shadowfang Keep.
+hero: no name
+line: Arugal called the worgen into Silverpine to fight the Scourge, but he could not control them. Shadowfang Keep has no master now.
 
 moment: The player arrived in the capital city Darnassus. They had never been there before.
 who: a gnome mage
@@ -123,9 +125,9 @@ line: The Defias took Westfall farm by farm, and the militia of Sentinel Hill co
 
 moment: The player defeated Gath'Ilzogg. They never had before.
 who: a dwarf hunter
-lore: The Blackrock orcs took Stonewatch Keep in the Redridge Mountains. Their leader, Gath'Ilzogg, holds it above Lakeshire.
+lore: Gath'Ilzogg led a force of Blackrock orcs from the Burning Steppes and claimed Stonewatch Keep in the Redridge Mountains. From there the clan raided north of Lakeshire, and kept its people penned in their town.
 hero: $N
-line: The Blackrock orcs took Stonewatch Keep and watched Lakeshire from its walls. Their leader Gath'Ilzogg fell there to $N.
+line: The Blackrock orcs took Stonewatch Keep and kept the people of Lakeshire penned in their town. Gath'Ilzogg fell there to $N, and the keep has no warlord now.
 
 moment: The player rode a mount of their own, Gray Ram. They never had one before.
 who: a dwarf hunter
@@ -135,18 +137,18 @@ line: Ironforge's Mountaineers hold the passes of Khaz Modan on ramback. Now the
 
 moment: The player rode Green Skeletal Warhorse, a swift mount, twice as fast as a runner. They never had one so fast before.
 who: a Forsaken warlock
-lore: When Lordaeron fell, the Scourge raised the warhorses of its knights along with their riders. The Forsaken of the Undercity kept the dead steeds, and the stablemasters of Brill sell them to the loyal.
+lore: Not even the noble steeds that died of the plague get any rest. Through alchemy and necromancy, the Royal Apothecary Society has raised many of them as mounts for the Forsaken.
 hero: $N
-line: The Scourge raised Lordaeron's warhorses with their riders. The Forsaken kept the horses, and the fastest of them now runs under $N.
+line: The warhorses of Lordaeron died of the plague, and the Royal Apothecary Society raised them as mounts for the Forsaken. $N rides one of the swiftest now.
 
 moment: The player put on Gutwrencher in Searing Gorge. It is of the finest kind of item, and they never wore one before.
 who: a human rogue
-lore: The Dark Iron dwarves mine Searing Gorge for Ragnaros, the Firelord who rules them from the depths of Blackrock Mountain.
-hero: no name
-line: The Dark Irons dig Searing Gorge hollow for Ragnaros, their master below Blackrock. In that heat, Gutwrencher found a new hand.
+lore: The summoning of Ragnaros blackened Searing Gorge, once a part of the Redridge Mountains. Dark Iron dwarves rule it now, and captured slaves work their mines in the Cauldron.
+hero: the human
+line: The summoning of Ragnaros turned Searing Gorge black, and the Dark Iron dwarves work its mines with slaves now. The human carries Gutwrencher there.
 
 moment: The player put on Cruel Barb in Westfall. It is far better than the item it replaced.
 who: a dwarf warrior
-lore: Gryan Stoutmantle leads the People's Militia from Sentinel Hill. He arms his recruits with the blades they take from the Defias.
+lore: Gryan Stoutmantle left the battlefields of Lordaeron when the Defias Brotherhood rose in Westfall. He came home to save its farms, and he leads the People's Militia from Sentinel Hill.
 hero: by the title "Bookworm"
-line: Gryan Stoutmantle arms Sentinel Hill with blades taken from the Defias. The best of them, Cruel Barb, now hangs at the side of the Bookworm.
+line: Gryan Stoutmantle left the Third War to save the farms of Westfall from the Defias. His militia holds Sentinel Hill, and the Bookworm carries Cruel Barb there.

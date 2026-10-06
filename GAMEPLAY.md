@@ -82,12 +82,14 @@ No invented companion rides along. A narrator tells the big moments as they happ
 
 **Who it is.** The narrator is a keeper of time, and nobody knows more than that. It never names itself or what it serves. It has seen how things end, and it never tells the future: that is the spoiler rule. It is a chronicler: it knows the history of Azeroth, its kingdoms, its wars, and its peoples. Its voice is serious, concrete, and sparing, with a dry edge at most. It makes no jokes and no silly lines.
 
-**What a line sounds like.** The player approved these lines as the voice (October 2026). `$N` is the name of the character (5.11):
+**What a line sounds like.** The style guide of the narrator holds the voice (`docs/plans/narrator-style.md`, approved 2026-10-05): one turn of history that ends on the present, a place, a people, a foe, or an order as the subject, and the hero only where a deed needs a doer. The player loved these lines, and they are samples now. `$N` is the name of the character (5.11):
 
-- "Hogger raided Elwynn's farms for years, and Stormwind's guards never stopped him. The paladin did."
+- "The Miners' League once worked the Deadmines under Foreman Thistlenettle. The Defias attacked, the tunnel collapsed, and only Wilder escaped. The rest still roam there, undead." (a dungeon, so no hero)
+- "Westfall's rich fields have lain fallow since the Second War. Its own bitter people took it from Stormwind, and the Defias Brotherhood holds it now." (a new zone, so no hero)
+- "Arugal called the worgen into Silverpine to fight the Scourge, but he could not control them. Shadowfang Keep has no master now." (a kill: the world changed, so no hero)
 - "The murlocs of the coast have no kingdom and no history. They have now killed $N three times."
-- "Deathknell has twice buried its dead. The second time, they climbed back out." (a new zone, so no hero; rewritten 2026-10-05)
-- "Stormwind never paid the men who rebuilt it. In Westfall, their sons wear red masks." (a new zone, so no hero; rewritten 2026-10-05)
+
+The guide replaced the two samples that ended on a contrast with the hero, "...The paladin did." for Hogger and "...The rogue settled the account instead." for VanCleef, with lines that end on the world: "The Riverpaw have no leader now." and "The Brotherhood has lost its founder."
 
 The player rejected three kinds of line as slop. Mood with no facts: "Level six came on a grey morning. Our hero moved on without rest." A ledger of facts: the zone, the level, and the count of mobs and quests, with no history. An arrival of the hero as the news: "One more stranger came into those fields." and "$N entered the Deadmines." (2026-10-05).
 
@@ -137,7 +139,7 @@ The prompts of the narrator, the chronicle, a talk, and a quest share one plan (
   - Each 8 lines hold 3 names, 2 races or classes, 2 lines with no name, and 1 title. A hero with no title, or with no race or class yet, gets the name in their place. A line names the hero at most once.
 - **The race and the class** come from the addon at each login (`character_described`, 5.4), and stay in the world as facts (5.1). The prompt says "The hero: a Forsaken warlock". A world from before this line has none, and the prompt leaves the line out.
 - **An NPC never gets the persona of the narrator.** It gets a short persona of its own from the facts: its name, its place, and its trust in you as words ("You are wary of the player"), never as a number.
-- **Golden samples.** Each prompt of the narrator, a chapter, a summary, or a talk carries 2 or 3 short samples of the voice, in turn: 26 for a narrator line, 5 for a chapter, 6 for the summary, and 3 for an NPC reply. The 12 arrival samples tell the place alone, and the 14 deed samples mix the namings of the rotation. The samples are data in `crates/story/data/samples/`. A test checks that each sample passes each check.
+- **Golden samples.** Each prompt of the narrator, a chapter, a summary, or a talk carries 2 or 3 short samples of the voice, in turn: 26 for a narrator line, 5 for a chapter, 6 for the summary, and 3 for an NPC reply. The 12 arrival samples tell the place alone, and the 14 deed samples mix the namings of the rotation. Each narrator, chapter, and summary sample follows the style guide (2026-10-05): 4 of the deed samples leave the hero out, because the deed reads well without a doer, and no sample has a people that knows the hero. The samples are data in `crates/story/data/samples/`. A test checks that each sample passes each check.
   - **A narrator sample is a pair.** It shows the moment, the race and class of its hero, its lore, how to name the hero, and then the line. So a model learns how a line uses the lore and the facts, and how it follows the naming. A sample of the same moment as the prompt is left out, because a model copies the line of a moment that it sees twice.
   - **Samples name real places and people of 25 ADP.** This reverses an older rule, which kept every real name out of the samples. A sample with no names taught the model mood with no facts. Now the copy check stops a copied run of words, and the log of names in no fact shows a name that the moment does not hold. Every sample stays within the lore cutoff (5.9): nothing from Molten Core or later.
   - The narrator samples cover both factions, many zones, foes, and races, and many sentence shapes.
