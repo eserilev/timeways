@@ -1,8 +1,8 @@
 use hourglass::Tick;
 use timeways_story::character::{Character, Item};
 use timeways_story::gear::Quality;
-use timeways_story::input::GameQuestKind;
-use timeways_story::moments::{Moment, best, moments};
+use timeways_story::input::{GameQuestKind, Reaction};
+use timeways_story::moments::{Creature, Moment, SlotKind, best, moments};
 use timeways_story::places::InstanceKind;
 use timeways_story::race_class::{Class, Race};
 
@@ -30,7 +30,9 @@ fn a_first_kill_is_a_moment_and_an_echo_is_not() {
     assert_eq!(
         first,
         [Moment::FirstKill {
-            foe: "Hogger".to_string()
+            foe: "Hogger".to_string(),
+            zone: None,
+            creature: None,
         }]
     );
     assert!(echo.is_empty());
@@ -50,6 +52,7 @@ fn a_second_death_to_the_same_npc_is_a_moment_and_the_first_is_not() {
     let again = Moment::SlainAgain {
         killer: "Murloc Forager".to_string(),
         times: 2,
+        zone: None,
     };
     assert!(first.is_empty());
     assert_eq!(second, [again]);
@@ -135,16 +138,22 @@ fn the_best_moment_is_the_last_of_the_highest_rank() {
         level_up(20, None),
         Moment::FirstKill {
             foe: "Hogger".to_string(),
+            zone: None,
+            creature: None,
         },
         Moment::FirstKill {
             foe: "Mother Fang".to_string(),
+            zone: None,
+            creature: None,
         },
     ];
 
     assert_eq!(
         best(found),
         Some(Moment::FirstKill {
-            foe: "Mother Fang".to_string()
+            foe: "Mother Fang".to_string(),
+            zone: None,
+            creature: None,
         })
     );
 }
@@ -167,7 +176,8 @@ fn a_slap_is_a_moment_with_its_count() {
         found,
         [Moment::Slapped {
             npc: "Innkeeper Farley".to_string(),
-            times: 2
+            times: 2,
+            zone: None,
         }]
     );
 }
@@ -382,6 +392,7 @@ fn a_first_epic_item_is_a_moment_with_its_zone_once() {
         [Moment::FirstEpicItem {
             item: "Barman Shanker".to_string(),
             zone: Some("Stranglethorn Vale".to_string()),
+            slot: None,
         }]
     );
     assert!(second.is_empty(), "{second:?}");
@@ -443,10 +454,146 @@ fn the_lore_of_an_item_is_about_the_item_alone() {
     let moment = Moment::BigUpgrade {
         item: "Cruel Barb".to_string(),
         zone: Some("Westfall".to_string()),
+        slot: None,
     };
 
     assert_eq!(moment.subjects(), ["Cruel Barb"]);
     assert_eq!(moment.names(), ["Cruel Barb", "Westfall"]);
     assert_eq!(moment.outside_names(), ["Cruel Barb"]);
     assert!(!moment.is_arrival());
+}
+
+#[test]
+fn the_first_kill_of_a_foe_that_killed_you_is_a_revenge() {
+    let mut character = Character::new();
+    character
+        .enter_zone(Tick(1), "Redridge Mountains", Some("Lakeshire"))
+        .unwrap();
+    character.die(Tick(2), Some("Gath'Ilzogg")).unwrap();
+    character.die(Tick(3), Some("Gath'Ilzogg")).unwrap();
+
+    let kill = moments_of(&mut character, |c| {
+        c.defeat_npc(Tick(4), "Gath'Ilzogg").unwrap();
+    });
+
+    assert_eq!(
+        kill,
+        [Moment::Revenge {
+            foe: "Gath'Ilzogg".to_string(),
+            deaths: 2,
+            zone: Some("Redridge Mountains".to_string()),
+        }]
+    );
+}
+
+#[test]
+fn a_kill_a_death_and_a_slap_hold_their_zone() {
+    let mut character = Character::new();
+    character
+        .enter_zone(Tick(1), "Elwynn Forest", Some("Goldshire"))
+        .unwrap();
+    character.die(Tick(2), Some("Murloc Forager")).unwrap();
+
+    let kill = moments_of(&mut character, |c| c.defeat_npc(Tick(3), "Hogger").unwrap());
+    let death = moments_of(&mut character, |c| {
+        c.die(Tick(4), Some("Murloc Forager")).unwrap();
+    });
+    let slap = moments_of(&mut character, |c| {
+        c.slap(Tick(5), "Innkeeper Farley").unwrap();
+    });
+
+    let elwynn = Some("Elwynn Forest".to_string());
+    assert!(matches!(&kill[..], [Moment::FirstKill { zone, .. }] if *zone == elwynn));
+    assert!(matches!(&death[..], [Moment::SlainAgain { zone, .. }] if *zone == elwynn));
+    assert!(matches!(&slap[..], [Moment::Slapped { zone, .. }] if *zone == elwynn));
+}
+
+#[test]
+fn a_beast_seen_before_its_kill_is_a_beast() {
+    let mut character = Character::new();
+    character
+        .see_npc(Tick(1), "Mother Fang", Reaction::Hostile, Some("beast"))
+        .unwrap();
+
+    let kill = moments_of(&mut character, |c| {
+        c.defeat_npc(Tick(2), "Mother Fang").unwrap();
+    });
+
+    assert!(
+        matches!(
+            &kill[..],
+            [Moment::FirstKill {
+                creature: Some(Creature::Beast),
+                ..
+            }]
+        ),
+        "{kill:?}"
+    );
+}
+
+#[test]
+fn a_finished_side_quest_is_a_moment_with_its_giver() {
+    let mut character = Character::new();
+    character
+        .offer_quest(Tick(1), "Farmer Saldean", "quest 3: The Lost Plow")
+        .unwrap();
+    character
+        .accept_quest(Tick(2), "quest 3: The Lost Plow")
+        .unwrap();
+
+    let done = moments_of(&mut character, |c| {
+        c.finish_quest(Tick(3), "Farmer Saldean", "quest 3: The Lost Plow")
+            .unwrap();
+    });
+
+    assert_eq!(
+        done,
+        [Moment::QuestDone {
+            title: "The Lost Plow".to_string(),
+            giver: Some("Farmer Saldean".to_string()),
+        }]
+    );
+}
+
+#[test]
+fn a_big_upgrade_knows_if_its_slot_holds_a_weapon() {
+    let mut character = Character::new();
+
+    let weapon = moments_of(&mut character, |c| {
+        c.put_on(Tick(1), &item("Cruel Barb", 16, Quality::Rare), true)
+            .unwrap();
+    });
+    let chest = moments_of(&mut character, |c| {
+        c.put_on(
+            Tick(2),
+            &item("Blackened Defias Armor", 5, Quality::Rare),
+            true,
+        )
+        .unwrap();
+    });
+
+    assert!(matches!(
+        &weapon[..],
+        [Moment::BigUpgrade {
+            slot: Some(SlotKind::Weapon),
+            ..
+        }]
+    ));
+    assert!(matches!(
+        &chest[..],
+        [Moment::BigUpgrade {
+            slot: Some(SlotKind::Worn),
+            ..
+        }]
+    ));
+}
+
+#[test]
+fn a_slot_kind_is_a_weapon_only_from_16_to_18() {
+    assert_eq!(SlotKind::of(15), Some(SlotKind::Worn));
+    assert_eq!(SlotKind::of(16), Some(SlotKind::Weapon));
+    assert_eq!(SlotKind::of(18), Some(SlotKind::Weapon));
+    assert_eq!(SlotKind::of(19), Some(SlotKind::Worn));
+    assert_eq!(SlotKind::of(0), None);
+    assert_eq!(SlotKind::of(20), None);
 }

@@ -513,6 +513,8 @@ fn voice_moments() -> Vec<TestMoment> {
             "a world boss",
             &Moment::FirstKill {
                 foe: "Azuregos".to_string(),
+                zone: None,
+                creature: None,
             },
             Some(AZUREGOS),
         ),
@@ -521,6 +523,7 @@ fn voice_moments() -> Vec<TestMoment> {
             &Moment::SlainAgain {
                 killer: "Scarlet Warrior".to_string(),
                 times: 2,
+                zone: None,
             },
             Some(SCARLET),
         ),

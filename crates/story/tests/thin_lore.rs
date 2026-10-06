@@ -22,6 +22,8 @@ fn passage(text: &str, about: Option<&str>, links: Vec<Link>) -> Passage {
 fn gath() -> Moment {
     Moment::FirstKill {
         foe: "Gath'Ilzogg".to_string(),
+        zone: None,
+        creature: None,
     }
 }
 
@@ -80,6 +82,7 @@ fn a_big_upgrade_with_no_item_story_is_thin() {
     let upgrade = Moment::BigUpgrade {
         item: "Gutwrencher".to_string(),
         zone: Some("Searing Gorge".to_string()),
+        slot: None,
     };
     let gorge = passage(
         "The Dark Iron dwarves hold the Searing Gorge.",

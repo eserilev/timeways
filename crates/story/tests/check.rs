@@ -321,14 +321,18 @@ fn fact_texts() -> Vec<String> {
         },
         Moment::FirstKill {
             foe: "Hogger".to_string(),
+            zone: None,
+            creature: None,
         },
         Moment::SlainAgain {
             killer: "Hogger".to_string(),
             times: 2,
+            zone: None,
         },
         Moment::Slapped {
             npc: "Innkeeper Farley".to_string(),
             times: 2,
+            zone: None,
         },
         Moment::LevelUp {
             level: 20,

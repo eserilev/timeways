@@ -29,6 +29,8 @@ fn westfall() -> Grounds {
 fn hogger() -> Grounds {
     let moment = Moment::FirstKill {
         foe: "Hogger".to_string(),
+        zone: None,
+        creature: None,
     };
     let lore = "Hogger leads the Riverpaw gnolls of Elwynn Forest. The guards of Stormwind \
         have a price on his head.";
@@ -144,6 +146,7 @@ fn a_plural_or_a_possessive_of_a_name_grounds_a_line() {
     let moment = Moment::SlainAgain {
         killer: "Murloc Coastrunner".to_string(),
         times: 3,
+        zone: None,
     };
     let grounds = grounds_of(&moment, None);
 
@@ -258,6 +261,8 @@ fn a_deed_line_that_spends_a_clause_on_an_arrival_is_refused() {
 fn the_race_of_the_hero_counts_as_the_hero() {
     let moment = Moment::FirstKill {
         foe: "Hogger".to_string(),
+        zone: None,
+        creature: None,
     };
     let orc = Who {
         race: Some(Race::Orc),
@@ -393,6 +398,7 @@ fn an_item_name_allows_no_slop_word_that_the_lore_lacks() {
     let moment = Moment::FirstEpicItem {
         item: "Destiny".to_string(),
         zone: Some("Westfall".to_string()),
+        slot: None,
     };
     let lore = "The Defias hold Westfall.";
     let line = "The Defias hold Westfall, and the paladin now carries Destiny.";
@@ -410,6 +416,7 @@ fn an_item_name_that_the_lore_holds_is_allowed() {
     let moment = Moment::FirstEpicItem {
         item: "Destiny".to_string(),
         zone: None,
+        slot: None,
     };
     let lore = "The sword Destiny was forged for the guards of Stormwind.";
     let line = "Stormwind forged Destiny for its guards. $N carries it now.";
@@ -425,6 +432,7 @@ fn an_item_name_never_allows_a_name_after_the_cutoff() {
     let moment = Moment::BigUpgrade {
         item: "Blade of Shattrath".to_string(),
         zone: None,
+        slot: None,
     };
     let line = "Shattrath made this blade. $N wears it now.";
 
@@ -599,6 +607,8 @@ fn a_run_that_only_names_what_the_lore_names_is_no_copy() {
 fn a_run_of_a_sample_beyond_the_names_of_the_lore_is_still_a_copy() {
     let moment = Moment::FirstKill {
         foe: "Edwin VanCleef".to_string(),
+        zone: None,
+        creature: None,
     };
     let lore = "Edwin VanCleef founded the Defias Brotherhood.";
     let line = "Edwin VanCleef founded the Defias Brotherhood, and the Brotherhood has lost its \

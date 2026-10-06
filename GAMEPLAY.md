@@ -95,12 +95,13 @@ The player rejected three kinds of line as slop. Mood with no facts: "Level six 
 
 - It reacts to big moments. The story program finds them in the events that each batch adds to the world. From the highest rank down (`moments.rs`):
   - a finished class quest (5.4),
-  - a joke title (5.4.1), or the first epic mount,
+  - a revenge: the first kill of a foe that killed you before (`docs/plans/chapters.md` 4), a joke title (5.4.1), or the first epic mount,
   - the first kill of a rare or a boss (the echo of a later kill is not a big moment), the first entry into a dungeon or a raid (3.3), the first mount, or the first epic item,
   - a second or later death to the same NPC: "The third death to the same murloc.",
-  - a slap of an NPC, which it remembers (5.4.1), a lasting buff or debuff of a quest (5.4), or a big upgrade,
+  - a slap of an NPC, which it remembers (5.4.1), a lasting buff or debuff of a quest (5.4), a finished side quest (3.4), or a big upgrade,
   - a milestone level (10, 20, 30, and so on), with the zone where it came, or the first visit of a capital city (3.3),
   - the first visit of a zone.
+- **What a deed moment holds** (2026-10-06, for the templates of `docs/plans/narrator-templates.md` 2.3). A kill, a revenge, a death, and a slap hold the zone where they came. A kill holds the creature type of the foe when the world knows it: today only a beast, from the `animal` fact of a sighting. A revenge holds the count of deaths to the foe. A first epic item and a big upgrade hold the kind of their slot, a weapon (16 to 18) or worn, from the slot of the big upgrade. A first epic item that was no upgrade has no known slot.
 - **Mounts and gear** (built, the player 2026-10-05: "Getting a mount, an epic mount. Getting a crazy upgrade."). Each one is a deed, and each counts once:
   - **The first mount:** the first ride on any mount (`mount_ridden`, 5.4). Its lore is the lore of the people who breed it: the rams of Ironforge, the sabers of Darnassus, the skeletal horses of the Undercity, the wolves of Orgrimmar, the kodos of Thunder Bluff, the raptors of Sen'jin Village, the mechanostriders of Gnomeregan, and the horses of Stormwind City. A word of the mount's name picks the people (`mounts.rs`). A class mount such as a Felsteed, and a name in another language, take the people of the hero.
   - **The first epic mount:** the first ride at a run speed of 180 percent or more. A mount of level 40 runs at 160, and up to about 170 with Mithril Spurs or the Carrot on a Stick. An epic mount runs at 200. An unknown speed is no epic ride. A first ride on an epic mount is both firsts, and the line tells the epic one.
@@ -115,8 +116,8 @@ The player rejected three kinds of line as slop. Mood with no facts: "Level six 
   2. Else the search of `/lore` (5.10): the text that the player read comes first, then the lore pack. A passage that links to the subject wins, then a passage that names it. The prompt keeps at most 400 characters of it, cut after a sentence, between fence marks. A joke title and a flavor moment get no lore.
   3. **Silence when the lore is thin** (built 2026-10-06, `narrator_lore::is_thin`). A deed gets no call at all when its lore is thin. A deed is every moment but an arrival and a flavor moment. The lore is thin when the prompt holds no passage, or a passage about none of the subjects of the moment. A passage is about a subject when its page is about it, when it links to it, or when the part that the prompt shows names it. So a kill of Gath'Ilzogg with only the lore of Redridge is silence, never "$N has defeated Gath'Ilzogg." The subjects:
      - a kill, a revenge, or a death: the foe;
-     - a slap: the NPC;
-     - a class quest or a quest mark: the quest. The text of a quest or a book that the player read is about its title;
+     - a slap: the NPC, then the zone where it came;
+     - a class quest or a quest mark: the quest. A side quest: the quest, then the NPC who gave it. The text of a quest or a book that the player read is about its title;
      - a first mount: the people who breed it;
      - a first epic item or a big upgrade: the item alone. The lore of its zone is about another subject, and the four item stories of `docs/plans/item-stories.md` are not built, so an item is mostly silent;
      - a tenth level: the people of the hero, by the pages of its capital and its land (`docs/plans/level-lines.md`). Level 10 takes the first passage of those pages, level 20 the second, and so on, so two tenth levels tell two passages. A hero with no race, or a people with no passage, is silent;

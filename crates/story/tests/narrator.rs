@@ -19,6 +19,7 @@ fn murloc() -> Moment {
     Moment::SlainAgain {
         killer: "Murloc Forager".to_string(),
         times: 3,
+        zone: None,
     }
 }
 
@@ -155,6 +156,8 @@ fn every_deed_takes_the_naming_of_its_turn() {
         murloc(),
         Moment::FirstKill {
             foe: "Hogger".to_string(),
+            zone: None,
+            creature: None,
         },
         Moment::LevelUp {
             level: 20,
@@ -357,6 +360,8 @@ fn no_moment_says_for_the_first_time() {
     let moments = [
         Moment::FirstKill {
             foe: "Hogger".to_string(),
+            zone: None,
+            creature: None,
         },
         Moment::NewZone {
             zone: "Westfall".to_string(),
@@ -384,6 +389,7 @@ fn a_mount_or_item_moment_never_says_epic() {
     let item = Moment::FirstEpicItem {
         item: "Barman Shanker".to_string(),
         zone: None,
+        slot: None,
     };
 
     for moment in [&mount, &item] {

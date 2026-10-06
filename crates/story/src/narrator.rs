@@ -249,13 +249,33 @@ pub fn what_happened(moment: &Moment) -> String {
         Moment::Titled { title } => {
             format!("The player earned the title \"{title}\" in their journal.")
         }
-        Moment::FirstKill { foe } => format!("The player defeated {foe}. They never had before."),
-        Moment::SlainAgain { killer, times } => {
-            format!("{killer} killed the player again. That makes {times} times.")
-        }
-        Moment::Slapped { npc, times } => {
-            format!("The player slapped {npc}. That makes {times} times.")
-        }
+        Moment::FirstKill { foe, zone, .. } => format!(
+            "The player defeated {foe}{}. They never had before.",
+            in_zone(zone.as_deref())
+        ),
+        Moment::Revenge { foe, deaths, zone } => format!(
+            "The player defeated {foe}{}. {foe} had killed them {deaths} times before.",
+            in_zone(zone.as_deref())
+        ),
+        Moment::SlainAgain {
+            killer,
+            times,
+            zone,
+        } => format!(
+            "{killer} killed the player again{}. That makes {times} times.",
+            in_zone(zone.as_deref())
+        ),
+        Moment::Slapped { npc, times, zone } => format!(
+            "The player slapped {npc}{}. That makes {times} times.",
+            in_zone(zone.as_deref())
+        ),
+        Moment::QuestDone { title, giver } => format!(
+            "The player finished the quest \"{title}\"{}.",
+            giver
+                .as_deref()
+                .map(|giver| format!(" for {giver}"))
+                .unwrap_or_default()
+        ),
         Moment::LevelUp { level, zone: None } => format!("The player reached level {level}."),
         Moment::LevelUp {
             level,
@@ -296,12 +316,12 @@ pub fn what_happened(moment: &Moment) -> String {
             "The player rode {mount}, a swift mount, twice as fast as a runner. They never had \
              one so fast before."
         ),
-        Moment::FirstEpicItem { item, zone } => format!(
+        Moment::FirstEpicItem { item, zone, .. } => format!(
             "The player put on {item}{}. It is of the finest kind of item, and they never \
              wore one before.",
             in_zone(zone.as_deref())
         ),
-        Moment::BigUpgrade { item, zone } => format!(
+        Moment::BigUpgrade { item, zone, .. } => format!(
             "The player put on {item}{}. It is far better than the item it replaced.",
             in_zone(zone.as_deref())
         ),

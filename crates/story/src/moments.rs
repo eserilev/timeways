@@ -7,10 +7,12 @@ use crate::gear::title_of_item;
 use crate::journal::mark_and_quest;
 use crate::mounts::{people_of, title_of_mount};
 use crate::places::{InstanceKind, is_capital};
+use crate::quest::title_of_thing;
 use crate::race_class::Race;
 use crate::vocabulary::{
-    BATTLEGROUND, CLASS_QUEST, DEFEATED, DUNGEON, FIRST_EPIC_ITEM, FIRST_EPIC_MOUNT, FIRST_MOUNT,
-    GAME_QUEST_DONE, LEVEL, MARKED_BY, RACE, RAID, SLAPPED, TITLE, UPGRADED, VISITED,
+    ANIMAL, BATTLEGROUND, CLASS_QUEST, DEFEATED, DUNGEON, FIRST_EPIC_ITEM, FIRST_EPIC_MOUNT,
+    FIRST_MOUNT, GAME_QUEST_DONE, LEVEL, MARKED_BY, QUEST_DONE, QUEST_OFFERED, RACE, RAID, SLAPPED,
+    SLOT_NUMBERS, TITLE, UPGRADED, VISITED,
 };
 use crate::walk::LEVEL_STEP;
 use hourglass::{EntityId, Event, EventKind, World};
@@ -21,16 +23,40 @@ pub enum Moment {
     Flavor { what: String },
     /// A joke title, the rarest moment of all (5.4.1).
     Titled { title: String },
-    /// The true kill of a rare or a boss (5.13).
-    FirstKill { foe: String },
+    /// The true kill of a rare or a boss (5.13). `zone` is where it came.
+    FirstKill {
+        foe: String,
+        zone: Option<String>,
+        creature: Option<Creature>,
+    },
+    /// The first kill of a foe that killed you before (docs/plans/chapters.md 4). `deaths`
+    /// counts your deaths to it.
+    Revenge {
+        foe: String,
+        deaths: i64,
+        zone: Option<String>,
+    },
     /// The same NPC killed you again: "Third time this murloc got you."
-    SlainAgain { killer: String, times: i64 },
+    SlainAgain {
+        killer: String,
+        times: i64,
+        zone: Option<String>,
+    },
     /// "The innkeeper remembers it."
-    Slapped { npc: String, times: i64 },
+    Slapped {
+        npc: String,
+        times: i64,
+        zone: Option<String>,
+    },
     /// Only a milestone level: 10, 20, 30, and so on. `zone` is where it came.
     LevelUp { level: i64, zone: Option<String> },
     /// A finished quest of your class: a turn of your own story.
     ClassQuestDone { title: String },
+    /// A finished side quest of Timeways (3.4). `giver` is the NPC who gave it.
+    QuestDone {
+        title: String,
+        giver: Option<String>,
+    },
     /// The first visit of a zone, not of a subzone.
     NewZone { zone: String },
     /// The first entry into a dungeon or a raid: a zone that the game called an instance.
@@ -51,9 +77,51 @@ pub enum Moment {
         people: Option<String>,
     },
     /// The first item of epic quality that you put on. `zone` is where.
-    FirstEpicItem { item: String, zone: Option<String> },
+    FirstEpicItem {
+        item: String,
+        zone: Option<String>,
+        slot: Option<SlotKind>,
+    },
     /// An item far better than what its slot held (`gear::is_big_upgrade`).
-    BigUpgrade { item: String, zone: Option<String> },
+    BigUpgrade {
+        item: String,
+        zone: Option<String>,
+        slot: Option<SlotKind>,
+    },
+}
+
+/// The creature type of a foe, for the kill parts of one type
+/// (docs/plans/narrator-templates.md 2.3). The world holds only the beasts today: the
+/// `animal` fact of a sighting. TODO: the other types need the creature type of
+/// `npc_defeated` and a new fact; they come with that change.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Creature {
+    Beast,
+    Undead,
+    Demon,
+    Dragonkin,
+    Elemental,
+}
+
+/// Where an item goes: a weapon slot (16 to 18) or any other slot.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SlotKind {
+    Weapon,
+    Worn,
+}
+
+/// The weapon slots of the game: main hand, off hand, and ranged.
+const WEAPON_SLOTS: std::ops::RangeInclusive<i64> = 16..=18;
+
+impl SlotKind {
+    /// The kind of an inventory slot of the game, from 1 to 19.
+    #[must_use]
+    pub fn of(slot: i64) -> Option<SlotKind> {
+        if WEAPON_SLOTS.contains(&slot) {
+            return Some(SlotKind::Weapon);
+        }
+        SLOT_NUMBERS.holds(slot).then_some(SlotKind::Worn)
+    }
 }
 
 impl Moment {
@@ -65,6 +133,14 @@ impl Moment {
     pub fn subjects(&self) -> Vec<&str> {
         match self {
             Moment::LevelUp { .. } => Vec::new(),
+            Moment::Slapped { npc, zone, .. } => [Some(npc.as_str()), zone.as_deref()]
+                .into_iter()
+                .flatten()
+                .collect(),
+            Moment::QuestDone { title, giver } => [Some(title.as_str()), giver.as_deref()]
+                .into_iter()
+                .flatten()
+                .collect(),
             _ => self.subject().into_iter().collect(),
         }
     }
@@ -79,11 +155,11 @@ impl Moment {
             }
             Moment::FirstEpicItem { item, .. } | Moment::BigUpgrade { item, .. } => Some(item),
             Moment::Flavor { .. } | Moment::Titled { .. } => None,
-            Moment::FirstKill { foe } => Some(foe),
+            Moment::FirstKill { foe, .. } | Moment::Revenge { foe, .. } => Some(foe),
             Moment::SlainAgain { killer, .. } => Some(killer),
             Moment::Slapped { npc, .. } => Some(npc),
             Moment::LevelUp { zone, .. } => zone.as_deref(),
-            Moment::ClassQuestDone { title } => Some(title),
+            Moment::ClassQuestDone { title } | Moment::QuestDone { title, .. } => Some(title),
             Moment::NewZone { zone } | Moment::FirstInstance { zone, .. } => Some(zone),
             Moment::QuestMarked { quest, .. } => Some(quest),
             Moment::FirstCapital { city } => Some(city),
@@ -103,7 +179,7 @@ impl Moment {
                     .flatten()
                     .collect()
             }
-            Moment::FirstEpicItem { item, zone } | Moment::BigUpgrade { item, zone } => {
+            Moment::FirstEpicItem { item, zone, .. } | Moment::BigUpgrade { item, zone, .. } => {
                 [Some(item.as_str()), zone.as_deref()]
                     .into_iter()
                     .flatten()
@@ -147,14 +223,17 @@ impl Moment {
     fn rank(&self) -> u8 {
         match self {
             Moment::ClassQuestDone { .. } => 7,
-            Moment::Titled { .. } | Moment::FirstEpicMount { .. } => 6,
+            Moment::Revenge { .. } | Moment::Titled { .. } | Moment::FirstEpicMount { .. } => 6,
             Moment::Flavor { .. } => 0,
             Moment::FirstKill { .. }
             | Moment::FirstInstance { .. }
             | Moment::FirstMount { .. }
             | Moment::FirstEpicItem { .. } => 5,
             Moment::SlainAgain { .. } => 4,
-            Moment::Slapped { .. } | Moment::QuestMarked { .. } | Moment::BigUpgrade { .. } => 3,
+            Moment::Slapped { .. }
+            | Moment::QuestMarked { .. }
+            | Moment::BigUpgrade { .. }
+            | Moment::QuestDone { .. } => 3,
             Moment::LevelUp { .. } | Moment::FirstCapital { .. } => 2,
             Moment::NewZone { .. } => 1,
         }
@@ -193,7 +272,7 @@ fn moment(world: &World, you: EntityId, kind: &EventKind) -> Option<Moment> {
             name,
             value: Some(1),
             linked_to: Some(foe),
-        } if *entity == you && name == DEFEATED => Some(Moment::FirstKill { foe: name_of(foe)? }),
+        } if *entity == you && name == DEFEATED => first_kill(world, you, *foe),
         EventKind::FactUpdate {
             entity: killer,
             name,
@@ -203,6 +282,7 @@ fn moment(world: &World, you: EntityId, kind: &EventKind) -> Option<Moment> {
         } if *target == you && name == DEFEATED => Some(Moment::SlainAgain {
             killer: name_of(killer)?,
             times: *to,
+            zone: zone_of(world, you),
         }),
         EventKind::FactStart {
             entity,
@@ -219,6 +299,7 @@ fn moment(world: &World, you: EntityId, kind: &EventKind) -> Option<Moment> {
         } if *entity == you && name == SLAPPED => Some(Moment::Slapped {
             npc: name_of(npc)?,
             times: *times,
+            zone: zone_of(world, you),
         }),
         EventKind::FactUpdate {
             entity, name, to, ..
@@ -274,15 +355,58 @@ fn moment(world: &World, you: EntityId, kind: &EventKind) -> Option<Moment> {
             name,
             linked_to: Some(quest),
             ..
-        } if *entity == you && name == GAME_QUEST_DONE => {
-            let quest = world.entity(*quest)?;
+        } if *entity == you => quest_moment(world, name, *quest),
+        _ => None,
+    }
+}
+
+/// A finished class quest, or a finished side quest of Timeways.
+fn quest_moment(world: &World, fact: &str, quest: EntityId) -> Option<Moment> {
+    match fact {
+        GAME_QUEST_DONE => {
+            let quest = world.entity(quest)?;
             quest.fact(CLASS_QUEST, None)?;
             Some(Moment::ClassQuestDone {
                 title: title_of_game_quest(&quest.name)?.to_string(),
             })
         }
+        QUEST_DONE => side_quest(world, quest),
         _ => None,
     }
+}
+
+/// A first kill, or a revenge when the foe killed you before.
+fn first_kill(world: &World, you: EntityId, foe: EntityId) -> Option<Moment> {
+    let entity = world.entity(foe)?;
+    let zone = zone_of(world, you);
+    let deaths = entity
+        .fact(DEFEATED, Some(you))
+        .and_then(|fact| fact.value)
+        .filter(|deaths| *deaths > 0);
+    if let Some(deaths) = deaths {
+        return Some(Moment::Revenge {
+            foe: entity.name.clone(),
+            deaths,
+            zone,
+        });
+    }
+    let creature = entity.has(ANIMAL).then_some(Creature::Beast);
+    Some(Moment::FirstKill {
+        foe: entity.name.clone(),
+        zone,
+        creature,
+    })
+}
+
+fn side_quest(world: &World, quest: EntityId) -> Option<Moment> {
+    let name = &world.entity(quest)?.name;
+    let title = title_of_thing(name)?.to_string();
+    let giver = world
+        .holders_of(QUEST_OFFERED, quest)
+        .first()
+        .and_then(|giver| world.entity(*giver))
+        .map(|giver| giver.name.clone());
+    Some(Moment::QuestDone { title, giver })
 }
 
 fn first_instance(world: &World, place: EntityId, fact: &str) -> Option<Moment> {
@@ -313,11 +437,19 @@ fn gear_moment(world: &World, you: EntityId, fact: &str, thing: EntityId) -> Opt
     }
     let item = title_of_item(name)?.to_string();
     let zone = zone_of(world, you);
+    let slot = slot_of(world, you, thing);
     match fact {
-        FIRST_EPIC_ITEM => Some(Moment::FirstEpicItem { item, zone }),
-        UPGRADED => Some(Moment::BigUpgrade { item, zone }),
+        FIRST_EPIC_ITEM => Some(Moment::FirstEpicItem { item, zone, slot }),
+        UPGRADED => Some(Moment::BigUpgrade { item, zone, slot }),
         _ => None,
     }
+}
+
+/// The slot of an item, from its big upgrade. A first epic item that was no upgrade has
+/// no known slot.
+fn slot_of(world: &World, you: EntityId, thing: EntityId) -> Option<SlotKind> {
+    let slot = world.entity(you)?.fact(UPGRADED, Some(thing))?.value?;
+    SlotKind::of(slot)
 }
 
 fn race_of(world: &World, you: EntityId) -> Option<Race> {

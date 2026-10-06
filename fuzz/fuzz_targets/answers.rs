@@ -267,6 +267,8 @@ fn assert_line(text: &str) {
     };
     let hogger = Moment::FirstKill {
         foe: "Hogger".to_string(),
+        zone: None,
+        creature: None,
     };
     let elwynn = Moment::NewZone {
         zone: "Elwynn Forest".to_string(),

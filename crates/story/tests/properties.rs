@@ -3443,12 +3443,21 @@ fn deed_moment() -> impl Strategy<Value = Moment> {
         "[A-Z][a-z]{3,20}( [A-Z][a-z]{2,20}){0,3}",
     ];
     (name, 2..i64::MAX, 0..8u8).prop_map(|(name, times, kind)| match kind {
-        0 => Moment::FirstKill { foe: name },
+        0 => Moment::FirstKill {
+            foe: name,
+            zone: None,
+            creature: None,
+        },
         1 => Moment::SlainAgain {
             killer: name,
             times,
+            zone: None,
         },
-        2 => Moment::Slapped { npc: name, times },
+        2 => Moment::Slapped {
+            npc: name,
+            times,
+            zone: None,
+        },
         3 => Moment::ClassQuestDone { title: name },
         4 => Moment::QuestMarked {
             mark: "Mark".to_string(),
@@ -3461,10 +3470,12 @@ fn deed_moment() -> impl Strategy<Value = Moment> {
         6 => Moment::FirstEpicItem {
             item: name,
             zone: Some("Westfall".to_string()),
+            slot: None,
         },
         _ => Moment::BigUpgrade {
             item: name,
             zone: Some("Westfall".to_string()),
+            slot: None,
         },
     })
 }
