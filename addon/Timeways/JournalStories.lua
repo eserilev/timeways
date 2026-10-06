@@ -65,7 +65,7 @@ end
 
 local function AcceptedTitle(story)
 	if type(story.title) == "string" then
-		return ns.PlayerStories.Shown(story.title), false
+		return ns.WithName(story.title), false
 	end
 	return "A story from " .. AuthorName(story), true
 end
@@ -210,7 +210,7 @@ local function AcceptedPage(row)
 		Line("heading", row.text),
 		Line("note", "By " .. AuthorName(story) .. " · Accepted " .. Day(story.at)),
 	}
-	Paragraphs(lines, AcceptedParagraphs(story), ns.PlayerStories.Shown)
+	Paragraphs(lines, AcceptedParagraphs(story), ns.WithName)
 	if story.used then
 		lines[#lines + 1] = Line("hint", "Your story uses this one, so it stays.")
 		return lines, {}

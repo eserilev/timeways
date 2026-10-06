@@ -401,6 +401,24 @@ fn in_this_chapter_names_each_kind_on_one_line_in_its_order() {
 }
 
 #[test]
+fn a_story_in_a_chapter_shows_your_name_in_place_of_your_mark() {
+    let game = Game::new();
+    game.run("wow.units.player = { name = 'Ada', player = true, guid = 'Player-1-Ada' }");
+
+    game.reply(concat!(
+        r#"{"type":"journal","page":0,"pages":1,"stories":[{"number":3,"title":"$N at the Bridge","paragraphs":["x"],"at":1790000100}],"#,
+        r#""chapters":[{"number":8,"first":40,"began":1790000000,"ended":1790000200,"title":"Silverpine Forest","state":"closed","#,
+        r#""zones":["Silverpine Forest"],"people":[],"deeds":[],"left_out":0}]}"#,
+    ));
+
+    assert!(
+        lines(&game, "chapters").contains(&"text: Stories: Ada at the Bridge.".to_string()),
+        "{:?}",
+        lines(&game, "chapters")
+    );
+}
+
+#[test]
 fn a_return_names_its_chapter_from_the_desktop() {
     let game = Game::new();
 

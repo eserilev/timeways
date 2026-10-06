@@ -134,7 +134,7 @@ local function StoriesIn(chapter, stories)
 		local after = type(story.at) == "number" and type(chapter.began) == "number" and story.at >= chapter.began
 		local before = IsOpen(chapter) or (type(chapter.ended) == "number" and story.at <= chapter.ended)
 		if after and before and type(story.title) == "string" then
-			titles[#titles + 1] = story.title
+			titles[#titles + 1] = ns.WithName(story.title)
 		end
 	end
 	return titles

@@ -395,15 +395,9 @@ end
 function PlayerStories.Remove(story)
 	local number = story.number
 	if type(number) == "number" then
-		local text = PlayerStories.Shown(PlayerStories.Label(story))
+		local text = ns.WithName(PlayerStories.Label(story))
 		StaticPopup_Show("TIMEWAYS_STORY_REMOVE", text, nil, { number = number })
 	end
-end
-
--- `$N` stands for you in an accepted story.
-function PlayerStories.Shown(text)
-	local me = UnitName("player") or "you"
-	return (ns.Plain(tostring(text)):gsub("%$N", me))
 end
 
 local USAGE = "Usage: /story to write a story about your target, /story <words> to tell it"
