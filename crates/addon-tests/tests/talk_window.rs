@@ -191,6 +191,19 @@ fn the_reply_box_leaves_the_keys_to_a_moving_player() {
     assert!(nothing_has_the_cursor(&game));
 }
 
+/// The game can hide the speed (`SecretWhenUnitStatsRestricted`). A test of a hidden value
+/// is a Lua error, and a player who may be moving keeps the keys.
+#[test]
+fn the_reply_box_leaves_the_keys_while_the_game_hides_the_speed() {
+    let game = Game::new();
+    game.run("wow.speed = 7; wow.secrets[7] = true");
+
+    farley_answered(&game);
+
+    assert!(box_shown(&game));
+    assert!(nothing_has_the_cursor(&game));
+}
+
 #[test]
 fn the_reply_box_leaves_the_keys_to_a_player_in_combat() {
     let game = Game::new();

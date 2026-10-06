@@ -1358,8 +1358,24 @@ end
 -- The speed of the player now, in yards a second: above 0 while the player moves.
 wow.speed = 0
 
+-- A hidden value of the game. Unlike a plain number in `wow.secrets`, a table fails at each
+-- compare or sum, as a hidden value does in the game, so a test catches an unguarded use.
+local function Secret()
+	local secret = {}
+	wow.secrets[secret] = true
+	return secret
+end
+
+-- Each speed in `wow.secrets` comes as a hidden value.
+local function Speed(value)
+	if wow.secrets[value] then
+		return Secret()
+	end
+	return value
+end
+
 function GetUnitSpeed()
-	return wow.speed, wow.runSpeed, wow.runSpeed, 4.72
+	return Speed(wow.speed), Speed(wow.runSpeed), Speed(wow.runSpeed), 4.72
 end
 
 return wow

@@ -27,9 +27,11 @@ function Focus.AtEnd(box)
 	box:SetCursorPosition(#(box:GetText() or ""))
 end
 
--- A moving player steers with the keys, and a box with the cursor takes them.
+-- A moving player steers with the keys, and a box with the cursor takes them. The game can
+-- hide the speed, and then the player may be moving.
 local function Busy()
-	return InCombatLockdown() or GetUnitSpeed("player") > 0
+	local speed = GetUnitSpeed("player")
+	return InCombatLockdown() or issecretvalue(speed) or speed > 0
 end
 
 -- For a box that opens by itself, not at a click of the player: it takes the cursor only
