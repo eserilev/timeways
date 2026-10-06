@@ -1,6 +1,7 @@
 //! One line from the bridge in, the lines of the answer out (GAMEPLAY.md 5.12). The
 //! program and the fuzzer share this path.
 
+use crate::dev_mode::is_dev_line;
 use crate::input::{Input, MessageId};
 use crate::lore::Answer;
 use crate::story::{Output, Story};
@@ -24,8 +25,11 @@ pub fn line(story: &mut Story, bytes: Vec<u8>) -> Served {
     let Ok(line) = String::from_utf8(bytes) else {
         return failed(Vec::new(), "bad input: not UTF-8".to_string());
     };
-    let outputs = serde_json::from_str::<Input>(&line)
-        .map_err(|error| format!("bad input: {error}: {line}"))
+    let outputs = dev_line_allowed(story, &line)
+        .and_then(|()| {
+            serde_json::from_str::<Input>(&line)
+                .map_err(|error| format!("bad input: {error}: {line}"))
+        })
         .and_then(|input| {
             story
                 .handle(input)
@@ -40,6 +44,14 @@ pub fn line(story: &mut Story, bytes: Vec<u8>) -> Served {
     };
     served.notes = story.take_notes();
     served
+}
+
+/// A fake line of `/twdev` lands only while dev mode is on (TESTING.md, "Dev mode").
+fn dev_line_allowed(story: &Story, line: &str) -> Result<(), String> {
+    if is_dev_line(line) && !story.dev_mode().is_on() {
+        return Err(format!("refused: a dev line, and dev mode is off: {line}"));
+    }
+    Ok(())
 }
 
 fn failed(lines: Vec<String>, error: String) -> Served {
@@ -92,6 +104,7 @@ fn empty_answer(line: &str) -> Option<Output> {
             id,
             page: Box::default(),
             notice: None,
+            dev: None,
         }),
         _ => None,
     }

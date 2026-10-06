@@ -5,6 +5,7 @@ use crate::best_of_two::Round;
 use crate::chapters::{self, Book};
 use crate::character::{Character, Item, Refusal};
 use crate::check;
+use crate::dev_mode::{DevMode, DevOn};
 use crate::draft::Draft;
 use crate::flavor::{self, Flavor, HUMBLING_GAP, Kind, Teller, Told};
 use crate::gear::{self, Before, Quality};
@@ -126,13 +127,16 @@ pub enum Output {
         #[serde(skip_serializing_if = "Option::is_none")]
         notice: Option<String>,
     },
-    /// The page is boxed, because it is far larger than the other outputs.
+    /// The page is boxed, because it is far larger than the other outputs. `dev` is there
+    /// only while dev mode is on.
     Journal {
         id: MessageId,
         #[serde(flatten)]
         page: Box<Page>,
         #[serde(skip_serializing_if = "Option::is_none")]
         notice: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        dev: Option<DevOn>,
     },
     /// What the NPC says, or null when no model answered.
     TalkAnswer {
@@ -297,6 +301,7 @@ pub struct Story {
     /// The main part of the shape of the narrator line that the answer just accepted. The
     /// end of its call keeps it, for the window of the rotation.
     told_shape: Option<String>,
+    dev_mode: DevMode,
 }
 
 impl Story {
@@ -331,7 +336,17 @@ impl Story {
             program_notice: None,
             events_deadline: EVENTS_DEADLINE,
             told_shape: None,
+            dev_mode: DevMode::Off,
         }
+    }
+
+    pub fn set_dev_mode(&mut self, mode: DevMode) {
+        self.dev_mode = mode;
+    }
+
+    #[must_use]
+    pub fn dev_mode(&self) -> DevMode {
+        self.dev_mode
     }
 
     /// A line of the program for the next answer of any kind, such as "Lore is ready.".
@@ -1205,6 +1220,7 @@ impl Story {
             id,
             page: Box::new(page),
             notice: None,
+            dev: self.dev_mode.is_on().then_some(DevOn),
         }])
     }
 

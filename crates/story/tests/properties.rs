@@ -3862,4 +3862,27 @@ proptest! {
             }
         }
     }
+
+    /// A fake line of `/twdev` never changes a world while dev mode is off, whatever it
+    /// holds (TESTING.md, "Dev mode").
+    #[test]
+    fn a_dev_line_never_changes_a_world_while_dev_mode_is_off(
+        plays in prop::collection::vec(play(), 1..30),
+    ) {
+        let folder = fresh("dev-off");
+        let mut story = story(&folder, Store::Memory);
+        let before = journal_lines(&mut story);
+
+        for (n, play) in plays.iter().enumerate() {
+            let Some(input) = input(play, Tick(1000 + n as u64)) else {
+                continue;
+            };
+            let mut line = serde_json::to_value(&input).unwrap();
+            line["dev"] = serde_json::Value::Bool(true);
+            let served = timeways_story::serve::line(&mut story, line.to_string().into_bytes());
+            prop_assert!(served.error.is_some(), "{}", line);
+        }
+
+        prop_assert_eq!(journal_lines(&mut story), before);
+    }
 }

@@ -491,6 +491,7 @@ fn journal_reply(at: u64, state: TalkQuestState, quests: Vec<QuestView>) -> Stri
         id: MessageId(1),
         page: Box::new(page),
         notice: None,
+        dev: None,
     })
     .unwrap()
 }

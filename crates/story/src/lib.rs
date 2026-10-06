@@ -7,6 +7,7 @@ pub mod chapters;
 pub mod character;
 pub mod check;
 pub mod chronicle;
+pub mod dev_mode;
 pub mod draft;
 pub mod dump;
 pub mod entry_edits;

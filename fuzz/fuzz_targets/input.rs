@@ -1,5 +1,6 @@
 //! Random lines from the bridge. No line ends the program, the bridge takes every line that
-//! comes out, and each request gets exactly one answer.
+//! comes out, and each request gets exactly one answer. Dev mode is off, so every line with
+//! a `dev` key is refused (TESTING.md, "Dev mode").
 
 #![no_main]
 
@@ -9,6 +10,7 @@ mod common;
 use fake_bridge::{Checked, checked_line};
 use libfuzzer_sys::fuzz_target;
 use serde_json::Value;
+use timeways_story::dev_mode::is_dev_line;
 use timeways_story::serve;
 use timeways_story::store::Store;
 use timeways_story::story::Story;
@@ -30,7 +32,10 @@ fn request_id(bytes: &[u8]) -> Option<u64> {
 /// answers that came out.
 fn send(story: &mut Story, bytes: Vec<u8>) -> Vec<u64> {
     let mut answered = Vec::new();
-    let mut lines = serve::line(story, bytes).lines;
+    let dev = std::str::from_utf8(&bytes).is_ok_and(is_dev_line);
+    let served = serve::line(story, bytes);
+    assert!(!dev || served.error.is_some(), "a dev line landed with dev mode off");
+    let mut lines = served.lines;
     while let Some(line) = lines.pop() {
         match checked_line(&line) {
             Checked::Hello => {}

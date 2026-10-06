@@ -1,0 +1,13 @@
+{"type":"character_entered","realm":"Testrealm","name":"Tester"}
+{"type":"level_reached","at":1790000000,"level":30,"dev":true}
+{"type":"mount_ridden","at":1790000010,"mount":"Brown Horse","speed":160,"dev":true}
+{"type":"npc_defeated","at":1790000020,"name":"Mor'Ladim","kind":"rareelite","dev":true}
+{"type":"died","at":1790000030,"killer":"Hogger","dev":false}
+{"type":"zone_entered","at":1790000040,"zone":"Westfall","dev":null}
+{"type":"talk_asked","id":4,"at":1790000050,"npc":"Innkeeper Farley","text":"hi","dev":true}
+{"type":"journal_asked","id":5,"dev":true}
+{"type":"lore_asked","id":6,"question":"who?","dev":"yes"}
+{"type":"item_equipped","at":1790000060,"slot":16,"item":"Ironfoe","quality":4,"level":63,"was":"empty","dev":true,"dev":true}
+{"dev":true}
+{"type":"bg_won","at":1790000070,"zone":"Warsong Gulch","dev":{"dev":true}}
+{"type":"level_reached","at":1790000080,"level":31}

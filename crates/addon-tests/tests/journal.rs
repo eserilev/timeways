@@ -22,6 +22,7 @@ fn journal_reply(character: &Character) -> String {
         id: MessageId(1),
         page: Box::new(page),
         notice: None,
+        dev: None,
     })
     .unwrap()
 }
@@ -232,6 +233,7 @@ fn page_reply(page: timeways_story::journal::Page) -> String {
         id: MessageId(1),
         page: Box::new(page),
         notice: None,
+        dev: None,
     })
     .unwrap()
 }
@@ -619,6 +621,7 @@ fn learned_reply(entries: Vec<Learned>) -> String {
         id: MessageId(1),
         page: Box::new(page),
         notice: None,
+        dev: None,
     })
     .unwrap()
 }

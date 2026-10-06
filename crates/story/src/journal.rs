@@ -26,11 +26,11 @@ use timeways_rules::chapters::{Break, Opening};
 /// The bridge takes at most 200 items in one list (Gnomish Relay SPEC.md 9.8).
 const PAGE_LIST_ITEMS: usize = 200;
 
-/// Room for the type, the id, the page numbers, and the empty lists of a page line. In the
-/// slot, also room for the record and the note of the bridge.
+/// Room for the type, the id, the page numbers, the mark of dev mode, and the empty lists
+/// of a page line. In the slot, also room for the record and the note of the bridge.
 const FRAME: Size = Size {
-    line: 320,
-    slot: 2112,
+    line: 332,
+    slot: 2132,
 };
 
 /// The entries of each list of one chapter. With names of at most

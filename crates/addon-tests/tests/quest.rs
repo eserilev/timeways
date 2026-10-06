@@ -51,6 +51,7 @@ fn quest_reply(quest: QuestView) -> String {
         id: MessageId(1),
         page: Box::new(page),
         notice: None,
+        dev: None,
     })
     .unwrap()
 }
@@ -386,6 +387,7 @@ fn a_finished_quest_shows_as_a_deed() {
         id: MessageId(1),
         page: Box::new(page),
         notice: None,
+        dev: None,
     })
     .unwrap();
 

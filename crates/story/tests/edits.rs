@@ -335,6 +335,7 @@ fn the_largest_chapter_and_its_largest_edit_fit_the_journal() {
             id: MessageId(u64::MAX),
             page: Box::new(page),
             notice: None,
+            dev: None,
         })
         .unwrap();
         assert!(line.len() <= MAX_LINE, "{} bytes", line.len());
