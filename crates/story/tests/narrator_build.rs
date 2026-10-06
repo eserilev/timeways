@@ -163,6 +163,43 @@ fn leads_needs_the_lore_to_name_the_group() {
     assert!(faults(verdict).contains(&LineFault::ChoiceNotInLore("leads".to_string())));
 }
 
+/// The group goes into the line as the model wrote it. A review found "The Riverpaw! Have
+/// lost their leader." and "Gnolls raided Elwynn Forest have lost their leader." built from
+/// words that the history holds.
+#[test]
+fn leads_is_a_name_as_the_history_writes_it() {
+    for leads in [
+        "the Riverpaw!",
+        "the riverpaw",
+        "gnolls raided Elwynn Forest",
+        "the Riverpaw, Hogger",
+    ] {
+        let answer = format!(
+            "{{\"lore\": \"{HOGGER}\", \"there\": false, \"leads\": \"{leads}\", \"leads_number\": \"many\"}}"
+        );
+
+        let (_, verdict) = told(&setup(hogger(), Who::default(), 0), HOGGER_LORE, &answer);
+
+        assert!(
+            faults(verdict).contains(&LineFault::ChoiceNotInLore("leads".to_string())),
+            "{leads}"
+        );
+    }
+}
+
+#[test]
+fn leads_takes_a_group_of_several_words_with_or_without_the() {
+    for leads in ["the Riverpaw", "Riverpaw gnolls", "the Riverpaw gnolls"] {
+        let answer = format!(
+            "{{\"lore\": \"{HOGGER}\", \"there\": false, \"leads\": \"{leads}\", \"leads_number\": \"many\"}}"
+        );
+
+        let (_, verdict) = told(&setup(hogger(), Who::default(), 0), HOGGER_LORE, &answer);
+
+        assert!(matches!(verdict, Answered::Line(_)), "{leads}: {verdict:?}");
+    }
+}
+
 fn ram() -> Moment {
     Moment::FirstMount {
         mount: "Gray Ram".to_string(),

@@ -323,9 +323,7 @@ impl Plan {
             plan.killer(templates, &setup.moment, killer);
         }
         if let Some(leads) = &choices.leads {
-            let named = words_of(leads).len() <= MOST_LEADS_WORDS
-                && mentions(lore, leads.strip_prefix("the ").unwrap_or(leads));
-            if named {
+            if names_group(lore, leads) {
                 plan.slot(Slot::Led, leads.clone());
                 plan.need(Need::Leads);
                 plan.need(choices.leads_number.unwrap_or(Number::Many).need());
@@ -593,6 +591,36 @@ fn zone_of(moment: &Moment) -> Option<&str> {
         | Moment::LevelUp { zone, .. } => zone.as_deref(),
         _ => None,
     }
+}
+
+/// True when `leads` is a name that the history writes, in the same case: "the Riverpaw"
+/// or "Riverpaw gnolls". The line takes it as the model wrote it, so a mark, another case,
+/// or a run of words that starts with no name never goes in.
+fn names_group(lore: &str, leads: &str) -> bool {
+    let name = ["the ", "The "]
+        .iter()
+        .find_map(|the| leads.strip_prefix(the))
+        .unwrap_or(leads);
+    let plain_words = name.split(' ').all(|word| {
+        !word.is_empty()
+            && word
+                .chars()
+                .all(|c| c.is_alphabetic() || c == '\'' || c == '-')
+    });
+    let starts_a_name = name.chars().next().is_some_and(char::is_uppercase);
+    let written = lore_words(lore);
+    let wanted = lore_words(name);
+    plain_words
+        && starts_a_name
+        && wanted.len() <= MOST_LEADS_WORDS
+        && written.windows(wanted.len()).any(|run| run == wanted)
+}
+
+/// The words of a text as written: "Gath'Ilzogg" gives "Gath" and "Ilzogg".
+fn lore_words(text: &str) -> Vec<&str> {
+    text.split(|c: char| !c.is_alphanumeric() && c != '-')
+        .filter(|word| !word.is_empty())
+        .collect()
 }
 
 /// The breed noun of a mount: the last word of its name, "ram" for "Gray Ram".
