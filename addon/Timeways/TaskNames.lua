@@ -146,6 +146,13 @@ function TaskNames.Marked(text)
 	return table.concat(parts), players
 end
 
+-- A file token that the game shows, or nil for none or a hidden one.
+local function Shown(word)
+	if type(word) == "string" and not issecretvalue(word) then
+		return word
+	end
+end
+
 -- A line with the race and the class of each player whom the game shows now, for the card
 -- that a model reads. A player out of sight gets no line.
 function TaskNames.Described(players)
@@ -153,8 +160,7 @@ function TaskNames.Described(players)
 	for _, full in ipairs(players) do
 		local unit = ns.TaskPeople.UnitOf(full)
 		if unit then
-			local _, race = UnitRace(unit)
-			local _, class = UnitClass(unit)
+			local race, class = Shown(select(2, UnitRace(unit))), Shown(select(2, UnitClass(unit)))
 			lines[#lines + 1] = ns.Inputs.PlayerDescribed(time(), full:match("^[^-]+"), race, class)
 		end
 	end

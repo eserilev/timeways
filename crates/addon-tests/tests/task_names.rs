@@ -90,6 +90,25 @@ fn a_player_in_sight_gets_a_line_with_the_race_and_the_class() {
     );
 }
 
+/// The game can hide the race and the class of another player
+/// (`SecretWhenUnitIdentityRestricted`). A hidden value never goes to the desktop.
+#[test]
+fn a_race_that_the_game_hides_stays_out_of_the_line() {
+    let ada = Player::new("Ada");
+    ada.run(
+        "wow.units.party1 = { name = 'Bram', player = true, race = 'Scourge', class = 'Mage' }
+         wow.secrets['Scourge'] = true",
+    );
+
+    let line: Vec<String> = ada.eval(
+        "local _, players = ns.TaskNames.Marked('bram')
+         local line = ns.TaskNames.Described(players)[1]
+         return { tostring(line.race), line.class }",
+    );
+
+    assert_eq!(line, ["nil", "MAGE"]);
+}
+
 /// The lowercase letters of names: ASCII, and the Latin letters of European realms.
 const LETTERS: &str = "abcdefghijklmnopqrstuvwxyzàáâãäåæçèéêëìíîïðñòóôõöøùúûüýþ\
     āăąćĉċčďđēĕėęěĝğġģĥħĩīĭįĵķĺļľŀłńņňŋōŏőœŕŗřśŝşšţťŧũūŭůűųŵŷźżž";
