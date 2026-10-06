@@ -10,14 +10,21 @@
 // The mark `verify::start_from` names a root of the translation. It exists only under
 // `--cfg charon`, so a normal build never sees it.
 #![cfg_attr(charon, feature(register_tool), register_tool(verify))]
-// Their fixes bring a closure or a range, and Aeneas translates neither.
-#![allow(clippy::manual_map, clippy::manual_range_contains)]
+// Their fixes bring a closure, a range, `?` on an `Option`, or `vec!`, and Aeneas
+// translates none of them.
+#![allow(
+    clippy::manual_map,
+    clippy::manual_range_contains,
+    clippy::question_mark,
+    clippy::vec_init_then_push
+)]
 
 pub mod aliases;
 pub mod budget;
 pub mod chapters;
 pub mod entry_edits;
 pub mod hero_hook;
+pub mod narrator_shapes;
 pub mod prompts;
 pub mod quest_log;
 pub mod story_shelf;

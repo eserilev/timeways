@@ -253,6 +253,57 @@ structure entry_edits.Shown where
   narrator : Option Std.U64
   player : Option Std.U64
 
+/-- [timeways_rules::narrator_shapes::Token]
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 19:0-28:1
+    Visibility: public -/
+@[discriminant isize]
+inductive narrator_shapes.Token where
+| Word : Std.U16 → narrator_shapes.Token
+| Lore : narrator_shapes.Token
+| Hero : narrator_shapes.Token
+| Slot : Std.U8 → narrator_shapes.Token
+
+/-- [timeways_rules::narrator_shapes::PartKind]
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 32:0-43:1
+    Visibility: public -/
+@[discriminant isize]
+inductive narrator_shapes.PartKind where
+| Connective : narrator_shapes.PartKind
+| Deed : narrator_shapes.PartKind
+| Group : narrator_shapes.PartKind
+| Grow : narrator_shapes.PartKind
+| Coda : narrator_shapes.PartKind
+
+/-- [timeways_rules::narrator_shapes::Part]
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 48:0-53:1
+    Visibility: public -/
+structure narrator_shapes.Part where
+  kind : narrator_shapes.PartKind
+  tokens : alloc.vec.Vec narrator_shapes.Token
+  tags : Std.U32
+  needs : Std.U32
+
+/-- [timeways_rules::narrator_shapes::Table]
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 57:0-61:1
+    Visibility: public -/
+structure narrator_shapes.Table where
+  parts : alloc.vec.Vec narrator_shapes.Part
+  inside_words : alloc.vec.Vec Std.U16
+
+/-- [timeways_rules::narrator_shapes::Shape]
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 65:0-67:1
+    Visibility: public -/
+structure narrator_shapes.Shape where
+  parts : alloc.vec.Vec Std.Usize
+
+/-- [timeways_rules::narrator_shapes::Facts]
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 72:0-76:1
+    Visibility: public -/
+structure narrator_shapes.Facts where
+  has : alloc.vec.Vec Bool
+  holds : Std.U32
+  named : Bool
+
 /-- [timeways_rules::quest_log::Goal]
     Source: 'crates/rules/src/quest_log.rs', lines 14:0-18:1
     Visibility: public -/
