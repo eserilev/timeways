@@ -106,6 +106,17 @@ pub fn standing(changes: &[StoryChange]) -> Vec<(u64, &StoryChange)> {
         .collect()
 }
 
+/// True when a loaded row lands on the rows kept before it, which it then joins. So a
+/// damaged table is a landed shelf too, and the laws of the shelf hold for it.
+pub(crate) fn lands_on_load(kept: &mut Vec<ShelfLine>, change: &StoryChange) -> bool {
+    let line = shelf_line(change);
+    let lands = story_shelf::lands(kept, line, &[]);
+    if lands {
+        kept.push(line);
+    }
+    lands
+}
+
 /// True when the line may become a row. `used` is true when an accepted call read the
 /// story of a removal.
 #[must_use]

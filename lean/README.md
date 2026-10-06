@@ -147,8 +147,9 @@ The shelf holds the accepted stories of a player (`GAMEPLAY.md` 4.8).
 a new number, or a removal of a story that stands and that no accepted
 call used. `standing` gives the numbers that stand, oldest first.
 `Landed` says that each line landed against the lines before it. The
-story program only appends a line that lands, so every shelf of a
-world is `Landed`.
+story program only appends a line that lands, and a load cuts the table
+at the first row that does not land. So every shelf of a world is
+`Landed`, also a damaged one.
 
 | Theorem | The law | Test |
 |---|---|---|

@@ -386,6 +386,29 @@ fn a_removed_story_leaves_the_journal() {
     assert!(matches!(remove(&mut story, 1), Err(StoryError::NoStory(1))));
 }
 
+#[test]
+fn a_damaged_shelf_that_accepts_one_number_twice_loads_it_once() {
+    let folder = fresh_folder("damaged-shelf");
+    let mut first = story(&folder);
+    accept(&mut first, 1, TOLD).unwrap();
+    drop(first);
+    let world = folder.join("worlds/r_Stormrage/c_Ada.sqlite");
+    let copy =
+        "INSERT INTO stories (position, body) SELECT 1, body FROM stories WHERE position = 0";
+    rusqlite::Connection::open(world)
+        .unwrap()
+        .execute(copy, [])
+        .unwrap();
+
+    let mut second = story(&folder);
+
+    let numbers: Vec<u64> = stories(&mut second)
+        .iter()
+        .map(|told| told.number)
+        .collect();
+    assert_eq!(numbers, [1]);
+}
+
 /// A call that read the story, as a later rule of the reads can make one.
 fn a_call_reads_the_story(folder: &Path, outcome: Outcome) {
     let mut database = Store::Folder(folder.to_path_buf())

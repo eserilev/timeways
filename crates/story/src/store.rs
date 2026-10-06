@@ -246,7 +246,10 @@ fn read_all(database: &Database, path: PathBuf) -> Result<Read, StoreError> {
     let learned =
         LearnedLog::from_rows(database.read_and_repair(Table::Learned, |_: &LearnedLine, _| true)?);
     let quests = QuestLog::from_rows(database.read_and_repair(Table::Quests, |_, _| true)?);
-    let stories = StoryLog::from_rows(database.read_and_repair(Table::Stories, |_, _| true)?);
+    let shelf = std::cell::RefCell::new(Vec::new());
+    let stories = StoryLog::from_rows(database.read_and_repair(Table::Stories, |row, _| {
+        crate::stories::lands_on_load(&mut shelf.borrow_mut(), row)
+    })?);
     let seen = std::cell::RefCell::new(std::collections::BTreeSet::new());
     let aliases = AliasLog::from_rows(database.read_and_repair(Table::Aliases, |row, _| {
         logs::is_new_name(row, &mut seen.borrow_mut())
