@@ -3,6 +3,9 @@
 -- desktop says that dev mode is on, in the `dev` mark of the journal. A player turns it on
 -- only at the desktop, so no player can start it by accident in the game.
 
+-- The saved variables come from the TOC, so only _G can reach them.
+--# selene: allow(global_usage)
+
 local _, ns = ...
 
 local Dev = {}
@@ -38,6 +41,23 @@ end
 
 function Dev.IsOn()
 	return desktopOn
+end
+
+-- The quests and the stories of a dev world, by the name of their saved variable. They live
+-- in memory only, so no fake player reaches the saved ones, and no real one reaches a dev
+-- world.
+local memory = {}
+
+-- The table of the saved variable `name`, or its table in memory while dev mode is on.
+function Dev.SavedTable(name)
+	if desktopOn then
+		memory[name] = memory[name] or {}
+		return memory[name]
+	end
+	if type(_G[name]) ~= "table" then
+		_G[name] = {}
+	end
+	return _G[name]
 end
 
 -- A dev world holds fake data, so no message goes to a real player while dev mode is on.

@@ -7,9 +7,8 @@
 --   authors: { [number] = author } of the accepted stories, the newest 500 numbers.
 --   drafts: { to, title, text, at }, one for each player, 10 in all.
 --   nextNumber: the number of the next accepted story.
-
--- The global comes from the TOC, so only _G can reach it.
---# selene: allow(global_usage)
+--
+-- While dev mode is on, a table in memory takes its place (Dev.SavedTable).
 
 local _, ns = ...
 
@@ -153,8 +152,7 @@ local checked
 -- The game loads the saved variables after the files of the addon run, so the table is
 -- read only when a player acts, never while the file loads.
 function StorySaved.Data()
-	local data = Table(_G[GLOBAL])
-	_G[GLOBAL] = data
+	local data = ns.Dev.SavedTable(GLOBAL)
 	if checked ~= data then
 		Clean(data)
 		checked = data

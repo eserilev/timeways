@@ -273,3 +273,58 @@ fn every_message_to_other_players_goes_through_the_dev_mode_gate() {
 
     assert!(leaks.is_empty(), "send through ns.ToPlayers: {leaks:?}");
 }
+
+fn waiting_stories(player: &Player) -> usize {
+    player.eval("return #ns.PlayerStories.Waiting()")
+}
+
+/// Corvin tells Ada a story, as the scroll does.
+fn corvin_tells_ada_a_story(ada: &Player, corvin: &Player) {
+    ada.in_party_with(corvin);
+    corvin.in_party_with(ada);
+    corvin.run(
+        "ns.PlayerStories.Ask('Ada-Stormrage', function(room)
+             if room == 'open' then ns.PlayerStories.Send('Ada-Stormrage', 'The Bridge', 'You held it.') end
+         end)",
+    );
+    exchange(corvin, ada);
+}
+
+#[test]
+fn a_story_of_a_real_player_stays_out_of_a_dev_world_and_waits_after_it() {
+    let (ada, corvin) = ada_and_corvin();
+    corvin_tells_ada_a_story(&ada, &corvin);
+
+    dev_on(&ada);
+    let in_dev = waiting_stories(&ada);
+    dev_off(&ada);
+
+    assert_eq!(in_dev, 0);
+    assert_eq!(waiting_stories(&ada), 1);
+}
+
+#[test]
+fn a_story_of_a_fake_player_never_reaches_the_real_box() {
+    let ada = Player::new("Ada");
+    dev_on(&ada);
+    twdev(&ada, "peer Kobee story The Bridge");
+    let in_dev = waiting_stories(&ada);
+
+    dev_off(&ada);
+
+    assert_eq!(in_dev, 1);
+    assert_eq!(waiting_stories(&ada), 0);
+}
+
+#[test]
+fn a_quest_of_a_fake_player_never_reaches_the_real_journal() {
+    let ada = Player::new("Ada");
+    dev_on(&ada);
+    twdev(&ada, "peer Kobee quest");
+    let in_dev: usize = ada.eval("return #ns.PlayerTasks.Received()");
+
+    dev_off(&ada);
+
+    assert_eq!(in_dev, 1);
+    assert!(ada.eval::<bool>("return #ns.PlayerTasks.Received() == 0"));
+}

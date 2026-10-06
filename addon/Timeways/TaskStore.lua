@@ -2,9 +2,7 @@
 -- you gave, the tasks that you wrote and did not send yet, the tasks that you got, the players that you blocked, and what your addon saw.
 -- Other addons can read saved variables, so this holds only what the two players already
 -- share in the game: the task, the names, and times. It never holds a key.
-
--- The global comes from the TOC, so only _G can reach it.
---# selene: allow(global_usage)
+-- While dev mode is on, a table in memory takes its place (Dev.SavedTable).
 
 local _, ns = ...
 
@@ -32,8 +30,7 @@ local checked
 -- The game loads the saved variables after the files of the addon run, so the table is
 -- read only when a player acts, never while the file loads.
 function TaskStore.Data()
-	local data = Table(_G[GLOBAL])
-	_G[GLOBAL] = data
+	local data = ns.Dev.SavedTable(GLOBAL)
 	data.given = Table(data.given)
 	data.received = Table(data.received)
 	data.drafts = Table(data.drafts)
