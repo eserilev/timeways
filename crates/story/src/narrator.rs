@@ -38,14 +38,15 @@ where you can. $N stands for the name of the hero: the game puts the name there.
 /// The author's note of a place moment. A model weighs the end of a prompt most.
 const PLACE_NOTE: &str = "\
 Remember: the line is about the place alone. Never tell that the hero came, entered, or \
-arrived. Take the history from the lore, and add nothing. When the lore gives you nothing \
-true to tell, answer SILENCE.
+arrived. Take the history from the lore, and add nothing. End on what holds in the place \
+now. When the lore gives you nothing true to tell, answer SILENCE.
 Answer with the line only.";
 
 const DEED_NOTE: &str = "\
 Remember: the history first, then the deed. Take both from the moment and the lore, and \
-add nothing. Name the hero only as the line above says, and at most once. When the moment \
-and the lore give you nothing true to tell, answer SILENCE.
+add nothing. Name the hero only as the line above says, and at most once. When the deed \
+reads well without the hero, say what changed and leave the hero out. When the moment and \
+the lore give you nothing true to tell, answer SILENCE.
 Answer with the line only.";
 
 /// Counts the lines of the last hour of game time, so the narrator talks little. The rule

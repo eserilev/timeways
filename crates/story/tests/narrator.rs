@@ -251,12 +251,7 @@ fn a_hero_is_described_with_the_right_article() {
 
 #[test]
 fn the_persona_is_a_keeper_of_time_that_tells_no_future_and_no_name() {
-    for words in [
-        "keeper of time",
-        "You have no name",
-        "You never tell it",
-        "No jokes",
-    ] {
+    for words in ["keeper of time", "You have no name", "You never tell it"] {
         assert!(PERSONA.contains(words), "{words}");
     }
     for name in ["Nozdormu", "bronze", "Caverns", "timeline"] {
@@ -265,9 +260,20 @@ fn the_persona_is_a_keeper_of_time_that_tells_no_future_and_no_name() {
 }
 
 #[test]
-fn the_persona_is_a_chronicler_who_ties_a_deed_to_its_history() {
+fn the_persona_is_a_chronicler_who_tells_one_turn_and_ends_on_the_present() {
     assert!(PERSONA.contains("You are a chronicler"));
-    assert!(PERSONA.contains("Tie each deed to the history"));
+    assert!(PERSONA.contains("Tell one turn of history"));
+    assert!(PERSONA.contains("End on the present."));
+}
+
+#[test]
+fn the_manner_is_the_compact_block_of_the_style_guide() {
+    let guide = include_str!("../../../docs/plans/narrator-style.md");
+
+    let manner = &PERSONA[PERSONA.find("Your manner:").unwrap()..];
+
+    assert_eq!(manner.lines().count(), 7, "{manner}");
+    assert!(guide.contains(manner.trim_end()), "{manner}");
 }
 
 #[test]
@@ -281,8 +287,28 @@ fn no_prompt_calls_the_player_our_hero() {
 
     for turn in 0..8 {
         let prompt = prompt_of(&murloc(), None, &who, turn).to_lowercase();
-        assert!(!prompt.contains("our hero"), "{prompt}");
+        let banned_once = prompt.replacen("no \"our hero\"", "", 1);
+        assert!(!banned_once.contains("our hero"), "{prompt}");
     }
+}
+
+#[test]
+fn the_author_notes_ask_to_end_on_the_present_and_to_leave_the_hero_out() {
+    let who = forsaken_warlock();
+    let place = Moment::NewZone {
+        zone: "Westfall".to_string(),
+    };
+
+    let arrival = prompt_of(&place, None, &who, 0);
+    let deed = prompt_of(&murloc(), None, &who, 0);
+
+    assert!(
+        arrival.contains("End on what holds in the place now."),
+        "{arrival}"
+    );
+    let unnamed =
+        "When the deed reads well without the hero, say what changed and leave the hero out.";
+    assert!(deed.contains(unnamed), "{deed}");
 }
 
 #[test]

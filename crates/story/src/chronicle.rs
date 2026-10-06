@@ -36,8 +36,8 @@ the morning.\"";
 
 /// The author's note, with the format last.
 const NOTE: &str = "\
-Remember: serious, concrete, and sparing, in one paragraph. Tie the deeds to the history \
-of their places and peoples, and tell nothing of what comes next.
+Remember: one paragraph. Tie the deeds to the history of their places and peoples, and \
+tell nothing of what comes next.
 Write $N for the name of the hero, at most twice: the game puts the name there. Else say \
 \"they\", or name no one.
 Tell the facts as a story, not as a list. Few facts make a short chapter of two or three \
