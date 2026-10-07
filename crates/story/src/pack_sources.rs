@@ -1,7 +1,7 @@
 //! The passages of the lore pack, built from a wiki dump on the computer of the player
 //! (GAMEPLAY.md 5.10). The repo holds only the list of pages in `data/pack_sources.toml`.
 
-use crate::check::later_names;
+use crate::check::{later_names, words_of};
 use crate::dump::{self, DumpError, Page};
 use crate::game_talk::{Cut, cut_game_talk};
 use crate::outcome_passages::{self, PageKind, page_kind, with_known_bosses};
@@ -31,7 +31,7 @@ pub struct Sources {
     pub pages: Vec<WikiPage>,
     /// A paragraph that tells of a time after 25 ADP goes out.
     #[serde(default)]
-    pub later: Terms,
+    pub later: LaterTerms,
     /// A sentence that talks about the game, not the world, goes out: players, levels,
     /// instances, and loot (`game_talk`).
     #[serde(default)]
@@ -77,6 +77,22 @@ pub struct WikiPage {
 #[derive(Debug, Default, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Terms {
+    pub terms: Vec<String>,
+}
+
+/// What drops a paragraph as later, past the names of `data/later_names.txt`: only what a
+/// check of model text must not refuse (the comment in `data/pack_sources.toml`).
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct LaterTerms {
+    /// The expansions and the books, whose words also say other things.
+    #[serde(default)]
+    pub titles: Vec<String>,
+    /// Names of 25 ADP whose wiki paragraphs go on to later stories.
+    #[serde(default)]
+    pub classic_names: Vec<String>,
+    /// Patterns of prose, as regular expressions.
+    #[serde(default)]
     pub terms: Vec<String>,
 }
 
@@ -172,7 +188,7 @@ struct Tagged {
 /// term is broken. A missing book or page is only reported.
 pub fn from_dump(path: &Path, sources: &Sources) -> Result<Built, SourcesError> {
     let filters = Filters {
-        later: one_pattern(&later_terms(sources))?,
+        later: later_pattern(sources)?,
         game: one_pattern(&sources.game.terms)?,
     };
     let page_titles: Vec<String> = sources
@@ -331,11 +347,34 @@ impl Filters {
     }
 }
 
-/// The later terms of the list, and each name of the cutoff list (GAMEPLAY.md 5.9): a name
-/// that no answer may say is no lore of 25 ADP. "Pandaria" also holds "Pandarian".
+/// The one pattern that drops a paragraph as later.
+///
+/// # Errors
+///
+/// Returns an error when a term is no regular expression.
+pub fn later_pattern(sources: &Sources) -> Result<Option<Regex>, regex::Error> {
+    one_pattern(&later_terms(sources))
+}
+
+/// The later patterns of the list, and each later name (GAMEPLAY.md 5.9): a name that no
+/// answer may say is no lore of 25 ADP.
 fn later_terms(sources: &Sources) -> Vec<String> {
-    let names = later_names().map(|name| format!(r"\b{}", regex::escape(name)));
-    sources.later.terms.iter().cloned().chain(names).collect()
+    let later = &sources.later;
+    let mut terms = later.terms.clone();
+    terms.extend(later_names().map(name_pattern));
+    terms.extend(later.titles.iter().map(|title| name_pattern(title)));
+    terms.extend(later.classic_names.iter().map(|name| name_pattern(name)));
+    terms
+}
+
+/// A name as a pattern that matches like `check::names_after_cutoff`: whole words, any
+/// marks between them, and the last word also at the start of a longer word.
+fn name_pattern(name: &str) -> String {
+    let words: Vec<String> = words_of(name)
+        .iter()
+        .map(|word| regex::escape(word))
+        .collect();
+    format!(r"\b{}", words.join(r"[^\p{L}\p{N}]+"))
 }
 
 /// One pattern for all terms, so a paragraph is searched once.

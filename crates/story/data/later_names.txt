@@ -1,7 +1,18 @@
-# Names from after the lore cutoff of WoW Forever (GAMEPLAY.md 5.9, layer 4).
-# A model answer that holds one of these names gets one retry, then it is dropped.
-# One name per line. The match ignores case and matches whole words only.
-# Only a name that did not exist in 25 ADP goes here. Ragnaros, Arthas, and Illidan stay allowed.
+# Names from after the lore cutoff of WoW Forever (GAMEPLAY.md 5.9, layer 4). This is the
+# one list of later names. The pack builder drops each wiki paragraph that holds one, and
+# every check of model text refuses each one: a narrator line, a saga, a tale, a summary,
+# the history of a zone, a talk reply, and a /lore answer. A name that the player wrote
+# first stays allowed (3.7).
+#
+# One name per line. The match ignores case and the marks between words, and matches whole
+# words. The last word also counts at the start of a longer word: "Pandaria" holds
+# "Pandarian", and "Blood Knight" holds "Blood Knights".
+#
+# Only a name that a chronicler of 25 ADP cannot know goes here: a person, place, order, or
+# event of the later expansions. A name of 25 ADP whose wiki paragraphs go on to later
+# stories, such as Gilneas or Varian, goes to `classic_names` in pack_sources.toml. A
+# pattern of prose, such as "patch 1.12", goes to `terms` there.
+#
 # The lore of the keepers of time also goes here, because the narrator never names it (3.2).
 Shattrath
 Pandaria
@@ -9,3 +20,87 @@ Murozond
 Infinite dragonflight
 Caverns of Time
 timeline
+
+# The later expansions and their wars.
+Shadowlands
+Cataclysm
+Shattering
+Fourth War
+War of the Thorns
+War of Thorns
+Wrathgate
+Battle for the Undercity
+Battle for Lordaeron
+Ahn'Qiraj War
+Gates of Ahn'Qiraj
+Naxxramas
+War Effort
+Dragon Soul
+Iron Horde
+Twilight Father
+Tavern Crawl
+
+# People.
+Garrosh
+Warchief Sylvanas
+Lich King Bolvar
+Queen Moira
+Moira Thaurissan
+Dagran Thaurissan II
+Talanji
+Zekhan
+N'Zoth
+Loken
+Ymiron
+Velonara
+Reigol
+Kathra'natir
+Eidre
+Vanessa
+Li Li
+Jailer
+Zidormi
+
+# Orders and peoples.
+Val'kyr
+Ebon Blade
+Argent Crusade
+Scarlet Brotherhood
+Desolate Council
+Forsaken High Command
+Council of Three Hammers
+Blood Knight
+Dark Shaman
+Dark Riders
+Vindicator
+vrykul
+Lament of the Highborne
+Thalassian Charger
+
+# Places.
+Icecrown Citadel
+Hellscream's Reach
+Hellscream's Watch
+Stormwind Harbor
+Lordaeron Throne Room
+Deatholme
+Farstrider Retreat
+Ghostlands
+Ulduar
+Northern Barrens
+Southern Barrens
+Lor'danel
+Bogpaddle
+Marshtide
+Operation: Gnomeregan
+New Tinkertown
+Exodar
+Exile's Reach
+Twilight Highlands
+Vashj'ir
+Deepholm
+Wyrmrest
+Maldraxxus
+Valgarde
+Howling Fjord
+Cenarion Wildlands
