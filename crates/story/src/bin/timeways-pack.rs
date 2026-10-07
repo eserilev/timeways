@@ -7,10 +7,12 @@
 //! {"text": "...", "source": "https://...", "places": ["Goldshire"], "about": "Goldshire"}
 //! {"text": "...", "source": "https://...", "common": true}
 //! {"text": "...", "source": "https://...", "places": ["The Deadmines"], "depends_on": {"foe": "Edwin VanCleef"}}
+//! {"text": "...", "source": "https://...", "places": ["Westfall"], "setup_for": {"foe": "Edwin VanCleef", "instance": "The Deadmines"}}
 //! ```
 //!
 //! `depends_on` is `{"foe": name}`, `{"quest": title}`, or `"unresolved"`. A line that
-//! tells a deed of adventurers and has no `depends_on` is unresolved.
+//! tells a deed of adventurers and has no `depends_on` is unresolved. `setup_for` is
+//! `{"foe": name, "instance": place}` or `{"quest": title, "instance": place}`.
 //!
 //! Or from a MediaWiki dump (`.xml` or `.7z`), with the pages of `data/pack_sources.toml`:
 //! `timeways-pack from-dump <dump> <new pack file>`.
@@ -21,7 +23,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use timeways_story::outcome_passages::is_outcome;
-use timeways_story::pack::{Dependency, Link, Origin, Pack, Passage};
+use timeways_story::pack::{Deed, Dependency, Link, Origin, Pack, Passage, SetupFor};
 use timeways_story::pack_sources::{self, Built, Outcome, Sources};
 use timeways_story::passage_limits;
 
@@ -44,6 +46,33 @@ struct PassageLine {
     about: Option<String>,
     #[serde(default)]
     depends_on: Option<DependencyLine>,
+    #[serde(default)]
+    setup_for: Option<SetupLine>,
+}
+
+/// One of `foe` and `quest`, and the instance.
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SetupLine {
+    #[serde(default)]
+    foe: Option<String>,
+    #[serde(default)]
+    quest: Option<String>,
+    instance: String,
+}
+
+impl SetupLine {
+    fn into_setup(self) -> Result<SetupFor, String> {
+        let deed = match (self.foe, self.quest) {
+            (Some(name), None) => Deed::Foe(name),
+            (None, Some(title)) => Deed::Quest(title),
+            _ => return Err("setup_for needs one of foe and quest".to_string()),
+        };
+        Ok(SetupFor {
+            deed,
+            instance: self.instance,
+        })
+    }
 }
 
 #[derive(Deserialize)]
@@ -65,7 +94,7 @@ impl DependencyLine {
 }
 
 impl PassageLine {
-    fn into_passage(self) -> Passage {
+    fn into_passage(self) -> Result<Passage, String> {
         let places = self.places.into_iter().map(Link::Place);
         let npcs = self.npcs.into_iter().map(Link::Npc);
         let common = self.common.then_some(Link::Common);
@@ -74,14 +103,16 @@ impl PassageLine {
             .depends_on
             .map(DependencyLine::into_dependency)
             .or(told_deed);
-        Passage {
+        let setup_for = self.setup_for.map(SetupLine::into_setup).transpose()?;
+        Ok(Passage {
             text: self.text,
             source: self.source,
             links: places.chain(npcs).chain(common).collect(),
             origin: Origin::Pack,
             about: self.about,
             depends_on,
-        }
+            setup_for,
+        })
     }
 }
 
@@ -123,7 +154,9 @@ fn from_lines(passages: &Path, pack: &Path) -> Result<(), Box<dyn Error>> {
     {
         let line: PassageLine =
             serde_json::from_str(line).map_err(|error| format!("line {}: {error}", number + 1))?;
-        let passage = line.into_passage();
+        let passage = line
+            .into_passage()
+            .map_err(|error| format!("line {}: {error}", number + 1))?;
         if let Some(fault) = passage_limits::fault(&passage) {
             return Err(format!("line {}: {fault}", number + 1).into());
         }
@@ -139,6 +172,7 @@ fn from_dump(dump: &Path, pack: &Path) -> Result<(), Box<dyn Error>> {
     let built = pack_sources::from_dump(dump, &Sources::bundled()?)?;
     print_report(&built);
     print_outcomes(&built.passages);
+    print_setups(&built.passages);
     for passage in &built.passages {
         if let Some(fault) = passage_limits::fault(passage) {
             return Err(format!("the passage from {}: {fault}", passage.source).into());
@@ -176,6 +210,38 @@ fn print_outcomes(passages: &[Passage]) {
         "tagged {} outcome passages: {foes} by foe, {quests} by quest, {unresolved} unresolved",
         foes + quests + unresolved
     );
+}
+
+/// Each setup passage with its deed and its instance, for a check by eye, and the count of
+/// each instance.
+fn print_setups(passages: &[Passage]) {
+    let mut counts: Vec<(&str, usize)> = Vec::new();
+    for passage in passages {
+        let Some(setup) = &passage.setup_for else {
+            continue;
+        };
+        let (kind, name) = match &setup.deed {
+            Deed::Foe(name) => ("foe", name.as_str()),
+            Deed::Quest(title) => ("quest", title.as_str()),
+        };
+        println!(
+            "setup  {}  {kind}  {name}  |  {}  |  {}",
+            setup.instance, passage.source, passage.text
+        );
+        match counts
+            .iter_mut()
+            .find(|(instance, _)| *instance == setup.instance)
+        {
+            Some((_, count)) => *count += 1,
+            None => counts.push((&setup.instance, 1)),
+        }
+    }
+    let total: usize = counts.iter().map(|(_, count)| count).sum();
+    let each: Vec<String> = counts
+        .iter()
+        .map(|(instance, count)| format!("{instance} {count}"))
+        .collect();
+    println!("tagged {total} setup passages: {}", each.join(", "));
 }
 
 fn print_report(built: &Built) {

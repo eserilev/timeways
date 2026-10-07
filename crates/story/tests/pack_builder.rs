@@ -4,7 +4,7 @@
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
-use timeways_story::pack::{Dependency, Link, Pack};
+use timeways_story::pack::{Deed, Dependency, Link, Pack, SetupFor};
 
 fn fresh(name: &str) -> PathBuf {
     let path = Path::new(env!("CARGO_TARGET_TMPDIR")).join(name);
@@ -344,6 +344,82 @@ fn the_report_lists_each_outcome_passage_with_its_dependency() {
     );
     assert!(
         stdout.contains("tagged 1 outcome passages: 0 by foe, 0 by quest, 1 unresolved\n"),
+        "{stdout}"
+    );
+}
+
+#[test]
+fn a_line_keeps_what_it_sets_up() {
+    let lines = concat!(
+        r#"{"text":"Gryan Stoutmantle sent adventurers to kill Edwin VanCleef.","source":"s","places":["Westfall"],"setup_for":{"foe":"Edwin VanCleef","instance":"The Deadmines"}}"#,
+        "\n",
+    );
+
+    let (output, pack) = build(lines, "builder-setup-for");
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let pack = Pack::open(&pack).unwrap();
+    let found = pack.search("Stoutmantle", 5).unwrap();
+    assert_eq!(
+        found[0].setup_for,
+        Some(SetupFor {
+            deed: Deed::Foe("Edwin VanCleef".to_string()),
+            instance: "The Deadmines".to_string(),
+        })
+    );
+}
+
+#[test]
+fn a_setup_line_with_both_a_foe_and_a_quest_is_refused() {
+    let lines = concat!(
+        r#"{"text":"The marshal sent adventurers to kill the kingpin.","source":"s","places":["Westfall"],"setup_for":{"foe":"Test Kingpin","quest":"Into the Mines","instance":"The Deadmines"}}"#,
+        "\n",
+    );
+
+    let (output, pack) = build(lines, "builder-setup-both");
+
+    assert!(!output.status.success());
+    assert!(
+        String::from_utf8_lossy(&output.stderr)
+            .contains("line 1: setup_for needs one of foe and quest"),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(!pack.exists());
+}
+
+#[test]
+fn the_report_lists_each_setup_passage_and_counts_them_by_instance() {
+    let index = "Intro.\n===Chapter I: Mythos===\n";
+    let vancleef = format!(
+        "{{{{Npcbox\n| name = Edwin VanCleef\n| faction = Combat\n}}}}\n{}\n",
+        wiki_dump::long("Edwin VanCleef hatched a plan of revenge on the nobles of Stormwind.")
+    );
+    let dump = wiki_dump::write_dump(
+        "builder-setup-report",
+        &[
+            wiki_dump::article("History of Warcraft", index),
+            wiki_dump::article("Edwin VanCleef", &vancleef),
+        ],
+    );
+    let pack = fresh("builder-setup-report.sqlite");
+
+    let output = build_from_dump(&dump, &pack);
+
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains(
+            "setup  The Deadmines  foe  Edwin VanCleef  |  the wiki page \"Edwin VanCleef\"  \
+             |  Edwin VanCleef hatched a plan"
+        ),
+        "{stdout}"
+    );
+    assert!(
+        stdout.contains("tagged 1 setup passages: The Deadmines 1\n"),
         "{stdout}"
     );
 }

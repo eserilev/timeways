@@ -577,6 +577,7 @@ fn story_with_passage(file: &str, text: &str) -> Story {
         origin: timeways_story::pack::Origin::Pack,
         about: None,
         depends_on: None,
+        setup_for: None,
     };
     Pack::write(&path, &[tower]).unwrap();
     Story::new(Pack::open(&path).unwrap(), Store::Memory)

@@ -1,6 +1,7 @@
 //! The character of the last `character_entered`: its world, its logs, and what one line
 //! from the bridge adds to its database (docs/plans/links.md).
 
+use super::calls::NARRATOR;
 use crate::chapters::Book;
 use crate::character::Character;
 use crate::entry_edits::EntryEdit;
@@ -209,6 +210,19 @@ impl Active {
 
     /// The main parts of the last accepted narrator lines, oldest first: the window of the
     /// rotation (docs/plans/narrator-templates.md 3.5). A line that is not saved yet counts.
+    /// The prompts of the narrator calls that told their lore: accepted, or still open.
+    /// The calls that this line opened count too, before the save.
+    pub(super) fn narrator_prompts(&self) -> Result<Vec<String>, StoreError> {
+        let mut prompts = self.database.narrator_prompts()?;
+        let opened = self
+            .new_calls
+            .iter()
+            .filter(|call| call.kind == NARRATOR)
+            .map(|call| call.prompt.clone());
+        prompts.extend(opened);
+        Ok(prompts)
+    }
+
     pub(super) fn recent_shapes(&self) -> Result<Vec<String>, StoreError> {
         let pending = self
             .ended

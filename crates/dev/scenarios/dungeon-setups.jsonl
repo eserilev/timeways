@@ -1,0 +1,16 @@
+# A human warrior at level 18 in Westfall who never entered the Deadmines. The lore pack
+# tells who wants Edwin VanCleef dead, as a setup of the Deadmines (GAMEPLAY.md 3.2 and
+# 5.10). In the game, stand in a zone that you visited, and type
+# `/twdev dungeon-again The Deadmines` three times: the first line tells the setup, and
+# each later line tells lore that no line told before. Then seed again with --replace,
+# `/twdev kill Edwin VanCleef boss`, and `/twdev dungeon-again The Deadmines`: the line
+# tells no setup. The last batch comes two hours after the others, so the budget of the
+# narrator is free.
+
+{"type":"character_described","at":0,"race":"Human","class":"WARRIOR"}
+{"type":"level_reached","at":10,"level":18}
+{"type":"zone_entered","at":20,"zone":"Westfall","subzone":"Sentinel Hill","hour":14}
+{"type":"npc_met","at":60,"name":"Gryan Stoutmantle"}
+{"type":"game_quest_accepted","at":90,"title":"The Defias Brotherhood","kind":"normal"}
+
+{"type":"zone_entered","at":8000,"zone":"Westfall","subzone":"Moonbrook","hour":16}

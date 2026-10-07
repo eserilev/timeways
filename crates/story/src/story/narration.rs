@@ -37,12 +37,18 @@ impl Story {
     ) -> Option<(String, NarratorCall)> {
         let active = self.active.as_ref()?;
         let who = Who::of(&active.character);
+        let told = if moment.enters_an_instance() {
+            active.narrator_prompts().ok()?
+        } else {
+            Vec::new()
+        };
         let passage = lore_of_moment(
             &self.pack,
             &active.seen_index,
             &active.character,
             moment,
             &who,
+            &told,
         )
         .ok()
         .flatten();

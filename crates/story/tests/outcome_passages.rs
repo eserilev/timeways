@@ -247,6 +247,7 @@ fn vancleef_falls() -> Passage {
         origin: Origin::Pack,
         about: Some("Moonbrook".to_string()),
         depends_on: Some(Dependency::Foe("Edwin VanCleef".to_string())),
+        setup_for: None,
     }
 }
 

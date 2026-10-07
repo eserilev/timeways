@@ -1,18 +1,24 @@
 //! The lore of a narrator moment: one passage about its place, foe, or person
-//! (GAMEPLAY.md 3.2). It passes the spoiler limit as a `/lore` passage does, with the gate
-//! of outcome passages, and the text that the player read comes first. A deed whose lore is thin gets no line.
+//! (GAMEPLAY.md 3.2). It passes the spoiler limit as a `/lore` passage does, with the gates
+//! of outcome and setup passages, and the text that the player read comes first. A deed
+//! whose lore is thin gets no line. An entry into a dungeon or a raid tells a passage of
+//! the instance that the character was never told: a setup first, when one is usable.
 
 use crate::character::Character;
 use crate::check::mentions;
+use crate::house::fenced;
 use crate::moments::Moment;
 use crate::narrator::{Who, lore_excerpt};
 use crate::pack::{Link, Pack, PackError, Passage};
 use crate::passage_limits;
+use crate::places::InstanceKind;
 use crate::race_class::Race;
 use crate::seen::SeenIndex;
+use crate::setup_passages;
 use crate::spoiler;
 use crate::walk::LEVEL_STEP;
 use thiserror::Error;
+use timeways_rules::instance_lore::next_passage;
 use timeways_rules::thin_lore::{self, MomentKind};
 
 /// Enough candidates that the spoiler limit still leaves one about the subject.
@@ -26,7 +32,10 @@ pub enum LoreError {
     Seen(#[from] rusqlite::Error),
 }
 
-/// The lore of the first subject of the moment that has some (`lore_subjects`).
+/// The lore of the first subject of the moment that has some (`lore_subjects`). `told`
+/// holds the prompts of the narrator calls that told their lore: an entry into an instance
+/// never tells a passage that one of them holds. A setup passage comes as its window
+/// (`setup_passages::window`).
 ///
 /// # Errors
 ///
@@ -37,7 +46,28 @@ pub fn lore_of_moment(
     character: &Character,
     moment: &Moment,
     who: &Who,
+    told: &[String],
 ) -> Result<Option<Passage>, LoreError> {
+    Ok(any_lore(pack, seen, character, moment, who, told)?.map(shown))
+}
+
+fn any_lore(
+    pack: &Pack,
+    seen: &SeenIndex,
+    character: &Character,
+    moment: &Moment,
+    who: &Who,
+    told: &[String],
+) -> Result<Option<Passage>, LoreError> {
+    if let Moment::InstanceAgain { zone, .. } = moment {
+        return next_of_instance(pack, character, zone, told);
+    }
+    if let Moment::FirstInstance { zone, kind } = moment
+        && *kind != InstanceKind::Battleground
+        && let Some(setup) = first_setup(pack, character, zone, told)?
+    {
+        return Ok(Some(setup));
+    }
     if let Moment::LevelUp { level, .. } = moment {
         let pages = lore_subjects(moment, who);
         let own = people_lore(pack, character, &pages)?;
@@ -53,6 +83,61 @@ pub fn lore_of_moment(
         }
     }
     Ok(None)
+}
+
+/// The first usable setup of the instance, in pack order, that no call told.
+fn first_setup(
+    pack: &Pack,
+    character: &Character,
+    instance: &str,
+    told: &[String],
+) -> Result<Option<Passage>, LoreError> {
+    let setups = known(character, pack.setups_of(instance)?);
+    Ok(setups
+        .into_iter()
+        .map(shown)
+        .find(|setup| times_told(setup, told) == 0))
+}
+
+/// The next passage of the instance that no call told, by the rule of
+/// `timeways_rules::instance_lore`, where Lean proves it. None once every passage was told.
+fn next_of_instance(
+    pack: &Pack,
+    character: &Character,
+    instance: &str,
+    told: &[String],
+) -> Result<Option<Passage>, LoreError> {
+    let candidates: Vec<Passage> = known(character, pack.of_place(instance)?)
+        .into_iter()
+        .map(shown)
+        .collect();
+    let counts: Vec<u32> = candidates
+        .iter()
+        .map(|passage| times_told(passage, told))
+        .collect();
+    Ok(next_passage(&counts).and_then(|index| candidates.into_iter().nth(index)))
+}
+
+/// How many of the prompts hold the lore of the passage, as a prompt shows it.
+fn times_told(passage: &Passage, told: &[String]) -> u32 {
+    let shown = fenced(&lore_excerpt(&passage.text));
+    let count = told.iter().filter(|prompt| prompt.contains(&shown)).count();
+    u32::try_from(count).unwrap_or(u32::MAX)
+}
+
+/// A setup passage as a prompt shows it: the sentence that sets up its deed, and the
+/// sentence before it.
+fn shown(passage: Passage) -> Passage {
+    let Some(setup) = &passage.setup_for else {
+        return passage;
+    };
+    let Some(window) = setup_passages::window(&passage.text, &setup.deed) else {
+        return passage;
+    };
+    Passage {
+        text: window.to_string(),
+        ..passage
+    }
 }
 
 /// What the lore of a moment must be about, best first. A tenth level tells of the
@@ -88,10 +173,15 @@ fn people_pages(race: Race) -> &'static [&'static str] {
     }
 }
 
-/// True when the moment gets no line: a deed whose lore is thin. The rule lives in
-/// `timeways_rules::thin_lore`, where Lean proves it.
+/// True when the moment gets no line: a deed whose lore is thin, or a later entry into an
+/// instance with no passage left to tell. The rules live in `timeways_rules::thin_lore`
+/// and `timeways_rules::instance_lore`, where Lean proves them.
 #[must_use]
 pub fn is_silent(moment: &Moment, subjects: &[String], passage: Option<&Passage>) -> bool {
+    // A later entry tells only lore that the character was never told.
+    if matches!(moment, Moment::InstanceAgain { .. }) && passage.is_none() {
+        return true;
+    }
     let kind = if moment.is_arrival() {
         MomentKind::Arrival
     } else if moment.is_deed() {

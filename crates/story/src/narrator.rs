@@ -10,6 +10,7 @@ use crate::narrator_templates::Kind;
 use crate::places::InstanceKind;
 use crate::race_class::{Class, Race};
 use crate::samples;
+use crate::setup_passages;
 use hourglass::Tick;
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
@@ -240,6 +241,12 @@ Remember: history only, from the lore. Add nothing. Never name the hero, and nev
 the deed. When the lore gives you nothing true to tell, answer {\"lore\": \"SILENCE\"}.
 Answer with the JSON only.";
 
+/// The note of an entry whose lore is a setup: who wants a deed done in the place
+/// (GAMEPLAY.md 5.10). The line keeps the place as its subject and ends on the present.
+const SETUP_NOTE: &str = "The lore tells who wants a deed done in this place, or what \
+threat waits in it. Tell that, and end on what still holds now, in this shape: \
+\"..., and <the foe> still holds <the place>.\"";
+
 /// A word is about 6 characters, with its space.
 const CHARS_PER_WORD: usize = 6;
 
@@ -288,6 +295,9 @@ pub fn lore_prompt(telling: &Telling<'_>, turn: usize, offer: &Offer) -> String 
     match telling.lore {
         Some(lore) => {
             let _ = write!(prompt, "\n\nThe lore:\n{}", fenced(lore));
+            if is_setup_entry(telling.moment, lore) {
+                let _ = write!(prompt, "\n{SETUP_NOTE}");
+            }
         }
         None => prompt.push_str("\n\nThe lore: none"),
     }
@@ -301,6 +311,10 @@ pub fn lore_prompt(telling: &Telling<'_>, turn: usize, offer: &Offer) -> String 
         answer_form(offer)
     );
     prompt
+}
+
+fn is_setup_entry(moment: &Moment, lore: &str) -> bool {
+    moment.enters_an_instance() && !setup_passages::setup_sentences(lore).is_empty()
 }
 
 /// One line of meaning for each closed field of the moment (2.2).
@@ -460,6 +474,13 @@ pub fn what_happened(moment: &Moment) -> String {
         } => format!(
             "The player entered the battleground {zone}. They had never fought there before."
         ),
+        Moment::InstanceAgain {
+            zone,
+            kind: InstanceKind::Raid,
+        } => format!("The player entered the raid {zone} again."),
+        Moment::InstanceAgain { zone, .. } => {
+            format!("The player entered the dungeon {zone} again.")
+        }
         Moment::QuestMarked { mark, quest } => {
             format!(
                 "During the quest \"{quest}\", a lasting effect came on the player: \"{mark}\"."

@@ -183,6 +183,7 @@ fn passage(text: &str) -> Passage {
         origin: Origin::Pack,
         about: None,
         depends_on: None,
+        setup_for: None,
     }
 }
 

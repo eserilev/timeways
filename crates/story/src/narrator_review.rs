@@ -56,13 +56,25 @@ pub struct Review {
 /// Returns the error of the pack or of the index of the read text.
 pub fn reviews(events: &[Event], sources: &Sources<'_>) -> Result<Vec<Review>, ReviewError> {
     let mut reviews = Vec::new();
+    // The tool shows every prompt, so it counts the lore of each one as told.
+    let mut told: Vec<String> = Vec::new();
     for end in 1..=events.len() {
         let Some(character) = Character::from_history(&events[..end]) else {
             continue;
         };
         let event = &events[end - 1];
         for moment in moments(character.world(), character.you(), slice::from_ref(event)) {
-            let review = review(&character, moment, event.tick, sources, reviews.len())?;
+            let review = review(
+                &character,
+                moment,
+                event.tick,
+                sources,
+                reviews.len(),
+                &told,
+            )?;
+            if review.silence.is_none() {
+                told.push(review.prompt.clone());
+            }
             reviews.push(review);
         }
     }
@@ -76,6 +88,7 @@ fn review(
     at: Tick,
     sources: &Sources<'_>,
     turn: usize,
+    told: &[String],
 ) -> Result<Review, ReviewError> {
     let read_then: Vec<SeenText> = sources
         .reads
@@ -85,7 +98,7 @@ fn review(
         .collect();
     let seen = SeenIndex::new(&read_then)?;
     let who = with_fallback(Who::of(character), sources.fallback);
-    let passage = lore_of_moment(sources.pack, &seen, character, &moment, &who)?;
+    let passage = lore_of_moment(sources.pack, &seen, character, &moment, &who, told)?;
     let subjects = lore_subjects(&moment, &who);
     let mut silence =
         is_silent(&moment, &subjects, passage.as_ref()).then(|| thin_reason(&subjects));

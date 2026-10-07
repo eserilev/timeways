@@ -41,6 +41,7 @@ fn story(name: &str) -> Story {
         origin: Origin::Pack,
         about: None,
         depends_on: None,
+        setup_for: None,
     };
     Pack::write(&path, &[tower]).unwrap();
     Story::new(Pack::open(&path).unwrap(), Store::Memory)

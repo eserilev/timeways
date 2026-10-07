@@ -5,7 +5,7 @@ use std::path::Path;
 use timeways_story::hero::LONG;
 use timeways_story::input::{CallId, FoeKind, GameQuestKind, Input, MessageId, SlotWas};
 use timeways_story::lore::Answer;
-use timeways_story::pack::{Dependency, Link, Origin, Pack, Passage};
+use timeways_story::pack::{Deed, Dependency, Link, Origin, Pack, Passage, SetupFor};
 use timeways_story::places::InstanceKind;
 use timeways_story::race_class::{Class, Race};
 use timeways_story::reply_size::{MAX_LINE, MAX_SLOT, Size};
@@ -26,6 +26,7 @@ fn passage(text: &str, source: &str, links: Vec<Link>) -> Passage {
         origin: Origin::Pack,
         about: None,
         depends_on: None,
+        setup_for: None,
     }
 }
 
@@ -2713,4 +2714,165 @@ fn an_unresolved_outcome_passage_never_reaches_a_prompt() {
     let found = sources(&mut story, "what happened to VanCleef?", None);
 
     assert!(found.is_empty(), "{found:?}");
+}
+
+/// The history of the Deadmines: the lead of its own page.
+fn deadmines_lead() -> Passage {
+    Passage {
+        about: Some("The Deadmines".to_string()),
+        ..passage(
+            "The Deadmines were the richest gold mine of Westfall until the Defias Brotherhood took them.",
+            "the wiki page \"Deadmines\"",
+            vec![place("The Deadmines")],
+        )
+    }
+}
+
+/// A boss of the Deadmines: its page links to the dungeon.
+fn smite_lore() -> Passage {
+    Passage {
+        about: Some("Mr. Smite".to_string()),
+        ..passage(
+            "Mr. Smite was the first mate of Captain Greenskin, and he guards the ship in the Deadmines.",
+            "the wiki page \"Mr. Smite\"",
+            vec![place("The Deadmines")],
+        )
+    }
+}
+
+/// A setup of the Deadmines on a page of Westfall: it waits for the defeat of VanCleef.
+fn stoutmantle_asks() -> Passage {
+    Passage {
+        setup_for: Some(SetupFor {
+            deed: Deed::Foe("Edwin VanCleef".to_string()),
+            instance: "The Deadmines".to_string(),
+        }),
+        ..passage(
+            "Gryan Stoutmantle sent adventurers to kill Edwin VanCleef in the Deadmines.",
+            "the wiki page \"Westfall\"",
+            vec![place("Westfall")],
+        )
+    }
+}
+
+fn enter_dungeon(story: &mut Story, at: u64, zone: &str) {
+    enter(story, at, zone, None);
+    let entered = Input::InstanceEntered {
+        at: Tick(at),
+        zone: zone.to_string(),
+        kind: InstanceKind::Dungeon,
+    };
+    assert!(story.handle(entered).unwrap().is_empty());
+}
+
+#[test]
+fn a_first_deadmines_entry_tells_the_setup_until_vancleef_dies() {
+    let pack = [deadmines_lead(), stoutmantle_asks()];
+    let mut before = story_with("setup-before", &pack);
+    enter(&mut before, 1, "Westfall", None);
+    let mut after = story_with("setup-after", &pack);
+    enter(&mut after, 1, "Westfall", None);
+    defeat(&mut after, 2, "Edwin VanCleef");
+
+    enter_dungeon(&mut before, HOUR, "The Deadmines");
+    let (_, first) = model_call(batch_end(&mut before, 3));
+    enter_dungeon(&mut after, HOUR, "The Deadmines");
+    let (_, late) = model_call(batch_end(&mut after, 3));
+
+    assert!(
+        first.contains("sent adventurers to kill Edwin VanCleef"),
+        "{first}"
+    );
+    assert!(first.contains("still holds"), "{first}");
+    assert!(!late.contains("Stoutmantle"), "{late}");
+    assert!(late.contains("the richest gold mine of Westfall"), "{late}");
+}
+
+/// A line that passes the checks for each passage of the Deadmines.
+fn line_for(prompt: &str) -> &'static str {
+    if prompt.contains("Stoutmantle") {
+        return "Gryan Stoutmantle sent adventurers to kill Edwin VanCleef, and VanCleef still holds the Deadmines.";
+    }
+    if prompt.contains("on his ship") {
+        return "Adventurers killed Edwin VanCleef on his ship, so the Defias Brotherhood is leaderless now.";
+    }
+    if prompt.contains("Greenskin") {
+        return "Mr. Smite was the first mate of Captain Greenskin, and he still guards the ship in the Deadmines.";
+    }
+    "The Deadmines were the richest gold mine of Westfall, and the Defias keep them today."
+}
+
+/// The narrator prompt of each entry, or None for silence. Each line is accepted, so its
+/// lore counts as told. A tale call of a later run stays open.
+fn entry_prompt(story: &mut Story, at: u64, batch: u64) -> Option<String> {
+    enter(story, at, "Westfall", None);
+    enter_dungeon(story, at + 1, "The Deadmines");
+    let outputs = story
+        .handle(Input::BatchEnd {
+            id: MessageId(batch),
+        })
+        .unwrap();
+    let (call, prompt) = outputs.into_iter().find_map(|output| match output {
+        Output::ModelCall { call, prompt } if prompt.contains("The moment:") => {
+            Some((call, prompt))
+        }
+        _ => None,
+    })?;
+    let text = format!("{{\"lore\": \"{}\"}}", line_for(&prompt));
+    let output = one(story.handle(Input::ModelAnswered { call, text }).unwrap());
+    shown_line(output);
+    Some(prompt)
+}
+
+#[test]
+fn each_later_entry_tells_lore_never_told_and_then_falls_silent() {
+    let pack = [deadmines_lead(), smite_lore(), stoutmantle_asks()];
+    let mut story = story_with("entries", &pack);
+
+    let lore: Vec<Option<String>> = (1..=4)
+        .map(|entry| entry_prompt(&mut story, entry * 2 * HOUR, entry))
+        .collect();
+
+    let told =
+        |entry: usize, words: &str| lore[entry].as_deref().is_some_and(|p| p.contains(words));
+    assert!(
+        told(0, "sent adventurers to kill Edwin VanCleef"),
+        "{lore:?}"
+    );
+    assert!(told(1, "the richest gold mine of Westfall"), "{lore:?}");
+    assert!(told(2, "first mate of Captain Greenskin"), "{lore:?}");
+    assert_eq!(lore[3], None, "{lore:?}");
+}
+
+/// An outcome passage of the Deadmines: it waits for the defeat of VanCleef.
+fn vancleef_falls_below() -> Passage {
+    Passage {
+        depends_on: Some(Dependency::Foe("Edwin VanCleef".to_string())),
+        ..passage(
+            "Adventurers killed Edwin VanCleef on his ship, and the Brotherhood lost its founder.",
+            "the wiki page \"Deadmines\"",
+            vec![place("The Deadmines")],
+        )
+    }
+}
+
+#[test]
+fn after_the_kill_a_later_entry_skips_the_setup_and_tells_the_outcome() {
+    let pack = [deadmines_lead(), stoutmantle_asks(), vancleef_falls_below()];
+    let mut story = story_with("entries-after-kill", &pack);
+    let first = entry_prompt(&mut story, 2 * HOUR, 1);
+    defeat(&mut story, 3 * HOUR, "Edwin VanCleef");
+    let (kill_line, _) = model_call(batch_end(&mut story, 9));
+    story
+        .handle(Input::ModelFailed { call: kill_line })
+        .unwrap();
+
+    let second = entry_prompt(&mut story, 4 * HOUR, 2);
+    let third = entry_prompt(&mut story, 6 * HOUR, 3);
+    let fourth = entry_prompt(&mut story, 8 * HOUR, 4);
+
+    assert!(first.is_some_and(|p| p.contains("Stoutmantle")));
+    assert!(second.is_some_and(|p| p.contains("the richest gold mine of Westfall")));
+    assert!(third.is_some_and(|p| p.contains("killed Edwin VanCleef on his ship")));
+    assert_eq!(fourth, None);
 }

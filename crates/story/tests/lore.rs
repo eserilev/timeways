@@ -11,6 +11,7 @@ fn passages() -> Vec<Passage> {
         origin: Origin::Pack,
         about: None,
         depends_on: None,
+        setup_for: None,
     };
     vec![tower]
 }

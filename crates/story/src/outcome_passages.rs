@@ -27,7 +27,7 @@ const DOERS: [&[&str]; 11] = [
 
 /// The words of a result: the deed is done, not only asked for. "sent adventurers to
 /// kill" asks, so the plain verb is no result.
-const RESULTS: [&[&str]; 29] = [
+pub(crate) const RESULTS: [&[&str]; 29] = [
     &["killed"],
     &["slain"],
     &["slew"],
@@ -92,18 +92,18 @@ fn tells_a_deed(sentence: &str) -> bool {
 
 /// The words in lower case. An apostrophe stays inside its word, so "adventurer's" is
 /// not "adventurer".
-fn words_with_apostrophes(text: &str) -> Vec<String> {
+pub(crate) fn words_with_apostrophes(text: &str) -> Vec<String> {
     text.split(|c: char| !(c.is_alphanumeric() || c == '\'' || c == '\u{2019}'))
         .filter(|word| !word.is_empty())
         .map(str::to_lowercase)
         .collect()
 }
 
-fn holds_any(words: &[String], phrases: &[&[&str]]) -> bool {
+pub(crate) fn holds_any(words: &[String], phrases: &[&[&str]]) -> bool {
     phrases.iter().any(|phrase| holds_phrase(words, phrase))
 }
 
-fn holds_phrase(words: &[String], phrase: &[&str]) -> bool {
+pub(crate) fn holds_phrase(words: &[String], phrase: &[&str]) -> bool {
     words.windows(phrase.len()).any(|window| window == phrase)
 }
 
@@ -253,27 +253,51 @@ pub fn dependency(
     page: &str,
     kind_of: impl Fn(&str) -> Option<PageKind>,
 ) -> Dependency {
-    let own = foe(kind_of(page));
-    let linked: Vec<Npc> = cites
-        .links
-        .iter()
-        .filter_map(|title| foe(kind_of(title)))
-        .collect();
-    let foes: Vec<&Npc> = own.iter().chain(&linked).collect();
-    let deeds = deed_sentences(text);
+    resolve(&deed_sentences(text), cites, page, kind_of)
+}
+
+/// The foe or the quest of the deed that `deeds` tell, by the rules of `dependency`.
+#[must_use]
+pub fn resolve(
+    deeds: &[&str],
+    cites: &Cites,
+    page: &str,
+    kind_of: impl Fn(&str) -> Option<PageKind>,
+) -> Dependency {
+    let foes = linked_foes(cites, page, &kind_of);
     let named = foes
         .iter()
         .find(|foe| deeds.iter().any(|sentence| mentions(sentence, &foe.name)));
     if let Some(foe) = named {
         return Dependency::Foe(foe.name.clone());
     }
-    let quest = last_chain_end(cites, &kind_of).filter(|quest| quest.title == Title::Own);
-    if let Some(quest) = quest {
-        return Dependency::Quest(quest.name);
+    if let Some(quest) = own_quest(cites, &kind_of) {
+        return Dependency::Quest(quest);
     }
     foes.first().map_or(Dependency::Unresolved, |foe| {
         Dependency::Foe(foe.name.clone())
     })
+}
+
+/// The foes of a paragraph: the page of the passage when it is a foe, then each foe that
+/// the paragraph links to. A setup passage reads them too (`setup_passages`).
+#[must_use]
+pub fn linked_foes(
+    cites: &Cites,
+    page: &str,
+    kind_of: &impl Fn(&str) -> Option<PageKind>,
+) -> Vec<Npc> {
+    let own = foe(kind_of(page));
+    let linked = cites.links.iter().filter_map(|title| foe(kind_of(title)));
+    own.into_iter().chain(linked).collect()
+}
+
+/// The title of the last cited quest that ends a chain, when the title is its own.
+#[must_use]
+pub fn own_quest(cites: &Cites, kind_of: &impl Fn(&str) -> Option<PageKind>) -> Option<String> {
+    last_chain_end(cites, kind_of)
+        .filter(|quest| quest.title == Title::Own)
+        .map(|quest| quest.name)
 }
 
 fn foe(kind: Option<PageKind>) -> Option<Npc> {

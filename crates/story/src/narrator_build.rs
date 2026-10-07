@@ -83,9 +83,10 @@ pub enum Answered {
 pub fn kind_of(moment: &Moment) -> Option<Kind> {
     let kind = match moment {
         Moment::Flavor { .. } => return None,
-        Moment::NewZone { .. } | Moment::FirstCapital { .. } | Moment::FirstInstance { .. } => {
-            Kind::Arrival
-        }
+        Moment::NewZone { .. }
+        | Moment::FirstCapital { .. }
+        | Moment::FirstInstance { .. }
+        | Moment::InstanceAgain { .. } => Kind::Arrival,
         Moment::FirstKill { .. } => Kind::Kill,
         Moment::Revenge { .. } => Kind::Revenge,
         Moment::SlainAgain { .. } => Kind::Death,
@@ -441,7 +442,8 @@ impl Plan {
             Moment::Flavor { .. }
             | Moment::NewZone { .. }
             | Moment::FirstCapital { .. }
-            | Moment::FirstInstance { .. } => {}
+            | Moment::FirstInstance { .. }
+            | Moment::InstanceAgain { .. } => {}
         }
     }
 

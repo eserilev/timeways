@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use std::path::{Path, PathBuf};
-use timeways_story::pack::{Dependency, Link, Origin, Pack, PackError, Passage};
+use timeways_story::pack::{Deed, Dependency, Link, Origin, Pack, PackError, Passage, SetupFor};
 
 fn fresh_path(name: &str) -> PathBuf {
     let path = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("pack-{name}.sqlite"));
@@ -17,6 +17,7 @@ fn passage(text: &str, source: &str, links: Vec<Link>) -> Passage {
         origin: Origin::Pack,
         about: None,
         depends_on: None,
+        setup_for: None,
     }
 }
 
@@ -278,5 +279,107 @@ fn an_unknown_kind_of_dependency_is_an_error() {
     assert!(matches!(
         result,
         Err(PackError::UnknownDependency { ref kind }) if kind == "rumor"
+    ));
+}
+
+#[test]
+fn a_pack_of_format_three_is_refused_because_it_has_no_setup_tags() {
+    let path = fresh_path("format-three");
+    rusqlite::Connection::open(&path)
+        .unwrap()
+        .pragma_update(None, "user_version", 3)
+        .unwrap();
+
+    let result = Pack::open(&path);
+
+    assert!(matches!(result, Err(PackError::Version { found: 3 })));
+}
+
+fn kingpin_setup(deed: Deed) -> SetupFor {
+    SetupFor {
+        deed,
+        instance: "The Testmines".to_string(),
+    }
+}
+
+#[test]
+fn a_setup_passage_comes_back_with_its_deed_and_its_instance() {
+    let tags = [
+        Deed::Foe("Test Kingpin".to_string()),
+        Deed::Quest("Into the Testmines".to_string()),
+    ];
+    let passages: Vec<Passage> = tags
+        .iter()
+        .map(|deed| Passage {
+            setup_for: Some(kingpin_setup(deed.clone())),
+            ..passage(
+                "The marshal sent adventurers to kill the kingpin.",
+                "https://example.test/1",
+                vec![place("Testvale")],
+            )
+        })
+        .collect();
+    let pack = pack_of("setups", &passages);
+
+    let found = pack.search("kingpin", 10).unwrap();
+
+    assert_eq!(found, passages);
+}
+
+#[test]
+fn the_passages_of_an_instance_are_its_links_and_its_setups_in_pack_order() {
+    let lead = passage(
+        "The Testmines were dug by miners.",
+        "https://example.test/1",
+        vec![place("The Testmines")],
+    );
+    let elsewhere = passage(
+        "Testvale has a mill.",
+        "https://example.test/2",
+        vec![place("Testvale")],
+    );
+    let setup = Passage {
+        setup_for: Some(kingpin_setup(Deed::Foe("Test Kingpin".to_string()))),
+        ..passage(
+            "The marshal sent adventurers to kill the kingpin.",
+            "https://example.test/3",
+            vec![place("Testvale")],
+        )
+    };
+    let pack = pack_of(
+        "instance-passages",
+        &[lead.clone(), elsewhere, setup.clone()],
+    );
+
+    let all = pack.of_place("The Testmines").unwrap();
+    let setups = pack.setups_of("The Testmines").unwrap();
+
+    assert_eq!(all, vec![lead, setup.clone()]);
+    assert_eq!(setups, vec![setup]);
+}
+
+#[test]
+fn an_unknown_kind_of_setup_is_an_error() {
+    let path = fresh_path("unknown-setup");
+    let tower = passage(
+        "The tower of Testvale fell.",
+        "https://example.test/1",
+        vec![place("Testvale")],
+    );
+    Pack::write(&path, &[tower]).unwrap();
+    rusqlite::Connection::open(&path)
+        .unwrap()
+        .execute(
+            "INSERT INTO setup_for (passage, kind, name, instance) VALUES (1, 'rumor', 'x', 'y')",
+            [],
+        )
+        .unwrap();
+    let pack = Pack::open(&path).unwrap();
+
+    let result = pack.search("tower", 10);
+
+    assert!(matches!(
+        result,
+        Err(PackError::UnknownSetup { ref kind }) if kind == "rumor"
     ));
 }

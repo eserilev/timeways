@@ -1091,6 +1091,7 @@ fn a_lore_question_leaves_no_input_and_no_call() {
         origin: Origin::Pack,
         about: None,
         depends_on: None,
+        setup_for: None,
     };
     Pack::write(&folder.join("pack.sqlite"), &[tower]).unwrap();
     let mut story = story(&folder);

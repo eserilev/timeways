@@ -4,9 +4,10 @@
 
 mod wiki_dump;
 
-use timeways_story::pack::{Dependency, Link, Passage};
+use timeways_story::pack::{Deed, Dependency, Link, Passage, SetupFor};
 use timeways_story::pack_sources::{
-    Outcome, PageReport, Sources, SourcesError, from_dump, known_bosses, paragraphs, subject_of,
+    Outcome, PageReport, Sources, SourcesError, boss_places, from_dump, known_bosses, paragraphs,
+    subject_of,
 };
 use wiki_dump::{DumpPage, article, long, write_dump};
 
@@ -665,4 +666,104 @@ fn a_page_about_a_person_in_a_place_is_a_known_boss() {
     let bosses = known_bosses(&sources(MOONBROOK));
 
     assert_eq!(bosses, ["Test Kingpin"]);
+}
+
+/// The list of `MOONBROOK` with the Deadmines as an instance, and a page of Westfall.
+fn sources_with_instances() -> Sources {
+    let text = format!(
+        "instances = [\"The Deadmines\"]\n[books]\nindex = \"{INDEX}\"\nchapters = []\n\
+         {MOONBROOK}\n[[pages]]\ntitle = \"Westfall\"\nlead = true\nsections = []\n\
+         places = [\"Westfall\"]\n"
+    );
+    Sources::parse(&text).unwrap()
+}
+
+fn westfall_dump(name: &str) -> std::path::PathBuf {
+    let westfall = format!(
+        "{}\n{}\n",
+        long(
+            "The Defias hid in the mines. [[Gryan Stoutmantle]] sent adventurers to kill \
+             [[Test Kingpin]]."
+        ),
+        long(
+            "The Defias burned the farms. [[Gryan Stoutmantle]] called upon the heroes of the \
+             Alliance to destroy [[Test Kingpin]]. The heroes of the Alliance killed him."
+        ),
+    );
+    let kingpin = format!(
+        "{{{{Npcbox\n| name = Test Kingpin\n| faction = Neutral\n}}}}\n{}\n",
+        long("The kingpin hid in the mines.")
+    );
+    write_dump(
+        name,
+        &[
+            article(INDEX, &index("")),
+            article("Westfall", &westfall),
+            article("Test Kingpin", &kingpin),
+            article(
+                "Gryan Stoutmantle",
+                "{{Npcbox\n| name = Gryan Stoutmantle\n| faction = Alliance\n}}",
+            ),
+        ],
+    )
+}
+
+fn kingpin_setup() -> SetupFor {
+    SetupFor {
+        deed: Deed::Foe("Test Kingpin".to_string()),
+        instance: "The Deadmines".to_string(),
+    }
+}
+
+#[test]
+fn a_setup_paragraph_with_no_end_is_a_setup_as_a_whole() {
+    let dump = westfall_dump("sources-setup-whole");
+
+    let built = from_dump(&dump, &sources_with_instances()).unwrap();
+
+    let whole = built
+        .passages
+        .iter()
+        .find(|passage| passage.text.starts_with("The Defias hid"))
+        .unwrap();
+    assert_eq!(whole.setup_for, Some(kingpin_setup()));
+    assert!(whole.text.contains("The rest of this invented line"));
+}
+
+#[test]
+fn the_setup_of_an_outcome_paragraph_comes_as_a_passage_of_its_own_right_after_it() {
+    let dump = westfall_dump("sources-setup-window");
+
+    let built = from_dump(&dump, &sources_with_instances()).unwrap();
+
+    let at = built
+        .passages
+        .iter()
+        .position(|passage| passage.text.starts_with("The Defias burned"))
+        .unwrap();
+    let outcome = &built.passages[at];
+    let setup = &built.passages[at + 1];
+    assert_eq!(
+        outcome.depends_on,
+        Some(Dependency::Foe("Test Kingpin".to_string()))
+    );
+    assert_eq!(outcome.setup_for, None);
+    assert_eq!(
+        setup.text,
+        "The Defias burned the farms. Gryan Stoutmantle called upon the heroes of the Alliance \
+         to destroy Test Kingpin."
+    );
+    assert_eq!(setup.setup_for, Some(kingpin_setup()));
+    assert_eq!(setup.depends_on, None);
+    assert_eq!(setup.links, outcome.links);
+}
+
+#[test]
+fn a_known_boss_is_in_the_places_of_its_page() {
+    let places = boss_places(&sources(MOONBROOK));
+
+    assert_eq!(
+        places.get("Test Kingpin"),
+        Some(&vec!["The Deadmines".to_string()])
+    );
 }

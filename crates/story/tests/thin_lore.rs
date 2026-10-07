@@ -22,6 +22,7 @@ fn passage(text: &str, about: Option<&str>, links: Vec<Link>) -> Passage {
         origin: Origin::Pack,
         about: about.map(str::to_string),
         depends_on: None,
+        setup_for: None,
     }
 }
 
@@ -184,6 +185,7 @@ fn stormwind_pack(name: &str) -> Pack {
         origin: Origin::Pack,
         about: Some("Stormwind City".to_string()),
         depends_on: None,
+        setup_for: None,
     };
     let passages = [
         page("King Barathen Wrynn scattered the gnolls, and his line rules Stormwind City."),
@@ -196,7 +198,7 @@ fn stormwind_pack(name: &str) -> Pack {
 
 fn lore_at(pack: &Pack, moment: &Moment) -> Option<String> {
     let seen = SeenIndex::new(&[]).unwrap();
-    lore_of_moment(pack, &seen, &Character::new(), moment, &human())
+    lore_of_moment(pack, &seen, &Character::new(), moment, &human(), &[])
         .unwrap()
         .map(|passage| passage.text)
 }
@@ -225,6 +227,7 @@ fn stormwind_search_pack(name: &str) -> Pack {
         origin: Origin::Pack,
         about: None,
         depends_on: None,
+        setup_for: None,
     };
     let passages = [
         book("The gnolls fled when King Barathen Wrynn founded Stormwind City."),
@@ -255,7 +258,7 @@ fn a_tenth_level_with_the_lore_of_its_people_is_not_thin() {
     let seen = SeenIndex::new(&[]).unwrap();
     let moment = level(40);
 
-    let lore = lore_of_moment(&pack, &seen, &Character::new(), &moment, &human()).unwrap();
+    let lore = lore_of_moment(&pack, &seen, &Character::new(), &moment, &human(), &[]).unwrap();
 
     assert!(!is_thin(&lore_subjects(&moment, &human()), lore.as_ref()));
 }
@@ -341,7 +344,7 @@ fn lore_of(pack: &Pack, moment: &Moment, race: Race) -> Option<Passage> {
         class: None,
         titles: Vec::new(),
     };
-    lore_of_moment(pack, &seen, &character, moment, &who).unwrap()
+    lore_of_moment(pack, &seen, &character, moment, &who, &[]).unwrap()
 }
 
 #[test]

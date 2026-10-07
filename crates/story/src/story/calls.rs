@@ -11,6 +11,9 @@ use crate::learned::Rumor;
 use crate::lore::{LoreCall, Next};
 use crate::prompt::Attempt;
 use crate::store::{CharacterKey, Node, Outcome, StoreError};
+
+/// The kind of a narrator call in the `calls` table.
+pub(super) const NARRATOR: &str = "narrator";
 use crate::talk::Work;
 use crate::{check, talk};
 use hourglass::EventId;
@@ -69,7 +72,7 @@ impl Pending {
     fn kind(&self) -> &'static str {
         match self {
             Pending::Lore { .. } => "lore",
-            Pending::Narrator(_) => "narrator",
+            Pending::Narrator(_) => NARRATOR,
             Pending::Chronicle { .. } => "saga",
             Pending::Summary { .. } => "summary",
             Pending::Tale { .. } => "tale",

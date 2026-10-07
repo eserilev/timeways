@@ -17,6 +17,7 @@ fn pack_file(name: &str) -> PathBuf {
         origin: Origin::Pack,
         about: None,
         depends_on: None,
+        setup_for: None,
     };
     Pack::write(&path, &[tower]).unwrap();
     path

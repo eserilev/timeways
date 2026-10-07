@@ -27,6 +27,7 @@ fn a_prompt_holds_what_the_npc_knows_and_ends_with_the_words_of_the_player() {
         origin: Origin::Pack,
         about: None,
         depends_on: None,
+        setup_for: None,
     };
 
     let prompt = prompt(&farley(), &[lore], "any news?", 0);
@@ -375,6 +376,7 @@ fn passage(text: &str) -> Passage {
         origin: Origin::Pack,
         about: None,
         depends_on: None,
+        setup_for: None,
     }
 }
 

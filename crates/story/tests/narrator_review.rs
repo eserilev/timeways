@@ -30,6 +30,7 @@ fn westfall() -> Passage {
         origin: Origin::Pack,
         about: None,
         depends_on: None,
+        setup_for: None,
     }
 }
 
@@ -142,6 +143,7 @@ fn mine_passage(text: &str, about: Option<&str>) -> Passage {
         origin: Origin::Pack,
         about: about.map(str::to_string),
         depends_on: None,
+        setup_for: None,
     }
 }
 

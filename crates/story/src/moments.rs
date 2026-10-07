@@ -15,7 +15,7 @@ use crate::vocabulary::{
     SLOT_NUMBERS, TITLE, UPGRADED, VISITED,
 };
 use crate::walk::LEVEL_STEP;
-use hourglass::{EntityId, Event, EventKind, World};
+use hourglass::{EntityId, Event, EventKind, LOCATED_IN, World};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Moment {
@@ -62,6 +62,10 @@ pub enum Moment {
     NewZone { zone: String },
     /// The first entry into a dungeon or a raid: a zone that the game called an instance.
     FirstInstance { zone: String, kind: InstanceKind },
+    /// A later entry into a dungeon or a raid: you stand in it again after you stood
+    /// outside it. It tells a passage of the instance that you were never told
+    /// (`narrator_lore`), and it adds no weight to a chapter or a tale.
+    InstanceAgain { zone: String, kind: InstanceKind },
     /// A quest of the game left a lasting buff or debuff on you.
     QuestMarked { mark: String, quest: String },
     /// The first visit of a capital city.
@@ -161,7 +165,9 @@ impl Moment {
             Moment::Slapped { npc, .. } => Some(npc),
             Moment::LevelUp { zone, .. } => zone.as_deref(),
             Moment::ClassQuestDone { title } | Moment::QuestDone { title, .. } => Some(title),
-            Moment::NewZone { zone } | Moment::FirstInstance { zone, .. } => Some(zone),
+            Moment::NewZone { zone }
+            | Moment::FirstInstance { zone, .. }
+            | Moment::InstanceAgain { zone, .. } => Some(zone),
             Moment::QuestMarked { quest, .. } => Some(quest),
             Moment::FirstCapital { city } => Some(city),
         }
@@ -220,7 +226,19 @@ impl Moment {
     pub fn is_arrival(&self) -> bool {
         matches!(
             self,
-            Moment::NewZone { .. } | Moment::FirstCapital { .. } | Moment::FirstInstance { .. }
+            Moment::NewZone { .. }
+                | Moment::FirstCapital { .. }
+                | Moment::FirstInstance { .. }
+                | Moment::InstanceAgain { .. }
+        )
+    }
+
+    /// An entry into a dungeon, a raid, or a battleground, first or later.
+    #[must_use]
+    pub fn enters_an_instance(&self) -> bool {
+        matches!(
+            self,
+            Moment::FirstInstance { .. } | Moment::InstanceAgain { .. }
         )
     }
 
@@ -240,7 +258,7 @@ impl Moment {
             | Moment::BigUpgrade { .. }
             | Moment::QuestDone { .. } => 3,
             Moment::LevelUp { .. } | Moment::FirstCapital { .. } => 2,
-            Moment::NewZone { .. } => 1,
+            Moment::NewZone { .. } | Moment::InstanceAgain { .. } => 1,
         }
     }
 }
@@ -249,7 +267,7 @@ impl Moment {
 pub fn moments(world: &World, you: EntityId, events: &[Event]) -> Vec<Moment> {
     events
         .iter()
-        .filter_map(|event| moment(world, you, &event.kind))
+        .filter_map(|event| moment(world, you, event))
         .collect()
 }
 
@@ -269,9 +287,9 @@ pub fn best(moments: Vec<Moment>) -> Option<Moment> {
     best
 }
 
-fn moment(world: &World, you: EntityId, kind: &EventKind) -> Option<Moment> {
+fn moment(world: &World, you: EntityId, event: &Event) -> Option<Moment> {
     let name_of = |id: &EntityId| world.entity(*id).map(|entity| entity.name.clone());
-    match kind {
+    match &event.kind {
         EventKind::FactStart {
             entity,
             name,
@@ -358,6 +376,12 @@ fn moment(world: &World, you: EntityId, kind: &EventKind) -> Option<Moment> {
         EventKind::FactStart {
             entity,
             name,
+            linked_to: Some(place),
+            ..
+        } if *entity == you && name == LOCATED_IN => instance_again(world, you, *place, event),
+        EventKind::FactStart {
+            entity,
+            name,
             linked_to: Some(quest),
             ..
         } if *entity == you => quest_moment(world, name, *quest),
@@ -422,6 +446,51 @@ fn first_instance(world: &World, place: EntityId, fact: &str) -> Option<Moment> 
     };
     let zone = world.entity(place)?.name.clone();
     Some(Moment::FirstInstance { zone, kind })
+}
+
+/// You stand in a dungeon or a raid again, and you stood outside it before this move. A
+/// move inside it, from one of its subzones to another, is no entry. The first entry
+/// comes before the mark of the instance, so it is never this moment.
+fn instance_again(world: &World, you: EntityId, place: EntityId, event: &Event) -> Option<Moment> {
+    let zone = zone_around(world, place);
+    let entity = world.entity(zone)?;
+    let kind = if entity.has(RAID) {
+        InstanceKind::Raid
+    } else if entity.has(DUNGEON) {
+        InstanceKind::Dungeon
+    } else {
+        return None;
+    };
+    let before = place_before(world, you, event)?;
+    if zone_around(world, before) == zone {
+        return None;
+    }
+    Some(Moment::InstanceAgain {
+        zone: entity.name.clone(),
+        kind,
+    })
+}
+
+fn zone_around(world: &World, place: EntityId) -> EntityId {
+    world.ancestry(place).last().copied().unwrap_or(place)
+}
+
+/// Where you stood before the move of `event`.
+fn place_before(world: &World, you: EntityId, event: &Event) -> Option<EntityId> {
+    world
+        .history()
+        .iter()
+        .rev()
+        .skip_while(|earlier| earlier.id >= event.id)
+        .find_map(|earlier| match &earlier.kind {
+            EventKind::FactStart {
+                entity,
+                name,
+                linked_to: Some(place),
+                ..
+            } if *entity == you && name == LOCATED_IN => Some(*place),
+            _ => None,
+        })
 }
 
 /// The facts of a first mount, a first epic item, and a big upgrade.

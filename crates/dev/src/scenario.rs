@@ -55,6 +55,11 @@ pub const BUILT_IN: &[(&str, &str, &str)] = &[
         "A human warrior who left the Deadmines before VanCleef, for the lore of his death.",
         include_str!("../scenarios/outcome-lore.jsonl"),
     ),
+    (
+        "dungeon-setups",
+        "A human warrior in Westfall who never entered the Deadmines, for its setups and entries.",
+        include_str!("../scenarios/dungeon-setups.jsonl"),
+    ),
 ];
 
 #[derive(Clone, Debug, PartialEq)]

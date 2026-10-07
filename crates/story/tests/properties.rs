@@ -8,8 +8,10 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use timeways_rules::aliases::{Alias, PlayerId, find, learn_all};
+use timeways_rules::instance_lore::next_passage;
 use timeways_rules::narrator_shapes::WINDOW;
 use timeways_rules::outcomes::{DependsOn, PlayerFacts, outcome_usable};
+use timeways_rules::setups::{self, setup_usable};
 use timeways_story::aliases::{
     AliasRow, MAX_PLAYER_NAME_BYTES, alias_of, key_of, knows_every_id, plain_joined, text_pieces,
     unmarked, with_names, without_names,
@@ -41,7 +43,7 @@ use timeways_story::narrator_slots::{ChoiceField, Choices, KillerKind, Tone, fie
 use timeways_story::narrator_templates::{Number, TEMPLATES};
 use timeways_story::npc_memory::{MAX_MEMORIES, MAX_MEMORY_CHARS, when};
 use timeways_story::pace::{Pace, WINDOW_SECONDS};
-use timeways_story::pack::{Dependency, Link, Origin, Pack, Passage};
+use timeways_story::pack::{Deed, Dependency, Link, Origin, Pack, Passage, SetupFor};
 use timeways_story::passage_limits::{MAX_PASSAGE_BYTES, pieces};
 use timeways_story::places::InstanceKind;
 use timeways_story::prose::{FEWEST_WORDS, MOST_WORDS, ProseFault, prose_faults};
@@ -54,7 +56,7 @@ use timeways_story::race_class::{Class, Race};
 use timeways_story::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use timeways_story::seen::TextKind;
 use timeways_story::sentences::{sentences, word_count};
-use timeways_story::spoiler::outcome_allowed;
+use timeways_story::spoiler::{outcome_allowed, setup_allowed};
 use timeways_story::spot::{MAP_IDS, Spot, THOUSANDTHS, spot_of};
 use timeways_story::store::{
     CallEnd, CharacterKey, Database, Line, NewCall, Node, Outcome, Root, Store, Table,
@@ -3449,6 +3451,7 @@ proptest! {
             origin: Origin::Pack,
             about: Some(other.clone()),
             depends_on: None,
+            setup_for: None,
         };
         let related = match tie {
             0 => Passage { about: Some(subject.clone()), ..unrelated.clone() },
@@ -3477,6 +3480,7 @@ proptest! {
             origin: Origin::Pack,
             about: Some(other),
             depends_on: None,
+            setup_for: None,
         };
         let passage = lore.then_some(&passage);
 
@@ -3954,5 +3958,89 @@ proptest! {
         prop_assert_eq!(outcome_usable(tag, &facts), held);
         prop_assert!(!outcome_usable(DependsOn::Unresolved, &facts));
         prop_assert!(outcome_usable(DependsOn::Nothing, &facts));
+    }
+}
+
+/// The deed of a setup passage, over the names that the acts use, and one name past them.
+fn setup_deed() -> impl Strategy<Value = Deed> {
+    prop_oneof![
+        (0usize..5).prop_map(|n| Deed::Foe(format!("Rare {n}"))),
+        (0usize..9).prop_map(|n| Deed::Quest(format!("Quest {n}"))),
+    ]
+}
+
+/// How many times each passage of an instance was told. Zero is likely, so an untold
+/// passage and a told one both come often.
+fn told_counts() -> impl Strategy<Value = Vec<u32>> {
+    prop::collection::vec(
+        prop_oneof![3 => Just(0u32), 2 => 1u32..3, 1 => Just(u32::MAX)],
+        0..12,
+    )
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(256))]
+
+    /// GAMEPLAY.md 5.10: for any play, a setup passage passes the gate exactly while the
+    /// player has not defeated its foe or turned in its quest.
+    #[test]
+    fn a_setup_passes_the_gate_exactly_while_the_player_has_not_done_it(
+        acts in prop::collection::vec((act(), fold_gap()), 0..60),
+        deed in setup_deed(),
+    ) {
+        let character = acted(&acts);
+        let did = match &deed {
+            Deed::Foe(name) => character.foes_defeated().contains(&name.as_str()),
+            Deed::Quest(title) => character.game_quests_done().contains(&title.as_str()),
+        };
+        let setup = SetupFor { deed, instance: "The Deadmines".to_string() };
+
+        prop_assert_eq!(setup_allowed(&character, Some(&setup)), !did);
+    }
+
+    /// The rule over ids: a setup for a done foe or quest never passes, for any facts.
+    #[test]
+    fn a_done_setup_never_passes_for_any_facts(
+        defeated in prop::collection::vec(0u32..6, 0..6),
+        quests_done in prop::collection::vec(0u32..6, 0..6),
+        id in prop_oneof![0u32..7, Just(u32::MAX)],
+        quest in any::<bool>(),
+    ) {
+        let (tag, held) = if quest {
+            (setups::SetupFor::Quest(id), quests_done.contains(&id))
+        } else {
+            (setups::SetupFor::Foe(id), defeated.contains(&id))
+        };
+        let facts = PlayerFacts { defeated, quests_done };
+
+        prop_assert_eq!(setup_usable(tag, &facts), !held);
+        prop_assert!(setup_usable(setups::SetupFor::Nothing, &facts));
+    }
+
+    /// GAMEPLAY.md 3.2: the pick is the first passage never told, and none once every
+    /// passage was told.
+    #[test]
+    fn an_entry_picks_the_first_passage_never_told(told in told_counts()) {
+        let first_untold = told.iter().position(|count| *count == 0);
+
+        prop_assert_eq!(next_passage(&told), first_untold);
+    }
+
+    /// GAMEPLAY.md 3.2: entry after entry, each passage is told once, in pack order, and
+    /// then every entry is silent.
+    #[test]
+    fn entries_tell_each_passage_once_and_then_fall_silent(passages in 0usize..12) {
+        let mut told = vec![0u32; passages];
+        let mut order = Vec::new();
+
+        for _ in 0..passages + 3 {
+            if let Some(index) = next_passage(&told) {
+                told[index] += 1;
+                order.push(index);
+            }
+        }
+
+        prop_assert_eq!(order, (0..passages).collect::<Vec<_>>());
+        prop_assert!(told.iter().all(|count| *count == 1));
     }
 }

@@ -41,6 +41,7 @@ impl SeenText {
             origin: Origin::Read,
             about: self.own_subject(),
             depends_on: None,
+            setup_for: None,
         }
     }
 

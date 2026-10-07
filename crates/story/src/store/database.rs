@@ -601,6 +601,26 @@ impl Database {
         Ok(u64::try_from(found).unwrap_or_default())
     }
 
+    /// The prompts of the narrator calls that told their lore: accepted, or still open, in
+    /// the order of the calls.
+    ///
+    /// # Errors
+    ///
+    /// Returns the error of SQLite.
+    pub fn narrator_prompts(&self) -> Result<Vec<String>, StoreError> {
+        let select = "SELECT prompt FROM calls WHERE kind = 'narrator' AND prompt IS NOT NULL \
+                      AND result IN ('accepted', 'open') ORDER BY position";
+        let mut statement = self
+            .connection
+            .prepare_cached(select)
+            .map_err(|source| self.error(source))?;
+        let rows = statement
+            .query_map([], |row| row.get(0))
+            .map_err(|source| self.error(source))?;
+        rows.collect::<Result<Vec<String>, _>>()
+            .map_err(|source| self.error(source))
+    }
+
     /// The shapes of the newest accepted calls that hold one, newest first.
     ///
     /// # Errors

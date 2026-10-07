@@ -1,6 +1,28 @@
 # The pages of the wiki dump that `timeways-pack from-dump` reads (GAMEPLAY.md 5.10).
 # The builder runs on the computer of the player, so the repo holds no lore text, only this list.
 
+# The dungeons and raids of the list, by the names of the game. A setup passage, such as
+# "Gryan Stoutmantle sent adventurers to kill VanCleef", belongs to one of them.
+instances = [
+    "Ragefire Chasm",
+    "Wailing Caverns",
+    "The Deadmines",
+    "Shadowfang Keep",
+    "Blackfathom Deeps",
+    "The Stockade",
+    "Gnomeregan",
+    "Razorfen Kraul",
+    "Scarlet Monastery",
+    "Razorfen Downs",
+    "Uldaman",
+    "Zul'Farrak",
+    "The Temple of Atal'Hakkar",
+    "Blackrock Depths",
+    "Blackrock Spire",
+    "Scholomance",
+    "Stratholme",
+]
+
 # The History of Warcraft books of the game. Each chapter section of the index page lists
 # its books as `* [[Page]]` lines. Every book passage is common knowledge in 25 ADP.
 # Chapter VI tells of later expansions, so it stays out.

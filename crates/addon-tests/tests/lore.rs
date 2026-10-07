@@ -21,6 +21,7 @@ fn reply_line(text: Option<&str>, passages: &[&str]) -> String {
             origin: Origin::Pack,
             about: None,
             depends_on: None,
+            setup_for: None,
         })
         .collect();
     let answer = Answer {

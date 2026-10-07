@@ -7,6 +7,7 @@ use crate::game_talk::{Cut, cut_game_talk};
 use crate::outcome_passages::{self, PageKind, page_kind, with_known_bosses};
 use crate::pack::{Link, Origin, Passage};
 use crate::passage_limits::pieces;
+use crate::setup_passages::{self, Instances};
 use crate::wikitext::{Cites, book_content, cites, listed_pages, plain, sections};
 use regex::Regex;
 use serde::Deserialize;
@@ -35,6 +36,10 @@ pub struct Sources {
     /// instances, and loot (`game_talk`).
     #[serde(default)]
     pub game: Terms,
+    /// The dungeons and raids of the list. A setup passage belongs to one of them
+    /// (`setup_passages`).
+    #[serde(default)]
+    pub instances: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -137,11 +142,13 @@ pub struct Built {
     pub missing_chapters: Vec<String>,
     /// The outcome passages that wait for the kinds of the pages that they cite.
     outcomes: Vec<Tagged>,
+    /// The setup passages that wait for the same.
+    setups: Vec<Tagged>,
 }
 
-/// An outcome passage of `Built::passages`, with the page that it comes from and the cites
+/// An outcome or a setup passage of `Built::passages`, with the page that it comes from and the cites
 /// of its paragraph.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct Tagged {
     passage: usize,
     page: String,
@@ -151,7 +158,7 @@ struct Tagged {
 /// The passages of the dump, in the order of the list: the books by chapter, then the
 /// pages. The same dump gives the same passages. The dump is read at most three times:
 /// once for the index, the pages, and every redirect, once for the books and the targets
-/// of redirects, and once for the pages that the outcome passages cite.
+/// of redirects, and once for the pages that the outcome and setup passages cite.
 ///
 /// # Errors
 ///
@@ -189,22 +196,28 @@ pub fn from_dump(path: &Path, sources: &Sources) -> Result<Built, SourcesError> 
         add_page(&mut built, page, found.get(&page.title), &filters);
     }
     let bosses = known_bosses(sources);
-    tag_outcomes(&mut built, path, &first, &found, &bosses)?;
+    let instances = Instances {
+        names: sources.instances.clone(),
+        bosses: boss_places(sources),
+    };
+    tag_deeds(&mut built, path, &first, &found, &bosses, &instances)?;
     Ok(built)
 }
 
-/// Each outcome passage gets what it depends on, from the kinds of the pages that its
-/// paragraph cites, and of its own page.
-fn tag_outcomes(
+/// Each outcome passage gets what it depends on, and each setup passage what it sets up,
+/// from the kinds of the pages that its paragraph cites, and of its own page.
+fn tag_deeds(
     built: &mut Built,
     path: &Path,
     first: &dump::Scan,
     found: &BTreeMap<String, Page>,
     bosses: &[String],
+    instances: &Instances,
 ) -> Result<(), SourcesError> {
     let cited: Vec<String> = built
         .outcomes
         .iter()
+        .chain(&built.setups)
         .flat_map(|tagged| tagged.cites.links.iter().chain(&tagged.cites.refs))
         .cloned()
         .collect();
@@ -227,7 +240,57 @@ fn tag_outcomes(
             outcome_passages::dependency(&passage.text, &tagged.cites, &tagged.page, kind_of);
         passage.depends_on = Some(dependency);
     }
+    let mut windows = BTreeMap::new();
+    for tagged in std::mem::take(&mut built.setups) {
+        let Some(passage) = built.passages.get_mut(tagged.passage) else {
+            continue;
+        };
+        if let Some(window) = tag_setup(passage, &tagged, instances, kind_of) {
+            windows.insert(tagged.passage, window);
+        }
+    }
+    built.passages = with_windows(std::mem::take(&mut built.passages), windows);
     Ok(())
+}
+
+/// A paragraph that tells no end is a setup as a whole. One that tells an end, such as
+/// an outcome passage, keeps its own tags, and its setup comes back as a new passage: the
+/// part before the end (`setup_passages::window`).
+fn tag_setup(
+    passage: &mut Passage,
+    tagged: &Tagged,
+    instances: &Instances,
+    kind_of: impl Fn(&str) -> Option<PageKind>,
+) -> Option<Passage> {
+    let found = setup_passages::Found {
+        text: &passage.text,
+        cites: &tagged.cites,
+        page: &tagged.page,
+        links: &passage.links,
+    };
+    let setup = setup_passages::setup_for(&found, instances, kind_of)?;
+    if !setup_passages::tells_an_end(&passage.text) {
+        passage.setup_for = Some(setup);
+        return None;
+    }
+    let text = setup_passages::window(&passage.text, &setup.deed)?.to_string();
+    Some(Passage {
+        text,
+        depends_on: None,
+        setup_for: Some(setup),
+        ..passage.clone()
+    })
+}
+
+/// Each new setup passage comes right after the paragraph that holds it, so the pack keeps
+/// the order of the pages.
+fn with_windows(passages: Vec<Passage>, mut windows: BTreeMap<usize, Passage>) -> Vec<Passage> {
+    let mut all = Vec::with_capacity(passages.len() + windows.len());
+    for (index, passage) in passages.into_iter().enumerate() {
+        all.push(passage);
+        all.extend(windows.remove(&index));
+    }
+    all
 }
 
 /// The paragraphs of a wiki page that go out. A book needs no filter: the books end
@@ -447,6 +510,18 @@ pub fn known_bosses(sources: &Sources) -> Vec<String> {
         .collect()
 }
 
+/// The places of each known boss (`known_bosses`): "Edwin VanCleef" is in the Deadmines.
+#[must_use]
+pub fn boss_places(sources: &Sources) -> BTreeMap<String, Vec<String>> {
+    let bosses = known_bosses(sources);
+    sources
+        .pages
+        .iter()
+        .map(|page| (without_suffix(&page.title).to_string(), page.places.clone()))
+        .filter(|(name, _)| bosses.contains(name))
+        .collect()
+}
+
 /// The link that a page is about, when its title names it: the page "Deadmines" is about
 /// "The Deadmines", and "Shadowfang Keep (Classic)" about "Shadowfang Keep". Else the page
 /// is about its own title: "Undercity" (a common page) is about "Undercity", and "Mr.
@@ -532,12 +607,16 @@ fn push_passages(
         outcome,
     });
     for paragraph in paragraphs {
+        let tagged = Tagged {
+            passage: built.passages.len(),
+            page: title.to_string(),
+            cites: paragraph.cites,
+        };
+        if !setup_passages::setup_sentences(&paragraph.text).is_empty() {
+            built.setups.push(tagged.clone());
+        }
         if outcome_passages::is_outcome(&paragraph.text) {
-            built.outcomes.push(Tagged {
-                passage: built.passages.len(),
-                page: title.to_string(),
-                cites: paragraph.cites,
-            });
+            built.outcomes.push(tagged);
         }
         built.passages.push(Passage {
             text: paragraph.text,
@@ -546,6 +625,7 @@ fn push_passages(
             origin: Origin::Pack,
             about: shelf.about.clone(),
             depends_on: None,
+            setup_for: None,
         });
     }
 }

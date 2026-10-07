@@ -1,27 +1,49 @@
 //! The spoiler limit of a pack passage (GAMEPLAY.md 3.1 and 5.10): the world of the player
-//! holds every link of the passage, and the deed that an outcome passage tells. The rule
-//! of the deed lives in `timeways_rules::outcomes`, where Lean proves it. This module only
-//! turns names into ids.
+//! holds every link of the passage, and the deed that an outcome passage tells, and not
+//! the deed that a setup passage asks for. The rules of the deeds live in
+//! `timeways_rules::outcomes` and `timeways_rules::setups`, where Lean proves them. This
+//! module only turns names into ids.
 
 use crate::character::Character;
-use crate::pack::{Dependency, Passage};
+use crate::pack::{Deed, Dependency, Passage, SetupFor};
 use timeways_rules::outcomes::{DependsOn, PlayerFacts, outcome_usable};
+use timeways_rules::setups::{self, setup_usable};
 
 /// Every pick of lore goes through this: the narrator, `/lore`, and so each text that a
 /// narrator line feeds, such as a tale or a summary.
 #[must_use]
 pub fn may_show(character: &Character, passage: &Passage) -> bool {
-    character.knows_all(&passage.links) && outcome_allowed(character, passage.depends_on.as_ref())
+    character.knows_all(&passage.links)
+        && outcome_allowed(character, passage.depends_on.as_ref())
+        && setup_allowed(character, passage.setup_for.as_ref())
+}
+
+/// True when the passage sets up no deed, or a deed that the player has not done: "Gryan
+/// Stoutmantle wants VanCleef dead" is stale once VanCleef is dead.
+#[must_use]
+pub fn setup_allowed(character: &Character, setup_for: Option<&SetupFor>) -> bool {
+    let mut names = Names::default();
+    let facts = facts_of(character, &mut names);
+    let tag = match setup_for.map(|setup| &setup.deed) {
+        None => setups::SetupFor::Nothing,
+        Some(Deed::Foe(name)) => setups::SetupFor::Foe(names.id(name)),
+        Some(Deed::Quest(title)) => setups::SetupFor::Quest(names.id(title)),
+    };
+    setup_usable(tag, &facts)
+}
+
+fn facts_of<'a>(character: &'a Character, names: &mut Names<'a>) -> PlayerFacts {
+    PlayerFacts {
+        defeated: names.ids(character.foes_defeated()),
+        quests_done: names.ids(character.game_quests_done()),
+    }
 }
 
 /// True when the passage tells no deed, or a deed that the player did.
 #[must_use]
 pub fn outcome_allowed(character: &Character, depends_on: Option<&Dependency>) -> bool {
     let mut names = Names::default();
-    let facts = PlayerFacts {
-        defeated: names.ids(character.foes_defeated()),
-        quests_done: names.ids(character.game_quests_done()),
-    };
+    let facts = facts_of(character, &mut names);
     let tag = match depends_on {
         None => DependsOn::Nothing,
         Some(Dependency::Unresolved) => DependsOn::Unresolved,

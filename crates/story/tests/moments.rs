@@ -1,3 +1,5 @@
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
 use hourglass::Tick;
 use timeways_story::character::{Character, Item};
 use timeways_story::gear::Quality;
@@ -596,4 +598,69 @@ fn a_slot_kind_is_a_weapon_only_from_16_to_18() {
     assert_eq!(SlotKind::of(19), Some(SlotKind::Worn));
     assert_eq!(SlotKind::of(0), None);
     assert_eq!(SlotKind::of(20), None);
+}
+
+/// A character that entered the Deadmines once, and stands in it.
+fn after_a_first_run() -> Character {
+    let mut character = Character::new();
+    character.enter_zone(Tick(1), "Westfall", None).unwrap();
+    character
+        .enter_zone(Tick(2), "The Deadmines", None)
+        .unwrap();
+    character
+        .mark_instance(Tick(2), "The Deadmines", InstanceKind::Dungeon)
+        .unwrap();
+    character
+}
+
+#[test]
+fn an_entry_after_a_walk_outside_is_a_moment_of_its_own() {
+    let mut character = after_a_first_run();
+    character.enter_zone(Tick(3), "Westfall", None).unwrap();
+
+    let again = moments_of(&mut character, |c| {
+        c.enter_zone(Tick(4), "The Deadmines", None).unwrap();
+        c.mark_instance(Tick(4), "The Deadmines", InstanceKind::Dungeon)
+            .unwrap();
+    });
+
+    assert_eq!(
+        again,
+        [Moment::InstanceAgain {
+            zone: "The Deadmines".to_string(),
+            kind: InstanceKind::Dungeon,
+        }]
+    );
+}
+
+#[test]
+fn a_walk_between_the_parts_of_an_instance_is_no_entry() {
+    let mut character = after_a_first_run();
+    character
+        .enter_zone(Tick(3), "The Deadmines", Some("Ironclad Cove"))
+        .unwrap();
+
+    let moved = moments_of(&mut character, |c| {
+        c.enter_zone(Tick(4), "The Deadmines", None).unwrap();
+    });
+
+    assert!(moved.is_empty(), "{moved:?}");
+}
+
+#[test]
+fn a_later_entry_into_a_battleground_is_no_moment() {
+    let mut character = Character::new();
+    character
+        .enter_zone(Tick(1), "Warsong Gulch", None)
+        .unwrap();
+    character
+        .mark_instance(Tick(1), "Warsong Gulch", InstanceKind::Battleground)
+        .unwrap();
+    character.enter_zone(Tick(2), "The Barrens", None).unwrap();
+
+    let again = moments_of(&mut character, |c| {
+        c.enter_zone(Tick(3), "Warsong Gulch", None).unwrap();
+    });
+
+    assert!(again.is_empty(), "{again:?}");
 }

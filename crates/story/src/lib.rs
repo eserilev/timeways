@@ -52,6 +52,7 @@ pub mod samples;
 pub mod seen;
 pub mod sentences;
 pub mod serve;
+pub mod setup_passages;
 pub mod spoiler;
 pub mod spot;
 pub mod store;

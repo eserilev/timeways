@@ -6,9 +6,9 @@ use serde::Serialize;
 use std::path::Path;
 use thiserror::Error;
 
-/// A pack of another version gets refused, never guessed at. Format 2 added `about`, and
-/// format 3 added `depends_on`.
-const FORMAT_VERSION: i64 = 3;
+/// A pack of another version gets refused, never guessed at. Format 2 added `about`,
+/// format 3 added `depends_on`, and format 4 added `setup_for`.
+const FORMAT_VERSION: i64 = 4;
 
 const SCHEMA: &str = "
     CREATE TABLE passage (
@@ -28,6 +28,13 @@ const SCHEMA: &str = "
         kind TEXT NOT NULL,
         name TEXT NOT NULL
     );
+    CREATE TABLE setup_for (
+        passage INTEGER PRIMARY KEY REFERENCES passage (id),
+        kind TEXT NOT NULL,
+        name TEXT NOT NULL,
+        instance TEXT NOT NULL
+    );
+    CREATE INDEX setups_of_an_instance ON setup_for (instance);
     CREATE VIRTUAL TABLE passage_index USING fts5 (text, content = 'passage', content_rowid = 'id');
 ";
 
@@ -56,6 +63,10 @@ pub struct Passage {
     /// waits until the player did that deed (GAMEPLAY.md 5.10).
     #[serde(skip)]
     pub depends_on: Option<Dependency>,
+    /// The deed that the passage sets up in a dungeon or a raid, or None for no setup. The
+    /// passage goes stale once the player did that deed (GAMEPLAY.md 5.10).
+    #[serde(skip)]
+    pub setup_for: Option<SetupFor>,
 }
 
 /// Where a passage comes from. Text that the player read is their own lore (GAMEPLAY.md 3.1.1).
@@ -84,6 +95,22 @@ pub enum Dependency {
     Unresolved,
 }
 
+/// What a setup passage asks for, and where: "Gryan Stoutmantle sent adventurers to kill
+/// VanCleef" sets up the defeat of Edwin VanCleef in the Deadmines.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SetupFor {
+    pub deed: Deed,
+    /// The dungeon or the raid of the deed.
+    pub instance: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Deed {
+    Foe(String),
+    /// The title of a quest of the game.
+    Quest(String),
+}
+
 #[derive(Debug, Error)]
 pub enum PackError {
     #[error("lore pack: {0}")]
@@ -97,6 +124,8 @@ pub enum PackError {
     UnknownLink { kind: String },
     #[error("lore pack: unknown dependency kind {kind}")]
     UnknownDependency { kind: String },
+    #[error("lore pack: unknown setup kind {kind}")]
+    UnknownSetup { kind: String },
 }
 
 pub struct Pack {
@@ -195,6 +224,38 @@ impl Pack {
         self.passages(rows)
     }
 
+    /// The setup passages of a dungeon or a raid, in pack order.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when SQLite fails, or when the pack holds an unknown kind.
+    pub fn setups_of(&self, instance: &str) -> Result<Vec<Passage>, PackError> {
+        let mut statement = self.connection.prepare_cached(
+            "SELECT passage.id, passage.text, passage.source, passage.about
+             FROM passage JOIN setup_for ON setup_for.passage = passage.id
+             WHERE setup_for.instance = ?1 ORDER BY passage.id",
+        )?;
+        let rows = statement.query_map(params![instance], row_of)?;
+        self.passages(rows)
+    }
+
+    /// Every passage of a place, in pack order: each one that links to it, and each setup
+    /// of it.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when SQLite fails, or when the pack holds an unknown kind.
+    pub fn of_place(&self, place: &str) -> Result<Vec<Passage>, PackError> {
+        let mut statement = self.connection.prepare_cached(
+            "SELECT id, text, source, about FROM passage
+             WHERE id IN (SELECT passage FROM link WHERE kind = ?1 AND name = ?2)
+                OR id IN (SELECT passage FROM setup_for WHERE instance = ?2)
+             ORDER BY id",
+        )?;
+        let rows = statement.query_map(params![PLACE, place], row_of)?;
+        self.passages(rows)
+    }
+
     fn passages(
         &self,
         rows: impl Iterator<Item = rusqlite::Result<Row>>,
@@ -204,6 +265,7 @@ impl Pack {
             let (id, text, source, about) = row?;
             let links = self.links(id)?;
             let depends_on = self.depends_on(id)?;
+            let setup_for = self.setup_for(id)?;
             passages.push(Passage {
                 text,
                 source,
@@ -211,6 +273,7 @@ impl Pack {
                 origin: Origin::Pack,
                 about,
                 depends_on,
+                setup_for,
             });
         }
         Ok(passages)
@@ -237,6 +300,17 @@ impl Pack {
             .query_row([passage], |row| Ok((row.get(0)?, row.get(1)?)))
             .optional()?;
         row.map(|(kind, name)| dependency(kind, name)).transpose()
+    }
+
+    fn setup_for(&self, passage: i64) -> Result<Option<SetupFor>, PackError> {
+        let mut statement = self
+            .connection
+            .prepare_cached("SELECT kind, name, instance FROM setup_for WHERE passage = ?1")?;
+        let row = statement
+            .query_row([passage], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+            .optional()?;
+        row.map(|(kind, name, instance)| setup(kind, name, instance))
+            .transpose()
     }
 }
 
@@ -279,7 +353,26 @@ fn insert(connection: &Connection, passage: &Passage) -> Result<(), PackError> {
             params![id, kind, name],
         )?;
     }
+    if let Some(setup) = &passage.setup_for {
+        let (kind, name) = match &setup.deed {
+            Deed::Foe(name) => (FOE, name.as_str()),
+            Deed::Quest(name) => (QUEST, name.as_str()),
+        };
+        connection.execute(
+            "INSERT INTO setup_for (passage, kind, name, instance) VALUES (?1, ?2, ?3, ?4)",
+            params![id, kind, name, setup.instance],
+        )?;
+    }
     Ok(())
+}
+
+fn setup(kind: String, name: String, instance: String) -> Result<SetupFor, PackError> {
+    let deed = match kind.as_str() {
+        FOE => Deed::Foe(name),
+        QUEST => Deed::Quest(name),
+        _ => return Err(PackError::UnknownSetup { kind }),
+    };
+    Ok(SetupFor { deed, instance })
 }
 
 fn dependency(kind: String, name: String) -> Result<Dependency, PackError> {

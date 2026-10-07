@@ -224,6 +224,18 @@ fn the_outcome_lore_warrior_left_the_deadmines_before_vancleef() {
 }
 
 #[test]
+fn the_dungeon_setups_warrior_stands_in_westfall_and_never_entered_the_deadmines() {
+    let folder = folder("dungeon-setups");
+
+    seed("dungeon-setups", &folder);
+
+    let journal = journal(&folder);
+    assert!(list(&journal, "tales").is_empty(), "{journal:?}");
+    let deeds = list(&journal, "deeds");
+    assert!(with_kind(&deeds, "defeated").is_empty(), "{deeds:?}");
+}
+
+#[test]
 fn the_flavor_and_hero_scenario_earns_every_joke_title_of_the_horde() {
     let folder = folder("flavor");
 
@@ -265,6 +277,7 @@ fn kind_of(moment: &Moment) -> &'static str {
         Moment::QuestDone { .. } => "quest_done",
         Moment::NewZone { .. } => "new_zone",
         Moment::FirstInstance { .. } => "first_instance",
+        Moment::InstanceAgain { .. } => "instance_again",
         Moment::QuestMarked { .. } => "quest_marked",
         Moment::FirstCapital { .. } => "first_capital",
         Moment::FirstMount { .. } => "first_mount",
@@ -274,7 +287,7 @@ fn kind_of(moment: &Moment) -> &'static str {
     }
 }
 
-const MOMENT_KINDS: [&str; 17] = [
+const MOMENT_KINDS: [&str; 18] = [
     "flavor",
     "titled",
     "first_kill",
@@ -286,6 +299,7 @@ const MOMENT_KINDS: [&str; 17] = [
     "quest_done",
     "new_zone",
     "first_instance",
+    "instance_again",
     "quest_marked",
     "first_capital",
     "first_mount",
