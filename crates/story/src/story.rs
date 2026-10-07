@@ -1239,7 +1239,7 @@ impl Story {
                 chapter.prose = prose.filter(|text| !text.is_empty());
                 chapter.footnotes = written.footnotes;
             }
-            journal.edits = edits::journal_edits(active);
+            journal.edits = edits::journal_edits(active, &journal);
             journal.edit_refused = active.edit_refused.take().map(String::into_boxed_str);
             for person in &mut journal.people {
                 person.trust_why = why::trust_why(active, &person.name)?;

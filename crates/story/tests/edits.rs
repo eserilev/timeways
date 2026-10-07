@@ -409,3 +409,23 @@ fn a_name_learned_after_an_edit_never_reaches_a_saga() {
     assert!(!sagas[0].contains("Ada"), "{}", sagas[0]);
     assert!(sagas[0].contains("{P1} held the hill"), "{}", sagas[0]);
 }
+
+#[test]
+fn an_edit_of_an_entry_that_does_not_exist_stays_out_of_the_journal() {
+    let mut story = started("no-such-entry");
+    a_chapter_in_westfall(&mut story);
+    let (chapter, _) = first_chapter(&mut story);
+    let no_chapter = EntryKey {
+        kind: EntryKind::Chapter,
+        first: Some(chapter.first + 1000),
+    };
+    let no_tale = EntryKey {
+        kind: EntryKind::Tale,
+        first: Some(chapter.first),
+    };
+
+    edit(&mut story, no_chapter, EditText::Keep, &["We sang."]);
+    edit(&mut story, no_tale, EditText::Keep, &["We sang."]);
+
+    assert!(journal(&mut story).edits.is_empty());
+}

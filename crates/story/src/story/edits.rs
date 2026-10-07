@@ -9,6 +9,7 @@ use crate::entry_edits::{
     shown,
 };
 use crate::house::first_chars;
+use crate::journal::Journal;
 use crate::store::{Node, Table};
 use hourglass::Tick;
 use timeways_rules::entry_edits::Shown;
@@ -94,11 +95,12 @@ fn shown_edit(active: &Active, entry: EntryKey) -> Option<(u64, &EntryEdit)> {
     edits.into_iter().find(|(id, _)| *id == row)
 }
 
-/// The edit of each entry that shows words of the player, with the names of the players.
-pub(super) fn journal_edits(active: &Active) -> Vec<EditView> {
+/// The edit of each entry of the journal that shows words of the player, with the names of
+/// the players. An edit of an entry that the journal does not hold stays out.
+pub(super) fn journal_edits(active: &Active, journal: &Journal) -> Vec<EditView> {
     let mut entries: Vec<EntryKey> = Vec::new();
     for edit in active.entry_edits.rows() {
-        if !entries.contains(&edit.entry) {
+        if !entries.contains(&edit.entry) && holds_entry(journal, edit.entry) {
             entries.push(edit.entry);
         }
     }
@@ -117,6 +119,20 @@ pub(super) fn journal_edits(active: &Active) -> Vec<EditView> {
                 .collect(),
         })
         .collect()
+}
+
+/// The summary is always an entry: the title page shows the player's own summary with no
+/// summary of the narrator.
+fn holds_entry(journal: &Journal, entry: EntryKey) -> bool {
+    match (entry.kind, entry.first) {
+        (EntryKind::Chapter, Some(first)) => journal
+            .chapters
+            .iter()
+            .any(|chapter| chapter.first == first),
+        (EntryKind::Tale, Some(first)) => journal.tales.iter().any(|tale| tale.first == first),
+        (EntryKind::Summary, _) => true,
+        (EntryKind::Chapter | EntryKind::Tale, None) => false,
+    }
 }
 
 /// The player's telling of an entry for a prompt, with the IDs of the players, cut short,
