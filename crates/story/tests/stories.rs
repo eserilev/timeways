@@ -450,16 +450,18 @@ fn a_story_that_a_call_used_cannot_be_removed() {
 }
 
 #[test]
-fn a_story_that_a_refused_call_read_can_be_removed() {
-    let folder = fresh_folder("refused-reader");
-    let mut first = story(&folder);
-    accept(&mut first, 1, TOLD).unwrap();
-    drop(first);
-    a_call_reads_the_story(&folder, Outcome::Refused);
-    let mut second = story(&folder);
+fn a_story_that_a_refused_failed_or_open_call_read_can_be_removed() {
+    for outcome in [Outcome::Refused, Outcome::Failed, Outcome::Open] {
+        let folder = fresh_folder(&format!("{}-reader", outcome.name()));
+        let mut first = story(&folder);
+        accept(&mut first, 1, TOLD).unwrap();
+        drop(first);
+        a_call_reads_the_story(&folder, outcome);
+        let mut second = story(&folder);
 
-    assert!(!stories(&mut second)[0].used);
-    assert!(remove(&mut second, 1).is_ok());
+        assert!(!stories(&mut second)[0].used, "{outcome:?}");
+        assert!(remove(&mut second, 1).is_ok(), "{outcome:?}");
+    }
 }
 
 #[test]

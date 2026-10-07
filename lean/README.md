@@ -161,9 +161,15 @@ at the first row that does not land. So every shelf of a world is
 | `a_used_story_always_stands` | A story that a call used and that stands, stands after any line that lands. | the same |
 
 The glue in `crates/story/src/stories.rs` turns each row into a
-`ShelfLine`, and asks the database which stories an accepted call read.
-No proof reads the glue. The property test checks it, with numbers at
-the edges of a `u64` and numbers that come again.
+`ShelfLine`. The glue in `crates/story/src/story/stories.rs` asks the
+database which stories an accepted call read (`uses_of`). No proof reads the glue. The property test checks it, with
+numbers at the edges of a `u64` and numbers that come again.
+
+`used` comes from the SQL of `accepted_readers_of`, which keeps only the
+calls with the result `accepted`. No proof reads SQL, so tests check it:
+`a_story_that_a_call_used_cannot_be_removed` (an accepted call uses the
+story) and `a_story_that_a_refused_failed_or_open_call_read_can_be_removed`
+(a refused, a failed, and an open call use nothing).
 
 ## What is proved: the player edits
 
