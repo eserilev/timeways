@@ -9,7 +9,7 @@ use timeways_story::entry_edits::{EditText, EntryKey, EntryKind};
 use timeways_story::input::{CallId, Input, MessageId};
 use timeways_story::journal::{Chapter, Journal, pages};
 use timeways_story::pack::Pack;
-use timeways_story::reply_size::MAX_LINE;
+use timeways_story::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use timeways_story::store::Store;
 use timeways_story::story::{Output, Story};
 
@@ -362,7 +362,7 @@ fn a_marked_name_before_a_curly_apostrophe_never_reaches_a_saga() {
 }
 
 #[test]
-fn a_saga_never_shows_the_id_of_a_player() {
+fn a_saga_that_names_a_player_by_id_shows_the_name() {
     let mut story = started("id-in-saga");
     a_chapter_in_westfall(&mut story);
     let (_, key) = first_chapter(&mut story);
@@ -380,8 +380,59 @@ fn a_saga_never_shows_the_id_of_a_player() {
     );
 
     let (chapter, _) = first_chapter(&mut story);
-    let prose = chapter.prose.unwrap_or_default();
-    assert!(!prose.contains("{P1}"), "{prose}");
+    assert_eq!(
+        chapter.prose.as_deref(),
+        Some("Westfall burned while Stormwind looked away, and Ada held Sentinel Hill.")
+    );
+}
+
+/// A name of 12 letters in place of each of 40 IDs: 900 letters, past the 600 of a saga.
+#[test]
+fn a_saga_whose_names_make_it_too_long_is_refused() {
+    let mut story = started("names-too-long");
+    a_chapter_in_westfall(&mut story);
+    let (_, key) = first_chapter(&mut story);
+    edit(
+        &mut story,
+        key,
+        EditText::Keep,
+        &["{Bartholomewa} held the hill."],
+    );
+
+    close_it(&mut story);
+    let saga = "{P1} and {P1} held the hill. ".repeat(20);
+    settle(&mut story, saga.trim_end());
+
+    let (chapter, _) = first_chapter(&mut story);
+    assert_eq!(chapter.prose, None);
+}
+
+/// The longest saga with names, a long edit, and a waiting notice still fit one reply.
+#[test]
+fn a_journal_page_with_many_names_in_place_of_ids_still_fits() {
+    let mut story = started("names-fit");
+    a_chapter_in_westfall(&mut story);
+    let (_, key) = first_chapter(&mut story);
+    let long_name = "Ä".repeat(24);
+    let paragraph = format!("{{{long_name}}} held the hill.");
+    edit(&mut story, key, EditText::Keep, &[&paragraph]);
+
+    close_it(&mut story);
+    let saga = "{P1} and {P1} held the hill. ".repeat(8);
+    settle(&mut story, saga.trim_end());
+    story.set_program_notice("\"".repeat(1000));
+
+    let (chapter, _) = first_chapter(&mut story);
+    assert!(chapter.prose.unwrap().contains(&long_name));
+    let output = story
+        .handle(Input::JournalAsked {
+            id: MessageId(u64::MAX),
+            page: 0,
+        })
+        .unwrap();
+    let line = serde_json::to_string(&output[0]).unwrap();
+    assert!(line.len() <= MAX_LINE, "{} bytes", line.len());
+    assert!(Size::of_json(line.as_bytes()).slot <= MAX_SLOT);
 }
 
 #[test]

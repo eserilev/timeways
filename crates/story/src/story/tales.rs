@@ -2,14 +2,19 @@
 //! something new closed, one call, and its answer. The calls wait behind the sagas, and the
 //! summary waits behind them.
 
+use super::aliases::{TextLimits, shows_with_names};
 use super::{Active, Output, Pending, Story, StoryError};
-use crate::aliases::holds_an_id;
 use crate::chapters::{SpanState, TaleSpan, VisitSpan};
 use crate::chronicle::deed_fact;
 use crate::journal::{Tale, visit_deeds};
 use crate::store::{CharacterKey, Node, Outcome, Table, TaleText};
 use crate::tale::{self, Facts};
 use hourglass::EventId;
+
+const TALE_LIMITS: TextLimits = TextLimits {
+    chars: tale::MAX_TALE_CHARS,
+    bytes: tale::MAX_TALE_BYTES,
+};
 
 /// The tale and the run that its next text covers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -93,7 +98,10 @@ impl Story {
         let telling: Vec<&str> = telling.iter().map(|(text, _)| text.as_str()).collect();
         let checked = text
             .and_then(|text| tale::checked_tale(text, told, &player_text, &telling))
-            .filter(|text| !holds_an_id(text));
+            .filter(|text| {
+                let active = self.active.as_ref();
+                active.is_some_and(|active| shows_with_names(active, text, TALE_LIMITS))
+            });
         let active = self.active.as_mut().filter(|active| &active.key == key);
         let (Some(active), Some(text)) = (active, checked) else {
             return Ok((Vec::new(), Outcome::Refused));
@@ -116,8 +124,8 @@ fn newest_run_with_gain(span: &TaleSpan) -> Option<VisitSpan> {
         .cloned()
 }
 
-/// The text that the tale shows: its newest text of the narrator, unless the player's own
-/// text stands in its place.
+/// The text that the tale shows, with the names of the players: its newest text of the
+/// narrator, unless the player's own text stands in its place.
 pub(super) fn shown_text(active: &Active, tale: EventId) -> Option<String> {
     let rows: Vec<u64> = active
         .tales
@@ -131,7 +139,7 @@ pub(super) fn shown_text(active: &Active, tale: EventId) -> Option<String> {
         .tales
         .rows()
         .get(usize::try_from(row).ok()?)
-        .map(|text| text.text.clone())
+        .map(|text| super::aliases::with_names(active, &text.text))
 }
 
 /// The newest text of the tale whose first event is `tale`, and its row.

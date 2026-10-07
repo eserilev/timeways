@@ -2,6 +2,7 @@
 //! closes, its zone with the most new weight in the open world gets a rewrite. The call
 //! waits behind the sagas, the tales, and the summary. A refused answer gets one retry.
 
+use super::aliases::{TextLimits, shows_with_names, with_names};
 use super::{Active, Output, Pending, Story, StoryError};
 use crate::chapters::{ChapterSpan, SpanState};
 use crate::chronicle::deed_fact;
@@ -10,6 +11,11 @@ use crate::prompt::{self, Attempt};
 use crate::store::{CharacterKey, Node, Outcome, Table, ZoneHistory};
 use crate::zone_history::{self, Facts, MIN_ZONE_WEIGHT};
 use hourglass::{EntityId, EventId};
+
+const HISTORY_LIMITS: TextLimits = TextLimits {
+    chars: zone_history::MAX_HISTORY_CHARS,
+    bytes: zone_history::MAX_HISTORY_BYTES,
+};
 
 /// What a call of a history writes, and what its answer is checked against.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -72,6 +78,9 @@ impl Story {
         let sagas = active.prose.texts();
         let sagas: Vec<&str> = sagas.iter().map(String::as_str).collect();
         match zone_history::checked_history(text, &call.told, &player_text, &sagas) {
+            Ok(history) if !shows_with_names(active, &history, HISTORY_LIMITS) => {
+                Ok((Vec::new(), Outcome::Refused))
+            }
             Ok(history) => {
                 active.zone_histories.add(ZoneHistory {
                     zone: call.zone,
@@ -117,14 +126,14 @@ fn history_waiting(active: &Active) -> Option<(ChapterSpan, EntityId)> {
     (weight >= MIN_ZONE_WEIGHT && !written).then_some((chapter, zone))
 }
 
-/// The newest history of each zone, for the journal.
+/// The newest history of each zone, for the journal, with the names of the players.
 pub(super) fn journal_histories(active: &Active) -> Vec<History> {
     let mut histories: Vec<History> = Vec::new();
     for row in active.zone_histories.rows() {
         histories.retain(|history| history.zone != row.zone);
         histories.push(History {
             zone: row.zone.clone(),
-            text: row.text.clone(),
+            text: with_names(active, &row.text),
         });
     }
     histories

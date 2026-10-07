@@ -1252,9 +1252,15 @@ impl Story {
                 let rows: Vec<u64> = active.prose.row_of(first).into_iter().collect();
                 let shown = edits::shown_of(active, edits::chapter_key(chapter.first), &rows);
                 let written = active.prose.get(first).cloned().unwrap_or_default();
-                let prose = shown.narrator.map(|_| written.text);
+                let prose = shown
+                    .narrator
+                    .map(|_| aliases::with_names(active, &written.text));
                 chapter.prose = prose.filter(|text| !text.is_empty());
-                chapter.footnotes = written.footnotes;
+                chapter.footnotes = written
+                    .footnotes
+                    .iter()
+                    .map(|note| aliases::with_names(active, note))
+                    .collect();
             }
             journal.edits = edits::journal_edits(active, &journal);
             journal.edit_refused = active.edit_refused.take().map(String::into_boxed_str);

@@ -27,6 +27,29 @@ pub(super) fn with_ids(active: &Active, text: &str) -> String {
     aliases::without_names(active.aliases.table(), text)
 }
 
+/// The text for the player's own screen: each ID becomes the name of its player.
+pub(super) fn with_names(active: &Active, text: &str) -> String {
+    aliases::with_names(active.aliases.table(), text)
+}
+
+/// True when each ID of a model text names a player of the table, and the text with the
+/// names still keeps its limits. A name is longer than its ID, and the page budget of the
+/// journal counts on the limits.
+pub(super) fn shows_with_names(active: &Active, text: &str, limits: TextLimits) -> bool {
+    let table = active.aliases.table();
+    let named = aliases::with_names(table, text);
+    aliases::knows_every_id(table, text)
+        && named.chars().count() <= limits.chars
+        && named.len() <= limits.bytes
+}
+
+/// The most characters and bytes of one text of the narrator.
+#[derive(Clone, Copy, Debug)]
+pub(super) struct TextLimits {
+    pub(super) chars: usize,
+    pub(super) bytes: usize,
+}
+
 /// Learns the names that the addon marked, and gives the text with each name that the
 /// table knows as its ID.
 pub(super) fn without_names(

@@ -252,17 +252,44 @@ fn a_refused_tale_keeps_the_text_before() {
     );
 }
 
+fn learn_player(story: &mut Story, name: &str) {
+    let in_sight = Input::PlayerDescribed {
+        at: Tick(HOUR / 2),
+        name: name.to_string(),
+        race: None,
+        class: None,
+    };
+    story.handle(in_sight).unwrap();
+}
+
+fn tale_text(text: &'static str) -> impl Fn(&str) -> Option<String> {
+    move |kind: &str| (kind == "tale").then(|| serde_json::json!({ "tale": text }).to_string())
+}
+
 #[test]
-fn a_tale_that_holds_the_id_of_a_player_is_refused() {
+fn a_tale_that_names_a_player_by_id_shows_the_name() {
     let mut story = started("tale-with-id");
+    learn_player(&mut story, "Ada");
     run(&mut story, HOUR, &["Edwin VanCleef"]);
     enter(&mut story, 2 * HOUR, "Westfall", None);
-    let with_id = |kind: &str| {
-        (kind == "tale").then(|| {
-            r#"{"tale": "The Defias dug a fleet out of the rock. {P1} saw Edwin VanCleef fall."}"#
-                .to_string()
-        })
-    };
+    let with_id =
+        tale_text("The Defias dug a fleet out of the rock. {P1} saw Edwin VanCleef fall.");
+
+    settle(&mut story, 1, &with_id);
+
+    assert_eq!(
+        journal(&mut story).tales[0].text.as_deref(),
+        Some("The Defias dug a fleet out of the rock. Ada saw Edwin VanCleef fall.")
+    );
+}
+
+#[test]
+fn a_tale_that_names_an_unknown_player_is_refused() {
+    let mut story = started("tale-with-unknown-id");
+    run(&mut story, HOUR, &["Edwin VanCleef"]);
+    enter(&mut story, 2 * HOUR, "Westfall", None);
+    let with_id =
+        tale_text("The Defias dug a fleet out of the rock. {P1} saw Edwin VanCleef fall.");
 
     settle(&mut story, 1, &with_id);
 

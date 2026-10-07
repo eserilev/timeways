@@ -273,13 +273,6 @@ pub fn ids_in(text: &str) -> Vec<PlayerId> {
     ids
 }
 
-/// True when the text holds an ID. The journal shows a text of the narrator as it is, so
-/// such a text would show `{P1}` to the player.
-#[must_use]
-pub fn holds_an_id(text: &str) -> bool {
-    !ids_in(text).is_empty()
-}
-
 /// The text for the player's own screen: each ID becomes the name of its player.
 #[must_use]
 pub fn with_names(table: &[Alias], text: &str) -> String {

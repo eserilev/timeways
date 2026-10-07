@@ -1,8 +1,8 @@
 //! The saga of each finished chapter in the story program (GAMEPLAY.md 3.3): the drafts,
 //! the judge, and the final saga on the disk.
 
+use super::aliases::{TextLimits, shows_with_names};
 use super::{Active, CHAPTER_MOMENTS, Output, Pending, Story, StoryError, edits, reads};
-use crate::aliases::holds_an_id;
 use crate::best_of_two::{Next, Round};
 use crate::check;
 use crate::chronicle::{self, Draft, OwnWords, Pick, Saga};
@@ -12,6 +12,16 @@ use crate::journal::{Chapter, EntryState};
 use crate::memory;
 use crate::store::{CharacterKey, Node, Outcome, SagaSpan, Written};
 use hourglass::{EventId, Tick};
+
+const SAGA_LIMITS: TextLimits = TextLimits {
+    chars: chronicle::MAX_CHAPTER_CHARS,
+    bytes: chronicle::MAX_CHAPTER_BYTES,
+};
+
+const FOOTNOTE_LIMITS: TextLimits = TextLimits {
+    chars: chronicle::MAX_FOOTNOTE_CHARS,
+    bytes: chronicle::MAX_FOOTNOTE_BYTES,
+};
 
 impl Story {
     /// The next call of the saga that is written now, or the first draft of the next
@@ -150,13 +160,16 @@ impl Story {
     }
 
     /// A draft that repeats an earlier saga of the character is refused (3.3), and so is
-    /// one that holds the ID of a player (5.11).
+    /// one with an unknown player or too long with the names of its players (5.11).
     fn checked_draft(&self, round: &Round, text: &str) -> Option<Saga> {
         let active = self.active.as_ref()?;
         let player_text = hero::player_text(&hero::hero(active.hero.changes()));
         let saga = chronicle::checked_saga(text, round.kinds.len(), round.facts(), &player_text)?;
-        let footnote_ids = saga.footnotes.iter().any(|(_, note)| holds_an_id(note));
-        if holds_an_id(&saga.text) || footnote_ids {
+        let footnotes_show = saga
+            .footnotes
+            .iter()
+            .all(|(_, note)| shows_with_names(active, note, FOOTNOTE_LIMITS));
+        if !shows_with_names(active, &saga.text, SAGA_LIMITS) || !footnotes_show {
             return None;
         }
         let telling = edits::telling_of(active, edits::chapter_key(round.first.0));

@@ -28,7 +28,7 @@ pub const MAX_FOOTNOTES: usize = 3;
 
 /// The limit of the bridge for one string of the journal is 1600 bytes. A footnote keeps
 /// far below it, so a chapter with 3 of them still fits on one page.
-const MAX_FOOTNOTE_BYTES: usize = 600;
+pub const MAX_FOOTNOTE_BYTES: usize = 600;
 
 const FOOTNOTES: &str = "\
 Pick at most 3 of the small moments for footnotes, or none. A footnote is one short, dry \

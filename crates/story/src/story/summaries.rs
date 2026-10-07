@@ -1,8 +1,8 @@
 //! The summary of the character in the story program (docs/plans/hero-stories.md 3.5): when it
 //! is due, its call, and its answer.
 
+use super::aliases::{TextLimits, shows_with_names};
 use super::{Active, Output, Pending, Story, StoryError};
-use crate::aliases::holds_an_id;
 use crate::check::copies_a_sample;
 use crate::chronicle::deed_fact;
 use crate::hero::{self, Change, FIELDS};
@@ -18,6 +18,11 @@ pub(super) struct Due {
     pub(super) key: CharacterKey,
     pub(super) after: EventId,
 }
+
+const SUMMARY_LIMITS: TextLimits = TextLimits {
+    chars: summary::MAX_SUMMARY_CHARS,
+    bytes: summary::MAX_SUMMARY_BYTES,
+};
 
 /// The six questions of the sheet. The Roleplay Profile stays out: the title can name a
 /// real player.
@@ -71,11 +76,14 @@ impl Story {
             .map(summary_tellings)
             .unwrap_or_default();
         let tellings: Vec<&str> = tellings.iter().map(String::as_str).collect();
-        // A summary that copies 8 words of the player's telling is refused, as a saga is,
-        // and so is one that holds the ID of a player.
+        // A summary that copies 8 words of the player's telling is refused, as a saga is.
         let checked = text
             .and_then(|text| summary::checked_summary(text, told, &player_text))
-            .filter(|summary| !copies_a_sample(summary, &tellings) && !holds_an_id(summary));
+            .filter(|summary| !copies_a_sample(summary, &tellings))
+            .filter(|summary| {
+                let active = self.active.as_ref();
+                active.is_some_and(|active| shows_with_names(active, summary, SUMMARY_LIMITS))
+            });
         let active = self.active.as_mut().filter(|active| &active.key == key);
         let (Some(active), Some(text)) = (active, checked) else {
             return Ok((Vec::new(), Outcome::Refused));
@@ -95,14 +103,14 @@ fn summary_tellings(active: &Active) -> Vec<String> {
         .collect()
 }
 
-/// The newest summary, for the title page of the Chronicle, unless the player's own
-/// summary stands in its place.
+/// The newest summary with the names of the players, for the title page of the Chronicle,
+/// unless the player's own summary stands in its place.
 pub(super) fn journal_summary(active: &Active) -> Option<Box<str>> {
     let (row, summary) = active.summaries.newest()?;
     let shown = super::edits::shown_of(active, super::edits::SUMMARY_KEY, &[row]);
     shown
         .narrator
-        .map(|_| summary.text.clone().into_boxed_str())
+        .map(|_| super::aliases::with_names(active, &summary.text).into_boxed_str())
 }
 
 /// The closed chapters up to the one whose first event is `after`, newest first.
