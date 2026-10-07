@@ -179,11 +179,19 @@ local function WaitingPage(row)
 			ns.PlayerStories.AskBlock(story.author)
 		end),
 		Button("Decline", function()
-			ns.PlayerStories.Decline(JournalStories.WaitingIndex(story))
+			local index = JournalStories.WaitingIndex(story)
+			if not index then
+				return
+			end
+			ns.PlayerStories.Decline(index)
 			ns.Journal.Select("stories", nil)
 		end),
 		Button("Accept", function()
-			problems[row.key] = ns.PlayerStories.Accept(JournalStories.WaitingIndex(story))
+			local index = JournalStories.WaitingIndex(story)
+			if not index then
+				return
+			end
+			problems[row.key] = ns.PlayerStories.Accept(index)
 			if not problems[row.key] then
 				ns.Journal.Select("stories", nil)
 			end
@@ -242,7 +250,8 @@ end
 
 local PAGES = { waiting = WaitingPage, accepted = AcceptedPage, draft = DraftPage }
 
--- The place of a story among the ones that wait, as Accept and Decline take it.
+-- The place of a story among the ones that wait, as Accept and Decline take it. It is nil
+-- when the story no longer waits, and a nil index means the newest story to them.
 function JournalStories.WaitingIndex(story)
 	for index, each in ipairs(ns.PlayerStories.Waiting()) do
 		if each == story then

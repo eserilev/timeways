@@ -332,3 +332,34 @@ fn the_hero_page_has_no_stories_part() {
     assert!(!hero.iter().any(|line| line.contains("Stories About You")));
     assert!(!hero.iter().any(|line| line.contains("We held it.")));
 }
+
+/// The buttons of Bram's page, kept after his story stopped waiting, as an open page keeps
+/// them until the next draw.
+fn buttons_of_a_story_that_no_longer_waits(game: &Game) {
+    select(game, "w:Bram-Stormrage:b1");
+    game.run(
+        "kept = {}
+         for _, button in ipairs(ns.Journal.Page('stories').buttons) do kept[button.label] = button.run end
+         table.remove(ns.PlayerStories.Waiting(), 1)",
+    );
+}
+
+#[test]
+fn accept_on_a_story_that_no_longer_waits_takes_no_other_story() {
+    let game = game_with(WAITING);
+    buttons_of_a_story_that_no_longer_waits(&game);
+
+    game.run("kept.Accept()");
+
+    assert_eq!(game.eval::<usize>("return #ns.PlayerStories.Waiting()"), 1);
+}
+
+#[test]
+fn decline_on_a_story_that_no_longer_waits_declines_no_other_story() {
+    let game = game_with(WAITING);
+    buttons_of_a_story_that_no_longer_waits(&game);
+
+    game.run("kept.Decline()");
+
+    assert_eq!(game.eval::<usize>("return #ns.PlayerStories.Waiting()"), 1);
+}
