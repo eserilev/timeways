@@ -917,4 +917,53 @@ fn a_world_of_the_version_before_takes_the_shape_column_and_keeps_its_rows() {
 
     assert_eq!(database.newest_shapes(8).unwrap(), ["k.fell"]);
     assert!(database.call(0).unwrap().is_some());
+    assert_eq!(user_version(&path), 9);
+}
+
+fn user_version(path: &Path) -> i64 {
+    Connection::open(path)
+        .unwrap()
+        .query_row("PRAGMA user_version", [], |row| row.get(0))
+        .unwrap()
+}
+
+/// A crash between the new column and the new version once left such a file.
+#[test]
+fn a_world_of_version_8_that_has_the_shape_column_opens_as_version_9() {
+    let folder = fresh_folder("version-8-with-shape");
+    fs::create_dir_all(&folder).unwrap();
+    let path = folder.join("world.sqlite");
+    drop(Database::open(&path).unwrap());
+    Connection::open(&path)
+        .unwrap()
+        .execute_batch("PRAGMA user_version = 8")
+        .unwrap();
+
+    let opened = Database::open(&path);
+
+    assert!(opened.is_ok(), "{:?}", opened.err());
+    assert_eq!(user_version(&path), 9);
+}
+
+/// The column and the version change in one transaction, so a failed upgrade changes
+/// neither.
+#[test]
+fn a_failed_upgrade_leaves_the_world_at_version_8() {
+    let folder = fresh_folder("version-8-fails");
+    fs::create_dir_all(&folder).unwrap();
+    let path = folder.join("world.sqlite");
+    drop(Database::open(&path).unwrap());
+    let other = Connection::open(&path).unwrap();
+    other
+        .execute_batch(
+            "ALTER TABLE calls DROP COLUMN shape; PRAGMA user_version = 8; BEGIN IMMEDIATE",
+        )
+        .unwrap();
+
+    let opened = Database::open(&path);
+
+    other.execute_batch("ROLLBACK").unwrap();
+    assert!(opened.is_err());
+    assert_eq!(user_version(&path), 8);
+    assert!(other.prepare("SELECT shape FROM calls").is_err());
 }

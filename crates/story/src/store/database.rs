@@ -14,8 +14,13 @@ use timeways_rules::prompts::oldest_prompt_kept;
 const VERSION: i64 = 9;
 
 /// Version 9 only added the column `shape` to `calls`, so a file of version 8 takes the
-/// column and keeps its rows.
-const ADD_SHAPE: &str = "ALTER TABLE calls ADD COLUMN shape TEXT; PRAGMA user_version = 9;";
+/// column and keeps its rows. The column and the version land in one transaction.
+const ADD_SHAPE: &str =
+    "BEGIN; ALTER TABLE calls ADD COLUMN shape TEXT; PRAGMA user_version = 9; COMMIT;";
+
+/// A file of version 8 that already has the column: an upgrade before the transaction
+/// stopped between its two steps.
+const SET_VERSION_9: &str = "PRAGMA user_version = 9";
 
 /// WAL syncs the disk once for each line, and a reader such as `sqlite3` never blocks a
 /// save.
@@ -312,10 +317,7 @@ impl Database {
             return Ok(());
         }
         if version == VERSION - 1 {
-            return self
-                .connection
-                .execute_batch(ADD_SHAPE)
-                .map_err(|source| self.error(source));
+            return self.upgrade_from_8();
         }
         let tables: i64 = self
             .connection
@@ -335,6 +337,16 @@ impl Database {
         self.connection
             .execute_batch(&script)
             .map_err(|source| self.error(source))
+    }
+
+    fn upgrade_from_8(&self) -> Result<(), StoreError> {
+        let has_shape = self.connection.prepare("SELECT shape FROM calls").is_ok();
+        let script = if has_shape { SET_VERSION_9 } else { ADD_SHAPE };
+        let upgraded = self.connection.execute_batch(script);
+        if upgraded.is_err() && !self.connection.is_autocommit() {
+            let _ = self.connection.execute_batch("ROLLBACK");
+        }
+        upgraded.map_err(|source| self.error(source))
     }
 
     /// Writes the line in one transaction, so a failed save writes nothing.
