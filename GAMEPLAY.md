@@ -130,7 +130,7 @@ The player rejected three kinds of line as slop. Mood with no facts: "Level six 
 - **The narrator stays quiet while a saga is written** (3.3). The bridge runs at most 2 model calls of the story program at once, so a question of the player always gets a call. The moments of the batch wait for the next batch.
 - A batch that ends with a question gets no `batch_end` (5.5), so its moments wait for the next batch.
 - It stays quiet while a saga is written, and when both model slots of the bridge are taken, so the player keeps a slot.
-- It has a budget: at most 3 lines in one hour of game time. The budget lives in memory, so a restart of the story program starts it again. That costs at most 3 more lines once.
+- It has a budget: at most 3 lines in one hour of game time. The shared file keeps the budget, so a restart of the story program gives no extra line. A damaged budget starts again from empty (`lean/README.md`).
 - A model writes each line through the bridge, with no tools. The checks of a line are in 3.2.1. A line that fails them gets one retry with the reasons, when a model slot is free. A second failure is silence, and so is a failed call.
 - It remembers your history across sessions, because the world does.
 - It speaks in the chat window now. A window of its own, and a voice (Gnomish Relay SPEC 13.3), come later.
