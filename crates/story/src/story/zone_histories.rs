@@ -11,6 +11,7 @@ use crate::prompt::{self, Attempt};
 use crate::store::{CharacterKey, Node, Outcome, Table, ZoneHistory};
 use crate::zone_history::{self, Facts, MIN_ZONE_WEIGHT};
 use hourglass::{EntityId, EventId};
+use std::collections::BTreeSet;
 
 const HISTORY_LIMITS: TextLimits = TextLimits {
     chars: zone_history::MAX_HISTORY_CHARS,
@@ -32,21 +33,22 @@ pub(super) struct HistoryCall {
 }
 
 impl Story {
-    /// The call of the history of the newest closed chapter, once the sagas, the tales, and
-    /// the summary are done.
+    /// The call of the history of the oldest closed chapter that waits for one, once the
+    /// sagas, the tales, and the summary are done.
     pub(super) fn zone_history_call(&mut self) -> Option<Output> {
         let busy = !self.calls.is_empty() || self.saga_round.is_some();
-        if busy || self.summary_due.is_some() || self.pace.is_tight(self.newest) {
+        if busy || self.pace.is_tight(self.newest) {
             return None;
         }
         let active = self.active.as_ref()?;
-        if self.chapter_waiting_for_saga(active).is_some() || self.tale_waiting(active).is_some() {
+        if self.chapter_waiting_for_saga(active).is_some()
+            || self.tale_waiting(active).is_some()
+            || self.summary_waiting(active).is_some()
+        {
             return None;
         }
-        let (chapter, zone) = history_waiting(active)?;
-        if !self.history_asked.insert(chapter.first) {
-            return None;
-        }
+        let (chapter, zone) = history_waiting(active, &self.history_asked)?;
+        self.history_asked.insert(chapter.first);
         let (facts, prompt, read) = prompt_and_read(active, zone);
         let call = HistoryCall {
             key: active.key.clone(),
@@ -103,26 +105,39 @@ impl Story {
     }
 }
 
-/// The newest closed chapter, and its zone with the most new weight in the open world, when
-/// that zone gained enough and has no history after the chapter.
-fn history_waiting(active: &Active) -> Option<(ChapterSpan, EntityId)> {
-    let chapter = active
+/// The oldest closed chapter whose zone with the most new weight in the open world gained
+/// enough, with that zone, when the chapter has no history after it and was not asked for
+/// one in this run. The rows tell which chapter waits, so a restart never loses one.
+fn history_waiting(active: &Active, asked: &BTreeSet<EventId>) -> Option<(ChapterSpan, EntityId)> {
+    active
         .book
         .chapters()
         .into_iter()
-        .rev()
-        .find(|chapter| chapter.state == SpanState::Closed)?;
+        .filter(|chapter| chapter.state == SpanState::Closed && !asked.contains(&chapter.first))
+        .filter(|chapter| !has_history(active, chapter.first))
+        .find_map(|chapter| {
+            let zone = zone_with_most_weight(active, &chapter)?;
+            Some((chapter, zone))
+        })
+}
+
+fn has_history(active: &Active, chapter: EventId) -> bool {
+    active
+        .zone_histories
+        .rows()
+        .iter()
+        .any(|row| row.after == chapter)
+}
+
+/// The zone of the chapter with the most new weight in the open world, when it gained
+/// enough for a history.
+fn zone_with_most_weight(active: &Active, chapter: &ChapterSpan) -> Option<EntityId> {
     let (zone, weight) = active
         .book
         .zone_weights(chapter.steps.clone())
         .into_iter()
         .max_by_key(|(_, weight)| *weight)?;
-    let written = active
-        .zone_histories
-        .rows()
-        .iter()
-        .any(|row| row.after == chapter.first);
-    (weight >= MIN_ZONE_WEIGHT && !written).then_some((chapter, zone))
+    (weight >= MIN_ZONE_WEIGHT).then_some(zone)
 }
 
 /// The newest history of each zone, for the journal, with the names of the players.

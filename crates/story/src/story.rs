@@ -300,9 +300,9 @@ pub struct Story {
     round_read: Vec<Node>,
     /// The calls of the saga that is written now. A later call of the round reads them.
     round_calls: Vec<u64>,
-    /// The summary of the newest finished chapter waits for its call. A restart forgets
-    /// it, and the next saga round makes it due again.
-    summary_due: Option<summaries::Due>,
+    /// The chapters of the active character that a summary was asked for in this run. The
+    /// rows tell which summary waits, so a restart never loses one.
+    summary_asked: BTreeSet<EventId>,
     quest_request: Option<QuestRequest>,
     /// The newest time of an input from the addon. An emote or a book changes no world, so
     /// the tick of the world can be much older.
@@ -346,7 +346,7 @@ impl Story {
             batch_rows: Vec::new(),
             round_read: Vec::new(),
             round_calls: Vec::new(),
-            summary_due: None,
+            summary_asked: BTreeSet::new(),
             quest_request: None,
             newest: Tick(0),
             notice: None,
@@ -928,7 +928,7 @@ impl Story {
         self.saga_round = None;
         self.round_read.clear();
         self.round_calls.clear();
-        self.summary_due = None;
+        self.summary_asked.clear();
         self.quest_request = None;
         self.notice = None;
     }

@@ -207,14 +207,12 @@ impl Story {
     }
 
     /// With no saga, the chapter keeps its plain list. A footnote tells its kind of moment,
-    /// so the same joke waits (5.4.1).
-    /// The summary of the chapter is due, with a saga or with none (docs/plans/hero-stories.md
-    /// 3.5).
+    /// so the same joke waits (5.4.1). The summary waits for the end of the round, with a
+    /// saga or with none (docs/plans/hero-stories.md 3.5).
     fn finish_round(&mut self, saga: Option<Saga>) -> Result<(), StoryError> {
         let Some(round) = self.saga_round.take() else {
             return Ok(());
         };
-        self.summary_is_due(round.key.clone(), round.first);
         let Some(saga) = saga else {
             return Ok(());
         };

@@ -461,3 +461,87 @@ fn a_zone_with_200_kills_reads_only_the_deeds_of_its_history_prompt() {
     let most = most_reads(name, "zone_history");
     assert!(most <= 12 * 2 + 1, "{most} rows");
 }
+
+/// The story program of the test `name` again, on its world, as after a restart.
+fn reopened(name: &str) -> Story {
+    let folder = fresh_path(name);
+    let pack = Pack::open(&folder.join("pack.sqlite")).unwrap();
+    let mut story = Story::new(pack, Store::Folder(folder));
+    let character = Input::CharacterEntered {
+        realm: "Testrealm".to_string(),
+        name: "Tester".to_string(),
+    };
+    story.handle(character).unwrap();
+    story
+}
+
+const SAGA: &str = r#"{"saga": "Westfall burned while Stormwind looked away, and the militia held Sentinel Hill."}"#;
+
+fn kinds_of(prompts: &[String]) -> Vec<&'static str> {
+    prompts.iter().map(|prompt| kind(prompt)).collect()
+}
+
+#[test]
+fn a_summary_that_a_restart_missed_comes_back() {
+    let name = "summary-restart";
+    let mut story = started(name);
+    a_chapter_in_westfall(&mut story);
+    let saga_only = |kind: &str| (kind == "saga").then(|| SAGA.to_string());
+    let mut before = Vec::new();
+    for batch in 1..8 {
+        story
+            .handle(Input::HourChanged {
+                at: Tick(20 * HOUR + batch * 1800),
+                hour: 12,
+            })
+            .unwrap();
+        before.extend(end_batch(&mut story, batch, &saga_only));
+        if kinds_of(&before).contains(&"saga") {
+            break;
+        }
+    }
+    drop(story);
+    let mut again = reopened(name);
+
+    let after = settle(&mut again, 10, &|_: &str| None);
+
+    assert!(
+        kinds_of(&before).contains(&"saga"),
+        "{:?}",
+        kinds_of(&before)
+    );
+    assert!(!kinds_of(&before).contains(&"summary"));
+    assert!(
+        kinds_of(&after).contains(&"summary"),
+        "{:?}",
+        kinds_of(&after)
+    );
+}
+
+/// A chapter in `zone` from `at`: a meeting and 14 camps on foot.
+fn a_chapter_in(story: &mut Story, at: u64, zone: &str, npc: &str) {
+    enter(story, at, zone, None);
+    meet(story, at, npc);
+    for n in 1..=14 {
+        enter(story, at + n * 60, zone, Some(&format!("Camp {n}")));
+    }
+}
+
+#[test]
+fn every_closed_chapter_gets_the_history_of_its_zone() {
+    let mut story = started("history-each-chapter");
+    a_chapter_in(&mut story, HOUR, "Westfall", "Gryan Stoutmantle");
+    a_chapter_in(&mut story, 3 * HOUR, "Duskwood", "Madame Eva");
+    enter(&mut story, 5 * HOUR, "Redridge Mountains", None);
+    meet(&mut story, 5 * HOUR, "Magistrate Solomon");
+    let answer = |kind: &str| (kind == "history").then(|| HISTORY.to_string());
+
+    settle(&mut story, 1, &answer);
+
+    let zones: Vec<String> = journal(&mut story)
+        .histories
+        .into_iter()
+        .map(|history| history.zone)
+        .collect();
+    assert_eq!(zones, ["Westfall", "Duskwood"]);
+}

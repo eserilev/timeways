@@ -235,7 +235,7 @@ The summary reads stories once the alias table (`GAMEPLAY.md` 5.11) exists. Unti
 - the pace window is not tight (`GAMEPLAY.md` 3.3);
 - no older chapter waits for its saga. The sagas go first.
 
-If a condition fails, the summary waits for a later batch. With a backlog, only the newest finished chapter gets a summary: an older summary would be replaced at once. A restart forgets a due summary that never opened, and the next saga round makes it due again.
+If a condition fails, the summary waits for a later batch. With a backlog, only the newest finished chapter gets a summary: an older summary would be replaced at once. The stored rows tell when a summary waits, so a restart never loses one.
 
 **Cost.** One call for each chapter. With the 3 calls of a saga, a chapter costs at most 4. A chapter in a tight window costs 1 for the saga and nothing for the summary.
 

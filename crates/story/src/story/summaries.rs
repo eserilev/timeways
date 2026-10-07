@@ -3,6 +3,7 @@
 
 use super::aliases::{TextLimits, shows_with_names};
 use super::{Active, Output, Pending, Story, StoryError};
+use crate::chapters::SpanState;
 use crate::check::copies_a_sample;
 use crate::chronicle::deed_fact;
 use crate::hero::{self, Change, FIELDS};
@@ -12,12 +13,6 @@ use crate::narrator::Who;
 use crate::store::{CharacterKey, Node, Outcome, Summary, Table};
 use crate::summary::{self, Facts, MAX_DEEDS, MAX_SAGAS};
 use hourglass::EventId;
-
-/// The summary after the chapter whose first event is `after` waits for its call.
-pub(super) struct Due {
-    pub(super) key: CharacterKey,
-    pub(super) after: EventId,
-}
 
 const SUMMARY_LIMITS: TextLimits = TextLimits {
     chars: summary::MAX_SUMMARY_CHARS,
@@ -29,35 +24,47 @@ const SUMMARY_LIMITS: TextLimits = TextLimits {
 const QUESTIONS: usize = 6;
 
 impl Story {
-    /// The saga round of a chapter ended, with a saga or with none. A newer chapter takes the
-    /// place of an older one that never got its call: its summary would be replaced at once.
-    pub(super) fn summary_is_due(&mut self, key: CharacterKey, after: EventId) {
-        self.summary_due = Some(Due { key, after });
-    }
-
-    /// The call of the summary that is due. It opens only while no other call is open, the
-    /// pace window is not tight, and no older chapter waits for its saga: the sagas go first.
+    /// The call of the summary that waits. It opens only while no other call is open, the
+    /// pace window is not tight, and no chapter waits for its saga: the sagas go first.
     pub(super) fn summary_call(&mut self) -> Option<Output> {
-        let due = self.summary_due.as_ref()?;
         let busy = !self.calls.is_empty() || self.saga_round.is_some();
         if busy || self.pace.is_tight(self.newest) {
             return None;
         }
-        let active = self
-            .active
-            .as_ref()
-            .filter(|active| active.key == due.key)?;
-        if self.chapter_waiting_for_saga(active).is_some() || self.tale_waiting(active).is_some() {
+        let active = self.active.as_ref()?;
+        let after = self.summary_waiting(active)?;
+        if self.tale_waiting(active).is_some() {
             return None;
         }
-        let due = self.summary_due.take()?;
-        let (facts, read) = facts_and_read(active, due.after);
+        self.summary_asked.insert(after);
+        let (facts, read) = facts_and_read(active, after);
         let pending = Pending::Summary {
-            key: due.key,
-            after: due.after,
+            key: active.key.clone(),
+            after,
             told: summary::told(&facts),
         };
         self.open_call(pending, summary::prompt(&facts), read)
+    }
+
+    /// The first event of the newest closed chapter, once no chapter waits for its saga,
+    /// when no summary covers it and none was asked for it in this run. Only the newest
+    /// counts: a summary of an older chapter would be replaced at once.
+    pub(super) fn summary_waiting(&self, active: &Active) -> Option<EventId> {
+        if self.chapter_waiting_for_saga(active).is_some() {
+            return None;
+        }
+        let newest = active
+            .book
+            .chapters()
+            .into_iter()
+            .rev()
+            .find(|chapter| chapter.state == SpanState::Closed)?;
+        let covered = active
+            .summaries
+            .newest()
+            .is_some_and(|(_, summary)| summary.after >= newest.first);
+        let asked = self.summary_asked.contains(&newest.first);
+        (!covered && !asked).then_some(newest.first)
     }
 
     /// `text` is None for a failed call. A refused summary or a failed call keeps the one
