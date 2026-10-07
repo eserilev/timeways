@@ -296,6 +296,22 @@ fn revenge_outside_an_instance_counts_for_the_chapter() {
 }
 
 #[test]
+fn a_kill_with_no_death_to_its_foe_before_it_adds_no_revenge() {
+    let mut log = Log::new();
+    let other_death = log.new_key(KeyKind::Death, Some(0));
+    let kill = log.new_key(KeyKind::Kill, Some(1));
+    let death = log.new_key(KeyKind::Death, Some(1));
+    log.again(other_death, WESTFALL, Track::World);
+
+    log.again(kill, WESTFALL, Track::World);
+    log.again(death, WESTFALL, Track::World);
+    let fold = log.fold();
+
+    assert_eq!(gains(&fold), [2, 3, 0]);
+    assert!(fold.gains.iter().all(|gain| !gain.revenge));
+}
+
+#[test]
 fn revenge_counts_once() {
     let mut log = Log::new();
     let death = log.new_key(KeyKind::Death, Some(0));

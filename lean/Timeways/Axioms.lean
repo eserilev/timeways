@@ -9,6 +9,7 @@ import Timeways.Aliases
 import Timeways.StoryShelf
 import Timeways.EntryEdits
 import Timeways.Chapters
+import Timeways.ChaptersDeaths
 import Timeways.NarratorShapes
 import Timeways.ThinLore
 
@@ -257,6 +258,22 @@ open timeways_rules
 /-- info: 'timeways_rules.chapters.revenge_counts_once' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs (whitespace := lax) in
 #print axioms chapters.revenge_counts_once
+
+/-- info: 'timeways_rules.chapters.revenge_needs_an_earlier_death' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms chapters.revenge_needs_an_earlier_death
+
+/-- info: 'timeways_rules.chapters.a_death_in_the_fold_is_a_step_of_the_log' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms chapters.a_death_in_the_fold_is_a_step_of_the_log
+
+/-- info: 'timeways_rules.chapters.a_death_with_no_killer_weighs_two_then_one_then_nothing' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms chapters.a_death_with_no_killer_weighs_two_then_one_then_nothing
+
+/-- info: 'timeways_rules.chapters.deaths_with_no_killer_weigh_at_most_three' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms chapters.deaths_with_no_killer_weigh_at_most_three
 
 /-- info: 'timeways_rules.chapters.chapters_cover_the_steps' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs (whitespace := lax) in

@@ -200,7 +200,9 @@ The fold lives in `crates/rules/src/chapters.rs`, in loop style: index loops, `p
 | 15 | `an_instance_has_at_most_one_tale` | No two tales share an instance. |
 | 16 | `a_death_to_a_beaten_foe_weighs_nothing` | Once a foe is beaten, every later death to it gains 0, on both tracks and under every rule. |
 | 17 | `deaths_to_one_foe_weigh_at_most_three` | The deaths to one foe gain at most the sum of the death weights of the rule. 100 deaths to one mob never make a chapter. |
+| 17b | `deaths_with_no_killer_weigh_at_most_three` | The deaths with no known killer of one key, so of one zone, gain 3 at most in all. One such death weighs 2, then 1, then 0 (`a_death_with_no_killer_weighs_two_then_one_then_nothing`). |
 | 18 | `revenge_counts_once` | Only the first kill of a foe that killed you adds revenge. |
+| 18b | `revenge_needs_an_earlier_death` | A kill adds revenge only when an earlier step of the log is a death to its foe, and then it gains its weight plus 2. |
 | 19 | `advance.spec`, `chapters.spec` | The fold never panics, never overflows, and always ends. |
 
 Notes:
@@ -410,6 +412,8 @@ Theorems 1 to 19 are proved in `lean/Timeways/Chapters.lean`, about a pure model
 - **Theorem 13 has six parts.** The count of closed chapters that no rule step closed, times `MIN`, is at most the gain in the open world. The chapters that rule steps closed are no more than the rule steps. The gain of all steps is at most 7 times the keys, and the keys are no more than the distinct key ids of the steps. The tales are no more than the distinct instances. The closed visits with gain are no more than the gain in instances. The tale texts are rows of the story program, so the proof bounds the closed visits with gain, which bound the texts. `MIN` is the `MIN` of rule 1, the only rule so far.
 - **Theorem 17 is per foe.** The deaths count on the foe record, not on the key, so two keys of one foe from a damaged walk still weigh 3 at most. A death to a foe out of range weighs 0.
 - **Theorem 18** says that the steps of a log add revenge for one foe once at most.
+- **Theorems 17b and 18b** are in `lean/Timeways/ChaptersDeaths.lean`. Theorem 18b reads the death from the foe record of the fold, and `a_death_in_the_fold_is_a_step_of_the_log` ties that record to a death step of the log. The +2 holds in every fold of a log, because a key that the fold has not seen has no gain yet.
+- **The decay of deaths with no known killer is per step, not per count of the log.** A step whose key id is out of range gains 0 and counts nothing. So in a damaged walk the second such death of a key can weigh 2. The law of one step holds from any fold: at 0 deaths of the key the death weighs 2, at 1 it weighs 1, and after that 0, when the key has room under its cap. The walk gives each zone one key, so the record of the key holds only these deaths, and the room always holds. The bound of 3 holds for any log.
 - **Theorems 5, 7, 10, 11, 14, and 16** hold from any fold, so they need no `Reachable`. Theorem 5 needs room for one more closed visit, as every fold of a log has.
 - **Theorem 19** needs room: no vector of the fold that a step grows is longer than its steps, and the steps fit a `usize`. A fold of one log from the start always has it.
 - **Theorem 2** names the visit by its tale index: the tale at that index has the instance of the step.

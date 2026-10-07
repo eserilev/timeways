@@ -212,7 +212,7 @@ rows.
 
 The fold in `crates/rules/src/chapters.rs` decides each chapter, each
 visit of an instance, each tale, and the gain of each step
-(`docs/plans/chapters.md`). The proofs have three files.
+(`docs/plans/chapters.md`). The proofs have four files.
 
 - `Timeways/ChaptersModel.lean` is a pure model of the fold. Each
   function of the model gives back only the fields that it changes, so
@@ -222,6 +222,8 @@ visit of an instance, each tale, and the gain of each step
   model, function by function. So the laws of the model are laws of the
   Rust code.
 - `Timeways/Chapters.lean` holds the laws.
+- `Timeways/ChaptersDeaths.lean` holds the laws of deaths and revenge
+  past theorems 17 and 18 (17b and 18b below).
 
 **The room.** A push on a full vector fails in Rust. The bridge needs
 room for each step: no vector of the fold that a step can grow is longer
@@ -256,7 +258,10 @@ line.
 | 15 | `an_instance_has_at_most_one_tale` | No two tales share an instance. | `another_instance_closes_the_open_visit` |
 | 16 | `a_death_to_a_beaten_foe_weighs_nothing` | Once a foe is beaten, a death to it gains 0, on either track and under every rule, and the foe stays beaten. | `a_death_to_a_beaten_foe_weighs_nothing` |
 | 17 | `deaths_to_one_foe_weigh_at_most_three` | The deaths to one foe gain 3 at most in all. | `deaths_to_one_foe_weigh_two_then_one_then_nothing` |
+| 17b | `deaths_with_no_killer_weigh_at_most_three` | The deaths with no known killer of one key gain 3 at most in all. The walk gives each zone one key, so this is the bound of 3 for each zone. | `deaths_with_no_known_killer_weigh_two_then_one_then_nothing` |
+| 17c | `a_death_with_no_killer_weighs_two_then_one_then_nothing` | From any fold, a death with no known killer weighs 2 at the first death of its key, 1 at the second, and 0 after, when the key has room under its cap. The key then counts one death more, up to 2. | the same |
 | 18 | `revenge_counts_once` | The steps of a log add revenge for one foe once at most. | `revenge_counts_once` |
+| 18b | `revenge_needs_an_earlier_death` | A step adds revenge only for a kill of a foe with a death to it in the fold, and an earlier step of the log is that death (`a_death_in_the_fold_is_a_step_of_the_log`). The revenge step gains the weight of its kind plus 2. | `a_kill_with_no_death_to_its_foe_before_it_adds_no_revenge`, `revenge_counts_once` |
 | 19 | `advance.spec`, `chapters.spec` | `advance` and `chapters` give the model. So they never panic, never overflow, and always end. | all the unit tests of `chapters/tests.rs` |
 
 Theorem 13 has six parts. The closed chapters that no rule step closed,
