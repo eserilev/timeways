@@ -47,8 +47,7 @@ impl Story {
         if !self.history_asked.insert(chapter.first) {
             return None;
         }
-        let (facts, read) = facts_and_read(active, zone);
-        let prompt = zone_history::prompt(&facts);
+        let (facts, prompt, read) = prompt_and_read(active, zone);
         let call = HistoryCall {
             key: active.key.clone(),
             zone: facts.zone.clone(),
@@ -148,9 +147,9 @@ pub(super) fn newest_history<'a>(active: &'a Active, zone: &str) -> Option<(u64,
         .last()
 }
 
-/// The deeds of the hero in the zone, newest first, and the rows behind them: their events
-/// and the history before.
-fn facts_and_read(active: &Active, zone: EntityId) -> (Facts, Vec<Node>) {
+/// The deeds of the hero in the zone, newest first, the prompt, and the rows behind it: the
+/// events of the deeds that it holds, and the history before.
+fn prompt_and_read(active: &Active, zone: EntityId) -> (Facts, String, Vec<Node>) {
     let name = active
         .character
         .world()
@@ -165,11 +164,8 @@ fn facts_and_read(active: &Active, zone: EntityId) -> (Facts, Vec<Node>) {
         before: before.map(|(_, row)| row.text.clone()),
         sample_turn: active.zone_histories.rows().len(),
     };
-    let mut read: Vec<Node> = rows
-        .iter()
-        .flat_map(|row| row.events.iter())
-        .map(|event| Node::Row(Table::Events, event.0))
-        .collect();
+    let (prompt, kept) = zone_history::prompt_and_kept(&facts);
+    let mut read = super::tales::events_of(rows.iter().rev().take(kept));
     read.extend(before.map(|(row, _)| Node::Row(Table::ZoneHistories, row)));
-    (facts, read)
+    (facts, prompt, read)
 }

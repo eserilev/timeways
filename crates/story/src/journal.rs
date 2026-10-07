@@ -546,6 +546,7 @@ fn chapters(world: &World, book: &Book, facts: &Facts<'_>) -> Vec<Chapter> {
             .filter(|row| deed_event(row).is_some_and(|event| in_world_of(book, &span, event)))
             .collect();
         let (done, again) = deeds_and_again(&rows, &mut left_out);
+        let done = done.into_iter().map(|row| row.deed.clone()).collect();
         chapters.push(Chapter {
             number: chapters.len() + 1,
             first: span.first.0,
@@ -570,13 +571,10 @@ fn chapters(world: &World, book: &Book, facts: &Facts<'_>) -> Vec<Chapter> {
 fn tales(world: &World, book: &Book, facts: &Facts<'_>, chapters: &[Chapter]) -> Vec<Tale> {
     let mut tales = Vec::new();
     for span in book.tales() {
-        let rows: Vec<&DeedRow> = facts
-            .deeds
-            .iter()
-            .filter(|row| deed_event(row).is_some_and(|event| in_tale(book, &span, event)))
-            .collect();
+        let rows = rows_in_tale(book, &span, facts.deeds);
         let mut left_out = 0;
         let (deeds, again) = deeds_and_again(&rows, &mut left_out);
+        let deeds = deeds.into_iter().map(|row| row.deed.clone()).collect();
         // A tale follows the chapter whose range holds its first step. That never moves.
         let chapter = chapters
             .iter()
@@ -599,9 +597,24 @@ fn tales(world: &World, book: &Book, facts: &Facts<'_>, chapters: &[Chapter]) ->
     tales
 }
 
-/// The deeds of one run of an instance.
+fn rows_in_tale<'a>(book: &Book, tale: &TaleSpan, rows: &'a [DeedRow]) -> Vec<&'a DeedRow> {
+    rows.iter()
+        .filter(|row| deed_event(row).is_some_and(|event| in_tale(book, tale, event)))
+        .collect()
+}
+
+/// The deeds that the tale shows, with their events: no repeat, and at most 20.
 #[must_use]
-pub fn visit_deeds(character: &Character, book: &Book, visit: &VisitSpan) -> Vec<Deed> {
+pub fn tale_deeds(character: &Character, book: &Book, tale: &TaleSpan) -> Vec<DeedRow> {
+    let rows = deeds_with_events(character.world(), character.you());
+    let in_tale = rows_in_tale(book, tale, &rows);
+    let (done, _) = deeds_and_again(&in_tale, &mut 0);
+    done.into_iter().cloned().collect()
+}
+
+/// The deeds of one run of an instance, with their events.
+#[must_use]
+pub fn visit_deeds(character: &Character, book: &Book, visit: &VisitSpan) -> Vec<DeedRow> {
     deeds_with_events(character.world(), character.you())
         .into_iter()
         .filter(|row| {
@@ -609,7 +622,6 @@ pub fn visit_deeds(character: &Character, book: &Book, visit: &VisitSpan) -> Vec
                 .and_then(|event| book.step_of(event))
                 .is_some_and(|step| visit.steps.contains(&step) && !book.is_world_step(step))
         })
-        .map(|row| row.deed)
         .collect()
 }
 
@@ -630,7 +642,10 @@ pub fn deeds_in_zone(character: &Character, book: &Book, zone: EntityId) -> Vec<
 
 /// The deeds, and one tally line for each foe killed again: "Defeated Hogger again, 6
 /// times." A repeat adds no weight, but it still shows.
-fn deeds_and_again(rows: &[&DeedRow], left_out: &mut usize) -> (Vec<Deed>, Vec<String>) {
+fn deeds_and_again<'a>(
+    rows: &[&'a DeedRow],
+    left_out: &mut usize,
+) -> (Vec<&'a DeedRow>, Vec<String>) {
     let mut again: Vec<(String, i64)> = Vec::new();
     let mut done = Vec::new();
     for row in rows {
@@ -641,7 +656,7 @@ fn deeds_and_again(rows: &[&DeedRow], left_out: &mut usize) -> (Vec<Deed>, Vec<S
                     None => again.push((foe.clone(), *times)),
                 }
             }
-            deed => done.push(deed.clone()),
+            _ => done.push(*row),
         }
     }
     let lines = again

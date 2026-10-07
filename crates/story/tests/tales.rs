@@ -18,8 +18,12 @@ const TALE: &str = r#"{"tale": "The Defias dug a fleet out of the rock below Moo
 const HISTORY: &str =
     r#"{"history": "Westfall remembers the burned farms and the militia of Sentinel Hill."}"#;
 
+fn fresh_path(name: &str) -> PathBuf {
+    Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("tales-{name}"))
+}
+
 fn fresh(name: &str) -> PathBuf {
-    let folder = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("tales-{name}"));
+    let folder = fresh_path(name);
     let _ = std::fs::remove_dir_all(&folder);
     std::fs::create_dir_all(&folder).unwrap();
     folder
@@ -361,4 +365,99 @@ fn a_refused_history_gets_one_retry_with_its_reasons() {
         histories[1]
     );
     assert!(journal(&mut story).histories.is_empty());
+}
+
+/// The most rows that one call of `kind` read, in the world of the test `name`.
+fn most_reads(name: &str, kind: &str) -> i64 {
+    let world = fresh_path(name)
+        .join("worlds")
+        .join("r_Testrealm")
+        .join("c_Tester.sqlite");
+    let connection = rusqlite::Connection::open(world).unwrap();
+    connection
+        .query_row(
+            "SELECT coalesce(max(n), 0) FROM (SELECT count(*) AS n FROM reads \
+             JOIN calls ON reads.call = calls.position WHERE calls.kind = ?1 GROUP BY reads.call)",
+            [kind],
+            |row| row.get(0),
+        )
+        .unwrap()
+}
+
+fn calls_of(name: &str, kind: &str) -> i64 {
+    let world = fresh_path(name)
+        .join("worlds")
+        .join("r_Testrealm")
+        .join("c_Tester.sqlite");
+    rusqlite::Connection::open(world)
+        .unwrap()
+        .query_row(
+            "SELECT count(*) FROM calls WHERE kind = ?1",
+            [kind],
+            |row| row.get(0),
+        )
+        .unwrap()
+}
+
+/// A prompt holds at most 12 deeds of the tale and 12 of the newest run, each with at most
+/// 2 events, and the text before.
+const MOST_READS: i64 = 2 * (12 + 12) + 2;
+
+#[test]
+fn a_raid_cleared_200_times_reads_only_the_deeds_of_its_tale_prompt() {
+    let name = "raid-200";
+    let mut story = started(name);
+    for clear in 0..200 {
+        let at = HOUR + clear * HOUR;
+        enter(&mut story, at, "Molten Core", None);
+        let entered = Input::InstanceEntered {
+            at: Tick(at),
+            zone: "Molten Core".to_string(),
+            kind: InstanceKind::Raid,
+        };
+        story.handle(entered).unwrap();
+        defeat(&mut story, at + 60, "Lucifron");
+        defeat(&mut story, at + 120, "Magmadar");
+        enter(&mut story, at + 300, "Burning Steppes", None);
+    }
+    enter(
+        &mut story,
+        202 * HOUR,
+        "Burning Steppes",
+        Some("Flame Crest"),
+    );
+
+    settle(&mut story, 1, &tale_answer);
+
+    assert!(calls_of(name, "tale") > 0);
+    let most = most_reads(name, "tale");
+    assert!(most <= MOST_READS, "{most} rows");
+}
+
+#[test]
+fn a_zone_with_200_kills_reads_only_the_deeds_of_its_history_prompt() {
+    let name = "zone-200";
+    let mut story = started(name);
+    enter(&mut story, HOUR, "Westfall", None);
+    meet(&mut story, HOUR, "Gryan Stoutmantle");
+    for n in 1..=14 {
+        enter(
+            &mut story,
+            HOUR + n * 60,
+            "Westfall",
+            Some(&format!("Camp {n}")),
+        );
+    }
+    for kill in 0..200 {
+        defeat(&mut story, 2 * HOUR + kill * 10, "Defias Pillager");
+    }
+    enter(&mut story, 5 * HOUR, "Duskwood", None);
+    meet(&mut story, 5 * HOUR, "Madame Eva");
+    let answer = |kind: &str| (kind == "history").then(|| HISTORY.to_string());
+
+    settle(&mut story, 1, &answer);
+
+    assert!(calls_of(name, "zone_history") > 0);
+    let most = most_reads(name, "zone_history");
+    assert!(most <= 12 * 2 + 1, "{most} rows");
 }

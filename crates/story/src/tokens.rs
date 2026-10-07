@@ -79,11 +79,22 @@ pub fn estimated_tokens(text: &str) -> usize {
 /// no count fits, the prompt of count 0.
 #[must_use]
 pub fn largest_fit(most: usize, budget: usize, build: impl Fn(usize) -> String) -> String {
+    largest_fit_and_count(most, budget, build).0
+}
+
+/// The prompt of `largest_fit`, and its count. The rows behind a prompt are only the ones
+/// that its count let in.
+#[must_use]
+pub fn largest_fit_and_count(
+    most: usize,
+    budget: usize,
+    build: impl Fn(usize) -> String,
+) -> (String, usize) {
     for count in (1..=most).rev() {
         let prompt = build(count);
         if estimated_tokens(&prompt) <= budget {
-            return prompt;
+            return (prompt, count);
         }
     }
-    build(0)
+    (build(0), 0)
 }

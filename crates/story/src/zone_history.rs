@@ -7,7 +7,7 @@ use crate::house::{HOUSE_RULES, bulleted, fenced};
 use crate::narrated::{self, Limits};
 use crate::narrator::PERSONA;
 use crate::samples::{self, Voice};
-use crate::tokens::{Call, largest_fit};
+use crate::tokens::{Call, largest_fit_and_count};
 use serde::Deserialize;
 use std::fmt::Write;
 
@@ -74,8 +74,14 @@ fn prompt_with(facts: &Facts, count: usize) -> String {
 /// The prompt keeps as many of the newest deeds as fit its budget.
 #[must_use]
 pub fn prompt(facts: &Facts) -> String {
+    prompt_and_kept(facts).0
+}
+
+/// The prompt, and how many of the newest deeds it holds.
+#[must_use]
+pub fn prompt_and_kept(facts: &Facts) -> (String, usize) {
     let most = facts.deeds.len().min(MAX_DEEDS);
-    largest_fit(most, Call::ZoneHistory.prompt_budget(), |count| {
+    largest_fit_and_count(most, Call::ZoneHistory.prompt_budget(), |count| {
         prompt_with(facts, count)
     })
 }
