@@ -460,7 +460,7 @@ the glue. Its named tests and property tests check it.
 |---|---|---|
 | `next_passage.spec` | The pick ends and gives its pure model: the first passage that was never told, or none when every passage was told. | `an_entry_picks_the_first_passage_never_told` |
 | `the_instance_pick_never_panics` | For every list of counts, the pick gives a value. | none |
-| `an_instance_passage_is_told_at_most_once` | The pick is always a passage that was never told. Telling it makes its count one, so no later entry tells it again. | `entries_tell_each_passage_once_and_then_fall_silent` |
+| `an_instance_passage_is_told_at_most_once` | The pick is always a passage that was never told. That a told passage then counts one is glue, and a test checks it, not a proof. The store clears the prompt of a call after 500 newer calls, so the count of an old telling goes back to 0. | `entries_tell_each_passage_once_and_then_fall_silent` |
 | `entries_are_silent_once_every_passage_is_told` | When every passage was told, the pick is none, and the entry is silent. | `each_later_entry_tells_lore_never_told_and_then_falls_silent` |
 
 ## What you trust
