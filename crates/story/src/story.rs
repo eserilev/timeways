@@ -114,6 +114,12 @@ const PASSAGES: Size = Size {
     slot: MAX_SLOT - 16 * check::MAX_CHARS - 2048,
 };
 
+/// The largest reply that the bridge takes, in its line and in the slot of the game.
+const REPLY: Size = Size {
+    line: MAX_LINE,
+    slot: MAX_SLOT,
+};
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Output {
@@ -180,6 +186,17 @@ impl Output {
             | Output::DraftAnswer { notice, .. } => Some(notice),
             Output::Hello { .. } | Output::ModelCall { .. } => None,
         }
+    }
+
+    /// True when the notice of this answer is free, and the answer with `line` as its
+    /// notice still fits one reply.
+    fn has_room_for(&self, line: &str) -> bool {
+        let mut with_notice = self.clone();
+        let Some(notice) = with_notice.notice_mut().filter(|notice| notice.is_none()) else {
+            return false;
+        };
+        *notice = Some(line.to_string());
+        Size::of(&with_notice).fits(REPLY)
     }
 }
 
@@ -1390,16 +1407,18 @@ impl Story {
         }
     }
 
-    /// The notice that waits goes on the first answer with room for it.
+    /// The notice that waits goes on the first answer with room for it. A full page of the
+    /// journal has no room, so the notice waits for a later answer.
     fn attach_notice(&mut self, outputs: &mut [Output]) {
-        let Some(slot) = outputs
-            .iter_mut()
-            .filter_map(Output::notice_mut)
-            .find(|notice| notice.is_none())
-        else {
+        let Some(line) = self.notice.as_ref().or(self.program_notice.as_ref()) else {
             return;
         };
-        *slot = self.notice.take().or_else(|| self.program_notice.take());
+        let Some(output) = outputs.iter_mut().find(|output| output.has_room_for(line)) else {
+            return;
+        };
+        if let Some(slot) = output.notice_mut() {
+            *slot = self.notice.take().or_else(|| self.program_notice.take());
+        }
     }
 
     /// The line goes on the answer of its batch, or on the next answer when the bridge

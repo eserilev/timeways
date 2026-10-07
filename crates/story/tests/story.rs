@@ -8,6 +8,7 @@ use timeways_story::lore::Answer;
 use timeways_story::pack::{Link, Origin, Pack, Passage};
 use timeways_story::places::InstanceKind;
 use timeways_story::race_class::{Class, Race};
+use timeways_story::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use timeways_story::store::Store;
 use timeways_story::story::{Output, Story, StoryError};
 
@@ -2610,4 +2611,53 @@ fn a_task_draft_does_not_count_toward_a_hook() {
 
     assert!(!second.contains(HOOK_LINE), "{second}");
     assert!(third.contains(HOOK_LINE), "{third}");
+}
+
+fn journal_line(story: &mut Story, page: usize) -> (Option<String>, String) {
+    let asked = Input::JournalAsked {
+        id: MessageId(u64::MAX),
+        page,
+    };
+    let output = one(story.handle(asked).unwrap()).unwrap();
+    let line = serde_json::to_string(&output).unwrap();
+    let Output::Journal { notice, .. } = output else {
+        panic!("expected a journal, got {output:?}");
+    };
+    (notice, line)
+}
+
+/// A full first page has no room left for a notice, so the notice waits for an answer
+/// with room.
+#[test]
+fn a_notice_never_pushes_a_full_journal_page_past_one_reply() {
+    let mut story = Story::new(Pack::empty().unwrap(), Store::Memory);
+    story
+        .handle(Input::CharacterEntered {
+            realm: "Stormrage".to_string(),
+            name: "Ada".to_string(),
+        })
+        .unwrap();
+    for n in 0..250 {
+        story
+            .handle(Input::ZoneEntered {
+                at: Tick(60 + n),
+                zone: "Westfall".to_string(),
+                subzone: Some(format!("{n:03} {}", "x".repeat(80))),
+                spot: None,
+                hour: None,
+                taxi: None,
+            })
+            .unwrap();
+    }
+    let notice = "\"".repeat(1000);
+    story.set_program_notice(notice.clone());
+
+    let (first_notice, first_line) = journal_line(&mut story, 0);
+    let (second_notice, second_line) = journal_line(&mut story, 1);
+
+    assert!(first_line.len() <= MAX_LINE, "{} bytes", first_line.len());
+    assert!(Size::of_json(first_line.as_bytes()).slot <= MAX_SLOT);
+    assert_eq!(first_notice, None);
+    assert!(second_line.len() <= MAX_LINE, "{} bytes", second_line.len());
+    assert_eq!(second_notice, Some(notice));
 }
