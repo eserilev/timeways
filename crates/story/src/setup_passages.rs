@@ -5,6 +5,7 @@
 //! (`spoiler.rs`).
 
 use crate::check::words_of;
+use crate::narrator::MAX_LORE_CHARS;
 use crate::outcome_passages::{Npc, PageKind, RESULTS, holds_phrase, linked_foes, own_quest};
 use crate::pack::{Deed, Link, SetupFor};
 use crate::sentences::sentences;
@@ -492,8 +493,9 @@ fn instance_of(deed: &Deed, links: &[Link], instances: &Instances) -> Option<Str
 }
 
 /// The part of a setup passage that a prompt shows: the first sentence that sets up
-/// `deed`, with the sentence before it. A foe needs its name in the span of a cue, and a
-/// quest needs a commission. None when no sentence before an end sets up the deed.
+/// `deed`, with the sentence before it when both fit the lore of a prompt
+/// (`narrator::MAX_LORE_CHARS`). A foe needs its name in the span of a cue, and a quest
+/// needs a commission. None when no sentence before an end sets up the deed.
 #[must_use]
 pub fn window<'a>(text: &'a str, deed: &Deed) -> Option<&'a str> {
     let kept = before_the_end(text);
@@ -501,8 +503,10 @@ pub fn window<'a>(text: &'a str, deed: &Deed) -> Option<&'a str> {
         Deed::Foe(name) => sets_up(sentence, name),
         Deed::Quest(_) => is_commission(sentence),
     })?;
-    let first = kept[found.saturating_sub(1)];
     let last = kept[found];
+    let before = kept[found.saturating_sub(1)];
+    let both = offset_in(text, last)? + last.len() - offset_in(text, before)?;
+    let first = if both <= MAX_LORE_CHARS { before } else { last };
     let start = offset_in(text, first)?;
     let end = offset_in(text, last)? + last.len();
     text.get(start..end)

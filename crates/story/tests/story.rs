@@ -2876,3 +2876,19 @@ fn after_the_kill_a_later_entry_skips_the_setup_and_tells_the_outcome() {
     assert!(third.is_some_and(|p| p.contains("killed Edwin VanCleef on his ship")));
     assert_eq!(fourth, None);
 }
+
+#[test]
+fn a_later_entry_never_tells_an_untagged_end_of_a_deed() {
+    let soldiers = passage(
+        "A group of Alliance soldiers killed Edwin VanCleef in the mine and took his head.",
+        "the wiki page \"Deadmines\"",
+        vec![place("The Deadmines")],
+    );
+    let mut story = story_with("entries-untagged-end", &[deadmines_lead(), soldiers]);
+
+    let first = entry_prompt(&mut story, 2 * HOUR, 1);
+    let second = entry_prompt(&mut story, 4 * HOUR, 2);
+
+    assert!(first.is_some_and(|p| p.contains("the richest gold mine of Westfall")));
+    assert_eq!(second, None);
+}

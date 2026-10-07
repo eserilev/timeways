@@ -305,3 +305,16 @@ fn a_passage_with_no_setup_is_not_gated_by_the_setup_rule() {
 
     assert!(setup_allowed(&character, None));
 }
+
+#[test]
+fn a_window_too_long_for_a_prompt_keeps_the_setup_alone() {
+    let before = format!("{}.", "The Defias took the mine".repeat(20));
+    let text = format!("{before} Gryan Stoutmantle sent adventurers to kill Edwin VanCleef.");
+
+    let shown = window(&text, &vancleef_setup().deed);
+
+    assert_eq!(
+        shown,
+        Some("Gryan Stoutmantle sent adventurers to kill Edwin VanCleef.")
+    );
+}
