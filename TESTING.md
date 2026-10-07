@@ -362,10 +362,11 @@ timeways-dev seed Testpal --realm "Classic Beta PvP 2" --scenario level-30-palad
 timeways-dev seed Testpal --realm "Classic Beta PvP 2" --scenario raider-60 --replace --no-model
 timeways-dev snapshot Testpal before-raid --realm "Classic Beta PvP 2"
 timeways-dev restore Testpal before-raid --realm "Classic Beta PvP 2"
+timeways-dev export-ratings Testpal --realm "Classic Beta PvP 2"
 gnomish-relay restart
 ```
 
-- `seed` and `restore` change a world, so they run only while dev mode is on. The benches (`bench-model` and `bench-fps`) need dev mode too. Else they say "Dev mode is off." and change nothing. With `--data`, the switch is `settings.toml` in that folder. `on`, `off`, `status`, `scenarios`, and `snapshot` always work.
+- `seed` and `restore` change a world, so they run only while dev mode is on. The benches (`bench-model` and `bench-fps`) need dev mode too. Else they say "Dev mode is off." and change nothing. With `--data`, the switch is `settings.toml` in that folder. `on`, `off`, `status`, `scenarios`, `snapshot`, and `export-ratings` always work.
 - The seed refuses a world that exists. With `--replace`, it moves the old file to `<file>.bak-<seconds>` first. It never touches another character.
 - A snapshot goes to `<data>/gnomish-relay/timeways/story/dev-snapshots/`. A restore moves the world that exists to a backup first.
 - After a seed or a restore, run `gnomish-relay restart`, and log in as that character. The story program keeps the world of the active character open, so it sees the new file only after a restart.
@@ -383,6 +384,7 @@ gnomish-relay restart
 | `flavor-and-hero` | A troll shaman with a full Hero sheet and notes, every joke title of the Horde, a quest mark, a battleground won, a PvP rank, an inn, and a flight. |
 | `outcome-lore` | A human warrior at level 18 who fought through the Deadmines to Mr. Smite and left before Edwin VanCleef. |
 | `dungeon-setups` | A human warrior at level 18 in Westfall who met Gryan Stoutmantle and never entered the Deadmines. |
+| `ratings` | A human paladin who rated two narrator lines, one up and one down, and a first chapter with a story of the narrator. The answers of the narrator are fixed in the file. |
 
 ### Commands in the game
 
@@ -457,6 +459,7 @@ Type `/twdev help` for the list. A name with spaces needs no quotes. A slash sep
 | 28. Lore of a foe that is no rare | Kill Mor'Ladim in Duskwood, or `/twdev kill Mor'Ladim` (no kind), with a pack that tags him. Then `/lore What happened to Mor'Ladim?` | The answer tells of his death only after the kill. A kill of a common mob adds no deed. |
 | 30. Knowledge, full | `/twdev atlas` in any zone with a map | The zone page with its counts, People, Quests, "Read and heard", "Deaths and kills", and Chapters. Three pins on the real map ("Dev Camp", "Dev Ruins", "Dev Tower") and a skull at "Dev Ruins". Hover a pin for its counts, and click it. Click "Dev Scout", then Back. "< Eastern Kingdoms" (or your continent) opens the world page. With a lore pack, the zone shows "What you know". |
 | 30. Knowledge, empty | `/twdev atlas empty`, or the `fresh` scenario | "You haven't been here yet." for a place that you never saw, or "Nothing yet. People you meet, books you read, and quests you finish show up here." |
+| 31. Ratings | The `ratings` scenario, then `timeways-dev export-ratings <character> --realm <realm>`. In the game: `/timeways ratings on`, the Chronicle of that world, and Like on chapter 1. After any narrator line: `/timeways like` | The file holds two ratings of narrator lines with `new_zone`, and after the Like a rating of the chapter, with `$N` and no name. Like and Dislike show only while ratings are on, and only on a page with a story. |
 
 Each scenario and each command has a named test. Three tests fail when a new feature has no way in dev mode: `every_input_line_has_a_dev_command_or_a_scenario` and `every_section_of_the_journal_has_a_scenario_that_fills_it` (`crates/addon-tests/tests/dev_mode.rs`), and `every_kind_of_narrator_moment_comes_in_a_scenario` (`crates/dev/tests/scenarios.rs`).
 
