@@ -1223,12 +1223,13 @@ impl Story {
             return None;
         }
         let what = flavor::describe(&best.flavor, best.count);
+        let book = best.flavor.kind.book().map(str::to_string);
         let told = Told {
             key,
             at: now,
             teller: Teller::Narrator,
         };
-        Some((Moment::Flavor { what }, told))
+        Some((Moment::Flavor { what, book }, told))
     }
 
     fn journal_answer(&mut self, id: MessageId, page: usize) -> Result<Vec<Output>, StoryError> {

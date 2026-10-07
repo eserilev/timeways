@@ -153,6 +153,7 @@ fn an_arrival_and_a_flavor_moment_are_no_deeds() {
     };
     let flavor = Moment::Flavor {
         what: "The player danced.".to_string(),
+        book: None,
     };
 
     assert!(!arrival.is_deed());

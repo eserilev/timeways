@@ -20,7 +20,8 @@ use hourglass::{EntityId, Event, EventKind, World};
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Moment {
     /// A small, silly moment in plain words (5.4.1). It speaks only when no big moment does.
-    Flavor { what: String },
+    /// `book` is the title of a book that the player read.
+    Flavor { what: String, book: Option<String> },
     /// A joke title, the rarest moment of all (5.4.1).
     Titled { title: String },
     /// The true kill of a rare or a boss (5.13). `zone` is where it came.
@@ -189,8 +190,9 @@ impl Moment {
         }
     }
 
-    /// The names that the game gave and no lore holds: a mount or an item. Such a name
-    /// allows no word of a line that the checks refuse (GAMEPLAY.md 3.2.1).
+    /// The names that the game gave and no lore holds: a mount, an item, a quest, a buff,
+    /// or a book. Such a name allows no word of the history that the checks refuse
+    /// (GAMEPLAY.md 3.2.1).
     #[must_use]
     pub fn outside_names(&self) -> Vec<&str> {
         match self {
@@ -198,6 +200,9 @@ impl Moment {
                 vec![mount]
             }
             Moment::FirstEpicItem { item, .. } | Moment::BigUpgrade { item, .. } => vec![item],
+            Moment::ClassQuestDone { title } | Moment::QuestDone { title, .. } => vec![title],
+            Moment::QuestMarked { mark, quest } => vec![quest, mark],
+            Moment::Flavor { book, .. } => book.iter().map(String::as_str).collect(),
             _ => Vec::new(),
         }
     }

@@ -64,6 +64,15 @@ impl Kind {
         }
     }
 
+    /// The title of the book that the player read: a name from the game.
+    #[must_use]
+    pub fn book(&self) -> Option<&str> {
+        match self {
+            Kind::Read { title } => Some(title),
+            _ => None,
+        }
+    }
+
     /// The NPC that the moment touches, for a callback.
     fn npc(&self) -> Option<&str> {
         match self {

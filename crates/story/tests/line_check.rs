@@ -411,6 +411,50 @@ fn an_item_name_allows_no_slop_word_that_the_lore_lacks() {
     );
 }
 
+fn assert_banned(line: &str, moment: &Moment, lore: &str, word: &str) {
+    let refused = faults(line, &grounds_of(moment, Some(lore)));
+
+    assert!(
+        refused.contains(&LineFault::Banned(word.to_string())),
+        "{refused:?}"
+    );
+}
+
+#[test]
+fn a_quest_title_allows_no_slop_word_that_the_lore_lacks() {
+    let moment = Moment::ClassQuestDone {
+        title: "The Legendary Hammer".to_string(),
+    };
+    let lore = "The Silver Hand trains its paladins in the Cathedral of Light.";
+    let line = "The Silver Hand trains its paladins, and the legendary hammer is theirs.";
+
+    assert_banned(line, &moment, lore, "legendary");
+}
+
+#[test]
+fn a_buff_name_allows_no_slop_word_that_the_lore_lacks() {
+    let moment = Moment::QuestMarked {
+        mark: "Ancient Ward".to_string(),
+        quest: "Shrine Duty".to_string(),
+    };
+    let lore = "The priests of the Shrine of Mockvale ward the pilgrims on the road.";
+    let line = "The priests of the Shrine of Mockvale give an ancient ward to pilgrims.";
+
+    assert_banned(line, &moment, lore, "ancient");
+}
+
+#[test]
+fn a_book_title_allows_no_slop_word_that_the_lore_lacks() {
+    let moment = Moment::Flavor {
+        what: "The player read \"The Eternal Tide\" in Stormwind City.".to_string(),
+        book: Some("The Eternal Tide".to_string()),
+    };
+    let lore = "The scribes of Stormwind City copy every book of the old kingdom.";
+    let line = "The scribes of Stormwind City copy the eternal tide of old books.";
+
+    assert_banned(line, &moment, lore, "eternal");
+}
+
 #[test]
 fn an_item_name_that_the_lore_holds_is_allowed() {
     let moment = Moment::FirstEpicItem {

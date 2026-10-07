@@ -530,6 +530,43 @@ fn the_name_of_an_item_never_unlocks_a_cutoff_name() {
     assert!(faults(verdict).contains(&LineFault::LaterName("Pandaria".to_string())));
 }
 
+const HAND: &str = "The Silver Hand trains its paladins in the Cathedral of Light in Stormwind.";
+
+fn class_quest(title: &str) -> Setup {
+    let moment = Moment::ClassQuestDone {
+        title: title.to_string(),
+    };
+    setup(moment, who(Race::Human, Class::Paladin), 0)
+}
+
+#[test]
+fn a_slop_word_in_a_quest_title_passes_in_its_slot() {
+    let answer = format!("{{\"lore\": \"{HAND}\"}}");
+
+    let (_, verdict) = told(&class_quest("The Legendary Hammer"), HAND, &answer);
+
+    assert!(line(verdict).line.contains("The Legendary Hammer"));
+}
+
+#[test]
+fn a_quest_title_never_unlocks_its_slop_word_in_the_history() {
+    let history = "The Silver Hand keeps a legendary hammer in the Cathedral of Light.";
+    let answer = format!("{{\"lore\": \"{history}\"}}");
+
+    let (_, verdict) = told(&class_quest("The Legendary Hammer"), HAND, &answer);
+
+    assert!(faults(verdict).contains(&LineFault::Banned("legendary".to_string())));
+}
+
+#[test]
+fn a_quest_title_never_unlocks_a_cutoff_name() {
+    let answer = format!("{{\"lore\": \"{HAND}\"}}");
+
+    let (_, verdict) = told(&class_quest("The Road to Pandaria"), HAND, &answer);
+
+    assert!(faults(verdict).contains(&LineFault::LaterName("Pandaria".to_string())));
+}
+
 #[test]
 fn the_name_of_an_item_never_unlocks_its_slop_word_in_the_history() {
     let history = "The Dark Iron dwarves forge at dawn in the Blackrock Depths for Ragnaros.";

@@ -162,6 +162,7 @@ fn a_deed_prompt_never_asks_the_model_to_name_the_hero() {
 fn a_flavor_prompt_still_says_how_to_name_the_hero() {
     let flavor = Moment::Flavor {
         what: "The player danced on a table in Goldshire.".to_string(),
+        book: None,
     };
     let who = forsaken_warlock();
 

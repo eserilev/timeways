@@ -391,7 +391,7 @@ pub fn lore_excerpt(text: &str) -> String {
 #[must_use]
 pub fn what_happened(moment: &Moment) -> String {
     match moment {
-        Moment::Flavor { what } => what.clone(),
+        Moment::Flavor { what, .. } => what.clone(),
         Moment::Titled { title } => {
             format!("The player earned the title \"{title}\" in their journal.")
         }

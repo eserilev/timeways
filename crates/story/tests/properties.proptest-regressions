@@ -17,3 +17,5 @@ cc 76728c9ea4f1ea30d3fe7726cc028b7722c345ffa5785525a96a5658eb58b4f4 # shrinks to
 cc e956e03ce48899054178f0fb58c541a12c5bf22b3db28ff3e24ced60447cac93 # shrinks to moment = LevelUp { level: 1, zone: Some("Stranglethorn Vale") }, who = Who { race: Some(Dwarf), class: Some(Rogue), titles: [] }, turn = 0, pick = 6, dry = false, one = false
 cc cb864225cc7d21eec628e0494faf6ad0fc75ce6e48812ffaa008dd2d7f7d2965 # shrinks to moment = Revenge { foe: "Grand Inquisitor Isillien of the Scarlet Crusade at Tyr's Hand Gate", deaths: 3, zone: Some("Stranglethorn Vale") }, who = Who { race: Some(Human), class: Some(Warrior), titles: ["Lord of the Goldshire Dance Floor"] }, turn = 7, pick = 0, dry = true, one = false
 cc 0ab9413c74a87fa9578fc55902b032173ca5957c87c0adc46c854d854ffbf91e # shrinks to (names, text) = (["qmmu"], "’qmmu-Stormrage")
+cc d098f7af6ad382ff0dbf0b0cee76e449e77159420b5d68f182dc38d7f5b303d0 # shrinks to plays = []
+cc 31d2589185638747c9b0b05feda383a69698f22d57921309ea579f9d6e9b03f2 # shrinks to plays = []
