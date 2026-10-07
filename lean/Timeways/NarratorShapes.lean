@@ -884,6 +884,19 @@ theorem nothing_is_inside_the_hero (t : Table) (ss : Slice Shape) (s : Shape) (f
   obtain rfl := ok_some_inj ho'
   exact hnot
 
+/-- Law 7 over the lower case of each word. `lower w` is the word of id `w` in lower case,
+and `inside` holds the five words. The story program gives `inside_words` the id of every
+word whose lower case is in `inside` (`inside_word_ids`). Then no word stands right before
+a hero slot when its lower case is an inside word: "In", "INTO", and "Within" too. -/
+theorem nothing_is_inside_the_hero_in_any_case {W : Type} (lower : U16 → W) (inside : List W)
+    (t : Table) (ss : Slice Shape) (s : Shape) (f : Facts) (o : alloc.vec.Vec Token)
+    (hwords : ∀ w, lower w ∈ inside → w ∈ t.inside_words.val)
+    (hok : table_ok t ss = ok true) (hs : s ∈ ss.val) (h : assemble t s f = ok (some o)) :
+    ∀ i, o.val[i + 1]? = some Token.Hero →
+      ∀ w, o.val[i]? = some (Token.Word w) → lower w ∉ inside := by
+  intro i hh w hw hin
+  exact nothing_is_inside_the_hero t ss s f o hok hs h i hh w hw (hwords w hin)
+
 /-- Law 8: a fitting shape names the hero once on a named turn, and never on another
 turn. -/
 theorem the_hero_is_named_at_most_once (t : Table) (s : Shape) (f : Facts)

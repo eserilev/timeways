@@ -7,7 +7,7 @@ use timeways_story::inside_hero::{inside_hero_in, recognition_in};
 use timeways_story::narrator_render::{
     Values, count_number, count_words, ordinal, render, with_article,
 };
-use timeways_story::narrator_templates::{DEED_KINDS, Kind, TEMPLATES, Templates};
+use timeways_story::narrator_templates::{DEED_KINDS, Kind, TEMPLATES, TemplateError, Templates};
 
 fn templates() -> &'static Templates {
     TEMPLATES.as_ref().unwrap()
@@ -19,6 +19,31 @@ fn the_templates_load() {
         assert!(!templates().shapes(kind).is_empty(), "{kind:?}");
     }
     assert!(templates().shapes(Kind::Arrival).is_empty());
+}
+
+/// The bundled data with "{Foe} fell to {hero}." written with another word before the hero.
+fn with_word_before_the_hero(word: &str) -> String {
+    let bundled = include_str!("../data/narrator_templates.toml");
+    let deed = "{Foe} fell to {hero}.";
+    assert!(bundled.contains(deed));
+    bundled.replace(deed, &format!("{{Foe}} fell {word} {{hero}}."))
+}
+
+#[test]
+fn an_inside_word_before_the_hero_fails_the_load_in_any_case() {
+    for word in ["in", "In", "INSIDE", "Within", "Through", "iNTO"] {
+        let loaded = Templates::load(&with_word_before_the_hero(word));
+
+        assert!(
+            matches!(loaded, Err(TemplateError::Table(Kind::Kill))),
+            "{word}"
+        );
+    }
+}
+
+#[test]
+fn another_word_before_the_hero_still_loads() {
+    assert!(Templates::load(&with_word_before_the_hero("before")).is_ok());
 }
 
 /// Each part alone, with its slots as plain words, holds no banned word, no slop, no

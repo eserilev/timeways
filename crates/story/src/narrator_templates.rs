@@ -401,11 +401,7 @@ impl Templates {
         }
         let table = rules::Table {
             parts: builder.parts,
-            inside_words: INSIDE_WORDS
-                .iter()
-                .filter_map(|word| builder.words.iter().position(|known| known == word))
-                .filter_map(|index| u16::try_from(index).ok())
-                .collect(),
+            inside_words: inside_word_ids(&builder.words),
         };
         for kind in DEED_KINDS {
             let of_kind: Vec<rules::Shape> = shapes
@@ -455,6 +451,17 @@ impl Templates {
             .map_or("{killer}", |(_, text)| text.as_str());
         phrase.replace("{killer}", killer)
     }
+}
+
+/// The ids of every word that is an inside word in any case. A part keeps the case of a
+/// word after its first one, so "In" and "INTO" get ids of their own, and the check of
+/// the rules must see them too.
+fn inside_word_ids(words: &[String]) -> Vec<u16> {
+    let inside = |word: &String| INSIDE_WORDS.contains(&word.to_lowercase().as_str());
+    let positions = words.iter().enumerate().filter(|(_, word)| inside(word));
+    positions
+        .filter_map(|(index, _)| u16::try_from(index).ok())
+        .collect()
 }
 
 impl Builder {

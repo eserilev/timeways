@@ -293,6 +293,7 @@ are in `Timeways/NarratorShapes.lean`.
 | `an_arrival_holds_no_hero` | The line of an arrival is the lore slot alone. | `an_arrival_is_the_lore_alone` |
 | `no_group_clause_holds_the_hero` | When the table passes its checks, no group part and no grow part holds a hero slot. | `a_group_that_holds_the_hero_fails_the_table` |
 | `nothing_is_inside_the_hero` | When the table passes its checks, no word of `inside_words` stands right before a hero slot in a line of its shapes. | `the_hero_after_in_fails_the_table` |
+| `nothing_is_inside_the_hero_in_any_case` | The same law over the lower case of each word: when `inside_words` holds every id whose lower case is an inside word, no such word stands right before a hero slot. So "In", "INTO", and "Within" are caught too. | `an_inside_word_before_the_hero_fails_the_load_in_any_case` |
 | `the_hero_is_named_at_most_once` | A fitting shape builds a line with one hero slot on a named turn, and none on another turn. | `an_unnamed_turn_takes_no_part_with_the_hero` |
 | `a_fitting_shape_builds_a_line` | A shape that fits always builds a line. | none |
 | `every_slot_has_a_value` | Each slot of a built line has a value in the facts, and a hero slot comes only on a named turn. | `a_slot_with_no_value_builds_nothing` |
@@ -326,6 +327,14 @@ These laws differ in form from the plan. Each keeps its intent:
   part of a fitting shape. The window is the Rust `WINDOW`. The file
   writes it as `windowSize`, because no translated function reads
   `WINDOW`, so Aeneas does not translate it.
+- **The case of an inside word.** A part keeps the case of each word
+  after its first, so "In" and "in" have two ids. The loader in
+  `crates/story/src/narrator_templates.rs` (`inside_word_ids`) puts the
+  id of every word whose lower case is an inside word in
+  `inside_words`. No proof reads the lower case of a string, so the test
+  `an_inside_word_before_the_hero_fails_the_load_in_any_case` checks the
+  loader. `nothing_is_inside_the_hero_in_any_case` takes that fact as
+  its hypothesis.
 - **The window of the story program is not the window of the run.**
   The story program reads the last 8 accepted lines of a character. An
   arrival line takes a place in that window but has no main part, and

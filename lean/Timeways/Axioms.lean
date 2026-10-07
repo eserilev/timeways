@@ -314,6 +314,10 @@ open timeways_rules
 #guard_msgs (whitespace := lax) in
 #print axioms narrator_shapes.nothing_is_inside_the_hero
 
+/-- info: 'timeways_rules.narrator_shapes.nothing_is_inside_the_hero_in_any_case' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms narrator_shapes.nothing_is_inside_the_hero_in_any_case
+
 /-- info: 'timeways_rules.narrator_shapes.the_hero_is_named_at_most_once' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs (whitespace := lax) in
 #print axioms narrator_shapes.the_hero_is_named_at_most_once
