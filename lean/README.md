@@ -91,9 +91,22 @@ holds for a row that starts at any k, while the counts fit a `u64`.
 |---|---|---|
 | `the_narrator_never_speaks_four_times_in_one_hour` | For any sequence of times, any four lines that the narrator speaks in a row span an hour or more. | `the_budget_allows_three_lines_in_an_hour` |
 
+| `budget_on_load.spec` | The check of a loaded budget never panics. It keeps a budget that a run of `take` can make, and empties every other one. Its budget holds its own line times, three or fewer. | `a_load_keeps_a_budget_that_a_run_can_make`, `a_load_empties_a_budget_with_a_gap_after_a_line` |
+| `the_budget_law_holds_after_any_load` | From any budget that a load reads, also a damaged one, after `budget_on_load`: any four lines in a row span an hour or more. The four lines can include the lines that the budget kept from before the load. | the same |
+
 The law holds for a sequence of any length, with any times, also times
 that go back. `linesSpoken` applies `take` to
 each time of the list, from `fresh`, the budget of `Budget::default()`.
+
+The shared file keeps the budget across a restart, and another program
+can damage it. `narrator::Budget::on_load` in the story program calls
+`budget_on_load` on each budget that `Story::load_shared` reads. A run
+of `take` fills the slots from the end, so an empty slot after a line
+time comes only from damage. The check empties such a budget. The law
+after a load then covers the kept lines too, so a restart never gives
+the narrator a fourth line in an hour. The law says nothing about a time
+far in the future in a damaged file: such a budget keeps the narrator
+silent until the game time passes it.
 
 ## What is proved: trust
 

@@ -63,12 +63,28 @@ pub struct Budget {
 impl Budget {
     /// True when the narrator has a line left at `at`. That line then counts.
     pub fn take(&mut self, at: Tick) -> bool {
-        let mut rules = rules::Budget {
-            spoken: self.spoken.map(|line| line.map(|line| line.0)),
-        };
+        let mut rules = self.to_rules();
         let taken = rules.take(at.0);
-        self.spoken = rules.spoken.map(|line| line.map(Tick));
+        *self = Budget::from_rules(&rules);
         taken
+    }
+
+    /// The budget that a load of the shared file keeps: a damaged one starts from empty.
+    #[must_use]
+    pub fn on_load(self) -> Budget {
+        Budget::from_rules(&rules::budget_on_load(self.to_rules()))
+    }
+
+    fn to_rules(&self) -> rules::Budget {
+        rules::Budget {
+            spoken: self.spoken.map(|line| line.map(|line| line.0)),
+        }
+    }
+
+    fn from_rules(rules: &rules::Budget) -> Budget {
+        Budget {
+            spoken: rules.spoken.map(|line| line.map(Tick)),
+        }
     }
 }
 

@@ -70,6 +70,14 @@ open timeways_rules
 #guard_msgs (whitespace := lax) in
 #print axioms budget.the_narrator_never_speaks_four_times_in_one_hour
 
+/-- info: 'timeways_rules.budget.budget_on_load.spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms budget.budget_on_load.spec
+
+/-- info: 'timeways_rules.budget.the_budget_law_holds_after_any_load' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms budget.the_budget_law_holds_after_any_load
+
 /-- info: 'timeways_rules.trust.next_trust.spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs (whitespace := lax) in
 #print axioms trust.next_trust.spec

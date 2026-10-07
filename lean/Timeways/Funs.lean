@@ -262,6 +262,30 @@ def budget.Budget.take
     let o1 ← Array.index_usize self.spoken 2#usize
     ok (true, { spoken := (Array.make 3#usize [ o, o1, some «at» ]) })
 
+/-- [timeways_rules::budget::gap_after_line]:
+    Source: 'crates/rules/src/budget.rs', lines 50:0-55:1 -/
+def budget.gap_after_line
+  (earlier : Option Std.U64) (later : Option Std.U64) : Result Bool := do
+  match earlier with
+  | none => ok false
+  | some _ => ok (core.option.Option.is_none later)
+
+/-- [timeways_rules::budget::budget_on_load]:
+    Source: 'crates/rules/src/budget.rs', lines 37:0-48:1
+    Visibility: public -/
+def budget.budget_on_load (loaded : budget.Budget) : Result budget.Budget := do
+  let first ← Array.index_usize loaded.spoken 0#usize
+  let second ← Array.index_usize loaded.spoken 1#usize
+  let third ← Array.index_usize loaded.spoken 2#usize
+  let b ← budget.gap_after_line first second
+  if b
+  then ok { spoken := (Array.make 3#usize [ none, none, none ]) }
+  else
+    let b1 ← budget.gap_after_line second third
+    if b1
+    then ok { spoken := (Array.make 3#usize [ none, none, none ]) }
+    else ok loaded
+
 /-- [timeways_rules::chapters::AWAY_SECONDS]
     Source: 'crates/rules/src/chapters.rs', lines 16:0-16:39
     Visibility: public -/

@@ -137,4 +137,59 @@ theorem the_narrator_never_speaks_four_times_in_one_hour (times : List U64) :
   have hs : Spread [] := by intro i x y hx; simp at hx
   simpa using linesSpoken.spec fresh [] times h0 hs
 
+/-! ## The budget after a load of the shared file -/
+
+/-- The line times that a budget holds, oldest first. -/
+def kept (b : Budget) : List U64 := b.spoken.val.filterMap id
+
+theorem spread_of_short (l : List U64) (h : l.length ≤ 3) : Spread l := by
+  intro i x y _ hy
+  have := (List.getElem?_eq_some_iff.mp hy).1
+  omega
+
+theorem budget_spoken (b : Budget) :
+    ∃ x y z, b.spoken.val = [x, y, z] := by
+  have h3 : b.spoken.val.length = 3 := by simp
+  generalize b.spoken.val = l at h3 ⊢
+  match l, h3 with
+  | [x, y, z], _ => exact ⟨x, y, z, rfl⟩
+
+/-- A load keeps a budget with no empty slot after a line time, and empties every other
+one. Either way, the budget holds its own line times, three or fewer, as `Holds` says.
+So the load never panics, and its budget is one that a run of `take` can make. -/
+@[step]
+theorem budget_on_load.spec (b : Budget) :
+    budget_on_load b ⦃ b' => Holds b' (kept b') ∧ (kept b').length ≤ 3 ∧
+      (∀ l, Holds b l → b' = b) ⦄ := by
+  obtain ⟨x, y, z, hb⟩ := budget_spoken b
+  unfold budget_on_load gap_after_line
+  simp only [Array.index_usize]
+  rcases x with _ | x <;> rcases y with _ | y <;> rcases z with _ | z <;>
+    simp [Holds, kept, slot, hb, Array.make, core.option.Option.is_none]
+  all_goals
+    intro l
+    rcases l with _ | ⟨a, l⟩
+    · simp
+    · intros; simp_all
+
+theorem spread_of_append (l ts : List U64) (h : Spread (l ++ ts)) : Spread ts := by
+  intro i x y hx hy
+  apply h (l.length + i) x y
+  · rw [List.getElem?_append_right (by omega)]; simpa using hx
+  · rw [List.getElem?_append_right (by omega)]
+    simpa [show l.length + i + 3 - l.length = i + 3 by omega] using hy
+
+/-- The budget law holds from any state that a load reads, also a damaged one, once
+`budget_on_load` checked it. Any four lines in a row span an hour or more: the lines that
+the budget kept from before the load, and every line after it. So the narrator never
+speaks four times in one hour, also across a restart. -/
+theorem the_budget_law_holds_after_any_load (b : Budget) (times : List U64) :
+    (do let b' ← budget_on_load b; let ts ← linesSpoken b' times; ok (b', ts)) ⦃ r =>
+      Spread (kept r.1 ++ r.2) ∧ Spread r.2 ⦄ := by
+  apply WP.spec_bind (budget_on_load.spec b)
+  rintro b' ⟨hh, hlen, _⟩
+  apply WP.spec_bind (linesSpoken.spec b' (kept b') times hh (spread_of_short _ hlen))
+  intro ts hts
+  exact ⟨hts, spread_of_append _ _ hts⟩
+
 end timeways_rules.budget

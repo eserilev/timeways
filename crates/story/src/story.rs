@@ -441,7 +441,7 @@ impl Story {
 
     fn load_shared(&mut self) -> Result<Shared, StoreError> {
         let mut shared = self.store.open_shared()?;
-        self.budget = shared.load(BUDGET)?;
+        self.budget = shared.load::<Budget>(BUDGET)?.on_load();
         self.pace = shared.load(PACE)?;
         Ok(shared)
     }
