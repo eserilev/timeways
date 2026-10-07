@@ -295,6 +295,38 @@ return {
 				{ Name = "mountID", Type = "number", Nilable = true },
 			},
 		},
+		["C_MountJournal.GetMountIDs"] = {
+			Returns = {
+				{ Name = "mountIDs", Type = "table", InnerType = "number", Nilable = false },
+			},
+		},
+		["C_MountJournal.GetMountInfoByID"] = {
+			MayReturnNothing = true,
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "mountID", Type = "number", Nilable = false },
+			},
+			Returns = {
+				{ Name = "name", Type = "cstring", Nilable = false },
+				{ Name = "spellID", Type = "number", Nilable = false },
+				{ Name = "icon", Type = "fileID", Nilable = false },
+				{ Name = "isActive", Type = "bool", Nilable = false },
+				{ Name = "isUsable", Type = "bool", Nilable = false },
+				{ Name = "sourceType", Type = "number", Nilable = false },
+				{ Name = "isFavorite", Type = "bool", Nilable = false },
+				{ Name = "isFactionSpecific", Type = "bool", Nilable = false },
+				{ Name = "faction", Type = "PvPFaction", Nilable = true },
+				{ Name = "shouldHideOnChar", Type = "bool", Nilable = false },
+				{ Name = "isCollected", Type = "bool", Nilable = false },
+				{ Name = "mountID", Type = "number", Nilable = false },
+				{ Name = "isSteadyFlight", Type = "bool", Nilable = false },
+			},
+		},
+		["C_QuestLog.GetAllCompletedQuestIDs"] = {
+			Returns = {
+				{ Name = "quests", Type = "table", InnerType = "number", Nilable = false },
+			},
+		},
 		["C_QuestLog.GetInfo"] = {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {
@@ -308,6 +340,49 @@ return {
 			Returns = {
 				{ Name = "numShownEntries", Type = "number", Nilable = false },
 				{ Name = "numQuests", Type = "number", Nilable = false },
+			},
+		},
+		["C_QuestLog.GetTitleForQuestID"] = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "questID", Type = "number", Nilable = false },
+			},
+			Returns = {
+				{ Name = "title", Type = "cstring", Nilable = true },
+			},
+		},
+		["C_QuestLog.RequestLoadQuestByID"] = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "questID", Type = "number", Nilable = false },
+			},
+		},
+		["C_Reputation.GetFactionDataByIndex"] = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "factionSortIndex", Type = "luaIndex", Nilable = false },
+			},
+			Returns = {
+				{ Name = "factionData", Type = "FactionData", Nilable = true },
+			},
+		},
+		["C_Reputation.GetNumFactions"] = {
+			Returns = {
+				{ Name = "numFactions", Type = "number", Nilable = false },
+			},
+		},
+		["C_SkillInfo.GetNumSkillLines"] = {
+			Returns = {
+				{ Name = "numSkillLines", Type = "number", Nilable = false },
+			},
+		},
+		["C_SkillInfo.GetSkillLineInfo"] = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "index", Type = "luaIndex", Nilable = false },
+			},
+			Returns = {
+				{ Name = "skillLineAttributes", Type = "SkillLineAttributes", Nilable = true },
 			},
 		},
 		["C_Timer.After"] = {
@@ -459,6 +534,7 @@ return {
 				{ Name = "result", Type = "bool", Nilable = false },
 			},
 		},
+		RequestTimePlayed = {},
 		Screenshot = {},
 		UnitCanAttack = {
 			SecretArguments = "AllowedWhenUntainted",
@@ -1715,6 +1791,13 @@ return {
 		SCREENSHOT_SUCCEEDED = {
 			SynchronousEvent = true,
 		},
+		TIME_PLAYED_MSG = {
+			SynchronousEvent = true,
+			Payload = {
+				{ Name = "totalTimePlayed", Type = "number", Nilable = false },
+				{ Name = "timePlayedThisLevel", Type = "number", Nilable = false },
+			},
+		},
 		TRADE_ACCEPT_UPDATE = {
 			SynchronousEvent = true,
 			Payload = {
@@ -1783,6 +1866,7 @@ return {
 		"GetGreetingText",
 		"GetGuildRosterInfo",
 		"GetInventoryItemLink",
+		"GetInventoryItemQuality",
 		"GetNumGuildMembers",
 		"GetObjectiveText",
 		"GetPlayerTradeMoney",

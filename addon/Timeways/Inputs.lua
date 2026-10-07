@@ -29,6 +29,14 @@ function Inputs.Described(at, race, class)
 	return { type = "character_described", at = at, race = race, class = class }
 end
 
+-- The past of the character before Timeways saw it (GAMEPLAY.md 3.3): `past` holds the
+-- fields of the line.
+function Inputs.Past(at, past)
+	past.type = "past_read"
+	past.at = at
+	return past
+end
+
 -- Another player whom a text names, with the file tokens of the race and the class. The
 -- story program keeps them for the card of the player that a model reads (GAMEPLAY.md
 -- 5.11).

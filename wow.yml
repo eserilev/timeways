@@ -119,6 +119,14 @@ globals:
     any: true
   C_MapExplorationInfo:
     any: true
+  C_Reputation:
+    any: true
+  C_SkillInfo:
+    any: true
+  GetInventoryItemQuality:
+    args: [{type: string}, {type: number}]
+  RequestTimePlayed:
+    args: []
   hooksecurefunc:
     args: [{type: any}, {type: any, required: false}, {type: any, required: false}]
   C_DeathRecap:

@@ -38,6 +38,7 @@ GameQuests.lua
 QuestAuras.lua
 Mounts.lua
 Gear.lua
+Past.lua
 Emotes.lua
 Lore.lua
 LoreBook.lua

@@ -507,6 +507,34 @@ fn the_contents_list_each_chapter_by_its_place_newest_first() {
     );
 }
 
+/// The prologue is chapter 0 (GAMEPLAY.md 3.3), before chapter 1.
+const PROLOGUE_AND_ONE_CHAPTER: &str = concat!(
+    r#"{"type":"journal","page":0,"pages":1,"chapters":["#,
+    r#"{"number":0,"first":0,"title":"Prologue","opened_by":"prologue","state":"closed","began":1790000000,"zones":["Westfall"],"people":[],"deeds":[],"left_out":0,"prose":"The Defias took Westfall."},"#,
+    r#"{"number":1,"first":1,"state":"open","began":1790000000,"zones":["A"],"people":[],"deeds":[],"left_out":0}]}"#,
+);
+
+#[test]
+fn the_prologue_shows_as_the_prologue_and_counts_as_no_chapter() {
+    let game = Game::new();
+    game.reply(PROLOGUE_AND_ONE_CHAPTER);
+
+    let titles: Vec<String> = game.eval(
+        "local out = {}
+         for _, row in ipairs(ns.Journal.Page('chapters').list) do table.insert(out, row.text) end
+         return out",
+    );
+    let newest: String = game.eval("return ns.Journal.Page('chapters').footer");
+    game.run("ns.Journal.Select('chapters', 0)");
+    let footer: String = game.eval("return ns.Journal.Page('chapters').footer");
+    let page = lines(&game, "chapters");
+
+    assert_eq!(titles[titles.len() - 1], "Prologue");
+    assert_eq!(newest, "Chapter 1 of 1");
+    assert_eq!(footer, "Prologue");
+    assert_eq!(page[0], "heading: Prologue");
+}
+
 #[test]
 fn the_title_page_is_the_first_row_of_the_chronicle() {
     let game = Game::new();

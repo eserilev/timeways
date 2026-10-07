@@ -242,12 +242,63 @@ end
 -- The quest log: each entry is a table of `C_QuestLog.GetInfo`, headers included.
 wow.questLog = {}
 
+-- The finished quests by id: the title of each one, which the game gives only after a
+-- load. `wow.questsLoaded` holds the ids that a load asked for.
+wow.questsDone = {}
+wow.questsLoaded = {}
+
 C_QuestLog = {
 	GetNumQuestLogEntries = function()
 		return #wow.questLog, #wow.questLog
 	end,
 	GetInfo = function(index)
 		return wow.questLog[index]
+	end,
+	GetAllCompletedQuestIDs = function()
+		local ids = {}
+		for id in pairs(wow.questsDone) do
+			ids[#ids + 1] = id
+		end
+		table.sort(ids)
+		return ids
+	end,
+	RequestLoadQuestByID = function(id)
+		wow.questsLoaded[id] = true
+	end,
+	GetTitleForQuestID = function(id)
+		return wow.questsLoaded[id] and wow.questsDone[id] or nil
+	end,
+}
+
+-- The time played in all, in seconds. `RequestTimePlayed` counts its asks.
+wow.played = 0
+wow.playedAsks = 0
+
+function RequestTimePlayed()
+	wow.playedAsks = wow.playedAsks + 1
+end
+
+-- The reputation panel: each entry is a table of `C_Reputation.GetFactionDataByIndex`.
+wow.factions = {}
+
+C_Reputation = {
+	GetNumFactions = function()
+		return #wow.factions
+	end,
+	GetFactionDataByIndex = function(index)
+		return wow.factions[index]
+	end,
+}
+
+-- The skill panel: each entry is a table of `C_SkillInfo.GetSkillLineInfo`.
+wow.skills = {}
+
+C_SkillInfo = {
+	GetNumSkillLines = function()
+		return #wow.skills
+	end,
+	GetSkillLineInfo = function(index)
+		return wow.skills[index]
 	end,
 }
 
@@ -1410,6 +1461,12 @@ function GetInventoryItemLink(unit, slot)
 	return name and ("|cffa335ee|Hitem:1::::::::60:::::|h[" .. name .. "]|h|r") or nil
 end
 
+function GetInventoryItemQuality(unit, slot)
+	local name = unit == "player" and wow.gear[slot]
+	local item = name and wow.items[name]
+	return item and item.quality or nil
+end
+
 wow.mounted = false
 -- In yards a second: 7 on foot, 11.2 on a mount of level 40, 14 on an epic one.
 wow.runSpeed = 7
@@ -1423,12 +1480,29 @@ wow.mountSpells = { [6777] = 1, [23238] = 2 }
 
 -- The client takes a hidden spell from an addon (AllowedWhenTainted), and its answer is
 -- hidden too.
+-- The mounts of the journal: each one { name, collected, hidden }.
+wow.mounts = {}
+
 C_MountJournal = {
 	GetMountFromSpell = function(spellID)
 		if issecretvalue(spellID) then
 			return wow.Hidden(spellID)
 		end
 		return wow.mountSpells[spellID]
+	end,
+	GetMountIDs = function()
+		local ids = {}
+		for id in ipairs(wow.mounts) do
+			ids[#ids + 1] = id
+		end
+		return ids
+	end,
+	GetMountInfoByID = function(id)
+		local mount = wow.mounts[id]
+		if not mount then
+			return nil
+		end
+		return mount.name, 0, 0, false, true, 0, false, false, nil, mount.hidden == true, mount.collected == true
 	end,
 }
 

@@ -44,6 +44,16 @@ local function Number(chapter)
 	return type(chapter.number) == "number" and chapter.number or "?"
 end
 
+-- Chapter 0 tells the past before Timeways saw the character (GAMEPLAY.md 3.3).
+local function IsPrologue(chapter)
+	return chapter.opened_by == "prologue"
+end
+
+-- "Chapter 8", or "Prologue".
+local function Label(chapter)
+	return IsPrologue(chapter) and "Prologue" or ("Chapter " .. Number(chapter))
+end
+
 -- The title from the desktop: the zone where the chapter opened, "Return to Westfall", or
 -- "Westfall, continued".
 local function Title(chapter)
@@ -220,10 +230,10 @@ function JournalChronicle.ChapterLines(journal, chapter, edit)
 	local index = ns.KnowledgeIndex.Of(journal)
 	local lines = {}
 	local title = ns.JournalEdits.Title(edit) or Title(chapter) or Place(chapter)
-	if title then
-		lines[#lines + 1] = Line("note", "Chapter " .. Number(chapter))
+	if title and not IsPrologue(chapter) then
+		lines[#lines + 1] = Line("note", Label(chapter))
 	end
-	lines[#lines + 1] = Line("heading", title or ("Chapter " .. Number(chapter)))
+	lines[#lines + 1] = Line("heading", title or Label(chapter))
 	lines[#lines + 1] = Line("text", When(chapter) .. ".")
 	if IsOpen(chapter) then
 		lines[#lines + 1] = Line("help", "This chapter is still in progress.")
@@ -392,7 +402,8 @@ end
 local function ChapterPage(journal, chapter, n, own)
 	local edit = ns.JournalEdits.Of(journal, ns.JournalEdits.Chapter(chapter.first))
 	local title = ns.JournalEdits.Title(edit) or Title(chapter) or Place(chapter)
-	local text = "Chapter " .. Number(chapter) .. (title and (": " .. title) or "")
+	local named = title and not IsPrologue(chapter)
+	local text = Label(chapter) .. (named and (": " .. title) or "")
 	local detail = Edited(IsOpen(chapter) and (Dates(chapter) .. " · now") or Dates(chapter), edit)
 	local key = ChapterKey(chapter, n)
 	return { key = key, item = Item(key, text, detail, Mark(chapter, own)), chapter = chapter, edit = edit }
@@ -454,7 +465,11 @@ local function Steps(keys, index)
 end
 
 local function ChapterCount(journal)
-	return #Entries(journal.chapters)
+	local count = 0
+	for _, chapter in ipairs(Entries(journal.chapters)) do
+		count = count + (IsPrologue(chapter) and 0 or 1)
+	end
+	return count
 end
 
 local function AnyClosed(journal)
@@ -483,7 +498,7 @@ local function EditOf(journal, page)
 			local chapter = page.chapter
 			local prose = type(chapter.prose) == "string" and ns.WithName(chapter.prose) or nil
 			local entry = ns.JournalEdits.Chapter(chapter.first)
-			local label = "Chapter " .. Number(chapter)
+			local label = Label(chapter)
 			ns.JournalEdits.Open(entry, label, prose, page.edit, Title(chapter) or Place(chapter))
 		elseif page.tale then
 			local tale = page.tale
@@ -511,8 +526,9 @@ function JournalChronicle.Page(journal)
 	if open.chapter then
 		result.lines = JournalChronicle.ChapterLines(journal, open.chapter, open.edit)
 		result.pins = ns.AtlasPins.ForChapter(ns.KnowledgeIndex.Of(journal), open.chapter)
-		result.footer = string.format("Chapter %s of %d", tostring(Number(open.chapter)), count)
-		result.crumb = "Chapter " .. Number(open.chapter)
+		result.footer = IsPrologue(open.chapter) and "Prologue"
+			or string.format("Chapter %s of %d", tostring(Number(open.chapter)), count)
+		result.crumb = Label(open.chapter)
 		result.zone = Place(open.chapter)
 	elseif open.tale then
 		result.lines = JournalChronicle.TaleLines(open.tale, open.edit)

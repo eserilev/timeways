@@ -33,6 +33,7 @@ local HANDLERS = {
 	PLAYER_MOUNT_DISPLAY_CHANGED = ns.Mounts.DisplayChanged,
 	PLAYER_EQUIPMENT_CHANGED = ns.Gear.Changed,
 	GET_ITEM_INFO_RECEIVED = ns.Gear.ItemLoaded,
+	TIME_PLAYED_MSG = ns.Past.TimePlayed,
 	ZONE_CHANGED_NEW_AREA = ns.Watch.Zone,
 	ZONE_CHANGED = ns.Watch.Zone,
 	ZONE_CHANGED_INDOORS = ns.Watch.Zone,
@@ -118,6 +119,7 @@ frame:RegisterEvent("PLAYER_REGEN_ENABLED")
 frame:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
 frame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 frame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
+frame:RegisterEvent("TIME_PLAYED_MSG")
 -- Only the player: the auras of every unit around would fire this all the time.
 frame:RegisterUnitEvent("UNIT_AURA", "player")
 frame:SetScript("OnEvent", function(_, event, ...)

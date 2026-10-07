@@ -27,6 +27,8 @@ local BIG = {
 	pvp_rank = true,
 	mount_ridden = true,
 	item_equipped = true,
+	-- The prologue is due a few minutes after the first login, not after an hour.
+	past_read = true,
 }
 
 local waiting = {}
