@@ -90,17 +90,17 @@ fn pin(game: &Game) -> (bool, f64, f64) {
 fn the_map_shows_the_zone_of_the_player_by_default() {
     let game = in_elwynn();
 
-    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('deeds')");
+    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('knowledge')");
 
     assert_eq!(shown_map(&game), Some(ELWYNN));
-    assert_eq!(path(&game), "Journal  >  Deeds  >  Elwynn Forest");
+    assert_eq!(path(&game), "Journal  >  Knowledge  >  Elwynn Forest");
 }
 
 #[test]
 fn the_map_draws_every_tile_of_the_art_in_rows() {
     let game = in_elwynn();
 
-    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('deeds')");
+    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('knowledge')");
 
     let expected: Vec<u32> = (1..=12).map(|n| ELWYNN * 100 + n).collect();
     assert_eq!(tiles(&game), expected);
@@ -110,7 +110,7 @@ fn the_map_draws_every_tile_of_the_art_in_rows() {
 fn the_art_covers_the_pane_and_keeps_its_shape() {
     let game = in_elwynn();
 
-    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('deeds')");
+    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('knowledge')");
 
     // Each tile as { x, y, width, height }, and the pane as { width, height }.
     let tiles: Vec<Vec<f64>> = game.eval(
@@ -173,7 +173,7 @@ fn a_zone_with_no_map_shows_the_map_of_the_player() {
 fn with_no_map_at_all_the_pane_says_so() {
     let game = Game::new();
 
-    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('deeds')");
+    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('knowledge')");
 
     assert_eq!(shown_map(&game), None);
     assert!(tiles(&game).is_empty());
@@ -190,7 +190,7 @@ fn with_no_map_at_all_the_pane_says_so() {
         shown.contains(&"No map for this place.".to_string()),
         "{shown:?}"
     );
-    assert_eq!(path(&game), "Journal  >  Deeds");
+    assert_eq!(path(&game), "Journal  >  Knowledge");
 }
 
 #[test]
@@ -198,7 +198,7 @@ fn a_map_whose_art_has_no_size_counts_as_no_map() {
     let game = in_elwynn();
     game.run(&format!("wow.maps[{ELWYNN}].layers[1].tileWidth = 0"));
 
-    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('deeds')");
+    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('knowledge')");
 
     assert_eq!(shown_map(&game), None);
 }
@@ -206,10 +206,10 @@ fn a_map_whose_art_has_no_size_counts_as_no_map() {
 #[test]
 fn a_map_that_leaves_for_a_map_of_no_art_hides_its_tiles() {
     let game = in_elwynn();
-    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('deeds')");
+    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('knowledge')");
 
     game.run(&format!("wow.maps[{ELWYNN}].layers = nil"));
-    game.run("ns.JournalFrame.Open('deeds')");
+    game.run("ns.JournalFrame.Open('knowledge')");
 
     assert!(tiles(&game).is_empty());
 }
@@ -221,7 +221,7 @@ fn the_pin_marks_where_the_player_stands() {
         "wow.maps[{ELWYNN}].player = {{ x = 0.5, y = 0.25 }}"
     ));
 
-    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('deeds')");
+    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('knowledge')");
 
     let (shown, x, y) = pin(&game);
     let first_tile: Vec<f64> = game.eval(
@@ -258,7 +258,7 @@ fn a_hidden_position_hides_the_pin() {
         "wow.maps[{ELWYNN}].player = {{ x = 0.5, y = 0.25 }}; wow.secrets[0.5] = true"
     ));
 
-    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('deeds')");
+    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('knowledge')");
 
     assert!(!pin(&game).0);
 }
@@ -311,7 +311,7 @@ fn the_explored_parts_of_a_zone_draw_over_its_art() {
          }}"
     ));
 
-    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('deeds')");
+    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('knowledge')");
 
     let (left, top, scale) = art(&game);
     let parts = explored(&game);
@@ -337,7 +337,7 @@ fn a_part_that_shows_only_under_the_mouse_stays_hidden() {
          }}"
     ));
 
-    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('deeds')");
+    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('knowledge')");
 
     assert!(explored(&game).is_empty());
 }
@@ -349,7 +349,7 @@ fn a_broken_part_draws_nothing() {
         "wow.maps[{ELWYNN}].explored = {{ 7, {{ textureWidth = 0, textureHeight = 100, offsetX = 0, offsetY = 0, fileDataIDs = {{ 9001 }} }} }}"
     ));
 
-    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('deeds')");
+    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('knowledge')");
 
     assert!(explored(&game).is_empty());
 }
@@ -376,7 +376,7 @@ fn the_map_names_the_subzones_of_its_zone_that_the_player_visited() {
         r#"{"name":"Brill","within":"Tirisfal Glades","first_visit":1790000000},"#,
         r#"{"name":"Northshire Valley","within":"Elwynn Forest","first_visit":1790000001}]}"#,
     ));
-    game.run("ns.JournalFrame.Open('deeds')");
+    game.run("ns.JournalFrame.Open('knowledge')");
 
     assert_eq!(
         visited_line(&game).as_deref(),
@@ -390,7 +390,7 @@ fn a_zone_with_no_visited_subzone_shows_no_list() {
     game.run("wow.Slash('/journal', '')");
 
     game.reply(r#"{"type":"journal","page":0,"pages":1,"places":[{"name":"Elwynn Forest","first_visit":1790000000}]}"#);
-    game.run("ns.JournalFrame.Open('deeds')");
+    game.run("ns.JournalFrame.Open('knowledge')");
 
     assert_eq!(visited_line(&game), None);
 }

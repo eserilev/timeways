@@ -11,7 +11,7 @@ local function Whole(value, low, high)
 end
 
 -- A position from the desktop, or nil when it is not one.
-local function Spot(entry)
+function TaskPins.Spot(entry)
 	local spot = type(entry) == "table" and entry.spot
 	if type(spot) ~= "table" or not Whole(spot.map, 1, math.huge) then
 		return nil
@@ -40,10 +40,10 @@ local PERSON_GOALS = { meet = true, talk = true, carry = true, slap = true }
 -- an NPC or a place.
 local function StepSpot(journal, step)
 	if PLACE_GOALS[step.goal] or (step.goal == "emote" and type(step.place) == "string") then
-		return Spot(Named(journal.places, step.place or step.dungeon))
+		return TaskPins.Spot(Named(journal.places, step.place or step.dungeon))
 	end
 	if PERSON_GOALS[step.goal] or step.goal == "emote" then
-		return Spot(Named(journal.people, step.npc))
+		return TaskPins.Spot(Named(journal.people, step.npc))
 	end
 end
 
@@ -56,7 +56,7 @@ end
 -- has its number and `done`. A giver pin has `offered` while the task is an offer.
 function TaskPins.For(journal, quest)
 	local pins = {}
-	local giver = Spot(Named(journal.people, quest.giver))
+	local giver = TaskPins.Spot(Named(journal.people, quest.giver))
 	if giver then
 		pins[#pins + 1] = Pin(giver, { kind = "giver", offered = quest.status == "offered" })
 	end

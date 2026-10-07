@@ -15,6 +15,8 @@ local PADDING = 8
 local SCROLL_BAR = 24
 local HELP_GAP = 8
 local MARK_WIDTH = 60
+-- The list floats over the pins of the map.
+local BOX_LEVEL = 4
 
 -- Over the map, the list prints in the gold UI fonts of the Quest Log. On parchment, it
 -- prints in the quest fonts of the right page. Their shadow smudges dark ink, so it goes.
@@ -56,6 +58,7 @@ local items, texts = {}, {}
 function JournalList.Build(parent, width, height)
 	pane, paneWidth, paneHeight = parent, width, height
 	box = CreateFrame("Frame", nil, pane)
+	ns.MapPane.Stack(box, pane, BOX_LEVEL)
 	night = box:CreateTexture(nil, "BACKGROUND")
 	night:SetAllPoints(box)
 	night:SetColorTexture(unpack(ns.Ink.night))

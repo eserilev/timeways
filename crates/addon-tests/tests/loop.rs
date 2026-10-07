@@ -121,10 +121,19 @@ fn a_session_of_play_goes_through_the_bridge_and_back_into_the_book() {
     let chapters = lines(&game, "chapters");
     assert!(chapters.contains("Elwynn Forest"), "{chapters}");
     assert!(chapters.contains("Innkeeper Farley"), "{chapters}");
-    let learned = lines(&game, "learned");
-    assert!(learned.contains("The inn is warm."), "{learned}");
-    assert!(learned.contains("Kill Hogger."), "{learned}");
-    assert!(learned.contains("ruled here."), "{learned}");
+    let knowledge = lines(&game, "knowledge");
+    assert!(
+        knowledge.contains("Heard from Innkeeper Farley"),
+        "{knowledge}"
+    );
+    assert!(knowledge.contains("Wanted: Hogger"), "{knowledge}");
+    assert!(
+        knowledge.contains("The Kingdom of Stormwind"),
+        "{knowledge}"
+    );
+    game.run("ns.JournalKnowledge.Show('text', 3)");
+    let book = lines(&game, "knowledge");
+    assert!(book.contains("ruled here."), "{book}");
     let goal: String = game.eval(
         "for _, row in ipairs(ns.Journal.Page('hero').cards.rows) do
              if row.key == 'goal' then return row.text end

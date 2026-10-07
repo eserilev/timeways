@@ -6,8 +6,7 @@ use common::Game;
 use hourglass::Tick;
 use timeways_story::character::Character;
 use timeways_story::input::{Input, MessageId};
-use timeways_story::journal::{Journal, journal, pages};
-use timeways_story::learned::{Learned, LearnedKind};
+use timeways_story::journal::{journal, pages};
 use timeways_story::story::Output;
 
 const DAY: u64 = 1_790_000_000;
@@ -41,15 +40,38 @@ fn traveler() -> Character {
     character
 }
 
-/// The page as text: one `style: text` entry for each line.
+/// The page as text: one `style: text` entry for each line. A link shows as its name.
 fn lines(game: &Game, section: &str) -> Vec<String> {
     game.eval(&format!(
         "local out = {{}}
          for _, line in ipairs(ns.Journal.Lines('{section}')) do
-             table.insert(out, line.style .. ': ' .. line.text)
+             local text = line.text:gsub('|c%x%x%x%x%x%x%x%x|H[^|]*|h(.-)|h|r', '%1')
+             table.insert(out, line.style .. ': ' .. text)
          end
          return out"
     ))
+}
+
+/// The lines of the open chapter after "In this chapter".
+fn in_this_chapter(game: &Game) -> Vec<String> {
+    let lines = lines(game, "chapters");
+    let start = lines
+        .iter()
+        .position(|line| line == "section: In this chapter")
+        .unwrap_or_else(|| panic!("{lines:?}"));
+    lines[start + 1..].to_vec()
+}
+
+/// A journal of one open chapter that holds these deeds, as JSON.
+fn chapter_with_deeds(deeds: &str) -> String {
+    format!(
+        r#"{{"type":"journal","page":0,"pages":1,"chapters":[{{"number":1,"state":"open","began":1790000000,"zones":[],"people":[],"deeds":[{deeds}],"left_out":0}}]}}"#
+    )
+}
+
+/// The count of the entries of one list of the journal that the book holds.
+fn held(game: &Game, list: &str) -> usize {
+    game.eval(&format!("#ns.Journal.Current().{list}"))
 }
 
 fn day(game: &Game) -> String {
@@ -99,31 +121,20 @@ fn escape_closes_the_journal() {
 fn the_pages_fill_while_the_desktop_answers() {
     let game = Game::new();
 
-    assert_eq!(lines(&game, "deeds"), [FILLING]);
+    assert_eq!(lines(&game, "knowledge"), [FILLING]);
 }
 
 #[test]
-fn deeds_begin_at_the_first_level_and_follow_each_level_up() {
+fn the_book_has_no_deeds_tab_and_each_deed_shows_in_its_chapter() {
     let game = Game::new();
 
-    game.reply(&journal_reply(&traveler()));
+    game.reply(&chapter_with_deeds(
+        r#"{"kind":"defeated","foe":"Hogger","times":1,"at":1790000001}"#,
+    ));
 
-    let expected = [
-        "entry: Started at level 12".to_string(),
-        format!("text: {}.", day(&game)),
-        "entry: Reached level 13".to_string(),
-        format!("text: Sentinel Hill, {}.", day(&game)),
-    ];
-    assert_eq!(lines(&game, "deeds"), expected);
-}
-
-#[test]
-fn an_empty_section_shows_a_note() {
-    let game = Game::new();
-
-    game.reply(&journal_reply(&Character::new()));
-
-    assert_eq!(lines(&game, "deeds"), ["help: No deeds yet."]);
+    let sections: Vec<String> = game.eval("ns.Journal.SECTIONS");
+    assert!(!sections.contains(&"deeds".to_string()), "{sections:?}");
+    assert_eq!(in_this_chapter(&game), ["text: Defeated: Hogger."]);
 }
 
 #[test]
@@ -132,15 +143,12 @@ fn the_open_page_shows_the_lines_of_its_section() {
     game.run("wow.Slash('/journal', '')");
 
     game.reply(&journal_reply(&traveler()));
-    game.run("ns.JournalFrame.Open('deeds')");
+    game.run("ns.JournalFrame.Open('chapters')");
 
     let shown: Vec<String> =
         game.eval("wow.ShownTexts(TimewaysJournalFrameScroll:GetScrollChild())");
-    assert_eq!(
-        shown.first().map(String::as_str),
-        Some("Started at level 12")
-    );
-    assert_eq!(shown.len(), 4);
+    assert_eq!(shown.first().map(String::as_str), Some("Chapter 1"));
+    assert_eq!(shown.len(), lines(&game, "chapters").len());
 }
 
 #[test]
@@ -151,17 +159,20 @@ fn a_tab_opens_its_section_and_marks_itself() {
 
     game.run(
         "for _, widget in ipairs(wow.widgets) do
-             if widget.text == 'Deeds' then widget:Click() end
+             if widget.text == 'Knowledge' then widget:Click() end
          end",
     );
 
-    assert_eq!(game.eval::<String>("ns.JournalFrame.Section()"), "deeds");
-    let deeds_enabled: bool = game.eval(
+    assert_eq!(
+        game.eval::<String>("ns.JournalFrame.Section()"),
+        "knowledge"
+    );
+    let knowledge_enabled: bool = game.eval(
         "for _, widget in ipairs(wow.widgets) do
-             if widget.text == 'Deeds' then return widget:IsEnabled() end
+             if widget.text == 'Knowledge' then return widget:IsEnabled() end
          end",
     );
-    assert!(!deeds_enabled);
+    assert!(!knowledge_enabled);
 }
 
 #[test]
@@ -185,11 +196,11 @@ fn a_shorter_page_hides_the_lines_of_a_longer_one() {
     game.run("wow.Slash('/journal', '')");
     game.reply(&journal_reply(&traveler()));
 
-    game.run("ns.JournalFrame.Open('deeds'); ns.JournalFrame.Open('learned')");
+    game.run("ns.JournalFrame.Open('chapters'); ns.JournalFrame.Open('stories')");
 
     let shown: Vec<String> =
         game.eval("wow.ShownTexts(TimewaysJournalFrameScroll:GetScrollChild())");
-    assert_eq!(shown.len(), 1);
+    assert_eq!(shown.len(), lines(&game, "stories").len());
 }
 
 #[test]
@@ -203,8 +214,8 @@ fn a_name_that_the_bridge_escaped_shows_as_it_is() {
     game.reply(&journal_reply(&character));
 
     assert_eq!(
-        lines(&game, "deeds")[0],
-        "entry: Defeated ||cffff0000Fake||r"
+        in_this_chapter(&game),
+        ["text: Defeated: ||cffff0000Fake||r."]
     );
 }
 
@@ -216,7 +227,10 @@ fn a_broken_journal_shows_gaps_and_no_error() {
         r#"{"type":"journal","page":0,"pages":1,"places":"x","people":[{"name":5,"trust":10}],"deeds":[{"kind":"level"},{"kind":"odd"}]}"#,
     );
 
-    assert_eq!(lines(&game, "deeds"), ["help: No deeds yet."]);
+    let knowledge = lines(&game, "knowledge");
+    let empty =
+        "help: Nothing yet. People you meet, books you read, and quests you finish show up here.";
+    assert!(knowledge.contains(&empty.to_string()), "{knowledge:?}");
 }
 
 fn explorer() -> Character {
@@ -259,11 +273,7 @@ fn the_addon_asks_for_each_next_page_and_joins_them() {
         game.reply(&page_reply(page));
     }
 
-    let kills = lines(&game, "deeds")
-        .iter()
-        .filter(|line| line.starts_with("entry: Defeated"))
-        .count();
-    assert_eq!(kills, 400);
+    assert_eq!(held(&game, "deeds"), 400);
     assert_eq!(asked_pages(&game), (1..count).collect::<Vec<_>>());
 }
 
@@ -274,7 +284,7 @@ fn a_page_out_of_order_is_dropped() {
 
     game.reply(&page_reply(all.remove(1)));
 
-    assert_eq!(lines(&game, "deeds"), [FILLING]);
+    assert_eq!(lines(&game, "knowledge"), [FILLING]);
     assert!(asked_pages(&game).is_empty());
 }
 
@@ -285,11 +295,11 @@ fn the_old_journal_stays_until_every_page_of_the_new_one_came() {
 
     game.reply(&page_reply(pages(journal(&explorer())).remove(0)));
 
-    assert_eq!(lines(&game, "deeds")[0], "entry: Started at level 12");
+    assert_eq!(held(&game, "places"), 4);
 }
 
 #[test]
-fn a_kill_and_its_echo_show_as_deeds() {
+fn a_kill_and_its_echo_show_in_their_chapter() {
     let game = Game::new();
     let mut character = Character::new();
     character
@@ -300,18 +310,18 @@ fn a_kill_and_its_echo_show_as_deeds() {
 
     game.reply(&journal_reply(&character));
 
-    let place = format!("text: Elwynn Forest, {}.", day(&game));
-    let expected = [
-        "entry: Defeated Hogger".to_string(),
-        place.clone(),
-        "entry: Defeated Hogger again (2 times)".to_string(),
-        place,
-    ];
-    assert_eq!(lines(&game, "deeds"), expected);
+    assert_eq!(
+        in_this_chapter(&game),
+        [
+            "text: Places: Elwynn Forest.",
+            "text: Defeated: Hogger.",
+            "text: Defeated Hogger again, 2 times.",
+        ]
+    );
 }
 
 #[test]
-fn deaths_show_as_deeds_with_the_killer_when_known() {
+fn deaths_show_in_their_chapter_with_the_killer_when_known() {
     let game = Game::new();
     let mut character = Character::new();
     character.enter_zone(Tick(DAY), "Westfall", None).unwrap();
@@ -320,14 +330,10 @@ fn deaths_show_as_deeds_with_the_killer_when_known() {
 
     game.reply(&journal_reply(&character));
 
-    let place = format!("text: Westfall, {}.", day(&game));
-    let expected = [
-        "entry: Killed by Defias Pillager".to_string(),
-        place.clone(),
-        "entry: Died".to_string(),
-        place,
-    ];
-    assert_eq!(lines(&game, "deeds"), expected);
+    assert_eq!(
+        in_this_chapter(&game)[1],
+        "text: Deaths: Defias Pillager at Westfall and Unknown at Westfall."
+    );
 }
 
 #[test]
@@ -336,8 +342,8 @@ fn an_entry_that_is_not_a_table_is_skipped() {
 
     game.reply(r#"{"type":"journal","page":0,"pages":1,"places":[5],"people":[true,{"name":"Ada","trust":10}],"deeds":["x"]}"#);
 
-    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('deeds')");
-    assert_eq!(lines(&game, "deeds"), ["help: No deeds yet."]);
+    game.run("wow.Slash('/journal', ''); ns.JournalFrame.Open('knowledge')");
+    assert_eq!(held(&game, "people"), 1);
 }
 
 #[test]
@@ -359,7 +365,7 @@ fn a_chapter_page_shows_its_dates_its_levels_and_what_happened_in_it() {
         "note: Chapter 1".to_string(),
         "heading: Elwynn Forest".to_string(),
         format!("text: {} · Levels 12 to 13.", day(&game)),
-        "help: This chapter is still in progress.".to_string(),
+        "help: This chapter isn't over yet. Its story comes when the next one starts.".to_string(),
         "section: In this chapter".to_string(),
         "text: Places: Elwynn Forest and Westfall.".to_string(),
         "text: People: Innkeeper Farley.".to_string(),
@@ -596,7 +602,7 @@ fn the_saga_comes_before_the_list_of_its_chapter() {
 }
 
 #[test]
-fn a_title_shows_as_a_deed() {
+fn a_title_shows_in_its_chapter() {
     let game = Game::new();
     let mut character = Character::new();
     character
@@ -609,8 +615,8 @@ fn a_title_shows_as_a_deed() {
     game.reply(&journal_reply(&character));
 
     assert_eq!(
-        lines(&game, "deeds")[0],
-        "entry: Earned the title Lord of the Goldshire Dance Floor"
+        in_this_chapter(&game)[1],
+        "entry: Earned the title Lord of the Goldshire Dance Floor."
     );
 }
 
@@ -629,109 +635,6 @@ fn the_footnotes_follow_their_saga() {
     );
 }
 
-fn learned_reply(entries: Vec<Learned>) -> String {
-    let whole = Journal {
-        learned: entries,
-        ..Journal::default()
-    };
-    let page = pages(whole).remove(0);
-    serde_json::to_string(&Output::Journal {
-        id: MessageId(1),
-        page: Box::new(page),
-        notice: None,
-        dev: None,
-    })
-    .unwrap()
-}
-
-fn learned_entry(kind: LearnedKind, title: Option<&str>, npc: Option<&str>, text: &str) -> Learned {
-    Learned {
-        kind,
-        title: title.map(str::to_string),
-        npc: npc.map(str::to_string),
-        place: Some("Stormwind City".to_string()),
-        at: Tick(DAY),
-        excerpt: text.to_string(),
-    }
-}
-
-#[test]
-fn the_learned_page_shows_a_book_with_the_name_of_your_character() {
-    let game = Game::new();
-    game.run("wow.units.player = { name = 'Ada', player = true }");
-    let book = learned_entry(
-        LearnedKind::Book,
-        Some("The Kingdom of Stormwind"),
-        None,
-        "Well met, $N.",
-    );
-
-    game.reply(&learned_reply(vec![book]));
-
-    assert_eq!(
-        lines(&game, "learned"),
-        [
-            "entry: Read The Kingdom of Stormwind".to_string(),
-            "prose: Well met, Ada.".to_string(),
-            format!("text: Stormwind City, {}.", day(&game)),
-        ]
-    );
-}
-
-#[test]
-fn the_learned_page_leaves_out_a_rumor_from_an_older_desktop() {
-    let game = Game::new();
-    let gossip = learned_entry(
-        LearnedKind::Gossip,
-        None,
-        Some("Innkeeper Farley"),
-        "The gnolls grow bold.",
-    );
-    let reply = learned_reply(vec![gossip]).replace(r#""kind":"gossip""#, r#""kind":"rumor""#);
-
-    game.reply(&reply);
-
-    let shown = lines(&game, "learned");
-    assert!(
-        shown
-            .iter()
-            .all(|line| !line.contains("gnolls") && !line.contains("rumor")),
-        "{shown:?}"
-    );
-}
-
-#[test]
-fn the_learned_page_names_a_quest_and_the_npc_of_gossip() {
-    let game = Game::new();
-    let quest = learned_entry(
-        LearnedKind::Quest,
-        Some("Wanted: Hogger"),
-        None,
-        "Hogger must die.",
-    );
-    let gossip = learned_entry(
-        LearnedKind::Gossip,
-        None,
-        Some("Guard Thomas"),
-        "Stay safe.",
-    );
-
-    game.reply(&learned_reply(vec![quest, gossip]));
-
-    let shown = lines(&game, "learned");
-    assert_eq!(shown[0], "entry: The quest Wanted: Hogger");
-    assert_eq!(shown[3], "entry: Heard from Guard Thomas");
-}
-
-#[test]
-fn an_empty_learned_page_says_how_to_learn() {
-    let game = Game::new();
-
-    game.reply(&learned_reply(Vec::new()));
-
-    assert!(lines(&game, "learned")[0].contains("Pick up a book"));
-}
-
 #[test]
 fn a_journal_with_no_pages_keeps_the_book_as_it_is() {
     let game = Game::new();
@@ -739,68 +642,56 @@ fn a_journal_with_no_pages_keeps_the_book_as_it_is() {
 
     game.reply(r#"{"type":"journal","page":0,"pages":0,"narrator":null}"#);
 
-    assert_eq!(lines(&game, "deeds")[0], "entry: Started at level 12");
+    assert_eq!(held(&game, "places"), 4);
 }
 
 #[test]
-fn a_quest_of_the_game_and_a_class_quest_show_as_deeds() {
+fn a_quest_of_the_game_and_a_class_quest_show_in_their_chapter() {
     let game = Game::new();
 
-    game.reply(concat!(
-        r#"{"type":"journal","page":0,"pages":1,"deeds":["#,
+    game.reply(&chapter_with_deeds(concat!(
         r#"{"kind":"game_quest_done","title":"Rattling the Rattlecages","at":1790000000,"place":null},"#,
-        r#"{"kind":"class_quest_done","title":"Rediscovering the Light","at":1790000000,"place":null}]}"#,
-    ));
+        r#"{"kind":"class_quest_done","title":"Rediscovering the Light","at":1790000000,"place":null}"#,
+    )));
 
-    let lines = lines(&game, "deeds");
     assert_eq!(
-        lines[0],
-        "entry: Finished the quest Rattling the Rattlecages"
-    );
-    assert_eq!(
-        lines[2],
-        "entry: Finished the class quest Rediscovering the Light"
+        in_this_chapter(&game),
+        ["text: Quests: Rattling the Rattlecages and Rediscovering the Light."]
     );
 }
 
 #[test]
-fn a_quest_mark_shows_as_a_deed_with_its_quest() {
+fn a_quest_mark_shows_in_its_chapter_with_its_quest() {
     let game = Game::new();
 
-    game.reply(concat!(
-        r#"{"type":"journal","page":0,"pages":1,"deeds":["#,
-        r#"{"kind":"quest_marked","mark":"Touched by the Light","quest":"Rediscovering the Light","at":1790000000,"place":null}]}"#,
+    game.reply(&chapter_with_deeds(
+        r#"{"kind":"quest_marked","mark":"Touched by the Light","quest":"Rediscovering the Light","at":1790000000,"place":null}"#,
     ));
 
     assert_eq!(
-        lines(&game, "deeds")[0],
-        "entry: Touched by the Light, from Rediscovering the Light"
+        in_this_chapter(&game),
+        ["entry: Touched by the Light, from Rediscovering the Light."]
     );
 }
 
 #[test]
-fn mounts_and_gear_show_as_deeds() {
+fn mounts_and_gear_show_in_their_chapter() {
     let game = Game::new();
 
-    game.reply(concat!(
-        r#"{"type":"journal","page":0,"pages":1,"deeds":["#,
+    game.reply(&chapter_with_deeds(concat!(
         r#"{"kind":"mounted","mount":"Gray Ram","epic":false,"at":1790000000,"place":null},"#,
         r#"{"kind":"mounted","mount":"Swift Gray Ram","epic":true,"at":1790000000,"place":null},"#,
         r#"{"kind":"epic_item","item":"Barman Shanker","at":1790000000,"place":null},"#,
-        r#"{"kind":"upgraded","item":"Cruel Barb","at":1790000000,"place":null}]}"#,
-    ));
+        r#"{"kind":"upgraded","item":"Cruel Barb","at":1790000000,"place":null}"#,
+    )));
 
-    let entries: Vec<String> = lines(&game, "deeds")
-        .into_iter()
-        .filter(|line| line.starts_with("entry: "))
-        .collect();
     assert_eq!(
-        entries,
+        in_this_chapter(&game),
         [
-            "entry: Rode your first mount, Gray Ram",
-            "entry: Rode your first epic mount, Swift Gray Ram",
-            "entry: Equipped your first epic item, Barman Shanker",
-            "entry: Equipped Cruel Barb, a big upgrade",
+            "entry: Rode your first mount, Gray Ram.",
+            "entry: Rode your first epic mount, Swift Gray Ram.",
+            "entry: Equipped your first epic item, Barman Shanker.",
+            "entry: Equipped Cruel Barb, a big upgrade.",
         ]
     );
 }
@@ -891,21 +782,24 @@ fn a_chapter_that_is_not_over_says_when_its_story_comes() {
 
     assert_eq!(
         lines(&game, "chapters")[3],
-        "help: This chapter is still in progress."
+        "help: This chapter isn't over yet. Its story comes when the next one starts."
     );
 }
 
 #[test]
-fn a_battleground_win_and_a_pvp_rank_show_as_deeds() {
+fn a_battleground_win_and_a_pvp_rank_show_in_their_chapter() {
     let game = Game::new();
 
-    game.reply(concat!(
-        r#"{"type":"journal","page":0,"pages":1,"deeds":["#,
+    game.reply(&chapter_with_deeds(concat!(
         r#"{"kind":"won_battle","battleground":"Warsong Gulch","at":1790000000},"#,
-        r#"{"kind":"pvp_rank","rank":3,"at":1790000000}]}"#,
-    ));
+        r#"{"kind":"pvp_rank","rank":3,"at":1790000000}"#,
+    )));
 
-    let lines = lines(&game, "deeds");
-    assert_eq!(lines[0], "entry: Won a battle in Warsong Gulch");
-    assert_eq!(lines[2], "entry: Reached PvP rank 3");
+    assert_eq!(
+        in_this_chapter(&game),
+        [
+            "entry: Won a battle in Warsong Gulch.",
+            "entry: Reached PvP rank 3.",
+        ]
+    );
 }

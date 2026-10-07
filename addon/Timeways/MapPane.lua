@@ -9,12 +9,20 @@ ns.MapPane = MapPane
 
 local PIN_SIZE = 32
 local STEP_PIN_SIZE, GIVER_PIN_SIZE = 24, 20
+-- The pin of the open place or person stands out.
+local SELECTED_SCALE = 1.4
 -- A done step stays on the map, faded, so the path of the task still shows.
 local DONE_ALPHA = 0.4
 local VISITED_HEIGHT = 22
+-- A map lies a few steps below its continent: a cave, a zone, a continent. More steps
+-- than this means a loop in the tree.
+local MAX_DEPTH = 8
 -- Regions of one layer and one sublevel draw in no fixed order, so the band of visited places
 -- sits under the task pins.
-local BAND_SUBLEVEL, PIN_SUBLEVEL = -1, 1
+local BAND_SUBLEVEL = -1
+-- The pins are buttons, which draw over every texture of the pane, and under the list of
+-- the journal and the button over the map.
+local PIN_LEVEL = 2
 
 local pane, empty, pin, visitedBand, visited
 local paneWidth, paneHeight
@@ -22,6 +30,15 @@ local tiles, explored, pins = {}, {}, {}
 -- The map of each zone by its name, read once from the map tree of the world.
 local zones
 local shown
+
+-- Stacks `frame` over the other children of `parent`, `steps` levels up. The game can hide
+-- a frame level, and then the frame keeps its level.
+function MapPane.Stack(frame, parent, steps)
+	local level = parent:GetFrameLevel()
+	if not issecretvalue(level) then
+		frame:SetFrameLevel(level + steps)
+	end
+end
 
 function MapPane.Build(parent, width, height)
 	paneWidth, paneHeight = width, height
@@ -60,12 +77,34 @@ local function ReadZones()
 end
 
 -- The map of this zone, or else the map where the player stands.
-function MapPane.MapFor(zone)
+-- The map of the zone with this name, or nil.
+local function Named(zone)
 	-- The client can send an empty tree while it loads, so an empty tree is read again.
 	if not zones or next(zones) == nil then
 		zones = ReadZones()
 	end
-	return zones[zone] or C_Map.GetBestMapForUnit("player")
+	return zone and zones[zone]
+end
+
+function MapPane.MapFor(zone)
+	return Named(zone) or C_Map.GetBestMapForUnit("player")
+end
+
+-- The continent around the map of this zone: { map, name }, or nil when the game knows
+-- none. A parent of each map leads up to it.
+function MapPane.ContinentOf(zone)
+	local map = Named(zone)
+	for _ = 1, MAX_DEPTH do
+		local info = map and C_Map.GetMapInfo(map)
+		if type(info) ~= "table" then
+			return nil
+		end
+		if info.mapType == Enum.UIMapType.Continent then
+			return { map = map, name = info.name }
+		end
+		map = info.parentMapID
+	end
+	return nil
 end
 
 local function Positive(value)
@@ -207,32 +246,89 @@ local function DrawExplored(map, layer, art)
 	HideFrom(explored, n + 1)
 end
 
+-- A pin is a button, so a pin of the atlas takes a click and shows its tooltip.
 local function PinWidgets(n)
 	if not pins[n] then
-		local icon = pane:CreateTexture(nil, "ARTWORK", nil, PIN_SUBLEVEL)
-		local number = pane:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
-		number:SetPoint("CENTER", icon, "CENTER", 0, 3)
-		pins[n] = { icon = icon, number = number }
+		local button = CreateFrame("Button", nil, pane)
+		MapPane.Stack(button, pane, PIN_LEVEL)
+		local icon = button:CreateTexture(nil, "ARTWORK")
+		icon:SetAllPoints(button)
+		local number = button:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
+		number:SetPoint("CENTER", button, "CENTER", 0, 3)
+		pins[n] = { button = button, icon = icon, number = number }
 	end
 	return pins[n]
 end
 
+-- The look of each pin of the atlas: its art, and its size.
+local ATLAS_LOOKS = {
+	place = { atlas = "Waypoint-MapPin-Untracked", size = 18 },
+	person = { file = "Interface\\GossipFrame\\GossipGossipIcon", size = 14 },
+	death = { file = "Interface\\TargetingFrame\\UI-TargetingFrame-Skull", size = 14 },
+}
+
+local function Art(widgets, look)
+	if look.atlas then
+		widgets.icon:SetAtlas(look.atlas)
+	else
+		widgets.icon:SetTexture(look.file)
+	end
+end
+
 -- The yellow marks of a quest giver in the game: "!" for an offer, "?" for a task taken.
 local function Look(widgets, spec)
+	widgets.number:Hide()
 	if spec.kind == "giver" then
 		local mark = spec.offered and "AvailableQuestIcon" or "ActiveQuestIcon"
 		widgets.icon:SetTexture("Interface\\GossipFrame\\" .. mark)
-		widgets.icon:SetSize(GIVER_PIN_SIZE, GIVER_PIN_SIZE)
-		widgets.number:Hide()
+		widgets.button:SetSize(GIVER_PIN_SIZE, GIVER_PIN_SIZE)
+		return
+	end
+	local look = ATLAS_LOOKS[spec.kind]
+	if look then
+		Art(widgets, look)
+		local size = spec.selected and look.size * SELECTED_SCALE or look.size
+		widgets.button:SetSize(size, size)
 		return
 	end
 	widgets.icon:SetAtlas("Waypoint-MapPin-Untracked")
-	widgets.icon:SetSize(STEP_PIN_SIZE, STEP_PIN_SIZE)
+	widgets.button:SetSize(STEP_PIN_SIZE, STEP_PIN_SIZE)
 	widgets.number:SetText(tostring(spec.number))
 	widgets.number:Show()
 end
 
+local function ShowTip(button, spec)
+	GameTooltip:SetOwner(button, "ANCHOR_RIGHT")
+	GameTooltip:SetText(spec.title)
+	if type(spec.text) == "string" and spec.text ~= "" then
+		GameTooltip:AddLine(spec.text, 1, 1, 1)
+	end
+	GameTooltip:Show()
+end
+
+-- A pin of the atlas opens its page and shows a tooltip. A pin of a quest only marks a spot.
+local function Behave(button, spec)
+	button:EnableMouse(spec.title ~= nil)
+	button:SetScript("OnEnter", spec.title and function()
+		ShowTip(button, spec)
+	end or nil)
+	button:SetScript("OnLeave", function()
+		GameTooltip:Hide()
+	end)
+	button:SetScript("OnClick", spec.link and function()
+		ns.JournalLinks.Open(spec.link)
+	end or nil)
+end
+
+local function Fade(spec)
+	if spec.done or spec.dim then
+		return DONE_ALPHA
+	end
+	return 1
+end
+
 -- Only the pins of the map that shows. A pin's point is its tip, as the pin of the player.
+-- A round mark stands on its point.
 local function DrawPins(map, art, specs)
 	local n = 0
 	for _, spec in ipairs(specs or {}) do
@@ -240,17 +336,17 @@ local function DrawPins(map, art, specs)
 			n = n + 1
 			local widgets = PinWidgets(n)
 			Look(widgets, spec)
-			widgets.icon:SetAlpha(spec.done and DONE_ALPHA or 1)
-			widgets.number:SetAlpha(spec.done and DONE_ALPHA or 1)
-			widgets.icon:ClearAllPoints()
+			Behave(widgets.button, spec)
+			widgets.button:SetAlpha(Fade(spec))
+			widgets.button:ClearAllPoints()
 			local x, y = art.left + spec.x * art.width, -(art.top + spec.y * art.height)
-			widgets.icon:SetPoint(spec.kind == "giver" and "CENTER" or "BOTTOM", pane, "TOPLEFT", x, y)
-			widgets.icon:Show()
+			local anchor = (spec.kind == "step" or spec.kind == "place") and "BOTTOM" or "CENTER"
+			widgets.button:SetPoint(anchor, pane, "TOPLEFT", x, y)
+			widgets.button:Show()
 		end
 	end
 	for extra = n + 1, #pins do
-		pins[extra].icon:Hide()
-		pins[extra].number:Hide()
+		pins[extra].button:Hide()
 	end
 end
 

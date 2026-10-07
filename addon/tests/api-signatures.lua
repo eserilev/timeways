@@ -1088,6 +1088,13 @@ return {
 				{ Name = "texture", Type = "SimpleTexture", Nilable = false },
 			},
 		},
+		["SimpleFrameAPI:GetFrameLevel"] = {
+			SecretReturnsForAspect = { Enum.SecretAspect.FrameLevel },
+			Arguments = {},
+			Returns = {
+				{ Name = "frameLevel", Type = "number", Nilable = false },
+			},
+		},
 		["SimpleFrameAPI:Hide"] = {
 			IsProtectedFunction = true,
 			Arguments = {},
@@ -1154,6 +1161,13 @@ return {
 			SecretArguments = "NotAllowed",
 			Arguments = {
 				{ Name = "strata", Type = "FrameStrata", Nilable = false },
+			},
+		},
+		["SimpleFrameAPI:SetHyperlinksEnabled"] = {
+			IsProtectedFunction = true,
+			SecretArguments = "NotAllowed",
+			Arguments = {
+				{ Name = "enabled", Type = "bool", Nilable = false, Default = false },
 			},
 		},
 		["SimpleFrameAPI:SetIgnoreParentScale"] = {

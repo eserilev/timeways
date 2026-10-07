@@ -165,6 +165,9 @@ TooltipDataProcessor = {
 
 GameTooltip = {
 	SetOwner = function() end,
+	SetText = function(_, text)
+		wow.tooltip.lines = { text }
+	end,
 	SetItemByID = function() end,
 	Show = function() end,
 	Hide = function() end,
@@ -691,6 +694,27 @@ end
 
 function Widget:SetScript(name, handler)
 	self.scripts[name] = handler
+end
+
+-- A frame stands one level over its parent, as in the game.
+function Widget:GetFrameLevel()
+	return self.level or (self.parent and self.parent:GetFrameLevel() + 1) or 0
+end
+
+function Widget:SetFrameLevel(level)
+	self.level = level
+end
+
+function Widget:SetHyperlinksEnabled(enabled)
+	self.hyperlinks = enabled
+end
+
+-- The player clicks a link in the text of a font string of `frame`. The game gives the
+-- click to the frame only while it shows its links.
+function wow.ClickLink(frame, link)
+	if frame.hyperlinks and frame.scripts.OnHyperlinkClick then
+		frame.scripts.OnHyperlinkClick(frame, link, link, "LeftButton")
+	end
 end
 
 function Widget:Show()

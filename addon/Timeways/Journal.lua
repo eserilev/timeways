@@ -1,5 +1,5 @@
--- The pages of the journal: the hero, the chronicle, the stories of players, deeds, what you
--- learned, and your side quests (GAMEPLAY.md 3.1.1, 3.4, 3.6, 3.7, and 4.8).
+-- The pages of the journal: the hero, the chronicle, the stories of players, what you know
+-- place by place, and your side quests (GAMEPLAY.md 3.1.1, 3.4, 3.6, 3.7, and 4.8).
 -- The desktop sends them, because the world lives there and never in the saved variables
 -- (5.10).
 
@@ -8,19 +8,30 @@ local _, ns = ...
 local Journal = {}
 ns.Journal = Journal
 
-Journal.SECTIONS = { "hero", "chapters", "stories", "deeds", "learned", "quests" }
+-- The deeds have no tab: each one shows in its chapter and on its place in Knowledge.
+Journal.SECTIONS = { "hero", "chapters", "stories", "knowledge", "quests" }
 Journal.TITLES = {
 	hero = "Hero",
 	chapters = "Chronicle",
 	stories = "Stories",
-	deeds = "Deeds",
-	learned = "Knowledge",
+	knowledge = "Knowledge",
 	quests = "Quests",
 }
 
 -- The lists that come in pages, with the sheet and the entries of the hero.
--- Places and people have no page: the map and the tooltips read them.
-local LISTS = { "chapters", "tales", "edits", "places", "people", "deeds", "learned", "quests", "stories" }
+local LISTS = {
+	"chapters",
+	"tales",
+	"edits",
+	"histories",
+	"places",
+	"people",
+	"lore",
+	"deeds",
+	"learned",
+	"quests",
+	"stories",
+}
 
 -- A reply holds at most 24 KB, so a long journal comes in pages. More than this many
 -- pages means a broken reply, not a long journal.
@@ -31,10 +42,7 @@ local pages
 -- The pages so far of the journal that comes in, and the page that comes next.
 local collecting
 
-local List = ns.JournalRows.List
 local Entries = ns.JournalRows.Entries
-local Name = ns.JournalRows.Name
-local Day = ns.JournalRows.Day
 local Line = ns.JournalRows.Line
 
 -- The page draws again while it shows the count of a carry step.
@@ -50,17 +58,10 @@ function Journal.Request(page)
 end
 
 local function Started()
-	local journal = {
-		chapters = {},
-		tales = {},
-		edits = {},
-		places = {},
-		people = {},
-		deeds = {},
-		learned = {},
-		quests = {},
-		stories = {},
-	}
+	local journal = {}
+	for _, list in ipairs(LISTS) do
+		journal[list] = {}
+	end
 	journal.next = 0
 	journal.hero = { sheet = {}, entries = {} }
 	return journal
@@ -153,52 +154,6 @@ function Journal.Quest(number)
 	return nil
 end
 
-local function Where(deed)
-	return deed.place and (Name(deed.place) .. ", ") or ""
-end
-
-local function Deeds(deeds)
-	local lines = {}
-	for _, deed in ipairs(deeds) do
-		local title = ns.JournalRows.DeedTitle(deed)
-		if title then
-			lines[#lines + 1] = Line("entry", title)
-			lines[#lines + 1] = Line("text", Where(deed) .. Day(deed.at) .. ".")
-		end
-	end
-	return lines
-end
-
-local LEARNED_TITLES = {
-	book = function(entry)
-		return "Read " .. Name(entry.title)
-	end,
-	quest = function(entry)
-		return "The quest " .. Name(entry.title)
-	end,
-	gossip = function(entry)
-		return "Heard from " .. Name(entry.npc)
-	end,
-}
-
--- Only what you read. The words of a talk live in the talk window (3.5), so an older
--- desktop's "rumor" entry shows nothing.
-local function Learned(entries)
-	local lines = {}
-	for _, entry in ipairs(entries) do
-		local title = LEARNED_TITLES[entry.kind]
-		if title then
-			lines[#lines + 1] = Line("entry", title(entry))
-			if type(entry.excerpt) == "string" then
-				lines[#lines + 1] = Line("prose", ns.WithName(entry.excerpt))
-			end
-			local place = type(entry.place) == "string" and (Name(entry.place) .. ", ") or ""
-			lines[#lines + 1] = Line("text", place .. Day(entry.at) .. ".")
-		end
-	end
-	return lines
-end
-
 -- The open item of each page with a list, by its key. A key that is gone opens the default.
 local selected = {}
 
@@ -210,32 +165,15 @@ function Journal.Selected(section)
 	return selected[section]
 end
 
--- A page with no list: the lines alone, beside the map.
-local function SinglePage(builder)
-	return function(journal)
-		return { lines = builder(journal), buttons = {}, side = "map" }
-	end
-end
-
--- A page that reads only its own list of the journal.
-local function OwnList(builder, section)
-	return SinglePage(function(journal)
-		return builder(List(journal[section]))
-	end)
-end
-
 local BUILDERS = {
 	hero = ns.JournalHero.Page,
 	chapters = ns.JournalChronicle.Page,
 	stories = ns.JournalStories.Page,
-	deeds = OwnList(Deeds, "deeds"),
-	learned = OwnList(Learned, "learned"),
+	knowledge = ns.JournalKnowledge.Page,
 	quests = ns.JournalQuests.Page,
 }
 
 local EMPTY = {
-	deeds = "No deeds yet.",
-	learned = "You haven't learned a thing yet. Pick up a book, or listen at the inn.",
 	quests = "No quests yet. Target someone and type /quest to ask for one.",
 }
 
@@ -244,10 +182,18 @@ Journal.USAGE = {
 	hero = ns.JournalHero.USAGE,
 	chapters = ns.JournalChronicle.USAGE,
 	stories = ns.JournalStories.USAGE,
-	deeds = "Your levels, big kills, deaths, and titles.",
-	learned = "Everything you've read or heard.",
+	knowledge = ns.JournalKnowledge.USAGE,
 	quests = "Quests from the people you meet. Target someone and type /quest.",
 }
+
+-- A tab that starts fresh each time it opens: Knowledge opens on the zone where you stand.
+local OPENED = { knowledge = ns.JournalKnowledge.Home }
+
+function Journal.Opened(section)
+	if OPENED[section] then
+		OPENED[section]()
+	end
+end
 
 -- A page is what the book shows for one section:
 --   lines: the parchment on the right. Each line is { style, text, action }, and the style

@@ -129,6 +129,16 @@ function TalkHistory.Of(npc)
 	return copy
 end
 
+-- The NPCs that you talked to, by name.
+function TalkHistory.Npcs()
+	local names = {}
+	for npc in pairs(Talks()) do
+		names[#names + 1] = npc
+	end
+	table.sort(names)
+	return names
+end
+
 -- An exchange that breaks a limit is not kept.
 function TalkHistory.Add(npc, said, heard, at)
 	local exchange = { at = at, said = said, heard = heard }

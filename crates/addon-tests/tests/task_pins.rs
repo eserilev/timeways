@@ -143,17 +143,19 @@ fn pins(game: &Game) -> Vec<String> {
          for _, widget in ipairs(wow.widgets) do
              local giver = type(widget.file) == 'string' and widget.file:find('QuestIcon$')
              local step = widget.atlas == 'Waypoint-MapPin-Untracked'
-             if widget.shown and (giver or step) then
+             -- A pin is a button, and its icon covers it.
+             local pin = widget.parent
+             if pin and pin.kind == 'Button' and pin.shown and (giver or step) then
                  local number = ''
                  for _, other in ipairs(wow.widgets) do
-                     if other.kind == 'FontString' and other.point and other.point[2] == widget and other.shown then
+                     if other.kind == 'FontString' and other.point and other.point[2] == pin and other.shown then
                          number = other.text
                      end
                  end
-                 local x = math.floor((widget.point[4] - art.left) / art.width * 1000 + 0.5)
-                 local y = math.floor((-widget.point[5] - art.top) / art.height * 1000 + 0.5)
+                 local x = math.floor((pin.point[4] - art.left) / art.width * 1000 + 0.5)
+                 local y = math.floor((-pin.point[5] - art.top) / art.height * 1000 + 0.5)
                  local kind = giver and widget.file:match('(%a+)QuestIcon$') or 'step'
-                 table.insert(out, string.format('%s %s %s %d %d', kind, number, widget.alpha, x, y))
+                 table.insert(out, string.format('%s %s %s %d %d', kind, number, pin.alpha, x, y))
              end
          end
          return out",
@@ -249,7 +251,7 @@ fn another_page_shows_no_task_pins() {
         Some(spot(TIRISFAL, 700, 200)),
     ));
 
-    game.run("ns.JournalFrame.Open('deeds')");
+    game.run("ns.JournalFrame.Open('knowledge')");
 
     assert!(pins(&game).is_empty());
 }

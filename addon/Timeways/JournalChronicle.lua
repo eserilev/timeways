@@ -127,13 +127,45 @@ local function Row(lines, label, names)
 	end
 end
 
+-- Each name that Knowledge knows opens its page there.
+local function Linked(names, link)
+	local shown = {}
+	for _, name in ipairs(names) do
+		shown[#shown + 1] = type(name) == "string" and link(name) or name
+	end
+	return shown
+end
+
+local function PlaceLink(index, name)
+	local n = ns.KnowledgeIndex.PlaceNumber(index, name)
+	return n and ns.JournalLinks.Text("place", n, Name(name)) or name
+end
+
+local function PersonLink(index, name)
+	local n = ns.KnowledgeIndex.PersonNumber(index, name)
+	return n and ns.JournalLinks.Text("person", n, Name(name)) or name
+end
+
+-- The NPCs that you talked to while the chapter was open (3.5), from the talks that this
+-- computer keeps.
+local function TalksIn(chapter)
+	local names = {}
+	for _, npc in ipairs(ns.TalkHistory.Npcs()) do
+		for _, exchange in ipairs(ns.TalkHistory.Of(npc)) do
+			if ns.KnowledgeIndex.InChapter(chapter, exchange.at) then
+				names[#names + 1] = npc
+				break
+			end
+		end
+	end
+	return names
+end
+
 -- The stories that you accepted while the chapter was open (4.8).
 local function StoriesIn(chapter, stories)
 	local titles = {}
 	for _, story in ipairs(stories) do
-		local after = type(story.at) == "number" and type(chapter.began) == "number" and story.at >= chapter.began
-		local before = IsOpen(chapter) or (type(chapter.ended) == "number" and story.at <= chapter.ended)
-		if after and before and type(story.title) == "string" then
+		if ns.KnowledgeIndex.InChapter(chapter, story.at) and type(story.title) == "string" then
 			titles[#titles + 1] = ns.WithName(story.title)
 		end
 	end
@@ -182,9 +214,10 @@ local function Saving(lines, entry)
 end
 
 -- "Chapter 8", the title, the dates and levels, the story, the notes, and "In this
--- chapter": one line for each kind, in the order places, people, defeated, quests, deaths,
--- stories.
-function JournalChronicle.ChapterLines(chapter, stories, edit)
+-- chapter": one line for each kind, in the order places, people, talks, defeated, quests,
+-- deaths, stories. Each place and person opens its page of Knowledge.
+function JournalChronicle.ChapterLines(journal, chapter, edit)
+	local index = ns.KnowledgeIndex.Of(journal)
 	local lines = {}
 	local title = ns.JournalEdits.Title(edit) or Title(chapter) or Place(chapter)
 	if title then
@@ -193,18 +226,37 @@ function JournalChronicle.ChapterLines(chapter, stories, edit)
 	lines[#lines + 1] = Line("heading", title or ("Chapter " .. Number(chapter)))
 	lines[#lines + 1] = Line("text", When(chapter) .. ".")
 	if IsOpen(chapter) then
-		lines[#lines + 1] = Line("help", "This chapter is still in progress.")
+		lines[#lines + 1] = Line("help", "This chapter isn't over yet. Its story comes when the next one starts.")
 	end
 	Saving(lines, ns.JournalEdits.Chapter(chapter.first))
 	Story(lines, chapter.prose, chapter.footnotes, edit)
 	local sorted = Sorted(Entries(chapter.deeds))
 	local list = {}
-	Row(list, "Places", List(chapter.zones))
-	Row(list, "People", List(chapter.people))
+	Row(
+		list,
+		"Places",
+		Linked(List(chapter.zones), function(name)
+			return PlaceLink(index, name)
+		end)
+	)
+	Row(
+		list,
+		"People",
+		Linked(List(chapter.people), function(name)
+			return PersonLink(index, name)
+		end)
+	)
+	Row(
+		list,
+		"Talked to",
+		Linked(TalksIn(chapter), function(name)
+			return PersonLink(index, name)
+		end)
+	)
 	Row(list, "Defeated", sorted.defeated)
 	Row(list, "Quests", sorted.quests)
 	Row(list, "Deaths", sorted.deaths)
-	Row(list, "Stories", StoriesIn(chapter, Entries(stories)))
+	Row(list, "Stories", StoriesIn(chapter, Entries(journal.stories)))
 	Rest(list, chapter, sorted.others)
 	if #list > 0 then
 		lines[#lines + 1] = Line("section", "In this chapter")
@@ -457,7 +509,8 @@ function JournalChronicle.Page(journal)
 	local result = { list = Contents(pages), side = "map", selected = keys[index] }
 	local count = ChapterCount(journal)
 	if open.chapter then
-		result.lines = JournalChronicle.ChapterLines(open.chapter, journal.stories, open.edit)
+		result.lines = JournalChronicle.ChapterLines(journal, open.chapter, open.edit)
+		result.pins = ns.AtlasPins.ForChapter(ns.KnowledgeIndex.Of(journal), open.chapter)
 		result.footer = string.format("Chapter %s of %d", tostring(Number(open.chapter)), count)
 		result.crumb = "Chapter " .. Number(open.chapter)
 		result.zone = Place(open.chapter)
@@ -475,4 +528,10 @@ function JournalChronicle.Page(journal)
 		result.buttons[#result.buttons + 1] = step
 	end
 	return result
+end
+
+-- A chapter that a page of Knowledge names opens here.
+ns.JournalLinks.OPENERS.chapter = function(number)
+	ns.JournalFrame.Open("chapters")
+	ns.JournalFrame.Select(number)
 end

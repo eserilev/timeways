@@ -40,6 +40,10 @@ local STYLES = {
 	note = { font = "QuestFontNormalSmall", indent = 0, gap = 0, ink = "faded" },
 	hint = { font = "QuestFontNormalSmall", indent = BULLET + 2, gap = 2, ink = "faded" },
 	help = { font = "QuestFont", indent = 0, gap = 6, ink = "faded" },
+	-- A row of a list of Knowledge: an icon, a name to click, and a faded word on the right.
+	link = { font = "QuestFont", indent = BULLET + 2, gap = 4, ink = "text", icon = true },
+	-- The counts of a place, each in a small box: "9 people", "11 quests".
+	pills = { font = "QuestFontNormalSmall", indent = 0, gap = 8, ink = "title" },
 	-- The inputs of JournalInputs.
 	field = { indent = 0, gap = 8 },
 	money = { indent = BULLET + 2, gap = 8 },
@@ -51,8 +55,17 @@ local BADGE_SIZE = 16
 -- A button grows to its label, so a longer label never spills out.
 local BUTTON_HEIGHT, BUTTON_PADDING, BUTTON_MIN = 22, 20, 48
 
-local frame, detail, scroll, page, crumb, footer, footerText
+-- The faded word on the right of a row, and the size of a box of a count.
+local ROW_DETAIL_WIDTH = 110
+local PILL_PADDING, PILL_HEIGHT, PILL_GAP = 6, 16, 4
+-- The button over the map stands over its pins.
+local MAP_BUTTON_LEVEL = 4
+
+local frame, detail, scroll, page, crumb, footer, footerText, mapButton
 local strings, bullets, actions, buttons, tabs = {}, {}, {}, {}, {}
+local details, pillTexts, pillBoxes = {}, {}, {}
+-- The mouse is over a link of the page, so a press opens the link, not the editor.
+local overLink = false
 local section = "chapters"
 -- The edit of the page that shows, or nil: a press on its text opens it for writing.
 local pageEdit
@@ -120,11 +133,26 @@ local function BuildSides()
 	page = CreateFrame("Frame", nil, scroll)
 	page:SetSize(SCROLL_WIDTH, 1)
 	page:SetScript("OnMouseDown", function()
-		if pageEdit then
+		if pageEdit and not overLink then
 			pageEdit()
 		end
 	end)
+	page:SetHyperlinksEnabled(true)
+	page:SetScript("OnHyperlinkEnter", function()
+		overLink = true
+	end)
+	page:SetScript("OnHyperlinkLeave", function()
+		overLink = false
+	end)
+	page:SetScript("OnHyperlinkClick", function(_, link)
+		ns.JournalLinks.Open(link)
+	end)
 	scroll:SetScrollChild(page)
+	-- Over the map: the way up from a page of a place, as "Eastern Kingdoms".
+	mapButton = JournalFrame.SmallButton(map)
+	ns.MapPane.Stack(mapButton, map, MAP_BUTTON_LEVEL)
+	mapButton:SetPoint("TOPLEFT", map, "TOPLEFT", 8, -8)
+	mapButton:Hide()
 end
 
 local function BuildFooter()
@@ -223,6 +251,15 @@ local function Bullet(n)
 	return bullets[n]
 end
 
+local function Detail(n)
+	if not details[n] then
+		details[n] = page:CreateFontString(nil, "ARTWORK")
+		details[n]:SetJustifyH("RIGHT")
+		details[n]:SetWordWrap(false)
+	end
+	return details[n]
+end
+
 local function Action(n)
 	actions[n] = actions[n] or SmallButton(page)
 	return actions[n]
@@ -256,9 +293,76 @@ local function DrawInput(n, line, y, room)
 	return math.max(height, line.action and BUTTON_HEIGHT or 0)
 end
 
+local function PillText(n)
+	pillTexts[n] = pillTexts[n] or page:CreateFontString(nil, "ARTWORK")
+	return pillTexts[n]
+end
+
+local function PillBox(n)
+	if not pillBoxes[n] then
+		pillBoxes[n] = page:CreateTexture(nil, "BACKGROUND")
+		pillBoxes[n]:SetColorTexture(unpack(ns.Ink.selectedOnParchment))
+	end
+	return pillBoxes[n]
+end
+
+-- The boxes of the counts in a row, which wraps at the edge of the page. Returns the next
+-- box to use and the height of the rows.
+local function DrawPills(line, y, first)
+	local style = STYLES.pills
+	local ink = ns.Ink[style.ink]
+	local x, rows, used = 0, 1, first
+	for _, count in ipairs(line.pills) do
+		local text, box = PillText(used), PillBox(used)
+		text:SetFontObject(style.font)
+		text:SetTextColor(ink[1], ink[2], ink[3])
+		text:SetText(count)
+		local width = text:GetStringWidth() + 2 * PILL_PADDING
+		if x > 0 and x + width > PAGE_WIDTH then
+			x, rows = 0, rows + 1
+		end
+		local top = -y - (rows - 1) * (PILL_HEIGHT + PILL_GAP)
+		box:ClearAllPoints()
+		box:SetPoint("TOPLEFT", page, "TOPLEFT", MARGIN_LEFT + x, top)
+		box:SetSize(width, PILL_HEIGHT)
+		box:Show()
+		text:ClearAllPoints()
+		text:SetPoint("CENTER", box, "CENTER", 0, 0)
+		text:Show()
+		x, used = x + width + PILL_GAP, used + 1
+	end
+	return used, rows * PILL_HEIGHT + (rows - 1) * PILL_GAP
+end
+
+-- The icon of a row of Knowledge stands where an entry has its bullet.
+local function DrawMark(n, line, style, y, nudge)
+	local bullet = Bullet(n)
+	bullet:ClearAllPoints()
+	bullet:SetPoint("TOPLEFT", page, "TOPLEFT", MARGIN_LEFT, -y - nudge + 1)
+	bullet:SetTexture(line.icon or "Interface\\QuestFrame\\UI-Quest-BulletPoint")
+	bullet:SetShown(style.bullet == true or (style.icon == true and line.icon ~= nil))
+end
+
+-- Returns the room that the faded word on the right takes.
+local function DrawDetail(n, line, y)
+	local text = Detail(n)
+	text:SetShown(line.detail ~= nil)
+	if not line.detail then
+		return 0
+	end
+	local ink = ns.Ink.faded
+	text:SetFontObject("QuestFontNormalSmall")
+	text:SetTextColor(ink[1], ink[2], ink[3])
+	text:SetWidth(ROW_DETAIL_WIDTH)
+	text:ClearAllPoints()
+	text:SetPoint("TOPRIGHT", page, "TOPLEFT", MARGIN_LEFT + PAGE_WIDTH, -y - 1)
+	text:SetText(line.detail)
+	return ROW_DETAIL_WIDTH + 6
+end
+
 local function DrawLine(n, line, y)
 	local style = STYLES[line.style]
-	local room = DrawAction(n, line, y)
+	local room = DrawAction(n, line, y) + DrawDetail(n, line, y)
 	if ns.JournalInputs.Holds(line) then
 		return DrawInput(n, line, y, room)
 	end
@@ -276,10 +380,7 @@ local function DrawLine(n, line, y)
 	text:SetMaxLines(line.maxLines or 0)
 	text:SetText(line.text)
 	text:Show()
-	local bullet = Bullet(n)
-	bullet:ClearAllPoints()
-	bullet:SetPoint("TOPLEFT", page, "TOPLEFT", MARGIN_LEFT, -y - nudge + 1)
-	bullet:SetShown(style.bullet == true)
+	DrawMark(n, line, style, y, nudge)
 	return math.max(text:GetStringHeight() + nudge, line.action and BUTTON_HEIGHT or 0)
 end
 
@@ -293,15 +394,28 @@ end
 
 local function DrawLines(lines)
 	ns.JournalInputs.Begin()
-	local y = MARGIN_TOP
+	local y, pills = MARGIN_TOP, 1
 	for n, line in ipairs(lines) do
 		y = y + (n > 1 and STYLES[line.style].gap or 0)
-		y = y + DrawLine(n, line, y)
+		if line.style == "pills" then
+			FontString(n):Hide()
+			Bullet(n):Hide()
+			Action(n):Hide()
+			Detail(n):Hide()
+			local height
+			pills, height = DrawPills(line, y, pills)
+			y = y + height
+		else
+			y = y + DrawLine(n, line, y)
+		end
 	end
 	ns.JournalInputs.Finish()
 	HideFrom(strings, #lines + 1)
 	HideFrom(bullets, #lines + 1)
 	HideFrom(actions, #lines + 1)
+	HideFrom(details, #lines + 1)
+	HideFrom(pillTexts, pills)
+	HideFrom(pillBoxes, pills)
 	page:SetHeight(y + MARGIN_TOP)
 	ShowScrollBar(y + MARGIN_TOP)
 end
@@ -323,6 +437,14 @@ local function DrawButtons(list)
 	HideFrom(buttons, #list + 1)
 end
 
+local function DrawMapButton(button)
+	mapButton:SetShown(button ~= nil)
+	if button then
+		FitButton(mapButton, button.label)
+		mapButton:SetScript("OnClick", button.run)
+	end
+end
+
 -- Returns the name of the map that the left half shows, if any. The parchment of a sheet
 -- covers the map, so a sheet leaves the map as it is.
 local function DrawSide(journalPage, writing)
@@ -336,6 +458,7 @@ local function DrawSide(journalPage, writing)
 	end
 	local place = ns.MapPane.Show(journalPage.zone, journalPage.map, journalPage.pins)
 	ns.MapPane.ShowVisited(place and ns.Journal.VisitedIn(place) or {})
+	DrawMapButton(not writing and journalPage.mapButton or nil)
 	return place
 end
 
@@ -366,6 +489,9 @@ function JournalFrame.Refresh()
 	DrawButtons(journalPage.buttons)
 	footerText:SetText(journalPage.footer)
 	local place = DrawSide(journalPage, writing)
+	if journalPage.side ~= "map" then
+		mapButton:Hide()
+	end
 	crumb:SetText(Path(journalPage.crumb or place))
 	for name, tab in pairs(tabs) do
 		tab:SetEnabled(name ~= section)
@@ -393,6 +519,14 @@ function JournalFrame.Select(key)
 	end
 end
 
+-- The page of the open section turned to another one, read from its top.
+function JournalFrame.Turn()
+	if scroll then
+		scroll:SetVerticalScroll(0)
+	end
+	JournalFrame.Refresh()
+end
+
 function JournalFrame.Open(name)
 	if not frame then
 		BuildFrame()
@@ -403,6 +537,7 @@ function JournalFrame.Open(name)
 	if name and name ~= section then
 		section = name
 		scroll:SetVerticalScroll(0)
+		ns.Journal.Opened(section)
 	end
 	frame:Show()
 	JournalFrame.Refresh()

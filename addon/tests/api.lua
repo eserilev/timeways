@@ -60,6 +60,7 @@ return {
 		"DEFAULT_CHAT_FRAME",
 		"Enum",
 		"Enum.TooltipDataType.Unit",
+		"Enum.UIMapType.Continent",
 		"Enum.UIMapType.Zone",
 		"GameTooltip",
 		"GetAddOnCPUUsage",

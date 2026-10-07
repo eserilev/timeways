@@ -35,6 +35,11 @@ local function TrustOf(person)
 	return person and type(person.trust) == "number" and person.trust or 0
 end
 
+-- The word of the feeling: "Likes you", or "Neutral" while nothing changed it.
+function Trust.Word(trust)
+	return Band(type(trust) == "number" and trust or 0).word
+end
+
 -- "Likes you. Slapped 2 times." Empty for someone that you only met.
 function Trust.Line(person)
 	local parts = {}

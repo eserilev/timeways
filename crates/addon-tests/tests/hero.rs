@@ -812,14 +812,17 @@ fn an_empty_hero_opens_the_hero_page_once_and_a_written_one_does_not() {
     let empty = Game::new();
     empty.run("wow.Slash('/journal', '')");
     empty.reply(&hero_reply(r#"{"sheet":[],"entries":[]}"#, "null"));
-    empty.run("ns.JournalFrame.Open('deeds')");
+    empty.run("ns.JournalFrame.Open('knowledge')");
     empty.reply(&hero_reply(r#"{"sheet":[],"entries":[]}"#, "null"));
 
     let written = Game::new();
     written.run("wow.Slash('/journal', '')");
     written.reply(&hero_reply(FILLED, "null"));
 
-    assert_eq!(empty.eval::<String>("ns.JournalFrame.Section()"), "deeds");
+    assert_eq!(
+        empty.eval::<String>("ns.JournalFrame.Section()"),
+        "knowledge"
+    );
     assert_eq!(
         written.eval::<String>("ns.JournalFrame.Section()"),
         "chapters"
@@ -827,7 +830,7 @@ fn an_empty_hero_opens_the_hero_page_once_and_a_written_one_does_not() {
 }
 
 #[test]
-fn the_book_has_six_tabs_with_the_hero_first() {
+fn the_book_has_five_tabs_with_the_hero_first() {
     let game = Game::new();
 
     game.run("wow.Slash('/journal', '')");
@@ -843,14 +846,7 @@ fn the_book_has_six_tabs_with_the_hero_first() {
     );
     assert_eq!(
         tabs,
-        [
-            "Hero",
-            "Chronicle",
-            "Stories",
-            "Deeds",
-            "Knowledge",
-            "Quests"
-        ]
+        ["Hero", "Chronicle", "Stories", "Knowledge", "Quests"]
     );
 }
 

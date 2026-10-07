@@ -16,7 +16,7 @@ use libfuzzer_sys::fuzz_target;
 use serde_json::{Map, Value, json};
 
 /// Field names of the journal and its entries, so random objects look like real pages.
-const KEYS: [&str; 29] = [
+const KEYS: [&str; 47] = [
     "hero",
     "sheet",
     "entries",
@@ -46,6 +46,24 @@ const KEYS: [&str; 29] = [
     "at",
     "state",
     "line",
+    "lore",
+    "about",
+    "more",
+    "histories",
+    "zone",
+    "zones",
+    "spot",
+    "map",
+    "x",
+    "y",
+    "place",
+    "first_visit",
+    "first_met",
+    "excerpt",
+    "foe",
+    "killer",
+    "times",
+    "began",
 ];
 
 const WORDS: [&str; 11] = [
@@ -129,7 +147,24 @@ impl<'a> Arbitrary<'a> for Answer {
     }
 }
 
-/// Every `|` is a doubled one from the data, or a color code or a reset of the addon.
+/// The start of a link of the journal, which the addon writes itself (`JournalLinks.lua`).
+const OWN_LINK: &[u8] = b"|Htimeways:";
+
+/// The end of the data of an own link at `i`, which holds no `|`, or None.
+fn own_link_end(bytes: &[u8], i: usize) -> Option<usize> {
+    let rest = bytes.get(i..)?;
+    if !rest.starts_with(OWN_LINK) {
+        return None;
+    }
+    let data = &rest[OWN_LINK.len()..];
+    let close = data.iter().position(|byte| *byte == b'|')?;
+    data[close..]
+        .starts_with(b"|h")
+        .then_some(i + OWN_LINK.len() + close + 2)
+}
+
+/// Every `|` is a doubled one from the data, or a color code, a reset, or a link of the
+/// addon.
 fn has_only_own_escapes(shown: &str) -> bool {
     let bytes = shown.as_bytes();
     let mut i = 0;
@@ -138,8 +173,12 @@ fn has_only_own_escapes(shown: &str) -> bool {
             i += 1;
             continue;
         }
+        if let Some(end) = own_link_end(bytes, i) {
+            i = end;
+            continue;
+        }
         match bytes.get(i + 1) {
-            Some(b'|') | Some(b'r') => i += 2,
+            Some(b'|') | Some(b'r') | Some(b'h') => i += 2,
             Some(b'c')
                 if bytes.len() >= i + 10
                     && bytes[i + 2..i + 10].iter().all(u8::is_ascii_hexdigit) =>
@@ -195,7 +234,22 @@ fuzz_target!(|input: Input| {
              end
              for _, line in ipairs(page.lines) do
                  table.insert(out, line.text)
+                 table.insert(out, line.detail or '')
                  if line.action then line.action.run() end
+             end
+             -- Each link and each pin opens its page, which draws with no error.
+             for _, line in ipairs(page.lines) do
+                 for _, link in ipairs(ns.JournalLinks.InText(line.text)) do
+                     ns.JournalLinks.Open(link)
+                     for _, opened in ipairs(ns.Journal.Lines('knowledge')) do
+                         table.insert(out, opened.text)
+                     end
+                 end
+             end
+             for _, pin in ipairs(page.pins or {}) do
+                 if pin.link then ns.JournalLinks.Open(pin.link) end
+                 table.insert(out, pin.title or '')
+                 table.insert(out, pin.text or '')
              end
              table.insert(out, page.footer)
              table.insert(out, page.crumb or '')

@@ -6,6 +6,7 @@ mod common;
 
 use common::{Game, step_views};
 use hourglass::Tick;
+use timeways_story::character::Character;
 use timeways_story::input::{Input, MessageId};
 use timeways_story::journal::{Deed, Journal, pages};
 use timeways_story::quest::{AnyOrder, QuestView, Status, Step, StepState, TimeOfDay};
@@ -372,16 +373,19 @@ fn with_no_quest_the_page_says_how_to_ask() {
 }
 
 #[test]
-fn a_finished_quest_shows_as_a_deed() {
+fn a_finished_quest_shows_on_its_place_in_knowledge() {
     let game = Game::new();
-    let journal = Journal {
-        deeds: vec![Deed::QuestDone {
-            title: "The Lost Lantern".to_string(),
-            at: Tick(DAY),
-            place: None,
-        }],
-        ..Journal::default()
-    };
+    game.run("wow.zone = 'Elwynn Forest'");
+    let mut character = Character::new();
+    character
+        .enter_zone(Tick(DAY), "Elwynn Forest", Some("Goldshire"))
+        .unwrap();
+    let mut journal = timeways_story::journal::journal(&character);
+    journal.deeds.push(Deed::QuestDone {
+        title: "The Lost Lantern".to_string(),
+        at: Tick(DAY),
+        place: Some("Goldshire".to_string()),
+    });
     let page = pages(journal).remove(0);
     let reply = serde_json::to_string(&Output::Journal {
         id: MessageId(1),
@@ -393,8 +397,14 @@ fn a_finished_quest_shows_as_a_deed() {
 
     game.reply(&reply);
 
-    let first: String = game.eval("ns.Journal.Lines('deeds')[1].text");
-    assert_eq!(first, "Finished the quest The Lost Lantern");
+    let quests: Vec<String> = game.eval(
+        "local out = {}
+         for _, line in ipairs(ns.Journal.Lines('knowledge')) do
+             if line.icon == ns.JournalKnowledge.ICONS.quest then table.insert(out, line.text) end
+         end
+         return out",
+    );
+    assert_eq!(quests, ["The Lost Lantern"]);
 }
 
 #[test]

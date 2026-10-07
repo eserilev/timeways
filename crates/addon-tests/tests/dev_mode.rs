@@ -386,6 +386,52 @@ fn a_command_with_bad_words_says_its_usage_and_sends_nothing() {
 }
 
 #[test]
+fn atlas_tours_three_places_of_your_zone_with_points_on_its_map() {
+    let game = dev_game();
+    game.run("wow.zone = 'Elwynn Forest'; wow.playerMap = 1429");
+
+    twdev(&game, "atlas");
+
+    let lines = sent_lines(&game);
+    let places: Vec<&Value> = lines
+        .iter()
+        .filter(|line| line["type"] == "zone_entered")
+        .collect();
+    assert_eq!(places.len(), 3);
+    assert_eq!(places[0]["zone"], "Elwynn Forest");
+    assert_eq!(places[0]["spot"]["map"], 1429);
+    let kinds = types(&lines);
+    for kind in [
+        "npc_met",
+        "text_seen",
+        "game_quest_done",
+        "died",
+        "npc_defeated",
+    ] {
+        assert!(kinds.contains(&kind.to_string()), "{kinds:?}");
+    }
+    assert_eq!(
+        game.eval::<String>("ns.JournalFrame.Section()"),
+        "knowledge"
+    );
+}
+
+#[test]
+fn atlas_empty_opens_a_place_with_nothing_in_it() {
+    let game = dev_game();
+
+    twdev(&game, "atlas empty");
+
+    let lines: Vec<String> = game.eval(
+        "local out = {}
+         for _, line in ipairs(ns.Journal.Lines('knowledge')) do table.insert(out, line.text) end
+         return out",
+    );
+    assert_eq!(lines[0], "Dev Wilds");
+    assert!(lines[1].starts_with("Nothing yet."), "{lines:?}");
+}
+
+#[test]
 fn welcome_opens_the_setup_window_for_a_reason() {
     let game = dev_game();
 
@@ -395,7 +441,7 @@ fn welcome_opens_the_setup_window_for_a_reason() {
 }
 
 /// Each command of the help, with words, for the tests of every command.
-const EVERY_COMMAND: [&str; 37] = [
+const EVERY_COMMAND: [&str; 38] = [
     "level 12",
     "zone Westfall / Moonbrook",
     "taxi",
@@ -428,6 +474,7 @@ const EVERY_COMMAND: [&str; 37] = [
     "emote dance",
     "carry 3 Linen Cloth / Thor",
     "journal",
+    "atlas",
     "welcome setup",
     "peer Kobee quest",
     "inbox",
@@ -503,12 +550,11 @@ fn every_input_line_has_a_dev_command_or_a_scenario() {
 
 /// The scenario that fills each section of the journal, and the list of the journal that it
 /// fills. The Stories tab also shows the stories that wait, which `/twdev inbox` brings.
-const SECTION_SCENARIOS: [(&str, &str, &str); 6] = [
+const SECTION_SCENARIOS: [(&str, &str, &str); 5] = [
     ("hero", "flavor-and-hero", "hero"),
     ("chapters", "level-30-paladin", "chapters"),
     ("stories", "story-inbox", "stories"),
-    ("deeds", "raider-60", "deeds"),
-    ("learned", "level-30-paladin", "learned"),
+    ("knowledge", "level-30-paladin", "places"),
     ("quests", "side-quests", "quests"),
 ];
 

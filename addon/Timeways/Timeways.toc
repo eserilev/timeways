@@ -77,11 +77,15 @@ TaskNames.lua
 TaskDraftHelp.lua
 TaskPages.lua
 JournalRows.lua
+JournalLinks.lua
+KnowledgeIndex.lua
+AtlasPins.lua
 JournalEdits.lua
 JournalChronicle.lua
 JournalQuests.lua
 JournalStories.lua
 JournalHero.lua
+JournalKnowledge.lua
 Journal.lua
 Ink.lua
 MapPane.lua
@@ -94,6 +98,7 @@ SelfTest.lua
 Welcome.lua
 TalkWindow.lua
 DevTriggers.lua
+DevAtlas.lua
 DevPeer.lua
 DevFps.lua
 Core.lua

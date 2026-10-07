@@ -379,3 +379,9 @@ function JournalQuests.Page(journal)
 	page.map = ns.TaskPins.MapOf(page.pins)
 	return page
 end
+
+-- A quest that a page of Knowledge names opens here.
+ns.JournalLinks.OPENERS.quest = function(number)
+	ns.JournalFrame.Open("quests")
+	ns.JournalFrame.Select(number)
+end
