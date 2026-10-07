@@ -140,3 +140,17 @@ fn a_kill_of_a_foe_that_no_tag_names_is_no_deed() {
 
     assert!(deeds(&mut story).is_empty());
 }
+
+#[test]
+fn a_kill_under_the_game_name_counts_for_a_tag_of_the_wiki_name() {
+    let thermaplugg = Passage {
+        depends_on: Some(Dependency::Foe("Sicco Thermaplugg".to_string())),
+        ..passage("Sicco Thermaplugg ruled Gnomeregan until adventurers slew him.")
+    };
+    let mut story = story_with("game-name", &[thermaplugg]);
+    enter_duskwood(&mut story);
+
+    kill(&mut story, "Mekgineer Thermaplugg");
+
+    assert_eq!(deeds(&mut story).len(), 1);
+}

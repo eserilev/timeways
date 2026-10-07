@@ -9,6 +9,7 @@ use crate::dev_fps::{self, FpsRun};
 use crate::dev_mode::{DevMode, DevOn};
 use crate::draft::Draft;
 use crate::flavor::{self, Flavor, HUMBLING_GAP, Kind, Teller, Told};
+use crate::game_names;
 use crate::gear::{self, Before, Quality};
 use crate::hero::{self, Change, Entry};
 use crate::input::{CallId, FoeKind, GameQuestKind, Input, MessageId, Reaction, SlotWas, Taxi};
@@ -710,7 +711,7 @@ impl Story {
     /// neither rare nor a boss, and its outcome would never unlock.
     fn kill_npc(&mut self, at: Tick, name: &str) -> Result<Vec<Output>, StoryError> {
         self.count_kill(at, checked_name(name)?)?;
-        if !self.pack.tags_foe(name)? {
+        if !self.pack.tags_foe(game_names::wiki_name(name))? {
             return Ok(Vec::new());
         }
         self.defeat_npc(at, name, None)
