@@ -6,7 +6,7 @@ Lean functions. The theorems in `Timeways/QuestLog.lean`,
 `Timeways/TrustBand.lean`, `Timeways/Prompts.lean`,
 `Timeways/Aliases.lean`, `Timeways/StoryShelf.lean`,
 `Timeways/EntryEdits.lean`, `Timeways/Chapters.lean`, `Timeways/ChaptersDeaths.lean`,
-`Timeways/NarratorShapes.lean`, `Timeways/ThinLore.lean`, and `Timeways/Outcomes.lean` are about those functions. A theorem holds for every input, with no bound. The
+`Timeways/NarratorShapes.lean`, `Timeways/ThinLore.lean`, `Timeways/Outcomes.lean`, and `Timeways/Setups.lean` are about those functions. A theorem holds for every input, with no bound. The
 property tests in `crates/story/tests/properties.rs` check the same
 rules on random input, and they stay as a second check.
 
@@ -427,6 +427,25 @@ it.
 | `an_unresolved_outcome_is_never_used` | An unresolved deed is refused, whatever the world holds. | `an_unresolved_deed_never_passes` |
 | `a_passage_with_no_outcome_is_not_gated_by_this_rule` | A passage with no deed passes this gate, whatever the world holds. | `a_passage_with_no_deed_passes_with_no_facts` |
 | `an_outcome_the_player_did_passes` | A deed that the player did lets its passage through. | `the_vancleef_passage_reaches_the_prompt_only_after_the_kill` |
+
+## What is proved: the gate of setup passages
+
+`setup_usable` in `crates/rules/src/setups.rs` decides if a setup
+passage may reach a prompt (GAMEPLAY.md 5.10). A setup tells who wants
+a deed done in a dungeon or a raid, such as "Gryan Stoutmantle sent
+adventurers to kill VanCleef". It goes stale once the player did that
+deed, so the gate is the inverse of the gate of outcome passages. It
+reads ids, never strings, and it takes the same `PlayerFacts`. The glue
+in `crates/story/src/spoiler.rs` gives one id to each distinct name. No
+proof reads the glue. Its named tests and property tests check it.
+
+| Theorem | The law | Test |
+|---|---|---|
+| `setup_usable.spec` | The gate ends and gives its pure model: true exactly when the player has not done the deed of the setup. | the unit tests of `setups.rs` |
+| `the_setup_gate_never_panics` | For every tag and every two lists of ids, the gate gives a value. | none |
+| `a_setup_for_a_deed_the_player_did_never_reaches_a_prompt` | A setup for a foe that the player defeated, or for a quest that the player turned in, is refused. | `a_done_setup_never_passes_for_any_facts` |
+| `a_setup_for_a_deed_not_done_is_not_gated_by_this_rule` | A setup for a deed that the player has not done passes this gate. | `a_first_deadmines_entry_tells_the_setup_until_vancleef_dies` |
+| `a_passage_with_no_setup_is_not_gated_by_this_rule` | A passage with no setup passes this gate, whatever the world holds. | `a_passage_with_no_setup_passes_with_any_facts` |
 
 ## What you trust
 

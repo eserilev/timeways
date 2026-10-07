@@ -2802,6 +2802,24 @@ def quest_log.quest_log
   := do
   quest_log.quest_log_loop changes (alloc.vec.Vec.new quest_log.Quest) 0#usize
 
+/-- [timeways_rules::setups::setup_usable]:
+    Source: 'crates/rules/src/setups.rs', lines 25:0-31:1
+    Visibility: public -/
+def setups.setup_usable
+  (setup_for : setups.SetupFor) (facts : outcomes.PlayerFacts) :
+  Result Bool
+  := do
+  match setup_for with
+  | setups.SetupFor.Nothing => ok true
+  | setups.SetupFor.Foe foe =>
+    let s := alloc.vec.Vec.deref facts.defeated
+    let b ← thin_lore.holds s foe
+    ok (¬ b)
+  | setups.SetupFor.Quest quest =>
+    let s := alloc.vec.Vec.deref facts.quests_done
+    let b ← thin_lore.holds s quest
+    ok (¬ b)
+
 /-- [timeways_rules::story_shelf::is_taken]: loop 0:
     Source: 'crates/rules/src/story_shelf.rs', lines 18:4-29:1
     Visibility: public -/

@@ -13,6 +13,7 @@ import Timeways.ChaptersDeaths
 import Timeways.NarratorShapes
 import Timeways.ThinLore
 import Timeways.Outcomes
+import Timeways.Setups
 
 open timeways_rules
 
@@ -443,3 +444,23 @@ open timeways_rules
 /-- info: 'timeways_rules.outcomes.an_outcome_the_player_did_passes' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs (whitespace := lax) in
 #print axioms outcomes.an_outcome_the_player_did_passes
+
+/-- info: 'timeways_rules.setups.setup_usable.spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms setups.setup_usable.spec
+
+/-- info: 'timeways_rules.setups.the_setup_gate_never_panics' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms setups.the_setup_gate_never_panics
+
+/-- info: 'timeways_rules.setups.a_setup_for_a_deed_the_player_did_never_reaches_a_prompt' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms setups.a_setup_for_a_deed_the_player_did_never_reaches_a_prompt
+
+/-- info: 'timeways_rules.setups.a_setup_for_a_deed_not_done_is_not_gated_by_this_rule' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms setups.a_setup_for_a_deed_not_done_is_not_gated_by_this_rule
+
+/-- info: 'timeways_rules.setups.a_passage_with_no_setup_is_not_gated_by_this_rule' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms setups.a_passage_with_no_setup_is_not_gated_by_this_rule

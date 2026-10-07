@@ -28,6 +28,7 @@ pub mod narrator_shapes;
 pub mod outcomes;
 pub mod prompts;
 pub mod quest_log;
+pub mod setups;
 pub mod story_shelf;
 pub mod thin_lore;
 pub mod trust;

@@ -403,6 +403,15 @@ structure quest_log.Quest where
   giver : String
   progress : quest_log.Progress
 
+/-- [timeways_rules::setups::SetupFor]
+    Source: 'crates/rules/src/setups.rs', lines 12:0-19:1
+    Visibility: public -/
+@[discriminant isize]
+inductive setups.SetupFor where
+| Nothing : setups.SetupFor
+| Foe : Std.U32 → setups.SetupFor
+| Quest : Std.U32 → setups.SetupFor
+
 /-- [timeways_rules::story_shelf::ShelfLine]
     Source: 'crates/rules/src/story_shelf.rs', lines 9:0-12:1
     Visibility: public -/
