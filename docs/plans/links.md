@@ -112,7 +112,7 @@ The proof of a row is the set of its roots. To find them, follow `input` and `ca
 
 - **The weakest root wins** for display: Lost, then Shared, then Player, then Game.
 - **Model is not a proof.** It says how a row was made, and the `call` column already says that.
-- **Not built: a Deeds page of Game proof alone.** Rule 4 says that the game is the truth, so the Deeds page was to show only rows with Game proof alone. Today it shows every deed. No test checks it yet.
+- **Dropped: a Deeds page of Game proof alone.** The Deeds tab is gone since 2026-10-07: each deed shows in its chapter and on its place in Knowledge (GAMEPLAY.md 3.6). A filter by proof waits for a use there.
 - Example: a trust change from `/talk` has the roots {Player, Game}. Player wins, so it shows as resting on your words.
 
 ## 8. Rules that keep the graph whole

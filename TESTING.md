@@ -57,7 +57,7 @@ The last report stays in the saved variables, as `TimewaysDB.selfTest`. WoW writ
 5. Wait a minute.
 6. Ask `/lore` about a word from one of those texts.
 
-The answer uses that text, and says where you learned it. Open `/journal` on the Knowledge tab: the texts show there, with the place and the date.
+The answer uses that text, and says where you learned it. Open `/journal` on the Knowledge tab: the texts show under "Read and heard" of the zone where you read them, and a click opens each one with its date.
 
 ### 4. The lore book
 
@@ -105,7 +105,7 @@ In the world folder, run `sqlite3 c_<name>.sqlite "SELECT body FROM learned"`. Y
 ### 8. Open questions of the design
 
 1. While a book from a table or a shelf is open, type `/dump UnitName("npc")`. Write down what it shows.
-2. Kill a rare, and die to a mob. Open `/journal` and check the Deeds tab.
+2. Kill a rare, and die to a mob. Open `/journal`: the kill and the death show in the open chapter of the Chronicle, and under "Deaths and kills" of the zone in Knowledge.
 3. Check the Hero and Chronicle tabs. The Chronicle tab shows the newest chapter.
 
 ### 9. NPCs remember you
@@ -254,7 +254,8 @@ This test needs a model.
 The chapters, the tales, and the contents (`docs/plans/chapters.md`).
 
 1. Open `/journal` on the Chronicle. The list on the left groups the chapters by level band, such as "Levels 10 to 19", newest first. The open chapter shows "· now".
-2. Click a chapter that is over. The page shows "Chapter N", its title, the dates and the levels, the story when a model wrote one, and "In this chapter" with one line for places, people, defeated, quests, deaths, and stories.
+2. Click a chapter that is over. The page shows "Chapter N", its title, the dates and the levels, the story when a model wrote one, and "In this chapter" with one line for places, people, the people that you talked to, defeated, quests, deaths, and stories, then the other deeds: titles, mounts, gear, and battles. The map shows pins for the places and people of the chapter.
+7. Click a place or a person in "In this chapter". Knowledge opens on its page.
 3. Take a flight path across two or three zones and land. No new chapter starts for the flight.
 4. Run a dungeon, leave it, and wait 30 minutes or more of play. Under the chapter where you entered it, the list shows the dungeon with "Dungeon · 1 run". Its page shows what you defeated inside. After the next batch, it shows a short story of the dungeon, when a model runs.
 5. Run the same dungeon again with nothing new. The count says "2 runs", and the story does not change.
@@ -313,6 +314,17 @@ The wiki and the game name some bosses in two ways. A kill under the game name c
 2. Kill High Inquisitor Whitemane, and ask again. The answer can tell more now.
 3. Check two encounter names of the game. They wait for a check in the game: Aku'mai in Blackfathom Deeps, and the fight of High Inquisitor Whitemane in the Cathedral. After each kill, open the Deeds tab of the journal, and read the name of the kill. Send it back when it is not "Aku'mai" or "High Inquisitor Whitemane". A row of `crates/story/data/game_names.toml` then needs that name.
 4. Enter Shadowfang Keep, and ask `/lore What happened to Arugal?` before you kill him. The answer tells nothing of his death.
+
+### 30. Knowledge, place by place
+
+Knowledge is an atlas: the map is the index.
+
+1. Open `/journal` on Knowledge. It opens on the zone where you stand: its name, the first visit and its chapter, and boxes with counts, such as "9 people" and "11 quests". No count says "of".
+2. The map shows a pin for each place of the zone where you stood with a position, and a skull where you died. Hover a pin: the tooltip names the place and its counts. Click it: the page of the place opens, its pin stands out, and the pins of its people show.
+3. Click a person on a page. Their page shows how they feel about you, in the words of their tooltip, when you met, what they said to you, and the quests between you. Back returns to the page before.
+4. Click "< Eastern Kingdoms" (or your continent) on the map. The page lists each zone that you visited, with two counts.
+5. With a lore pack, a zone shows "What you know". Meet an NPC that its lore names, and open the zone again: a new passage can show. "There's more to learn here." shows only while some lore of the zone waits.
+6. Open the Chronicle, and click a chapter in the list of a zone. The chapter opens.
 
 ## Dev mode
 
@@ -402,6 +414,8 @@ Type `/twdev help` for the list. A name with spaces needs no quotes. A slash sep
 | `slap <npc>`, `emote <emote> [/ npc]` | An emote, with its slap and its trust. |
 | `carry <count> <item> / <npc>` | You show an NPC what your bags hold, for a carry step. |
 | `journal` | The desktop sends the journal now, and the book opens. |
+| `atlas` | You walk into three places of the zone where you stand, at points on its real map, and meet one person in each. Someone tells you something, you read a quest and turn it in, you read a book, you die to "Dev Wolf", and you defeat "Dev Rare". Knowledge opens. |
+| `atlas empty` | Knowledge opens on a place that you never visited. |
 | `welcome setup\|files\|offline` | The setup window for that reason. |
 | `fps start [label]`, `fps stop` | No fake: it samples the real frame rate once a second, and sends the run to the desktop at the stop. It stops by itself after 15 minutes. |
 | `peer <name> story [title]` | A fake player of your group tells a story about you. |
@@ -420,10 +434,10 @@ Type `/twdev help` for the list. A name with spaces needs no quotes. A slash sep
 
 | Test | How to reach it fast | What to look for |
 |---|---|---|
-| 3. The text that you read | `/twdev book The Kingdom of Stormwind`, `/twdev gossip Innkeeper Farley / Rest a while.`, then `/lore` | The answer cites the text. Knowledge lists it. |
+| 3. The text that you read | `/twdev book The Kingdom of Stormwind`, `/twdev gossip Innkeeper Farley / Rest a while.`, then `/lore` | The answer cites the text. Knowledge lists it under "Read and heard". |
 | 5. A side quest | `/twdev seen Prowler beast`, `/twdev meet Thor`, `/twdev quest Thor`, then the step commands: `kill`, `zone`, `meet`, `talk`, `emote`, `slap`, `carry`, `hour`, `level`, `game-quest`, `dungeon` | The offer, the steps that complete, "Prowler slain: 1/3". The `side-quests` scenario shows every step kind with no model. |
 | 6. Player quests | `/twdev peer Kobee near`, open New quest, send it to Kobee, then `/twdev peer Kobee step 1` and `/twdev peer Kobee turnin 1`. For a quest to you: `/twdev peer Kobee quest`. | Kobee in "Send to", the turn-in card with Witnessed or Seen, Complete quest. |
-| 8. Kills and deaths on Deeds | `/twdev kill Hogger rare`, `/twdev death Mor'Ladim` | The Deeds tab. |
+| 8. Deeds in the Chronicle | `/twdev kill Hogger rare`, `/twdev death Mor'Ladim`, `/twdev mount Brown Horse`, then the Chronicle. The `level-30-paladin` scenario has deeds in every chapter. | "In this chapter" of the open chapter: "Defeated: Hogger.", "Deaths: Mor'Ladim at ...", and "Rode your first mount, Brown Horse." Each place and person is a link. |
 | 9. NPCs remember you | `/twdev talk Innkeeper Farley / Any news?` twice; `/twdev death Hogger`, then `/twdev talk` an NPC of that zone | The second answer recalls the first. |
 | 10. Hero hooks | Answer Goal, then `/twdev talk <npc>` three times | The third answer ties in the goal. |
 | 11. New kinds of quests | The `side-quests` scenario, then `/twdev hour 22` or `/twdev carry 10 Wool Cloth / Innkeeper Belm` | Waits, sets, carry counts, night visits, a mystery. |
@@ -441,6 +455,8 @@ Type `/twdev help` for the list. A name with spaces needs no quotes. A slash sep
 | 26. Lore of your own deeds | The `outcome-lore` scenario, `/lore What happened to Edwin VanCleef?`, then `/twdev kill Edwin VanCleef boss` and the same question | The first answer tells nothing of his death. The second one does. |
 | 27. Dungeon setups and later entries | The `dungeon-setups` scenario, then `/twdev dungeon-again The Deadmines` three times. Then seed again with `--replace`, `/twdev kill Edwin VanCleef boss`, and `/twdev dungeon-again The Deadmines` | Three lines with three different pieces of lore, the first one a setup. After the kill, no setup. |
 | 28. Lore of a foe that is no rare | Kill Mor'Ladim in Duskwood, or `/twdev kill Mor'Ladim` (no kind), with a pack that tags him. Then `/lore What happened to Mor'Ladim?` | The answer tells of his death only after the kill. A kill of a common mob adds no deed. |
+| 30. Knowledge, full | `/twdev atlas` in any zone with a map | The zone page with its counts, People, Quests, "Read and heard", "Deaths and kills", and Chapters. Three pins on the real map ("Dev Camp", "Dev Ruins", "Dev Tower") and a skull at "Dev Ruins". Hover a pin for its counts, and click it. Click "Dev Scout", then Back. "< Eastern Kingdoms" (or your continent) opens the world page. With a lore pack, the zone shows "What you know". |
+| 30. Knowledge, empty | `/twdev atlas empty`, or the `fresh` scenario | "You haven't been here yet." for a place that you never saw, or "Nothing yet. People you meet, books you read, and quests you finish show up here." |
 
 Each scenario and each command has a named test. Three tests fail when a new feature has no way in dev mode: `every_input_line_has_a_dev_command_or_a_scenario` and `every_section_of_the_journal_has_a_scenario_that_fills_it` (`crates/addon-tests/tests/dev_mode.rs`), and `every_kind_of_narrator_moment_comes_in_a_scenario` (`crates/dev/tests/scenarios.rs`).
 
@@ -507,7 +523,7 @@ How to read the results:
 ### What dev mode can't fake
 
 - **The answers of a model.** A narrator line, a saga, a tale, a summary, a history of a zone, a talk, a quest offer of `/quest`, and "Help me write" need a model. The scenarios fix the answers of side quests only.
-- **The positions on the map.** A fake place has no point on a map of the game, so it gets no pin.
+- **The positions on the map.** A fake place of a command has no point on a map of the game, so it gets no pin. Only `/twdev atlas` gives its places points on the map of the zone where you stand.
 - **The hooks of the game itself:** the menu of a right click on a real player, the tooltip of a real unit, and the real `PARTY_KILL`, auras, and death recap. The commands start right after them.
 - **A real second game.** The logged channel, the rate limits of the server, and trades between two players need two characters (tests 6 and 13 in full).
 
@@ -532,6 +548,7 @@ How to read the results:
 - For test 25: a screenshot of a chapter with your note, and of the History that your friend sees.
 - For test 26: both answers, as text.
 - For test 27: each narrator line, as text.
+- For test 30: a screenshot of a zone page with its pins, of a person page, and of the world page.
 
 ## After the test
 

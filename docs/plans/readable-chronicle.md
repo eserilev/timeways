@@ -2,6 +2,8 @@
 
 Status: spec only, 2026-10-03. Nothing is built, and nothing gets built from this text alone.
 
+Update 2026-10-07: the user approved a mockup of Knowledge as an atlas and of the Chronicle as a book (item 6 of the product review). Built from it, with the rules in `GAMEPLAY.md` 3.6: the atlas pages of a zone, a place, a person, a text, and the world as a list; the lore of each place and person from the desktop (`lore`, behind the spoiler limit), and "There's more to learn here."; counts in boxes; links in pages; place, person, and death pins that you can click, with a tooltip; the map of a chapter; "Talked to" in a chapter; and the end of the Deeds tab. Not built: the world view with zones to click on the art of the continent ("Hard" in the mockup), the full Lore page of one passage with "Read more", a death at its own position (a death uses the spot of its place), trusted sets such as "History of Warcraft: 3 of 5", the "read" mark on a tooltip (12.4), and the filters of the Chronicle (section 5).
+
 **This feature needs a lot of design work before any build.** The user approved a direction, not a design. Before any code, we make mockups, show them to the user, and change them over several rounds. We also test a prototype with players (section 7). The build plans (section 11 and section 12.8) apply only after the user approves one design. Section 12, Knowledge by place, is in the same state: a spec only, with design work before any build. When a part is built, its rules move into `GAMEPLAY.md` 3.3 and 3.6, and this plan marks the part as done.
 
 ## 1. Goal

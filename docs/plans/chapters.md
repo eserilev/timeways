@@ -435,5 +435,5 @@ What the build changed from the text above, and why:
 Not built:
 
 - **The filter of the contents by kind** (section 6). The contents mark each tale with its kind.
-- **The Knowledge atlas.** The journal carries "Your history here" of each zone (`histories`), and nothing shows it yet. The atlas page of an instance shows its tale there, once the atlas exists.
+- **The tale on the atlas.** The zone page of Knowledge shows "Your history here" (built 2026-10-07, GAMEPLAY.md 3.6). The page of an instance does not show its tale yet.
 - **Narrator lines** for a battleground won and a new rank.
