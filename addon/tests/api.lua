@@ -44,6 +44,8 @@ return {
 		"C_Map.GetPlayerMapPosition",
 		"C_MapExplorationInfo",
 		"C_MapExplorationInfo.GetExploredMapTextures",
+		"C_MountJournal",
+		"C_MountJournal.GetMountFromSpell",
 		"C_QuestLog",
 		"C_QuestLog.GetInfo",
 		"C_QuestLog.GetNumQuestLogEntries",

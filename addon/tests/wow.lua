@@ -1378,6 +1378,20 @@ function IsMounted()
 	return wow.mounted
 end
 
+-- The mount of each mount spell in the mount journal: the Gray Ram and the Swift Gray Ram.
+wow.mountSpells = { [6777] = 1, [23238] = 2 }
+
+-- The client takes a hidden spell from an addon (AllowedWhenTainted), and its answer is
+-- hidden too.
+C_MountJournal = {
+	GetMountFromSpell = function(spellID)
+		if issecretvalue(spellID) then
+			return wow.Hidden(spellID)
+		end
+		return wow.mountSpells[spellID]
+	end,
+}
+
 -- The speed of the player now, in yards a second: above 0 while the player moves.
 wow.speed = 0
 

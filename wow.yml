@@ -93,6 +93,10 @@ globals:
       - type: string
   GetBattlefieldWinner:
     args: []
+  GetBattlefieldInstanceRunTime:
+    args: []
+  C_MountJournal:
+    any: true
   C_MajorFactions:
     any: true
   InCombatLockdown:

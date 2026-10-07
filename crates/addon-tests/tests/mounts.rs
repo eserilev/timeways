@@ -67,7 +67,7 @@ fn the_same_mount_goes_once_in_a_session() {
 }
 
 #[test]
-fn an_aura_of_another_caster_or_with_an_end_names_no_mount() {
+fn an_aura_whose_spell_is_no_mount_names_no_mount() {
     let game = Game::new();
 
     ride(
@@ -141,4 +141,36 @@ fn a_hidden_aura_update_names_no_mount_and_raises_no_error() {
     ));
 
     assert!(rides(&game).is_empty(), "{:?}", rides(&game));
+}
+
+/// A paladin aura has no end and comes from you, as a mount aura does.
+const DEVOTION: &str =
+    "{ name = 'Devotion Aura', spellId = 465, duration = 0, sourceUnit = 'player' }";
+
+#[test]
+fn a_paladin_aura_cast_just_after_the_mount_names_no_mount() {
+    let game = Game::new();
+
+    ride(&game, &format!("{RAM}, {DEVOTION}"), 11.2);
+
+    assert_eq!(rides(&game), [("Gray Ram".to_string(), Some(160))]);
+}
+
+#[test]
+fn a_paladin_aura_alone_names_no_mount() {
+    let game = Game::new();
+
+    ride(&game, DEVOTION, 11.2);
+
+    assert!(rides(&game).is_empty());
+}
+
+#[test]
+fn a_hidden_spell_names_no_mount_and_raises_no_error() {
+    let game = Game::new();
+    game.run("wow.secrets[6777] = true");
+
+    ride(&game, RAM, 11.2);
+
+    assert!(rides(&game).is_empty());
 }

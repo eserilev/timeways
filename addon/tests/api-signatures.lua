@@ -277,6 +277,15 @@ return {
 				{ Name = "overlayInfo", Type = "table", InnerType = "UiMapExplorationInfo", Nilable = false },
 			},
 		},
+		["C_MountJournal.GetMountFromSpell"] = {
+			SecretArguments = "AllowedWhenTainted",
+			Arguments = {
+				{ Name = "spellID", Type = "SpellIdentifier", Nilable = false },
+			},
+			Returns = {
+				{ Name = "mountID", Type = "number", Nilable = true },
+			},
+		},
 		["C_QuestLog.GetInfo"] = {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {
