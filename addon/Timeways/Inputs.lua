@@ -189,6 +189,12 @@ function Inputs.StoryAccepted(at, number, title, paragraphs)
 	return { type = "story_accepted", at = at, number = number, title = Present(title), paragraphs = paragraphs }
 end
 
+-- A like ("up") or a dislike ("down") of a narrator text (GAMEPLAY.md 3.2.2). `first` is
+-- the first event of a chapter or a tale, and nil for a narrator line or the summary.
+function Inputs.LineRated(at, rated, first, rating)
+	return { type = "line_rated", at = at, rated = rated, first = first, rating = rating }
+end
+
 function Inputs.StoryRemoved(at, number)
 	return { type = "story_removed", at = at, number = number }
 end

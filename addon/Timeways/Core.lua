@@ -199,5 +199,8 @@ SlashCmdList.TIMEWAYSJOURNAL = function(message)
 		ns.Welcome.Open(ns.Welcome.Reason())
 		return
 	end
+	if ns.Ratings.Command(message) then
+		return
+	end
 	ns.JournalFrame.Toggle()
 end

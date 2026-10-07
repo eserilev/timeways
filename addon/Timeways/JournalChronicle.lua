@@ -524,6 +524,7 @@ function JournalChronicle.Page(journal)
 	end
 	result.edit = EditOf(journal, open)
 	result.buttons = ns.JournalEdits.Buttons(result.edit, open.edit)
+	ns.Ratings.AddButtons(result.buttons, open, journal)
 	for _, step in ipairs(Steps(keys, index)) do
 		result.buttons[#result.buttons + 1] = step
 	end

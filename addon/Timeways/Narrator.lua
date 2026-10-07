@@ -11,5 +11,6 @@ local PREFIX = "|cffe6cc80Narrator|r: "
 function Narrator.Say(text)
 	if type(text) == "string" and text ~= "" then
 		DEFAULT_CHAT_FRAME:AddMessage(PREFIX .. ns.WithName(text))
+		ns.Ratings.Heard()
 	end
 end
