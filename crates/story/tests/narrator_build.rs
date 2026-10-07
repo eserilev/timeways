@@ -499,3 +499,42 @@ fn a_weapon_is_carried_and_armor_is_worn() {
     assert!(!line(weapon).line.contains("wears"));
     assert!(line(worn).line.contains("wears"));
 }
+
+const DEPTHS: &str =
+    "The Dark Iron dwarves forge weapons in the Blackrock Depths for Ragnaros, their master.";
+
+fn worn(item: &str) -> Setup {
+    let moment = Moment::BigUpgrade {
+        item: item.to_string(),
+        zone: None,
+        slot: Some(SlotKind::Worn),
+    };
+    setup(moment, Who::default(), 0)
+}
+
+fn depths_answer(history: &str) -> String {
+    format!("{{\"lore\": \"{history}\", \"there\": false}}")
+}
+
+#[test]
+fn a_slop_word_in_the_name_of_an_item_passes_in_its_slot() {
+    let (_, verdict) = told(&worn("Dawn's Edge"), DEPTHS, &depths_answer(DEPTHS));
+
+    assert!(line(verdict).line.contains("Dawn's Edge"));
+}
+
+#[test]
+fn the_name_of_an_item_never_unlocks_a_cutoff_name() {
+    let (_, verdict) = told(&worn("Edge of Pandaria"), DEPTHS, &depths_answer(DEPTHS));
+
+    assert!(faults(verdict).contains(&LineFault::LaterName("Pandaria".to_string())));
+}
+
+#[test]
+fn the_name_of_an_item_never_unlocks_its_slop_word_in_the_history() {
+    let history = "The Dark Iron dwarves forge at dawn in the Blackrock Depths for Ragnaros.";
+
+    let (_, verdict) = told(&worn("Dawn's Edge"), DEPTHS, &depths_answer(history));
+
+    assert!(faults(verdict).contains(&LineFault::Banned("dawn".to_string())));
+}

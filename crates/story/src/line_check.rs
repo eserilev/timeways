@@ -93,6 +93,17 @@ impl Grounds {
         parts.join("\n")
     }
 
+    /// The line with each name from outside cut out. The code put the name in its slot,
+    /// and the history passed its own checks, so a word of the name is no slop there. The
+    /// check of later names still reads the whole line.
+    fn without_outside(&self, line: &str) -> String {
+        let mut worded = line.to_string();
+        for name in &self.outside {
+            worded = worded.replace(name.as_str(), " ");
+        }
+        worded
+    }
+
     /// The words that ground a line: each long word of a name of the moment, each name of
     /// the moment text or the lore, and each number of the moment.
     fn anchors(&self) -> Vec<String> {
@@ -367,10 +378,11 @@ pub fn built_faults(line: &str, lore: &str, grounds: &Grounds) -> Vec<LineFault>
     if has_emoji(&line) {
         found.push(LineFault::Emoji);
     }
-    let banned = banned_words_in(&line)
+    let worded = grounds.without_outside(&line);
+    let banned = banned_words_in(&worded)
         .into_iter()
         .filter(|word| !mentions(&told, word));
-    let banned = banned.chain(slop_in(&line, &told));
+    let banned = banned.chain(slop_in(&worded, &told));
     found.extend(banned.map(|word| LineFault::Banned(word.to_string())));
     if line.contains(['[', ']', '{', '}', '<', '>']) {
         found.push(LineFault::Bracket);
