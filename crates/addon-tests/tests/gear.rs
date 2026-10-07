@@ -193,6 +193,29 @@ fn an_item_with_no_data_yet_goes_out_once_the_data_comes() {
 }
 
 #[test]
+fn an_item_whose_data_never_comes_in_time_is_dropped() {
+    let game = logged_in();
+    put_on(&game, 16, "Late Blade");
+
+    game.run("wow.now = wow.now + 61");
+    data_comes(&game, "Late Blade", 4, 50);
+
+    assert!(sent(&game).is_empty());
+}
+
+#[test]
+fn a_slot_that_waited_too_long_still_sends_its_next_item() {
+    let game = logged_in();
+    put_on(&game, 16, "Late Blade");
+    game.run("wow.now = wow.now + 61");
+
+    data_comes(&game, "Late Blade", 4, 50);
+    put_on(&game, 16, "Cruel Barb");
+
+    assert_eq!(sent(&game).len(), 1);
+}
+
+#[test]
 fn gear_with_no_data_at_login_gives_its_level_once_the_data_comes() {
     let game = Game::new();
     game.run(

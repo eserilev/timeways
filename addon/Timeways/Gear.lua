@@ -18,8 +18,11 @@ local MAX_LEVEL = 65535
 -- What each slot held last: { link, item, quality, level }. A slot that you empty keeps its
 -- last item, so an item taken off and another put on compare with each other.
 local worn = {}
--- The equips that wait for the data of an item, by slot: { before }.
+-- The equips that wait for the data of an item, by slot: { before, at }.
 local waiting = {}
+-- The game can never send the data of an item. An equip that waits longer goes, so it
+-- never goes out late as news.
+local WAIT_SECONDS = 60
 
 local function Whole(value)
 	if type(value) == "number" and value >= 0 and value <= MAX_LEVEL and value % 1 == 0 then
@@ -90,14 +93,15 @@ function Gear.Changed(slot)
 	end
 	worn[slot] = now
 	if IsLoading(now) or IsLoading(before) then
-		waiting[slot] = { before = before }
+		waiting[slot] = { before = before, at = time() }
 		return
 	end
 	waiting[slot] = nil
 	Equipped(slot, now, before)
 end
 
--- GET_ITEM_INFO_RECEIVED: the items with no data get it, and an equip that waited goes out.
+-- GET_ITEM_INFO_RECEIVED: the items with no data get it, and an equip that waited goes out,
+-- unless it waited too long.
 -- A slot that changed again waits for its newest item only.
 function Gear.ItemLoaded()
 	for _, item in pairs(worn) do
@@ -106,7 +110,9 @@ function Gear.ItemLoaded()
 	for slot, wait in pairs(waiting) do
 		Fill(wait.before)
 		local now = worn[slot]
-		if not IsLoading(now) and not IsLoading(wait.before) then
+		if time() - wait.at > WAIT_SECONDS then
+			waiting[slot] = nil
+		elseif not IsLoading(now) and not IsLoading(wait.before) then
 			waiting[slot] = nil
 			Equipped(slot, now, wait.before)
 		end
