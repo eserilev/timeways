@@ -22,6 +22,7 @@ fn journal_reply(character: &Character) -> String {
         page: Box::new(page),
         notice: None,
         dev: None,
+        past: None,
     })
     .unwrap()
 }
@@ -248,6 +249,7 @@ fn page_reply(page: timeways_story::journal::Page) -> String {
         page: Box::new(page),
         notice: None,
         dev: None,
+        past: None,
     })
     .unwrap()
 }

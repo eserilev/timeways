@@ -1,6 +1,7 @@
 //! Prints the narrator prompt of each big moment of a world, for review (GAMEPLAY.md
-//! 3.2.1). With `--model`, it also sends each prompt to a model and prints the line that
-//! the player would see. It reads a copy of the world, and never writes the world.
+//! 3.2.1), and the prompt of its prologue when the world keeps a past (3.3). With
+//! `--model`, it also sends each prompt to a model and prints the text that the player
+//! would see. It reads a copy of the world, and never writes the world.
 //!
 //! ```text
 //! timeways-narrator-review <world .sqlite> [--pack <lore pack>] [--race <token>]
@@ -13,12 +14,15 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode, Stdio};
 use timeways_rules::narrator_shapes::WINDOW;
+use timeways_story::character::Character;
 use timeways_story::learned::Read;
 use timeways_story::line_check::{Checked, checked_line};
 use timeways_story::narrator::{Who, what_happened};
 use timeways_story::narrator_build::{Answered, Built, Setup, answered};
 use timeways_story::narrator_review::{Review, Sources, reviews, template_lines};
 use timeways_story::pack::Pack;
+use timeways_story::past::PastRow;
+use timeways_story::prologue;
 use timeways_story::prompt;
 use timeways_story::store::{CharacterKey, Store, name_of_safe_id};
 
@@ -152,6 +156,36 @@ fn review_copy(options: &Options, copy: &Path) -> Result<(), Box<dyn Error>> {
             }
             None => println!("{}\n", review.prompt),
         }
+    }
+    let past = opened.past.rows().first();
+    past.map_or(Ok(()), |row| {
+        review_prologue(options, &pack, &opened.character, row)
+    })
+}
+
+/// The prologue of the kept past, whether or not the rule makes it due: a person reviews
+/// the voice. One call, with no retry, as the story program does.
+fn review_prologue(
+    options: &Options,
+    pack: &Pack,
+    character: &Character,
+    row: &PastRow,
+) -> Result<(), Box<dyn Error>> {
+    let mut facts = prologue::facts_of(pack, character, &row.past)?;
+    if facts.who.is_none() {
+        facts.who = options.who.described();
+    }
+    println!("=== Prologue, at {}", row.past.at.0);
+    let prompt = prologue::prompt(&facts);
+    let Some(model) = &options.model else {
+        println!("{prompt}\n");
+        return Ok(());
+    };
+    let answer = ask(model, &prompt)?;
+    println!("Answer: {answer}");
+    match prologue::checked_prologue(&answer, &prologue::told(&facts), "") {
+        Some(text) => println!("Shown: {text}\n"),
+        None => println!("Shown: (refused: the checks of a saga, or no name of the facts)\n"),
     }
     Ok(())
 }

@@ -14,6 +14,8 @@ use crate::store::{CharacterKey, Node, Outcome, Summary, Table};
 use crate::summary::{self, Facts, MAX_DEEDS, MAX_SAGAS};
 use hourglass::EventId;
 
+use super::prologues::{PROLOGUE_KEY, has_prologue, prologue_text};
+
 const SUMMARY_LIMITS: TextLimits = TextLimits {
     chars: summary::MAX_SUMMARY_CHARS,
     bytes: summary::MAX_SUMMARY_BYTES,
@@ -48,7 +50,8 @@ impl Story {
 
     /// The first event of the newest closed chapter, once no chapter waits for its saga,
     /// when no summary covers it and none was asked for it in this run. Only the newest
-    /// counts: a summary of an older chapter would be replaced at once.
+    /// counts: a summary of an older chapter would be replaced at once. Before the first
+    /// closed chapter, a written prologue counts as chapter 0.
     pub(super) fn summary_waiting(&self, active: &Active) -> Option<EventId> {
         if self.chapter_waiting_for_saga(active).is_some() {
             return None;
@@ -58,13 +61,15 @@ impl Story {
             .chapters()
             .into_iter()
             .rev()
-            .find(|chapter| chapter.state == SpanState::Closed)?;
+            .find(|chapter| chapter.state == SpanState::Closed)
+            .map(|chapter| chapter.first)
+            .or_else(|| has_prologue(active).then_some(PROLOGUE_KEY))?;
         let covered = active
             .summaries
             .newest()
-            .is_some_and(|(_, summary)| summary.after >= newest.first);
-        let asked = self.summary_asked.contains(&newest.first);
-        (!covered && !asked).then_some(newest.first)
+            .is_some_and(|(_, summary)| summary.after >= newest);
+        let asked = self.summary_asked.contains(&newest);
+        (!covered && !asked).then_some(newest)
     }
 
     /// `text` is None for a failed call. A refused summary or a failed call keeps the one
@@ -161,18 +166,22 @@ fn facts_and_read(active: &Active, after: EventId) -> (Facts, Vec<Node>) {
     let tellings = chapter_tellings(active, &chapters);
     let deeds = deeds_of_note(&world.deeds);
     let before = active.summaries.newest();
+    // The prologue is the oldest chapter, so it comes last, when the prompt has room.
+    let prologue = prologue_text(active).filter(|_| chapters.len() < MAX_SAGAS);
+    let mut texts: Vec<String> = chapters
+        .iter()
+        .map(|chapter| match active.prose.get(EventId(chapter.first)) {
+            Some(written) => written.text.clone(),
+            None => memory::summary(chapter),
+        })
+        .collect();
+    texts.extend(prologue.as_ref().map(|(text, _)| text.clone()));
     let facts = Facts {
         who: Who::of(&active.character).described(),
         level: active.character.level(),
         sheet: hero::portrait(&hero, &[]),
         before: before.map(|(_, summary)| summary.text.clone()),
-        chapters: chapters
-            .iter()
-            .map(|chapter| match active.prose.get(EventId(chapter.first)) {
-                Some(written) => written.text.clone(),
-                None => memory::summary(chapter),
-            })
-            .collect(),
+        chapters: texts,
         deeds: deeds.iter().map(|deed| deed_fact(deed)).collect(),
         tellings: tellings.iter().map(|(text, _)| text.clone()).collect(),
         sample_turn: active.summaries.len(),
@@ -195,6 +204,7 @@ fn facts_and_read(active: &Active, after: EventId) -> (Facts, Vec<Node>) {
     read.extend(super::reads::level_read(active));
     read.extend(tellings.into_iter().map(|(_, row)| row));
     read.extend(before.map(|(row, _)| Node::Row(Table::Summaries, row)));
+    read.extend(prologue.map(|(_, row)| row));
     (facts, read)
 }
 

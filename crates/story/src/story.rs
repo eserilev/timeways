@@ -48,6 +48,7 @@ mod calls;
 mod drafts;
 mod edits;
 mod narration;
+mod prologues;
 mod quests;
 mod ratings;
 mod reads;
@@ -148,6 +149,10 @@ pub enum Output {
         notice: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
         dev: Option<DevOn>,
+        /// `"past": "wanted"` until a past came, so the addon sends one at a login
+        /// (GAMEPLAY.md 3.3, the prologue).
+        #[serde(skip_serializing_if = "Option::is_none")]
+        past: Option<PastWanted>,
     },
     /// What the NPC says, or null when no model answered.
     TalkAnswer {
@@ -205,6 +210,13 @@ impl Output {
     }
 }
 
+/// The journal asks the addon for the past of the character.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PastWanted {
+    Wanted,
+}
+
 #[derive(Debug, Error)]
 pub enum StoryError {
     #[error("refused: {}", reasons(.0))]
@@ -253,6 +265,8 @@ pub enum StoryError {
     BadFpsRun,
     #[error("the file of the FPS runs: {0}")]
     FpsFile(std::io::Error),
+    #[error(transparent)]
+    BadPast(#[from] crate::past::PastError),
 }
 
 /// A flavor moment of the batch, scored when it came in.
@@ -634,6 +648,7 @@ impl Story {
             Input::QuestAbandoned { at, number } => self.abandon_quest(at, number),
             Input::JournalAsked { id, page } => self.journal_answer(id, page),
             Input::DevFps(run) => self.keep_fps_run(&run),
+            Input::PastRead(past) => self.read_past(past),
             Input::StoryAccepted {
                 at,
                 number,
@@ -978,6 +993,7 @@ impl Story {
             zone_histories,
             entry_edits,
             ratings,
+            past,
         } = self.store.open(&key)?;
         let read: Vec<SeenText> = learned
             .read()
@@ -1014,6 +1030,7 @@ impl Story {
             zone_histories,
             entry_edits,
             ratings,
+            past,
             edit_refused: None,
             book,
             seen_index,
@@ -1169,11 +1186,15 @@ impl Story {
             id: batch,
             ended: Instant::now(),
         };
+        // The prologue goes first, once in a life, so the narrator of the batch still finds a
+        // free slot.
+        let prologue = self.prologue_call();
         let mut outputs = match self.quest_request.take() {
             Some(request) => self.quest_call(Some(ended), request),
             None if self.notice.is_some() => vec![quests::quiet(batch)],
             None => vec![self.narrator_call(batch)],
         };
+        outputs.extend(prologue);
         outputs.extend(self.saga_call());
         outputs.extend(self.tale_call());
         outputs.extend(self.summary_call());
@@ -1282,6 +1303,7 @@ impl Story {
             page: Box::new(page),
             notice: None,
             dev: self.dev_mode.is_on().then_some(DevOn),
+            past: self.past_wanted(),
         }])
     }
 
@@ -1291,6 +1313,9 @@ impl Story {
         if page == 0 || self.journal.is_empty() {
             let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
             let mut journal = active.journal();
+            journal
+                .chapters
+                .splice(0..0, prologues::journal_prologue(active));
             for chapter in &mut journal.chapters {
                 let first = EventId(chapter.first);
                 let rows: Vec<u64> = active.prose.row_of(first).into_iter().collect();

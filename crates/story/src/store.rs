@@ -18,6 +18,7 @@ pub use shared::Shared;
 
 use crate::character::Character;
 use crate::entry_edits::EntryEdit;
+use crate::past::PastRow;
 use crate::ratings::RatedLine;
 use crate::walk::RuleRow;
 use hourglass::{Event, EventId};
@@ -170,6 +171,7 @@ pub struct Opened {
     pub zone_histories: RowLog<ZoneHistory>,
     pub entry_edits: RowLog<EntryEdit>,
     pub ratings: RowLog<RatedLine>,
+    pub past: RowLog<PastRow>,
 }
 
 /// Everything of `Opened` but the database, read in one transaction.
@@ -190,6 +192,7 @@ struct Read {
     zone_histories: RowLog<ZoneHistory>,
     entry_edits: RowLog<EntryEdit>,
     ratings: RowLog<RatedLine>,
+    past: RowLog<PastRow>,
 }
 
 impl Store {
@@ -242,6 +245,7 @@ impl Store {
             zone_histories: read.zone_histories,
             entry_edits: read.entry_edits,
             ratings: read.ratings,
+            past: read.past,
         })
     }
 }
@@ -278,6 +282,7 @@ fn read_all(database: &Database, path: PathBuf) -> Result<Read, StoreError> {
         RowLog::from_rows(database.read_and_repair(Table::ZoneHistories, |_, _| true)?);
     let entry_edits = RowLog::from_rows(database.read_and_repair(Table::EntryEdits, |_, _| true)?);
     let ratings = RowLog::from_rows(database.read_and_repair(Table::Ratings, |_, _| true)?);
+    let past = RowLog::from_rows(database.read_and_repair(Table::Past, |_, _| true)?);
     database.drop_broken_links()?;
     Ok(Read {
         character,
@@ -296,6 +301,7 @@ fn read_all(database: &Database, path: PathBuf) -> Result<Read, StoreError> {
         zone_histories,
         entry_edits,
         ratings,
+        past,
     })
 }
 

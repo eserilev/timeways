@@ -30,13 +30,13 @@ const PAGE_LIST_ITEMS: usize = 200;
 /// Room for the type, the id, the page numbers, the mark of dev mode, and the empty lists
 /// of a page line. In the slot, also room for the record and the note of the bridge.
 const FRAME: Size = Size {
-    line: 332,
-    slot: 2132,
+    line: 356,
+    slot: 2228,
 };
 
 /// The entries of each list of one chapter. With names of at most
 /// `story::MAX_NAME_BYTES`, a chapter always fits on one page.
-const CHAPTER_LIST: usize = 20;
+pub(crate) const CHAPTER_LIST: usize = 20;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
 pub struct Journal {
@@ -142,6 +142,8 @@ pub enum OpenedBy {
     /// The chapter before it reached the most weight.
     Max,
     Rule,
+    /// Chapter 0: the past before Timeways saw the character (GAMEPLAY.md 3.3).
+    Prologue,
 }
 
 /// A closed entry never changes. An open one still grows.

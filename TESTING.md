@@ -326,6 +326,16 @@ Knowledge is an atlas: the map is the index.
 5. With a lore pack, a zone shows "What you know". Meet an NPC that its lore names, and open the zone again: a new passage can show. "There's more to learn here." shows only while some lore of the zone waits.
 6. Open the Chronicle, and click a chapter in the list of a zone. The chapter opens.
 
+### 32. A prologue at the first login
+
+A character that Timeways first sees at level 10 or more, with a long past, gets a prologue at once.
+
+1. Log in with a character of level 10 or more that never played with Timeways. The chat shows the time played once: the addon asks the game for it.
+2. Within a few minutes, the chat says "Your Chronicle has a prologue now."
+3. Open the Chronicle. The first entry is "Prologue": the history of the lands and the people of the character. The title page holds a summary.
+4. Log out and in again. No second time played shows, and the prologue stays as it was.
+5. Read the past: `sqlite3 c_<name>.sqlite "SELECT body FROM past"`. The professions are Mining, Fishing, and the like, never a weapon skill. The zones are the ones that your map shows. Report a profession or a zone that is missing: the category ids of the skill lines and the map of explored zones need this test.
+
 ## Dev mode
 
 Dev mode makes the moments of hours of play in seconds. It runs the real code: the addon, the bridge, and the story program. Only the moment itself is fake.
@@ -385,6 +395,7 @@ gnomish-relay restart
 | `outcome-lore` | A human warrior at level 18 who fought through the Deadmines to Mr. Smite and left before Edwin VanCleef. |
 | `dungeon-setups` | A human warrior at level 18 in Westfall who met Gryan Stoutmantle and never entered the Deadmines. |
 | `ratings` | A human paladin who rated two narrator lines, one up and one down, and a first chapter with a story of the narrator. The answers of the narrator are fixed in the file. |
+| `prologue-35` | A human paladin at level 35 in Stranglethorn Vale whom Timeways sees for the first time, with a long past: quests, zones, standings, professions, a mount, and rare gear. The first batch asks for the prologue. |
 
 ### Commands in the game
 
@@ -461,6 +472,7 @@ Type `/twdev help` for the list. A name with spaces needs no quotes. A slash sep
 | 30. Knowledge, full | `/twdev atlas` in any zone with a map | The zone page with its counts, People, Quests, "Read and heard", "Deaths and kills", and Chapters. Three pins on the real map ("Dev Camp", "Dev Ruins", "Dev Tower") and a skull at "Dev Ruins". Hover a pin for its counts, and click it. Click "Dev Scout", then Back. "< Eastern Kingdoms" (or your continent) opens the world page. With a lore pack, the zone shows "What you know". |
 | 30. Knowledge, empty | `/twdev atlas empty`, or the `fresh` scenario | "You haven't been here yet." for a place that you never saw, or "Nothing yet. People you meet, books you read, and quests you finish show up here." |
 | 31. Ratings | The `ratings` scenario, then `timeways-dev export-ratings <character> --realm <realm>`. In the game: `/timeways ratings on`, the Chronicle of that world, and Like on chapter 1. After any narrator line: `/timeways like` | The file holds two ratings of narrator lines with `new_zone`, and after the Like a rating of the chapter, with `$N` and no name. Like and Dislike show only while ratings are on, and only on a page with a story. |
+| 32. A prologue at the first login | The `prologue-35` scenario with a model, then log in and open the Chronicle | The prologue as chapter 0, about the lands and the people of the hero, and the title page with a summary. |
 
 Each scenario and each command has a named test. Three tests fail when a new feature has no way in dev mode: `every_input_line_has_a_dev_command_or_a_scenario` and `every_section_of_the_journal_has_a_scenario_that_fills_it` (`crates/addon-tests/tests/dev_mode.rs`), and `every_kind_of_narrator_moment_comes_in_a_scenario` (`crates/dev/tests/scenarios.rs`).
 

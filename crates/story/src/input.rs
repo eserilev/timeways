@@ -4,6 +4,7 @@
 use crate::character::Resting;
 use crate::dev_fps::FpsRun;
 use crate::entry_edits::{EditText, EntryKey};
+use crate::past::Past;
 use crate::places::InstanceKind;
 use crate::race_class::{Class, Race};
 use crate::ratings::{Rated, Rating};
@@ -305,6 +306,9 @@ pub enum Input {
     },
     /// A run of `/twdev fps`. It lands only in dev mode, and in no world.
     DevFps(FpsRun),
+    /// What the game tells of the past of the character at a login, while the journal asks
+    /// for it (GAMEPLAY.md 3.3, the prologue). The line has no reply.
+    PastRead(Past),
     /// The journal window opened, and needs its pages. Page 0 takes a new snapshot.
     JournalAsked {
         id: MessageId,
@@ -478,6 +482,7 @@ impl Input {
             | Input::ItemsHeld { at, .. }
             | Input::HourChanged { at, .. }
             | Input::TextSeen { at, .. } => Some(at),
+            Input::PastRead(past) => Some(&mut past.at),
             Input::Hello
             | Input::CharacterEntered { .. }
             | Input::LoreAsked { .. }

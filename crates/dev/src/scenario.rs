@@ -67,6 +67,11 @@ pub const BUILT_IN: &[(&str, &str, &str)] = &[
         "A human paladin who rated two narrator lines, for `timeways-dev export-ratings`.",
         include_str!("../scenarios/ratings.jsonl"),
     ),
+    (
+        "prologue-35",
+        "A human paladin at 35 whom Timeways first sees: the past, and its prologue.",
+        include_str!("../scenarios/prologue-35.jsonl"),
+    ),
 ];
 
 #[derive(Clone, Debug, PartialEq)]

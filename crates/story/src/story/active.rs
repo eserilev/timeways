@@ -8,6 +8,7 @@ use crate::entry_edits::EntryEdit;
 use crate::input::Input;
 use crate::journal::{Journal, TalkQuest, journal_of};
 use crate::narrator;
+use crate::past::PastRow;
 use crate::ratings::{RatedLine, ShownLine};
 use crate::seen::SeenIndex;
 use crate::store::{
@@ -80,6 +81,8 @@ pub(super) struct Active {
     pub(super) entry_edits: RowLog<EntryEdit>,
     /// The player's ratings of narrator text (GAMEPLAY.md 3.2.2).
     pub(super) ratings: RowLog<RatedLine>,
+    /// The past of the character before Timeways: only the first row is kept.
+    pub(super) past: RowLog<PastRow>,
     /// Why the last edit of an entry did not stand, until a journal page shows it.
     pub(super) edit_refused: Option<String>,
     /// The chapters and the tales, folded one event at a time.
@@ -157,6 +160,7 @@ impl Active {
             (Table::ZoneHistories, self.zone_histories.take_unsaved()),
             (Table::EntryEdits, self.entry_edits.take_unsaved()),
             (Table::Ratings, self.ratings.take_unsaved()),
+            (Table::Past, self.past.take_unsaved()),
         ])
     }
 

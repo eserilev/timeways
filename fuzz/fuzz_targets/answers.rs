@@ -31,7 +31,7 @@ use timeways_story::race_class::{Class, Race};
 use timeways_story::seen::{SeenText, TextKind};
 use timeways_story::sentences::sentences;
 use timeways_story::story::Output;
-use timeways_story::{chronicle, hero, narrator, summary, tale, talk, zone_history};
+use timeways_story::{chronicle, hero, narrator, prologue, summary, tale, talk, zone_history};
 
 fn assert_plain(text: &str, max_chars: usize, max_bytes: usize) {
     assert!(
@@ -485,6 +485,13 @@ fuzz_target!(|data: &[u8]| {
             "{summary:?}"
         );
         assert!(!summary.to_lowercase().contains("our hero"), "{summary:?}");
+    }
+    if let Some(text) = prologue::checked_prologue(&text, "Westfall", "") {
+        assert_entry_text(
+            &text,
+            prologue::MAX_PROLOGUE_CHARS,
+            prologue::MAX_PROLOGUE_BYTES,
+        );
     }
     if let Some(tale) = tale::checked_tale(&text, "", "", &[]) {
         assert_entry_text(&tale, tale::MAX_TALE_CHARS, tale::MAX_TALE_BYTES);

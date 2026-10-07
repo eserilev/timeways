@@ -53,6 +53,7 @@ fn quest_reply(quest: QuestView) -> String {
         page: Box::new(page),
         notice: None,
         dev: None,
+        past: None,
     })
     .unwrap()
 }
@@ -392,6 +393,7 @@ fn a_finished_quest_shows_on_its_place_in_knowledge() {
         page: Box::new(page),
         notice: None,
         dev: None,
+        past: None,
     })
     .unwrap();
 

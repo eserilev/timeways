@@ -10,6 +10,7 @@ use timeways_story::moments::Moment;
 use timeways_story::narrator::Who;
 use timeways_story::narrator_review::{Sources, reviews};
 use timeways_story::pack::{Link, Origin, Pack, Passage};
+use timeways_story::past::{Gear, Past};
 use timeways_story::race_class::{Class, Race};
 use timeways_story::seen::{SeenText, TextKind};
 use timeways_story::store::Store;
@@ -264,4 +265,66 @@ fn the_review_tool_shows_the_retry_of_a_refused_line() {
         "{printed}"
     );
     assert!(printed.contains("Shown: (silence:"), "{printed}");
+}
+
+/// A saved world whose first past is long (GAMEPLAY.md 3.3, the prologue).
+fn saved_world_with_a_past(folder: &Path) -> std::path::PathBuf {
+    let world = saved_world(folder);
+    let mut story = Story::new(Pack::empty().unwrap(), Store::Folder(folder.to_path_buf()));
+    story
+        .handle(Input::CharacterEntered {
+            realm: "Classic Beta".to_string(),
+            name: "Kobee".to_string(),
+        })
+        .unwrap();
+    let past = Past {
+        at: Tick(1_700_000_010),
+        level: 35,
+        zone: Some("Westfall".to_string()),
+        played: None,
+        quests: 212,
+        quest_titles: Vec::new(),
+        zones: vec!["Elwynn Forest".to_string()],
+        factions: Vec::new(),
+        professions: Vec::new(),
+        mounts: Vec::new(),
+        gear: Gear::default(),
+    };
+    story.handle(Input::PastRead(past)).unwrap();
+    world
+}
+
+#[test]
+fn the_review_tool_prints_the_prologue_of_a_kept_past() {
+    let folder = Path::new(env!("CARGO_TARGET_TMPDIR")).join("review-tool-prologue");
+    let world = saved_world_with_a_past(&folder);
+
+    let output = Command::new(env!("CARGO_BIN_EXE_timeways-narrator-review"))
+        .arg(&world)
+        .args(["--race", "Human", "--class", "PALADIN"])
+        .output()
+        .unwrap();
+
+    let printed = String::from_utf8_lossy(&output.stdout);
+    assert!(printed.contains("=== Prologue, at 1700000010"), "{printed}");
+    assert!(
+        printed.contains("The hero: a human paladin, level 35."),
+        "{printed}"
+    );
+}
+
+#[test]
+fn the_review_tool_with_a_model_shows_the_prologue() {
+    let folder = Path::new(env!("CARGO_TARGET_TMPDIR")).join("review-tool-prologue-model");
+    let world = saved_world_with_a_past(&folder);
+    let answer = "Stormwind once farmed Westfall. The Defias Brotherhood holds its fields now.";
+
+    let output = Command::new(env!("CARGO_BIN_EXE_timeways-narrator-review"))
+        .arg(&world)
+        .args(["--model", &format!("echo '{{\"prologue\": \"{answer}\"}}'")])
+        .output()
+        .unwrap();
+
+    let printed = String::from_utf8_lossy(&output.stdout);
+    assert!(printed.contains(&format!("Shown: {answer}")), "{printed}");
 }

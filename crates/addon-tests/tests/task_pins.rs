@@ -103,6 +103,7 @@ fn reply(journal: Journal) -> String {
         page: Box::new(page),
         notice: None,
         dev: None,
+        past: None,
     })
     .unwrap()
 }

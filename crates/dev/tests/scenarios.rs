@@ -238,6 +238,31 @@ fn the_dungeon_setups_warrior_stands_in_westfall_and_never_entered_the_deadmines
 }
 
 #[test]
+fn the_prologue_35_paladin_gets_a_prologue_as_chapter_0() {
+    let folder = folder("prologue-35");
+    let prologue = r#"{"prologue": "The Gurubashi trolls ruled Stranglethorn Vale until their empire broke apart in a long war. The goblins of Booty Bay trade on its coast now, and the Bloodsail Buccaneers raid them."}"#;
+    let model: timeways_dev::seed::Model = Box::new(move |prompt: &str| {
+        prompt
+            .contains("Write the prologue of the chronicle")
+            .then(|| prologue.to_string())
+    });
+
+    let report = timeways_dev::seed::play(
+        &common::scenario("prologue-35").starting_at(common::START),
+        REALM,
+        NAME,
+        timeways_story::story::Story::new(Pack::empty().unwrap(), Store::Folder(folder.clone())),
+        Some(model),
+    );
+
+    assert!(report.is_clean(), "{report:#?}");
+    let journal = journal(&folder);
+    let chapters = list(&journal, "chapters");
+    assert_eq!(chapters[0]["opened_by"], "prologue", "{chapters:?}");
+    assert!(journal.get("past").is_none(), "{journal:?}");
+}
+
+#[test]
 fn the_flavor_and_hero_scenario_earns_every_joke_title_of_the_horde() {
     let folder = folder("flavor");
 

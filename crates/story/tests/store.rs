@@ -925,7 +925,7 @@ fn a_world_of_version_8_takes_the_shape_column_and_keeps_its_rows() {
 
     assert_eq!(database.newest_shapes(8).unwrap(), ["k.fell"]);
     assert!(database.call(0).unwrap().is_some());
-    assert_eq!(user_version(&path), 11);
+    assert_eq!(user_version(&path), 12);
 }
 
 fn user_version(path: &Path) -> i64 {
@@ -950,7 +950,30 @@ fn a_world_of_version_8_that_has_the_shape_column_opens_at_the_newest_version() 
     let opened = Database::open(&path);
 
     assert!(opened.is_ok(), "{:?}", opened.err());
-    assert_eq!(user_version(&path), 11);
+    assert_eq!(user_version(&path), 12);
+}
+
+/// Version 12 only added the table `past` (GAMEPLAY.md 3.3, the prologue).
+#[test]
+fn a_world_of_version_11_takes_the_past_table_and_keeps_its_rows() {
+    let folder = fresh_folder("version-11-past");
+    fs::create_dir_all(&folder).unwrap();
+    let path = folder.join("world.sqlite");
+    drop(Database::open(&path).unwrap());
+    Connection::open(&path)
+        .unwrap()
+        .execute_batch(
+            "DROP TABLE past; PRAGMA user_version = 11; \
+             INSERT INTO calls (position, kind, pack, result) VALUES (0, 'narrator', 'p', 'accepted');",
+        )
+        .unwrap();
+
+    let database = Database::open(&path).unwrap();
+
+    assert!(database.call(0).unwrap().is_some());
+    assert_eq!(user_version(&path), 12);
+    let connection = Connection::open(&path).unwrap();
+    assert!(connection.prepare("SELECT body FROM past").is_ok());
 }
 
 /// The column and the version change in one transaction, so a failed upgrade changes
@@ -1039,7 +1062,7 @@ fn a_world_of_version_9_keeps_the_lore_of_its_kept_prompts_as_told() {
     let database = Database::open(&path).unwrap();
 
     assert_eq!(database.told_lore().unwrap(), [TOLD_LORE]);
-    assert_eq!(user_version(&path), 11);
+    assert_eq!(user_version(&path), 12);
 }
 
 /// The table and the version change in one transaction, so a failed upgrade changes
@@ -1087,7 +1110,7 @@ fn told_lore_of_a_call_that_is_gone_goes_with_the_broken_links() {
 
 #[test]
 fn a_world_of_version_10_takes_the_ratings_table_and_keeps_its_rows() {
-    let folder = fresh_folder("version-10");
+    let folder = fresh_folder("version-11");
     fs::create_dir_all(&folder).unwrap();
     let path = folder.join("world.sqlite");
     drop(Database::open(&path).unwrap());
@@ -1102,7 +1125,7 @@ fn a_world_of_version_10_takes_the_ratings_table_and_keeps_its_rows() {
     let database = Database::open(&path).unwrap();
 
     assert!(database.call(0).unwrap().is_some());
-    assert_eq!(user_version(&path), 11);
+    assert_eq!(user_version(&path), 12);
     let connection = Connection::open(&path).unwrap();
     assert!(connection.prepare("SELECT body FROM ratings").is_ok());
 }

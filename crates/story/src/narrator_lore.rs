@@ -219,7 +219,8 @@ pub fn lore_subjects(moment: &Moment, who: &Who) -> Vec<String> {
 /// The pages of the lore of a people: its capital first, then the land or the name of
 /// the people. The Undercity has no page of its own in every pack, so the Forsaken also
 /// take the ruins above it.
-fn people_pages(race: Race) -> &'static [&'static str] {
+#[must_use]
+pub fn people_pages(race: Race) -> &'static [&'static str] {
     match race {
         Race::Human => &["Stormwind City", "Elwynn Forest"],
         Race::Orc => &["Orgrimmar", "Durotar"],

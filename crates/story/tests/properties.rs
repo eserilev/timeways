@@ -30,7 +30,7 @@ use timeways_story::hero_hook::HOOK_FIELDS;
 use timeways_story::house::fenced;
 use timeways_story::input::{CallId, GameQuestKind, Input, MessageId, Reaction, SlotWas};
 use timeways_story::inside_hero::{inside_hero_in, recognition_in};
-use timeways_story::journal::{Journal, TalkQuestState, journal, pages};
+use timeways_story::journal::{Journal, OpenedBy, TalkQuestState, journal, pages};
 use timeways_story::line_check::{
     Checked, Grounds, LineFault, built_faults, callback_in, checked_line,
 };
@@ -47,6 +47,7 @@ use timeways_story::npc_memory::{MAX_MEMORIES, MAX_MEMORY_CHARS, when};
 use timeways_story::pace::{Pace, WINDOW_SECONDS};
 use timeways_story::pack::{Deed, Dependency, Link, Origin, Pack, Passage, SetupFor};
 use timeways_story::passage_limits::{MAX_PASSAGE_BYTES, pieces};
+use timeways_story::past::{Gear, Past};
 use timeways_story::places::InstanceKind;
 use timeways_story::present_check::{PresentFault, PresentGrounds, unsourced_present_in};
 use timeways_story::prose::{FEWEST_WORDS, MOST_WORDS, ProseFault, prose_faults};
@@ -129,6 +130,49 @@ enum Play {
     /// An item put on: its slot and quality as the game numbers them, its level, and the
     /// level of what the slot held, or an empty slot.
     Equip(Worn),
+    /// The past of the character at a login: its level, its count of quests, and how many
+    /// zones of `PAST_ZONES` it discovered (GAMEPLAY.md 3.3, the prologue).
+    Past(u8, u32, usize),
+}
+
+/// The zones of a past, in the order that a play discovers them.
+const PAST_ZONES: [&str; 4] = [
+    "Westfall",
+    "Elwynn Forest",
+    "Duskwood",
+    "Redridge Mountains",
+];
+
+/// A prologue that every check takes, about the first zone of `PAST_ZONES`.
+const PROLOGUE_ANSWER: &str = r#"{"prologue": "The Defias Brotherhood took the farms of Westfall from Stormwind, and the People's Militia still holds Sentinel Hill against it."}"#;
+
+/// The level and the count of quests sit often at the edges of the rule of a prologue.
+fn past_play() -> impl Strategy<Value = Play> {
+    (
+        prop_oneof![Just(1u8), Just(9), Just(10), Just(11), Just(60), 1u8..=60],
+        prop_oneof![Just(0u32), Just(19), Just(20), Just(21), 0u32..400],
+        0usize..=PAST_ZONES.len(),
+    )
+        .prop_map(|(level, quests, zones)| Play::Past(level, quests, zones))
+}
+
+fn past_input(at: Tick, level: u8, quests: u32, zones: usize) -> Input {
+    Input::PastRead(Past {
+        at,
+        level,
+        zone: Some(PAST_ZONES[0].to_string()),
+        played: None,
+        quests,
+        quest_titles: Vec::new(),
+        zones: PAST_ZONES[..zones]
+            .iter()
+            .map(ToString::to_string)
+            .collect(),
+        factions: Vec::new(),
+        professions: Vec::new(),
+        mounts: Vec::new(),
+        gear: Gear::default(),
+    })
 }
 
 /// An item as the addon sends it. The numbers sit often at the edges of their bands.
@@ -289,6 +333,7 @@ fn play() -> impl Strategy<Value = Play> {
             "The road remembers you.".to_string(),
             r#"{"saga": "$N walked on.", "pick": 2}"#.to_string(),
             "not an answer".to_string(),
+            PROLOGUE_ANSWER.to_string(),
         ])
         .prop_map(Play::EndBatch),
         (0u64..4, "Zqstory [A-Za-z ]{1,60}")
@@ -302,6 +347,7 @@ fn play() -> impl Strategy<Value = Play> {
             .prop_map(|(npc, count)| Play::ItemsHeld(npc, count)),
         (mount(), speed()).prop_map(|(mount, speed)| Play::Mount(mount, speed)),
         worn().prop_map(Play::Equip),
+        past_play(),
     ]
 }
 
@@ -607,6 +653,7 @@ fn input(play: &Play, at: Tick) -> Option<Input> {
             replaced: worn.replaced,
             was: worn.was,
         },
+        Play::Past(level, quests, zones) => past_input(at, level, quests, zones),
     })
 }
 
@@ -3274,6 +3321,87 @@ proptest! {
         let plain = first_page(&mut plain_story);
         let with_edits = first_page(&mut edited_story);
         prop_assert_eq!(entries_of(&plain), entries_of(&with_edits));
+    }
+}
+
+/// The chapters and the tales of a journal, without the prologue.
+fn entries_without_prologue(journal: &Journal) -> String {
+    let mut journal = journal.clone();
+    journal
+        .chapters
+        .retain(|chapter| chapter.opened_by != OpenedBy::Prologue);
+    entries_of(&journal)
+}
+
+fn prologues_of(journal: &Journal) -> Vec<Option<String>> {
+    journal
+        .chapters
+        .iter()
+        .filter(|chapter| chapter.opened_by == OpenedBy::Prologue)
+        .map(|chapter| chapter.prose.clone())
+        .collect()
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(32))]
+
+    /// GAMEPLAY.md 3.3: the past is no event, so the same play with and without pasts
+    /// gives the same chapters and tales. The prologue shows at most once, and once
+    /// written it never changes.
+    #[test]
+    fn the_prologue_is_written_at_most_once_and_never_moves(
+        plays in prop::collection::vec(play(), 0..60),
+        pasts in prop::collection::vec((any::<prop::sample::Index>(), past_play()), 0..4),
+    ) {
+        let plain: Vec<Play> = plays
+            .iter()
+            .filter(|play| !matches!(play, Play::Past(..)))
+            .cloned()
+            .collect();
+        let mut with_past = plain.clone();
+        for (at, past) in pasts {
+            let place = at.index(with_past.len() + 1);
+            with_past.insert(place, past);
+        }
+        let mut plain_story = story(&fresh("prologue-plain"), Store::Memory);
+        let mut past_story = story(&fresh("prologue-past"), Store::Memory);
+        let (mut plain_clock, mut past_clock) = (1_000, 1_000);
+
+        run(&mut plain_story, &plain, &mut plain_clock);
+        let mut written: Option<String> = None;
+        for play in &with_past {
+            play_once(&mut past_story, play, &mut past_clock);
+            let prologues = prologues_of(&first_page(&mut past_story));
+            prop_assert!(prologues.len() <= 1, "{prologues:?}");
+            let shown = prologues.into_iter().flatten().next();
+            if written.is_some() {
+                prop_assert_eq!(&shown, &written);
+            }
+            written = shown;
+        }
+
+        let plain_page = first_page(&mut plain_story);
+        let past_page = first_page(&mut past_story);
+        prop_assert_eq!(entries_of(&plain_page), entries_without_prologue(&past_page));
+    }
+
+    /// A new character gets no prologue: a short first past never brings one.
+    #[test]
+    fn a_short_first_past_never_brings_a_prologue(
+        level in prop_oneof![Just(1u8), Just(9), 1u8..10],
+        later in prop::collection::vec(past_play(), 0..4),
+    ) {
+        let mut story = story(&fresh("prologue-short"), Store::Memory);
+        let mut clock = 1_000;
+        let mut plays = vec![Play::Past(level, 400, PAST_ZONES.len())];
+        for past in later {
+            plays.push(past);
+            plays.push(Play::EndBatch(PROLOGUE_ANSWER.to_string()));
+        }
+
+        run(&mut story, &plays, &mut clock);
+
+        prop_assert!(prologues_of(&first_page(&mut story)).is_empty());
     }
 }
 

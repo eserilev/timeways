@@ -4,6 +4,7 @@ use hourglass::Tick;
 use timeways_story::chapters::Book;
 use timeways_story::character::{Character, Item};
 use timeways_story::chronicle::deed_fact;
+use timeways_story::dev_mode::DevOn;
 use timeways_story::gear::Quality;
 use timeways_story::input::{GameQuestKind, MessageId};
 use timeways_story::journal::{
@@ -13,6 +14,7 @@ use timeways_story::learned::{Read, learned};
 use timeways_story::places::{InstanceKind, PlaceKind};
 use timeways_story::reply_size::MAX_LINE;
 use timeways_story::seen::{MAX_SEEN_BYTES, SeenText, TextKind};
+use timeways_story::story::PastWanted;
 use timeways_story::story::{MAX_NAME_BYTES, Output};
 
 fn place(name: &str, within: Option<&str>, first_visit: u64) -> Place {
@@ -209,7 +211,8 @@ fn every_page_line_fits_in_one_reply() {
             id: MessageId(u64::MAX),
             page: Box::new(page),
             notice: None,
-            dev: None,
+            dev: Some(DevOn),
+            past: Some(PastWanted::Wanted),
         };
         let line = serde_json::to_string(&output).unwrap();
         assert!(line.len() <= MAX_LINE, "{} bytes", line.len());
@@ -507,7 +510,8 @@ fn the_largest_chapter_still_fits_on_one_page() {
                 id: MessageId(u64::MAX),
                 page: Box::new(page),
                 notice: None,
-                dev: None,
+                dev: Some(DevOn),
+                past: Some(PastWanted::Wanted),
             })
             .unwrap()
             .len()
@@ -562,7 +566,8 @@ fn a_long_list_of_what_you_learned_fits_on_pages_and_keeps_its_order() {
             id: MessageId(u64::MAX),
             page: Box::new(page),
             notice: None,
-            dev: None,
+            dev: Some(DevOn),
+            past: Some(PastWanted::Wanted),
         };
         let line = serde_json::to_string(&output).unwrap();
         assert!(line.len() <= MAX_LINE, "{} bytes", line.len());

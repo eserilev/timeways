@@ -51,6 +51,12 @@ pub(super) enum Pending {
         instance: String,
         told: String,
     },
+    /// The prologue of the Chronicle, for this character only. `told` holds the facts and
+    /// the lore of the prompt, for the checks of slop and grounds.
+    Prologue {
+        key: CharacterKey,
+        told: String,
+    },
     /// "Your history here" of a zone, for this character only.
     ZoneHistory(Box<super::zone_histories::HistoryCall>),
     /// A draft of a player task, for this character only.
@@ -75,6 +81,7 @@ impl Pending {
             Pending::Narrator(_) => NARRATOR,
             Pending::Chronicle { .. } => "saga",
             Pending::Summary { .. } => "summary",
+            Pending::Prologue { .. } => super::prologues::PROLOGUE_CALL,
             Pending::Tale { .. } => "tale",
             Pending::ZoneHistory(_) => "zone_history",
             Pending::Quest(quest) if quest.attempt == Attempt::Retry => QUEST_RETRY,
@@ -92,6 +99,7 @@ impl Pending {
             Pending::Narrator(NarratorCall { key, .. })
             | Pending::Chronicle { key, .. }
             | Pending::Summary { key, .. }
+            | Pending::Prologue { key, .. }
             | Pending::Tale { key, .. }
             | Pending::Quest(QuestCall { key, .. })
             | Pending::Draft { key, .. }
@@ -167,6 +175,7 @@ impl Story {
             Pending::Summary { key, after, told } => {
                 self.summary_answered(&key, after, &told, Some(text))?
             }
+            Pending::Prologue { key, told } => self.prologue_answered(&key, &told, Some(text))?,
             Pending::Tale {
                 key,
                 run,
@@ -307,6 +316,7 @@ impl Story {
             Pending::Summary { key, after, told } => {
                 self.summary_answered(&key, after, &told, None)?.0
             }
+            Pending::Prologue { key, told } => self.prologue_answered(&key, &told, None)?.0,
             Pending::Tale {
                 key,
                 run,

@@ -1,0 +1,8 @@
+{"type":"past_read","at":1790000000,"level":35,"zone":"Stranglethorn Vale","played":432000,"quests":212,"quest_titles":["The Defias Brotherhood","Wanted: Hogger"],"zones":["Elwynn Forest","Westfall","Stranglethorn Vale"],"factions":[{"name":"Stormwind","standing":6},{"name":"Bloodsail Buccaneers","standing":2}],"professions":[{"name":"Mining","rank":180}],"mounts":["Chestnut Mare"],"gear":{"rare":4,"epic":1}}
+{"type":"past_read","at":1790000001,"level":1}
+{"type":"past_read","at":1790000002,"level":0,"quests":4294967295}
+{"type":"past_read","at":1790000003,"level":61,"played":18446744073709551615}
+{"type":"past_read","at":1790000004,"level":10,"zones":["Westfall","Westfall"],"factions":[{"name":"Stormwind","standing":9}]}
+{"type":"past_read","at":1790000005,"level":12,"zones":{},"gear":{"rare":20}}
+{"type":"past_read","at":1790000006,"level":20,"mounts":["A","B","C","D"],"quest_titles":["a\nb"]}
+{"type":"past_read","at":1790000007,"level":20,"dev":true}

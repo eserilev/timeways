@@ -1,0 +1,11 @@
+# A human paladin at level 35 in Stranglethorn Vale, whom Timeways sees for the first time.
+# The game tells a long past at the login: quests, zones, standings, a profession, a mount,
+# and rare gear. So the prologue is due at once (GAMEPLAY.md 3.3), and the end of the first
+# batch asks the model for it. Log in as the character, and open the Chronicle: the
+# prologue is chapter 0, and the title page holds the summary that follows it. With
+# --no-model the past is kept and the call fails, so a later batch asks for it again.
+
+{"type":"character_described","at":0,"race":"Human","class":"PALADIN"}
+{"type":"level_reached","at":1,"level":35}
+{"type":"zone_entered","at":2,"zone":"Stranglethorn Vale","subzone":"Booty Bay","hour":20}
+{"type":"past_read","at":5,"level":35,"zone":"Stranglethorn Vale","played":432000,"quests":212,"quest_titles":["The Defias Brotherhood","Wanted: Hogger","The Missing Diplomat","Red Linen Goods"],"zones":["Elwynn Forest","Westfall","Redridge Mountains","Duskwood","Loch Modan","Wetlands","Stranglethorn Vale"],"factions":[{"name":"Stormwind","standing":6},{"name":"Ironforge","standing":5},{"name":"Booty Bay","standing":5},{"name":"Bloodsail Buccaneers","standing":2}],"professions":[{"name":"Mining","rank":180},{"name":"Blacksmithing","rank":165}],"mounts":["Chestnut Mare"],"gear":{"rare":4,"epic":0}}

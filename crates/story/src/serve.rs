@@ -105,6 +105,7 @@ fn empty_answer(line: &str) -> Option<Output> {
             page: Box::default(),
             notice: None,
             dev: None,
+            past: None,
         }),
         _ => None,
     }

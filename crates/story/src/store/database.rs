@@ -11,8 +11,8 @@ pub use timeways_rules::prompts::PROMPTS_KEPT;
 use timeways_rules::prompts::oldest_prompt_kept;
 
 /// A file of another version is refused, never changed. Nothing is live, so a new version
-/// starts with new worlds. A file of version 8, 9, or 10 is upgraded (`upgrade`).
-const VERSION: i64 = 11;
+/// starts with new worlds. A file of version 8 to 11 is upgraded (`upgrade`).
+const VERSION: i64 = 12;
 
 /// Version 9 added the column `shape` to `calls`.
 const ADD_SHAPE: &str = "ALTER TABLE calls ADD COLUMN shape TEXT";
@@ -24,6 +24,11 @@ CREATE TABLE told_lore (
     lore TEXT NOT NULL
 );
 ";
+
+/// Version 12 added the row table `past` (GAMEPLAY.md 3.3, the prologue). A table that is
+/// there already stays.
+const ADD_PAST: &str = "CREATE TABLE IF NOT EXISTS past (position INTEGER PRIMARY KEY, body TEXT NOT NULL, \
+    input INTEGER REFERENCES inputs (position), call INTEGER REFERENCES calls (position))";
 
 /// WAL syncs the disk once for each line, and a reader such as `sqlite3` never blocks a
 /// save.
@@ -97,10 +102,13 @@ pub enum Table {
     /// The player's ratings of narrator lines, chapters, tales, and the summary
     /// (GAMEPLAY.md 3.2.2). Version 11 added it.
     Ratings,
+    /// The past of the character before Timeways, as the game told it at a login. Only the
+    /// first one decides the prologue.
+    Past,
 }
 
 impl Table {
-    pub const ALL: [Table; 14] = [
+    pub const ALL: [Table; 15] = [
         Table::Events,
         Table::Chapters,
         Table::Flavor,
@@ -115,6 +123,7 @@ impl Table {
         Table::ZoneHistories,
         Table::EntryEdits,
         Table::Ratings,
+        Table::Past,
     ];
 
     #[must_use]
@@ -134,6 +143,7 @@ impl Table {
             Table::ZoneHistories => "zone_histories",
             Table::EntryEdits => "entry_edits",
             Table::Ratings => "ratings",
+            Table::Past => "past",
         }
     }
 
@@ -376,6 +386,7 @@ impl Database {
         self.connection.execute_batch(&format!(
             "CREATE TABLE IF NOT EXISTS {ratings} ({ROW_TABLE})"
         ))?;
+        self.connection.execute_batch(ADD_PAST)?;
         self.connection.pragma_update(None, "user_version", VERSION)
     }
 

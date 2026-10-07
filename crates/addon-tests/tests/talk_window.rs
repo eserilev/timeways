@@ -505,6 +505,7 @@ fn journal_reply(at: u64, state: TalkQuestState, quests: Vec<QuestView>) -> Stri
         page: Box::new(page),
         notice: None,
         dev: None,
+        past: None,
     })
     .unwrap()
 }
