@@ -16,6 +16,9 @@
 //!
 //! Or from a MediaWiki dump (`.xml` or `.7z`), with the pages of `data/pack_sources.toml`:
 //! `timeways-pack from-dump <dump> <new pack file>`.
+//!
+//! `timeways-pack coverage <pack> [--json]` reports the passages of each place of the
+//! leveling path, and the places where the narrator stays silent (`pack_coverage`).
 
 use serde::Deserialize;
 use std::error::Error;
@@ -24,11 +27,16 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use timeways_story::outcome_passages::is_outcome;
 use timeways_story::pack::{Deed, Dependency, Link, Origin, Pack, Passage, SetupFor};
+use timeways_story::pack_coverage::{self, ZoneLevels, leveling_path};
 use timeways_story::pack_sources::{self, Built, Outcome, Sources};
 use timeways_story::passage_limits;
 
 const USAGE: &str = "usage: timeways-pack <passages.jsonl> <new pack file>
-       timeways-pack from-dump <wiki dump .xml or .7z> <new pack file>";
+       timeways-pack from-dump <wiki dump .xml or .7z> <new pack file>
+       timeways-pack coverage <pack> [--json]";
+
+/// The gaps at the end of the text report.
+const GAPS: usize = 20;
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -120,6 +128,10 @@ fn main() -> ExitCode {
     let args: Vec<PathBuf> = std::env::args_os().skip(1).map(PathBuf::from).collect();
     let result = match args.as_slice() {
         [mode, dump, pack] if mode.as_os_str() == "from-dump" => from_dump(dump, pack),
+        [mode, pack] if mode.as_os_str() == "coverage" => print_coverage(pack, Format::Text),
+        [mode, pack, json] if mode.as_os_str() == "coverage" && json.as_os_str() == "--json" => {
+            print_coverage(pack, Format::Json)
+        }
         [passages, pack] => from_lines(passages, pack),
         _ => {
             eprintln!("{USAGE}");
@@ -296,4 +308,24 @@ fn dropped(outcome: &Outcome) -> (usize, usize) {
         Outcome::Read { later, game, .. } => (*later, *game),
         Outcome::Missing | Outcome::NoBook => (0, 0),
     }
+}
+
+#[derive(Clone, Copy)]
+enum Format {
+    Text,
+    Json,
+}
+
+fn print_coverage(pack: &Path, format: Format) -> Result<(), Box<dyn Error>> {
+    let pack = Pack::open(pack)?;
+    let path = leveling_path(&ZoneLevels::bundled()?);
+    let bosses: Vec<(String, Vec<String>)> = pack_sources::boss_places(&Sources::bundled()?)
+        .into_iter()
+        .collect();
+    let report = pack_coverage::coverage(&pack, &path, &bosses)?;
+    match format {
+        Format::Text => print!("{}", pack_coverage::text(&report, GAPS)),
+        Format::Json => println!("{}", serde_json::to_string_pretty(&report)?),
+    }
+    Ok(())
 }

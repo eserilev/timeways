@@ -41,6 +41,7 @@ pub mod npc_memory;
 pub mod outcome_passages;
 pub mod pace;
 pub mod pack;
+pub mod pack_coverage;
 pub mod pack_sources;
 pub mod passage_limits;
 pub mod places;

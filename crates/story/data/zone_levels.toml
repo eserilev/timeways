@@ -1,0 +1,391 @@
+# The leveling path of Classic, for `timeways-pack coverage` (GAMEPLAY.md 5.10).
+# Each place has the level range of its quests or its dungeon. The report goes through
+# the places in the order of their lowest level, and each subzone follows its zone.
+# The names are the names of the game. Only places within the cutoff of 5.9 are here:
+# no raid from Molten Core on, so no raid at all for now.
+#
+# `kind` is "zone", "capital", or "dungeon". `within` is the zone outside a dungeon.
+
+[[places]]
+name = "Elwynn Forest"
+kind = "zone"
+levels = [1, 10]
+subzones = ["Northshire Abbey", "Goldshire"]
+
+[[places]]
+name = "Dun Morogh"
+kind = "zone"
+levels = [1, 10]
+subzones = ["Coldridge Valley", "Kharanos"]
+
+[[places]]
+name = "Teldrassil"
+kind = "zone"
+levels = [1, 10]
+subzones = ["Shadowglen", "Aldrassil", "Dolanaar", "Rut'theran Village"]
+
+[[places]]
+name = "Durotar"
+kind = "zone"
+levels = [1, 10]
+subzones = ["Valley of Trials", "Razor Hill", "Sen'jin Village", "Echo Isles"]
+
+[[places]]
+name = "Mulgore"
+kind = "zone"
+levels = [1, 10]
+subzones = ["Camp Narache", "Bloodhoof Village", "Red Cloud Mesa"]
+
+[[places]]
+name = "Tirisfal Glades"
+kind = "zone"
+levels = [1, 10]
+subzones = ["Deathknell", "Brill", "Agamand Mills", "Ruins of Lordaeron"]
+
+[[places]]
+name = "Stormwind City"
+kind = "capital"
+levels = [1, 60]
+
+[[places]]
+name = "Ironforge"
+kind = "capital"
+levels = [1, 60]
+
+[[places]]
+name = "Darnassus"
+kind = "capital"
+levels = [1, 60]
+
+[[places]]
+name = "Orgrimmar"
+kind = "capital"
+levels = [1, 60]
+
+[[places]]
+name = "Thunder Bluff"
+kind = "capital"
+levels = [1, 60]
+
+[[places]]
+name = "Undercity"
+kind = "capital"
+levels = [1, 60]
+
+[[places]]
+name = "Westfall"
+kind = "zone"
+levels = [10, 20]
+subzones = ["Sentinel Hill", "Moonbrook"]
+
+[[places]]
+name = "Loch Modan"
+kind = "zone"
+levels = [10, 20]
+subzones = ["Thelsamar"]
+
+[[places]]
+name = "Darkshore"
+kind = "zone"
+levels = [10, 20]
+subzones = ["Auberdine", "Ameth'Aran", "Bashal'Aran", "Ruins of Mathystra"]
+
+[[places]]
+name = "Silverpine Forest"
+kind = "zone"
+levels = [10, 20]
+subzones = ["The Sepulcher", "Pyrewood Village", "Ambermill"]
+
+[[places]]
+name = "The Barrens"
+kind = "zone"
+levels = [10, 25]
+subzones = ["The Crossroads", "Ratchet", "Northwatch Hold"]
+
+[[places]]
+name = "Ragefire Chasm"
+kind = "dungeon"
+levels = [13, 18]
+within = "Orgrimmar"
+
+[[places]]
+name = "Redridge Mountains"
+kind = "zone"
+levels = [15, 25]
+subzones = ["Lakeshire"]
+
+[[places]]
+name = "Stonetalon Mountains"
+kind = "zone"
+levels = [15, 27]
+subzones = ["Sun Rock Retreat", "Stonetalon Peak", "Windshear Crag"]
+
+[[places]]
+name = "Wailing Caverns"
+kind = "dungeon"
+levels = [17, 24]
+within = "The Barrens"
+
+[[places]]
+name = "The Deadmines"
+kind = "dungeon"
+levels = [17, 26]
+within = "Westfall"
+
+[[places]]
+name = "Ashenvale"
+kind = "zone"
+levels = [18, 30]
+subzones = ["Astranaar", "Splintertree Post", "Raynewood Retreat"]
+
+[[places]]
+name = "Duskwood"
+kind = "zone"
+levels = [18, 30]
+subzones = ["Darkshire"]
+
+[[places]]
+name = "Wetlands"
+kind = "zone"
+levels = [20, 30]
+subzones = ["Menethil Harbor", "Dun Modr"]
+
+[[places]]
+name = "Hillsbrad Foothills"
+kind = "zone"
+levels = [20, 30]
+subzones = ["Southshore", "Tarren Mill", "Durnholde Keep"]
+
+[[places]]
+name = "Shadowfang Keep"
+kind = "dungeon"
+levels = [22, 30]
+within = "Silverpine Forest"
+
+[[places]]
+name = "Blackfathom Deeps"
+kind = "dungeon"
+levels = [24, 32]
+within = "Ashenvale"
+
+[[places]]
+name = "The Stockade"
+kind = "dungeon"
+levels = [24, 32]
+within = "Stormwind City"
+
+[[places]]
+name = "Thousand Needles"
+kind = "zone"
+levels = [25, 35]
+subzones = ["Freewind Post", "Darkcloud Pinnacle", "Shimmering Flats"]
+
+[[places]]
+name = "Gnomeregan"
+kind = "dungeon"
+levels = [29, 38]
+within = "Dun Morogh"
+
+[[places]]
+name = "Razorfen Kraul"
+kind = "dungeon"
+levels = [29, 38]
+within = "The Barrens"
+
+[[places]]
+name = "Alterac Mountains"
+kind = "zone"
+levels = [30, 40]
+subzones = ["Strahnbrad", "Ravenholdt Manor"]
+
+[[places]]
+name = "Arathi Highlands"
+kind = "zone"
+levels = [30, 40]
+subzones = ["Refuge Pointe", "Hammerfall", "Stromgarde Keep", "Thoradin's Wall"]
+
+[[places]]
+name = "Desolace"
+kind = "zone"
+levels = [30, 40]
+subzones = ["Nijel's Point", "Shadowprey Village"]
+
+[[places]]
+name = "Stranglethorn Vale"
+kind = "zone"
+levels = [30, 45]
+subzones = ["Booty Bay", "Grom'gol Base Camp", "Nesingwary's Expedition", "Gurubashi Arena"]
+
+[[places]]
+name = "Scarlet Monastery"
+kind = "dungeon"
+levels = [34, 45]
+within = "Tirisfal Glades"
+
+[[places]]
+name = "Dustwallow Marsh"
+kind = "zone"
+levels = [35, 45]
+subzones = ["Theramore Isle", "Brackenwall Village"]
+
+[[places]]
+name = "Badlands"
+kind = "zone"
+levels = [35, 45]
+subzones = ["Kargath"]
+
+[[places]]
+name = "Swamp of Sorrows"
+kind = "zone"
+levels = [35, 45]
+subzones = ["Stonard"]
+
+[[places]]
+name = "Razorfen Downs"
+kind = "dungeon"
+levels = [37, 46]
+within = "The Barrens"
+
+[[places]]
+name = "Feralas"
+kind = "zone"
+levels = [40, 50]
+subzones = ["Feathermoon Stronghold", "Camp Mojache"]
+
+[[places]]
+name = "The Hinterlands"
+kind = "zone"
+levels = [40, 50]
+subzones = ["Aerie Peak", "Revantusk Village", "Jintha'Alor"]
+
+[[places]]
+name = "Tanaris"
+kind = "zone"
+levels = [40, 50]
+subzones = ["Gadgetzan"]
+
+[[places]]
+name = "Uldaman"
+kind = "dungeon"
+levels = [41, 51]
+within = "Badlands"
+
+[[places]]
+name = "Searing Gorge"
+kind = "zone"
+levels = [43, 50]
+subzones = ["Thorium Point"]
+
+[[places]]
+name = "Zul'Farrak"
+kind = "dungeon"
+levels = [44, 54]
+within = "Tanaris"
+
+[[places]]
+name = "Azshara"
+kind = "zone"
+levels = [45, 55]
+subzones = ["Ruins of Eldarath"]
+
+[[places]]
+name = "Blasted Lands"
+kind = "zone"
+levels = [45, 55]
+subzones = ["Nethergarde Keep"]
+
+[[places]]
+name = "Maraudon"
+kind = "dungeon"
+levels = [46, 55]
+within = "Desolace"
+
+[[places]]
+name = "Un'Goro Crater"
+kind = "zone"
+levels = [48, 55]
+subzones = ["Marshal's Refuge", "Fire Plume Ridge"]
+
+[[places]]
+name = "Felwood"
+kind = "zone"
+levels = [48, 55]
+subzones = ["Bloodvenom Post", "Jaedenar", "Irontree Woods"]
+
+[[places]]
+name = "The Temple of Atal'Hakkar"
+kind = "dungeon"
+levels = [50, 60]
+within = "Swamp of Sorrows"
+
+[[places]]
+name = "Burning Steppes"
+kind = "zone"
+levels = [50, 58]
+subzones = ["Morgan's Vigil", "Blackrock Mountain"]
+
+[[places]]
+name = "Western Plaguelands"
+kind = "zone"
+levels = [51, 58]
+subzones = ["Chillwind Camp", "Andorhal", "Caer Darrow", "Hearthglen", "Uther's Tomb", "Corin's Crossing"]
+
+[[places]]
+name = "Blackrock Depths"
+kind = "dungeon"
+levels = [52, 60]
+within = "Searing Gorge"
+
+[[places]]
+name = "Eastern Plaguelands"
+kind = "zone"
+levels = [53, 60]
+subzones = ["Light's Hope Chapel", "Tyr's Hand", "Darrowshire", "Plaguewood"]
+
+[[places]]
+name = "Winterspring"
+kind = "zone"
+levels = [53, 60]
+subzones = ["Everlook", "Timbermaw Hold", "Mazthoril", "Darkwhisper Gorge"]
+
+[[places]]
+name = "Moonglade"
+kind = "zone"
+levels = [55, 60]
+subzones = ["Nighthaven"]
+
+[[places]]
+name = "Deadwind Pass"
+kind = "zone"
+levels = [55, 60]
+subzones = ["Karazhan"]
+
+[[places]]
+name = "Silithus"
+kind = "zone"
+levels = [55, 60]
+subzones = ["Cenarion Hold"]
+
+[[places]]
+name = "Blackrock Spire"
+kind = "dungeon"
+levels = [55, 60]
+within = "Burning Steppes"
+
+[[places]]
+name = "Dire Maul"
+kind = "dungeon"
+levels = [55, 60]
+within = "Feralas"
+
+[[places]]
+name = "Scholomance"
+kind = "dungeon"
+levels = [58, 60]
+within = "Western Plaguelands"
+
+[[places]]
+name = "Stratholme"
+kind = "dungeon"
+levels = [58, 60]
+within = "Eastern Plaguelands"
