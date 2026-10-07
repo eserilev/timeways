@@ -65,13 +65,6 @@ function GetBattlefieldWinner()
 	return wow.battlefieldWinner
 end
 
--- The time since the battleground started, in milliseconds.
-wow.battlefieldRunTime = 0
-
-function GetBattlefieldInstanceRunTime()
-	return wow.Hidden(wow.battlefieldRunTime)
-end
-
 -- The renown of each major faction. Faction 2800 is the PvP rank.
 wow.renown = {}
 

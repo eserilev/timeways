@@ -1731,7 +1731,6 @@ return {
 	},
 	undocumented = {
 		"CreateFrame",
-		"GetBattlefieldInstanceRunTime",
 		"GetBattlefieldWinner",
 		"GetGreetingText",
 		"GetGuildRosterInfo",

@@ -26,13 +26,11 @@ fn won(zone: &str) -> Input {
     }
 }
 
-/// The player is in Warsong Gulch, in a match that started ten minutes ago.
-const ENDED: &str = "wow.zone, wow.instance = 'Warsong Gulch', 'pvp'
-     wow.battlefieldRunTime = 600000";
+/// The player is in Warsong Gulch.
+const ENDED: &str = "wow.zone, wow.instance = 'Warsong Gulch', 'pvp'";
 
-/// Your faction won the match in Warsong Gulch that started ten minutes ago.
+/// Your faction won the match in Warsong Gulch.
 const YOU_WON: &str = "wow.zone, wow.instance = 'Warsong Gulch', 'pvp'
-     wow.battlefieldRunTime = 600000
      wow.battlefieldWinner = 1
      wow.Fire('UPDATE_BATTLEFIELD_STATUS', 1)";
 
@@ -41,7 +39,7 @@ fn reloaded(game: &Game, seconds: i64) -> Game {
     let wins: String = game.eval(
         "local out = {}
          for _, win in ipairs(ns.Saved().bgWins) do
-             out[#out + 1] = string.format('{ zone = %q, started = %d }', win.zone, win.started)
+             out[#out + 1] = string.format('{ zone = %q, won = %d }', win.zone, win.won)
          end
          return '{ ' .. table.concat(out, ', ') .. ' }'",
     );
@@ -109,10 +107,8 @@ fn the_next_match_that_you_win_sends_its_win_too() {
              wow.battlefieldWinner = 1
              wow.Fire('UPDATE_BATTLEFIELD_STATUS', 1)
              wow.battlefieldWinner = nil
-             wow.battlefieldRunTime = 0
              wow.Fire('UPDATE_BATTLEFIELD_STATUS', 1)
              wow.now = wow.now + 900
-             wow.battlefieldRunTime = 600000
              wow.battlefieldWinner = 1
              wow.Fire('UPDATE_BATTLEFIELD_STATUS', 1)"
         ),
@@ -131,25 +127,6 @@ fn a_reload_on_the_score_screen_sends_the_win_once() {
     game.run(YOU_WON);
 
     let after = reloaded(&game, 60);
-    let sent = sent_after(
-        &after,
-        "wow.zone, wow.instance = 'Warsong Gulch', 'pvp'
-         wow.battlefieldRunTime = 660000
-         wow.battlefieldWinner = 1
-         wow.Fire('UPDATE_BATTLEFIELD_STATUS', 1)",
-    );
-
-    assert!(sent.is_empty(), "{sent:?}");
-}
-
-#[test]
-fn a_reload_sends_the_win_once_when_the_game_hides_the_run_time() {
-    let game = Game::new();
-    game.run("wow.secrets[600000] = true");
-    game.run(YOU_WON);
-
-    let after = reloaded(&game, 60);
-    after.run("wow.secrets[600000] = true");
     let sent = sent_after(&after, YOU_WON);
 
     assert!(sent.is_empty(), "{sent:?}");
@@ -180,7 +157,7 @@ fn the_saved_wins_keep_only_the_newest_ten() {
 #[test]
 fn broken_saved_wins_raise_no_error_and_the_win_goes_out() {
     let game = Game::new();
-    game.run("ns.Saved().bgWins = { 5, { zone = 3 }, { zone = 'Warsong Gulch', started = 'x' } }");
+    game.run("ns.Saved().bgWins = { 5, { zone = 3 }, { zone = 'Warsong Gulch', won = 'x' } }");
 
     let sent = sent_after(&game, YOU_WON);
 
