@@ -6,7 +6,7 @@ Lean functions. The theorems in `Timeways/QuestLog.lean`,
 `Timeways/TrustBand.lean`, `Timeways/Prompts.lean`,
 `Timeways/Aliases.lean`, `Timeways/StoryShelf.lean`,
 `Timeways/EntryEdits.lean`, `Timeways/Chapters.lean`, `Timeways/ChaptersDeaths.lean`,
-`Timeways/NarratorShapes.lean`, `Timeways/ThinLore.lean`, `Timeways/Outcomes.lean`, and `Timeways/Setups.lean` are about those functions. A theorem holds for every input, with no bound. The
+`Timeways/NarratorShapes.lean`, `Timeways/ThinLore.lean`, `Timeways/Outcomes.lean`, `Timeways/Setups.lean`, and `Timeways/InstanceLore.lean` are about those functions. A theorem holds for every input, with no bound. The
 property tests in `crates/story/tests/properties.rs` check the same
 rules on random input, and they stay as a second check.
 
@@ -446,6 +446,22 @@ proof reads the glue. Its named tests and property tests check it.
 | `a_setup_for_a_deed_the_player_did_never_reaches_a_prompt` | A setup for a foe that the player defeated, or for a quest that the player turned in, is refused. | `a_done_setup_never_passes_for_any_facts` |
 | `a_setup_for_a_deed_not_done_is_not_gated_by_this_rule` | A setup for a deed that the player has not done passes this gate. | `a_first_deadmines_entry_tells_the_setup_until_vancleef_dies` |
 | `a_passage_with_no_setup_is_not_gated_by_this_rule` | A passage with no setup passes this gate, whatever the world holds. | `a_passage_with_no_setup_passes_with_any_facts` |
+
+## What is proved: the lore of an entry into an instance
+
+`next_passage` in `crates/rules/src/instance_lore.rs` picks the passage
+that a later entry into a dungeon or a raid tells (GAMEPLAY.md 3.2). It
+reads how many times each passage of the instance was told, in pack
+order. The glue in `crates/story/src/narrator_lore.rs` counts the
+prompts of the narrator calls that hold each passage. No proof reads
+the glue. Its named tests and property tests check it.
+
+| Theorem | The law | Test |
+|---|---|---|
+| `next_passage.spec` | The pick ends and gives its pure model: the first passage that was never told, or none when every passage was told. | `an_entry_picks_the_first_passage_never_told` |
+| `the_instance_pick_never_panics` | For every list of counts, the pick gives a value. | none |
+| `an_instance_passage_is_told_at_most_once` | The pick is always a passage that was never told. Telling it makes its count one, so no later entry tells it again. | `entries_tell_each_passage_once_and_then_fall_silent` |
+| `entries_are_silent_once_every_passage_is_told` | When every passage was told, the pick is none, and the entry is silent. | `each_later_entry_tells_lore_never_told_and_then_falls_silent` |
 
 ## What you trust
 

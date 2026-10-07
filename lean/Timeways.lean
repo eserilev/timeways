@@ -17,4 +17,5 @@ import Timeways.NarratorShapes
 import Timeways.ThinLore
 import Timeways.Outcomes
 import Timeways.Setups
+import Timeways.InstanceLore
 import Timeways.Axioms

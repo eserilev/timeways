@@ -24,6 +24,7 @@ pub mod budget;
 pub mod chapters;
 pub mod entry_edits;
 pub mod hero_hook;
+pub mod instance_lore;
 pub mod narrator_shapes;
 pub mod outcomes;
 pub mod prompts;

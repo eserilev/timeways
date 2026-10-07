@@ -1261,6 +1261,32 @@ def hero_hook.pick
       ok (some index)
   else ok none
 
+/-- [timeways_rules::instance_lore::next_passage]: loop 0:
+    Source: 'crates/rules/src/instance_lore.rs', lines 14:4-21:1
+    Visibility: public -/
+@[rust_loop]
+def instance_lore.next_passage_loop
+  (told : Slice Std.U32) (index : Std.Usize) : Result (Option Std.Usize) := do
+  let i := Slice.len told
+  if index < i
+  then
+    let i1 ← Slice.index_usize told index
+    if i1 = 0#u32
+    then ok (some index)
+    else
+      let index1 ← index + 1#usize
+      instance_lore.next_passage_loop told index1
+  else ok none
+partial_fixpoint
+
+/-- [timeways_rules::instance_lore::next_passage]:
+    Source: 'crates/rules/src/instance_lore.rs', lines 12:0-21:1
+    Visibility: public -/
+@[reducible]
+def instance_lore.next_passage
+  (told : Slice Std.U32) : Result (Option Std.Usize) := do
+  instance_lore.next_passage_loop told 0#usize
+
 /-- [timeways_rules::narrator_shapes::WINDOW]
     Source: 'crates/rules/src/narrator_shapes.rs', lines 12:0-12:28
     Visibility: public -/

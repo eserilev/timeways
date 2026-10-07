@@ -14,6 +14,7 @@ import Timeways.NarratorShapes
 import Timeways.ThinLore
 import Timeways.Outcomes
 import Timeways.Setups
+import Timeways.InstanceLore
 
 open timeways_rules
 
@@ -464,3 +465,19 @@ open timeways_rules
 /-- info: 'timeways_rules.setups.a_passage_with_no_setup_is_not_gated_by_this_rule' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs (whitespace := lax) in
 #print axioms setups.a_passage_with_no_setup_is_not_gated_by_this_rule
+
+/-- info: 'timeways_rules.instance_lore.next_passage.spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms instance_lore.next_passage.spec
+
+/-- info: 'timeways_rules.instance_lore.the_instance_pick_never_panics' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms instance_lore.the_instance_pick_never_panics
+
+/-- info: 'timeways_rules.instance_lore.an_instance_passage_is_told_at_most_once' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms instance_lore.an_instance_passage_is_told_at_most_once
+
+/-- info: 'timeways_rules.instance_lore.entries_are_silent_once_every_passage_is_told' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms instance_lore.entries_are_silent_once_every_passage_is_told
