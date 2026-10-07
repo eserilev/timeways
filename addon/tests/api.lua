@@ -59,6 +59,7 @@ return {
 		"Enum.TooltipDataType.Unit",
 		"Enum.UIMapType.Zone",
 		"GameTooltip",
+		"GetBattlefieldInstanceRunTime",
 		"GetBattlefieldWinner",
 		"GetBuildInfo",
 		"GetCursorInfo",
