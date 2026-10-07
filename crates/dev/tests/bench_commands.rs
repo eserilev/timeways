@@ -1,6 +1,8 @@
 //! `timeways-dev bench-model` and `bench-fps` as a person runs them, with a fake model: a
 //! script that answers fixed JSON (TESTING.md, "Testing the local model and the frame rate").
 
+// The fake model is a shell script.
+#![cfg(unix)]
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 mod common;

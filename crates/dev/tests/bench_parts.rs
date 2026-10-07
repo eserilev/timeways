@@ -303,6 +303,7 @@ fn only_the_last_lore_call_of_a_batch_with_shown_words_is_accepted() {
 // The model runners --------------------------------------------------------------------------
 
 #[test]
+#[cfg(unix)]
 fn a_shell_model_gives_its_words_and_a_failed_one_gives_none() {
     let echo = Runner::Shell("cat".to_string()).ask("Westfall burns.");
     let failed = Runner::Shell("exit 3".to_string()).ask("Westfall burns.");
@@ -325,6 +326,7 @@ fn a_local_answer_gives_its_text_and_its_tokens() {
 }
 
 #[test]
+#[cfg(unix)]
 fn a_local_model_that_does_not_run_fails_its_call() {
     let local = timeways_dev::model_runner::LocalModel {
         url: "http://127.0.0.1:9".to_string(),
