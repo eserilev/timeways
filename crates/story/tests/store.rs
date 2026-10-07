@@ -9,8 +9,8 @@ use timeways_story::narrator::Budget;
 use timeways_story::pace::Pace;
 use timeways_story::pack::Pack;
 use timeways_story::store::{
-    CallEnd, CharacterKey, Database, Line, NewCall, Outcome, Store, StoreError, Table,
-    name_of_safe_id, safe_id,
+    CallEnd, CharacterKey, Database, Line, NewCall, Outcome, PROMPTS_KEPT, Store, StoreError,
+    Table, name_of_safe_id, safe_id,
 };
 use timeways_story::story::{Output, Story, StoryError};
 
@@ -901,7 +901,7 @@ fn the_shape_of_a_line_is_stored_with_its_call() {
 }
 
 #[test]
-fn a_world_of_the_version_before_takes_the_shape_column_and_keeps_its_rows() {
+fn a_world_of_version_8_takes_the_shape_column_and_keeps_its_rows() {
     let folder = fresh_folder("version-8");
     fs::create_dir_all(&folder).unwrap();
     let path = folder.join("world.sqlite");
@@ -911,7 +911,8 @@ fn a_world_of_the_version_before_takes_the_shape_column_and_keeps_its_rows() {
         let connection = Connection::open(&path).unwrap();
         connection
             .execute_batch(
-                "ALTER TABLE calls DROP COLUMN shape; PRAGMA user_version = 8; \
+                "DROP TABLE told_lore; ALTER TABLE calls DROP COLUMN shape; \
+                 PRAGMA user_version = 8; \
                  INSERT INTO calls (position, kind, pack, result) VALUES (0, 'narrator', 'p', 'accepted');",
             )
             .unwrap();
@@ -924,7 +925,7 @@ fn a_world_of_the_version_before_takes_the_shape_column_and_keeps_its_rows() {
 
     assert_eq!(database.newest_shapes(8).unwrap(), ["k.fell"]);
     assert!(database.call(0).unwrap().is_some());
-    assert_eq!(user_version(&path), 9);
+    assert_eq!(user_version(&path), 10);
 }
 
 fn user_version(path: &Path) -> i64 {
@@ -936,20 +937,20 @@ fn user_version(path: &Path) -> i64 {
 
 /// A crash between the new column and the new version once left such a file.
 #[test]
-fn a_world_of_version_8_that_has_the_shape_column_opens_as_version_9() {
+fn a_world_of_version_8_that_has_the_shape_column_opens_as_version_10() {
     let folder = fresh_folder("version-8-with-shape");
     fs::create_dir_all(&folder).unwrap();
     let path = folder.join("world.sqlite");
     drop(Database::open(&path).unwrap());
     Connection::open(&path)
         .unwrap()
-        .execute_batch("PRAGMA user_version = 8")
+        .execute_batch("DROP TABLE told_lore; PRAGMA user_version = 8")
         .unwrap();
 
     let opened = Database::open(&path);
 
     assert!(opened.is_ok(), "{:?}", opened.err());
-    assert_eq!(user_version(&path), 9);
+    assert_eq!(user_version(&path), 10);
 }
 
 /// The column and the version change in one transaction, so a failed upgrade changes
@@ -963,7 +964,8 @@ fn a_failed_upgrade_leaves_the_world_at_version_8() {
     let other = Connection::open(&path).unwrap();
     other
         .execute_batch(
-            "ALTER TABLE calls DROP COLUMN shape; PRAGMA user_version = 8; BEGIN IMMEDIATE",
+            "DROP TABLE told_lore; ALTER TABLE calls DROP COLUMN shape; \
+             PRAGMA user_version = 8; BEGIN IMMEDIATE",
         )
         .unwrap();
 
@@ -973,4 +975,112 @@ fn a_failed_upgrade_leaves_the_world_at_version_8() {
     assert!(opened.is_err());
     assert_eq!(user_version(&path), 8);
     assert!(other.prepare("SELECT shape FROM calls").is_err());
+}
+
+fn narrator_call(position: u64, prompt: &str, outcome: Outcome) -> Line {
+    let mut line = narrator_line(position, None, outcome);
+    line.calls[0].prompt = prompt.to_string();
+    line
+}
+
+const TOLD_PROMPT: &str = "The moment:\n<<<\nThe player entered the dungeon.\n>>>\n\n\
+                           The lore:\n<<<\nVanCleef built the Brotherhood.\n>>>\n\nAnswer.";
+
+const TOLD_LORE: &str = "<<<\nVanCleef built the Brotherhood.\n>>>";
+
+#[test]
+fn the_lore_of_an_accepted_narrator_call_stays_told_after_its_prompt_ages_out() {
+    let mut database = Database::in_memory().unwrap();
+    database
+        .save(&narrator_call(0, TOLD_PROMPT, Outcome::Accepted))
+        .unwrap();
+    for position in 1..=PROMPTS_KEPT {
+        database
+            .save(&narrator_call(position, "prompt", Outcome::Failed))
+            .unwrap();
+    }
+
+    let told = database.told_lore().unwrap();
+
+    assert_eq!(database.call(0).unwrap().unwrap().prompt, None);
+    assert_eq!(told, [TOLD_LORE]);
+}
+
+#[test]
+fn the_lore_of_a_refused_narrator_call_is_not_told() {
+    let mut database = Database::in_memory().unwrap();
+    database
+        .save(&narrator_call(0, TOLD_PROMPT, Outcome::Refused))
+        .unwrap();
+
+    assert!(database.told_lore().unwrap().is_empty());
+}
+
+#[test]
+fn a_world_of_version_9_keeps_the_lore_of_its_kept_prompts_as_told() {
+    let folder = fresh_folder("version-9");
+    fs::create_dir_all(&folder).unwrap();
+    let path = folder.join("world.sqlite");
+    {
+        let mut database = Database::open(&path).unwrap();
+        database
+            .save(&narrator_call(0, TOLD_PROMPT, Outcome::Accepted))
+            .unwrap();
+        database
+            .save(&narrator_call(1, "no lore", Outcome::Accepted))
+            .unwrap();
+        drop(database);
+        Connection::open(&path)
+            .unwrap()
+            .execute_batch("DROP TABLE told_lore; PRAGMA user_version = 9")
+            .unwrap();
+    }
+
+    let database = Database::open(&path).unwrap();
+
+    assert_eq!(database.told_lore().unwrap(), [TOLD_LORE]);
+    assert_eq!(user_version(&path), 10);
+}
+
+/// The table and the version change in one transaction, so a failed upgrade changes
+/// neither.
+#[test]
+fn a_failed_upgrade_leaves_the_world_at_version_9() {
+    let folder = fresh_folder("version-9-fails");
+    fs::create_dir_all(&folder).unwrap();
+    let path = folder.join("world.sqlite");
+    drop(Database::open(&path).unwrap());
+    let other = Connection::open(&path).unwrap();
+    other
+        .execute_batch("DROP TABLE told_lore; PRAGMA user_version = 9; BEGIN IMMEDIATE")
+        .unwrap();
+
+    let opened = Database::open(&path);
+
+    other.execute_batch("ROLLBACK").unwrap();
+    assert!(opened.is_err());
+    assert_eq!(user_version(&path), 9);
+    assert!(other.prepare("SELECT lore FROM told_lore").is_err());
+}
+
+#[test]
+fn told_lore_of_a_call_that_is_gone_goes_with_the_broken_links() {
+    let folder = fresh_folder("told-lore-orphan");
+    fs::create_dir_all(&folder).unwrap();
+    let path = folder.join("world.sqlite");
+    drop(Database::open(&path).unwrap());
+    let other = Connection::open(&path).unwrap();
+    other
+        .execute_batch(
+            "PRAGMA foreign_keys = OFF; INSERT INTO told_lore (call, lore) VALUES (99, 'lore')",
+        )
+        .unwrap();
+
+    let database = Database::open(&path).unwrap();
+    database.drop_broken_links().unwrap();
+
+    let left: i64 = other
+        .query_row("SELECT count(*) FROM told_lore", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(left, 0);
 }

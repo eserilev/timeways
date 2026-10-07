@@ -2,6 +2,7 @@
 //! and what each call read (GAMEPLAY.md 5.7).
 
 use super::StoreError;
+use crate::narrator::told_lore;
 use rusqlite::{Connection, OptionalExtension, params, params_from_iter};
 use serde::de::DeserializeOwned;
 use std::path::{Path, PathBuf};
@@ -10,17 +11,19 @@ pub use timeways_rules::prompts::PROMPTS_KEPT;
 use timeways_rules::prompts::oldest_prompt_kept;
 
 /// A file of another version is refused, never changed. Nothing is live, so a new version
-/// starts with new worlds.
-const VERSION: i64 = 9;
+/// starts with new worlds. A file of version 8 or 9 is upgraded (`upgrade`).
+const VERSION: i64 = 10;
 
-/// Version 9 only added the column `shape` to `calls`, so a file of version 8 takes the
-/// column and keeps its rows. The column and the version land in one transaction.
-const ADD_SHAPE: &str =
-    "BEGIN; ALTER TABLE calls ADD COLUMN shape TEXT; PRAGMA user_version = 9; COMMIT;";
+/// Version 9 added the column `shape` to `calls`.
+const ADD_SHAPE: &str = "ALTER TABLE calls ADD COLUMN shape TEXT";
 
-/// A file of version 8 that already has the column: an upgrade before the transaction
-/// stopped between its two steps.
-const SET_VERSION_9: &str = "PRAGMA user_version = 9";
+/// Version 10 added the table `told_lore`.
+const ADD_TOLD_LORE: &str = "
+CREATE TABLE told_lore (
+    call INTEGER PRIMARY KEY REFERENCES calls (position),
+    lore TEXT NOT NULL
+);
+";
 
 /// WAL syncs the disk once for each line, and a reader such as `sqlite3` never blocks a
 /// save.
@@ -61,6 +64,9 @@ CREATE INDEX reads_of_a_row ON reads (tab, row);
 CREATE INDEX reads_of_a_call ON reads (call);
 CREATE INDEX calls_of_a_kind ON calls (kind);
 ";
+
+/// The kind of a narrator call in `calls`.
+const NARRATOR: &str = "narrator";
 
 /// The tables of the world. Each row is one JSON value, and its position is its place in
 /// the table, from 0. An event's position is its `EventId`.
@@ -316,8 +322,8 @@ impl Database {
         if version == VERSION {
             return Ok(());
         }
-        if version == VERSION - 1 {
-            return self.upgrade_from_8();
+        if version == 8 || version == 9 {
+            return self.upgrade(version);
         }
         let tables: i64 = self
             .connection
@@ -332,21 +338,54 @@ impl Database {
         let row_tables: String = Table::ALL
             .map(|table| format!("CREATE TABLE {} ({ROW_TABLE});\n", table.name()))
             .concat();
-        let script =
-            format!("BEGIN; {SCHEMA} {row_tables} PRAGMA user_version = {VERSION}; COMMIT;");
+        let script = format!(
+            "BEGIN; {SCHEMA} {ADD_TOLD_LORE} {row_tables} PRAGMA user_version = {VERSION}; COMMIT;"
+        );
         self.connection
             .execute_batch(&script)
             .map_err(|source| self.error(source))
     }
 
-    fn upgrade_from_8(&self) -> Result<(), StoreError> {
+    /// Every step of the upgrade and the new version land in one transaction, so a failed
+    /// upgrade changes nothing.
+    fn upgrade(&self, from: i64) -> Result<(), StoreError> {
+        self.in_transaction(|database| {
+            let upgraded = database.upgrade_steps(from);
+            upgraded.map_err(|source| database.error(source))
+        })
+    }
+
+    fn upgrade_steps(&self, from: i64) -> rusqlite::Result<()> {
+        // A crash between the column and the version once left a file of version 8 with
+        // the column.
         let has_shape = self.connection.prepare("SELECT shape FROM calls").is_ok();
-        let script = if has_shape { SET_VERSION_9 } else { ADD_SHAPE };
-        let upgraded = self.connection.execute_batch(script);
-        if upgraded.is_err() && !self.connection.is_autocommit() {
-            let _ = self.connection.execute_batch("ROLLBACK");
+        if from == 8 && !has_shape {
+            self.connection.execute_batch(ADD_SHAPE)?;
         }
-        upgraded.map_err(|source| self.error(source))
+        self.connection.execute_batch(ADD_TOLD_LORE)?;
+        self.keep_lore_of_kept_prompts()?;
+        self.connection.pragma_update(None, "user_version", VERSION)
+    }
+
+    /// A world of version 9 kept the told lore only in the newest prompts. The older
+    /// tellings are lost.
+    fn keep_lore_of_kept_prompts(&self) -> rusqlite::Result<()> {
+        let select = "SELECT position, prompt FROM calls WHERE kind = ?1 AND prompt IS NOT NULL";
+        let mut statement = self.connection.prepare(select)?;
+        let prompts = statement
+            .query_map(params![NARRATOR], |row| {
+                Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        for (position, prompt) in prompts {
+            if let Some(lore) = told_lore(&prompt) {
+                self.connection.execute(
+                    "INSERT INTO told_lore (call, lore) VALUES (?1, ?2)",
+                    params![position, lore],
+                )?;
+            }
+        }
+        Ok(())
     }
 
     /// Writes the line in one transaction, so a failed save writes nothing.
@@ -451,6 +490,10 @@ impl Database {
         }
         self.connection.execute(
             "DELETE FROM reads WHERE call NOT IN (SELECT position FROM calls)",
+            [],
+        )?;
+        self.connection.execute(
+            "DELETE FROM told_lore WHERE call NOT IN (SELECT position FROM calls)",
             [],
         )?;
         Ok(())
@@ -601,15 +644,17 @@ impl Database {
         Ok(u64::try_from(found).unwrap_or_default())
     }
 
-    /// The prompts of the narrator calls that told their lore: accepted, or still open, in
-    /// the order of the calls.
+    /// The lore of the narrator calls that told it, fenced as their prompts showed it:
+    /// accepted, or still open, in the order of the calls. It stays after the prompt ages
+    /// out.
     ///
     /// # Errors
     ///
     /// Returns the error of SQLite.
-    pub fn narrator_prompts(&self) -> Result<Vec<String>, StoreError> {
-        let select = "SELECT prompt FROM calls WHERE kind = 'narrator' AND prompt IS NOT NULL \
-                      AND result IN ('accepted', 'open') ORDER BY position";
+    pub fn told_lore(&self) -> Result<Vec<String>, StoreError> {
+        let select = "SELECT told_lore.lore FROM told_lore \
+                      JOIN calls ON calls.position = told_lore.call \
+                      WHERE calls.result IN ('accepted', 'open') ORDER BY told_lore.call";
         let mut statement = self
             .connection
             .prepare_cached(select)
@@ -723,6 +768,14 @@ fn write_line(transaction: &rusqlite::Transaction<'_>, line: &Line) -> rusqlite:
                 new.prompt
             ],
         )?;
+        if new.kind == NARRATOR
+            && let Some(lore) = told_lore(&new.prompt)
+        {
+            transaction.execute(
+                "INSERT INTO told_lore (call, lore) VALUES (?1, ?2)",
+                params![as_sql(new.position), lore],
+            )?;
+        }
         for read in &new.reads {
             let (tab, row) = address(*read);
             transaction.execute(

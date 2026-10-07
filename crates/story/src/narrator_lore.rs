@@ -33,8 +33,8 @@ pub enum LoreError {
 }
 
 /// The lore of the first subject of the moment that has some (`lore_subjects`). `told`
-/// holds the prompts of the narrator calls that told their lore: an entry into an instance
-/// never tells a passage that one of them holds. A setup passage comes as its window
+/// holds the lore that narrator calls told, fenced as their prompts showed it: an entry
+/// into an instance never tells a passage of it. A setup passage comes as its window
 /// (`setup_passages::window`).
 ///
 /// # Errors
@@ -121,10 +121,10 @@ fn next_of_instance(
     Ok(next_passage(&counts).and_then(|index| candidates.into_iter().nth(index)))
 }
 
-/// How many of the prompts hold the lore of the passage, as a prompt shows it.
+/// How many times a call told the lore of the passage, as a prompt shows it.
 fn times_told(passage: &Passage, told: &[String]) -> u32 {
     let shown = fenced(&lore_excerpt(&passage.text));
-    let count = told.iter().filter(|prompt| prompt.contains(&shown)).count();
+    let count = told.iter().filter(|lore| **lore == shown).count();
     u32::try_from(count).unwrap_or(u32::MAX)
 }
 

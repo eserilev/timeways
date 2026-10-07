@@ -2913,3 +2913,25 @@ fn a_later_entry_never_tells_an_untagged_end_of_a_deed() {
     assert!(first.is_some_and(|p| p.contains("the richest gold mine of Westfall")));
     assert_eq!(second, None);
 }
+
+#[test]
+fn a_later_entry_never_tells_a_passage_again_after_many_calls() {
+    let mut story = story_with("entries-many-calls", &[deadmines_lead()]);
+    let first = entry_prompt(&mut story, 2 * HOUR, 1);
+    meet(&mut story, 3 * HOUR, "Gryan Stoutmantle");
+    for _ in 0..timeways_story::store::PROMPTS_KEPT {
+        let talk = Input::TalkAsked {
+            id: MessageId(8),
+            at: Tick(3 * HOUR),
+            npc: "Gryan Stoutmantle".to_string(),
+            text: "any news?".to_string(),
+        };
+        let (call, _) = model_call(one(story.handle(talk).unwrap()).unwrap());
+        story.handle(Input::ModelFailed { call }).unwrap();
+    }
+
+    let again = entry_prompt(&mut story, 4 * HOUR, 2);
+
+    assert!(first.is_some_and(|p| p.contains("the richest gold mine of Westfall")));
+    assert_eq!(again, None);
+}

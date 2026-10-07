@@ -59,8 +59,8 @@ use timeways_story::sentences::{sentences, word_count};
 use timeways_story::spoiler::{outcome_allowed, setup_allowed};
 use timeways_story::spot::{MAP_IDS, Spot, THOUSANDTHS, spot_of};
 use timeways_story::store::{
-    CallEnd, CharacterKey, Database, Line, NewCall, Node, Outcome, Root, Store, Table,
-    name_of_safe_id, safe_id,
+    CallEnd, CharacterKey, Database, Line, NewCall, Node, Outcome, PROMPTS_KEPT, Root, Store,
+    Table, name_of_safe_id, safe_id,
 };
 use timeways_story::story::{Output, Story};
 use timeways_story::vocabulary::{
@@ -4042,5 +4042,58 @@ proptest! {
 
         prop_assert_eq!(order, (0..passages).collect::<Vec<_>>());
         prop_assert!(told.iter().all(|count| *count == 1));
+    }
+
+    /// GAMEPLAY.md 3.2: a told passage stays told once, at any count of later calls, also
+    /// after its prompt ages out.
+    #[test]
+    fn told_lore_stays_told_at_any_call_count(later in calls_after_a_telling()) {
+        let mut database = Database::in_memory().unwrap();
+        database.save(&narrator_call_line(0, &told_prompt(), Outcome::Accepted)).unwrap();
+        for position in 1..=later {
+            database.save(&narrator_call_line(position, "prompt", Outcome::Failed)).unwrap();
+        }
+
+        let told = database.told_lore().unwrap();
+
+        prop_assert_eq!(told, [fenced("Wilder alone escaped the Deadmines.")]);
+    }
+}
+
+/// The counts of calls after a telling, with the edges of the kept prompts likely.
+fn calls_after_a_telling() -> impl Strategy<Value = u64> {
+    prop_oneof![
+        Just(0),
+        Just(PROMPTS_KEPT - 1),
+        Just(PROMPTS_KEPT),
+        Just(PROMPTS_KEPT + 1),
+        0..PROMPTS_KEPT * 2,
+    ]
+}
+
+fn told_prompt() -> String {
+    format!(
+        "The moment:\n{}\n\nThe lore:\n{}\n\nAnswer.",
+        fenced("The player entered the dungeon The Deadmines again."),
+        fenced("Wilder alone escaped the Deadmines.")
+    )
+}
+
+fn narrator_call_line(position: u64, prompt: &str, outcome: Outcome) -> Line {
+    Line {
+        calls: vec![NewCall {
+            position,
+            kind: "narrator",
+            pack: "test".to_string(),
+            prompt: prompt.to_string(),
+            reads: Vec::new(),
+        }],
+        ended: vec![CallEnd {
+            position,
+            answer: Some("answer".to_string()),
+            outcome,
+            shape: None,
+        }],
+        ..Line::default()
     }
 }

@@ -38,7 +38,7 @@ impl Story {
         let active = self.active.as_ref()?;
         let who = Who::of(&active.character);
         let told = if moment.enters_an_instance() {
-            active.narrator_prompts().ok()?
+            active.told_lore().ok()?
         } else {
             Vec::new()
         };

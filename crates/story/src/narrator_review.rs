@@ -72,8 +72,10 @@ pub fn reviews(events: &[Event], sources: &Sources<'_>) -> Result<Vec<Review>, R
                 reviews.len(),
                 &told,
             )?;
-            if review.silence.is_none() {
-                told.push(review.prompt.clone());
+            if review.silence.is_none()
+                && let Some(lore) = narrator::told_lore(&review.prompt)
+            {
+                told.push(lore.to_string());
             }
             reviews.push(review);
         }

@@ -295,6 +295,7 @@ The first entry into a dungeon tells who wants what done there, while that deed 
 1. Before you kill Edwin VanCleef, enter the Deadmines for the first time. The narrator line tells who wants VanCleef dead, and ends on what still holds now.
 2. Leave, and enter again. Do it twice more. Each line tells something new about the Deadmines, and no line repeats the lore of another.
 3. Kill Edwin VanCleef, leave, and enter again. No line tells that someone wants him dead.
+4. Run `gnomish-relay restart`, and enter the Deadmines again. No line repeats the lore of an earlier entry, also after a restart.
 
 ## Dev mode
 
