@@ -2,7 +2,7 @@
 //! words of its prompt live here, and the checks of a line live in `line_check`.
 
 use crate::character::Character;
-use crate::house::{HOUSE_RULES, NAME_MARK, fenced, first_chars};
+use crate::house::{HOUSE_RULES, NAME_MARK, fenced, first_chars, leading_fence};
 use crate::moments::Moment;
 use crate::narrator_build::{self, Offer, Setup};
 use crate::narrator_slots::{ChoiceField, fields_of};
@@ -294,7 +294,7 @@ pub fn lore_prompt(telling: &Telling<'_>, turn: usize, offer: &Offer) -> String 
     }
     match telling.lore {
         Some(lore) => {
-            let _ = write!(prompt, "\n\nThe lore:\n{}", fenced(lore));
+            let _ = write!(prompt, "{LORE_HEADING}{}", fenced(lore));
             if is_setup_entry(telling.moment, lore) {
                 let _ = write!(prompt, "\n{SETUP_NOTE}");
             }
@@ -395,7 +395,7 @@ pub fn line_prompt(telling: &Telling<'_>, turn: usize) -> String {
     }
     match telling.lore {
         Some(lore) => {
-            let _ = write!(prompt, "\n\nThe lore:\n{}", fenced(lore));
+            let _ = write!(prompt, "{LORE_HEADING}{}", fenced(lore));
         }
         None => prompt.push_str("\n\nThe lore: none"),
     }
@@ -403,6 +403,17 @@ pub fn line_prompt(telling: &Telling<'_>, turn: usize) -> String {
     let note = if arrival { PLACE_NOTE } else { DEED_NOTE };
     let _ = write!(prompt, "\n\nName the hero: {naming}\n\n{note}");
     prompt
+}
+
+/// What comes right before the fenced lore of a narrator prompt.
+const LORE_HEADING: &str = "\n\nThe lore:\n";
+
+/// The lore that a narrator prompt tells, fenced as the prompt shows it. The store keeps
+/// it after the prompt ages out, so no entry tells it twice.
+#[must_use]
+pub fn told_lore(prompt: &str) -> Option<&str> {
+    let (_, after) = prompt.split_once(LORE_HEADING)?;
+    leading_fence(after)
 }
 
 /// The start of a lore passage, cut after a sentence when it is long.

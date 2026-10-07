@@ -26,6 +26,15 @@ pub fn fenced(text: &str) -> String {
     format!("{OPEN}\n{}\n{CLOSE}", without_fence_marks(text))
 }
 
+/// The fenced block at the start of `text`, with its marks, as `fenced` writes it.
+#[must_use]
+pub fn leading_fence(text: &str) -> Option<&str> {
+    let body = text.strip_prefix(OPEN)?.strip_prefix('\n')?;
+    let end = body.find(&format!("\n{CLOSE}"))?;
+    let length = OPEN.len() + 1 + end + 1 + CLOSE.len();
+    text.get(..length)
+}
+
 /// The first `most` characters of a text.
 #[must_use]
 pub fn first_chars(text: &str, most: usize) -> &str {

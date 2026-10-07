@@ -4,7 +4,7 @@ use fences::unfenced_lines_with;
 use hourglass::Tick;
 use timeways_story::moments::Moment;
 use timeways_story::narrator::{
-    Budget, MAX_LORE_CHARS, Naming, PERSONA, Telling, Who, lore_excerpt, naming, prompt,
+    Budget, MAX_LORE_CHARS, Naming, PERSONA, Telling, Who, lore_excerpt, naming, prompt, told_lore,
     what_happened,
 };
 use timeways_story::places::InstanceKind;
@@ -70,6 +70,34 @@ fn a_prompt_starts_with_the_persona_and_ends_with_the_note() {
 
     assert!(prompt.starts_with(PERSONA), "{prompt}");
     assert!(prompt.ends_with("Answer with the JSON only."), "{prompt}");
+}
+
+#[test]
+fn the_told_lore_of_a_prompt_is_its_lore_as_the_prompt_fences_it() {
+    let lore = "The murlocs of Westfall raid the coast.";
+    let moments = [
+        murloc(),
+        Moment::InstanceAgain {
+            zone: "The Deadmines".to_string(),
+            kind: InstanceKind::Dungeon,
+        },
+    ];
+
+    for moment in moments {
+        let prompt = prompt_of(&moment, Some(lore), &Who::default(), 0);
+
+        assert_eq!(
+            told_lore(&prompt),
+            Some(format!("<<<\n{lore}\n>>>").as_str())
+        );
+    }
+}
+
+#[test]
+fn a_prompt_with_no_lore_tells_no_lore() {
+    let prompt = prompt_of(&murloc(), None, &Who::default(), 0);
+
+    assert_eq!(told_lore(&prompt), None);
 }
 
 #[test]
