@@ -161,3 +161,76 @@ fn an_item_level_that_is_no_whole_number_goes_with_no_level() {
         )]
     );
 }
+
+/// The game sends the data of an item that it had none on.
+fn data_comes(game: &Game, item: &str, quality: u8, level: u16) {
+    game.run(&format!(
+        "wow.items['{item}'] = {{ quality = {quality}, level = {level} }}
+         wow.Fire('GET_ITEM_INFO_RECEIVED', 1, true)"
+    ));
+}
+
+#[test]
+fn an_item_with_no_data_yet_goes_out_once_the_data_comes() {
+    let game = logged_in();
+    put_on(&game, 16, "Late Blade");
+    let before_the_data = sent(&game);
+
+    data_comes(&game, "Late Blade", 4, 50);
+
+    assert!(before_the_data.is_empty(), "{before_the_data:?}");
+    assert_eq!(
+        sent(&game),
+        [(
+            16,
+            "Late Blade".to_string(),
+            4,
+            Some(50),
+            Some(20),
+            SlotWas::Worn
+        )]
+    );
+}
+
+#[test]
+fn gear_with_no_data_at_login_gives_its_level_once_the_data_comes() {
+    let game = Game::new();
+    game.run(
+        "wow.items['Cruel Barb'] = { quality = 3, level = 30 }
+         wow.gear[16] = 'Old Sword'
+         ns.Gear.Login()",
+    );
+    data_comes(&game, "Old Sword", 2, 20);
+
+    put_on(&game, 16, "Cruel Barb");
+
+    assert_eq!(sent(&game)[0].4, Some(20));
+}
+
+#[test]
+fn an_equip_waits_for_the_data_of_the_item_that_it_replaced() {
+    let game = Game::new();
+    game.run(
+        "wow.items['Cruel Barb'] = { quality = 3, level = 30 }
+         wow.gear[16] = 'Old Sword'
+         ns.Gear.Login()",
+    );
+    put_on(&game, 16, "Cruel Barb");
+
+    data_comes(&game, "Old Sword", 2, 20);
+
+    assert_eq!(sent(&game)[0].4, Some(20));
+}
+
+/// The game gives no quality, then a hidden level. The check of hidden values must not stop
+/// at the first field that is nil.
+#[test]
+fn a_hidden_level_after_a_field_with_no_value_is_never_sent() {
+    let game = logged_in();
+    game.run("wow.items['Odd Ring'] = { level = 33 }; wow.secrets[33] = true");
+    put_on(&game, 16, "Odd Ring");
+
+    put_on(&game, 16, "Cruel Barb");
+
+    assert_eq!(sent(&game)[0].4, None);
+}

@@ -15,9 +15,11 @@ local FOR_SHOW = { [4] = true, [19] = true }
 -- The story program reads a level as a whole number of 16 bits.
 local MAX_LEVEL = 65535
 
--- What each slot held last: { item, quality, level }. A slot that you empty keeps its last
--- item, so an item taken off and another put on compare with each other.
+-- What each slot held last: { link, item, quality, level }. A slot that you empty keeps its
+-- last item, so an item taken off and another put on compare with each other.
 local worn = {}
+-- The equips that wait for the data of an item, by slot: { before }.
+local waiting = {}
 
 local function Whole(value)
 	if type(value) == "number" and value >= 0 and value <= MAX_LEVEL and value % 1 == 0 then
@@ -25,20 +27,38 @@ local function Whole(value)
 	end
 end
 
--- The item in the slot, or nil for an empty slot. Its fields are nil when the game has no
--- data on the item yet, or hides it.
+-- The item of the link. Its fields are nil while the game has no data on it. A hidden item
+-- has no fields and no link, so nothing waits for it.
+local function ReadLink(link)
+	local name, _, quality, level = C_Item.GetItemInfo(link)
+	if issecretvalue(name) or issecretvalue(quality) or issecretvalue(level) then
+		return {}
+	end
+	local item = type(name) == "string" and name or nil
+	return { link = link, item = item, quality = Whole(quality), level = Whole(level) }
+end
+
+-- The item in the slot, or nil for an empty slot.
 local function Read(slot)
 	local link = GetInventoryItemLink("player", slot)
 	if type(link) ~= "string" or issecretvalue(link) then
 		return nil
 	end
-	local name, _, quality, level = C_Item.GetItemInfo(link)
-	for _, value in ipairs({ name, quality, level }) do
-		if issecretvalue(value) then
-			return {}
-		end
+	return ReadLink(link)
+end
+
+-- GET_ITEM_INFO_RECEIVED comes once the game has the data.
+local function IsLoading(item)
+	return item ~= nil and item.link ~= nil and item.item == nil
+end
+
+-- In place, so each table that holds the item gets the data.
+local function Fill(item)
+	if not IsLoading(item) then
+		return
 	end
-	return { item = type(name) == "string" and name or nil, quality = Whole(quality), level = Whole(level) }
+	local read = ReadLink(item.link)
+	item.link, item.item, item.quality, item.level = read.link, read.item, read.quality, read.level
 end
 
 -- The gear at login is what each later item compares with.
@@ -52,6 +72,13 @@ local function IsNotable(item)
 	return item.item and item.item ~= "" and item.quality and item.quality >= RARE
 end
 
+local function Equipped(slot, now, before)
+	if not IsNotable(now) or (before and before.item == now.item) then
+		return
+	end
+	ns.Outbox.Add(ns.Inputs.ItemEquipped(time(), slot, now, before))
+end
+
 function Gear.Changed(slot)
 	if type(slot) ~= "number" or FOR_SHOW[slot] or slot < 1 or slot > 19 then
 		return
@@ -62,8 +89,26 @@ function Gear.Changed(slot)
 		return
 	end
 	worn[slot] = now
-	if not IsNotable(now) or (before and before.item == now.item) then
+	if IsLoading(now) or IsLoading(before) then
+		waiting[slot] = { before = before }
 		return
 	end
-	ns.Outbox.Add(ns.Inputs.ItemEquipped(time(), slot, now, before))
+	waiting[slot] = nil
+	Equipped(slot, now, before)
+end
+
+-- GET_ITEM_INFO_RECEIVED: the items with no data get it, and an equip that waited goes out.
+-- A slot that changed again waits for its newest item only.
+function Gear.ItemLoaded()
+	for _, item in pairs(worn) do
+		Fill(item)
+	end
+	for slot, wait in pairs(waiting) do
+		Fill(wait.before)
+		local now = worn[slot]
+		if not IsLoading(now) and not IsLoading(wait.before) then
+			waiting[slot] = nil
+			Equipped(slot, now, wait.before)
+		end
+	end
 end

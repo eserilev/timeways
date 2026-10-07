@@ -1506,6 +1506,13 @@ return {
 				{ Name = "encounterUnitStatus", Type = "table", InnerType = "EncounterUnitStatus", Nilable = false },
 			},
 		},
+		GET_ITEM_INFO_RECEIVED = {
+			SynchronousEvent = true,
+			Payload = {
+				{ Name = "itemID", Type = "number", Nilable = false },
+				{ Name = "success", Type = "bool", Nilable = false },
+			},
+		},
 		GOSSIP_SHOW = {
 			SynchronousEvent = true,
 			Payload = {
