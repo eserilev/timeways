@@ -10,6 +10,7 @@ fn passages() -> Vec<Passage> {
         links,
         origin: Origin::Pack,
         about: None,
+        depends_on: None,
     };
     vec![tower]
 }

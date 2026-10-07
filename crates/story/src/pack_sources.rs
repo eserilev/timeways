@@ -4,9 +4,10 @@
 use crate::check::later_names;
 use crate::dump::{self, DumpError, Page};
 use crate::game_talk::{Cut, cut_game_talk};
+use crate::outcome_passages::{self, PageKind, page_kind, with_known_bosses};
 use crate::pack::{Link, Origin, Passage};
 use crate::passage_limits::pieces;
-use crate::wikitext::{book_content, listed_pages, plain, sections};
+use crate::wikitext::{Cites, book_content, cites, listed_pages, plain, sections};
 use regex::Regex;
 use serde::Deserialize;
 use std::collections::{BTreeMap, BTreeSet};
@@ -128,17 +129,29 @@ pub struct PageReport {
 
 #[derive(Debug, Default)]
 pub struct Built {
+    /// An outcome passage holds what it depends on (`outcome_passages`).
     pub passages: Vec<Passage>,
     /// One line for each book and each page, in the order of the passages.
     pub report: Vec<PageReport>,
     /// Chapters of the list that the index page lacks, for example after a rename.
     pub missing_chapters: Vec<String>,
+    /// The outcome passages that wait for the kinds of the pages that they cite.
+    outcomes: Vec<Tagged>,
+}
+
+/// An outcome passage of `Built::passages`, with the page that it comes from and the cites
+/// of its paragraph.
+#[derive(Debug)]
+struct Tagged {
+    passage: usize,
+    page: String,
+    cites: Cites,
 }
 
 /// The passages of the dump, in the order of the list: the books by chapter, then the
-/// pages. The same dump gives the same passages. The dump is read at most twice: once for
-/// the index, the pages, and every redirect, and once for the books and the targets of
-/// redirects.
+/// pages. The same dump gives the same passages. The dump is read at most three times:
+/// once for the index, the pages, and every redirect, once for the books and the targets
+/// of redirects, and once for the pages that the outcome passages cite.
 ///
 /// # Errors
 ///
@@ -175,7 +188,46 @@ pub fn from_dump(path: &Path, sources: &Sources) -> Result<Built, SourcesError> 
     for page in &sources.pages {
         add_page(&mut built, page, found.get(&page.title), &filters);
     }
+    let bosses = known_bosses(sources);
+    tag_outcomes(&mut built, path, &first, &found, &bosses)?;
     Ok(built)
+}
+
+/// Each outcome passage gets what it depends on, from the kinds of the pages that its
+/// paragraph cites, and of its own page.
+fn tag_outcomes(
+    built: &mut Built,
+    path: &Path,
+    first: &dump::Scan,
+    found: &BTreeMap<String, Page>,
+    bosses: &[String],
+) -> Result<(), SourcesError> {
+    let cited: Vec<String> = built
+        .outcomes
+        .iter()
+        .flat_map(|tagged| tagged.cites.links.iter().chain(&tagged.cites.refs))
+        .cloned()
+        .collect();
+    let more = dump::texts(path, &first.lacking(&cited))?;
+    let kind_of = |title: &str| -> Option<PageKind> {
+        let page = found
+            .get(title)
+            .cloned()
+            .or_else(|| first.page(title, &more))?;
+        Some(with_known_bosses(
+            page_kind(&page.title, &page.text),
+            bosses,
+        ))
+    };
+    for tagged in std::mem::take(&mut built.outcomes) {
+        let Some(passage) = built.passages.get_mut(tagged.passage) else {
+            continue;
+        };
+        let dependency =
+            outcome_passages::dependency(&passage.text, &tagged.cites, &tagged.page, kind_of);
+        passage.depends_on = Some(dependency);
+    }
+    Ok(())
 }
 
 /// The paragraphs of a wiki page that go out. A book needs no filter: the books end
@@ -258,7 +310,7 @@ fn add_books(built: &mut Built, titles: &[String], books: &BTreeMap<String, Page
             .strip_suffix(list.title_suffix.as_str())
             .unwrap_or(&page.title);
         let source = format!("the book \"{name}\"");
-        let texts = paragraphs(&plain(content));
+        let texts = uncited(paragraphs(&plain(content)));
         let outcome = Outcome::Read {
             passages: texts.len(),
             later: 0,
@@ -281,15 +333,15 @@ fn add_page(built: &mut Built, wanted: &WikiPage, page: Option<&Page>, filters: 
     };
     // A later term reads whole paragraphs: the rest of a long paragraph tells the same
     // story, and a cut can leave half of a later story.
-    let mut whole: Vec<String> = kept_bodies(&page.text, wanted)
+    let mut whole: Vec<Paragraph> = kept_bodies(&page.text, wanted)
         .into_iter()
-        .flat_map(|body| prose_lines(&plain(body)))
+        .flat_map(cited_paragraphs)
         .collect();
     let read = whole.len();
-    whole.retain(|text| !filters.is_later(text));
+    whole.retain(|paragraph| !filters.is_later(&paragraph.text));
     let later = read - whole.len();
     let talk = without_game_talk(whole, filters);
-    let texts: Vec<String> = talk.kept.iter().flat_map(|text| pieces(text)).collect();
+    let texts: Vec<Paragraph> = talk.kept.iter().flat_map(cut_in_pieces).collect();
     let outcome = Outcome::Read {
         passages: texts.len(),
         later,
@@ -306,32 +358,93 @@ fn add_page(built: &mut Built, wanted: &WikiPage, page: Option<&Page>, filters: 
     push_passages(built, &page.title, outcome, texts, &shelf);
 }
 
+/// A paragraph of plain text, with the links and the references of its line of wikitext.
+struct Paragraph {
+    text: String,
+    cites: Cites,
+}
+
+/// The prose lines of a body, each with its cites. A line of plain text gets the cites of
+/// the line of wikitext that gives it. A line that no single line of wikitext gives, for
+/// example after a template over two lines, gets no cites.
+fn cited_paragraphs(body: &str) -> Vec<Paragraph> {
+    let by_line: BTreeMap<String, Cites> = body
+        .lines()
+        .map(|raw| (one_line(&plain(raw)), cites(raw)))
+        .collect();
+    prose_lines(&plain(body))
+        .into_iter()
+        .map(|text| Paragraph {
+            cites: by_line.get(&text).cloned().unwrap_or_default(),
+            text,
+        })
+        .collect()
+}
+
+fn uncited(texts: Vec<String>) -> Vec<Paragraph> {
+    texts
+        .into_iter()
+        .map(|text| Paragraph {
+            text,
+            cites: Cites::default(),
+        })
+        .collect()
+}
+
+/// A long paragraph in pieces that fit the bridge. Each piece keeps the cites of the whole.
+fn cut_in_pieces(paragraph: &Paragraph) -> Vec<Paragraph> {
+    pieces(&paragraph.text)
+        .into_iter()
+        .map(|text| Paragraph {
+            text,
+            cites: paragraph.cites.clone(),
+        })
+        .collect()
+}
+
 /// The paragraphs after the cut of their game sentences.
 struct GameCut {
-    kept: Vec<String>,
+    kept: Vec<Paragraph>,
     /// Paragraphs that went whole.
     dropped: usize,
     /// Sentences that went from kept paragraphs.
     cut: usize,
 }
 
-fn without_game_talk(paragraphs: Vec<String>, filters: &Filters) -> GameCut {
+fn without_game_talk(paragraphs: Vec<Paragraph>, filters: &Filters) -> GameCut {
     let mut done = GameCut {
         kept: Vec::new(),
         dropped: 0,
         cut: 0,
     };
     for paragraph in paragraphs {
-        match cut_game_talk(&paragraph, |sentence| filters.is_game(sentence)) {
+        match cut_game_talk(&paragraph.text, |sentence| filters.is_game(sentence)) {
             Cut::Whole => done.kept.push(paragraph),
             Cut::Trimmed { text, dropped } => {
-                done.kept.push(text);
+                done.kept.push(Paragraph {
+                    text,
+                    cites: paragraph.cites,
+                });
                 done.cut += dropped;
             }
             Cut::Dropped => done.dropped += 1,
         }
     }
     done
+}
+
+/// The people of the list in a place, such as "Mr. Smite" in the Deadmines: a page
+/// with places only, whose subject is none of its places. A faction such as "Defias
+/// Brotherhood" has that shape too, and its infobox is no NPC, so it never counts as a foe.
+#[must_use]
+pub fn known_bosses(sources: &Sources) -> Vec<String> {
+    sources
+        .pages
+        .iter()
+        .filter(|page| page.npcs.is_empty() && !page.common && !page.places.is_empty())
+        .filter(|page| !page.places.contains(&subject_of(&page.title, &links(page))))
+        .map(|page| without_suffix(&page.title).to_string())
+        .collect()
 }
 
 /// The link that a page is about, when its title names it: the page "Deadmines" is about
@@ -406,24 +519,35 @@ struct Shelf<'a> {
     about: Option<String>,
 }
 
+/// An outcome passage waits in `Built::outcomes` for what it depends on.
 fn push_passages(
     built: &mut Built,
     title: &str,
     outcome: Outcome,
-    texts: Vec<String>,
+    paragraphs: Vec<Paragraph>,
     shelf: &Shelf<'_>,
 ) {
     built.report.push(PageReport {
         title: title.to_string(),
         outcome,
     });
-    built.passages.extend(texts.into_iter().map(|text| Passage {
-        text,
-        source: shelf.source.to_string(),
-        links: shelf.links.to_vec(),
-        origin: Origin::Pack,
-        about: shelf.about.clone(),
-    }));
+    for paragraph in paragraphs {
+        if outcome_passages::is_outcome(&paragraph.text) {
+            built.outcomes.push(Tagged {
+                passage: built.passages.len(),
+                page: title.to_string(),
+                cites: paragraph.cites,
+            });
+        }
+        built.passages.push(Passage {
+            text: paragraph.text,
+            source: shelf.source.to_string(),
+            links: shelf.links.to_vec(),
+            origin: Origin::Pack,
+            about: shelf.about.clone(),
+            depends_on: None,
+        });
+    }
 }
 
 fn missing(title: &str) -> PageReport {

@@ -529,6 +529,7 @@ pub struct Scope {
 - The scope is in the table `link`, as two new kinds: `faction` (with the name `alliance` or `horde`) and `history` (with an empty name). The reader puts them in `scope`, never in `links`.
 - **Why not in `links`.** A link gates the spoiler limit, and `Pack::write` refuses a passage with no link. A scope row is not a gate. A passage with only a scope must still be refused, or it leaks.
 - `FORMAT_VERSION` goes to 3: format 2 is taken by `about`, the subject of a page (GAMEPLAY.md 5.10, 2026-10-05). The writer writes 3. The reader takes 2 and 3 (`READABLE_VERSIONS`). Format 2 is a known older format, not a guess, so the rule "never guessed at" holds. A pack of format 2 has no scope rows.
+- **Note (2026-10-07).** Format 3 is now taken by `depends_on`, the tags of outcome passages (GAMEPLAY.md 5.10). The scope takes format 4, and every number in this plan moves up by one.
 - **Why read format 2.** `lore_start::open_lore` fails the start of the program when `Pack::open` fails. A player with a pack of format 2 and a new story program then has no Timeways until the desktop builds a new pack. Reading format 2 avoids that.
 
 ### 12.2 `pack_sources.toml`

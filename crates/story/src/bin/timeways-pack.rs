@@ -6,7 +6,11 @@
 //! {"text": "...", "source": "https://...", "places": ["Goldshire"], "npcs": ["Innkeeper Farley"]}
 //! {"text": "...", "source": "https://...", "places": ["Goldshire"], "about": "Goldshire"}
 //! {"text": "...", "source": "https://...", "common": true}
+//! {"text": "...", "source": "https://...", "places": ["The Deadmines"], "depends_on": {"foe": "Edwin VanCleef"}}
 //! ```
+//!
+//! `depends_on` is `{"foe": name}`, `{"quest": title}`, or `"unresolved"`. A line that
+//! tells a deed of adventurers and has no `depends_on` is unresolved.
 //!
 //! Or from a MediaWiki dump (`.xml` or `.7z`), with the pages of `data/pack_sources.toml`:
 //! `timeways-pack from-dump <dump> <new pack file>`.
@@ -16,7 +20,8 @@ use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
-use timeways_story::pack::{Link, Origin, Pack, Passage};
+use timeways_story::outcome_passages::is_outcome;
+use timeways_story::pack::{Dependency, Link, Origin, Pack, Passage};
 use timeways_story::pack_sources::{self, Built, Outcome, Sources};
 use timeways_story::passage_limits;
 
@@ -37,6 +42,26 @@ struct PassageLine {
     /// The place or the person that the page of the passage is about.
     #[serde(default)]
     about: Option<String>,
+    #[serde(default)]
+    depends_on: Option<DependencyLine>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "snake_case")]
+enum DependencyLine {
+    Foe(String),
+    Quest(String),
+    Unresolved,
+}
+
+impl DependencyLine {
+    fn into_dependency(self) -> Dependency {
+        match self {
+            DependencyLine::Foe(name) => Dependency::Foe(name),
+            DependencyLine::Quest(title) => Dependency::Quest(title),
+            DependencyLine::Unresolved => Dependency::Unresolved,
+        }
+    }
 }
 
 impl PassageLine {
@@ -44,12 +69,18 @@ impl PassageLine {
         let places = self.places.into_iter().map(Link::Place);
         let npcs = self.npcs.into_iter().map(Link::Npc);
         let common = self.common.then_some(Link::Common);
+        let told_deed = is_outcome(&self.text).then_some(Dependency::Unresolved);
+        let depends_on = self
+            .depends_on
+            .map(DependencyLine::into_dependency)
+            .or(told_deed);
         Passage {
             text: self.text,
             source: self.source,
             links: places.chain(npcs).chain(common).collect(),
             origin: Origin::Pack,
             about: self.about,
+            depends_on,
         }
     }
 }
@@ -107,6 +138,7 @@ fn from_dump(dump: &Path, pack: &Path) -> Result<(), Box<dyn Error>> {
     refuse_existing(pack)?;
     let built = pack_sources::from_dump(dump, &Sources::bundled()?)?;
     print_report(&built);
+    print_outcomes(&built.passages);
     for passage in &built.passages {
         if let Some(fault) = passage_limits::fault(passage) {
             return Err(format!("the passage from {}: {fault}", passage.source).into());
@@ -119,6 +151,31 @@ fn from_dump(dump: &Path, pack: &Path) -> Result<(), Box<dyn Error>> {
         pack.display()
     );
     Ok(())
+}
+
+/// Each outcome passage with what it depends on, for a check by eye.
+fn print_outcomes(passages: &[Passage]) {
+    let mut counts = [0usize; 3];
+    for passage in passages {
+        let Some(dependency) = &passage.depends_on else {
+            continue;
+        };
+        let (index, kind, name) = match dependency {
+            Dependency::Foe(name) => (0, "foe", name.as_str()),
+            Dependency::Quest(title) => (1, "quest", title.as_str()),
+            Dependency::Unresolved => (2, "unresolved", ""),
+        };
+        counts[index] += 1;
+        println!(
+            "outcome  {kind}  {name}  |  {}  |  {}",
+            passage.source, passage.text
+        );
+    }
+    let [foes, quests, unresolved] = counts;
+    println!(
+        "tagged {} outcome passages: {foes} by foe, {quests} by quest, {unresolved} unresolved",
+        foes + quests + unresolved
+    );
 }
 
 fn print_report(built: &Built) {

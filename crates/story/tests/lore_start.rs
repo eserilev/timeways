@@ -25,6 +25,7 @@ fn tower() -> Passage {
         links: vec![Link::Place("Elwynn Forest".to_string())],
         origin: Origin::Pack,
         about: None,
+        depends_on: None,
     }
 }
 

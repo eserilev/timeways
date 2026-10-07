@@ -1,7 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use std::path::{Path, PathBuf};
-use timeways_story::pack::{Link, Origin, Pack, PackError, Passage};
+use timeways_story::pack::{Dependency, Link, Origin, Pack, PackError, Passage};
 
 fn fresh_path(name: &str) -> PathBuf {
     let path = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("pack-{name}.sqlite"));
@@ -16,6 +16,7 @@ fn passage(text: &str, source: &str, links: Vec<Link>) -> Passage {
         links,
         origin: Origin::Pack,
         about: None,
+        depends_on: None,
     }
 }
 
@@ -214,4 +215,68 @@ fn a_pack_of_format_one_is_refused() {
     let result = Pack::open(&path);
 
     assert!(matches!(result, Err(PackError::Version { found: 1 })));
+}
+
+#[test]
+fn a_pack_of_format_two_is_refused_because_it_has_no_outcome_tags() {
+    let path = fresh_path("format-two");
+    rusqlite::Connection::open(&path)
+        .unwrap()
+        .pragma_update(None, "user_version", 2)
+        .unwrap();
+
+    let result = Pack::open(&path);
+
+    assert!(matches!(result, Err(PackError::Version { found: 2 })));
+}
+
+#[test]
+fn an_outcome_passage_comes_back_with_what_it_depends_on() {
+    let tags = [
+        Dependency::Foe("Edwin VanCleef".to_string()),
+        Dependency::Quest("Red Linen Goods".to_string()),
+        Dependency::Unresolved,
+    ];
+    let passages: Vec<Passage> = tags
+        .iter()
+        .map(|tag| Passage {
+            depends_on: Some(tag.clone()),
+            ..passage(
+                "The adventurers killed the test ooze.",
+                "https://example.test/1",
+                vec![place("Testvale")],
+            )
+        })
+        .collect();
+    let pack = pack_of("outcomes", &passages);
+
+    let found = pack.search("ooze", 10).unwrap();
+
+    assert_eq!(found, passages);
+}
+
+#[test]
+fn an_unknown_kind_of_dependency_is_an_error() {
+    let path = fresh_path("unknown-dependency");
+    let tower = passage(
+        "The tower of Testvale fell.",
+        "https://example.test/1",
+        vec![place("Testvale")],
+    );
+    Pack::write(&path, &[tower]).unwrap();
+    rusqlite::Connection::open(&path)
+        .unwrap()
+        .execute(
+            "INSERT INTO depends_on (passage, kind, name) VALUES (1, 'rumor', 'x')",
+            [],
+        )
+        .unwrap();
+    let pack = Pack::open(&path).unwrap();
+
+    let result = pack.search("tower", 10);
+
+    assert!(matches!(
+        result,
+        Err(PackError::UnknownDependency { ref kind }) if kind == "rumor"
+    ));
 }

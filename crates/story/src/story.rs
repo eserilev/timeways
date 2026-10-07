@@ -27,6 +27,7 @@ use crate::quest::{Encounter, QuestView, Status, quest_log};
 use crate::race_class::{Class, Race};
 use crate::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use crate::seen::{MAX_SEEN_BYTES, SeenIndex, SeenText, TextKind};
+use crate::spoiler;
 use crate::spot::Spot;
 use crate::store::{CharacterKey, Node, Opened, Shared, Store, StoreError, Table};
 use crate::stories::MAX_PARAGRAPHS;
@@ -1455,7 +1456,8 @@ fn remembered(active: &Active, npc: &str, now: Tick) -> Vec<Memory> {
 }
 
 /// The question and where you stand pick the passages. The spoiler limit then drops each
-/// passage of the pack about something that your world does not hold. The text that you
+/// passage of the pack about something that your world does not hold, or that tells a deed
+/// of adventurers that you did not do (`spoiler`). The text that you
 /// read passes it, and comes first: the pack only fills the gaps (GAMEPLAY.md 3.1.1). The
 /// rest stop at the size that leaves room for a model answer in one reply. Each passage
 /// keeps the limits of the bridge, also from an old pack.
@@ -1474,7 +1476,7 @@ fn passages_for(
     found.extend(
         pack.search(&words, CANDIDATES)?
             .into_iter()
-            .filter(|passage| character.knows_all(&passage.links)),
+            .filter(|passage| spoiler::may_show(character, passage)),
     );
     let mut passages = Vec::new();
     let mut used = Size::default();

@@ -20,6 +20,7 @@ fn reply_line(text: Option<&str>, passages: &[&str]) -> String {
             links: Vec::new(),
             origin: Origin::Pack,
             about: None,
+            depends_on: None,
         })
         .collect();
     let answer = Answer {

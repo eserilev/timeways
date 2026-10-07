@@ -40,6 +40,7 @@ fn story(name: &str) -> Story {
         links: vec![Link::Place("Testvale".to_string())],
         origin: Origin::Pack,
         about: None,
+        depends_on: None,
     };
     Pack::write(&path, &[tower]).unwrap();
     Story::new(Pack::open(&path).unwrap(), Store::Memory)

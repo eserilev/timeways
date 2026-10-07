@@ -14,6 +14,7 @@ fn passage(text: &str, source: &str) -> Passage {
         links: vec![Link::Common],
         origin: Origin::Pack,
         about: None,
+        depends_on: None,
     }
 }
 

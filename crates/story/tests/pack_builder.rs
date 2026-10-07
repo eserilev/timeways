@@ -4,7 +4,7 @@
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
-use timeways_story::pack::{Link, Pack};
+use timeways_story::pack::{Dependency, Link, Pack};
 
 fn fresh(name: &str) -> PathBuf {
     let path = Path::new(env!("CARGO_TARGET_TMPDIR")).join(name);
@@ -262,4 +262,88 @@ fn a_broken_dump_writes_no_pack() {
             .starts_with("dump: broken XML")
     );
     assert!(!pack.exists());
+}
+
+#[test]
+fn a_line_keeps_what_its_deed_depends_on() {
+    let lines = concat!(
+        r#"{"text":"The adventurers killed Edwin VanCleef.","source":"s","places":["Moonbrook"],"depends_on":{"foe":"Edwin VanCleef"}}"#,
+        "\n",
+        r#"{"text":"An adventurer returned the linen.","source":"s","places":["Moonbrook"],"depends_on":{"quest":"Red Linen Goods"}}"#,
+        "\n",
+    );
+
+    let (output, pack) = build(lines, "builder-depends-on");
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let pack = Pack::open(&pack).unwrap();
+    let vancleef = pack.search("VanCleef", 5).unwrap();
+    let returned = pack.search("linen", 5).unwrap();
+    assert_eq!(
+        vancleef[0].depends_on,
+        Some(Dependency::Foe("Edwin VanCleef".to_string()))
+    );
+    assert_eq!(
+        returned[0].depends_on,
+        Some(Dependency::Quest("Red Linen Goods".to_string()))
+    );
+}
+
+#[test]
+fn a_line_that_tells_a_deed_with_no_tag_is_unresolved() {
+    let lines = concat!(
+        r#"{"text":"The adventurers killed the ooze.","source":"s","places":["Testvale"]}"#,
+        "\n",
+        r#"{"text":"Adventurers often visit the inn.","source":"s","places":["Testvale"]}"#,
+        "\n",
+    );
+
+    let (output, pack) = build(lines, "builder-untagged-deed");
+
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let pack = Pack::open(&pack).unwrap();
+    assert_eq!(
+        pack.search("ooze", 5).unwrap()[0].depends_on,
+        Some(Dependency::Unresolved)
+    );
+    assert_eq!(pack.search("inn", 5).unwrap()[0].depends_on, None);
+}
+
+#[test]
+fn the_report_lists_each_outcome_passage_with_its_dependency() {
+    let index = "Intro.\n===Chapter I: Mythos===\n* [[The Testvale Tower]]\n";
+    let book = format!(
+        "{{{{Book|The Testvale Tower|content=\n{}\n}}}}",
+        wiki_dump::long("The adventurers destroyed the tower of Testvale.")
+    );
+    let dump = wiki_dump::write_dump(
+        "builder-outcome-report",
+        &[
+            wiki_dump::article("History of Warcraft", index),
+            wiki_dump::article("The Testvale Tower", &book),
+        ],
+    );
+    let pack = fresh("builder-outcome-report.sqlite");
+
+    let output = build_from_dump(&dump, &pack);
+
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains(
+            "outcome  unresolved    |  the book \"The Testvale Tower\"  |  The adventurers destroyed"
+        ),
+        "{stdout}"
+    );
+    assert!(
+        stdout.contains("tagged 1 outcome passages: 0 by foe, 0 by quest, 1 unresolved\n"),
+        "{stdout}"
+    );
 }

@@ -1,13 +1,14 @@
 //! The lore pack: passages with their sources, in one SQLite file with a full-text index
 //! (GAMEPLAY.md 5.10).
 
-use rusqlite::{Connection, OpenFlags, params};
+use rusqlite::{Connection, OpenFlags, OptionalExtension, params};
 use serde::Serialize;
 use std::path::Path;
 use thiserror::Error;
 
-/// A pack of another version gets refused, never guessed at. Format 2 added `about`.
-const FORMAT_VERSION: i64 = 2;
+/// A pack of another version gets refused, never guessed at. Format 2 added `about`, and
+/// format 3 added `depends_on`.
+const FORMAT_VERSION: i64 = 3;
 
 const SCHEMA: &str = "
     CREATE TABLE passage (
@@ -22,12 +23,20 @@ const SCHEMA: &str = "
         kind TEXT NOT NULL,
         name TEXT NOT NULL
     );
+    CREATE TABLE depends_on (
+        passage INTEGER PRIMARY KEY REFERENCES passage (id),
+        kind TEXT NOT NULL,
+        name TEXT NOT NULL
+    );
     CREATE VIRTUAL TABLE passage_index USING fts5 (text, content = 'passage', content_rowid = 'id');
 ";
 
 const PLACE: &str = "place";
 const NPC: &str = "npc";
 const COMMON: &str = "common";
+const FOE: &str = "foe";
+const QUEST: &str = "quest";
+const UNRESOLVED: &str = "unresolved";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct Passage {
@@ -43,6 +52,10 @@ pub struct Passage {
     /// narrator takes the own page of a place first (GAMEPLAY.md 3.2).
     #[serde(skip)]
     pub about: Option<String>,
+    /// The deed of adventurers that the passage tells, or None for no deed. The passage
+    /// waits until the player did that deed (GAMEPLAY.md 5.10).
+    #[serde(skip)]
+    pub depends_on: Option<Dependency>,
 }
 
 /// Where a passage comes from. Text that the player read is their own lore (GAMEPLAY.md 3.1.1).
@@ -60,6 +73,17 @@ pub enum Link {
     Common,
 }
 
+/// What an outcome passage waits for: "adventurers killed Mr. Smite" waits for the
+/// defeat of Mr. Smite.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Dependency {
+    Foe(String),
+    /// The title of a quest of the game.
+    Quest(String),
+    /// The builder tied the deed to no foe and no quest, so the passage never shows.
+    Unresolved,
+}
+
 #[derive(Debug, Error)]
 pub enum PackError {
     #[error("lore pack: {0}")]
@@ -71,6 +95,8 @@ pub enum PackError {
     Unlinked { url: String },
     #[error("lore pack: unknown link kind {kind}")]
     UnknownLink { kind: String },
+    #[error("lore pack: unknown dependency kind {kind}")]
+    UnknownDependency { kind: String },
 }
 
 pub struct Pack {
@@ -177,12 +203,14 @@ impl Pack {
         for row in rows {
             let (id, text, source, about) = row?;
             let links = self.links(id)?;
+            let depends_on = self.depends_on(id)?;
             passages.push(Passage {
                 text,
                 source,
                 links,
                 origin: Origin::Pack,
                 about,
+                depends_on,
             });
         }
         Ok(passages)
@@ -199,6 +227,16 @@ impl Pack {
             links.push(link(kind, name)?);
         }
         Ok(links)
+    }
+
+    fn depends_on(&self, passage: i64) -> Result<Option<Dependency>, PackError> {
+        let mut statement = self
+            .connection
+            .prepare_cached("SELECT kind, name FROM depends_on WHERE passage = ?1")?;
+        let row = statement
+            .query_row([passage], |row| Ok((row.get(0)?, row.get(1)?)))
+            .optional()?;
+        row.map(|(kind, name)| dependency(kind, name)).transpose()
     }
 }
 
@@ -230,7 +268,27 @@ fn insert(connection: &Connection, passage: &Passage) -> Result<(), PackError> {
             params![id, kind, name],
         )?;
     }
+    if let Some(dependency) = &passage.depends_on {
+        let (kind, name) = match dependency {
+            Dependency::Foe(name) => (FOE, name.as_str()),
+            Dependency::Quest(name) => (QUEST, name.as_str()),
+            Dependency::Unresolved => (UNRESOLVED, ""),
+        };
+        connection.execute(
+            "INSERT INTO depends_on (passage, kind, name) VALUES (?1, ?2, ?3)",
+            params![id, kind, name],
+        )?;
+    }
     Ok(())
+}
+
+fn dependency(kind: String, name: String) -> Result<Dependency, PackError> {
+    match kind.as_str() {
+        FOE => Ok(Dependency::Foe(name)),
+        QUEST => Ok(Dependency::Quest(name)),
+        UNRESOLVED => Ok(Dependency::Unresolved),
+        _ => Err(PackError::UnknownDependency { kind }),
+    }
 }
 
 fn link(kind: String, name: String) -> Result<Link, PackError> {

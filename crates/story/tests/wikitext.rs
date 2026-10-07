@@ -1,7 +1,7 @@
 //! The markup of a wiki page goes, and its words stay (GAMEPLAY.md 5.10).
 
 use timeways_story::wikitext::{
-    Section, book_content, listed_pages, plain, redirect_target, sections,
+    Section, book_content, cites, listed_pages, plain, redirect_target, sections, template_fields,
 };
 
 #[test]
@@ -206,4 +206,45 @@ fn a_template_whose_name_only_starts_with_book_is_no_book() {
 
     assert_eq!(book_content(text), Some("Words."));
     assert_eq!(book_content("{{Booklist|content=Shelf words.}}"), None);
+}
+
+#[test]
+fn a_line_gives_its_links_and_its_cited_pages_apart() {
+    let line = "The [[Edwin VanCleef|kingpin]] fell to [[adventurer]]s.\
+                <ref>[[The Defias Brotherhood (7)]]</ref> See [[File:Moonbrook.jpg]].\
+                <ref name=\"a\"/><ref>''[[Exploring Azeroth]]''</ref>";
+
+    let found = cites(line);
+
+    assert_eq!(found.links, ["Edwin VanCleef", "Adventurer"]);
+    assert_eq!(
+        found.refs,
+        ["The Defias Brotherhood (7)", "Exploring Azeroth"]
+    );
+}
+
+#[test]
+fn a_reference_that_never_closes_cites_nothing() {
+    let found = cites("A [[Testvale]] line.<ref>[[Lost]]");
+
+    assert_eq!(found.links, ["Testvale", "Lost"]);
+    assert!(found.refs.is_empty());
+}
+
+#[test]
+fn the_fields_of_an_infobox_keep_their_markup() {
+    let page = "{{npcbox\n| name = Mr. Smite\n| aggro = {{Aggro|-1|-1}}\n\
+                | faction = [[Combat]]\n}}\nText.";
+
+    let fields = template_fields(page, "Npcbox").unwrap();
+
+    assert_eq!(
+        fields,
+        [
+            ("name".to_string(), "Mr. Smite".to_string()),
+            ("aggro".to_string(), "{{Aggro|-1|-1}}".to_string()),
+            ("faction".to_string(), "[[Combat]]".to_string()),
+        ]
+    );
+    assert_eq!(template_fields(page, "Questbox"), None);
 }

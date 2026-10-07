@@ -132,11 +132,17 @@ pub fn book_content(text: &str) -> Option<&str> {
 /// The inside of each `{{Book|...}}` call, with its nested calls. A call that never
 /// closes runs to the end of the page. A template such as `{{Bookshelf}}` is no book.
 fn book_blocks(text: &str) -> Vec<&str> {
+    template_blocks(text, "Book")
+}
+
+/// The inside of each call of the template `name`, with its nested calls. A call that
+/// never closes runs to the end of the page.
+fn template_blocks<'a>(text: &'a str, name: &str) -> Vec<&'a str> {
     let mut blocks = Vec::new();
     let mut from = 0;
     while let Some(found) = text[from..].find("{{") {
         let start = from + found;
-        if !is_book_call(&text[start + "{{".len()..]) {
+        if !is_call_of(&text[start + "{{".len()..], name) {
             from = start + "{{".len();
             continue;
         }
@@ -150,15 +156,83 @@ fn book_blocks(text: &str) -> Vec<&str> {
     blocks
 }
 
-/// The name of a template takes either case in its first letter.
-fn is_book_call(call: &str) -> bool {
+/// The name of a template takes either case in its first letter. The name ends at a `|`
+/// or a line break, so `{{Bookshelf}}` is no call of `Book`.
+fn is_call_of(call: &str, name: &str) -> bool {
+    let (upper, lower) = first_letter_cases(name);
     let Some(rest) = call
-        .strip_prefix("Book")
-        .or_else(|| call.strip_prefix("book"))
+        .strip_prefix(&upper)
+        .or_else(|| call.strip_prefix(&lower))
     else {
         return false;
     };
     rest.trim_start_matches(' ').starts_with(['|', '\n'])
+}
+
+/// `Npcbox` gives `Npcbox` and `npcbox`.
+fn first_letter_cases(name: &str) -> (String, String) {
+    let mut letters = name.chars();
+    let Some(first) = letters.next() else {
+        return (String::new(), String::new());
+    };
+    let rest = letters.as_str();
+    let upper = first.to_uppercase().chain(rest.chars()).collect();
+    let lower = first.to_lowercase().chain(rest.chars()).collect();
+    (upper, lower)
+}
+
+/// The fields of the first call of the template `name` on a page, such as an infobox:
+/// `| faction = [[Alliance]]` gives `("faction", "[[Alliance]]")`. A key is in lower case,
+/// and a value keeps its markup. None when the page has no such call.
+#[must_use]
+pub fn template_fields(text: &str, name: &str) -> Option<Vec<(String, String)>> {
+    let block = template_blocks(text, name).into_iter().next()?;
+    let fields = arguments(block)
+        .into_iter()
+        .skip(1)
+        .filter_map(|argument| argument.split_once('='))
+        .map(|(key, value)| (key.trim().to_lowercase(), value.trim().to_string()))
+        .collect();
+    Some(fields)
+}
+
+/// The pages that one line of wikitext links to, and the pages that its references cite,
+/// each in the order of the line. A link inside a reference is a citation, not a link.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Cites {
+    pub links: Vec<String>,
+    pub refs: Vec<String>,
+}
+
+#[must_use]
+pub fn cites(line: &str) -> Cites {
+    let mut cites = Cites::default();
+    let mut rest = line;
+    while let Some(start) = rest.find("<ref") {
+        cites.links.extend(link_targets(&rest[..start]));
+        let span = &rest[start..];
+        let Some(len) = reference_end(span) else {
+            rest = &span["<ref".len()..];
+            continue;
+        };
+        cites.refs.extend(link_targets(&span[..len]));
+        rest = &span[len..];
+    }
+    cites.links.extend(link_targets(rest));
+    cites
+}
+
+/// The page of each `[[...]]` link, with no picture and no category.
+fn link_targets(text: &str) -> Vec<String> {
+    text.split("[[")
+        .skip(1)
+        .map(page_title)
+        .filter(|title| !title.is_empty() && !is_no_text_link(title))
+        .collect()
+}
+
+fn is_no_text_link(title: &str) -> bool {
+    NO_TEXT_LINKS.iter().any(|kind| title.starts_with(kind))
 }
 
 /// The arguments of a template call, split at each `|` outside a nested call or link.

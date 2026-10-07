@@ -1,6 +1,6 @@
 //! The lore of a narrator moment: one passage about its place, foe, or person
-//! (GAMEPLAY.md 3.2). It passes the spoiler limit as a `/lore` passage does, and the text
-//! that the player read comes first. A deed whose lore is thin gets no line.
+//! (GAMEPLAY.md 3.2). It passes the spoiler limit as a `/lore` passage does, with the gate
+//! of outcome passages, and the text that the player read comes first. A deed whose lore is thin gets no line.
 
 use crate::character::Character;
 use crate::check::mentions;
@@ -10,6 +10,7 @@ use crate::pack::{Link, Pack, PackError, Passage};
 use crate::passage_limits;
 use crate::race_class::Race;
 use crate::seen::SeenIndex;
+use crate::spoiler;
 use crate::walk::LEVEL_STEP;
 use thiserror::Error;
 use timeways_rules::thin_lore::{self, MomentKind};
@@ -210,7 +211,7 @@ fn nth_for_level(passages: Vec<Passage>, level: i64) -> Option<Passage> {
 fn known(character: &Character, passages: Vec<Passage>) -> Vec<Passage> {
     passages
         .into_iter()
-        .filter(|passage| character.knows_all(&passage.links))
+        .filter(|passage| spoiler::may_show(character, passage))
         .filter_map(passage_limits::fitted)
         .collect()
 }

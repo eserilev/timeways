@@ -40,6 +40,7 @@ impl SeenText {
             links,
             origin: Origin::Read,
             about: self.own_subject(),
+            depends_on: None,
         }
     }
 

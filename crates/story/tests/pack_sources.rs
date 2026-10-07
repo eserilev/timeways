@@ -4,9 +4,9 @@
 
 mod wiki_dump;
 
-use timeways_story::pack::{Link, Passage};
+use timeways_story::pack::{Dependency, Link, Passage};
 use timeways_story::pack_sources::{
-    Outcome, PageReport, Sources, SourcesError, from_dump, paragraphs, subject_of,
+    Outcome, PageReport, Sources, SourcesError, from_dump, known_bosses, paragraphs, subject_of,
 };
 use wiki_dump::{DumpPage, article, long, write_dump};
 
@@ -568,4 +568,101 @@ fn the_passages_of_a_page_keep_the_subject_of_the_page() {
     let last = &built.passages[built.passages.len() - 1];
     assert_eq!(first.about.as_deref(), Some("Testvale"));
     assert_eq!(last.about.as_deref(), Some("Test Folk"));
+}
+
+const MOONBROOK: &str = r#"
+[[pages]]
+title = "Moonbrook"
+lead = true
+sections = []
+places = ["Moonbrook"]
+
+[[pages]]
+title = "Test Kingpin"
+lead = true
+sections = []
+places = ["The Deadmines"]
+"#;
+
+fn moonbrook_dump(name: &str) -> std::path::PathBuf {
+    let moonbrook = format!(
+        "{}\n{}\n{}\n",
+        long(
+            "The [[Westfall Brigade|militia]] and the [[adventurer]]s liberated Moonbrook \
+             after they killed [[Test Kingpin]]."
+        ),
+        long(
+            "Later, an adventurer returned the stolen linen to [[Gryan Stoutmantle]].\
+             <ref>[[Red Linen Goods]]</ref>"
+        ),
+        long("Adventurers often visit the inn of Moonbrook."),
+    );
+    let kingpin = format!(
+        "{{{{Npcbox\n| name = Test Kingpin\n| faction = Neutral\n}}}}\n{}\n",
+        long("The kingpin hid in the mines.")
+    );
+    let index = index("===Chapter I: Dawn===\n===Chapter II: Noon===\n");
+    write_dump(
+        name,
+        &[
+            article(INDEX, &index),
+            article("Moonbrook", &moonbrook),
+            article("Test Kingpin", &kingpin),
+            article(
+                "Gryan Stoutmantle",
+                "{{Npcbox\n| name = Gryan Stoutmantle\n| faction = Alliance\n}}",
+            ),
+            article(
+                "Red Linen Goods",
+                "{{Questbox\n| name = Red Linen Goods\n| previous = [[Fur Trade]]\n}}",
+            ),
+        ],
+    )
+}
+
+fn depends_on_of<'a>(built: &'a [Passage], words: &str) -> Option<&'a Dependency> {
+    built
+        .iter()
+        .find(|passage| passage.text.contains(words))
+        .and_then(|passage| passage.depends_on.as_ref())
+}
+
+#[test]
+fn an_outcome_passage_depends_on_the_known_boss_that_it_names() {
+    let dump = moonbrook_dump("sources-outcome-foe");
+
+    let built = from_dump(&dump, &sources(MOONBROOK)).unwrap();
+
+    assert_eq!(
+        depends_on_of(&built.passages, "liberated Moonbrook"),
+        Some(&Dependency::Foe("Test Kingpin".to_string()))
+    );
+}
+
+#[test]
+fn an_outcome_passage_depends_on_the_quest_that_it_cites() {
+    let dump = moonbrook_dump("sources-outcome-quest");
+
+    let built = from_dump(&dump, &sources(MOONBROOK)).unwrap();
+
+    assert_eq!(
+        depends_on_of(&built.passages, "stolen linen"),
+        Some(&Dependency::Quest("Red Linen Goods".to_string()))
+    );
+}
+
+#[test]
+fn a_passage_with_no_deed_depends_on_nothing() {
+    let dump = moonbrook_dump("sources-outcome-none");
+
+    let built = from_dump(&dump, &sources(MOONBROOK)).unwrap();
+
+    assert_eq!(depends_on_of(&built.passages, "visit the inn"), None);
+}
+
+#[test]
+fn a_page_about_a_person_in_a_place_is_a_known_boss() {
+    let bosses = known_bosses(&sources(MOONBROOK));
+
+    assert_eq!(bosses, ["Test Kingpin"]);
 }

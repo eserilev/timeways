@@ -11,6 +11,7 @@ fn passage(text: &str) -> Passage {
         links,
         origin: Origin::Pack,
         about: None,
+        depends_on: None,
     }
 }
 

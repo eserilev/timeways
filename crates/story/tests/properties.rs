@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use timeways_rules::aliases::{Alias, PlayerId, find, learn_all};
 use timeways_rules::narrator_shapes::WINDOW;
+use timeways_rules::outcomes::{DependsOn, PlayerFacts, outcome_usable};
 use timeways_story::aliases::{
     AliasRow, MAX_PLAYER_NAME_BYTES, alias_of, key_of, knows_every_id, plain_joined, text_pieces,
     unmarked, with_names, without_names,
@@ -40,7 +41,7 @@ use timeways_story::narrator_slots::{ChoiceField, Choices, KillerKind, Tone, fie
 use timeways_story::narrator_templates::{Number, TEMPLATES};
 use timeways_story::npc_memory::{MAX_MEMORIES, MAX_MEMORY_CHARS, when};
 use timeways_story::pace::{Pace, WINDOW_SECONDS};
-use timeways_story::pack::{Link, Origin, Pack, Passage};
+use timeways_story::pack::{Dependency, Link, Origin, Pack, Passage};
 use timeways_story::passage_limits::{MAX_PASSAGE_BYTES, pieces};
 use timeways_story::places::InstanceKind;
 use timeways_story::prose::{FEWEST_WORDS, MOST_WORDS, ProseFault, prose_faults};
@@ -53,6 +54,7 @@ use timeways_story::race_class::{Class, Race};
 use timeways_story::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use timeways_story::seen::TextKind;
 use timeways_story::sentences::{sentences, word_count};
+use timeways_story::spoiler::outcome_allowed;
 use timeways_story::spot::{MAP_IDS, Spot, THOUSANDTHS, spot_of};
 use timeways_story::store::{
     CallEnd, CharacterKey, Database, Line, NewCall, Node, Outcome, Root, Store, Table,
@@ -3446,6 +3448,7 @@ proptest! {
             links: vec![Link::Place(other.clone())],
             origin: Origin::Pack,
             about: Some(other.clone()),
+            depends_on: None,
         };
         let related = match tie {
             0 => Passage { about: Some(subject.clone()), ..unrelated.clone() },
@@ -3473,6 +3476,7 @@ proptest! {
             links: vec![Link::Place(other.clone())],
             origin: Origin::Pack,
             about: Some(other),
+            depends_on: None,
         };
         let passage = lore.then_some(&passage);
 
@@ -3899,5 +3903,56 @@ proptest! {
         }
 
         prop_assert_eq!(journal_lines(&mut story), before);
+    }
+}
+
+/// The tag of an outcome passage, over the names that the acts use, and one name past them.
+fn outcome_tag() -> impl Strategy<Value = Dependency> {
+    prop_oneof![
+        (0usize..5).prop_map(|n| Dependency::Foe(format!("Rare {n}"))),
+        (0usize..9).prop_map(|n| Dependency::Quest(format!("Quest {n}"))),
+        Just(Dependency::Unresolved),
+    ]
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(256))]
+
+    /// GAMEPLAY.md 5.10: for any play, an outcome passage passes the gate exactly when the
+    /// player defeated its foe or turned in its quest. An unmet or unresolved outcome
+    /// never passes. The acts use few names, so a met tag and an unmet tag are both likely.
+    #[test]
+    fn an_outcome_passes_the_gate_exactly_when_the_player_did_it(
+        acts in prop::collection::vec((act(), fold_gap()), 0..60),
+        tag in outcome_tag(),
+    ) {
+        let character = acted(&acts);
+        let did = match &tag {
+            Dependency::Foe(name) => character.foes_defeated().contains(&name.as_str()),
+            Dependency::Quest(title) => character.game_quests_done().contains(&title.as_str()),
+            Dependency::Unresolved => false,
+        };
+
+        prop_assert_eq!(outcome_allowed(&character, Some(&tag)), did);
+    }
+
+    /// The rule over ids: an unmet foe or quest never passes, for any facts.
+    #[test]
+    fn an_unmet_outcome_never_passes_for_any_facts(
+        defeated in prop::collection::vec(0u32..6, 0..6),
+        quests_done in prop::collection::vec(0u32..6, 0..6),
+        id in prop_oneof![0u32..7, Just(u32::MAX)],
+        quest in any::<bool>(),
+    ) {
+        let (tag, held) = if quest {
+            (DependsOn::Quest(id), quests_done.contains(&id))
+        } else {
+            (DependsOn::Foe(id), defeated.contains(&id))
+        };
+        let facts = PlayerFacts { defeated, quests_done };
+
+        prop_assert_eq!(outcome_usable(tag, &facts), held);
+        prop_assert!(!outcome_usable(DependsOn::Unresolved, &facts));
+        prop_assert!(outcome_usable(DependsOn::Nothing, &facts));
     }
 }

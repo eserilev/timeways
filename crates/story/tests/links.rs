@@ -1090,6 +1090,7 @@ fn a_lore_question_leaves_no_input_and_no_call() {
         links: vec![Link::Place("Elwynn Forest".to_string())],
         origin: Origin::Pack,
         about: None,
+        depends_on: None,
     };
     Pack::write(&folder.join("pack.sqlite"), &[tower]).unwrap();
     let mut story = story(&folder);

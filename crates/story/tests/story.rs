@@ -3,9 +3,9 @@
 use hourglass::Tick;
 use std::path::Path;
 use timeways_story::hero::LONG;
-use timeways_story::input::{CallId, GameQuestKind, Input, MessageId, SlotWas};
+use timeways_story::input::{CallId, FoeKind, GameQuestKind, Input, MessageId, SlotWas};
 use timeways_story::lore::Answer;
-use timeways_story::pack::{Link, Origin, Pack, Passage};
+use timeways_story::pack::{Dependency, Link, Origin, Pack, Passage};
 use timeways_story::places::InstanceKind;
 use timeways_story::race_class::{Class, Race};
 use timeways_story::reply_size::{MAX_LINE, MAX_SLOT, Size};
@@ -25,6 +25,7 @@ fn passage(text: &str, source: &str, links: Vec<Link>) -> Passage {
         links,
         origin: Origin::Pack,
         about: None,
+        depends_on: None,
     }
 }
 
@@ -2660,4 +2661,56 @@ fn a_notice_never_pushes_a_full_journal_page_past_one_reply() {
     assert_eq!(first_notice, None);
     assert!(second_line.len() <= MAX_LINE, "{} bytes", second_line.len());
     assert_eq!(second_notice, Some(notice));
+}
+
+/// An outcome passage of the pack: it waits for the defeat of its foe, the kingpin.
+fn vancleef_falls() -> Passage {
+    Passage {
+        depends_on: Some(Dependency::Foe("Edwin VanCleef".to_string())),
+        ..passage(
+            "The adventurers liberated Moonbrook after they killed Edwin VanCleef in the Deadmines.",
+            "the wiki page \"Moonbrook\"",
+            vec![place("Moonbrook")],
+        )
+    }
+}
+
+fn defeat(story: &mut Story, at: u64, name: &str) {
+    let input = Input::NpcDefeated {
+        at: Tick(at),
+        name: name.to_string(),
+        kind: Some(FoeKind::Boss),
+    };
+    assert_eq!(one(story.handle(input).unwrap()), None);
+}
+
+#[test]
+fn the_vancleef_passage_reaches_the_prompt_only_after_the_kill() {
+    let mut story = story_with("outcome-vancleef", &[vancleef_falls()]);
+    enter(&mut story, 1, "Westfall", Some("Moonbrook"));
+    let before = sources(&mut story, "what happened to VanCleef?", None);
+
+    defeat(&mut story, 2, "Edwin VanCleef");
+    let (_, prompt) = model_call(ask(&mut story, "what happened to VanCleef?", None));
+
+    assert!(before.is_empty(), "{before:?}");
+    assert!(
+        prompt.contains("after they killed Edwin VanCleef in the Deadmines"),
+        "{prompt}"
+    );
+}
+
+#[test]
+fn an_unresolved_outcome_passage_never_reaches_a_prompt() {
+    let unresolved = Passage {
+        depends_on: Some(Dependency::Unresolved),
+        ..vancleef_falls()
+    };
+    let mut story = story_with("outcome-unresolved", &[unresolved]);
+    enter(&mut story, 1, "Westfall", Some("Moonbrook"));
+    defeat(&mut story, 2, "Edwin VanCleef");
+
+    let found = sources(&mut story, "what happened to VanCleef?", None);
+
+    assert!(found.is_empty(), "{found:?}");
 }
