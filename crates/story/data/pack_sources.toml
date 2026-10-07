@@ -1985,7 +1985,10 @@ terms = [
     "Calia",
     "Desolate Council",
     "Lilian Voss",
-    "Hellscream",
+    # Grom Hellscream is Classic lore. Only Garrosh and his places are later.
+    "Garrosh Hellscream",
+    "Hellscream.s Reach",
+    "Hellscream.s Watch",
     "Broken Isles",
     "Argus",
     "Death knights? of the Ebon Blade",
@@ -2085,12 +2088,25 @@ terms = [
     "retook the isles",
     'Malygos[^.]{0,40}ley lines',
     "Li Li",
+    # Found in the pack of 2026-10-06, once a game cut no longer hid their paragraphs.
+    "Battle for Lordaeron",
+    "Jailer",
+    "Maldraxxus",
+    "Zidormi",
+    'Blood Knights?',
+    "Thalassian Charger",
+    "Valgarde",
+    "Howling Fjord",
+    "Tavern Crawl",
+    "Dark Shaman",
+    "Cenarion Wildlands",
     "Vindicator",
 ]
 
-# A paragraph of a wiki page that matches one of these goes out, because it talks about the
+# A sentence of a wiki page that matches one of these goes out, because it talks about the
 # game and not the world: players, levels, instances, quests, and loot. The narrator and
-# `/lore` speak of the world only.
+# `/lore` speak of the world only. The rest of its paragraph stays when it reads on its own
+# (`game_talk.rs`).
 [game]
 terms = [
     'players?\b',
@@ -2101,15 +2117,32 @@ terms = [
     'instances?\b',
     'raid dungeons?',
     'raid entrance',
-    'micro dungeons?',
+    'micro[ -]dungeons?',
     '\d-man',
     '\bmobs?\b',
     '\bloot',
     'quest ?hubs?',
     'quest ?givers?',
-    '\bquests?\b',
+    # A quest of the lore stays: "the quest" and "complete" mark the quest of the game.
+    '\bthe quests?\b',
+    '\bcomplet\w*[^.]{0,40}\bquests?\b',
+    '\bquests?\b[^.]{0,40}\bcomplet',
+    '\bturn(s|ed|ing)? in\b[^.]{0,40}\bquests?\b',
+    '\bquests?\b[^.]{0,40}\bturn(s|ed|ing)? in\b',
     'quest ?lines?',
     'quest chains?',
+    'connected with quests',
+    '(series|number|lot) of quests',
+    '(neutral|daily|elite|group|several|many) quests',
+    '\bquests? (they |that |which )?(offer|give|require)',
+    "doable",
+    # Guide talk: the reader, the characters of the game, and its loot.
+    '\byou(r)?\b',
+    '\b(most|human|dwarf|gnome|night elf|orc|troll|tauren|undead|new|low-level) characters\b',
+    'bind-on',
+    'blue items',
+    '(silver|gold|copper|items?) (is |are )?dropped',
+    'travel hub',
     "storyline",
     '\blevels? \d',
     "level range",
@@ -2139,7 +2172,9 @@ terms = [
     "attunement",
     "Blizzard",
     '\bWoW\b',
-    "World of Warcraft",
+    # "World of Warcraft" is game talk only in a frame of the game.
+    "In World of Warcraft",
+    "World of Warcraft:",
     "reputation",
     '\bservers?\b',
     "hotfix",

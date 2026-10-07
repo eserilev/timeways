@@ -3,6 +3,7 @@
 
 use crate::check::later_names;
 use crate::dump::{self, DumpError, Page};
+use crate::game_talk::{Cut, cut_game_talk};
 use crate::pack::{Link, Origin, Passage};
 use crate::passage_limits::pieces;
 use crate::wikitext::{book_content, listed_pages, plain, sections};
@@ -29,8 +30,8 @@ pub struct Sources {
     /// A paragraph that tells of a time after 25 ADP goes out.
     #[serde(default)]
     pub later: Terms,
-    /// A paragraph that talks about the game, not the world, goes out: players, levels,
-    /// instances, and loot.
+    /// A sentence that talks about the game, not the world, goes out: players, levels,
+    /// instances, and loot (`game_talk`).
     #[serde(default)]
     pub game: Terms,
 }
@@ -106,12 +107,14 @@ impl Sources {
 /// What the builder did with one page.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Outcome {
-    /// `later` counts the paragraphs that a later term dropped, and `game` the other
-    /// paragraphs that a game term dropped.
+    /// `later` counts the paragraphs that a later term dropped, `game` the other
+    /// paragraphs that a game term dropped, and `cut` the game sentences of the paragraphs
+    /// that stayed.
     Read {
         passages: usize,
         later: usize,
         game: usize,
+        cut: usize,
     },
     Missing,
     NoBook,
@@ -260,6 +263,7 @@ fn add_books(built: &mut Built, titles: &[String], books: &BTreeMap<String, Page
             passages: texts.len(),
             later: 0,
             game: 0,
+            cut: 0,
         };
         let book = Shelf {
             source: &source,
@@ -275,21 +279,22 @@ fn add_page(built: &mut Built, wanted: &WikiPage, page: Option<&Page>, filters: 
         built.report.push(missing(&wanted.title));
         return;
     };
-    // The terms read whole paragraphs: the rest of a long paragraph tells the same story.
+    // A later term reads whole paragraphs: the rest of a long paragraph tells the same
+    // story, and a cut can leave half of a later story.
     let mut whole: Vec<String> = kept_bodies(&page.text, wanted)
         .into_iter()
         .flat_map(|body| prose_lines(&plain(body)))
         .collect();
     let read = whole.len();
     whole.retain(|text| !filters.is_later(text));
-    let not_later = whole.len();
-    whole.retain(|text| !filters.is_game(text));
-    let game = not_later - whole.len();
-    let texts: Vec<String> = whole.iter().flat_map(|text| pieces(text)).collect();
+    let later = read - whole.len();
+    let talk = without_game_talk(whole, filters);
+    let texts: Vec<String> = talk.kept.iter().flat_map(|text| pieces(text)).collect();
     let outcome = Outcome::Read {
         passages: texts.len(),
-        later: read - not_later,
-        game,
+        later,
+        game: talk.dropped,
+        cut: talk.cut,
     };
     let source = format!("the wiki page \"{}\"", page.title);
     let links = links(wanted);
@@ -299,6 +304,34 @@ fn add_page(built: &mut Built, wanted: &WikiPage, page: Option<&Page>, filters: 
         about: Some(subject_of(&wanted.title, &links)),
     };
     push_passages(built, &page.title, outcome, texts, &shelf);
+}
+
+/// The paragraphs after the cut of their game sentences.
+struct GameCut {
+    kept: Vec<String>,
+    /// Paragraphs that went whole.
+    dropped: usize,
+    /// Sentences that went from kept paragraphs.
+    cut: usize,
+}
+
+fn without_game_talk(paragraphs: Vec<String>, filters: &Filters) -> GameCut {
+    let mut done = GameCut {
+        kept: Vec::new(),
+        dropped: 0,
+        cut: 0,
+    };
+    for paragraph in paragraphs {
+        match cut_game_talk(&paragraph, |sentence| filters.is_game(sentence)) {
+            Cut::Whole => done.kept.push(paragraph),
+            Cut::Trimmed { text, dropped } => {
+                done.kept.push(text);
+                done.cut += dropped;
+            }
+            Cut::Dropped => done.dropped += 1,
+        }
+    }
+    done
 }
 
 /// The link that a page is about, when its title names it: the page "Deadmines" is about

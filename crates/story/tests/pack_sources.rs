@@ -42,6 +42,7 @@ fn read(title: &str, passages: usize, later: usize, game: usize) -> PageReport {
             passages,
             later,
             game,
+            cut: 0,
         },
     }
 }
@@ -302,6 +303,34 @@ fn a_paragraph_that_talks_about_the_game_is_dropped_and_counted() {
         [long("Testvale lies under the old tower.")]
     );
     assert_eq!(built.report, [read("Testvale", 1, 1, 1)]);
+}
+
+#[test]
+fn the_report_counts_the_game_sentences_that_a_kept_paragraph_lost() {
+    let page = format!(
+        "{}\n",
+        long("Testvale lies under the old tower. Testvale is a quest hub. The tower is old.")
+    );
+    let index = index("===Chapter I: Dawn===\n===Chapter II: Noon===\n");
+    let dump = write_dump(
+        "sources-game-cut",
+        &[article(INDEX, &index), article("Testvale", &page)],
+    );
+    let list = "[[pages]]\ntitle = \"Testvale\"\nlead = true\nsections = []\n\
+                places = [\"Testvale\"]\n[game]\nterms = [\"quest hub\"]\n";
+
+    let built = from_dump(&dump, &sources(list)).unwrap();
+
+    assert_eq!(
+        built.report[0].outcome,
+        Outcome::Read {
+            passages: 1,
+            later: 0,
+            game: 0,
+            cut: 1
+        }
+    );
+    assert!(!built.passages[0].text.contains("quest hub"));
 }
 
 /// The lead of "Brackenwall Village" tells of "the Pandaria campaign", and no later term

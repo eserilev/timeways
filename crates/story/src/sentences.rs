@@ -8,7 +8,7 @@ const END_MARKS: [char; 3] = ['.', '!', '?'];
 const CLOSERS: [char; 3] = ['"', '\'', ')'];
 
 /// Words with a period that ends no sentence: "Mr. Smite" is one sentence.
-const ABBREVIATIONS: [&str; 9] = ["mr", "mrs", "ms", "dr", "st", "jr", "sr", "lt", "sgt"];
+const ABBREVIATIONS: [&str; 10] = ["mr", "mrs", "ms", "dr", "st", "jr", "sr", "lt", "sgt", "co"];
 
 /// The sentences of `text`, trimmed. A sentence ends at `.`, `!`, or `?` before a space or
 /// the end of the text. A run of marks, such as "...", ends one sentence.
@@ -81,6 +81,17 @@ mod tests {
         assert_eq!(
             sentences("Mr. Smite guards the ship. Dr. Weavil is gone."),
             ["Mr. Smite guards the ship.", "Dr. Weavil is gone."]
+        );
+    }
+
+    #[test]
+    fn the_short_form_of_company_ends_no_sentence() {
+        assert_eq!(
+            sentences("The goblins of the Venture Co. cut the trees. The druids wait."),
+            [
+                "The goblins of the Venture Co. cut the trees.",
+                "The druids wait."
+            ]
         );
     }
 

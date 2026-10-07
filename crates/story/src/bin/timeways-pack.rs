@@ -131,13 +131,15 @@ fn print_report(built: &Built) {
                 passages,
                 later: 0,
                 game: 0,
+                cut: 0,
             } => println!("{passages:>7}  {}", line.title),
             Outcome::Read {
                 passages,
                 later,
                 game,
+                cut,
             } => println!(
-                "{passages:>7}  {}  (dropped: {later} later, {game} game)",
+                "{passages:>7}  {}  (dropped: {later} later, {game} game, {cut} game sentences)",
                 line.title
             ),
             Outcome::Missing => println!("missing  {}", line.title),
