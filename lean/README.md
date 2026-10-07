@@ -5,7 +5,7 @@ Lean functions. The theorems in `Timeways/QuestLog.lean`,
 `Timeways/HeroHook.lean`, `Timeways/Budget.lean`,
 `Timeways/TrustBand.lean`, `Timeways/Prompts.lean`,
 `Timeways/Aliases.lean`, `Timeways/StoryShelf.lean`,
-`Timeways/EntryEdits.lean`, `Timeways/Chapters.lean`,
+`Timeways/EntryEdits.lean`, `Timeways/Chapters.lean`, `Timeways/ChaptersDeaths.lean`,
 `Timeways/NarratorShapes.lean`, and `Timeways/ThinLore.lean` are about those functions. A theorem holds for every input, with no bound. The
 property tests in `crates/story/tests/properties.rs` check the same
 rules on random input, and they stay as a second check.
