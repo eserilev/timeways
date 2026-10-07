@@ -65,6 +65,14 @@ Dev.Add("dungeon", "dungeon <name>: enter a dungeon.", function(rest)
 	end
 end)
 
+-- A later entry needs a step outside first: a move inside an instance is no entry.
+Dev.Add("dungeon-again", "dungeon-again <name>: step out, and enter the dungeon again.", function(rest)
+	if not NeedsName(rest, "dungeon-again <name>") then
+		Add(ns.Inputs.Zone(time(), Here(), nil, nil, nil))
+		EnterInstance(rest, "party")
+	end
+end)
+
 Dev.Add("raid", "raid <name>: enter a raid.", function(rest)
 	if not NeedsName(rest, "raid <name>") then
 		EnterInstance(rest, "raid")

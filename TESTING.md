@@ -288,6 +288,14 @@ The wiki tells some quests as history: "the adventurers killed Edwin VanCleef". 
 2. Ask `/lore What happened to Edwin VanCleef?`. The answer does not tell of his death.
 3. Kill Edwin VanCleef, and ask again. The answer can tell of his death now.
 
+### 27. Dungeon setups and later entries
+
+The first entry into a dungeon tells who wants what done there, while that deed still waits. Each later entry tells lore of the dungeon that no line told before, and then the narrator stays quiet.
+
+1. Before you kill Edwin VanCleef, enter the Deadmines for the first time. The narrator line tells who wants VanCleef dead, and ends on what still holds now.
+2. Leave, and enter again. Do it twice more. Each line tells something new about the Deadmines, and no line repeats the lore of another.
+3. Kill Edwin VanCleef, leave, and enter again. No line tells that someone wants him dead.
+
 ## Dev mode
 
 Dev mode makes the moments of hours of play in seconds. It runs the real code: the addon, the bridge, and the story program. Only the moment itself is fake.
@@ -344,6 +352,7 @@ gnomish-relay restart
 | `side-quests` | A dwarf hunter with side quests of every step kind and in every state: done, in progress, a mystery with a hidden step, an offer, declined, and abandoned. The model answers are fixed in the file. |
 | `flavor-and-hero` | A troll shaman with a full Hero sheet and notes, every joke title of the Horde, a quest mark, a battleground won, a PvP rank, an inn, and a flight. |
 | `outcome-lore` | A human warrior at level 18 who fought through the Deadmines to Mr. Smite and left before Edwin VanCleef. |
+| `dungeon-setups` | A human warrior at level 18 in Westfall who met Gryan Stoutmantle and never entered the Deadmines. |
 
 ### Commands in the game
 
@@ -355,6 +364,7 @@ Type `/twdev help` for the list. A name with spaces needs no quotes. A slash sep
 | `zone <zone> [/ subzone]` | You walk into a place. |
 | `taxi` | A flight over Elwynn Forest and Westfall to Duskwood. |
 | `dungeon <name>`, `raid <name>` | You enter an instance of that kind. |
+| `dungeon-again <name>` | You step out to the zone where you really stand, and enter the dungeon again. |
 | `bg-win` | You win in Warsong Gulch. |
 | `pvp-rank <n>` | Your PvP rank grows. |
 | `rest` | You rest at an inn, and walk out. |
@@ -410,6 +420,7 @@ Type `/twdev help` for the list. A name with spaces needs no quotes. A slash sep
 | 24. Battlegrounds, rank, inns, bosses | `/twdev bg-win`, `/twdev pvp-rank 3`, `/twdev rest`, `/twdev taxi`, `/twdev kill Azuregos worldboss` | The rows of `inputs`, with `"dev":true`. |
 | 25. Your own words | The `edits` scenario, or Edit on a chapter of any scenario | Edited, Restore, and the title page. |
 | 26. Lore of your own deeds | The `outcome-lore` scenario, `/lore What happened to Edwin VanCleef?`, then `/twdev kill Edwin VanCleef boss` and the same question | The first answer tells nothing of his death. The second one does. |
+| 27. Dungeon setups and later entries | The `dungeon-setups` scenario, then `/twdev dungeon-again The Deadmines` three times. Then seed again with `--replace`, `/twdev kill Edwin VanCleef boss`, and `/twdev dungeon-again The Deadmines` | Three lines with three different pieces of lore, the first one a setup. After the kill, no setup. |
 
 Each scenario and each command has a named test. Three tests fail when a new feature has no way in dev mode: `every_input_line_has_a_dev_command_or_a_scenario` and `every_section_of_the_journal_has_a_scenario_that_fills_it` (`crates/addon-tests/tests/dev_mode.rs`), and `every_kind_of_narrator_moment_comes_in_a_scenario` (`crates/dev/tests/scenarios.rs`).
 
@@ -440,6 +451,7 @@ Each scenario and each command has a named test. Three tests fail when a new fea
 - For test 24: the answer to each step.
 - For test 25: a screenshot of a chapter with your note, and of the History that your friend sees.
 - For test 26: both answers, as text.
+- For test 27: each narrator line, as text.
 
 ## After the test
 

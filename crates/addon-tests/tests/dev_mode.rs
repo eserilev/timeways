@@ -105,6 +105,7 @@ fn help_lists_every_command_with_dev_mode_on() {
         "death",
         "zone",
         "dungeon",
+        "dungeon-again",
         "item",
         "chapter-end",
         "bg-win",
@@ -191,6 +192,19 @@ fn dungeon_and_raid_enter_an_instance_of_their_kind() {
     assert_eq!(types(&dungeon), ["zone_entered", "instance_entered"]);
     assert_eq!(dungeon[1]["kind"], "party");
     assert_eq!(lines_of("raid Blackrock Spire")[1]["kind"], "raid");
+}
+
+#[test]
+fn dungeon_again_steps_out_to_where_you_stand_and_enters_again() {
+    let lines = lines_of("dungeon-again The Deadmines");
+
+    assert_eq!(
+        types(&lines),
+        ["zone_entered", "zone_entered", "instance_entered"]
+    );
+    assert_ne!(lines[0]["zone"], "The Deadmines");
+    assert_eq!(lines[1]["zone"], "The Deadmines");
+    assert_eq!(lines[2]["kind"], "party");
 }
 
 #[test]
@@ -380,11 +394,12 @@ fn welcome_opens_the_setup_window_for_a_reason() {
 }
 
 /// Each command of the help, with words, for the tests of every command.
-const EVERY_COMMAND: [&str; 34] = [
+const EVERY_COMMAND: [&str; 35] = [
     "level 12",
     "zone Westfall / Moonbrook",
     "taxi",
     "dungeon The Deadmines",
+    "dungeon-again The Deadmines",
     "raid Blackrock Spire",
     "bg-win",
     "pvp-rank 2",
