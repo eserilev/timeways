@@ -10,7 +10,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use timeways_rules::aliases::{Alias, PlayerId, find, learn_all};
 use timeways_rules::narrator_shapes::WINDOW;
 use timeways_story::aliases::{
-    AliasRow, MAX_PLAYER_NAME_BYTES, alias_of, joined, key_of, knows_every_id, text_pieces,
+    AliasRow, MAX_PLAYER_NAME_BYTES, alias_of, key_of, knows_every_id, plain_joined, text_pieces,
     unmarked, with_names, without_names,
 };
 use timeways_story::arrival::arrival_in;
@@ -2183,7 +2183,7 @@ proptest! {
 
         let for_a_model = without_names(&table, &plain);
 
-        prop_assert_eq!(joined(&text_pieces(&plain, &table)), plain.clone());
+        prop_assert_eq!(plain_joined(&text_pieces(&plain, &table)), plain.clone());
         for word in text_words(&for_a_model) {
             prop_assert!(find(&table, &key_of(word)).is_none(), "{} in {}", word, for_a_model);
         }

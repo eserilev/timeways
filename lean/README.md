@@ -141,9 +141,15 @@ does the same: `AliasLog::learn` calls `learn` once for each new name.
 | `one_id_names_one_player` | Two keys at the same place are the same key. | none |
 | `every_name_of_a_line_gets_an_id` | After a line, the table holds each name of the line. | none |
 | `no_known_name_after_the_swap` | No word of the text for a model has a key of the table. | `the_text_for_a_model_holds_no_known_name_as_a_word` |
-| `every_id_of_the_swap_is_in_the_table` | Each ID of the swap names a player of the table, when the text held no ID before. | none |
+| `every_id_of_the_swap_is_in_the_table` | Each ID of the swap names a player of the table. | none |
 | `the_swap_and_back_keeps_the_text` | The swap to IDs and back gives each piece back. A known name comes back with its key, in the form that the table holds. | `the_swap_and_back_gives_each_name_in_the_form_of_the_table` |
 | `restore_keeps_what_is_no_known_name` | A piece that is no known name comes back exactly. | the same |
+
+The swap reads `Plain` pieces, a type with no ID in it. So "no Player
+piece in the input" is a fact of the type of `to_ids`, which the rules
+crate holds, and the laws above need no hypothesis for it. Before, the
+input was `Piece`, and two laws needed the hypothesis that no piece was
+an ID. The glue `text_pieces` builds the plain pieces.
 
 A full round trip of the text is not true. "ADA-Stormrage" comes back
 as "Ada": the ID keeps who the player is, not how the text wrote the

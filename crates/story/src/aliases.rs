@@ -9,7 +9,7 @@
 
 use crate::race_class::{Class, Race};
 use serde::{Deserialize, Serialize};
-use timeways_rules::aliases::{self as rules, Alias, Piece, PlayerId};
+use timeways_rules::aliases::{self as rules, Alias, Piece, Plain, PlayerId};
 
 /// The limit of the bridge for the name of a character (Gnomish Relay SPEC.md 9.8).
 pub const MAX_PLAYER_NAME_BYTES: usize = 48;
@@ -148,16 +148,17 @@ fn is_word_char(c: char) -> bool {
 }
 
 /// The text cut into words and the rest. A word with a realm, "Ada-Stormrage", is one
-/// word when the table knows its name, as `TaskNames.lua` does it.
+/// word when the table knows its name, as `TaskNames.lua` does it. A plain piece is never
+/// an ID, so the swap is the only step that puts one in a text for a model.
 #[must_use]
-pub fn text_pieces(text: &str, table: &[Alias]) -> Vec<Piece> {
+pub fn text_pieces(text: &str, table: &[Alias]) -> Vec<Plain> {
     let runs = runs(text);
     let mut pieces = Vec::with_capacity(runs.len());
     let mut index = 0;
     while index < runs.len() {
         let (is_word, run) = runs[index];
         if !is_word {
-            pieces.push(Piece::Text(run.to_string()));
+            pieces.push(Plain::Text(run.to_string()));
             index += 1;
             continue;
         }
@@ -168,14 +169,14 @@ pub fn text_pieces(text: &str, table: &[Alias]) -> Vec<Piece> {
         if let Some((true, realm)) = realm
             && rules::find(table, &key).is_some()
         {
-            pieces.push(Piece::Word {
+            pieces.push(Plain::Word {
                 key,
                 written: format!("{run}-{realm}"),
             });
             index += 3;
             continue;
         }
-        pieces.push(Piece::Word {
+        pieces.push(Plain::Word {
             key,
             written: run.to_string(),
         });
@@ -212,6 +213,19 @@ pub fn joined(pieces: &[Piece]) -> String {
             Piece::Text(part) => text.push_str(part),
             Piece::Word { written, .. } => text.push_str(written),
             Piece::Player(id) => text.push_str(&id_text(*id)),
+        }
+    }
+    text
+}
+
+/// The plain pieces joined again.
+#[must_use]
+pub fn plain_joined(pieces: &[Plain]) -> String {
+    let mut text = String::new();
+    for piece in pieces {
+        match piece {
+            Plain::Text(part) => text.push_str(part),
+            Plain::Word { written, .. } => text.push_str(written),
         }
     }
     text

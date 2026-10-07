@@ -8,7 +8,7 @@ use arbitrary::Arbitrary;
 use libfuzzer_sys::fuzz_target;
 use timeways_rules::aliases::{Alias, Piece, PlayerId, find, learn_all};
 use timeways_story::aliases::{
-    AliasRow, alias_of, id_pieces, joined, key_of, knows_every_id, text_pieces, unmarked,
+    AliasRow, alias_of, id_pieces, joined, key_of, knows_every_id, plain_joined, text_pieces, unmarked,
     with_names, without_names,
 };
 
@@ -48,7 +48,7 @@ fuzz_target!(|line: Line| {
     learn_all(&mut table, &names);
 
     assert!(!marked.text.contains(['{', '}']), "{:?}", marked.text);
-    assert_eq!(joined(&text_pieces(&marked.text, &table)), marked.text);
+    assert_eq!(plain_joined(&text_pieces(&marked.text, &table)), marked.text);
 
     let for_a_model = without_names(&table, &marked.text);
     for word in words(&for_a_model) {

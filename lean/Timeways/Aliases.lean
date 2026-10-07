@@ -285,16 +285,17 @@ theorem learn_all.spec (t : alloc.vec.Vec Alias) (names : Slice Alias)
   intro t' ht'
   simpa using ht'
 
-/-- Is the piece an ID? -/
-def IsPlayer : Piece → Prop
-  | .Player _ => True
-  | _ => False
+/-- A plain piece as a piece of a text: the same text, or the same word. -/
+def Plain.piece : Plain → Piece
+  | .Text s => .Text s
+  | .Word k w => .Word k w
 
 /-- The swap of one piece to an ID, as `to_id` does it. -/
-def ToId (t : List Alias) (p q : Piece) : Prop :=
+def ToId (t : List Alias) (p : Plain) (q : Piece) : Prop :=
   match p with
-  | .Word k _ => (place t k = none ∧ q = p) ∨ ∃ id : Usize, place t k = some id.val ∧ q = .Player id
-  | _ => q = p
+  | .Word k w => (place t k = none ∧ q = .Word k w) ∨
+      ∃ id : Usize, place t k = some id.val ∧ q = .Player id
+  | .Text s => q = .Text s
 
 /-- The swap back of one piece, as `to_name` does it. -/
 def ToName (t : List Alias) (p q : Piece) : Prop :=
@@ -308,17 +309,16 @@ theorem piece_clone (p : Piece) : Piece.Insts.CoreCloneClone.clone p = ok p := b
     PlayerId.Insts.CoreCloneClone.clone]
 
 @[step]
-theorem to_id.spec (t : Slice Alias) (p : Piece) : to_id t p ⦃ q => ToId t.val p q ⦄ := by
+theorem to_id.spec (t : Slice Alias) (p : Plain) : to_id t p ⦃ q => ToId t.val p q ⦄ := by
   unfold to_id
   cases p with
-  | Text s => simp [piece_clone, ToId]
-  | Player id => simp [piece_clone, ToId]
+  | Text s => simp [ToId, alloc.string.String.Insts.CoreCloneClone.clone]
   | Word k w =>
     simp only
     step as ⟨o, ho⟩
     rcases o with _ | id
-    · simp only [piece_clone, WP.spec_ok, ToId]
-      exact Or.inl ⟨by simpa using ho.symm, by simp⟩
+    · simp only [alloc.string.String.Insts.CoreCloneClone.clone, bind_tc_ok, WP.spec_ok, ToId]
+      exact Or.inl ⟨by simpa using ho.symm, trivial⟩
     · simp only [WP.spec_ok, ToId]
       exact Or.inr ⟨id, by simpa using ho.symm, by simp⟩
 
@@ -338,10 +338,11 @@ theorem to_name.spec (t : Slice Alias) (p : Piece) : to_name t p ⦃ q => ToName
       exact Or.inr ⟨by scalar_tac, by simp⟩
 
 /-- Each piece of the output is the swap of the piece at its place. -/
-def Swapped (R : Piece → Piece → Prop) (ps qs : List Piece) : Prop :=
+def Swapped {α β : Type} (R : α → β → Prop) (ps : List α) (qs : List β) : Prop :=
   qs.length = ps.length ∧ ∀ i (hp : i < ps.length) (hq : i < qs.length), R ps[i] qs[i]
 
-theorem swapped_push {R : Piece → Piece → Prop} {ps qs : List Piece} {i : Nat} {q : Piece}
+theorem swapped_push {α β : Type} {R : α → β → Prop} {ps : List α} {qs : List β} {i : Nat}
+    {q : β}
     (hl : qs.length = i) (hi : i < ps.length)
     (h : ∀ j (hp : j < ps.length) (hq : j < qs.length), R ps[j] qs[j]) (hr : R ps[i] q) :
     (qs ++ [q]).length = i + 1 ∧
@@ -355,7 +356,7 @@ theorem swapped_push {R : Piece → Piece → Prop} {ps qs : List Piece} {i : Na
     simpa [hl] using hr
 
 @[step]
-theorem to_ids_loop.spec (t : Slice Alias) (ps : Slice Piece) (qs : alloc.vec.Vec Piece)
+theorem to_ids_loop.spec (t : Slice Alias) (ps : Slice Plain) (qs : alloc.vec.Vec Piece)
     (i : Usize) (hl : qs.length = i.val) (hi : i.val ≤ ps.length)
     (h : ∀ j (hp : j < ps.val.length) (hq : j < qs.val.length), ToId t.val ps.val[j] qs.val[j]) :
     to_ids_loop t ps qs i ⦃ out => Swapped (ToId t.val) ps.val out.val ⦄ := by
@@ -380,7 +381,7 @@ termination_by ps.length - i.val
 decreasing_by scalar_decr_tac
 
 @[step]
-theorem to_ids.spec (t : Slice Alias) (ps : Slice Piece) :
+theorem to_ids.spec (t : Slice Alias) (ps : Slice Plain) :
     to_ids t ps ⦃ out => Swapped (ToId t.val) ps.val out.val ⦄ := by
   unfold to_ids
   apply to_ids_loop.spec
@@ -462,7 +463,7 @@ theorem every_name_of_a_line_gets_an_id (t : alloc.vec.Vec Alias) (names : Slice
 
 /-- The text for a model holds no name that the table knows: no word of
 the swap has a key of the table. -/
-theorem no_known_name_after_the_swap (t : Slice Alias) (ps : Slice Piece) :
+theorem no_known_name_after_the_swap (t : Slice Alias) (ps : Slice Plain) :
     to_ids t ps ⦃ out => ∀ p ∈ out.val, ∀ k w, p = .Word k w → ∀ a ∈ t.val, a.key ≠ k ⦄ := by
   apply WP.spec_mono (to_ids.spec t ps)
   intro out ⟨hl, hs⟩ p hp k w hw
@@ -480,20 +481,17 @@ theorem no_known_name_after_the_swap (t : Slice Alias) (ps : Slice Piece) :
       exact (place_none_iff _ _).mp hn
     · cases he
   | Text s => simp only at hr; cases hr
-  | Player id => simp only at hr; cases hr
 
-/-- Each ID of the swap names a player of the table, when the text held
-no ID before. So the swap back always finds the name. -/
-theorem every_id_of_the_swap_is_in_the_table (t : Slice Alias) (ps : Slice Piece)
-    (h : ∀ p ∈ ps.val, ¬ IsPlayer p) :
+/-- Each ID of the swap names a player of the table. The input is plain pieces, which
+hold no ID, so the swap back always finds the name. -/
+theorem every_id_of_the_swap_is_in_the_table (t : Slice Alias) (ps : Slice Plain) :
     to_ids t ps ⦃ out => ∀ p ∈ out.val, ∀ id, p = .Player id → id.val < t.length ⦄ := by
   apply WP.spec_mono (to_ids.spec t ps)
   intro out ⟨hl, hs⟩ p hp id hid
   obtain ⟨j, hj, rfl⟩ := List.getElem_of_mem hp
   have hj' : j < ps.val.length := by omega
   have hr := hs j hj' hj
-  have hnp := h _ (List.getElem_mem hj')
-  generalize ps.val[j] = p0 at hr hnp
+  generalize ps.val[j] = p0 at hr
   generalize out.val[j] = q at hr hid
   subst hid
   unfold ToId at hr
@@ -505,7 +503,6 @@ theorem every_id_of_the_swap_is_in_the_table (t : Slice Alias) (ps : Slice Piece
     · cases he
       exact place_lt hpl
   | Text s => simp only at hr; cases hr
-  | Player id' => exact absurd trivial hnp
 
 /-- What the swap to IDs and back gives for one piece: a known name in
 the form that the table holds, and every other piece as it was. -/
@@ -534,15 +531,14 @@ theorem restore_some {t : List Alias} {k w : String} {n : Nat} (h : place t k = 
     rfl
   · rename_i hs; rw [hs] at h; cases h
 
-/-- The swap to IDs and back gives the text back, piece by piece, when it
-held no ID: a known name comes back in the form of the table, with its
-key, and every other piece comes back as it was. A full round trip is
+/-- The swap to IDs and back gives the text back, piece by piece: a known
+name comes back in the form of the table, with its key, and every other
+piece comes back as it was. A full round trip is
 not true: "ADA-Stormrage" comes back as "Ada", because the ID keeps who
 the player is, not how the text wrote the name. -/
-theorem the_swap_and_back_keeps_the_text (t : Slice Alias) (ps : Slice Piece)
-    (h : ∀ p ∈ ps.val, ¬ IsPlayer p) :
+theorem the_swap_and_back_keeps_the_text (t : Slice Alias) (ps : Slice Plain) :
     (do let ids ← to_ids t ps; to_names t (alloc.vec.Vec.deref ids)) ⦃ out =>
-      out.val = ps.val.map (restore t.val) ⦄ := by
+      out.val = ps.val.map (fun p => restore t.val p.piece) ⦄ := by
   apply WP.spec_bind (to_ids.spec t ps)
   intro ids ⟨hl1, hs1⟩
   apply WP.spec_mono (to_names.spec t (alloc.vec.Vec.deref ids))
@@ -555,23 +551,21 @@ theorem the_swap_and_back_keeps_the_text (t : Slice Alias) (ps : Slice Piece)
   have r1 := hs1 j hj (by omega)
   have r2 := hs2 j (by omega) hj1
   rw [List.getElem_map]
-  have hnp := h _ (List.getElem_mem hj)
-  generalize ps.val[j] = p at r1 hnp
+  generalize ps.val[j] = p at r1
   generalize ids.val[j] = q at r1 r2
   unfold ToId at r1
   cases p with
   | Text s =>
     simp only at r1; subst r1
     simp only [ToName] at r2; rw [r2]; rfl
-  | Player id => exact absurd trivial hnp
   | Word k w =>
     simp only at r1
     rcases r1 with ⟨hn, rfl⟩ | ⟨id, hpl, rfl⟩
     · simp only [ToName] at r2
-      rw [r2, restore_none hn]
+      rw [r2, Plain.piece, restore_none hn]
     · simp only [ToName] at r2
       rcases r2 with ⟨hlt, he⟩ | ⟨hge, _⟩
-      · rw [he, restore_some hpl, (place_key hpl).2]
+      · rw [he, Plain.piece, restore_some hpl, (place_key hpl).2]
       · exact absurd (place_lt hpl) (by omega)
 
 /-- A piece that is no known name comes back exactly. -/

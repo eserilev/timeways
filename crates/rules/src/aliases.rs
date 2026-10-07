@@ -18,6 +18,16 @@ pub struct Alias {
     pub shown: String,
 }
 
+/// A piece of a text that a player or the game wrote. It has no case for an ID, so a text
+/// for a model can hold an ID only where the swap put one.
+#[derive(Clone, PartialEq, Eq, Debug)]
+pub enum Plain {
+    /// What is no word: spaces, signs, and braces.
+    Text(String),
+    /// A word as the text writes it, and its key.
+    Word { key: String, written: String },
+}
+
 /// A piece of a text.
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub enum Piece {
@@ -72,19 +82,23 @@ pub fn learn_all(table: &mut Vec<Alias>, names: &[Alias]) {
 }
 
 /// A word whose key the table holds becomes the ID of its player. Every other piece stays.
-fn to_id(table: &[Alias], piece: &Piece) -> Piece {
-    if let Piece::Word { key, .. } = piece
-        && let Some(id) = find(table, key)
-    {
-        return Piece::Player(id);
+fn to_id(table: &[Alias], piece: &Plain) -> Piece {
+    match piece {
+        Plain::Text(text) => Piece::Text(text.clone()),
+        Plain::Word { key, written } => match find(table, key) {
+            Some(id) => Piece::Player(id),
+            None => Piece::Word {
+                key: key.clone(),
+                written: written.clone(),
+            },
+        },
     }
-    piece.clone()
 }
 
 /// The text for a model: each known name becomes its ID. An index loop, as in `find`.
 #[cfg_attr(charon, verify::start_from)]
 #[must_use]
-pub fn to_ids(table: &[Alias], pieces: &[Piece]) -> Vec<Piece> {
+pub fn to_ids(table: &[Alias], pieces: &[Plain]) -> Vec<Piece> {
     let mut swapped = Vec::new();
     let mut index = 0;
     while index < pieces.len() {
@@ -140,6 +154,13 @@ mod tests {
         }
     }
 
+    fn plain_word(written: &str) -> Plain {
+        Plain::Word {
+            key: written.to_lowercase(),
+            written: written.to_string(),
+        }
+    }
+
     #[test]
     fn the_first_player_gets_the_first_id_and_keeps_it() {
         let mut table = Vec::new();
@@ -167,15 +188,20 @@ mod tests {
     #[test]
     fn a_known_name_becomes_its_id_and_comes_back_in_the_form_of_the_table() {
         let table = vec![alias("Ada")];
-        let pieces = vec![word("ADA"), Piece::Text(" and ".into()), word("Bob")];
+        let pieces = vec![
+            plain_word("ADA"),
+            Plain::Text(" and ".into()),
+            plain_word("Bob"),
+        ];
+        let rest = [Piece::Text(" and ".into()), word("Bob")];
 
         let for_a_model = to_ids(&table, &pieces);
         let for_the_player = to_names(&table, &for_a_model);
 
         assert_eq!(for_a_model[0], Piece::Player(PlayerId(0)));
-        assert_eq!(for_a_model[1..], pieces[1..]);
+        assert_eq!(for_a_model[1..], rest);
         assert_eq!(for_the_player[0], word("Ada"));
-        assert_eq!(for_the_player[1..], pieces[1..]);
+        assert_eq!(for_the_player[1..], rest);
     }
 
     #[test]

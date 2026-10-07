@@ -50,7 +50,7 @@ def aliases.Alias.Insts.CoreCloneClone.clone
   ok { key := s, shown := s1 }
 
 /-- [timeways_rules::aliases::{impl core::clone::Clone for timeways_rules::aliases::Piece}::clone]:
-    Source: 'crates/rules/src/aliases.rs', lines 22:9-22:14
+    Source: 'crates/rules/src/aliases.rs', lines 32:9-32:14
     Visibility: public -/
 def aliases.Piece.Insts.CoreCloneClone.clone
   (self : aliases.Piece) : Result aliases.Piece := do
@@ -67,7 +67,7 @@ def aliases.Piece.Insts.CoreCloneClone.clone
     ok (aliases.Piece.Player pi)
 
 /-- [timeways_rules::aliases::find]: loop 0:
-    Source: 'crates/rules/src/aliases.rs', lines 44:4-51:1
+    Source: 'crates/rules/src/aliases.rs', lines 54:4-61:1
     Visibility: public -/
 @[rust_loop]
 def aliases.find_loop
@@ -87,7 +87,7 @@ def aliases.find_loop
 partial_fixpoint
 
 /-- [timeways_rules::aliases::find]:
-    Source: 'crates/rules/src/aliases.rs', lines 42:0-51:1
+    Source: 'crates/rules/src/aliases.rs', lines 52:0-61:1
     Visibility: public -/
 @[reducible]
 def aliases.find
@@ -97,7 +97,7 @@ def aliases.find
   aliases.find_loop table key 0#usize
 
 /-- [timeways_rules::aliases::learn]:
-    Source: 'crates/rules/src/aliases.rs', lines 55:0-62:1
+    Source: 'crates/rules/src/aliases.rs', lines 65:0-72:1
     Visibility: public -/
 def aliases.learn
   (table : alloc.vec.Vec aliases.Alias) («alias» : aliases.Alias) :
@@ -113,7 +113,7 @@ def aliases.learn
   | some id => ok (id, table)
 
 /-- [timeways_rules::aliases::learn_all]: loop 0:
-    Source: 'crates/rules/src/aliases.rs', lines 68:4-71:5
+    Source: 'crates/rules/src/aliases.rs', lines 78:4-81:5
     Visibility: public -/
 @[rust_loop]
 def aliases.learn_all_loop
@@ -133,7 +133,7 @@ def aliases.learn_all_loop
 partial_fixpoint
 
 /-- [timeways_rules::aliases::learn_all]:
-    Source: 'crates/rules/src/aliases.rs', lines 66:0-72:1
+    Source: 'crates/rules/src/aliases.rs', lines 76:0-82:1
     Visibility: public -/
 @[reducible]
 def aliases.learn_all
@@ -143,26 +143,30 @@ def aliases.learn_all
   aliases.learn_all_loop table names 0#usize
 
 /-- [timeways_rules::aliases::to_id]:
-    Source: 'crates/rules/src/aliases.rs', lines 75:0-82:1 -/
+    Source: 'crates/rules/src/aliases.rs', lines 85:0-96:1 -/
 def aliases.to_id
-  (table : Slice aliases.Alias) (piece : aliases.Piece) :
+  (table : Slice aliases.Alias) (piece : aliases.Plain) :
   Result aliases.Piece
   := do
   match piece with
-  | aliases.Piece.Text _ => aliases.Piece.Insts.CoreCloneClone.clone piece
-  | aliases.Piece.Word key _ =>
+  | aliases.Plain.Text text =>
+    let s ← alloc.string.String.Insts.CoreCloneClone.clone text
+    ok (aliases.Piece.Text s)
+  | aliases.Plain.Word key written =>
     let o ← aliases.find table key
     match o with
-    | none => aliases.Piece.Insts.CoreCloneClone.clone piece
+    | none =>
+      let s ← alloc.string.String.Insts.CoreCloneClone.clone key
+      let s1 ← alloc.string.String.Insts.CoreCloneClone.clone written
+      ok (aliases.Piece.Word s s1)
     | some id => ok (aliases.Piece.Player id)
-  | aliases.Piece.Player _ => aliases.Piece.Insts.CoreCloneClone.clone piece
 
 /-- [timeways_rules::aliases::to_ids]: loop 0:
-    Source: 'crates/rules/src/aliases.rs', lines 90:4-93:5
+    Source: 'crates/rules/src/aliases.rs', lines 104:4-107:5
     Visibility: public -/
 @[rust_loop]
 def aliases.to_ids_loop
-  (table : Slice aliases.Alias) (pieces : Slice aliases.Piece)
+  (table : Slice aliases.Alias) (pieces : Slice aliases.Plain)
   (swapped : alloc.vec.Vec aliases.Piece) (index : Std.Usize) :
   Result (alloc.vec.Vec aliases.Piece)
   := do
@@ -178,17 +182,17 @@ def aliases.to_ids_loop
 partial_fixpoint
 
 /-- [timeways_rules::aliases::to_ids]:
-    Source: 'crates/rules/src/aliases.rs', lines 87:0-95:1
+    Source: 'crates/rules/src/aliases.rs', lines 101:0-109:1
     Visibility: public -/
 @[reducible]
 def aliases.to_ids
-  (table : Slice aliases.Alias) (pieces : Slice aliases.Piece) :
+  (table : Slice aliases.Alias) (pieces : Slice aliases.Plain) :
   Result (alloc.vec.Vec aliases.Piece)
   := do
   aliases.to_ids_loop table pieces (alloc.vec.Vec.new aliases.Piece) 0#usize
 
 /-- [timeways_rules::aliases::to_name]:
-    Source: 'crates/rules/src/aliases.rs', lines 98:0-109:1 -/
+    Source: 'crates/rules/src/aliases.rs', lines 112:0-123:1 -/
 def aliases.to_name
   (table : Slice aliases.Alias) (piece : aliases.Piece) :
   Result aliases.Piece
@@ -207,7 +211,7 @@ def aliases.to_name
     else aliases.Piece.Insts.CoreCloneClone.clone (aliases.Piece.Player id)
 
 /-- [timeways_rules::aliases::to_names]: loop 0:
-    Source: 'crates/rules/src/aliases.rs', lines 118:4-121:5
+    Source: 'crates/rules/src/aliases.rs', lines 132:4-135:5
     Visibility: public -/
 @[rust_loop]
 def aliases.to_names_loop
@@ -227,7 +231,7 @@ def aliases.to_names_loop
 partial_fixpoint
 
 /-- [timeways_rules::aliases::to_names]:
-    Source: 'crates/rules/src/aliases.rs', lines 115:0-123:1
+    Source: 'crates/rules/src/aliases.rs', lines 129:0-137:1
     Visibility: public -/
 @[reducible]
 def aliases.to_names

@@ -32,8 +32,16 @@ structure aliases.Alias where
   key : String
   shown : String
 
+/-- [timeways_rules::aliases::Plain]
+    Source: 'crates/rules/src/aliases.rs', lines 24:0-29:1
+    Visibility: public -/
+@[discriminant isize]
+inductive aliases.Plain where
+| Text : String → aliases.Plain
+| Word : String → String → aliases.Plain
+
 /-- [timeways_rules::aliases::Piece]
-    Source: 'crates/rules/src/aliases.rs', lines 23:0-32:1
+    Source: 'crates/rules/src/aliases.rs', lines 33:0-42:1
     Visibility: public -/
 @[discriminant isize]
 inductive aliases.Piece where

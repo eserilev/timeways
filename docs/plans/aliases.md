@@ -69,6 +69,8 @@ Lean proves these laws for every input, with no bound (`lean/Timeways/Aliases.le
 
 **A full round trip is not true**, so the law is weaker on purpose. "ADA-Stormrage" comes back as "Ada": the ID keeps who the player is, not how the text wrote the name. The law says exactly what comes back.
 
+**No ID in the input, by its type.** The swap reads `Plain` pieces: a text or a word, never an ID. So "the text held no ID before the swap" is a fact of the type of `to_ids`, and the laws need no hypothesis for it. A text that already holds "{P7}" is cut into a brace, the word "P7", and a brace. No name holds a digit, so the word never matches a name.
+
 **What no proof reads:** the cut of a text into words in `crates/story/src/aliases.rs`, the case fold, and the marks. Property tests and a fuzz target cover them.
 
 ## 7. Tests
