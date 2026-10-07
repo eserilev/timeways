@@ -1,6 +1,6 @@
 use timeways_story::line_check::{
-    COPIED_LINE_WORDS, Checked, Grounds, LineFault, MOST_SENTENCES, callback_in, checked_line,
-    grounded,
+    COPIED_LINE_WORDS, Checked, Grounds, LineFault, MOST_SENTENCES, built_faults, callback_in,
+    checked_line, grounded,
 };
 use timeways_story::moments::Moment;
 use timeways_story::narrator::{MAX_LINE_CHARS, Telling, Who};
@@ -684,5 +684,36 @@ fn a_line_never_copies_the_sample_of_its_own_moment_because_the_prompt_left_it_o
             &grounds_of(&darkshore, Some("Westfall lies south of Elwynn."))
         ),
         [LineFault::Copy("and the defias brotherhood".to_string())]
+    );
+}
+
+/// The faults of a built line about Hogger, with a name from outside that holds almost
+/// nothing.
+fn built_with_outside(line: &str, outside: &str) -> Vec<LineFault> {
+    let grounds = Grounds {
+        outside: vec![outside.to_string()],
+        ..hogger()
+    };
+    let lore = grounds.lore.clone().unwrap_or_default();
+    built_faults(line, &lore, &grounds)
+}
+
+#[test]
+fn an_empty_outside_name_never_blanks_the_banned_words() {
+    let found = built_with_outside("Hogger led the Riverpaw at dusk. Hogger is dead.", "");
+
+    assert!(
+        found.contains(&LineFault::Banned("dusk".to_string())),
+        "{found:?}"
+    );
+}
+
+#[test]
+fn a_one_letter_outside_name_never_blanks_the_banned_words() {
+    let found = built_with_outside("Hogger led the Riverpaw at dusk. Hogger is dead.", "u");
+
+    assert!(
+        found.contains(&LineFault::Banned("dusk".to_string())),
+        "{found:?}"
     );
 }

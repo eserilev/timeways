@@ -30,6 +30,9 @@ pub const SILENCE: &str = "SILENCE";
 /// ground nothing.
 const SHORTEST_ANCHOR: usize = 4;
 
+/// A shorter name from outside is cut out of no line (`cut_name`).
+const SHORTEST_OUTSIDE: usize = 2;
+
 /// Words that start a sentence with a capital letter, and name nothing.
 const NOT_NAMES: [&str; 32] = [
     "after", "also", "before", "both", "during", "each", "even", "every", "from", "here", "into",
@@ -84,7 +87,7 @@ impl Grounds {
             .collect();
         let mut moment = self.moment.clone();
         for name in &untrusted {
-            moment = moment.replace(name, " ");
+            moment = cut_name(&moment, name);
         }
         let mut parts = vec![moment.as_str()];
         let names = self.names.iter().map(String::as_str);
@@ -99,7 +102,7 @@ impl Grounds {
     fn without_outside(&self, line: &str) -> String {
         let mut worded = line.to_string();
         for name in &self.outside {
-            worded = worded.replace(name.as_str(), " ");
+            worded = cut_name(&worded, name);
         }
         worded
     }
@@ -114,6 +117,33 @@ impl Grounds {
         anchors.extend(numbers(&self.moment).into_iter().map(str::to_string));
         anchors
     }
+}
+
+/// Each whole-word match of the name in the text, as a space. A name of one letter, or none,
+/// cuts nothing: it would cut that letter out of every word, and hide a banned word.
+fn cut_name(text: &str, name: &str) -> String {
+    if name.chars().count() < SHORTEST_OUTSIDE {
+        return text.to_string();
+    }
+    let mut cut = String::with_capacity(text.len());
+    let mut rest = text;
+    while let Some(at) = rest.find(name) {
+        let (before, after) = (&rest[..at], &rest[at + name.len()..]);
+        let starts_a_word = !before
+            .chars()
+            .next_back()
+            .is_some_and(char::is_alphanumeric);
+        let ends_a_word = !after.chars().next().is_some_and(char::is_alphanumeric);
+        cut.push_str(before);
+        cut.push_str(if starts_a_word && ends_a_word {
+            " "
+        } else {
+            name
+        });
+        rest = after;
+    }
+    cut.push_str(rest);
+    cut
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
