@@ -96,3 +96,33 @@ fn a_command_that_changes_no_world_works_while_dev_mode_is_off() {
     assert!(saved.status.success(), "{saved:?}");
     assert!(listed.status.success(), "{listed:?}");
 }
+
+#[test]
+fn export_ratings_writes_a_file_with_no_player_name_while_dev_mode_is_off() {
+    let data = common::folder("export-ratings");
+    common::seed("ratings", &data);
+    let out = data.join("to-send.json");
+    let args = [
+        "export-ratings",
+        common::NAME,
+        "--realm",
+        common::REALM,
+        "--out",
+        out.to_str().unwrap(),
+        "--data",
+        data.to_str().unwrap(),
+    ];
+
+    let output = Command::new(env!("CARGO_BIN_EXE_timeways-dev"))
+        .args(args)
+        .env("XDG_CONFIG_HOME", &data)
+        .output()
+        .unwrap();
+
+    assert!(output.status.success(), "{output:?}");
+    let text = std::fs::read_to_string(&out).unwrap();
+    let export: serde_json::Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(export["ratings"].as_array().unwrap().len(), 2, "{text}");
+    assert_eq!(export["ratings"][0]["model"], "none");
+    assert!(!text.contains(common::NAME), "{text}");
+}

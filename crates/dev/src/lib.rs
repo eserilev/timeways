@@ -8,6 +8,7 @@ pub mod bench_fps;
 pub mod bench_model;
 pub mod bench_report;
 pub mod desktop;
+pub mod export_ratings;
 pub mod faults;
 pub mod gate;
 pub mod model_runner;

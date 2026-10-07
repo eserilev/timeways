@@ -4,15 +4,17 @@
 
 mod common;
 
-use common::{NAME, REALM, folder, journal, list, seed, texts};
-use serde_json::Value;
+use common::{NAME, REALM, START, folder, journal, list, seed, texts};
+use serde_json::{Value, json};
 use std::collections::BTreeSet;
 use timeways_dev::scenario::{BUILT_IN, Scenario};
 use timeways_story::moments::Moment;
 use timeways_story::narrator::Who;
 use timeways_story::narrator_review::{Sources, reviews};
 use timeways_story::pack::Pack;
+use timeways_story::serve;
 use timeways_story::store::{CharacterKey, Store};
+use timeways_story::story::Story;
 
 /// For a person who writes a scenario: `SCENARIO=<name> cargo test -p timeways-dev --test
 /// scenarios -- --ignored --nocapture` prints what its world holds.
@@ -337,4 +339,66 @@ fn every_kind_of_narrator_moment_comes_in_a_scenario() {
         .filter(|kind| !found.contains(*kind))
         .collect();
     assert!(missing.is_empty(), "no scenario makes {missing:?}");
+}
+
+#[test]
+fn the_ratings_scenario_rates_two_narrator_lines_and_exports_them_with_no_name() {
+    let folder = folder("ratings");
+
+    let report = seed("ratings", &folder);
+
+    assert!(report.is_clean(), "{report:#?}");
+    assert_eq!(report.narrator.len(), 2, "{report:#?}");
+    let world = timeways_dev::worlds::world_file(&folder, REALM, NAME).unwrap();
+    let export = timeways_dev::export_ratings::ratings_of(&world, NAME, "none").unwrap();
+    let value = serde_json::to_value(&export).unwrap();
+    let ratings: Vec<(&str, &str)> = value["ratings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|rating| {
+            (
+                rating["moment"].as_str().unwrap(),
+                rating["rating"].as_str().unwrap(),
+            )
+        })
+        .collect();
+    assert_eq!(ratings, [("new_zone", "up"), ("new_zone", "down")]);
+    assert!(export.ratings[0].text.starts_with("Duskwood"));
+    assert!(!value.to_string().contains(NAME), "{value}");
+}
+
+/// The Like and Dislike of the Chronicle show only on a page with a story of the narrator.
+#[test]
+fn the_first_chapter_of_the_ratings_scenario_has_a_story_to_rate() {
+    let folder = folder("ratings-chapter");
+
+    seed("ratings", &folder);
+
+    let chapters = list(&journal(&folder), "chapters");
+    let prose = chapters[0]["prose"].as_str().unwrap_or_default();
+    assert!(prose.starts_with("Marshal McBride"), "{chapters:?}");
+}
+
+#[test]
+fn a_rating_of_a_chapter_keeps_the_story_with_the_mark_of_the_hero() {
+    let folder = folder("ratings-of-a-chapter");
+    seed("ratings", &folder);
+    let first = list(&journal(&folder), "chapters")[0]["first"].clone();
+    let mut story = Story::new(Pack::empty().unwrap(), Store::Folder(folder.clone()));
+    let character = json!({"type": "character_entered", "realm": REALM, "name": NAME});
+    let rated = json!({"type": "line_rated", "at": START + 9000, "rated": "chapter",
+        "first": first, "rating": "up"});
+
+    for line in [character, rated] {
+        let served = serve::line(&mut story, line.to_string().into_bytes());
+        assert_eq!(served.error, None);
+    }
+
+    drop(story);
+    let world = timeways_dev::worlds::world_file(&folder, REALM, NAME).unwrap();
+    let export = timeways_dev::export_ratings::ratings_of(&world, NAME, "none").unwrap();
+    let chapter = export.ratings.last().unwrap();
+    assert_eq!(chapter.moment, "chapter");
+    assert!(chapter.text.contains("$N took up"), "{}", chapter.text);
 }

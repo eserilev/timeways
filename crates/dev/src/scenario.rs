@@ -62,6 +62,11 @@ pub const BUILT_IN: &[(&str, &str, &str)] = &[
         "A human warrior in Westfall who never entered the Deadmines, for its setups and entries.",
         include_str!("../scenarios/dungeon-setups.jsonl"),
     ),
+    (
+        "ratings",
+        "A human paladin who rated two narrator lines, for `timeways-dev export-ratings`.",
+        include_str!("../scenarios/ratings.jsonl"),
+    ),
 ];
 
 #[derive(Clone, Debug, PartialEq)]

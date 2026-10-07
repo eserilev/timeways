@@ -9,6 +9,7 @@ use timeways_dev::bench_fps::{FpsBench, bench_fps, fps_text};
 use timeways_dev::bench_model::{Bench, bench_model, write_results};
 use timeways_dev::bench_report::{ModelReport, compare_text, text};
 use timeways_dev::desktop::{Desktop, ModelSetting};
+use timeways_dev::export_ratings::{ratings_of, write_export};
 use timeways_dev::gate::{check_dev_mode, needs_dev_mode};
 use timeways_dev::model_runner::Runner;
 use timeways_dev::scenario::{BUILT_IN, Scenario, built_in};
@@ -28,6 +29,7 @@ const USAGE: &str = "usage:
   timeways-dev snapshot <character> <snapshot> --realm <realm> [--data <folder>]
   timeways-dev restore <character> <snapshot> --realm <realm> [--data <folder>]
   timeways-dev scenarios
+  timeways-dev export-ratings <character> --realm <realm> [--out <file>] [--data <folder>]
   timeways-dev bench-model [--model <shell command> | --local | --claude | --compare local,claude]
       [--moments <v1 or file.jsonl>] [--runs <n>] [--pack <lore pack>] [--data <folder>]
   timeways-dev bench-fps --model <local | claude | shell command> [--seconds <n>] [--lead <n>]
@@ -35,6 +37,7 @@ const USAGE: &str = "usage:
   timeways-dev on | off | status
 
   seed, restore, and the benches run only while dev mode is on.
+  export-ratings writes the ratings of a character into a file to send, with no player names.
   In --model and --compare, local is the local model of the config, or llama3.2:3b in
   Ollama, and claude is Claude Code with no tools.
   --data is the data folder of the story program. By default it is the one of the
@@ -50,6 +53,7 @@ struct Flags {
     model: Option<String>,
     pack: Option<PathBuf>,
     data: Option<PathBuf>,
+    out: Option<PathBuf>,
     /// `local` or `claude`, from `--local` or `--claude`.
     named_model: Option<&'static str>,
     compare: Option<String>,
@@ -83,6 +87,7 @@ fn run(args: &[String]) -> Result<(), Box<dyn Error>> {
         ("seed", [character]) => seed(character, &flags),
         ("snapshot", [character, name]) => snapshot(character, name, &flags),
         ("restore", [character, name]) => restore(character, name, &flags),
+        ("export-ratings", [character]) => export_ratings(character, &flags),
         ("scenarios", []) => {
             for (name, about, _) in BUILT_IN {
                 println!("{name:18} {about}");
@@ -123,6 +128,7 @@ fn split_flags(args: &[String]) -> Option<(Vec<String>, Flags)> {
             "--model" => flags.model = Some(rest.next()?.clone()),
             "--pack" => flags.pack = Some(PathBuf::from(rest.next()?)),
             "--data" => flags.data = Some(PathBuf::from(rest.next()?)),
+            "--out" => flags.out = Some(PathBuf::from(rest.next()?)),
             flag if flag.starts_with("--") => return None,
             word => words.push(word.to_string()),
         }
@@ -297,6 +303,20 @@ fn restore(character: &str, snapshot: &str, flags: &Flags) -> Result<(), Box<dyn
     }
     println!("Restored {}", world.display());
     println!("Run `gnomish-relay restart`, then log in as {character}.");
+    Ok(())
+}
+
+fn export_ratings(character: &str, flags: &Flags) -> Result<(), Box<dyn Error>> {
+    let data = data_folder(flags)?;
+    let world = world_file(&data, realm(flags)?, character)?;
+    let export = ratings_of(&world, character, &Desktop::here()?.model_label())?;
+    let file = write_export(&export, &data, flags.out.as_deref(), stamp())?;
+    println!(
+        "Wrote {} ratings to {}",
+        export.ratings.len(),
+        file.display()
+    );
+    println!("It holds no player names. Read it before you send it.");
     Ok(())
 }
 

@@ -118,6 +118,23 @@ impl Desktop {
         }
     }
 
+    /// The model of the config in a few words, for an export: "claude", "claude opus",
+    /// "local llama3.2:3b", or "none". It holds no command and no path, so it names no
+    /// folder of the player.
+    #[must_use]
+    pub fn model_label(&self) -> String {
+        let table = self.story_table();
+        match table.model.as_deref() {
+            None | Some("none" | "") => "none".to_string(),
+            Some("claude") => match table.claude_model {
+                Some(model) => format!("claude {model}"),
+                None => "claude".to_string(),
+            },
+            Some("local") => format!("local {}", self.local_model().model),
+            Some(other) => other.to_string(),
+        }
+    }
+
     /// Claude Code with the `claude_model` of the config, as the bridge runs it.
     #[must_use]
     pub fn claude_command(&self) -> String {

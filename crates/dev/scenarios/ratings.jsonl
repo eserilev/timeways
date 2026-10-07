@@ -1,0 +1,37 @@
+# A human paladin who turned ratings on, and rated two narrator lines: one up, one down.
+# The answers of the narrator are fixed, so the lines and the story of the first chapter
+# show with no model. In the game, `/timeways ratings on` shows Like and Dislike on that
+# chapter, and `/timeways like` after a narrator line rates it.
+# `timeways-dev export-ratings <character> --realm <realm>` writes the ratings to a file.
+
+{"type": "character_described", "at": 30, "race": "Human", "class": "PALADIN"}
+{"type": "zone_entered", "at": 60, "zone": "Elwynn Forest", "subzone": "Northshire Valley", "hour": 14}
+{"type": "npc_met", "at": 90, "name": "Marshal McBride"}
+{"type": "game_quest_done", "at": 300, "title": "A Threat Within", "kind": "normal"}
+{"type": "game_quest_done", "at": 400, "title": "Kobold Camp Cleanup", "kind": "normal"}
+{"type": "game_quest_done", "at": 500, "title": "Investigate Echo Ridge", "kind": "normal"}
+{"type": "game_quest_done", "at": 600, "title": "Skirmish at Echo Ridge", "kind": "normal"}
+{"type": "game_quest_done", "at": 700, "title": "Report to Goldshire", "kind": "normal"}
+{"type": "game_quest_done", "at": 800, "title": "Wolves Across the Border", "kind": "normal"}
+{"type": "game_quest_done", "at": 900, "title": "Brotherhood of Thieves", "kind": "normal"}
+{"type": "game_quest_done", "at": 1000, "title": "Milly Osworth", "kind": "normal"}
+{"type": "game_quest_done", "at": 1100, "title": "Milly's Harvest", "kind": "normal"}
+{"type": "game_quest_done", "at": 1200, "title": "Grape Manifest", "kind": "normal"}
+{"type": "game_quest_done", "at": 1300, "title": "Bounty on Garrick Padfoot", "kind": "normal"}
+{"type": "game_quest_done", "at": 1400, "title": "The Fargodeep Mine", "kind": "normal"}
+{"type": "game_quest_done", "at": 1500, "title": "The Jasperlode Mine", "kind": "normal"}
+{"type": "game_quest_done", "at": 1600, "title": "Westbrook Garrison Needs Help!", "kind": "normal"}
+{"type": "game_quest_done", "at": 1700, "title": "Riverpaw Gnoll Bounty", "kind": "normal"}
+{"type": "game_quest_done", "at": 1800, "title": "Protect the Frontier", "kind": "normal"}
+
+{"type": "zone_entered", "at": 4000, "zone": "Duskwood", "subzone": "Darkshire", "hour": 21}
+{"type": "game_quest_done", "at": 4030, "title": "The Night Watch", "kind": "normal"}
+{"model": "narrator", "answer": {"lore": "Duskwood was the Grand Hamlet of Elwynn until the Scourge and the worgen came, and the Night Watch of Darkshire guards its last town now."}}
+{"model": "saga", "answer": {"saga": "Marshal McBride trains the young of Stormwind at Northshire Abbey, and the kobolds and gnolls of Elwynn Forest give them work enough. $N took up those errands from Echo Ridge to the Jasperlode Mine."}}
+
+{"type": "line_rated", "at": 4060, "rated": "narrator", "rating": "up"}
+
+{"type": "zone_entered", "at": 8000, "zone": "Westfall", "subzone": "Sentinel Hill", "hour": 15}
+{"model": "narrator", "answer": {"lore": "The farmers of Westfall turned on Stormwind after the Second War, and the People's Militia holds Sentinel Hill against the Defias now."}}
+
+{"type": "line_rated", "at": 8060, "rated": "narrator", "rating": "down"}
