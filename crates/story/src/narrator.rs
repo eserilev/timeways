@@ -313,8 +313,12 @@ pub fn lore_prompt(telling: &Telling<'_>, turn: usize, offer: &Offer) -> String 
     prompt
 }
 
+/// Lore that tells the end of its deed is no setup: after the kill, "the foe still holds
+/// the place" is false.
 fn is_setup_entry(moment: &Moment, lore: &str) -> bool {
-    moment.enters_an_instance() && !setup_passages::setup_sentences(lore).is_empty()
+    moment.enters_an_instance()
+        && !setup_passages::setup_sentences(lore).is_empty()
+        && !setup_passages::tells_an_end(lore)
 }
 
 /// One line of meaning for each closed field of the moment (2.2).

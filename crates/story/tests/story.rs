@@ -2878,6 +2878,27 @@ fn after_the_kill_a_later_entry_skips_the_setup_and_tells_the_outcome() {
 }
 
 #[test]
+fn an_outcome_after_the_kill_never_asks_for_a_foe_that_still_holds_the_place() {
+    let sent_and_killed = Passage {
+        depends_on: Some(Dependency::Foe("Edwin VanCleef".to_string())),
+        ..passage(
+            "Gryan Stoutmantle sent adventurers to kill Edwin VanCleef. They killed him on his ship.",
+            "the wiki page \"Deadmines\"",
+            vec![place("The Deadmines")],
+        )
+    };
+    let mut story = story_with("entries-outcome-note", &[sent_and_killed]);
+    defeat(&mut story, HOUR, "Edwin VanCleef");
+    batch_end(&mut story, 9);
+    entry_prompt(&mut story, 2 * HOUR, 1);
+
+    let again = entry_prompt(&mut story, 4 * HOUR, 2).unwrap();
+
+    assert!(again.contains("They killed him on his ship"), "{again}");
+    assert!(!again.contains("still holds"), "{again}");
+}
+
+#[test]
 fn a_later_entry_never_tells_an_untagged_end_of_a_deed() {
     let soldiers = passage(
         "A group of Alliance soldiers killed Edwin VanCleef in the mine and took his head.",
