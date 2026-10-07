@@ -6,6 +6,7 @@
 
 use crate::character::Character;
 use crate::check::mentions;
+use crate::game_names::{self, wiki_name};
 use crate::house::fenced;
 use crate::moments::Moment;
 use crate::narrator::{Who, lore_excerpt};
@@ -244,7 +245,9 @@ fn passage_subjects<'a>(passage: &'a Passage, subjects: &'a [String]) -> Vec<&'a
     about
 }
 
+/// Both names of a person get one id (`game_names`).
 fn id_of<'a>(names: &mut Vec<&'a str>, name: &'a str) -> u32 {
+    let name = wiki_name(name);
     let index = names
         .iter()
         .position(|known| *known == name)
@@ -310,7 +313,8 @@ fn known(character: &Character, passages: Vec<Passage>) -> Vec<Passage> {
 }
 
 /// The own page of `subject` comes first, in page order, so the history of the Deadmines
-/// wins over the page of a boss inside it. Then a passage linked to `subject`, then one
+/// wins over the page of a boss inside it. The page of a game name is the page of its
+/// wiki name: the kill of "High Inquisitor Whitemane" takes the page "Sally Whitemane". Then a passage linked to `subject`, then one
 /// that names it. A search for "The Deadmines" also finds every passage with "the", so a
 /// passage about something else never counts.
 ///
@@ -323,7 +327,7 @@ pub fn lore_about(
     character: &Character,
     subject: &str,
 ) -> Result<Option<Passage>, LoreError> {
-    let own = known(character, pack.about(subject, CANDIDATES)?);
+    let own = known(character, pack.about(wiki_name(subject), CANDIDATES)?);
     if let Some(own) = own.into_iter().next() {
         return Ok(Some(own));
     }
@@ -352,7 +356,7 @@ fn found_about(
 
 fn is_linked(passage: &Passage, subject: &str) -> bool {
     passage.links.iter().any(|link| match link {
-        Link::Place(name) | Link::Npc(name) => name == subject,
+        Link::Place(name) | Link::Npc(name) => game_names::same(name, subject),
         Link::Common => false,
     })
 }

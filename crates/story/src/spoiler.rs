@@ -2,10 +2,13 @@
 //! holds every link of the passage, and the deed that an outcome passage tells, and not
 //! the deed that a setup passage asks for. The rules of the deeds live in
 //! `timeways_rules::outcomes` and `timeways_rules::setups`, where Lean proves them. This
-//! module only turns names into ids.
+//! module only turns names into ids, with the rows of game names (`game_names`), so a
+//! kill under either name of a person counts.
 
 use crate::character::Character;
+use crate::game_names;
 use crate::pack::{Deed, Dependency, Passage, SetupFor};
+use timeways_rules::game_names::NameRow;
 use timeways_rules::outcomes::{DependsOn, PlayerFacts, outcome_usable};
 use timeways_rules::setups::{self, setup_usable};
 
@@ -36,7 +39,22 @@ fn facts_of<'a>(character: &'a Character, names: &mut Names<'a>) -> PlayerFacts 
     PlayerFacts {
         defeated: names.ids(character.foes_defeated()),
         quests_done: names.ids(character.game_quests_done()),
+        names: name_rows(names),
     }
+}
+
+/// The rows of game names as ids: one row for each game name of a person or a place.
+fn name_rows(names: &mut Names<'_>) -> Vec<NameRow> {
+    let mut rows = Vec::new();
+    for row in game_names::rows() {
+        for game in &row.game {
+            rows.push(NameRow {
+                game: names.id(game),
+                wiki: names.id(&row.wiki),
+            });
+        }
+    }
+    rows
 }
 
 /// True when the passage tells no deed, or a deed that the player did.

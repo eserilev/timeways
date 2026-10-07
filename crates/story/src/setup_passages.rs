@@ -5,6 +5,7 @@
 //! (`spoiler.rs`).
 
 use crate::check::words_of;
+use crate::game_names;
 use crate::narrator::MAX_LORE_CHARS;
 use crate::outcome_passages::{Npc, PageKind, RESULTS, holds_phrase, linked_foes, own_quest};
 use crate::pack::{Deed, Link, SetupFor};
@@ -312,6 +313,18 @@ pub struct Instances {
     pub bosses: BTreeMap<String, Vec<String>>,
 }
 
+impl Instances {
+    /// The places of the known boss that `name` names, under either of its names
+    /// (`game_names`): the page "Dagran Thaurissan" holds the infobox name "Emperor Dagran
+    /// Thaurissan".
+    fn places_of(&self, name: &str) -> Option<&Vec<String>> {
+        self.bosses
+            .iter()
+            .find(|(boss, _)| game_names::same(boss, name))
+            .map(|(_, places)| places)
+    }
+}
+
 /// A paragraph with a setup sentence, as the builder found it: its text, its cites, its
 /// page, and its links.
 pub struct Found<'a> {
@@ -363,7 +376,7 @@ fn own_foe_by_its_instance(
     let own = linked_foes(&Cites::default(), found.page, kind_of)
         .into_iter()
         .next()?;
-    let places = instances.bosses.get(&own.name)?;
+    let places = instances.places_of(&own.name)?;
     let named = setup_sentences(found.text).into_iter().any(|sentence| {
         let lower = lower_words(sentence);
         spans_of(sentence).into_iter().any(|span| {
@@ -478,7 +491,7 @@ fn name_at(words: &[String], name: &str) -> Option<usize> {
 fn instance_of(deed: &Deed, links: &[Link], instances: &Instances) -> Option<String> {
     let is_instance = |name: &&String| instances.names.contains(name);
     if let Deed::Foe(name) = deed
-        && let Some(places) = instances.bosses.get(name)
+        && let Some(places) = instances.places_of(name)
     {
         return places.iter().find(is_instance).cloned();
     }

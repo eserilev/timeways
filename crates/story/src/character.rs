@@ -1,5 +1,6 @@
 //! The world of one character, fed by game events (GAMEPLAY.md 5.1 and 5.2).
 
+use crate::game_names;
 use crate::gear::{Quality, item_name};
 use crate::input::{GameQuestKind, Reaction};
 use crate::mounts::mount_name;
@@ -1058,7 +1059,7 @@ impl Character {
             .any(|target| {
                 self.world
                     .entity(target)
-                    .is_some_and(|entity| entity.name == name)
+                    .is_some_and(|entity| game_names::same(&entity.name, name))
             })
     }
 

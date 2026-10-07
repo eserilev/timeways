@@ -12,6 +12,7 @@ import Timeways.Chapters
 import Timeways.ChaptersDeaths
 import Timeways.NarratorShapes
 import Timeways.ThinLore
+import Timeways.GameNames
 import Timeways.Outcomes
 import Timeways.Setups
 import Timeways.InstanceLore
@@ -481,3 +482,43 @@ open timeways_rules
 /-- info: 'timeways_rules.instance_lore.entries_are_silent_once_every_passage_is_told' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs (whitespace := lax) in
 #print axioms instance_lore.entries_are_silent_once_every_passage_is_told
+
+/-- info: 'timeways_rules.game_names.person.spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms game_names.person.spec
+
+/-- info: 'timeways_rules.game_names.holds_person.spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms game_names.holds_person.spec
+
+/-- info: 'timeways_rules.game_names.person_is_idempotent' depends on axioms: [propext, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms game_names.person_is_idempotent
+
+/-- info: 'timeways_rules.game_names.either_name_of_a_row_names_one_person' depends on axioms: [propext] -/
+#guard_msgs (whitespace := lax) in
+#print axioms game_names.either_name_of_a_row_names_one_person
+
+/-- info: 'timeways_rules.outcomes.outcomes_usable.spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms outcomes.outcomes_usable.spec
+
+/-- info: 'timeways_rules.outcomes.a_passage_with_two_deeds_waits_for_both' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms outcomes.a_passage_with_two_deeds_waits_for_both
+
+/-- info: 'timeways_rules.outcomes.a_kill_under_either_name_unlocks_the_outcome' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms outcomes.a_kill_under_either_name_unlocks_the_outcome
+
+/-- info: 'timeways_rules.outcomes.a_kill_of_another_person_unlocks_nothing' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms outcomes.a_kill_of_another_person_unlocks_nothing
+
+/-- info: 'timeways_rules.setups.a_kill_under_either_name_makes_the_setup_stale' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms setups.a_kill_under_either_name_makes_the_setup_stale
+
+/-- info: 'timeways_rules.setups.a_kill_of_another_person_keeps_the_setup' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms setups.a_kill_of_another_person_keeps_the_setup

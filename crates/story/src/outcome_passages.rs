@@ -5,6 +5,7 @@
 //! (`spoiler.rs`).
 
 use crate::check::mentions;
+use crate::game_names;
 use crate::pack::Dependency;
 use crate::sentences::sentences;
 use crate::wikitext::{Cites, plain, template_fields};
@@ -205,11 +206,13 @@ fn raw_field<'a>(fields: &'a [(String, String)], key: &str) -> Option<&'a str> {
 }
 
 /// A known boss of the pack is a foe, whatever its infobox says: a page of the list about
-/// a person in a dungeon, such as "Mr. Smite".
+/// a person in a dungeon, such as "Mr. Smite". The page title and the infobox name can be
+/// two names of one person (`game_names`).
 #[must_use]
 pub fn with_known_bosses(kind: PageKind, bosses: &[String]) -> PageKind {
+    let known = |name: &str| bosses.iter().any(|boss| game_names::same(boss, name));
     match kind {
-        PageKind::Npc(npc) if bosses.contains(&npc.name) => PageKind::Npc(Npc {
+        PageKind::Npc(npc) if known(&npc.name) => PageKind::Npc(Npc {
             stance: Stance::Foe,
             ..npc
         }),

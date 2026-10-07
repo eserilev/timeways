@@ -1,0 +1,72 @@
+# The game names of the people and places whose wiki name differs
+# (docs/plans/lore-names-and-now.md 1). A row says that the exact names are one person
+# or one place. Nothing else matches: no title is stripped, and no surname is enough.
+# `wiki` is the name of the pack: the page title or the infobox name. `game` holds the
+# unit name and the encounter name of the game.
+# A person checks each row in the game. TESTING.md lists the rows that wait for a check.
+# A game name never sits in two rows, and never is the wiki name of a row
+# (`the_game_names_are_a_function`).
+
+[[person]]
+wiki = "Sicco Thermaplugg"
+game = ["Mekgineer Thermaplugg"]
+
+[[person]]
+wiki = "Sally Whitemane"
+game = ["High Inquisitor Whitemane"]
+
+[[person]]
+wiki = "Aku'mai the Devourer"
+game = ["Aku'mai"]
+
+[[person]]
+wiki = "Moira Thaurissan"
+game = ["Princess Moira Bronzebeard"]
+
+[[person]]
+wiki = "Renault Mograine"
+game = ["Scarlet Commander Mograine"]
+
+[[person]]
+wiki = "Dal'rend Blackhand"
+game = ["Warchief Rend Blackhand"]
+
+[[person]]
+wiki = "Dagran Thaurissan"
+game = ["Emperor Dagran Thaurissan"]
+
+[[person]]
+wiki = "Magni Bronzebeard"
+game = ["King Magni Bronzebeard"]
+
+[[person]]
+wiki = "Jaina Proudmoore"
+game = ["Lady Jaina Proudmoore"]
+
+[[person]]
+wiki = "Sylvanas Windrunner"
+game = ["Lady Sylvanas Windrunner"]
+
+[[person]]
+wiki = "Gelbin Mekkatorque"
+game = ["High Tinker Mekkatorque"]
+
+[[person]]
+wiki = "Mathias Shaw"
+game = ["Master Mathias Shaw"]
+
+[[person]]
+wiki = "Fandral Staghelm"
+game = ["Arch Druid Fandral Staghelm"]
+
+[[person]]
+wiki = "Hamuul Runetotem"
+game = ["Arch Druid Hamuul Runetotem"]
+
+[[person]]
+wiki = "Remulos"
+game = ["Keeper Remulos"]
+
+[[place]]
+wiki = "Stormwind Stockade"
+game = ["The Stockade"]

@@ -261,6 +261,13 @@ structure entry_edits.Shown where
   narrator : Option Std.U64
   player : Option Std.U64
 
+/-- [timeways_rules::game_names::NameRow]
+    Source: 'crates/rules/src/game_names.rs', lines 13:0-16:1
+    Visibility: public -/
+structure game_names.NameRow where
+  game : Std.U32
+  wiki : Std.U32
+
 /-- [timeways_rules::narrator_shapes::Token]
     Source: 'crates/rules/src/narrator_shapes.rs', lines 19:0-28:1
     Visibility: public -/
@@ -322,7 +329,7 @@ inductive narrator_shapes.Tier where
 | Fallback : narrator_shapes.Tier
 
 /-- [timeways_rules::outcomes::DependsOn]
-    Source: 'crates/rules/src/outcomes.rs', lines 11:0-20:1
+    Source: 'crates/rules/src/outcomes.rs', lines 12:0-21:1
     Visibility: public -/
 @[discriminant isize]
 inductive outcomes.DependsOn where
@@ -332,11 +339,12 @@ inductive outcomes.DependsOn where
 | Quest : Std.U32 → outcomes.DependsOn
 
 /-- [timeways_rules::outcomes::PlayerFacts]
-    Source: 'crates/rules/src/outcomes.rs', lines 25:0-28:1
+    Source: 'crates/rules/src/outcomes.rs', lines 27:0-31:1
     Visibility: public -/
 structure outcomes.PlayerFacts where
   defeated : alloc.vec.Vec Std.U32
   quests_done : alloc.vec.Vec Std.U32
+  names : alloc.vec.Vec game_names.NameRow
 
 /-- [timeways_rules::quest_log::Goal]
     Source: 'crates/rules/src/quest_log.rs', lines 14:0-18:1
@@ -404,7 +412,7 @@ structure quest_log.Quest where
   progress : quest_log.Progress
 
 /-- [timeways_rules::setups::SetupFor]
-    Source: 'crates/rules/src/setups.rs', lines 12:0-19:1
+    Source: 'crates/rules/src/setups.rs', lines 13:0-20:1
     Visibility: public -/
 @[discriminant isize]
 inductive setups.SetupFor where

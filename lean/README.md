@@ -6,7 +6,7 @@ Lean functions. The theorems in `Timeways/QuestLog.lean`,
 `Timeways/TrustBand.lean`, `Timeways/Prompts.lean`,
 `Timeways/Aliases.lean`, `Timeways/StoryShelf.lean`,
 `Timeways/EntryEdits.lean`, `Timeways/Chapters.lean`, `Timeways/ChaptersDeaths.lean`,
-`Timeways/NarratorShapes.lean`, `Timeways/ThinLore.lean`, `Timeways/Outcomes.lean`, `Timeways/Setups.lean`, and `Timeways/InstanceLore.lean` are about those functions. A theorem holds for every input, with no bound. The
+`Timeways/NarratorShapes.lean`, `Timeways/ThinLore.lean`, `Timeways/GameNames.lean`, `Timeways/Outcomes.lean`, `Timeways/Setups.lean`, and `Timeways/InstanceLore.lean` are about those functions. A theorem holds for every input, with no bound. The
 property tests in `crates/story/tests/properties.rs` check the same
 rules on random input, and they stay as a second check.
 
@@ -414,10 +414,12 @@ of the pack that tells a deed of adventurers may reach a prompt
 (GAMEPLAY.md 5.10). It reads ids, never strings. The builder tags each
 such passage with the foe or the quest that it depends on, or marks it
 unresolved. `PlayerFacts` holds the ids of the foes that the player
-defeated and of the quests of the game that the player turned in. The
+defeated and of the quests of the game that the player turned in, and
+the rows of game names as ids (below). The
 glue in `crates/story/src/spoiler.rs` gives one id to each distinct
 name. No proof reads the glue. Its named tests and property tests check
-it.
+it. `outcomes_usable` gates a passage with several tags: it shows only
+when every tag passes.
 
 | Theorem | The law | Test |
 |---|---|---|
@@ -427,6 +429,10 @@ it.
 | `an_unresolved_outcome_is_never_used` | An unresolved deed is refused, whatever the world holds. | `an_unresolved_deed_never_passes` |
 | `a_passage_with_no_outcome_is_not_gated_by_this_rule` | A passage with no deed passes this gate, whatever the world holds. | `a_passage_with_no_deed_passes_with_no_facts` |
 | `an_outcome_the_player_did_passes` | A deed that the player did lets its passage through. | `the_vancleef_passage_reaches_the_prompt_only_after_the_kill` |
+| `outcomes_usable.spec` | The gate of several tags ends and gives its pure model: true exactly when every tag passes `outcome_usable`. | `a_passage_with_two_deeds_passes_only_after_both` |
+| `a_passage_with_two_deeds_waits_for_both` | A passage with a tag whose deed the player did not do is refused, whatever its other tags. | `a_passage_with_two_deeds_passes_only_after_both` |
+| `a_kill_under_either_name_unlocks_the_outcome` | For a row (g, w) of game names that are a function, a passage tagged w passes after a kill of g, and after a kill of w. | `a_kill_under_the_game_name_unlocks_a_passage_tagged_with_the_wiki_name` |
+| `a_kill_of_another_person_unlocks_nothing` | When no kill names the person of the tag under any name, the passage is refused. | `a_kill_of_moira_never_unlocks_a_tag_of_emperor_thaurissan` |
 
 ## What is proved: the gate of setup passages
 
@@ -446,6 +452,26 @@ proof reads the glue. Its named tests and property tests check it.
 | `a_setup_for_a_deed_the_player_did_never_reaches_a_prompt` | A setup for a foe that the player defeated, or for a quest that the player turned in, is refused. | `a_done_setup_never_passes_for_any_facts` |
 | `a_setup_for_a_deed_not_done_is_not_gated_by_this_rule` | A setup for a deed that the player has not done passes this gate. | `a_first_deadmines_entry_tells_the_setup_until_vancleef_dies` |
 | `a_passage_with_no_setup_is_not_gated_by_this_rule` | A passage with no setup passes this gate, whatever the world holds. | `a_passage_with_no_setup_passes_with_any_facts` |
+| `a_kill_under_either_name_makes_the_setup_stale` | For a row (g, w) of game names that are a function, a setup tagged w is refused after a kill of g, and after a kill of w. | `a_kill_under_the_game_name_makes_a_setup_tagged_with_the_wiki_name_stale` |
+| `a_kill_of_another_person_keeps_the_setup` | When no kill names the person of the tag under any name, the setup passes. | `a_kill_under_any_name_of_a_row_unlocks_its_tags` |
+
+## What is proved: game names
+
+`person` in `crates/rules/src/game_names.rs` gives the wiki name of a
+game name, as ids (docs/plans/lore-names-and-now.md 1). A row says that
+two exact names are one person. `holds_person` asks if a list of ids
+names the same person as an id. The gates of outcome and setup
+passages read every kill through it. The theorems assume that the rows
+are a function: no game name in two rows, and no game name that is also
+a wiki name. The unit test `the_game_names_are_a_function` checks that
+on the data file.
+
+| Theorem | The law | Test |
+|---|---|---|
+| `person.spec` | The lookup ends and gives its pure model: the wiki name of the first row with the game name, or the name itself. | `a_game_name_gives_the_wiki_name_of_its_row` |
+| `holds_person.spec` | The check ends and gives its pure model: some id of the list has the same wiki name as the id. | `either_name_of_a_row_is_held_by_the_other` |
+| `person_is_idempotent` | With rows that are a function, the wiki name of a wiki name is itself. | `a_kill_under_any_name_of_a_row_unlocks_its_tags` |
+| `either_name_of_a_row_names_one_person` | With rows that are a function, the game name and the wiki name of a row give one wiki name. | `a_game_name_gives_its_wiki_name_and_any_other_name_stays` |
 
 ## What is proved: the lore of an entry into an instance
 

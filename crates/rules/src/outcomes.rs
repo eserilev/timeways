@@ -4,6 +4,7 @@
 //! program gives each name an id, so the rule reads ids, never strings. Lean proves its
 //! laws (lean/Timeways/Outcomes.lean).
 
+use crate::game_names::{NameRow, holds_person};
 use crate::thin_lore::holds;
 
 /// What a passage of the pack depends on, as the builder tagged it.
@@ -20,11 +21,13 @@ pub enum DependsOn {
 }
 
 /// The deeds of the player, as ids: the foes that the player defeated, and the quests of
-/// the game that the player turned in.
+/// the game that the player turned in. `names` holds the game names of people whose wiki
+/// name differs (`game_names`), so a kill under either name is a kill of the person.
 #[derive(Clone, PartialEq, Eq, Debug, Default)]
 pub struct PlayerFacts {
     pub defeated: Vec<u32>,
     pub quests_done: Vec<u32>,
+    pub names: Vec<NameRow>,
 }
 
 /// True when a passage may reach a prompt by this rule. A passage with no deed always may.
@@ -35,9 +38,24 @@ pub fn outcome_usable(depends_on: DependsOn, facts: &PlayerFacts) -> bool {
     match depends_on {
         DependsOn::Nothing => true,
         DependsOn::Unresolved => false,
-        DependsOn::Foe(foe) => holds(&facts.defeated, foe),
+        DependsOn::Foe(foe) => holds_person(&facts.names, &facts.defeated, foe),
         DependsOn::Quest(quest) => holds(&facts.quests_done, quest),
     }
+}
+
+/// True when every tag of a passage passes `outcome_usable`: a passage that tells two
+/// deeds shows only after both. No tag means no deed. An index loop.
+#[cfg_attr(charon, verify::start_from)]
+#[must_use]
+pub fn outcomes_usable(tags: &[DependsOn], facts: &PlayerFacts) -> bool {
+    let mut index = 0;
+    while index < tags.len() {
+        if !outcome_usable(tags[index], facts) {
+            return false;
+        }
+        index += 1;
+    }
+    true
 }
 
 #[cfg(test)]
@@ -48,6 +66,7 @@ mod tests {
         PlayerFacts {
             defeated: defeated.to_vec(),
             quests_done: quests_done.to_vec(),
+            names: Vec::new(),
         }
     }
 
@@ -74,5 +93,27 @@ mod tests {
     fn a_quest_passes_only_after_its_turn_in() {
         assert!(!outcome_usable(DependsOn::Quest(3), &facts(&[3], &[])));
         assert!(outcome_usable(DependsOn::Quest(3), &facts(&[], &[3])));
+    }
+
+    #[test]
+    fn a_passage_with_two_deeds_passes_only_after_both() {
+        let tags = [DependsOn::Foe(7), DependsOn::Quest(3)];
+        assert!(!outcomes_usable(&tags, &facts(&[7], &[])));
+        assert!(!outcomes_usable(&tags, &facts(&[], &[3])));
+        assert!(outcomes_usable(&tags, &facts(&[7], &[3])));
+    }
+
+    #[test]
+    fn a_passage_with_no_tag_passes() {
+        assert!(outcomes_usable(&[], &facts(&[], &[])));
+    }
+
+    #[test]
+    fn a_kill_under_the_game_name_unlocks_the_wiki_name() {
+        let named = PlayerFacts {
+            names: vec![NameRow { game: 1, wiki: 2 }],
+            ..facts(&[1], &[])
+        };
+        assert!(outcome_usable(DependsOn::Foe(2), &named));
     }
 }

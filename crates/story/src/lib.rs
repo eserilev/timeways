@@ -13,6 +13,7 @@ pub mod draft;
 pub mod dump;
 pub mod entry_edits;
 pub mod flavor;
+pub mod game_names;
 pub mod game_talk;
 pub mod gear;
 pub mod hero;

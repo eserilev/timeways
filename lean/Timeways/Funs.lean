@@ -1230,6 +1230,65 @@ def entry_edits.shown
       ok { title, narrator := none, player := (some edit.row) }
     | entry_edits.EditText.Narrator => ok { title, narrator, player := none }
 
+/-- [timeways_rules::game_names::person]: loop 0:
+    Source: 'crates/rules/src/game_names.rs', lines 24:4-31:1
+    Visibility: public -/
+@[rust_loop]
+def game_names.person_loop
+  (rows : Slice game_names.NameRow) (id : Std.U32) (index : Std.Usize) :
+  Result Std.U32
+  := do
+  let i := Slice.len rows
+  if index < i
+  then
+    let nr ← Slice.index_usize rows index
+    if nr.game = id
+    then ok nr.wiki
+    else let index1 ← index + 1#usize
+         game_names.person_loop rows id index1
+  else ok id
+partial_fixpoint
+
+/-- [timeways_rules::game_names::person]:
+    Source: 'crates/rules/src/game_names.rs', lines 22:0-31:1
+    Visibility: public -/
+@[reducible]
+def game_names.person
+  (rows : Slice game_names.NameRow) (id : Std.U32) : Result Std.U32 := do
+  game_names.person_loop rows id 0#usize
+
+/-- [timeways_rules::game_names::holds_person]: loop 0:
+    Source: 'crates/rules/src/game_names.rs', lines 38:4-45:1
+    Visibility: public -/
+@[rust_loop]
+def game_names.holds_person_loop
+  (rows : Slice game_names.NameRow) (ids : Slice Std.U32) (wanted : Std.U32)
+  (index : Std.Usize) :
+  Result Bool
+  := do
+  let i := Slice.len ids
+  if index < i
+  then
+    let i1 ← Slice.index_usize ids index
+    let i2 ← game_names.person rows i1
+    if i2 = wanted
+    then ok true
+    else
+      let index1 ← index + 1#usize
+      game_names.holds_person_loop rows ids wanted index1
+  else ok false
+partial_fixpoint
+
+/-- [timeways_rules::game_names::holds_person]:
+    Source: 'crates/rules/src/game_names.rs', lines 35:0-45:1
+    Visibility: public -/
+def game_names.holds_person
+  (rows : Slice game_names.NameRow) (ids : Slice Std.U32) (id : Std.U32) :
+  Result Bool
+  := do
+  let wanted ← game_names.person rows id
+  game_names.holds_person_loop rows ids wanted 0#usize
+
 /-- [timeways_rules::hero_hook::HOOK_EVERY]
     Source: 'crates/rules/src/hero_hook.rs', lines 4:0-4:30
     Visibility: public -/
@@ -2135,7 +2194,7 @@ def thin_lore.holds (ids : Slice Std.U32) (id : Std.U32) : Result Bool := do
   thin_lore.holds_loop ids id 0#usize
 
 /-- [timeways_rules::outcomes::outcome_usable]:
-    Source: 'crates/rules/src/outcomes.rs', lines 34:0-41:1
+    Source: 'crates/rules/src/outcomes.rs', lines 37:0-44:1
     Visibility: public -/
 def outcomes.outcome_usable
   (depends_on : outcomes.DependsOn) (facts : outcomes.PlayerFacts) :
@@ -2145,11 +2204,44 @@ def outcomes.outcome_usable
   | outcomes.DependsOn.Nothing => ok true
   | outcomes.DependsOn.Unresolved => ok false
   | outcomes.DependsOn.Foe foe =>
-    let s := alloc.vec.Vec.deref facts.defeated
-    thin_lore.holds s foe
+    let s := alloc.vec.Vec.deref facts.names
+    let s1 := alloc.vec.Vec.deref facts.defeated
+    game_names.holds_person s s1 foe
   | outcomes.DependsOn.Quest quest =>
     let s := alloc.vec.Vec.deref facts.quests_done
     thin_lore.holds s quest
+
+/-- [timeways_rules::outcomes::outcomes_usable]: loop 0:
+    Source: 'crates/rules/src/outcomes.rs', lines 52:4-59:1
+    Visibility: public -/
+@[rust_loop]
+def outcomes.outcomes_usable_loop
+  (tags : Slice outcomes.DependsOn) (facts : outcomes.PlayerFacts)
+  (index : Std.Usize) :
+  Result Bool
+  := do
+  let i := Slice.len tags
+  if index < i
+  then
+    let «do» ← Slice.index_usize tags index
+    let b ← outcomes.outcome_usable «do» facts
+    if b
+    then
+      let index1 ← index + 1#usize
+      outcomes.outcomes_usable_loop tags facts index1
+    else ok false
+  else ok true
+partial_fixpoint
+
+/-- [timeways_rules::outcomes::outcomes_usable]:
+    Source: 'crates/rules/src/outcomes.rs', lines 50:0-59:1
+    Visibility: public -/
+@[reducible]
+def outcomes.outcomes_usable
+  (tags : Slice outcomes.DependsOn) (facts : outcomes.PlayerFacts) :
+  Result Bool
+  := do
+  outcomes.outcomes_usable_loop tags facts 0#usize
 
 /-- [timeways_rules::prompts::PROMPTS_KEPT]
     Source: 'crates/rules/src/prompts.rs', lines 5:0-5:34
@@ -2829,7 +2921,7 @@ def quest_log.quest_log
   quest_log.quest_log_loop changes (alloc.vec.Vec.new quest_log.Quest) 0#usize
 
 /-- [timeways_rules::setups::setup_usable]:
-    Source: 'crates/rules/src/setups.rs', lines 25:0-31:1
+    Source: 'crates/rules/src/setups.rs', lines 26:0-32:1
     Visibility: public -/
 def setups.setup_usable
   (setup_for : setups.SetupFor) (facts : outcomes.PlayerFacts) :
@@ -2838,8 +2930,9 @@ def setups.setup_usable
   match setup_for with
   | setups.SetupFor.Nothing => ok true
   | setups.SetupFor.Foe foe =>
-    let s := alloc.vec.Vec.deref facts.defeated
-    let b ← thin_lore.holds s foe
+    let s := alloc.vec.Vec.deref facts.names
+    let s1 := alloc.vec.Vec.deref facts.defeated
+    let b ← game_names.holds_person s s1 foe
     ok (¬ b)
   | setups.SetupFor.Quest quest =>
     let s := alloc.vec.Vec.deref facts.quests_done

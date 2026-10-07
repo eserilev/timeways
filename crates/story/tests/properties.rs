@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use timeways_rules::aliases::{Alias, PlayerId, find, learn_all};
+use timeways_rules::game_names::{NameRow, person};
 use timeways_rules::instance_lore::next_passage;
 use timeways_rules::narrator_shapes::WINDOW;
 use timeways_rules::outcomes::{DependsOn, PlayerFacts, outcome_usable};
@@ -3953,11 +3954,54 @@ proptest! {
         } else {
             (DependsOn::Foe(id), defeated.contains(&id))
         };
-        let facts = PlayerFacts { defeated, quests_done };
+        let facts = PlayerFacts { defeated, quests_done, names: Vec::new() };
 
         prop_assert_eq!(outcome_usable(tag, &facts), held);
         prop_assert!(!outcome_usable(DependsOn::Unresolved, &facts));
         prop_assert!(outcome_usable(DependsOn::Nothing, &facts));
+    }
+}
+
+/// Rows of game names that are a function: each game id sits in one row, and the wiki ids
+/// (100 and up) are never game ids. Two game names of one person are likely.
+fn name_rows() -> impl Strategy<Value = Vec<NameRow>> {
+    prop::sample::subsequence((0u32..8).collect::<Vec<u32>>(), 0..8).prop_flat_map(|games| {
+        let count = games.len();
+        prop::collection::vec(100u32..103, count).prop_map(move |wikis| {
+            games
+                .iter()
+                .zip(wikis)
+                .map(|(game, wiki)| NameRow { game: *game, wiki })
+                .collect()
+        })
+    })
+}
+
+/// A kill: a name of a row most of the time, and else a name of no row, such as a shared
+/// surname of another person.
+fn named_kill() -> impl Strategy<Value = u32> {
+    prop_oneof![4 => 0u32..8, 3 => 100u32..103, 1 => Just(50u32), 1 => Just(u32::MAX)]
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(512))]
+
+    /// docs/plans/lore-names-and-now.md 1.6: a kill under any name of a row unlocks the
+    /// outcome tags of its person and makes its setups stale, and a kill of another person
+    /// does neither.
+    #[test]
+    fn a_kill_under_any_name_of_a_row_unlocks_its_tags(
+        rows in name_rows(),
+        defeated in prop::collection::vec(named_kill(), 0..4),
+        tag in prop_oneof![100u32..103, 0u32..8, Just(50u32)],
+    ) {
+        let wiki_of = |id: u32| rows.iter().find(|row| row.game == id).map_or(id, |row| row.wiki);
+        let killed = defeated.iter().any(|kill| wiki_of(*kill) == wiki_of(tag));
+        let facts = PlayerFacts { defeated, quests_done: Vec::new(), names: rows.clone() };
+
+        prop_assert_eq!(outcome_usable(DependsOn::Foe(tag), &facts), killed);
+        prop_assert_eq!(setup_usable(setups::SetupFor::Foe(tag), &facts), !killed);
+        prop_assert_eq!(person(&rows, person(&rows, tag)), person(&rows, tag));
     }
 }
 
@@ -4011,7 +4055,7 @@ proptest! {
         } else {
             (setups::SetupFor::Foe(id), defeated.contains(&id))
         };
-        let facts = PlayerFacts { defeated, quests_done };
+        let facts = PlayerFacts { defeated, quests_done, names: Vec::new() };
 
         prop_assert_eq!(setup_usable(tag, &facts), !held);
         prop_assert!(setup_usable(setups::SetupFor::Nothing, &facts));

@@ -4,6 +4,7 @@
 //! inverse of the gate of outcome passages (`outcomes`). Lean proves its laws
 //! (lean/Timeways/Setups.lean).
 
+use crate::game_names::holds_person;
 use crate::outcomes::PlayerFacts;
 use crate::thin_lore::holds;
 
@@ -25,7 +26,7 @@ pub enum SetupFor {
 pub fn setup_usable(setup_for: SetupFor, facts: &PlayerFacts) -> bool {
     match setup_for {
         SetupFor::Nothing => true,
-        SetupFor::Foe(foe) => !holds(&facts.defeated, foe),
+        SetupFor::Foe(foe) => !holds_person(&facts.names, &facts.defeated, foe),
         SetupFor::Quest(quest) => !holds(&facts.quests_done, quest),
     }
 }
@@ -38,6 +39,7 @@ mod tests {
         PlayerFacts {
             defeated: defeated.to_vec(),
             quests_done: quests_done.to_vec(),
+            names: Vec::new(),
         }
     }
 

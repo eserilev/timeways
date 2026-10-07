@@ -305,6 +305,15 @@ Some lore waits for the kill of a foe that is neither rare nor a boss, such as M
 2. Hover or target Mor'Ladim, kill him, and ask again. The answer can tell of his death now.
 3. Kill a common mob of Duskwood. The Deeds tab shows no deed for it.
 
+### 29. Game names and the ends of bosses
+
+The wiki and the game name some bosses in two ways. A kill under the game name counts for the lore of the wiki name. Lore that tells the death of a boss waits for your kill.
+
+1. Enter Scarlet Monastery, and ask `/lore What happened to Sally Whitemane?` before you kill her. The answer tells nothing of her death, or of the deaths of the other leaders.
+2. Kill High Inquisitor Whitemane, and ask again. The answer can tell more now.
+3. Check two encounter names of the game. They wait for a check in the game: Aku'mai in Blackfathom Deeps, and the fight of High Inquisitor Whitemane in the Cathedral. After each kill, open the Deeds tab of the journal, and read the name of the kill. Send it back when it is not "Aku'mai" or "High Inquisitor Whitemane". A row of `crates/story/data/game_names.toml` then needs that name.
+4. Enter Shadowfang Keep, and ask `/lore What happened to Arugal?` before you kill him. The answer tells nothing of his death.
+
 ## Dev mode
 
 Dev mode makes the moments of hours of play in seconds. It runs the real code: the addon, the bridge, and the story program. Only the moment itself is fake.
