@@ -25,6 +25,7 @@ pub mod chapters;
 pub mod entry_edits;
 pub mod hero_hook;
 pub mod narrator_shapes;
+pub mod outcomes;
 pub mod prompts;
 pub mod quest_log;
 pub mod story_shelf;

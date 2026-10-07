@@ -15,4 +15,5 @@ import Timeways.Chapters
 import Timeways.ChaptersDeaths
 import Timeways.NarratorShapes
 import Timeways.ThinLore
+import Timeways.Outcomes
 import Timeways.Axioms

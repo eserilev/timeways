@@ -2086,6 +2086,45 @@ def narrator_shapes.window
   let index ← lift (core.num.Usize.saturating_sub i narrator_shapes.WINDOW)
   narrator_shapes.window_loop lines (alloc.vec.Vec.new Std.U16) index
 
+/-- [timeways_rules::thin_lore::holds]: loop 0:
+    Source: 'crates/rules/src/thin_lore.rs', lines 47:4-54:1 -/
+@[rust_loop]
+def thin_lore.holds_loop
+  (ids : Slice Std.U32) (id : Std.U32) (index : Std.Usize) : Result Bool := do
+  let i := Slice.len ids
+  if index < i
+  then
+    let i1 ← Slice.index_usize ids index
+    if i1 = id
+    then ok true
+    else let index1 ← index + 1#usize
+         thin_lore.holds_loop ids id index1
+  else ok false
+partial_fixpoint
+
+/-- [timeways_rules::thin_lore::holds]:
+    Source: 'crates/rules/src/thin_lore.rs', lines 45:0-54:1 -/
+@[reducible]
+def thin_lore.holds (ids : Slice Std.U32) (id : Std.U32) : Result Bool := do
+  thin_lore.holds_loop ids id 0#usize
+
+/-- [timeways_rules::outcomes::outcome_usable]:
+    Source: 'crates/rules/src/outcomes.rs', lines 34:0-41:1
+    Visibility: public -/
+def outcomes.outcome_usable
+  (depends_on : outcomes.DependsOn) (facts : outcomes.PlayerFacts) :
+  Result Bool
+  := do
+  match depends_on with
+  | outcomes.DependsOn.Nothing => ok true
+  | outcomes.DependsOn.Unresolved => ok false
+  | outcomes.DependsOn.Foe foe =>
+    let s := alloc.vec.Vec.deref facts.defeated
+    thin_lore.holds s foe
+  | outcomes.DependsOn.Quest quest =>
+    let s := alloc.vec.Vec.deref facts.quests_done
+    thin_lore.holds s quest
+
 /-- [timeways_rules::prompts::PROMPTS_KEPT]
     Source: 'crates/rules/src/prompts.rs', lines 5:0-5:34
     Visibility: public -/
@@ -2914,28 +2953,6 @@ partial_fixpoint
 def story_shelf.standing
   (lines : Slice story_shelf.ShelfLine) : Result (alloc.vec.Vec Std.U64) := do
   story_shelf.standing_loop lines (alloc.vec.Vec.new Std.U64) 0#usize
-
-/-- [timeways_rules::thin_lore::holds]: loop 0:
-    Source: 'crates/rules/src/thin_lore.rs', lines 46:4-53:1 -/
-@[rust_loop]
-def thin_lore.holds_loop
-  (ids : Slice Std.U32) (id : Std.U32) (index : Std.Usize) : Result Bool := do
-  let i := Slice.len ids
-  if index < i
-  then
-    let i1 ← Slice.index_usize ids index
-    if i1 = id
-    then ok true
-    else let index1 ← index + 1#usize
-         thin_lore.holds_loop ids id index1
-  else ok false
-partial_fixpoint
-
-/-- [timeways_rules::thin_lore::holds]:
-    Source: 'crates/rules/src/thin_lore.rs', lines 44:0-53:1 -/
-@[reducible]
-def thin_lore.holds (ids : Slice Std.U32) (id : Std.U32) : Result Bool := do
-  thin_lore.holds_loop ids id 0#usize
 
 /-- [timeways_rules::thin_lore::shares_one]: loop 0:
     Source: 'crates/rules/src/thin_lore.rs', lines 34:4-41:1 -/

@@ -12,6 +12,7 @@ import Timeways.Chapters
 import Timeways.ChaptersDeaths
 import Timeways.NarratorShapes
 import Timeways.ThinLore
+import Timeways.Outcomes
 
 open timeways_rules
 
@@ -418,3 +419,27 @@ open timeways_rules
 /-- info: 'timeways_rules.thin_lore.an_arrival_is_never_silenced_by_this_rule' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs (whitespace := lax) in
 #print axioms thin_lore.an_arrival_is_never_silenced_by_this_rule
+
+/-- info: 'timeways_rules.outcomes.outcome_usable.spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms outcomes.outcome_usable.spec
+
+/-- info: 'timeways_rules.outcomes.the_gate_never_panics' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms outcomes.the_gate_never_panics
+
+/-- info: 'timeways_rules.outcomes.an_outcome_the_player_did_not_do_never_reaches_a_prompt' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms outcomes.an_outcome_the_player_did_not_do_never_reaches_a_prompt
+
+/-- info: 'timeways_rules.outcomes.an_unresolved_outcome_is_never_used' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms outcomes.an_unresolved_outcome_is_never_used
+
+/-- info: 'timeways_rules.outcomes.a_passage_with_no_outcome_is_not_gated_by_this_rule' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms outcomes.a_passage_with_no_outcome_is_not_gated_by_this_rule
+
+/-- info: 'timeways_rules.outcomes.an_outcome_the_player_did_passes' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms outcomes.an_outcome_the_player_did_passes

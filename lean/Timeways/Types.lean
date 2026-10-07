@@ -321,6 +321,23 @@ inductive narrator_shapes.Tier where
 | Usual : narrator_shapes.Tier
 | Fallback : narrator_shapes.Tier
 
+/-- [timeways_rules::outcomes::DependsOn]
+    Source: 'crates/rules/src/outcomes.rs', lines 11:0-20:1
+    Visibility: public -/
+@[discriminant isize]
+inductive outcomes.DependsOn where
+| Nothing : outcomes.DependsOn
+| Unresolved : outcomes.DependsOn
+| Foe : Std.U32 → outcomes.DependsOn
+| Quest : Std.U32 → outcomes.DependsOn
+
+/-- [timeways_rules::outcomes::PlayerFacts]
+    Source: 'crates/rules/src/outcomes.rs', lines 25:0-28:1
+    Visibility: public -/
+structure outcomes.PlayerFacts where
+  defeated : alloc.vec.Vec Std.U32
+  quests_done : alloc.vec.Vec Std.U32
+
 /-- [timeways_rules::quest_log::Goal]
     Source: 'crates/rules/src/quest_log.rs', lines 14:0-18:1
     Visibility: public -/

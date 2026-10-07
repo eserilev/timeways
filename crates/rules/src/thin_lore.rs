@@ -40,8 +40,9 @@ fn shares_one(subjects: &[u32], lore: &[u32]) -> bool {
     false
 }
 
-/// An index loop, because Aeneas translates no `contains`.
-fn holds(ids: &[u32], id: u32) -> bool {
+/// An index loop, because Aeneas translates no `contains`. The gate of outcome passages
+/// reads it too.
+pub(crate) fn holds(ids: &[u32], id: u32) -> bool {
     let mut index = 0;
     while index < ids.len() {
         if ids[index] == id {

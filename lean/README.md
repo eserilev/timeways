@@ -6,7 +6,7 @@ Lean functions. The theorems in `Timeways/QuestLog.lean`,
 `Timeways/TrustBand.lean`, `Timeways/Prompts.lean`,
 `Timeways/Aliases.lean`, `Timeways/StoryShelf.lean`,
 `Timeways/EntryEdits.lean`, `Timeways/Chapters.lean`, `Timeways/ChaptersDeaths.lean`,
-`Timeways/NarratorShapes.lean`, and `Timeways/ThinLore.lean` are about those functions. A theorem holds for every input, with no bound. The
+`Timeways/NarratorShapes.lean`, `Timeways/ThinLore.lean`, and `Timeways/Outcomes.lean` are about those functions. A theorem holds for every input, with no bound. The
 property tests in `crates/story/tests/properties.rs` check the same
 rules on random input, and they stay as a second check.
 
@@ -406,6 +406,27 @@ No proof reads the glue. Its named tests and property tests check it.
 | `a_deed_with_no_lore_of_its_own_is_silent` | A deed whose passages have no subject among its subjects is silent. No passage is the empty list. | `a_deed_with_lore_about_another_subject_is_always_thin` |
 | `a_deed_with_lore_of_its_own_speaks` | A deed with a passage about one of its subjects is not silent. | the same |
 | `an_arrival_is_never_silenced_by_this_rule` | An arrival is never silent by this rule, with lore or without. | `an_arrival_is_never_silenced_by_the_thin_lore_rule` |
+
+## What is proved: the gate of outcome passages
+
+`outcome_usable` in `crates/rules/src/outcomes.rs` decides if a passage
+of the pack that tells a deed of adventurers may reach a prompt
+(GAMEPLAY.md 5.10). It reads ids, never strings. The builder tags each
+such passage with the foe or the quest that it depends on, or marks it
+unresolved. `PlayerFacts` holds the ids of the foes that the player
+defeated and of the quests of the game that the player turned in. The
+glue in `crates/story/src/spoiler.rs` gives one id to each distinct
+name. No proof reads the glue. Its named tests and property tests check
+it.
+
+| Theorem | The law | Test |
+|---|---|---|
+| `outcome_usable.spec` | The gate ends and gives its pure model: true exactly for a passage with no deed, or for a deed that the player did. | the unit tests of `outcomes.rs` |
+| `the_gate_never_panics` | For every tag and every two lists of ids, the gate gives a value. | none |
+| `an_outcome_the_player_did_not_do_never_reaches_a_prompt` | A passage with a deed that the player did not do is refused. | `an_unmet_outcome_never_passes_the_spoiler_limit` |
+| `an_unresolved_outcome_is_never_used` | An unresolved deed is refused, whatever the world holds. | `an_unresolved_deed_never_passes` |
+| `a_passage_with_no_outcome_is_not_gated_by_this_rule` | A passage with no deed passes this gate, whatever the world holds. | `a_passage_with_no_deed_passes_with_no_facts` |
+| `an_outcome_the_player_did_passes` | A deed that the player did lets its passage through. | `the_vancleef_passage_reaches_the_prompt_only_after_the_kill` |
 
 ## What you trust
 
