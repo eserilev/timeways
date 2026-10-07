@@ -55,14 +55,15 @@ use timeways_story::quest::{
     Step, Tracked, checked_quest, quest_log,
 };
 use timeways_story::race_class::{Class, Race};
+use timeways_story::ratings::{Rated, RatedLine, Rating, export};
 use timeways_story::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use timeways_story::seen::TextKind;
 use timeways_story::sentences::{sentences, word_count};
 use timeways_story::spoiler::{outcome_allowed, setup_allowed};
 use timeways_story::spot::{MAP_IDS, Spot, THOUSANDTHS, spot_of};
 use timeways_story::store::{
-    CallEnd, CharacterKey, Database, Line, NewCall, Node, Outcome, PROMPTS_KEPT, Root, Store,
-    Table, name_of_safe_id, safe_id,
+    CallEnd, CharacterKey, Database, Line, NewCall, Node, Outcome, PROMPTS_KEPT, Root, RowLog,
+    Store, Table, name_of_safe_id, safe_id,
 };
 use timeways_story::story::{Output, Story};
 use timeways_story::vocabulary::{
@@ -2209,6 +2210,42 @@ proptest! {
             prop_assert_eq!(back.to_lowercase(), plain.to_lowercase());
         }
         prop_assert!(!back.contains("{P"), "{}", back);
+    }
+
+    /// GAMEPLAY.md 3.2.2: an export of ratings holds no name of the alias table and not the
+    /// name of the character, in its texts and its faults. The first name is the
+    /// character's: the game gives a character a name of 2 letters or more, so "N" of `$N`
+    /// is never one.
+    #[test]
+    fn an_export_of_ratings_holds_no_known_player_name(
+        (names, text) in names_and_text(),
+        rating in prop_oneof![Just(Rating::Up), Just(Rating::Down)],
+    ) {
+        let own = &names[0];
+        prop_assume!(alias_of(own).is_some_and(|own| own.key.chars().count() >= 2));
+        let table = alias_table(&names[1..]);
+        let mut ratings = RowLog::default();
+        ratings.add(RatedLine {
+            at: Tick(1),
+            rated: Rated::Narrator,
+            key: Some(0),
+            rating,
+            moment: "first_kill".to_string(),
+            text: text.clone(),
+            faults: vec![text.clone()],
+        }).unwrap();
+
+        let exported = export(&ratings, &table, own, "model");
+
+        let own_key = alias_of(own).map(|own| own.key).unwrap_or_default();
+        for rating in &exported {
+            let texts = std::iter::once(&rating.text).chain(&rating.faults);
+            for word in texts.flat_map(|text| text_words(text)) {
+                let key = key_of(word);
+                prop_assert!(find(&table, &key).is_none(), "{} in {:?}", word, rating);
+                prop_assert!(key != own_key, "{} in {:?}", word, rating);
+            }
+        }
     }
 
 }

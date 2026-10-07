@@ -6,6 +6,7 @@ use crate::dev_fps::FpsRun;
 use crate::entry_edits::{EditText, EntryKey};
 use crate::places::InstanceKind;
 use crate::race_class::{Class, Race};
+use crate::ratings::{Rated, Rating};
 use crate::seen::TextKind;
 use crate::spot::{self, Spot};
 use crate::store::Root;
@@ -291,6 +292,17 @@ pub enum Input {
         at: Tick,
         number: u64,
     },
+    /// The player rated a narrator text (GAMEPLAY.md 3.2.2). The line names what it rates,
+    /// never its text, so the desktop finds the text in its own rows. The addon sends it
+    /// only while the player turned ratings on.
+    LineRated {
+        at: Tick,
+        rated: Rated,
+        /// The first event of a rated chapter or tale.
+        #[serde(default)]
+        first: Option<u64>,
+        rating: Rating,
+    },
     /// A run of `/twdev fps`. It lands only in dev mode, and in no world.
     DevFps(FpsRun),
     /// The journal window opened, and needs its pages. Page 0 takes a new snapshot.
@@ -394,6 +406,7 @@ impl Input {
                 | Input::HeroRemoved { .. }
                 | Input::StoryRemoved { .. }
                 | Input::EntryEdited { .. }
+                | Input::LineRated { .. }
         );
         if matches!(self, Input::StoryAccepted { .. }) {
             return Root::Shared;
@@ -460,6 +473,7 @@ impl Input {
             | Input::StoryAccepted { at, .. }
             | Input::StoryRemoved { at, .. }
             | Input::EntryEdited { at, .. }
+            | Input::LineRated { at, .. }
             | Input::EmoteDone { at, .. }
             | Input::ItemsHeld { at, .. }
             | Input::HourChanged { at, .. }

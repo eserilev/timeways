@@ -130,6 +130,31 @@ impl SlotKind {
 }
 
 impl Moment {
+    /// The kind of the moment, for a rating of its line (GAMEPLAY.md 3.2.2).
+    #[must_use]
+    pub fn kind_name(&self) -> &'static str {
+        match self {
+            Moment::Flavor { .. } => "flavor",
+            Moment::Titled { .. } => "titled",
+            Moment::FirstKill { .. } => "first_kill",
+            Moment::Revenge { .. } => "revenge",
+            Moment::SlainAgain { .. } => "slain_again",
+            Moment::Slapped { .. } => "slapped",
+            Moment::LevelUp { .. } => "level_up",
+            Moment::ClassQuestDone { .. } => "class_quest_done",
+            Moment::QuestDone { .. } => "quest_done",
+            Moment::NewZone { .. } => "new_zone",
+            Moment::FirstInstance { .. } => "first_instance",
+            Moment::InstanceAgain { .. } => "instance_again",
+            Moment::QuestMarked { .. } => "quest_marked",
+            Moment::FirstCapital { .. } => "first_capital",
+            Moment::FirstMount { .. } => "first_mount",
+            Moment::FirstEpicMount { .. } => "first_epic_mount",
+            Moment::FirstEpicItem { .. } => "first_epic_item",
+            Moment::BigUpgrade { .. } => "big_upgrade",
+        }
+    }
+
     /// What the lore of the moment must be about, best first. An item needs a story of its
     /// own: the lore of its zone tells of another subject (docs/plans/item-stories.md). A
     /// tenth level takes the lore of the order or the people of the hero, which

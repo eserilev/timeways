@@ -49,6 +49,7 @@ mod drafts;
 mod edits;
 mod narration;
 mod quests;
+mod ratings;
 mod reads;
 mod sagas;
 mod stories;
@@ -650,6 +651,12 @@ impl Story {
                 text,
                 paragraphs,
             } => self.edit_entry(at, entry, title.as_deref(), text, &paragraphs),
+            Input::LineRated {
+                at,
+                rated,
+                first,
+                rating,
+            } => self.rate(at, rated, first, rating),
             Input::BatchEnd { id } => Ok(self.end_batch(id)),
             Input::ModelAnswered { call, text } => self.answered(call, &text),
             Input::ModelFailed { call } => self.failed(call),
@@ -970,6 +977,7 @@ impl Story {
             tales,
             zone_histories,
             entry_edits,
+            ratings,
         } = self.store.open(&key)?;
         let read: Vec<SeenText> = learned
             .read()
@@ -1005,11 +1013,13 @@ impl Story {
             tales,
             zone_histories,
             entry_edits,
+            ratings,
             edit_refused: None,
             book,
             seen_index,
             hero_refused: None,
             talk_quest: None,
+            shown_line: None,
         })
     }
 

@@ -11,8 +11,8 @@ pub use timeways_rules::prompts::PROMPTS_KEPT;
 use timeways_rules::prompts::oldest_prompt_kept;
 
 /// A file of another version is refused, never changed. Nothing is live, so a new version
-/// starts with new worlds. A file of version 8 or 9 is upgraded (`upgrade`).
-const VERSION: i64 = 10;
+/// starts with new worlds. A file of version 8, 9, or 10 is upgraded (`upgrade`).
+const VERSION: i64 = 11;
 
 /// Version 9 added the column `shape` to `calls`.
 const ADD_SHAPE: &str = "ALTER TABLE calls ADD COLUMN shape TEXT";
@@ -94,10 +94,13 @@ pub enum Table {
     /// The player's edits of a chapter, a tale, or the summary. The newest row of an entry
     /// stands.
     EntryEdits,
+    /// The player's ratings of narrator lines, chapters, tales, and the summary
+    /// (GAMEPLAY.md 3.2.2). Version 11 added it.
+    Ratings,
 }
 
 impl Table {
-    pub const ALL: [Table; 13] = [
+    pub const ALL: [Table; 14] = [
         Table::Events,
         Table::Chapters,
         Table::Flavor,
@@ -111,6 +114,7 @@ impl Table {
         Table::Tales,
         Table::ZoneHistories,
         Table::EntryEdits,
+        Table::Ratings,
     ];
 
     #[must_use]
@@ -129,6 +133,7 @@ impl Table {
             Table::Tales => "tales",
             Table::ZoneHistories => "zone_histories",
             Table::EntryEdits => "entry_edits",
+            Table::Ratings => "ratings",
         }
     }
 
@@ -322,7 +327,7 @@ impl Database {
         if version == VERSION {
             return Ok(());
         }
-        if version == 8 || version == 9 {
+        if (8..VERSION).contains(&version) {
             return self.upgrade(version);
         }
         let tables: i64 = self
@@ -362,8 +367,15 @@ impl Database {
         if from == 8 && !has_shape {
             self.connection.execute_batch(ADD_SHAPE)?;
         }
-        self.connection.execute_batch(ADD_TOLD_LORE)?;
-        self.keep_lore_of_kept_prompts()?;
+        if from <= 9 {
+            self.connection.execute_batch(ADD_TOLD_LORE)?;
+            self.keep_lore_of_kept_prompts()?;
+        }
+        // Version 11 added the row table `ratings`.
+        let ratings = Table::Ratings.name();
+        self.connection.execute_batch(&format!(
+            "CREATE TABLE IF NOT EXISTS {ratings} ({ROW_TABLE})"
+        ))?;
         self.connection.pragma_update(None, "user_version", VERSION)
     }
 

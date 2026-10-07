@@ -54,3 +54,8 @@
 "\"reaction\":\"friendly\""
 "\"creature\":\"beast\""
 "{\"type\":\"npc_killed\",\"at\":"
+"{\"type\":\"line_rated\",\"at\":"
+"\"rated\":\"narrator\""
+"\"rated\":\"chapter\",\"first\":"
+"\"rating\":\"up\"}"
+"\"rating\":\"down\"}"

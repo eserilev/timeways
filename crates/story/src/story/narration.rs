@@ -10,6 +10,7 @@ use crate::narrator::{self, Telling, Who};
 use crate::narrator_build::{self, Answered, Built, Offer, Setup, answered, kind_of};
 use crate::narrator_lore::{is_silent, lore_of_moment, lore_subjects};
 use crate::prompt::{self, Attempt};
+use crate::ratings::ShownLine;
 use crate::store::{CharacterKey, Node, Outcome};
 
 /// A narrator call: whose, for which batch, and what the line was told from. A retry keeps
@@ -24,6 +25,10 @@ pub(in crate::story) struct NarratorCall {
     /// What the templates build the line from. None for a flavor moment, whose line is
     /// free text.
     pub(super) templated: Option<Box<(Setup, Offer)>>,
+    /// The kind of the moment, for a rating of the line (GAMEPLAY.md 3.2.2).
+    pub(super) moment: &'static str,
+    /// Why the checks refused the first answer, for a rating of the line of the retry.
+    pub(super) faults: Vec<String>,
 }
 
 impl Story {
@@ -92,6 +97,8 @@ impl Story {
             attempt: Attempt::First,
             reads,
             templated,
+            moment: moment.kind_name(),
+            faults: Vec::new(),
         };
         Some((prompt, call))
     }
@@ -113,6 +120,7 @@ impl Story {
         match verdict {
             Answered::Line(built) => {
                 self.told_shape = (!built.shape.is_empty()).then_some(built.shape);
+                self.keep_shown_line(row, &call, &built.line);
                 (vec![said(call.batch, built.line)], Outcome::Accepted)
             }
             Answered::Refused(faults) if call.attempt == Attempt::First && self.has_free_slot() => {
@@ -123,6 +131,19 @@ impl Story {
                 (vec![quests::quiet(call.batch)], Outcome::Refused)
             }
         }
+    }
+
+    /// The newest line of the active character, for a rating of it.
+    fn keep_shown_line(&mut self, row: Option<u64>, call: &NarratorCall, line: &str) {
+        let Some(active) = self.active.as_mut().filter(|active| active.key == call.key) else {
+            return;
+        };
+        active.shown_line = Some(ShownLine {
+            call: row,
+            moment: call.moment,
+            text: line.to_string(),
+            faults: call.faults.clone(),
+        });
     }
 
     /// The second call: the first prompt, the first answer, and the reasons. It reads what
@@ -138,12 +159,13 @@ impl Story {
         let batch = call.batch;
         let mut reads = call.reads;
         reads.extend(first_row.map(Node::Call));
+        let reasons: Vec<String> = faults.iter().map(ToString::to_string).collect();
         let retry = NarratorCall {
             attempt: Attempt::Retry,
             reads: reads.clone(),
+            faults: reasons.clone(),
             ..call
         };
-        let reasons: Vec<String> = faults.iter().map(ToString::to_string).collect();
         let prompt = prompt::retry(prompt, text, &reasons);
         let pending = super::Pending::Narrator(retry);
         vec![

@@ -925,7 +925,7 @@ fn a_world_of_version_8_takes_the_shape_column_and_keeps_its_rows() {
 
     assert_eq!(database.newest_shapes(8).unwrap(), ["k.fell"]);
     assert!(database.call(0).unwrap().is_some());
-    assert_eq!(user_version(&path), 10);
+    assert_eq!(user_version(&path), 11);
 }
 
 fn user_version(path: &Path) -> i64 {
@@ -937,7 +937,7 @@ fn user_version(path: &Path) -> i64 {
 
 /// A crash between the new column and the new version once left such a file.
 #[test]
-fn a_world_of_version_8_that_has_the_shape_column_opens_as_version_10() {
+fn a_world_of_version_8_that_has_the_shape_column_opens_at_the_newest_version() {
     let folder = fresh_folder("version-8-with-shape");
     fs::create_dir_all(&folder).unwrap();
     let path = folder.join("world.sqlite");
@@ -950,7 +950,7 @@ fn a_world_of_version_8_that_has_the_shape_column_opens_as_version_10() {
     let opened = Database::open(&path);
 
     assert!(opened.is_ok(), "{:?}", opened.err());
-    assert_eq!(user_version(&path), 10);
+    assert_eq!(user_version(&path), 11);
 }
 
 /// The column and the version change in one transaction, so a failed upgrade changes
@@ -1039,7 +1039,7 @@ fn a_world_of_version_9_keeps_the_lore_of_its_kept_prompts_as_told() {
     let database = Database::open(&path).unwrap();
 
     assert_eq!(database.told_lore().unwrap(), [TOLD_LORE]);
-    assert_eq!(user_version(&path), 10);
+    assert_eq!(user_version(&path), 11);
 }
 
 /// The table and the version change in one transaction, so a failed upgrade changes
@@ -1083,4 +1083,26 @@ fn told_lore_of_a_call_that_is_gone_goes_with_the_broken_links() {
         .query_row("SELECT count(*) FROM told_lore", [], |row| row.get(0))
         .unwrap();
     assert_eq!(left, 0);
+}
+
+#[test]
+fn a_world_of_version_10_takes_the_ratings_table_and_keeps_its_rows() {
+    let folder = fresh_folder("version-10");
+    fs::create_dir_all(&folder).unwrap();
+    let path = folder.join("world.sqlite");
+    drop(Database::open(&path).unwrap());
+    Connection::open(&path)
+        .unwrap()
+        .execute_batch(
+            "DROP TABLE ratings; PRAGMA user_version = 10; \
+             INSERT INTO calls (position, kind, pack, result) VALUES (0, 'narrator', 'p', 'accepted');",
+        )
+        .unwrap();
+
+    let database = Database::open(&path).unwrap();
+
+    assert!(database.call(0).unwrap().is_some());
+    assert_eq!(user_version(&path), 11);
+    let connection = Connection::open(&path).unwrap();
+    assert!(connection.prepare("SELECT body FROM ratings").is_ok());
 }

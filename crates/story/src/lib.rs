@@ -51,6 +51,7 @@ pub mod prompt;
 pub mod prose;
 pub mod quest;
 pub mod race_class;
+pub mod ratings;
 pub mod reply_size;
 pub mod samples;
 pub mod seen;
