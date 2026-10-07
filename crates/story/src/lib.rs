@@ -2,6 +2,7 @@
 
 pub mod aliases;
 pub mod arrival;
+pub mod atlas_lore;
 pub mod best_of_two;
 pub mod chapters;
 pub mod character;

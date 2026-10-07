@@ -18,6 +18,7 @@ use timeways_story::aliases::{
     unmarked, with_names, without_names,
 };
 use timeways_story::arrival::arrival_in;
+use timeways_story::atlas_lore::{LORE_BYTES, LORE_CHARS, Lore, clipped};
 use timeways_story::best_of_two::{Next, Round};
 use timeways_story::character::{Character, Item};
 use timeways_story::check::{Fault, check, later_names, mentions, without_citations};
@@ -4139,5 +4140,40 @@ fn narrator_call_line(position: u64, prompt: &str, outcome: Outcome) -> Line {
             shape: None,
         }],
         ..Line::default()
+    }
+}
+
+/// A passage of any length, with letters of 1 to 4 bytes and the signs that the slot of the
+/// game escapes. A length near the limit of the atlas comes often.
+fn lore_text() -> impl Strategy<Value = String> {
+    let letter = prop::sample::select(vec!['a', 'b', ' ', '.', 'é', '𐍈', '|', '"']);
+    let near_limit = prop::collection::vec(letter.clone(), LORE_CHARS - 5..LORE_CHARS + 5);
+    let any_length = prop::collection::vec(letter, 0..1400);
+    prop_oneof![near_limit, any_length].prop_map(|letters| letters.into_iter().collect())
+}
+
+proptest! {
+    #[test]
+    fn the_lore_of_the_atlas_keeps_its_limits_and_every_page_fits(
+        texts in prop::collection::vec(lore_text(), 1..40)
+    ) {
+        let lore: Vec<Lore> = texts
+            .iter()
+            .enumerate()
+            .map(|(n, text)| Lore { about: format!("Place {n}"), text: Some(clipped(text)), more: n % 2 == 0 })
+            .collect();
+
+        let pages = pages(Journal { lore: lore.clone(), ..Journal::default() });
+
+        for entry in &lore {
+            let text = entry.text.as_deref().unwrap_or_default();
+            prop_assert!(text.chars().count() <= LORE_CHARS && text.len() <= LORE_BYTES);
+        }
+        let joined: Vec<Lore> = pages.iter().flat_map(|page| page.journal.lore.clone()).collect();
+        prop_assert_eq!(joined, lore);
+        let budget = Size { line: MAX_LINE, slot: MAX_SLOT };
+        for page in &pages {
+            prop_assert!(Size::of(page).fits(budget));
+        }
     }
 }

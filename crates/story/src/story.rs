@@ -1,6 +1,7 @@
 //! One input in, and the outputs for it out (GAMEPLAY.md 3.1, 5.2, and 5.6).
 
 use crate::aliases::AliasRow;
+use crate::atlas_lore::lore_of;
 use crate::best_of_two::Round;
 use crate::chapters::{self, Book};
 use crate::character::{Character, Item, Refusal};
@@ -1306,6 +1307,12 @@ impl Story {
                 tale.text = tales::shown_text(active, EventId(tale.first));
             }
             journal.histories = zone_histories::journal_histories(active);
+            journal.lore = lore_of(
+                &self.pack,
+                &active.character,
+                &journal.places,
+                &journal.people,
+            )?;
             journal.hero = hero::hero(active.hero.changes());
             journal.hero_refused = active.hero_refused.take().map(String::into_boxed_str);
             journal.talk_quest.clone_from(&active.talk_quest);

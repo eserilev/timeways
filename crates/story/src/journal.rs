@@ -1,6 +1,7 @@
 //! The journal of a character: the chronicle, the places, the people, the deeds, the hero,
 //! what you learned, and your side quests. No model takes part.
 
+use crate::atlas_lore::Lore;
 use crate::chapters::{Book, ChapterSpan, SpanState, TaleSpan, VisitSpan};
 use crate::character::{Character, title_of_game_quest, title_of_mark};
 use crate::entry_edits::EditView;
@@ -58,6 +59,8 @@ pub struct Journal {
     pub stories: Vec<PlayerStory>,
     /// "Your history here" of each zone, the newest one of each (docs/plans/chapters.md 10).
     pub histories: Vec<History>,
+    /// The lore of the places and people of the Knowledge atlas (GAMEPLAY.md 3.6).
+    pub lore: Vec<Lore>,
     /// The standing edit of each entry that shows words of the player (11). Each is its
     /// own item, so a full chapter and a full edit never have to share a page.
     pub edits: Vec<EditView>,
@@ -331,6 +334,7 @@ pub fn pages(journal: Journal) -> Vec<Page> {
     items.extend(journal.edits.into_iter().map(Item::Edit));
     items.extend(journal.places.into_iter().map(Item::Place));
     items.extend(journal.people.into_iter().map(Item::Person));
+    items.extend(journal.lore.into_iter().map(Item::Lore));
     items.extend(journal.deeds.into_iter().map(Item::Deed));
     items.extend(journal.learned.into_iter().map(Item::Learned));
     items.extend(journal.quests.into_iter().map(Item::Quest));
@@ -370,6 +374,7 @@ enum Item {
     Edit(EditView),
     Place(Place),
     Person(Person),
+    Lore(Lore),
     Deed(Deed),
     Learned(Learned),
     Quest(QuestView),
@@ -387,6 +392,7 @@ impl Item {
             Item::Edit(edit) => Size::of(edit),
             Item::Place(place) => Size::of(place),
             Item::Person(person) => Size::of(person),
+            Item::Lore(lore) => Size::of(lore),
             Item::Deed(deed) => Size::of(deed),
             Item::Learned(learned) => Size::of(learned),
             Item::Quest(quest) => Size::of(quest),
@@ -405,6 +411,7 @@ impl Item {
             Item::Edit(_) => journal.edits.len(),
             Item::Place(_) => journal.places.len(),
             Item::Person(_) => journal.people.len(),
+            Item::Lore(_) => journal.lore.len(),
             Item::Deed(_) => journal.deeds.len(),
             Item::Learned(_) => journal.learned.len(),
             Item::Quest(_) => journal.quests.len(),
@@ -422,6 +429,7 @@ impl Item {
             Item::Edit(edit) => journal.edits.push(edit),
             Item::Place(place) => journal.places.push(place),
             Item::Person(person) => journal.people.push(person),
+            Item::Lore(lore) => journal.lore.push(lore),
             Item::Deed(deed) => journal.deeds.push(deed),
             Item::Learned(learned) => journal.learned.push(learned),
             Item::Quest(quest) => journal.quests.push(quest),

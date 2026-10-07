@@ -156,6 +156,7 @@ fn a_journal_serializes_with_a_kind_on_each_deed() {
         "quests": [],
         "stories": [],
         "histories": [],
+        "lore": [],
         "edits": [],
         "edit_refused": null,
         "summary": null,
