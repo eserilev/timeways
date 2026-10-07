@@ -1,0 +1,13 @@
+{{Npcbox
+| name = Test Kingpin
+| faction = Combat
+| aggro = {{Aggro|-1|-1}}
+}}
+{{Questbox
+| name = Red Linen Goods
+| previous = [[Fur Trade]]
+}}
+==History==
+After years of tyranny, the [[adventurer]]s liberated [[Moonbrook]] after they killed [[Test Kingpin|the kingpin]].<ref>[[The Defias Brotherhood (7)]]</ref>
+Later, an adventurer returned the linen to [[Gryan Stoutmantle]].<ref>[[Red Linen Goods]]</ref><ref name="a"/>
+The adventurer's guild was destroyed in the war. Adventurers often visit the inn.<ref>[[Lost

@@ -2,13 +2,22 @@
 //! links to nothing, and cycles of calls. Opening it always works (GAMEPLAY.md 5.7). Only
 //! a history from another program is refused. The first open cuts each bad row and drops
 //! each broken link, so a second open reads the same. Every proof query ends.
+//!
+//! The last part of the input damages the outcome tags of a lore pack (GAMEPLAY.md 5.10):
+//! a search never panics, an unknown kind is an error, and a tag that a fresh character
+//! did not earn never passes the gate.
 
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
 use rusqlite::{Connection, params};
 use std::path::PathBuf;
+use timeways_story::character::Character;
+use timeways_story::pack::{Link, Origin, Pack, PackError, Passage};
+use timeways_story::spoiler::outcome_allowed;
 use timeways_story::store::{CharacterKey, Node, Opened, Store, StoreError, Table};
+
+const TAG_KINDS: [&str; 4] = ["foe", "quest", "unresolved", "rumor"];
 
 fn folder() -> PathBuf {
     std::env::temp_dir().join(format!("timeways-fuzz-store-{}", std::process::id()))
@@ -121,6 +130,56 @@ fn nodes(connection: &Connection) -> Vec<Node> {
     nodes
 }
 
+/// A pack of two passages, then one tag for each line: a passage id, a kind, and a name.
+/// The id 3 points to no passage.
+fn damaged_pack(lines: &[u8]) {
+    let path = folder().join("pack.sqlite");
+    let passage = |text: &str| Passage {
+        text: text.to_string(),
+        source: "s".to_string(),
+        links: vec![Link::Common],
+        origin: Origin::Pack,
+        about: None,
+        depends_on: None,
+    };
+    Pack::write(
+        &path,
+        &[passage("The ooze fell."), passage("The ooze rose.")],
+    )
+    .unwrap();
+    let connection = Connection::open(&path).unwrap();
+    connection
+        .execute_batch("PRAGMA foreign_keys = OFF")
+        .unwrap();
+    for line in lines.split(|byte| *byte == b'\n') {
+        let byte = |index: usize| line.get(index).copied().unwrap_or(0);
+        let name = String::from_utf8_lossy(line.get(2..).unwrap_or_default());
+        connection
+            .execute(
+                "INSERT OR IGNORE INTO depends_on (passage, kind, name) VALUES (?1, ?2, ?3)",
+                params![
+                    i64::from(byte(0) % 4),
+                    TAG_KINDS[usize::from(byte(1)) % TAG_KINDS.len()],
+                    name
+                ],
+            )
+            .unwrap();
+    }
+    drop(connection);
+    let pack = Pack::open(&path).unwrap();
+    match pack.search("ooze", 5) {
+        Ok(found) => {
+            let fresh = Character::new();
+            for passage in found {
+                let earned = outcome_allowed(&fresh, passage.depends_on.as_ref());
+                assert_eq!(earned, passage.depends_on.is_none(), "{passage:?}");
+            }
+        }
+        Err(PackError::UnknownDependency { kind }) => assert_eq!(kind, "rumor"),
+        Err(error) => panic!("a damaged tag broke the pack: {error}"),
+    }
+}
+
 fuzz_target!(|data: &[u8]| {
     let root = folder();
     let _ = std::fs::remove_dir_all(&root);
@@ -153,6 +212,7 @@ fuzz_target!(|data: &[u8]| {
         }
     }
     drop(connection);
+    damaged_pack(parts.next().unwrap_or_default());
 
     let first = match store.open(&key) {
         Ok(first) => first,
