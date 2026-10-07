@@ -209,6 +209,21 @@ fn goals_of(answer: &Value) -> Vec<String> {
 }
 
 #[test]
+fn the_outcome_lore_warrior_left_the_deadmines_before_vancleef() {
+    let folder = folder("outcome-lore");
+
+    seed("outcome-lore", &folder);
+
+    let deeds = list(&journal(&folder), "deeds");
+    let foes: Vec<&Value> = with_kind(&deeds, "defeated")
+        .into_iter()
+        .map(|deed| &deed["foe"])
+        .collect();
+    assert!(foes.contains(&&Value::from("Mr. Smite")), "{foes:?}");
+    assert!(!foes.contains(&&Value::from("Edwin VanCleef")), "{foes:?}");
+}
+
+#[test]
 fn the_flavor_and_hero_scenario_earns_every_joke_title_of_the_horde() {
     let folder = folder("flavor");
 

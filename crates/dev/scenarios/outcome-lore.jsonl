@@ -1,0 +1,19 @@
+# A human warrior at level 18 who fought through the Deadmines and left before Edwin VanCleef.
+# The lore pack tells his death as history, so that passage waits for his defeat
+# (GAMEPLAY.md 5.10). In the game: `/lore What happened to Edwin VanCleef?` shows no
+# passage of his death. Then `/twdev kill Edwin VanCleef boss`, and ask again.
+
+{"type":"character_described","at":0,"race":"Human","class":"WARRIOR"}
+{"type":"level_reached","at":10,"level":18}
+{"type":"zone_entered","at":20,"zone":"Westfall","subzone":"Sentinel Hill","hour":14}
+{"type":"npc_met","at":60,"name":"Gryan Stoutmantle"}
+{"type":"game_quest_accepted","at":90,"title":"The Defias Brotherhood","kind":"normal"}
+
+{"type":"zone_entered","at":600,"zone":"Westfall","subzone":"Moonbrook","hour":14}
+{"type":"zone_entered","at":900,"zone":"The Deadmines","hour":14}
+{"type":"instance_entered","at":901,"zone":"The Deadmines","kind":"party"}
+{"type":"npc_defeated","at":1500,"name":"Rhahk'Zor","kind":"boss"}
+{"type":"npc_defeated","at":2100,"name":"Sneed","kind":"boss"}
+{"type":"npc_defeated","at":2700,"name":"Mr. Smite","kind":"boss"}
+
+{"type":"zone_entered","at":3600,"zone":"Westfall","subzone":"Moonbrook","hour":15}

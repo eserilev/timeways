@@ -280,6 +280,14 @@ These lines use calls of the game that no test can check. Each step answers an o
 5. On the title page, click Edit, write one paragraph, and Save. Turn on sharing in the Roleplay Profile. A friend with Total RP 3 sees your paragraph as your History.
 6. Type a very long text, or a `|`, and click Save. The text stays in the box with the reason under it.
 
+### 26. Lore of your own deeds
+
+The wiki tells some quests as history: "the adventurers killed Edwin VanCleef". Such a passage shows only after you did that deed yourself.
+
+1. Enter the Deadmines, and leave before you kill Edwin VanCleef.
+2. Ask `/lore What happened to Edwin VanCleef?`. The answer does not tell of his death.
+3. Kill Edwin VanCleef, and ask again. The answer can tell of his death now.
+
 ## Dev mode
 
 Dev mode makes the moments of hours of play in seconds. It runs the real code: the addon, the bridge, and the story program. Only the moment itself is fake.
@@ -335,6 +343,7 @@ gnomish-relay restart
 | `edits` | A night elf druid whose chapters, tale, and title page hold the player's own words, and a restore. |
 | `side-quests` | A dwarf hunter with side quests of every step kind and in every state: done, in progress, a mystery with a hidden step, an offer, declined, and abandoned. The model answers are fixed in the file. |
 | `flavor-and-hero` | A troll shaman with a full Hero sheet and notes, every joke title of the Horde, a quest mark, a battleground won, a PvP rank, an inn, and a flight. |
+| `outcome-lore` | A human warrior at level 18 who fought through the Deadmines to Mr. Smite and left before Edwin VanCleef. |
 
 ### Commands in the game
 
@@ -400,6 +409,7 @@ Type `/twdev help` for the list. A name with spaces needs no quotes. A slash sep
 | 23. The Chronicle book | The `level-30-paladin` or `raider-60` scenario, or `/twdev chapter-end`, `/twdev dungeon The Deadmines`, `/twdev kill Edwin VanCleef boss` | Chapters, tales, run counts, tally lines. |
 | 24. Battlegrounds, rank, inns, bosses | `/twdev bg-win`, `/twdev pvp-rank 3`, `/twdev rest`, `/twdev taxi`, `/twdev kill Azuregos worldboss` | The rows of `inputs`, with `"dev":true`. |
 | 25. Your own words | The `edits` scenario, or Edit on a chapter of any scenario | Edited, Restore, and the title page. |
+| 26. Lore of your own deeds | The `outcome-lore` scenario, `/lore What happened to Edwin VanCleef?`, then `/twdev kill Edwin VanCleef boss` and the same question | The first answer tells nothing of his death. The second one does. |
 
 Each scenario and each command has a named test. Three tests fail when a new feature has no way in dev mode: `every_input_line_has_a_dev_command_or_a_scenario` and `every_section_of_the_journal_has_a_scenario_that_fills_it` (`crates/addon-tests/tests/dev_mode.rs`), and `every_kind_of_narrator_moment_comes_in_a_scenario` (`crates/dev/tests/scenarios.rs`).
 
@@ -429,6 +439,7 @@ Each scenario and each command has a named test. Three tests fail when a new fea
 - For test 23: a screenshot of the contents, of a chapter page, and of a tale page.
 - For test 24: the answer to each step.
 - For test 25: a screenshot of a chapter with your note, and of the History that your friend sees.
+- For test 26: both answers, as text.
 
 ## After the test
 

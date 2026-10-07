@@ -50,6 +50,11 @@ pub const BUILT_IN: &[(&str, &str, &str)] = &[
         "A full Hero sheet and notes, every joke title, a quest mark, PvP, an inn, and a flight.",
         include_str!("../scenarios/flavor-and-hero.jsonl"),
     ),
+    (
+        "outcome-lore",
+        "A human warrior who left the Deadmines before VanCleef, for the lore of his death.",
+        include_str!("../scenarios/outcome-lore.jsonl"),
+    ),
 ];
 
 #[derive(Clone, Debug, PartialEq)]
