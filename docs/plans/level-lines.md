@@ -19,7 +19,7 @@ Examples of the voice (the lore of a real line comes from the pack):
 2. **Race and class together:** WoW Forever allows any race in any class. A combination that the lore finds strange is a story: the Forsaken paladin is "the dead channel the Light". The line never pretends that a Horde paladin fights the Horde.
 3. **The level:** left out, or one short plain fact at the end. Never a feeling about the character ("has grown stronger" alone, "felt the Light stir").
 4. **Literal, never inside a person.** The order or the people grows stronger as a group. It never grows, lives, or burns *in* a person: "its power grows in the druid" and "the craft grows sharper in $N" are refused. An order cannot be inside someone.
-5. **No repeats:** each tenth level of one character takes a different passage.
+5. **No repeats:** each tenth level of one character takes a different passage. This holds for the own pages of the people, and also for the search results when the pages have no passage of their own.
 6. **The lore comes from the pack**, never from the model's memory. With no fitting passage, the line is silence.
 
 Forbidden here (rejected by the user): fame claims ("the Scarlet Crusade knows the name"), class unlocks ("will now teach you"), callbacks to the Hero page, "the worg would not try it now", and jokes about an NPC who knows you.

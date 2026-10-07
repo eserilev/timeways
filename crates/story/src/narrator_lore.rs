@@ -38,10 +38,13 @@ pub fn lore_of_moment(
     who: &Who,
 ) -> Result<Option<Passage>, LoreError> {
     if let Moment::LevelUp { level, .. } = moment {
-        let own = people_lore(pack, character, &lore_subjects(moment, who))?;
-        if let Some(passage) = nth_for_level(own, *level) {
-            return Ok(Some(passage));
+        let pages = lore_subjects(moment, who);
+        let own = people_lore(pack, character, &pages)?;
+        if !own.is_empty() {
+            return Ok(nth_for_level(own, *level));
         }
+        let found = people_search(pack, seen, character, &pages)?;
+        return Ok(nth_for_level(found, *level));
     }
     for subject in lore_subjects(moment, who) {
         if let Some(passage) = lore_about(pack, seen, character, &subject)? {
@@ -171,6 +174,25 @@ fn people_lore(
     Ok(own)
 }
 
+/// The passages that link to or name a page of a people, in page order, each once: the
+/// fallback when the pages have no passage of their own.
+fn people_search(
+    pack: &Pack,
+    seen: &SeenIndex,
+    character: &Character,
+    pages: &[String],
+) -> Result<Vec<Passage>, LoreError> {
+    let mut found: Vec<Passage> = Vec::new();
+    for page in pages {
+        for passage in found_about(pack, seen, character, page)? {
+            if !found.iter().any(|known| known.text == passage.text) {
+                found.push(passage);
+            }
+        }
+    }
+    Ok(found)
+}
+
 /// Level 10 takes the first passage, level 20 the second, and so on, so two tenth levels
 /// of one character tell two passages while the pages hold enough
 /// (docs/plans/level-lines.md, rule 5).
@@ -211,16 +233,27 @@ pub fn lore_about(
     if let Some(own) = own.into_iter().next() {
         return Ok(Some(own));
     }
+    Ok(found_about(pack, seen, character, subject)?
+        .into_iter()
+        .next())
+}
+
+/// The searched passages about `subject`: the linked ones first, then the ones that name it.
+fn found_about(
+    pack: &Pack,
+    seen: &SeenIndex,
+    character: &Character,
+    subject: &str,
+) -> Result<Vec<Passage>, LoreError> {
     let mut found = seen.search(subject, CANDIDATES)?;
     found.extend(pack.search(subject, CANDIDATES)?);
-    let found = known(character, found);
-    let linked = found.iter().find(|passage| is_linked(passage, subject));
-    let named = || {
-        found
-            .iter()
-            .find(|passage| mentions(&passage.text, subject))
-    };
-    Ok(linked.or_else(named).cloned())
+    let (linked, rest): (Vec<Passage>, Vec<Passage>) = known(character, found)
+        .into_iter()
+        .partition(|passage| is_linked(passage, subject));
+    let named = rest
+        .into_iter()
+        .filter(|passage| mentions(&passage.text, subject));
+    Ok(linked.into_iter().chain(named).collect())
 }
 
 fn is_linked(passage: &Passage, subject: &str) -> bool {

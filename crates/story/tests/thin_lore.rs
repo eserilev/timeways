@@ -212,6 +212,40 @@ fn two_tenth_levels_never_use_one_passage() {
     assert!(thirtieth.contains("stonemasons"), "{thirtieth}");
 }
 
+/// A pack with three passages that name Stormwind City, and no own page of the people.
+fn stormwind_search_pack(name: &str) -> Pack {
+    let path = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("thin-{name}.sqlite"));
+    let _ = std::fs::remove_file(&path);
+    let book = |text: &str| Passage {
+        text: text.to_string(),
+        source: "a test book".to_string(),
+        links: vec![Link::Common],
+        origin: Origin::Pack,
+        about: None,
+    };
+    let passages = [
+        book("The gnolls fled when King Barathen Wrynn founded Stormwind City."),
+        book("The Horde burned Stormwind City after Garona killed King Llane."),
+        book("The stonemasons rebuilt Stormwind City, and the nobles never paid them."),
+    ];
+    Pack::write(&path, &passages).unwrap();
+    Pack::open(&path).unwrap()
+}
+
+#[test]
+fn the_search_fallback_of_a_people_takes_a_new_passage_on_each_tenth_level() {
+    let pack = stormwind_search_pack("search-levels");
+
+    let tenth = lore_at(&pack, &level(10)).unwrap();
+    let twentieth = lore_at(&pack, &level(20)).unwrap();
+    let thirtieth = lore_at(&pack, &level(30)).unwrap();
+
+    assert_ne!(tenth, twentieth);
+    assert_ne!(twentieth, thirtieth);
+    assert_ne!(tenth, thirtieth);
+    assert_eq!(lore_at(&pack, &level(10)).unwrap(), tenth);
+}
+
 #[test]
 fn a_tenth_level_with_the_lore_of_its_people_is_not_thin() {
     let pack = stormwind_pack("people");
