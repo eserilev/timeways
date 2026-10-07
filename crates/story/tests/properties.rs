@@ -55,7 +55,8 @@ use timeways_story::seen::TextKind;
 use timeways_story::sentences::{sentences, word_count};
 use timeways_story::spot::{MAP_IDS, Spot, THOUSANDTHS, spot_of};
 use timeways_story::store::{
-    CallEnd, CharacterKey, Database, Line, NewCall, Node, Outcome, Root, Store, Table, safe_id,
+    CallEnd, CharacterKey, Database, Line, NewCall, Node, Outcome, Root, Store, Table,
+    name_of_safe_id, safe_id,
 };
 use timeways_story::story::{Output, Story};
 use timeways_story::vocabulary::{
@@ -1482,6 +1483,20 @@ proptest! {
         prop_assume!(a != b);
         prop_assert_ne!(safe_id(&a), safe_id(&b));
         prop_assert!(safe_id(&a).bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'_'));
+    }
+
+    /// Mostly the letters of an id, with signs and lower-case hex digits that `safe_id`
+    /// never writes.
+    #[test]
+    fn a_name_comes_back_only_from_the_id_that_safe_id_makes(id in "[_A-Fa-f0-9+\\- .é]{0,12}") {
+        if let Some(name) = name_of_safe_id(&id) {
+            prop_assert_eq!(safe_id(&name), id);
+        }
+    }
+
+    #[test]
+    fn every_safe_id_gives_back_its_name(name in ".{0,16}") {
+        prop_assert_eq!(name_of_safe_id(&safe_id(&name)), Some(name));
     }
 
     /// Mostly brackets, digits, and commas, so that broken and nested citations come often.

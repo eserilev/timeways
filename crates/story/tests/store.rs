@@ -851,6 +851,13 @@ fn a_safe_id_gives_back_its_name() {
     assert_eq!(name_of_safe_id("cut_4"), None);
 }
 
+#[test]
+fn an_id_that_safe_id_never_makes_gives_no_name() {
+    for id in ["_+1", "_2e", "_41", "a-b", "a b", "é"] {
+        assert_eq!(name_of_safe_id(id), None, "{id}");
+    }
+}
+
 /// An accepted narrator call with the main part of its shape.
 fn narrator_line(position: u64, shape: Option<&str>, outcome: Outcome) -> Line {
     Line {

@@ -124,16 +124,29 @@ pub fn name_of_safe_id(id: &str) -> Option<String> {
     let mut bytes = Vec::with_capacity(id.len());
     let mut rest = id.as_bytes();
     while let Some((&first, after)) = rest.split_first() {
-        if first != b'_' {
+        if first.is_ascii_alphanumeric() {
             bytes.push(first);
             rest = after;
             continue;
         }
-        let hex = std::str::from_utf8(after.get(..2)?).ok()?;
-        bytes.push(u8::from_str_radix(hex, 16).ok()?);
-        rest = &after[2..];
+        if first != b'_' {
+            return None;
+        }
+        let (&[high, low], after) = after.split_first_chunk()?;
+        let byte = hex_value(high)? << 4 | hex_value(low)?;
+        if byte.is_ascii_alphanumeric() {
+            return None;
+        }
+        bytes.push(byte);
+        rest = after;
     }
     String::from_utf8(bytes).ok()
+}
+
+/// The value of one digit of `HEX`. A lower-case letter is no digit of it.
+fn hex_value(digit: u8) -> Option<u8> {
+    let at = HEX.iter().position(|hex| *hex == digit)?;
+    u8::try_from(at).ok()
 }
 
 /// What a character brings from the disk.
