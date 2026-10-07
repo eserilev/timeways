@@ -275,7 +275,7 @@ pub fn lore_prompt(telling: &Telling<'_>, turn: usize, offer: &Offer) -> String 
         }
         None => prompt.push_str("\n\nThe lore: none"),
     }
-    let choices = choice_lines(telling.moment, offer);
+    let choices = choice_lines(offer);
     if !choices.is_empty() {
         let _ = write!(prompt, "\n\nYour choices:\n{}", choices.join("\n"));
     }
@@ -288,7 +288,7 @@ pub fn lore_prompt(telling: &Telling<'_>, turn: usize, offer: &Offer) -> String 
 }
 
 /// One line of meaning for each closed field of the moment (2.2).
-fn choice_lines(moment: &Moment, offer: &Offer) -> Vec<String> {
+fn choice_lines(offer: &Offer) -> Vec<String> {
     let mut lines = Vec::new();
     for field in fields_of(offer.kind) {
         let line = match field {
@@ -303,10 +303,9 @@ fn choice_lines(moment: &Moment, offer: &Offer) -> Vec<String> {
                     groups.join(", ")
                 )
             }
-            ChoiceField::There => format!(
-                "- \"there\": true when your history names {}, where it happened. Else false.",
-                zone_words(moment)
-            ),
+            ChoiceField::There => "- \"there\": true when your history names the zone of \
+                the moment, where it happened. Else false."
+                .to_string(),
             ChoiceField::Leads => "- \"leads\": the group that the foe led, in the words of \
                 your history, such as \"the Riverpaw\". Else \"none\"."
                 .to_string(),
@@ -325,18 +324,6 @@ fn choice_lines(moment: &Moment, offer: &Offer) -> Vec<String> {
         lines.push(line);
     }
     lines
-}
-
-fn zone_words(moment: &Moment) -> String {
-    match moment {
-        Moment::FirstKill { zone, .. }
-        | Moment::Revenge { zone, .. }
-        | Moment::SlainAgain { zone, .. }
-        | Moment::Slapped { zone, .. }
-        | Moment::FirstEpicItem { zone, .. }
-        | Moment::BigUpgrade { zone, .. } => zone.clone().unwrap_or_else(|| "the zone".to_string()),
-        _ => "the zone".to_string(),
-    }
 }
 
 /// The JSON form of an answer, with the first value of each list.
