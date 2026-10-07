@@ -323,8 +323,13 @@ are in `Timeways/NarratorShapes.lean`.
 | `every_slot_has_a_value` | Each slot of a built line has a value in the facts, and a hero slot comes only on a named turn. | `a_slot_with_no_value_builds_nothing` |
 | `a_pick_fits` | The pick returns a shape that fits, and it returns one whenever a shape fits. | `nothing_fits_picks_nothing` |
 | `no_main_repeats_within_n` | When a fitting shape has a main part outside the window, the pick takes such a shape. | `the_pick_starts_at_the_turn_and_skips_recent_mains` |
-| `a_run_never_repeats` | In a run of picks where more than 8 distinct main parts fit at each pick, each pick takes a shape, and two picks at most 8 apart never share a main part. | the same |
 | `the_pick_is_deterministic_from_the_turn` | When a fitting shape has a fresh main part, the pick is the first such shape from `turn mod count`. | the same |
+| `pick_preferring.spec`, `the_preferring_pick_never_panics` | The order of the choice never panics, for any slices. | `nothing_fits_picks_nothing` |
+| `a_fresh_preferred_shape_wins` | When a fresh shape of the first set fits, the pick takes a fresh fitting shape of the first set. | `a_fresh_preferred_shape_wins_over_the_usual_set`, `a_kill_prefers_an_unnamed_part_on_a_named_turn` |
+| `the_pick_falls_back_only_when_nothing_before_fits` | The pick takes the usual set only when no fresh shape of the first set fits, and the fallback only when no shape of the usual set fits either. | `a_recent_preferred_shape_gives_way_to_the_usual_set`, `the_fallback_comes_only_when_nothing_else_fits` |
+| `the_preferring_pick_fits` | The pick never takes a shape that does not fit its set, and it takes a shape whenever one of the three sets has one. | the same |
+| `window.spec` | The window holds the main parts of the last 8 lines, oldest first. A line with no main part, such as an arrival, takes its place and adds nothing. | `the_window_holds_the_main_parts_of_the_last_eight_lines` |
+| `a_run_never_repeats` | In a run of narrator lines from the start, where an arrival is a line with no main part and each deed has more than 8 fitting main parts in its usual set, two lines at most 8 apart never share a main part. | `no_main_part_repeats_within_eight_lines` |
 
 These laws differ in form from the plan. Each keeps its intent:
 
@@ -344,13 +349,17 @@ These laws differ in form from the plan. Each keeps its intent:
   plan's form of law 10 is false without it. Law 13 needs a fitting
   shape with a fresh main part: with none, the pick takes the main part
   that was used longest ago, and law 10 covers that case.
-- **`a_run_never_repeats`** is a Hoare triple over `runPicks`, a run
-  that this file defines from the Rust `pick`. Each pick reads the main
-  parts of the last 8 picks, oldest first. "More than 8 fitting main parts"
-  is `Wide`: a list of more than 8 distinct main parts, each the main
-  part of a fitting shape. The window is the Rust `WINDOW`. The file
-  writes it as `windowSize`, because no translated function reads
-  `WINDOW`, so Aeneas does not translate it.
+- **`a_run_never_repeats`** is a Hoare triple over `runLines`, a run
+  of narrator lines that this file defines from the Rust
+  `pick_preferring` and `window`. A step is an arrival or a deed. An
+  arrival adds a line with no main part. A deed reads `window` of the
+  last 8 lines, as the story program reads the last 8 accepted lines of
+  the character, and adds the main part of its shape. "More than 8
+  fitting main parts" is `Wide`: the usual set has a list of more than 8
+  distinct main parts, each the main part of a fitting shape. The law
+  speaks of lines, not of picks, so an arrival between two deeds counts
+  as one of the 8. `windowSize_is_WINDOW` ties the window of the model
+  to the Rust `WINDOW`.
 - **The case of an inside word.** A part keeps the case of each word
   after its first, so "In" and "in" have two ids. The loader in
   `crates/story/src/narrator_templates.rs` (`inside_word_ids`) puts the
@@ -359,21 +368,26 @@ These laws differ in form from the plan. Each keeps its intent:
   `an_inside_word_before_the_hero_fails_the_load_in_any_case` checks the
   loader. `nothing_is_inside_the_hero_in_any_case` takes that fact as
   its hypothesis.
-- **The window of the story program is not the window of the run.**
-  The story program reads the last 8 accepted lines of a character. An
-  arrival line takes a place in that window but has no main part, and
-  a refused line takes none. So the program keeps "no repeat within 8
-  accepted lines", and two picks with an arrival between them can be
-  further apart than in `runPicks`. The property test
-  `no_main_part_repeats_within_eight_lines` checks the window of the
-  program.
-- **The choice of the shape is glue.** Laws 10 to 13 hold for each call
-  of `pick`. `pick_shape` in `crates/story/src/narrator_build.rs` calls
-  `pick` up to three times: a kill on a named turn first tries the
-  shapes with no hero, and a naming that fits no shape tries the other
-  naming. No proof reads that order. The test
-  `a_kill_prefers_an_unnamed_part_on_a_named_turn` and the property test
-  above check it.
+- **The window of the story program is the window of the run.** The
+  story program reads the main parts of the last 8 accepted lines of a
+  character (`Active::recent_shapes`), arrivals included. A refused line
+  is no accepted line, so it takes no place. `pick_shape` in
+  `crates/story/src/narrator_build.rs` turns each into an id, or none
+  for an arrival or an old main part, and calls `window`. The SQL that
+  reads the accepted lines is glue. The property test
+  `no_main_part_repeats_within_eight_lines` checks it.
+- **The order of the choice is in the rules.** `pick_preferring` takes
+  a fresh fitting shape of `preferred`, else the pick of `usual`, else
+  the pick of `fallback`. `pick_shape` calls it once. On a named turn of
+  a kill, `preferred` is the shapes with no hero, `usual` the named
+  shapes, and `fallback` the shapes with no hero. On any other turn,
+  `preferred` is empty (all false), `usual` the shapes of the naming of
+  the turn, and `fallback` the shapes of the other naming. The plan
+  asked for two sets, "fresh from the first set, else the second". Two
+  sets cannot hold both orders: a kill tries a fresh unnamed shape, then
+  any named shape, then any unnamed shape, and every other turn tries
+  any shape of its naming, then any shape of the other. So the function
+  takes three sets, and the laws speak of all three.
 
 ## What is proved: silence when the lore is thin
 

@@ -312,6 +312,15 @@ structure narrator_shapes.Facts where
   holds : Std.U32
   named : Bool
 
+/-- [timeways_rules::narrator_shapes::Tier]
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 395:0-399:1
+    Visibility: public -/
+@[discriminant isize]
+inductive narrator_shapes.Tier where
+| Preferred : narrator_shapes.Tier
+| Usual : narrator_shapes.Tier
+| Fallback : narrator_shapes.Tier
+
 /-- [timeways_rules::quest_log::Goal]
     Source: 'crates/rules/src/quest_log.rs', lines 14:0-18:1
     Visibility: public -/

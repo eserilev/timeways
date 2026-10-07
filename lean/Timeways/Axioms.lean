@@ -367,6 +367,34 @@ open timeways_rules
 #guard_msgs (whitespace := lax) in
 #print axioms narrator_shapes.a_run_never_repeats
 
+/-- info: 'timeways_rules.narrator_shapes.pick_preferring.spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms narrator_shapes.pick_preferring.spec
+
+/-- info: 'timeways_rules.narrator_shapes.the_preferring_pick_never_panics' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms narrator_shapes.the_preferring_pick_never_panics
+
+/-- info: 'timeways_rules.narrator_shapes.a_fresh_preferred_shape_wins' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms narrator_shapes.a_fresh_preferred_shape_wins
+
+/-- info: 'timeways_rules.narrator_shapes.the_pick_falls_back_only_when_nothing_before_fits' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms narrator_shapes.the_pick_falls_back_only_when_nothing_before_fits
+
+/-- info: 'timeways_rules.narrator_shapes.the_preferring_pick_fits' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms narrator_shapes.the_preferring_pick_fits
+
+/-- info: 'timeways_rules.narrator_shapes.window.spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms narrator_shapes.window.spec
+
+/-- info: 'timeways_rules.narrator_shapes.windowSize_is_WINDOW' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms narrator_shapes.windowSize_is_WINDOW
+
 /-- info: 'timeways_rules.narrator_shapes.the_pick_is_deterministic_from_the_turn' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs (whitespace := lax) in
 #print axioms narrator_shapes.the_pick_is_deterministic_from_the_turn

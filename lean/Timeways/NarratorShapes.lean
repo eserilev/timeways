@@ -1268,62 +1268,335 @@ theorem the_pick_is_deterministic_from_the_turn (fits : Slice Bool) (mains recen
   rintro r ⟨_, _, hpost⟩
   exact hpost hfresh
 
-/-! ## A run of picks -/
+/-! ## The pick with a preference -/
 
-/-- One pick of a run: the fits and the main parts of the shapes of a moment, and the
-turn. -/
+/-- `pick` gives a value for any slices: a list of another length gives none at once. -/
+theorem pick_total (fits : Slice Bool) (mains recent : Slice U16) (turn : U64) :
+    ∃ r, pick fits mains recent turn = ok r ∧
+      (mains.val.length ≠ fits.val.length → r = none) := by
+  by_cases hlen : mains.val.length = fits.val.length
+  · obtain ⟨r, hr, _⟩ := WP.spec_imp_exists (pick.spec fits mains recent turn hlen)
+    exact ⟨r, hr, fun h => absurd hlen h⟩
+  · refine ⟨none, ?_, fun _ => rfl⟩
+    unfold pick
+    dsimp only
+    split
+    · rfl
+    · split
+      · rfl
+      · rename_i hne
+        exfalso
+        apply hne
+        simp only [bne_iff_ne, ne_eq]
+        intro h
+        apply hlen
+        have := congrArg UScalar.val h
+        simpa [Slice.len] using this
+
+/-- The pick of `fits` when its main part is fresh, or none. -/
+@[step]
+theorem fresh_pick.spec (fits : Slice Bool) (mains recent : Slice U16) (turn : U64)
+    (hlen : mains.val.length = fits.val.length) :
+    fresh_pick fits mains recent turn ⦃ r =>
+      (∀ i, r = some i → FitFresh fits mains recent i.val) ∧
+      (r = none → ¬ ∃ j, FitFresh fits mains recent j) ⦄ := by
+  unfold fresh_pick
+  apply WP.spec_bind (pick.spec fits mains recent turn hlen)
+  rintro o ⟨hnone, hsome, hfresh⟩
+  rcases o with _ | i
+  · simp only [WP.spec_ok, reduceCtorEq, false_implies, implies_true, true_and]
+    rintro _ ⟨j, hj, _⟩
+    exact hnone rfl j hj
+  · simp only
+    have hfit := hsome i rfl
+    have hlt : i.val < mains.val.length := by rw [hlen]; exact fit_lt hfit
+    step as ⟨m, hm⟩
+    step as ⟨b, hb⟩
+    have hmi : mains.val[i.val]? = some m := by
+      rw [hm]; exact List.getElem?_eq_getElem hlt
+    split
+    · rename_i hbt
+      simp only [WP.spec_ok, reduceCtorEq, false_implies, implies_true, true_and, forall_const]
+      intro hex
+      obtain ⟨j, hj, _, _, _, hff, _⟩ := hfresh hex
+      cases hj
+      obtain ⟨m', hm', hnot⟩ := hff.2
+      rw [hmi] at hm'
+      cases hm'
+      exact hnot (hb.mp hbt)
+    · rename_i hbt
+      simp only [WP.spec_ok, Option.some.injEq, forall_eq', reduceCtorEq, false_implies,
+        and_true]
+      exact ⟨hfit, m, hmi, fun hmem => hbt (hb.mpr hmem)⟩
+
+theorem fresh_pick_total (fits : Slice Bool) (mains recent : Slice U16) (turn : U64) :
+    ∃ r, fresh_pick fits mains recent turn = ok r := by
+  by_cases hlen : mains.val.length = fits.val.length
+  · obtain ⟨r, hr, _⟩ := WP.spec_imp_exists (fresh_pick.spec fits mains recent turn hlen)
+    exact ⟨r, hr⟩
+  · obtain ⟨r, hr, hn⟩ := pick_total fits mains recent turn
+    refine ⟨none, ?_⟩
+    unfold fresh_pick
+    rw [hr, hn hlen]
+    simp
+
+/-- What the pick with a preference gives. -/
+def PrefPost (pre usual fb : Slice Bool) (mains recent : Slice U16) (turn : U64)
+    (r : Option (Usize × Tier)) : Prop :=
+  (∀ i, r = some (i, .Preferred) → FitFresh pre mains recent i.val) ∧
+  (∀ i, r = some (i, .Usual) → Fit usual i.val ∧ ¬ ∃ j, FitFresh pre mains recent j) ∧
+  (∀ i, r = some (i, .Fallback) → Fit fb i.val ∧ (¬ ∃ j, FitFresh pre mains recent j) ∧
+    ¬ ∃ j, Fit usual j) ∧
+  ((∃ j, FitFresh pre mains recent j) → ∃ i, r = some (i, .Preferred)) ∧
+  (r = none → (¬ ∃ j, FitFresh pre mains recent j) ∧ (¬ ∃ j, Fit usual j) ∧
+    ¬ ∃ j, Fit fb j) ∧
+  (∀ i, r = some (i, .Usual) → PickPost usual mains recent turn (some i))
+
+/-- `pick_preferring` never panics, and gives `PrefPost`, when the three sets of fits have
+the length of `mains`. -/
+@[step]
+theorem pick_preferring.spec (pre usual fb : Slice Bool) (mains recent : Slice U16) (turn : U64)
+    (hpre : mains.val.length = pre.val.length) (husual : mains.val.length = usual.val.length)
+    (hfb : mains.val.length = fb.val.length) :
+    pick_preferring pre usual fb mains recent turn ⦃ r =>
+      PrefPost pre usual fb mains recent turn r ⦄ := by
+  unfold pick_preferring
+  apply WP.spec_bind (fresh_pick.spec pre mains recent turn hpre)
+  rintro o ⟨hsome, hnone⟩
+  rcases o with _ | i
+  · have hnf := hnone rfl
+    simp only
+    apply WP.spec_bind (pick.spec usual mains recent turn husual)
+    rintro o1 hpost1
+    have hpost1' := hpost1
+    obtain ⟨hn1, hs1, _⟩ := hpost1
+    rcases o1 with _ | j
+    · simp only
+      apply WP.spec_bind (pick.spec fb mains recent turn hfb)
+      rintro o2 ⟨hn2, hs2, _⟩
+      have hnu : ¬ ∃ j, Fit usual j := fun ⟨j, hj⟩ => hn1 rfl j hj
+      rcases o2 with _ | k
+      · simp only [WP.spec_ok, PrefPost]
+        refine ⟨by simp, by simp, by simp, fun h => absurd h hnf, fun _ => ⟨hnf, hnu, ?_⟩,
+          by simp⟩
+        exact fun ⟨j, hj⟩ => hn2 rfl j hj
+      · simp only [WP.spec_ok, PrefPost]
+        refine ⟨by simp, by simp, ?_, fun h => absurd h hnf, by simp, by simp⟩
+        rintro x hx
+        simp only [Option.some.injEq, Prod.mk.injEq] at hx
+        obtain ⟨rfl, -⟩ := hx
+        exact ⟨hs2 _ rfl, hnf, hnu⟩
+    · simp only [WP.spec_ok, PrefPost]
+      refine ⟨by simp, ?_, by simp, fun h => absurd h hnf, by simp, ?_⟩
+      · rintro x hx
+        simp only [Option.some.injEq, Prod.mk.injEq] at hx
+        obtain ⟨rfl, -⟩ := hx
+        exact ⟨hs1 _ rfl, hnf⟩
+      · rintro x hx
+        simp only [Option.some.injEq, Prod.mk.injEq] at hx
+        obtain ⟨rfl, -⟩ := hx
+        exact hpost1'
+  · simp only [WP.spec_ok, PrefPost]
+    refine ⟨?_, by simp, by simp, fun _ => ⟨i, rfl⟩, by simp, by simp⟩
+    rintro x hx
+    simp only [Option.some.injEq, Prod.mk.injEq] at hx
+    obtain ⟨rfl, -⟩ := hx
+    exact hsome _ rfl
+
+/-- The order of the choice never panics, for any slices. -/
+theorem the_preferring_pick_never_panics (pre usual fb : Slice Bool) (mains recent : Slice U16)
+    (turn : U64) : ∃ r, pick_preferring pre usual fb mains recent turn = ok r := by
+  obtain ⟨o, ho⟩ := fresh_pick_total pre mains recent turn
+  obtain ⟨o1, ho1, _⟩ := pick_total usual mains recent turn
+  obtain ⟨o2, ho2, _⟩ := pick_total fb mains recent turn
+  unfold pick_preferring
+  rw [ho]
+  rcases o with _ | i
+  · simp only [bind_tc_ok]
+    rw [ho1]
+    rcases o1 with _ | j
+    · simp only [bind_tc_ok]
+      rw [ho2]
+      rcases o2 <;> simp
+    · simp
+  · simp
+
+/-- The preference: when a shape of the first set fits and its main part is fresh, the
+pick takes a fresh fitting shape of the first set. -/
+theorem a_fresh_preferred_shape_wins (pre usual fb : Slice Bool) (mains recent : Slice U16)
+    (turn : U64) (hpre : mains.val.length = pre.val.length)
+    (husual : mains.val.length = usual.val.length) (hfb : mains.val.length = fb.val.length)
+    (h : ∃ j, FitFresh pre mains recent j) :
+    pick_preferring pre usual fb mains recent turn ⦃ r =>
+      ∃ i, r = some (i, .Preferred) ∧ FitFresh pre mains recent i.val ⦄ := by
+  apply WP.spec_mono (pick_preferring.spec pre usual fb mains recent turn hpre husual hfb)
+  rintro r ⟨hp, _, _, hwin, _, _⟩
+  obtain ⟨i, rfl⟩ := hwin h
+  exact ⟨i, rfl, hp i rfl⟩
+
+/-- The pick falls back only when nothing before fits: it takes the usual set only when no
+fresh shape of the first set fits, and the fallback only when no shape of the usual set
+fits either. -/
+theorem the_pick_falls_back_only_when_nothing_before_fits (pre usual fb : Slice Bool)
+    (mains recent : Slice U16) (turn : U64) (hpre : mains.val.length = pre.val.length)
+    (husual : mains.val.length = usual.val.length) (hfb : mains.val.length = fb.val.length) :
+    pick_preferring pre usual fb mains recent turn ⦃ r =>
+      (∀ i, r = some (i, .Usual) → ¬ ∃ j, FitFresh pre mains recent j) ∧
+      (∀ i, r = some (i, .Fallback) →
+        (¬ ∃ j, FitFresh pre mains recent j) ∧ ¬ ∃ j, Fit usual j) ⦄ := by
+  apply WP.spec_mono (pick_preferring.spec pre usual fb mains recent turn hpre husual hfb)
+  rintro r ⟨_, hu, hf, _, _, _⟩
+  exact ⟨fun i h => (hu i h).2, fun i h => (hf i h).2⟩
+
+/-- The pick never takes a shape that does not fit: a shape of the first set fits that set
+and is fresh, and a shape of the usual or the fallback set fits its set. It takes a shape
+whenever one of the three sets has a shape that fits. -/
+theorem the_preferring_pick_fits (pre usual fb : Slice Bool) (mains recent : Slice U16)
+    (turn : U64) (hpre : mains.val.length = pre.val.length)
+    (husual : mains.val.length = usual.val.length) (hfb : mains.val.length = fb.val.length) :
+    pick_preferring pre usual fb mains recent turn ⦃ r =>
+      (∀ i, r = some (i, .Preferred) → FitFresh pre mains recent i.val) ∧
+      (∀ i, r = some (i, .Usual) → Fit usual i.val) ∧
+      (∀ i, r = some (i, .Fallback) → Fit fb i.val) ∧
+      (r = none → (¬ ∃ j, FitFresh pre mains recent j) ∧ (¬ ∃ j, Fit usual j) ∧
+        ¬ ∃ j, Fit fb j) ⦄ := by
+  apply WP.spec_mono (pick_preferring.spec pre usual fb mains recent turn hpre husual hfb)
+  rintro r ⟨hp, hu, hf, _, hn, _⟩
+  exact ⟨hp, fun i h => (hu i h).1, fun i h => (hf i h).1, hn⟩
+
+/-! ## The window -/
+
+theorem window_size_val : WINDOW.val = 8 := by
+  simp [WINDOW]
+
+theorem usize_saturating_sub_val (x y : Usize) :
+    (core.num.Usize.saturating_sub x y).val = x.val - y.val := by
+  simp only [core.num.Usize.saturating_sub, UScalar.saturating_sub, UScalar.val,
+    BitVec.toNat_ofNat, Nat.zero_max]
+  apply Nat.mod_eq_of_lt
+  have := x.bv.isLt
+  omega
+
+@[step]
+theorem window_loop.spec (lines : Slice (Option U16)) (mains : alloc.vec.Vec U16) (i : Usize)
+    (_hi : i.val ≤ lines.val.length)
+    (hroom : mains.val.length + (lines.val.length - i.val) ≤ 8) :
+    window_loop lines mains i ⦃ out =>
+      out.val = mains.val ++ (lines.val.drop i.val).filterMap id ⦄ := by
+  unfold window_loop
+  dsimp only
+  split
+  · rename_i hlt
+    have hlt' : i.val < lines.val.length := by simpa using hlt
+    step as ⟨line, hline⟩
+    have hdrop : lines.val.drop i.val = line :: lines.val.drop (i.val + 1) := by
+      rw [hline]; exact List.drop_eq_getElem_cons hlt'
+    rcases line with _ | m
+    · simp only [bind_tc_ok]
+      step as ⟨i1, hi1⟩
+      apply WP.spec_mono (window_loop.spec lines mains i1 (by scalar_tac) (by scalar_tac))
+      intro out hout
+      rw [hout, hdrop, hi1]
+      simp
+    · simp only
+      have hpush : mains.val.length < Usize.max := by scalar_tac
+      step as ⟨mains1, hm1⟩
+      step as ⟨i1, hi1⟩
+      apply WP.spec_mono (window_loop.spec lines mains1 i1 (by scalar_tac)
+        (by simp only [hm1, List.length_append, List.length_singleton]; scalar_tac))
+      intro out hout
+      rw [hout, hm1, hdrop, hi1]
+      simp
+  · rename_i hge
+    simp only [WP.spec_ok]
+    have : lines.val.length ≤ i.val := by simpa using hge
+    simp [List.drop_eq_nil_of_le this]
+termination_by lines.val.length - i.val
+decreasing_by all_goals scalar_decr_tac
+
+/-- The window holds the main parts of the last 8 lines, oldest first. A line with no main
+part, such as an arrival, takes its place and adds nothing. -/
+@[step]
+theorem window.spec (lines : Slice (Option U16)) :
+    window lines ⦃ out =>
+      out.val = (lines.val.drop (lines.val.length - 8)).filterMap id ⦄ := by
+  unfold window
+  have hs := usize_saturating_sub_val (Slice.len lines) WINDOW
+  rw [window_size_val] at hs
+  simp only [lift, bind_tc_ok]
+  apply WP.spec_mono (window_loop.spec lines (alloc.vec.Vec.new U16) _ (by
+    rw [hs]; simp) (by
+    rw [hs]
+    simp only [alloc.vec.Vec.new, Slice.len_val]
+    simp
+    omega))
+  intro out hout
+  rw [hout, hs]
+  simp [alloc.vec.Vec.new]
+
+/-! ## A run of lines -/
+
+/-- One deed line: the three sets of fits of `pick_preferring`, the main parts of the
+shapes, and the turn. -/
 structure PickStep where
-  fits : Slice Bool
+  preferred : Slice Bool
+  usual : Slice Bool
+  fallback : Slice Bool
   mains : Slice U16
   turn : U64
+
+/-- One moment that the narrator tells: an arrival, which is a line with no main part, or a
+deed, whose line has the main part of its shape. -/
+inductive LineStep where
+  | arrival
+  | deed (st : PickStep)
 
 /-- The window of the rotation: `WINDOW` in the Rust, 8 lines. -/
 def windowSize : Nat := 8
 
-theorem windowSize_le : windowSize ≤ Usize.max := by
-  unfold windowSize
-  scalar_tac
+/-- The window size of the model is the `WINDOW` of the Rust. -/
+theorem windowSize_is_WINDOW : windowSize = WINDOW.val := by
+  rw [window_size_val]; rfl
 
-/-- The main parts of the last 8 lines, oldest first, as the story program reads them
-from the calls of the character. -/
-def window (used : List U16) : Slice U16 :=
-  Slice.from (used.drop (used.length - windowSize)) (by
-    have := windowSize_le
-    simp only [List.length_drop]
-    omega)
+/-- The last 8 lines, oldest first, as the story program reads them from the accepted calls
+of the character (`newest_shapes(WINDOW)`). -/
+def lastLines (lines : List (Option U16)) : Slice (Option U16) :=
+  Slice.from (lines.drop (lines.length - windowSize)) (by
+    simp only [List.length_drop, windowSize]
+    scalar_tac)
 
-/-- A run of picks. Each pick reads the window of the main parts of the picks before it.
-A pick gives its shape and the main part of that shape. -/
-def runPicks : List PickStep → List U16 → Result (List (Option (Usize × U16)))
-  | [], _ => ok []
-  | st :: rest, used => do
-    let r ← pick st.fits st.mains (window used) st.turn
+/-- A run of narrator lines. Each line is the main part of its shape, or none for an
+arrival. A deed reads the window of the lines before it, as the story program does. A deed
+whose pick gives no shape is silent: it adds no line. -/
+def runLines : List LineStep → List (Option U16) → Result (List (Option U16))
+  | [], lines => ok lines
+  | .arrival :: rest, lines => runLines rest (lines ++ [none])
+  | .deed st :: rest, lines => do
+    let recent ← window (lastLines lines)
+    let r ← pick_preferring st.preferred st.usual st.fallback st.mains
+      (alloc.vec.Vec.deref recent) st.turn
     match r with
-    | none => do
-      let rs ← runPicks rest used
-      ok (none :: rs)
-    | some i => do
-      let m := st.mains.val.getD i.val 0#u16
-      let rs ← runPicks rest (used ++ [m])
-      ok (some (i, m) :: rs)
+    | none => runLines rest lines
+    | some (i, _) => runLines rest (lines ++ [some (st.mains.val.getD i.val 0#u16)])
 
-/-- A step is wide when more than 8 distinct main parts fit. -/
+/-- A deed is wide when the three sets have the length of the main parts, and more than 8
+distinct main parts fit in the usual set. -/
 def Wide (st : PickStep) : Prop :=
-  st.mains.val.length = st.fits.val.length ∧
+  st.mains.val.length = st.preferred.val.length ∧
+  st.mains.val.length = st.usual.val.length ∧
+  st.mains.val.length = st.fallback.val.length ∧
     ∃ L : List U16, L.Nodup ∧ windowSize < L.length ∧
-      ∀ m ∈ L, ∃ k, Fit st.fits k ∧ st.mains.val[k]? = some m
+      ∀ m ∈ L, ∃ k, Fit st.usual k ∧ st.mains.val[k]? = some m
 
-/-- The main parts that a run picked, in order. -/
-def mainsOf (outs : List (Option (Usize × U16))) : List U16 :=
-  outs.map (fun o => (o.map Prod.snd).getD 0#u16)
+/-- Every deed of the run is wide. -/
+def WideRun (run : List LineStep) : Prop :=
+  ∀ st, LineStep.deed st ∈ run → Wide st
 
-theorem fresh_exists (st : PickStep) (hw : Wide st) (used : List U16) :
-    ∃ i, FitFresh st.fits st.mains (window used) i := by
-  obtain ⟨_, L, hnd, hlong, hfit⟩ := hw
-  have hshort : (window used).val.length ≤ windowSize := by
-    simp only [window, Slice.from_val, List.length_drop]
-    omega
-  have hex : ∃ m ∈ L, m ∉ (window used).val := by
+theorem fresh_exists (st : PickStep) (hw : Wide st) (recent : Slice U16)
+    (hshort : recent.val.length ≤ windowSize) :
+    ∃ i, FitFresh st.usual st.mains recent i := by
+  obtain ⟨_, _, _, L, hnd, hlong, hfit⟩ := hw
+  have hex : ∃ m ∈ L, m ∉ recent.val := by
     by_contra hall
     push Not at hall
     have := (hnd.subperm hall).length_le
@@ -1332,79 +1605,121 @@ theorem fresh_exists (st : PickStep) (hw : Wide st) (used : List U16) :
   obtain ⟨k, hk, hkm⟩ := hfit m hmL
   exact ⟨k, hk, m, hkm, hmw⟩
 
-/-- Each pick of a wide run is some shape, and its main part is not in the window of the
-picks before it. -/
-theorem runPicks.spec (run : List PickStep) (used : List U16) (hw : ∀ st ∈ run, Wide st) :
-    runPicks run used ⦃ outs => outs.length = run.length ∧
-      ∀ (b : Nat) (st : PickStep), run[b]? = some st → ∃ (i : Usize) (m : U16),
-        outs[b]? = some (some (i, m)) ∧ st.mains.val[i.val]? = some m ∧
-        m ∉ (window (used ++ mainsOf (outs.take b))).val ⦄ := by
-  induction run generalizing used with
-  | nil =>
-    simp [runPicks]
-  | cons st rest ih =>
-    have hst := hw st (by simp)
-    unfold runPicks
-    apply WP.spec_bind (pick.spec st.fits st.mains (window used) st.turn hst.1)
-    rintro r ⟨_, _, hpost⟩
-    obtain ⟨i, rfl, _, _, _, hff, _⟩ := hpost (fresh_exists st hst used)
-    obtain ⟨_, m, hm, hmw⟩ := hff
-    have hget : st.mains.val.getD i.val 0#u16 = m := by
-      simp [List.getD, hm]
-    simp only [hget]
-    apply WP.spec_bind (ih (used ++ [m]) (fun s hs => hw s (by simp [hs])))
-    rintro rs ⟨hlen, hall⟩
-    simp only [WP.spec_ok, List.length_cons, hlen, true_and]
-    intro b st' hb
-    cases b with
-    | zero =>
-      simp only [List.getElem?_cons_zero, Option.some.injEq] at hb
-      subst hb
-      exact ⟨i, m, rfl, hm, by simpa [mainsOf] using hmw⟩
-    | succ b =>
-      simp only [List.getElem?_cons_succ] at hb
-      obtain ⟨i', m', h1, h2, h3⟩ := hall b st' hb
-      refine ⟨i', m', by simpa using h1, h2, ?_⟩
-      simpa [mainsOf, List.take_succ_cons, List.append_assoc] using h3
+/-- No main part of a line comes back within 8 lines. -/
+def FreshLines (lines : List (Option U16)) : Prop :=
+  ∀ (b : Nat) (mb : U16), lines[b]? = some (some mb) →
+    ∀ (a : Nat) (ma : U16), a < b → b ≤ a + windowSize → lines[a]? = some (some ma) →
+      ma ≠ mb
 
-/-- Law 12: in a run of picks where each pick has more than 8 fitting main parts, every
-pick takes a shape, and two picks at most 8 apart never share a main part. So no shape
-repeats within 8 lines. -/
-theorem a_run_never_repeats (run : List PickStep) (hw : ∀ st ∈ run, Wide st) :
-    runPicks run [] ⦃ outs =>
-      (∀ (b : Nat) (st : PickStep), run[b]? = some st → ∃ (i : Usize) (m : U16),
-        outs[b]? = some (some (i, m)) ∧ st.mains.val[i.val]? = some m) ∧
-      ∀ (a b : Nat) (ia ib : Usize) (ma mb : U16), a < b → b ≤ a + windowSize →
-        outs[a]? = some (some (ia, ma)) → outs[b]? = some (some (ib, mb)) → ma ≠ mb ⦄ := by
-  apply WP.spec_mono (runPicks.spec run [] hw)
-  rintro outs ⟨hlen, hall⟩
-  refine ⟨fun b st hb => ?_, ?_⟩
-  · obtain ⟨i, m, h1, h2, _⟩ := hall b st hb
-    exact ⟨i, m, h1, h2⟩
-  · intro a b ia ib ma mb hab hwin ha hb
-    have hbl : b < outs.length := (List.getElem?_eq_some_iff.mp hb).1
-    obtain ⟨st, hst⟩ : ∃ st, run[b]? = some st :=
-      List.getElem?_eq_some_iff.mpr ⟨by omega, rfl⟩ |> fun h => ⟨_, h⟩
-    obtain ⟨i, m, h1, _, hnot⟩ := hall b st hst
-    rw [hb] at h1
-    simp only [Option.some.injEq, Prod.mk.injEq] at h1
-    obtain ⟨_, rfl⟩ := h1
-    intro heq
-    subst heq
-    apply hnot
-    simp only [List.nil_append, window, Slice.from_val]
-    set l := mainsOf (outs.take b) with hl
-    have hll : l.length = b := by simp [hl, mainsOf]; omega
-    have hla : l[a]? = some ma := by
-      rw [hl, mainsOf, List.getElem?_map, List.getElem?_take_of_lt hab, ha]
-      rfl
-    rw [hll]
-    obtain ⟨hal, hlav⟩ := List.getElem?_eq_some_iff.mp hla
-    rw [List.mem_iff_getElem]
-    refine ⟨a - (b - windowSize), by simp [List.length_drop]; omega, ?_⟩
-    rw [List.getElem_drop]
-    have : b - windowSize + (a - (b - windowSize)) = a := by omega
-    simp only [this]
-    exact hlav
+theorem freshLines_snoc (lines : List (Option U16)) (x : Option U16) (h : FreshLines lines)
+    (hx : ∀ m, x = some m → ∀ a ma, lines.length ≤ a + windowSize →
+      lines[a]? = some (some ma) → ma ≠ m) :
+    FreshLines (lines ++ [x]) := by
+  intro b mb hb a ma hab hwin ha
+  have hbl : b < lines.length + 1 := by
+    have := (List.getElem?_eq_some_iff.mp hb).1; simpa using this
+  have hal : a < lines.length := by omega
+  rw [List.getElem?_append_left hal] at ha
+  by_cases hbe : b < lines.length
+  · rw [List.getElem?_append_left hbe] at hb
+    exact h b mb hb a ma hab hwin ha
+  · have : b = lines.length := by omega
+    subst this
+    rw [List.getElem?_append_right (le_refl _), Nat.sub_self] at hb
+    simp only [List.getElem?_cons_zero, Option.some.injEq] at hb
+    exact hx mb hb a ma hwin ha
+
+/-- The main part that a deed of a wide run takes is not in the window of the lines before
+it. -/
+theorem deed_fresh (st : PickStep) (hw : Wide st) (recent : alloc.vec.Vec U16)
+    (hshort : recent.val.length ≤ windowSize) (i : Usize) (t : Tier)
+    (hpost : PrefPost st.preferred st.usual st.fallback st.mains (alloc.vec.Vec.deref recent)
+      st.turn (some (i, t))) :
+    ∃ m, st.mains.val[i.val]? = some m ∧ m ∉ recent.val := by
+  have hfe := fresh_exists st hw (alloc.vec.Vec.deref recent) (by simpa using hshort)
+  obtain ⟨hp, hu, hf, _, _, hpp⟩ := hpost
+  cases t with
+  | Preferred => simpa [Fresh] using (hp i rfl).2
+  | Usual =>
+    obtain ⟨_, _, hpick⟩ := hpp i rfl
+    obtain ⟨j, hj, _, _, _, hff, _⟩ := hpick hfe
+    cases hj
+    simpa [Fresh] using hff.2
+  | Fallback =>
+    obtain ⟨j, hj⟩ := hfe
+    exact absurd ⟨j, hj.1⟩ (hf i rfl).2.2
+
+/-- Each line of a wide run keeps the law: no main part comes back within 8 lines. -/
+theorem runLines.spec (run : List LineStep) (lines : List (Option U16)) (hw : WideRun run)
+    (h : FreshLines lines) :
+    runLines run lines ⦃ out => FreshLines out ∧ out.length = lines.length + run.length ⦄ := by
+  induction run generalizing lines with
+  | nil => simp [runLines, h]
+  | cons step rest ih =>
+    have hw' : WideRun rest := fun st hs => hw st (by simp [hs])
+    cases step with
+    | arrival =>
+      unfold runLines
+      apply WP.spec_mono (ih (lines ++ [none]) hw' (freshLines_snoc _ _ h (by simp)))
+      rintro out ⟨h1, h3⟩
+      exact ⟨h1, by simp [h3]; omega⟩
+    | deed st =>
+      have hst := hw st (by simp)
+      unfold runLines
+      apply WP.spec_bind (window.spec (lastLines lines))
+      intro recent hrecent
+      have hlen8 : (lastLines lines).val.length - 8 = 0 := by
+        simp only [lastLines, Slice.from_val, List.length_drop, windowSize]
+        omega
+      rw [hlen8, List.drop_zero] at hrecent
+      have hshort : recent.val.length ≤ windowSize := by
+        rw [hrecent]
+        refine le_trans (List.length_filterMap_le _ _) ?_
+        simp only [lastLines, Slice.from_val, List.length_drop, windowSize]
+        omega
+      obtain ⟨hpre, hus, hfb, _⟩ := id hst
+      apply WP.spec_bind (pick_preferring.spec st.preferred st.usual st.fallback st.mains
+        (alloc.vec.Vec.deref recent) st.turn hpre hus hfb)
+      intro r hpost
+      rcases r with _ | ⟨i, t⟩
+      · exfalso
+        obtain ⟨j, hj⟩ := fresh_exists st hst (alloc.vec.Vec.deref recent) (by simpa using hshort)
+        exact (hpost.2.2.2.2.1 rfl).2.1 ⟨j, hj.1⟩
+      · simp only
+        obtain ⟨m, hm, hmw⟩ := deed_fresh st hst recent hshort i t hpost
+        have hget : st.mains.val.getD i.val 0#u16 = m := by simp [List.getD, hm]
+        rw [hget]
+        apply WP.spec_mono (ih (lines ++ [some m]) hw' (freshLines_snoc _ _ h ?_))
+        · rintro out ⟨h1, h3⟩
+          exact ⟨h1, by simp at h3; simp; omega⟩
+        · intro m' hm' a ma hwin ha
+          simp only [Option.some.injEq] at hm'
+          subst hm'
+          intro heq
+          subst heq
+          apply hmw
+          rw [hrecent]
+          simp only [lastLines, Slice.from_val]
+          rw [List.mem_filterMap]
+          refine ⟨some ma, ?_, rfl⟩
+          rw [List.mem_iff_getElem?]
+          refine ⟨a - (lines.length - windowSize), ?_⟩
+          rw [List.getElem?_drop]
+          rw [show lines.length - windowSize + (a - (lines.length - windowSize)) = a by omega]
+          exact ha
+
+/-- Law 12, over the lines of the story program. In a run of narrator lines from the start,
+where an arrival is a line with no main part and each deed has more than 8 fitting main
+parts in its usual set, two lines at most 8 apart never share a main part. The window is
+the last 8 accepted lines, arrivals included, and `window` computes it from them. -/
+theorem a_run_never_repeats (run : List LineStep) (hw : WideRun run) :
+    runLines run [] ⦃ out => out.length = run.length ∧
+      ∀ (a b : Nat) (ma mb : U16), a < b → b ≤ a + windowSize →
+        out[a]? = some (some ma) → out[b]? = some (some mb) → ma ≠ mb ⦄ := by
+  apply WP.spec_mono (runLines.spec run [] hw (by intro b mb hb; simp at hb))
+  rintro out ⟨h1, h3⟩
+  refine ⟨by simpa using h3, ?_⟩
+  intro a b ma mb hab hwin ha hb
+  exact h1 b mb hb a ma hab hwin ha
 
 end timeways_rules.narrator_shapes

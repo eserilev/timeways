@@ -1261,6 +1261,11 @@ def hero_hook.pick
       ok (some index)
   else ok none
 
+/-- [timeways_rules::narrator_shapes::WINDOW]
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 12:0-12:28
+    Visibility: public -/
+@[global_simps, irreducible] def narrator_shapes.WINDOW : Std.Usize := 8#usize
+
 /-- [timeways_rules::narrator_shapes::MOST_TOKENS]
     Source: 'crates/rules/src/narrator_shapes.rs', lines 15:0-15:36
     Visibility: public -/
@@ -1869,7 +1874,7 @@ def narrator_shapes.table_ok
   else ok false
 
 /-- [timeways_rules::narrator_shapes::last_use]: loop 0:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 444:4-451:1 -/
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 511:4-518:1 -/
 @[rust_loop]
 def narrator_shapes.last_use_loop
   (recent : Slice Std.U16) (main : Std.U16) (index : Std.Usize) :
@@ -1886,14 +1891,14 @@ def narrator_shapes.last_use_loop
 partial_fixpoint
 
 /-- [timeways_rules::narrator_shapes::last_use]:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 442:0-451:1 -/
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 509:0-518:1 -/
 def narrator_shapes.last_use
   (recent : Slice Std.U16) (main : Std.U16) : Result Std.Usize := do
   let index := Slice.len recent
   narrator_shapes.last_use_loop recent main index
 
 /-- [timeways_rules::narrator_shapes::around]:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 395:0-401:1 -/
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 462:0-468:1 -/
 def narrator_shapes.around
   (start : Std.Usize) (step : Std.Usize) (count : Std.Usize) :
   Result Std.Usize
@@ -1904,7 +1909,7 @@ def narrator_shapes.around
   else step - i
 
 /-- [timeways_rules::narrator_shapes::longest_unused]: loop 0:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 422:4-436:5 -/
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 489:4-503:5 -/
 @[rust_loop]
 def narrator_shapes.longest_unused_loop
   (fits : Slice Bool) (mains : Slice Std.U16) (recent : Slice Std.U16)
@@ -1939,7 +1944,7 @@ def narrator_shapes.longest_unused_loop
 partial_fixpoint
 
 /-- [timeways_rules::narrator_shapes::longest_unused]:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 418:0-438:1 -/
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 485:0-505:1 -/
 @[reducible]
 def narrator_shapes.longest_unused
   (fits : Slice Bool) (mains : Slice Std.U16) (recent : Slice Std.U16)
@@ -1950,7 +1955,7 @@ def narrator_shapes.longest_unused
     0#usize
 
 /-- [timeways_rules::narrator_shapes::first_fresh]: loop 0:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 406:4-414:1 -/
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 473:4-481:1 -/
 @[rust_loop]
 def narrator_shapes.first_fresh_loop
   (fits : Slice Bool) (mains : Slice Std.U16) (recent : Slice Std.U16)
@@ -1979,7 +1984,7 @@ def narrator_shapes.first_fresh_loop
 partial_fixpoint
 
 /-- [timeways_rules::narrator_shapes::first_fresh]:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 404:0-414:1 -/
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 471:0-481:1 -/
 @[reducible]
 def narrator_shapes.first_fresh
   (fits : Slice Bool) (mains : Slice Std.U16) (recent : Slice Std.U16)
@@ -2011,6 +2016,75 @@ def narrator_shapes.pick
       match o with
       | none => narrator_shapes.longest_unused fits mains recent start
       | some _ => ok o
+
+/-- [timeways_rules::narrator_shapes::fresh_pick]:
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 430:0-438:1 -/
+def narrator_shapes.fresh_pick
+  (fits : Slice Bool) (mains : Slice Std.U16) (recent : Slice Std.U16)
+  (turn : Std.U64) :
+  Result (Option Std.Usize)
+  := do
+  let o ← narrator_shapes.pick fits mains recent turn
+  match o with
+  | none => ok none
+  | some index =>
+    let i ← Slice.index_usize mains index
+    let b ← narrator_shapes.holds recent i
+    if b
+    then ok none
+    else ok o
+
+/-- [timeways_rules::narrator_shapes::pick_preferring]:
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 409:0-427:1
+    Visibility: public -/
+def narrator_shapes.pick_preferring
+  (preferred : Slice Bool) (usual : Slice Bool) (fallback : Slice Bool)
+  (mains : Slice Std.U16) (recent : Slice Std.U16) (turn : Std.U64) :
+  Result (Option (Std.Usize × narrator_shapes.Tier))
+  := do
+  let o ← narrator_shapes.fresh_pick preferred mains recent turn
+  match o with
+  | none =>
+    let o1 ← narrator_shapes.pick usual mains recent turn
+    match o1 with
+    | none =>
+      let o2 ← narrator_shapes.pick fallback mains recent turn
+      match o2 with
+      | none => ok none
+      | some index => ok (some (index, narrator_shapes.Tier.Fallback))
+    | some index => ok (some (index, narrator_shapes.Tier.Usual))
+  | some index => ok (some (index, narrator_shapes.Tier.Preferred))
+
+/-- [timeways_rules::narrator_shapes::window]: loop 0:
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 449:4-456:5
+    Visibility: public -/
+@[rust_loop]
+def narrator_shapes.window_loop
+  (lines : Slice (Option Std.U16)) (mains : alloc.vec.Vec Std.U16)
+  (index : Std.Usize) :
+  Result (alloc.vec.Vec Std.U16)
+  := do
+  let i := Slice.len lines
+  if index < i
+  then
+    let line ← Slice.index_usize lines index
+    let mains1 ←
+      match line with
+      | none => ok mains
+      | some main => alloc.vec.Vec.push mains main
+    let index1 ← index + 1#usize
+    narrator_shapes.window_loop lines mains1 index1
+  else ok mains
+partial_fixpoint
+
+/-- [timeways_rules::narrator_shapes::window]:
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 446:0-458:1
+    Visibility: public -/
+def narrator_shapes.window
+  (lines : Slice (Option Std.U16)) : Result (alloc.vec.Vec Std.U16) := do
+  let i := Slice.len lines
+  let index ← lift (core.num.Usize.saturating_sub i narrator_shapes.WINDOW)
+  narrator_shapes.window_loop lines (alloc.vec.Vec.new Std.U16) index
 
 /-- [timeways_rules::prompts::PROMPTS_KEPT]
     Source: 'crates/rules/src/prompts.rs', lines 5:0-5:34

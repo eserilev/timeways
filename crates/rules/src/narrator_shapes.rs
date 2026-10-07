@@ -390,6 +390,73 @@ pub fn pick(fits: &[bool], mains: &[u16], recent: &[u16], turn: u64) -> Option<u
     longest_unused(fits, mains, recent, start)
 }
 
+/// The set of fits that a preferring pick took its shape from.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Tier {
+    Preferred,
+    Usual,
+    Fallback,
+}
+
+/// The shape of a line with a preference. `preferred`, `usual`, and `fallback` are three
+/// sets of fits over the same shapes and `mains`. The pick takes a fresh fitting shape of
+/// `preferred`. Else it takes the pick of `usual`, a recent shape too. Else the pick of
+/// `fallback`. A kill on a named turn prefers the parts with no hero (docs/plans/
+/// narrator-templates.md 3.5), and a turn whose naming fits no shape falls back to the other
+/// naming.
+#[cfg_attr(charon, verify::start_from)]
+#[must_use]
+pub fn pick_preferring(
+    preferred: &[bool],
+    usual: &[bool],
+    fallback: &[bool],
+    mains: &[u16],
+    recent: &[u16],
+    turn: u64,
+) -> Option<(usize, Tier)> {
+    if let Some(index) = fresh_pick(preferred, mains, recent, turn) {
+        return Some((index, Tier::Preferred));
+    }
+    if let Some(index) = pick(usual, mains, recent, turn) {
+        return Some((index, Tier::Usual));
+    }
+    match pick(fallback, mains, recent, turn) {
+        Some(index) => Some((index, Tier::Fallback)),
+        None => None,
+    }
+}
+
+/// The pick, when its main part is not recent.
+fn fresh_pick(fits: &[bool], mains: &[u16], recent: &[u16], turn: u64) -> Option<usize> {
+    let Some(index) = pick(fits, mains, recent, turn) else {
+        return None;
+    };
+    if holds(recent, mains[index]) {
+        return None;
+    }
+    Some(index)
+}
+
+/// The window of the rotation: the main parts of the last `WINDOW` lines, oldest first.
+/// `lines` holds the main part of each accepted line of the character, oldest first, or
+/// None for a line with no main part, such as an arrival. Such a line still takes its
+/// place in the window. An index loop.
+#[cfg_attr(charon, verify::start_from)]
+#[must_use]
+pub fn window(lines: &[Option<u16>]) -> Vec<u16> {
+    let mut mains = Vec::new();
+    let mut index = lines.len().saturating_sub(WINDOW);
+    while index < lines.len() {
+        // A copy first: Aeneas cannot match on a slot of a slice in place.
+        let line = lines[index];
+        if let Some(main) = line {
+            mains.push(main);
+        }
+        index += 1;
+    }
+    mains
+}
+
 /// The index `step` places after `start`, around the end of a list of `count`. It never
 /// overflows, because `start` and `step` are below `count`.
 fn around(start: usize, step: usize, count: usize) -> usize {
@@ -605,6 +672,66 @@ mod tests {
 
         assert_eq!(pick(&fits, &mains, &[11, 10, 12], 0), Some(1));
         assert_eq!(pick(&fits, &mains, &[10, 11], 1), Some(0));
+    }
+
+    #[test]
+    fn a_fresh_preferred_shape_wins_over_the_usual_set() {
+        let mains = [10, 11, 12];
+
+        let picked = pick_preferring(
+            &[false, true, false],
+            &[true; 3],
+            &[true; 3],
+            &mains,
+            &[],
+            0,
+        );
+
+        assert_eq!(picked, Some((1, Tier::Preferred)));
+    }
+
+    #[test]
+    fn a_recent_preferred_shape_gives_way_to_the_usual_set() {
+        let mains = [10, 11, 12];
+
+        let picked = pick_preferring(
+            &[false, true, false],
+            &[true; 3],
+            &[false; 3],
+            &mains,
+            &[11],
+            0,
+        );
+
+        assert_eq!(picked, Some((0, Tier::Usual)));
+    }
+
+    #[test]
+    fn the_fallback_comes_only_when_nothing_else_fits() {
+        let mains = [10, 11];
+
+        let only_recent = pick_preferring(
+            &[true, false],
+            &[false; 2],
+            &[true, false],
+            &mains,
+            &[10],
+            0,
+        );
+        let nothing = pick_preferring(&[false; 2], &[false; 2], &[false; 2], &mains, &[], 0);
+
+        assert_eq!(only_recent, Some((0, Tier::Fallback)));
+        assert_eq!(nothing, None);
+    }
+
+    #[test]
+    fn the_window_holds_the_main_parts_of_the_last_eight_lines() {
+        let mut lines: Vec<Option<u16>> = (0..10).map(Some).collect();
+        lines[8] = None;
+
+        assert_eq!(window(&lines), [2, 3, 4, 5, 6, 7, 9]);
+        assert_eq!(window(&[None, Some(4)]), [4]);
+        assert!(window(&[]).is_empty());
     }
 
     #[test]

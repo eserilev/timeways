@@ -289,6 +289,8 @@ A new module `crates/rules/src/narrator_shapes.rs`, in loop style (lib.rs: no cl
 - `assemble(table, shape, facts) -> Option<Vec<Token>>`: the tokens of the parts in order, or `None` if a slot has no value.
 - `assemble_arrival() -> Vec<Token>`: exactly `[Slot(Lore)]`. An arrival never reads the table.
 - `pick(fits: &[bool], mains: &[u16], recent: &[u16], turn: u64) -> Option<usize>`.
+- `pick_preferring(preferred, usual, fallback, mains, recent, turn) -> Option<(usize, Tier)>`: the order of the choice of 3.5. A fresh fitting shape of `preferred`, else the pick of `usual`, else the pick of `fallback`.
+- `window(lines: &[Option<u16>]) -> Vec<u16>`: the main parts of the last N lines, where an arrival is a line with no main part.
 - `table_ok(table, shapes) -> bool` and `distinct_skeletons(table, shapes) -> bool`: checks of the data, run at load.
 
 Strings stay out. Aeneas translates `String` comparison (`aliases.rs`), but not formatting, case, or splitting. So the rules crate works on token ids, and the story crate renders text. The render has property tests, not proofs.
@@ -308,8 +310,14 @@ Strings stay out. Aeneas translates `String` comparison (`aliases.rs`), but not 
 | 9 | `every_slot_has_a_value` | Each slot of a built line has a value in the facts. So no "{foe}" ever shows. |
 | 10 | `a_pick_fits` | The pick returns a shape that fits, and returns one whenever a shape fits. |
 | 11 | `no_main_repeats_within_n` | If a fitting shape has a main part outside the window, the pick takes such a shape. |
-| 12 | `a_run_never_repeats` | Over a run of picks, each with more than N fitting main parts, two picks at most N apart never share a main part. So no shape repeats within N. |
+| 12 | `a_run_never_repeats` | Over a run of lines, arrivals included, where each deed has more than N fitting main parts, two lines at most N apart never share a main part. So no shape repeats within N lines. |
 | 13 | `the_pick_is_deterministic_from_the_turn` | The pick is the first fitting fresh shape from `turn mod count`. |
+| 14 | `a_fresh_preferred_shape_wins` | When a fresh shape of the first set fits, the choice takes one. So a kill on a named turn takes a fresh part with no hero when it has one. |
+| 15 | `the_pick_falls_back_only_when_nothing_before_fits` | The choice takes the usual set only when no fresh shape of the first set fits, and the fallback only when the usual set has no fitting shape. |
+| 16 | `the_preferring_pick_fits`, `the_preferring_pick_never_panics` | The choice never takes a shape that does not fit, and it never panics. |
+| 17 | `window.spec` | The window is the main parts of the last N lines. An arrival takes a place and adds nothing. |
+
+Theorems 12 to 17 changed with the build of the proofs (lean/README.md). Law 12 first spoke of picks, and the story program reads lines: an arrival takes a place in the window of the program. Now the run has an arrival step, and the law speaks of lines. The order of the choice was glue in `narrator_build.rs`, and now it is `pick_preferring` in the rules. It takes three sets, not two, because a kill and the other moments walk the namings in two orders.
 
 Sketches, in the style of `HeroHook.lean`:
 

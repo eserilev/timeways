@@ -13,7 +13,7 @@ use crate::narrator_render::{
 };
 use crate::narrator_slots::{Choices, KillerKind, Parsed, SlotFault, Tone, parse};
 use crate::narrator_templates::{Kind, Need, Number, ShapeInfo, Slot, TEMPLATES, Templates};
-use timeways_rules::narrator_shapes::{self as rules, Facts, Token};
+use timeways_rules::narrator_shapes::{self as rules, Facts, Tier, Token};
 
 /// The main part of the line of an arrival, for the window of the rotation.
 pub const PLACE_SHAPE: &str = "f.place";
@@ -530,54 +530,50 @@ fn hero_words(naming: &Naming) -> Option<String> {
     }
 }
 
-/// The shape of the line, and whether it names the hero. A kill prefers a part with no
-/// hero: on a named turn it walks the unnamed parts first (3.5). A turn whose naming fits
-/// no shape takes the other naming, so a moment with a lore sentence always has a line.
+/// The shape of the line, and whether it names the hero. The order of the choice lives in
+/// the rules (`pick_preferring`): a kill on a named turn prefers a fresh part with no hero
+/// (3.5), and a turn whose naming fits no shape takes the other naming, so a moment with a
+/// lore sentence always has a line.
 fn pick_shape(templates: &Templates, plan: &Plan, setup: &Setup) -> Option<(usize, bool)> {
     let shapes = templates.shapes(plan.kind);
-    let recent = recent_mains(templates, &setup.recent);
     let named = plan.is_named();
-    if plan.kind == Kind::Kill && named {
-        let unnamed = pick_with(templates, shapes, plan, &recent, setup.turn, false);
-        if let Some(index) = unnamed
-            && !recent.contains(&shapes[index].main)
-        {
-            return Some((index, false));
-        }
-    }
-    let first = pick_with(templates, shapes, plan, &recent, setup.turn, named);
-    if let Some(index) = first {
-        return Some((index, named));
-    }
-    pick_with(templates, shapes, plan, &recent, setup.turn, !named).map(|index| (index, !named))
+    let own = fits_of(templates, shapes, plan, named);
+    let other = fits_of(templates, shapes, plan, !named);
+    let preferred = if plan.kind == Kind::Kill && named {
+        other.clone()
+    } else {
+        vec![false; shapes.len()]
+    };
+    let mains: Vec<u16> = shapes.iter().map(|info| info.main).collect();
+    let lines: Vec<Option<u16>> = setup
+        .recent
+        .iter()
+        .map(|main| main_id(templates, main))
+        .collect();
+    let recent = rules::window(&lines);
+    let turn = u64::try_from(setup.turn).unwrap_or(u64::MAX);
+    let (index, tier) = rules::pick_preferring(&preferred, &own, &other, &mains, &recent, turn)?;
+    let names_the_hero = match tier {
+        Tier::Preferred => false,
+        Tier::Usual => named,
+        Tier::Fallback => !named,
+    };
+    Some((index, names_the_hero))
 }
 
-fn pick_with(
-    templates: &Templates,
-    shapes: &[ShapeInfo],
-    plan: &Plan,
-    recent: &[u16],
-    turn: usize,
-    named: bool,
-) -> Option<usize> {
+fn fits_of(templates: &Templates, shapes: &[ShapeInfo], plan: &Plan, named: bool) -> Vec<bool> {
     let facts = plan.facts(named);
-    let fits: Vec<bool> = shapes
+    shapes
         .iter()
         .map(|info| rules::fits(&templates.table, &info.shape, &facts))
-        .collect();
-    let mains: Vec<u16> = shapes.iter().map(|info| info.main).collect();
-    let turn = u64::try_from(turn).unwrap_or(u64::MAX);
-    rules::pick(&fits, &mains, recent, turn)
+        .collect()
 }
 
-/// The main parts of the recent lines, as ids of the templates. An old id that the data
-/// no longer holds counts for nothing.
-fn recent_mains(templates: &Templates, recent: &[String]) -> Vec<u16> {
-    recent
-        .iter()
-        .filter_map(|main| templates.mains.iter().position(|known| known == main))
-        .filter_map(|index| u16::try_from(index).ok())
-        .collect()
+/// The id of a main part in the templates. An arrival, or an old main part that the data
+/// no longer holds, has none: it still takes its place in the window.
+fn main_id(templates: &Templates, main: &str) -> Option<u16> {
+    let index = templates.mains.iter().position(|known| known == main)?;
+    u16::try_from(index).ok()
 }
 
 fn zone_of(moment: &Moment) -> Option<&str> {
