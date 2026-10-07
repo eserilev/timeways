@@ -6,7 +6,7 @@ Lean functions. The theorems in `Timeways/QuestLog.lean`,
 `Timeways/TrustBand.lean`, `Timeways/Prompts.lean`,
 `Timeways/Aliases.lean`, `Timeways/StoryShelf.lean`,
 `Timeways/EntryEdits.lean`, `Timeways/Chapters.lean`, `Timeways/ChaptersDeaths.lean`,
-`Timeways/NarratorShapes.lean`, `Timeways/ThinLore.lean`, `Timeways/GameNames.lean`, `Timeways/Outcomes.lean`, `Timeways/Setups.lean`, and `Timeways/InstanceLore.lean` are about those functions. A theorem holds for every input, with no bound. The
+`Timeways/NarratorShapes.lean`, `Timeways/ThinLore.lean`, `Timeways/GameNames.lean`, `Timeways/Outcomes.lean`, `Timeways/Setups.lean`, `Timeways/InstanceLore.lean`, and `Timeways/Prologue.lean` are about those functions. A theorem holds for every input, with no bound. The
 property tests in `crates/story/tests/properties.rs` check the same
 rules on random input, and they stay as a second check.
 
@@ -587,3 +587,29 @@ Each limit has a workaround in the code. Keep the workarounds.
 8. **No crate outside std.** Aeneas sees only the code it translates.
    So `timeways-rules` holds no serde, no Hourglass, and no `Tick`. A
    time is a `u64` of seconds, and the story program converts.
+
+## What is proved: the prologue
+
+`crates/rules/src/prologue.rs` decides if a character gets a prologue
+(GAMEPLAY.md 3.3). The first past that the addon sends decides it. A
+past is long at level 10 or more, with 20 finished quests or 2
+discovered zones, in a world with no closed chapter and no tale. The
+glue in `crates/story/src/story/prologues.rs` folds the rows of the
+`past` table and the prologue row of `chapters` through these
+functions. No proof reads the glue. Its named tests and property tests
+check it.
+
+`pastM`, `writtenM`, and `dueM` are the pure models of the three
+steps. The spec theorems prove each Rust function equal to its model.
+A run is any list of acts: a past, or a written prologue.
+
+| Theorem | The law | Test |
+|---|---|---|
+| `is_long.spec` | A past is long exactly at level 10 or more, with 20 quests or 2 zones, in a new world. | the unit tests of `prologue.rs` |
+| `after_past.spec`, `after_written.spec`, `is_due.spec` | Each step gives its pure model. | the same |
+| `the_rule_never_panics` | Each step gives a value for every input. | none |
+| `a_new_character_gets_no_prologue` | When the first past is not long, no later run makes the prologue due. | `a_new_character_gets_no_prologue` |
+| `a_played_world_gets_no_prologue` | A past that comes to a world with play never makes a prologue due. | `a_world_with_play_gets_no_prologue` |
+| `a_prologue_is_written_at_most_once` | From any state, a run writes the prologue at most once. | `the_prologue_is_written_at_most_once_and_never_moves` |
+| `a_written_prologue_is_never_due` | After the prologue is written, no run makes it due again. | the same |
+

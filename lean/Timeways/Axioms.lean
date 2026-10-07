@@ -16,6 +16,7 @@ import Timeways.GameNames
 import Timeways.Outcomes
 import Timeways.Setups
 import Timeways.InstanceLore
+import Timeways.Prologue
 
 open timeways_rules
 
@@ -526,3 +527,38 @@ open timeways_rules
 /-- info: 'timeways_rules.setups.a_kill_of_another_person_keeps_the_setup' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs (whitespace := lax) in
 #print axioms setups.a_kill_of_another_person_keeps_the_setup
+/-- info: 'timeways_rules.prologue.is_long.spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms prologue.is_long.spec
+
+/-- info: 'timeways_rules.prologue.after_past.spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms prologue.after_past.spec
+
+/-- info: 'timeways_rules.prologue.after_written.spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms prologue.after_written.spec
+
+/-- info: 'timeways_rules.prologue.is_due.spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms prologue.is_due.spec
+
+/-- info: 'timeways_rules.prologue.the_rule_never_panics' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms prologue.the_rule_never_panics
+
+/-- info: 'timeways_rules.prologue.a_new_character_gets_no_prologue' depends on axioms: [propext] -/
+#guard_msgs (whitespace := lax) in
+#print axioms prologue.a_new_character_gets_no_prologue
+
+/-- info: 'timeways_rules.prologue.a_played_world_gets_no_prologue' depends on axioms: [propext] -/
+#guard_msgs (whitespace := lax) in
+#print axioms prologue.a_played_world_gets_no_prologue
+
+/-- info: 'timeways_rules.prologue.a_prologue_is_written_at_most_once' depends on axioms: [propext] -/
+#guard_msgs (whitespace := lax) in
+#print axioms prologue.a_prologue_is_written_at_most_once
+
+/-- info: 'timeways_rules.prologue.a_written_prologue_is_never_due' depends on axioms: [propext] -/
+#guard_msgs (whitespace := lax) in
+#print axioms prologue.a_written_prologue_is_never_due

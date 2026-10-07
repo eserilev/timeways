@@ -346,6 +346,33 @@ structure outcomes.PlayerFacts where
   quests_done : alloc.vec.Vec Std.U32
   names : alloc.vec.Vec game_names.NameRow
 
+/-- [timeways_rules::prologue::WorldAge]
+    Source: 'crates/rules/src/prologue.rs', lines 16:0-21:1
+    Visibility: public -/
+@[discriminant isize]
+inductive prologue.WorldAge where
+| New : prologue.WorldAge
+| Played : prologue.WorldAge
+
+/-- [timeways_rules::prologue::Past]
+    Source: 'crates/rules/src/prologue.rs', lines 25:0-30:1
+    Visibility: public -/
+structure prologue.Past where
+  level : Std.U8
+  quests : Std.U32
+  zones : Std.U32
+  world : prologue.WorldAge
+
+/-- [timeways_rules::prologue::Prologue]
+    Source: 'crates/rules/src/prologue.rs', lines 34:0-42:1
+    Visibility: public -/
+@[discriminant isize]
+inductive prologue.Prologue where
+| Unseen : prologue.Prologue
+| Skipped : prologue.Prologue
+| Due : prologue.Prologue
+| Written : prologue.Prologue
+
 /-- [timeways_rules::quest_log::Goal]
     Source: 'crates/rules/src/quest_log.rs', lines 14:0-18:1
     Visibility: public -/

@@ -2272,6 +2272,73 @@ def outcomes.outcomes_usable
   := do
   outcomes.outcomes_usable_loop tags facts 0#usize
 
+/-- [timeways_rules::prologue::PROLOGUE_LEVEL]
+    Source: 'crates/rules/src/prologue.rs', lines 6:0-6:34
+    Visibility: public -/
+@[global_simps, irreducible] def prologue.PROLOGUE_LEVEL : Std.U8 := 10#u8
+
+/-- [timeways_rules::prologue::PROLOGUE_QUESTS]
+    Source: 'crates/rules/src/prologue.rs', lines 9:0-9:36
+    Visibility: public -/
+@[global_simps, irreducible] def prologue.PROLOGUE_QUESTS : Std.U32 := 20#u32
+
+/-- [timeways_rules::prologue::PROLOGUE_ZONES]
+    Source: 'crates/rules/src/prologue.rs', lines 12:0-12:34
+    Visibility: public -/
+@[global_simps, irreducible] def prologue.PROLOGUE_ZONES : Std.U32 := 2#u32
+
+/-- [timeways_rules::prologue::is_long]:
+    Source: 'crates/rules/src/prologue.rs', lines 48:0-60:1
+    Visibility: public -/
+def prologue.is_long (past : prologue.Past) : Result Bool := do
+  match past.world with
+  | prologue.WorldAge.New =>
+    if past.level < prologue.PROLOGUE_LEVEL
+    then ok false
+    else
+      if past.quests >= prologue.PROLOGUE_QUESTS
+      then ok true
+      else ok (past.zones >= prologue.PROLOGUE_ZONES)
+  | prologue.WorldAge.Played => ok false
+
+/-- [timeways_rules::prologue::after_past]:
+    Source: 'crates/rules/src/prologue.rs', lines 65:0-78:1
+    Visibility: public -/
+def prologue.after_past
+  (state : prologue.Prologue) (past : prologue.Past) :
+  Result prologue.Prologue
+  := do
+  match state with
+  | prologue.Prologue.Unseen =>
+    let b ← prologue.is_long past
+    if b
+    then ok prologue.Prologue.Due
+    else ok prologue.Prologue.Skipped
+  | prologue.Prologue.Skipped => ok prologue.Prologue.Skipped
+  | prologue.Prologue.Due => ok prologue.Prologue.Due
+  | prologue.Prologue.Written => ok prologue.Prologue.Written
+
+/-- [timeways_rules::prologue::after_written]:
+    Source: 'crates/rules/src/prologue.rs', lines 83:0-89:1
+    Visibility: public -/
+def prologue.after_written
+  (state : prologue.Prologue) : Result prologue.Prologue := do
+  match state with
+  | prologue.Prologue.Unseen => ok prologue.Prologue.Unseen
+  | prologue.Prologue.Skipped => ok prologue.Prologue.Skipped
+  | prologue.Prologue.Due => ok prologue.Prologue.Written
+  | prologue.Prologue.Written => ok prologue.Prologue.Written
+
+/-- [timeways_rules::prologue::is_due]:
+    Source: 'crates/rules/src/prologue.rs', lines 93:0-98:1
+    Visibility: public -/
+def prologue.is_due (state : prologue.Prologue) : Result Bool := do
+  match state with
+  | prologue.Prologue.Unseen => ok false
+  | prologue.Prologue.Skipped => ok false
+  | prologue.Prologue.Due => ok true
+  | prologue.Prologue.Written => ok false
+
 /-- [timeways_rules::prompts::PROMPTS_KEPT]
     Source: 'crates/rules/src/prompts.rs', lines 5:0-5:34
     Visibility: public -/
