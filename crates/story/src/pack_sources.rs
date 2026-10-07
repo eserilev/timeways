@@ -296,30 +296,36 @@ fn add_page(built: &mut Built, wanted: &WikiPage, page: Option<&Page>, filters: 
     let shelf = Shelf {
         source: &source,
         links: &links,
-        about: subject_of(&wanted.title, &links),
+        about: Some(subject_of(&wanted.title, &links)),
     };
     push_passages(built, &page.title, outcome, texts, &shelf);
 }
 
 /// The link that a page is about, when its title names it: the page "Deadmines" is about
-/// "The Deadmines", and "Shadowfang Keep (Classic)" about "Shadowfang Keep". The page "Mr.
-/// Smite" links to "The Deadmines" and is about none of its links.
+/// "The Deadmines", and "Shadowfang Keep (Classic)" about "Shadowfang Keep". Else the page
+/// is about its own title: "Undercity" (a common page) is about "Undercity", and "Mr.
+/// Smite", which links to "The Deadmines", is about "Mr. Smite".
 #[must_use]
-pub fn subject_of(title: &str, links: &[Link]) -> Option<String> {
-    let title = bare_title(title);
-    links.iter().find_map(|link| match link {
-        Link::Place(name) | Link::Npc(name) if bare_title(name) == title => Some(name.clone()),
+pub fn subject_of(title: &str, links: &[Link]) -> String {
+    let bare = bare_title(title);
+    let named = links.iter().find_map(|link| match link {
+        Link::Place(name) | Link::Npc(name) if bare_title(name) == bare => Some(name.clone()),
         _ => None,
-    })
+    });
+    named.unwrap_or_else(|| without_suffix(title.trim()).to_string())
+}
+
+/// A title with no "(Classic)" after it.
+fn without_suffix(title: &str) -> &str {
+    match title.rfind(" (") {
+        Some(at) if title.ends_with(')') => &title[..at],
+        _ => title,
+    }
 }
 
 /// A title in lower case, with no "the" before it and no "(Classic)" after it.
 fn bare_title(title: &str) -> String {
-    let title = title.trim().to_lowercase();
-    let title = match title.rfind(" (") {
-        Some(at) if title.ends_with(')') => title[..at].to_string(),
-        _ => title,
-    };
+    let title = without_suffix(title.trim()).to_lowercase();
     title.strip_prefix("the ").unwrap_or(&title).to_string()
 }
 

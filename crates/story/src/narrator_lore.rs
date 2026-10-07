@@ -80,7 +80,7 @@ fn people_pages(race: Race) -> &'static [&'static str] {
         Race::Forsaken => &["Undercity", "Forsaken", "Ruins of Lordaeron"],
         Race::Tauren => &["Thunder Bluff", "Mulgore"],
         Race::Gnome => &["Gnomeregan"],
-        Race::Troll => &["Echo Isles", "Sen'jin Village", "Darkspear"],
+        Race::Troll => &["Echo Isles", "Sen'jin Village", "Darkspear tribe"],
     }
 }
 

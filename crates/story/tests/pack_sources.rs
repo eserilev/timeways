@@ -508,16 +508,25 @@ fn a_page_is_about_the_link_that_its_title_names() {
     let deadmines = [Link::Place("The Deadmines".to_string())];
     let keep = [Link::Place("Shadowfang Keep".to_string())];
 
+    assert_eq!(subject_of("Deadmines", &deadmines), "The Deadmines");
     assert_eq!(
-        subject_of("Deadmines", &deadmines).as_deref(),
-        Some("The Deadmines")
+        subject_of("Shadowfang Keep (Classic)", &keep),
+        "Shadowfang Keep"
     );
+}
+
+#[test]
+fn a_page_whose_title_names_no_link_is_about_its_own_title() {
+    let deadmines = [Link::Place("The Deadmines".to_string())];
+    let durotar = [Link::Place("Durotar".to_string())];
+
+    assert_eq!(subject_of("Mr. Smite", &deadmines), "Mr. Smite");
+    assert_eq!(subject_of("Test Folk", &[Link::Common]), "Test Folk");
     assert_eq!(
-        subject_of("Shadowfang Keep (Classic)", &keep).as_deref(),
-        Some("Shadowfang Keep")
+        subject_of("Test Folk (Classic)", &[Link::Common]),
+        "Test Folk"
     );
-    assert_eq!(subject_of("Mr. Smite", &deadmines), None);
-    assert_eq!(subject_of("Test History", &[Link::Common]), None);
+    assert_eq!(subject_of("Darkspear tribe", &durotar), "Darkspear tribe");
 }
 
 #[test]
@@ -529,5 +538,5 @@ fn the_passages_of_a_page_keep_the_subject_of_the_page() {
     let first = &built.passages[0];
     let last = &built.passages[built.passages.len() - 1];
     assert_eq!(first.about.as_deref(), Some("Testvale"));
-    assert_eq!(last.about, None);
+    assert_eq!(last.about.as_deref(), Some("Test Folk"));
 }

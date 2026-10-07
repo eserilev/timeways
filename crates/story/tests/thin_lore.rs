@@ -1,13 +1,18 @@
 #![allow(clippy::unwrap_used)]
 
+mod wiki_dump;
+
+use hourglass::Tick;
 use std::path::Path;
 use timeways_story::character::Character;
 use timeways_story::moments::Moment;
 use timeways_story::narrator::Who;
 use timeways_story::narrator_lore::{is_thin, lore_of_moment, lore_subjects};
 use timeways_story::pack::{Link, Origin, Pack, Passage};
+use timeways_story::pack_sources::{Sources, from_dump};
 use timeways_story::race_class::{Class, Race};
 use timeways_story::seen::{SeenIndex, SeenText, TextKind};
+use wiki_dump::{article, fresh, long, write_dump};
 
 fn passage(text: &str, about: Option<&str>, links: Vec<Link>) -> Passage {
     Passage {
@@ -244,4 +249,90 @@ fn the_quest_text_that_the_player_read_is_about_its_quest() {
     let passage = read.passage();
 
     assert!(!is_thin(&lore_subjects(&moment, &human()), Some(&passage)));
+}
+
+const PEOPLE_SOURCES: &str = r#"
+[books]
+index = "Test History"
+chapters = []
+
+[[pages]]
+title = "Undercity"
+sections = ["History"]
+common = true
+
+[[pages]]
+title = "Forsaken"
+sections = ["History"]
+common = true
+
+[[pages]]
+title = "Darkspear tribe"
+sections = ["History"]
+places = ["Durotar"]
+"#;
+
+/// A pack built from invented pages of the Undercity, the Forsaken, and the Darkspear.
+fn people_pack(name: &str) -> Pack {
+    let page = |text: &str| format!("Lead.\n==History==\n{}\n", long(text));
+    let undercity = page("The Undercity was dug beneath the old capital of the test kingdom.");
+    let forsaken = page("The Forsaken broke free of the test lich and chose a test queen.");
+    let darkspear = page("The Darkspear left their test isles to follow the test warchief.");
+    let dump = write_dump(
+        name,
+        &[
+            article("Test History", "Intro."),
+            article("Undercity", &undercity),
+            article("Forsaken", &forsaken),
+            article("Darkspear tribe", &darkspear),
+        ],
+    );
+    let built = from_dump(&dump, &Sources::parse(PEOPLE_SOURCES).unwrap()).unwrap();
+    let path = fresh(&format!("{name}.sqlite"));
+    Pack::write(&path, &built.passages).unwrap();
+    Pack::open(&path).unwrap()
+}
+
+/// A hero who has been in Durotar, where every troll starts.
+fn lore_of(pack: &Pack, moment: &Moment, race: Race) -> Option<Passage> {
+    let seen = SeenIndex::new(&[]).unwrap();
+    let mut character = Character::new();
+    character.enter_zone(Tick(1), "Durotar", None).unwrap();
+    let who = Who {
+        race: Some(race),
+        class: None,
+        titles: Vec::new(),
+    };
+    lore_of_moment(pack, &seen, &character, moment, &who).unwrap()
+}
+
+#[test]
+fn a_forsaken_tenth_level_gets_a_passage_of_its_own_pages() {
+    let pack = people_pack("people-forsaken");
+
+    let lore = lore_of(&pack, &level(10), Race::Forsaken).unwrap();
+
+    assert!(lore.text.contains("The Undercity was dug"), "{}", lore.text);
+    assert_eq!(lore.about.as_deref(), Some("Undercity"));
+}
+
+#[test]
+fn an_undercity_arrival_gets_the_passage_of_the_undercity_page() {
+    let pack = people_pack("people-undercity");
+    let arrival = Moment::NewZone {
+        zone: "Undercity".to_string(),
+    };
+
+    let lore = lore_of(&pack, &arrival, Race::Forsaken).unwrap();
+
+    assert_eq!(lore.about.as_deref(), Some("Undercity"));
+}
+
+#[test]
+fn a_troll_tenth_level_gets_the_passage_of_the_darkspear_page() {
+    let pack = people_pack("people-troll");
+
+    let lore = lore_of(&pack, &level(10), Race::Troll).unwrap();
+
+    assert!(lore.text.contains("The Darkspear left"), "{}", lore.text);
 }
