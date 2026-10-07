@@ -2,7 +2,9 @@
 //! text holds no markup marks, each paragraph fits the bridge, each section is a part
 //! of its page, and the cut of game talk leaves no game sentence (GAMEPLAY.md 5.10). The
 //! cites of a line and the infobox of a page never panic, a cited title is never empty,
-//! and the tag of an outcome passage is a foe or a quest of its cites, or unresolved.
+//! and the tag of an outcome passage is a foe or a quest of its cites, or unresolved. The
+//! tag of a setup passage is a foe or a quest of its cites in the one instance, and its
+//! window is a part of the paragraph that tells no end.
 
 #![no_main]
 
@@ -11,7 +13,8 @@ use std::collections::BTreeSet;
 use timeways_story::dump::{xml_scan, xml_texts};
 use timeways_story::game_talk::{Cut, cut_game_talk};
 use timeways_story::outcome_passages::{PageKind, dependency, is_outcome, page_kind};
-use timeways_story::pack::Dependency;
+use timeways_story::pack::{Deed, Dependency, Link};
+use timeways_story::setup_passages::{Found, Instances, setup_for, tells_an_end, window};
 use timeways_story::pack_sources::paragraphs;
 use timeways_story::passage_limits::MAX_PASSAGE_BYTES;
 use timeways_story::wikitext::{
@@ -53,7 +56,43 @@ fuzz_target!(|data: &[u8]| {
     let _ = redirect_target(text);
     let _ = listed_pages(text);
     outcome_of(text);
+    setup_of(text);
 });
+
+/// Each line is a paragraph of the page "Test Page (2)" in the instance "Testvault", and
+/// the whole text is the page of every cited title.
+fn setup_of(text: &str) {
+    let kind = page_kind("Test Page (2)", text);
+    let names: Vec<String> = match &kind {
+        PageKind::Npc(npc) => vec![npc.name.clone()],
+        PageKind::Quest(quest) => vec![quest.name.clone()],
+        PageKind::Other => Vec::new(),
+    };
+    let instances = Instances {
+        names: vec!["Testvault".to_string()],
+        bosses: Default::default(),
+    };
+    let links = [Link::Place("Testvault".to_string())];
+    for line in text.lines() {
+        let cited = cites(line);
+        let paragraph = plain(line);
+        let found = Found {
+            text: &paragraph,
+            cites: &cited,
+            page: "Test Page (2)",
+            links: &links,
+        };
+        let Some(setup) = setup_for(&found, &instances, |_| Some(kind.clone())) else {
+            continue;
+        };
+        assert_eq!(setup.instance, "Testvault");
+        let (Deed::Foe(name) | Deed::Quest(name)) = &setup.deed;
+        assert!(names.contains(name), "{name} is no cited page");
+        let shown = window(&paragraph, &setup.deed).expect("a setup has a window");
+        assert!(paragraph.contains(shown));
+        assert!(!tells_an_end(shown), "{shown:?}");
+    }
+}
 
 /// Each line is a paragraph, and the whole text is the page of every cited title.
 fn outcome_of(text: &str) {

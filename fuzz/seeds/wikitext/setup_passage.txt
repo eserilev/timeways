@@ -1,0 +1,10 @@
+{{Npcbox
+| name = Test Kingpin
+| faction = Combat
+}}
+==History==
+The Defias hid in the mines. [[Gryan Stoutmantle]] sent [[adventurer]]s to kill [[Test Kingpin|the kingpin]].
+The Defias burned the farms. [[Gryan Stoutmantle]] called upon the heroes of the Alliance to destroy Test Kingpin. The heroes killed him.
+Test Kingpin hatched a plan of revenge. Test Kingpin hatched a plan of revenge. The adventurers killed Test Kingpin.
+The king sent his son to Stormwind. The farmer bought a plot of land. The Crusade believes outsiders must be destroyed.
+Mr. Smite sent his crew to kill the miners. Stormwind put a bounty on Test Kingpin.<ref>[[Into the Testvault]]</ref>

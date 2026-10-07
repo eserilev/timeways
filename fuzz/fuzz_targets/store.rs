@@ -3,9 +3,10 @@
 //! a history from another program is refused. The first open cuts each bad row and drops
 //! each broken link, so a second open reads the same. Every proof query ends.
 //!
-//! The last part of the input damages the outcome tags of a lore pack (GAMEPLAY.md 5.10):
+//! The next part of the input damages the outcome tags of a lore pack (GAMEPLAY.md 5.10):
 //! a search never panics, an unknown kind is an error, and a tag that a fresh character
-//! did not earn never passes the gate.
+//! did not earn never passes the gate. The last part damages the setup tags the same way:
+//! a fresh character did no deed, so every setup passes its gate.
 
 #![no_main]
 
@@ -14,10 +15,12 @@ use rusqlite::{Connection, params};
 use std::path::PathBuf;
 use timeways_story::character::Character;
 use timeways_story::pack::{Link, Origin, Pack, PackError, Passage};
-use timeways_story::spoiler::outcome_allowed;
+use timeways_story::spoiler::{outcome_allowed, setup_allowed};
 use timeways_story::store::{CharacterKey, Node, Opened, Store, StoreError, Table};
 
 const TAG_KINDS: [&str; 4] = ["foe", "quest", "unresolved", "rumor"];
+
+const SETUP_KINDS: [&str; 3] = ["foe", "quest", "rumor"];
 
 fn folder() -> PathBuf {
     std::env::temp_dir().join(format!("timeways-fuzz-store-{}", std::process::id()))
@@ -141,6 +144,7 @@ fn damaged_pack(lines: &[u8]) {
         origin: Origin::Pack,
         about: None,
         depends_on: None,
+        setup_for: None,
     };
     Pack::write(
         &path,
@@ -180,6 +184,60 @@ fn damaged_pack(lines: &[u8]) {
     }
 }
 
+/// A pack of two passages, then one setup tag for each line: a passage id, a kind, and a
+/// name that is also the instance. The id 3 points to no passage.
+fn damaged_setups(lines: &[u8]) {
+    let path = folder().join("setups.sqlite");
+    let passage = |text: &str| Passage {
+        text: text.to_string(),
+        source: "s".to_string(),
+        links: vec![Link::Common],
+        origin: Origin::Pack,
+        about: None,
+        depends_on: None,
+        setup_for: None,
+    };
+    Pack::write(
+        &path,
+        &[passage("The marshal wants the ooze dead."), passage("The ooze plots.")],
+    )
+    .unwrap();
+    let connection = Connection::open(&path).unwrap();
+    connection
+        .execute_batch("PRAGMA foreign_keys = OFF")
+        .unwrap();
+    for line in lines.split(|byte| *byte == b'\n') {
+        let byte = |index: usize| line.get(index).copied().unwrap_or(0);
+        let name = String::from_utf8_lossy(line.get(2..).unwrap_or_default());
+        connection
+            .execute(
+                "INSERT OR IGNORE INTO setup_for (passage, kind, name, instance) \
+                 VALUES (?1, ?2, ?3, ?3)",
+                params![
+                    i64::from(byte(0) % 4),
+                    SETUP_KINDS[usize::from(byte(1)) % SETUP_KINDS.len()],
+                    name
+                ],
+            )
+            .unwrap();
+    }
+    drop(connection);
+    let pack = Pack::open(&path).unwrap();
+    match pack.search("ooze", 5) {
+        Ok(found) => {
+            let fresh = Character::new();
+            for passage in found {
+                assert!(setup_allowed(&fresh, passage.setup_for.as_ref()), "{passage:?}");
+            }
+        }
+        Err(PackError::UnknownSetup { kind }) => assert_eq!(kind, "rumor"),
+        Err(error) => panic!("a damaged setup tag broke the pack: {error}"),
+    }
+    for passage in pack.setups_of("ooze").unwrap_or_default() {
+        assert!(passage.setup_for.is_some(), "{passage:?}");
+    }
+}
+
 fuzz_target!(|data: &[u8]| {
     let root = folder();
     let _ = std::fs::remove_dir_all(&root);
@@ -213,6 +271,7 @@ fuzz_target!(|data: &[u8]| {
     }
     drop(connection);
     damaged_pack(parts.next().unwrap_or_default());
+    damaged_setups(parts.next().unwrap_or_default());
 
     let first = match store.open(&key) {
         Ok(first) => first,

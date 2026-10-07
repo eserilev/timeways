@@ -18,6 +18,7 @@ pub fn pack() -> Pack {
             origin: Origin::Pack,
             about: Some(place.to_string()),
             depends_on: None,
+            setup_for: None,
         };
         let passages = [
             passage("The tower fell.", "Testvale"),
