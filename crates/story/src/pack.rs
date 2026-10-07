@@ -239,6 +239,19 @@ impl Pack {
         self.passages(rows)
     }
 
+    /// True when an outcome or a setup passage waits for the defeat of this foe.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when SQLite fails.
+    pub fn tags_foe(&self, name: &str) -> Result<bool, PackError> {
+        let mut statement = self.connection.prepare_cached(
+            "SELECT EXISTS (SELECT 1 FROM depends_on WHERE kind = ?1 AND name = ?2)
+                 OR EXISTS (SELECT 1 FROM setup_for WHERE kind = ?1 AND name = ?2)",
+        )?;
+        Ok(statement.query_row(params![FOE, name], |row| row.get(0))?)
+    }
+
     /// Every passage of a place, in pack order: each one that links to it, and each setup
     /// of it.
     ///

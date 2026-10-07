@@ -623,6 +623,7 @@ A first list. Each name goes through the API gate of Gnomish Relay (`scripts/wow
 | Kill of a rare or a boss | `PARTY_KILL` for a unit that the addon saw as rare, rare elite, or world boss (`PLAYER_TARGET_CHANGED`, `UPDATE_MOUSEOVER_UNIT`, `NAME_PLATE_UNIT_ADDED`), and `ENCOUNTER_END` with `success` 1. The line `npc_defeated` carries the `kind` from `UnitClassification`, or "boss" for an encounter. A world boss weighs as a raid boss in the chronicle (built). |
 | An NPC that you see (built) | `PLAYER_TARGET_CHANGED` and `UPDATE_MOUSEOVER_UNIT`, with `UnitCanAttack`, `UnitCreatureType`, and the NPC id of `UnitGUID`. Once for each NPC in a session (3.4). |
 | Kill for a task (built) | `PARTY_KILL` for a unit of the creature of a kill step that comes next (3.4) |
+| Kill of a foe that the lore waits for (built) | `PARTY_KILL` for any other NPC that you saw and can attack, outside an instance, once for each name in a session. The line is `npc_killed`. A rare never goes this way, because it goes as `npc_defeated`. The story program makes the kill a defeat only when an outcome or a setup passage of the pack names the foe (5.10), such as Mor'Ladim, Hitah'ya the Keeper, or Yarrog Baneshadow: they are neither rare nor a boss, so their lore never unlocked before. Any other kill only moves the kill steps of quests. |
 | Your death | `PLAYER_DEAD`, and the killing blow from `C_DeathRecap.GetRecapEvents()` |
 | Boss fight | `ENCOUNTER_START`, `ENCOUNTER_END` |
 | Talk to an NPC | `GOSSIP_SHOW`, `QUEST_GREETING`, `QUEST_DETAIL`, `QUEST_PROGRESS`, `QUEST_COMPLETE` |
@@ -643,7 +644,7 @@ The addon sends game events in batches with the next strip. Each strip is a scre
 
 **The combat log is closed to addons in this client.** `COMBAT_LOG_EVENT_UNFILTERED` fires, but only Blizzard code can read its payload (`C_CombatLogSecure` is secure-only). So the addon reads kills and deaths from the events above:
 
-- It keeps, in memory only, the GUID of each rare, rare elite, and world boss that it sees. `PARTY_KILL` gives the GUID of the target of a killing blow of you or your group.
+- It keeps, in memory only, the GUID of each rare, rare elite, and world boss that it sees, and of at most 300 other units that it can attack. The table of the other units starts again when it is full. `PARTY_KILL` gives the GUID of the target of a killing blow of you or your group.
 - A raid boss gives both `PARTY_KILL` and `ENCOUNTER_END`, so one name counts once in 2 minutes.
 - The client can hide a value from addons ("secret values"). The addon checks each GUID and name with `issecretvalue`, and never compares or stores a hidden one.
 - A death names its killer only when the killing blow of the recap has the GUID of an NPC (`Creature-` or `Vehicle-`), and the addon never saw the name on a player. With no GUID, the death names no killer. So the name of a real player never leaves the computer (5.11).
@@ -1021,7 +1022,7 @@ In WoW, the dead come back. A mob respawns, a rare returns, and a raid boss is b
 
 | Target | What the story keeps |
 |---|---|
-| A common mob | A count only, for flavor: "23 Defias in Westfall" (5.4.1). No entity in the world. |
+| A common mob | A count only, for flavor: "23 Defias in Westfall" (5.4.1). No entity in the world. A foe that the lore of the pack waits for is `defeated` (5.4). |
 | A rare or a quest boss | `defeated`. When it comes back, the story treats it as a rival: "Hogger again. He does not learn." |
 | A dungeon or raid boss | `defeated`. The first kill is legend, and each later kill is an echo (below). |
 | An NPC of your own story | `dead`. It stays dead. |

@@ -297,6 +297,14 @@ The first entry into a dungeon tells who wants what done there, while that deed 
 3. Kill Edwin VanCleef, leave, and enter again. No line tells that someone wants him dead.
 4. Run `gnomish-relay restart`, and enter the Deadmines again. No line repeats the lore of an earlier entry, also after a restart.
 
+### 28. Lore of a foe that is no rare
+
+Some lore waits for the kill of a foe that is neither rare nor a boss, such as Mor'Ladim in Duskwood.
+
+1. Ask `/lore What happened to Mor'Ladim?` before you kill him. The answer does not tell of his death.
+2. Hover or target Mor'Ladim, kill him, and ask again. The answer can tell of his death now.
+3. Kill a common mob of Duskwood. The Deeds tab shows no deed for it.
+
 ## Dev mode
 
 Dev mode makes the moments of hours of play in seconds. It runs the real code: the addon, the bridge, and the story program. Only the moment itself is fake.
@@ -423,6 +431,7 @@ Type `/twdev help` for the list. A name with spaces needs no quotes. A slash sep
 | 25. Your own words | The `edits` scenario, or Edit on a chapter of any scenario | Edited, Restore, and the title page. |
 | 26. Lore of your own deeds | The `outcome-lore` scenario, `/lore What happened to Edwin VanCleef?`, then `/twdev kill Edwin VanCleef boss` and the same question | The first answer tells nothing of his death. The second one does. |
 | 27. Dungeon setups and later entries | The `dungeon-setups` scenario, then `/twdev dungeon-again The Deadmines` three times. Then seed again with `--replace`, `/twdev kill Edwin VanCleef boss`, and `/twdev dungeon-again The Deadmines` | Three lines with three different pieces of lore, the first one a setup. After the kill, no setup. |
+| 28. Lore of a foe that is no rare | Kill Mor'Ladim in Duskwood, or `/twdev kill Mor'Ladim` (no kind), with a pack that tags him. Then `/lore What happened to Mor'Ladim?` | The answer tells of his death only after the kill. A kill of a common mob adds no deed. |
 
 Each scenario and each command has a named test. Three tests fail when a new feature has no way in dev mode: `every_input_line_has_a_dev_command_or_a_scenario` and `every_section_of_the_journal_has_a_scenario_that_fills_it` (`crates/addon-tests/tests/dev_mode.rs`), and `every_kind_of_narrator_moment_comes_in_a_scenario` (`crates/dev/tests/scenarios.rs`).
 

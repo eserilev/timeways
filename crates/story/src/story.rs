@@ -544,10 +544,7 @@ impl Story {
                 reaction,
                 creature,
             } => self.see_npc(at, &name, reaction, creature.as_deref()),
-            Input::NpcKilled { at, name } => {
-                self.count_kill(at, checked_name(&name)?)?;
-                Ok(Vec::new())
-            }
+            Input::NpcKilled { at, name } => self.kill_npc(at, &name),
             Input::NpcDefeated { at, name, kind } => self.defeat_npc(at, &name, kind),
             Input::GameQuestAccepted { at, title, kind } => self.take_game_quest(at, &title, kind),
             Input::GameQuestDone { at, title, kind } => self.finish_game_quest(at, &title, kind),
@@ -706,6 +703,17 @@ impl Story {
             }
             character.defeat_npc(at, name)
         })
+    }
+
+    /// A common kill moves the kill steps of quests. It is a defeat only when a tag of the
+    /// pack names the foe, such as Mor'Ladim: the addon sends no defeat of a foe that is
+    /// neither rare nor a boss, and its outcome would never unlock.
+    fn kill_npc(&mut self, at: Tick, name: &str) -> Result<Vec<Output>, StoryError> {
+        self.count_kill(at, checked_name(name)?)?;
+        if !self.pack.tags_foe(name)? {
+            return Ok(Vec::new());
+        }
+        self.defeat_npc(at, name, None)
     }
 
     fn win_battleground(&mut self, at: Tick, zone: &str) -> Result<Vec<Output>, StoryError> {

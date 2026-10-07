@@ -82,7 +82,8 @@ pub enum Input {
         #[serde(default)]
         creature: Option<String>,
     },
-    /// You or your group killed a creature of the kill step of a task (GAMEPLAY.md 3.4).
+    /// You or your group killed a creature of the kill step of a task, or another foe for
+    /// the first time in a session (GAMEPLAY.md 3.4 and 5.4).
     NpcKilled {
         at: Tick,
         name: String,

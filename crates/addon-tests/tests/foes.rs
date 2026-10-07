@@ -389,25 +389,48 @@ fn a_unit_counts_once() {
     assert_eq!(kills_after_flush(&game), [killed("Duskbat")]);
 }
 
-#[test]
-fn a_kill_that_no_task_hunts_stays_home() {
-    let game = Game::new();
-    hunted_bat(&game, BAT);
+const OTHER_BAT: &str = "Creature-0-4372-0-17-1554-0000ABCDF0";
 
+/// Two bats die: a hunt counts both, and any other foe goes out once in a session.
+fn two_bats_die(game: &Game) {
+    hunted_bat(game, BAT);
     game.run(&format!("wow.Fire('PARTY_KILL', 'Player-1', '{BAT}')"));
+    hunted_bat(game, OTHER_BAT);
+    game.run(&format!(
+        "wow.Fire('PARTY_KILL', 'Player-1', '{OTHER_BAT}')"
+    ));
+}
 
-    assert!(kills_after_flush(&game).is_empty());
+#[test]
+fn a_hunted_creature_counts_each_kill() {
+    let game = Game::new();
+    game.reply(HUNT);
+
+    two_bats_die(&game);
+
+    assert_eq!(
+        kills_after_flush(&game),
+        [killed("Duskbat"), killed("Duskbat")]
+    );
+}
+
+#[test]
+fn a_foe_that_no_task_hunts_goes_out_once_a_session() {
+    let game = Game::new();
+
+    two_bats_die(&game);
+
+    assert_eq!(kills_after_flush(&game), [killed("Duskbat")]);
 }
 
 #[test]
 fn a_kill_step_that_is_not_next_hunts_nothing() {
     let game = Game::new();
     game.reply(&hunt_after_a_visit());
-    hunted_bat(&game, BAT);
 
-    game.run(&format!("wow.Fire('PARTY_KILL', 'Player-1', '{BAT}')"));
+    two_bats_die(&game);
 
-    assert!(kills_after_flush(&game).is_empty());
+    assert_eq!(kills_after_flush(&game), [killed("Duskbat")]);
 }
 
 #[test]
@@ -415,9 +438,51 @@ fn a_finished_hunt_forgets_the_units_that_it_saw() {
     let game = Game::new();
     game.reply(HUNT);
     hunted_bat(&game, BAT);
+    hunted_bat(&game, OTHER_BAT);
 
     game.reply(&hunt_with(&[(r#""state":"open""#, r#""state":"done""#)]));
-    game.run(&format!("wow.Fire('PARTY_KILL', 'Player-1', '{BAT}')"));
+    game.run(&format!(
+        "wow.Fire('PARTY_KILL', 'Player-1', '{BAT}')
+         wow.Fire('PARTY_KILL', 'Player-1', '{OTHER_BAT}')"
+    ));
+
+    assert_eq!(kills_after_flush(&game), [killed("Duskbat")]);
+}
+
+#[test]
+fn a_rare_that_you_can_attack_goes_out_as_a_defeat_alone() {
+    let game = Game::new();
+    game.run(
+        "wow.units.target = { name = 'Mother Fang', guid = 'Creature-1', classification = 'rare', hostile = true }
+         wow.Fire('PLAYER_TARGET_CHANGED')
+         wow.Fire('PARTY_KILL', 'Player-1', 'Creature-1')",
+    );
+
+    let sent: Vec<Input> = sent_after_flush(&game)
+        .into_iter()
+        .filter(|input| !matches!(input, Input::NpcSeen { .. }))
+        .collect();
+    assert_eq!(sent, [defeated("Mother Fang", FoeKind::Rare)]);
+}
+
+#[test]
+fn a_foe_inside_an_instance_goes_out_only_for_a_hunt() {
+    let game = Game::new();
+    game.run("wow.instance = 'party'");
+
+    two_bats_die(&game);
+
+    assert!(kills_after_flush(&game).is_empty());
+}
+
+#[test]
+fn a_foe_that_you_cannot_attack_never_goes_out() {
+    let game = Game::new();
+    game.run(&format!(
+        "wow.units.target = {{ name = 'Duskbat', guid = '{BAT}' }}
+         wow.Fire('PLAYER_TARGET_CHANGED')
+         wow.Fire('PARTY_KILL', 'Player-1', '{BAT}')"
+    ));
 
     assert!(kills_after_flush(&game).is_empty());
 }

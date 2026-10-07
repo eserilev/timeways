@@ -1,5 +1,5 @@
--- Kills of rares and bosses, kills for the kill steps of your tasks, and your deaths
--- (GAMEPLAY.md 3.4 and 5.13). Addons cannot read the combat log in this client, so this
+-- Kills of rares and bosses, kills for the kill steps of your tasks, the first kill of each
+-- other foe in a session, and your deaths (GAMEPLAY.md 3.4 and 5.13). Addons cannot read the combat log in this client, so this
 -- module reads what the client does give: the units that you see, PARTY_KILL,
 -- ENCOUNTER_END, and the death recap.
 
@@ -20,6 +20,13 @@ local lastKill = {}
 -- The creatures of the open kill steps of each task in progress, and the units of them that
 -- you saw and can attack, by GUID. A common mob counts only when a task hunts it.
 local hunted, prey = {}, {}
+-- The other foes that you saw and can attack, by GUID, and the names that went out as a
+-- kill in this session. The story program keeps only a kill of a foe that its lore waits
+-- for, such as Mor'Ladim, who is neither rare nor a boss.
+local foes, killedOnce = {}, {}
+local foeCount = 0
+-- Nameplates show many units, so the table starts again when it holds this many.
+local MAX_FOES = 300
 
 -- The client can hide a value from addons. A hidden value is never compared or stored.
 local function Readable(...)
@@ -45,8 +52,16 @@ function Foes.See(unit)
 		return
 	end
 	levels[name] = UnitLevel(unit)
-	if hunted[name] and UnitCanAttack("player", unit) then
+	local attackable = UnitCanAttack("player", unit)
+	if hunted[name] and attackable then
 		prey[guid] = name
+	end
+	if attackable and not foes[guid] then
+		if foeCount >= MAX_FOES then
+			foes, foeCount = {}, 0
+		end
+		foes[guid] = name
+		foeCount = foeCount + 1
 	end
 	local kind = UnitClassification(unit)
 	if NOTABLE[kind] then
@@ -84,10 +99,23 @@ function Foes.Hunt(creatures)
 	Foes.See("mouseover")
 end
 
+-- A hunted unit counts each time. Any other foe goes out once for each name in a session,
+-- but never a rare, which goes out as a defeat, and never inside an instance, where a boss
+-- goes out as a defeat by its encounter.
 local function CountKill(guid)
-	local name = prey[guid]
-	if name then
-		prey[guid] = nil
+	if type(guid) ~= "string" then
+		return
+	end
+	local hunt = prey[guid]
+	if hunt then
+		prey[guid], foes[guid] = nil, nil
+		ns.Outbox.Add(ns.Inputs.Killed(time(), hunt))
+		return
+	end
+	local name = foes[guid]
+	foes[guid] = nil
+	if name and not killedOnce[name] and not notable[guid] and not IsInInstance() then
+		killedOnce[name] = true
 		ns.Outbox.Add(ns.Inputs.Killed(time(), name))
 	end
 end
