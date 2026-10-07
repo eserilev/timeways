@@ -1,7 +1,7 @@
 //! Plays a scenario through the real story program, behind the real checks of the bridge,
 //! as the game would send it (TESTING.md, "Dev mode").
 
-use crate::scenario::Scenario;
+use crate::scenario::{Batch, Scenario};
 use fake_bridge::{FakeBridge, Reply};
 use serde_json::{Value, json};
 use std::cell::RefCell;
@@ -14,7 +14,7 @@ use timeways_story::story::Story;
 pub type Model = Box<dyn FnMut(&str) -> Option<String>>;
 
 /// A slow model never makes the story program drop a narrator line here: nobody waits.
-const NO_DEADLINE: Duration = Duration::from_hours(24);
+pub const NO_DEADLINE: Duration = Duration::from_hours(24);
 
 /// What the play showed. A clean scenario has no refused line, no dropped line, and no
 /// fixed answer left over.
@@ -67,11 +67,7 @@ pub fn play(
             let queue = queues.entry(answer.kind.clone()).or_default();
             queue.push_back(answer.text.clone());
         }
-        let mut text = character.to_string();
-        for line in &batch.lines {
-            text.push('\n');
-            text.push_str(&Value::Object(line.clone()).to_string());
-        }
+        let text = batch_text(&character, batch);
         let errors_before = bridge.errors().len();
         let reply = bridge.batch(&text);
         report.batches += 1;
@@ -87,6 +83,17 @@ pub fn play(
             .extend(queue.iter().map(|text| format!("{kind}: {text}")));
     }
     report
+}
+
+/// The text of a batch as the addon sends it: the character line, then the lines.
+#[must_use]
+pub fn batch_text(character: &Value, batch: &Batch) -> String {
+    let mut text = character.to_string();
+    for line in &batch.lines {
+        text.push('\n');
+        text.push_str(&Value::Object(line.clone()).to_string());
+    }
+    text
 }
 
 fn model_with(answers: &Answers, mut model: Option<Model>) -> fake_bridge::ModelByKind {

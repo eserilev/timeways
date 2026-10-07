@@ -335,7 +335,7 @@ timeways-dev restore Testpal before-raid --realm "Classic Beta PvP 2"
 gnomish-relay restart
 ```
 
-- `seed` and `restore` change a world, so they run only while dev mode is on. Else they say "Dev mode is off." and change nothing. With `--data`, the switch is `settings.toml` in that folder. `on`, `off`, `status`, `scenarios`, and `snapshot` always work.
+- `seed` and `restore` change a world, so they run only while dev mode is on. The benches (`bench-model` and `bench-fps`) need dev mode too. Else they say "Dev mode is off." and change nothing. With `--data`, the switch is `settings.toml` in that folder. `on`, `off`, `status`, `scenarios`, and `snapshot` always work.
 - The seed refuses a world that exists. With `--replace`, it moves the old file to `<file>.bak-<seconds>` first. It never touches another character.
 - A snapshot goes to `<data>/gnomish-relay/timeways/story/dev-snapshots/`. A restore moves the world that exists to a backup first.
 - After a seed or a restore, run `gnomish-relay restart`, and log in as that character. The story program keeps the world of the active character open, so it sees the new file only after a restart.
@@ -385,6 +385,7 @@ Type `/twdev help` for the list. A name with spaces needs no quotes. A slash sep
 | `carry <count> <item> / <npc>` | You show an NPC what your bags hold, for a carry step. |
 | `journal` | The desktop sends the journal now, and the book opens. |
 | `welcome setup\|files\|offline` | The setup window for that reason. |
+| `fps start [label]`, `fps stop` | No fake: it samples the real frame rate once a second, and sends the run to the desktop at the stop. It stops by itself after 15 minutes. |
 | `peer <name> story [title]` | A fake player of your group tells a story about you. |
 | `peer <name> quest` | A fake player sends you a quest. |
 | `peer <name> open\|full\|blocked\|waiting` | The room of its story box, for its answer to your `/story`. |
@@ -423,6 +424,66 @@ Type `/twdev help` for the list. A name with spaces needs no quotes. A slash sep
 | 27. Dungeon setups and later entries | The `dungeon-setups` scenario, then `/twdev dungeon-again The Deadmines` three times. Then seed again with `--replace`, `/twdev kill Edwin VanCleef boss`, and `/twdev dungeon-again The Deadmines` | Three lines with three different pieces of lore, the first one a setup. After the kill, no setup. |
 
 Each scenario and each command has a named test. Three tests fail when a new feature has no way in dev mode: `every_input_line_has_a_dev_command_or_a_scenario` and `every_section_of_the_journal_has_a_scenario_that_fills_it` (`crates/addon-tests/tests/dev_mode.rs`), and `every_kind_of_narrator_moment_comes_in_a_scenario` (`crates/dev/tests/scenarios.rs`).
+
+### Testing the local model and the frame rate
+
+Two risks need numbers: the quality of the narrator with the small local model that most players run, and the frame rate of the game while that model works on the same computer. Two benches measure them.
+
+#### The local model
+
+`timeways-dev bench-model` plays a fixed set of moments through the real prompts and the real checks of the story program, in a scratch world of invented inputs. It never opens the world of a real character. The set `v1` (`crates/dev/bench/moments-v1.jsonl`) holds an arrival, a tenth level, a dungeon setup, a revenge, a deed, a tale, the end of a chapter, a saga, a summary, a zone history, a talk, and a `/lore` answer. A set never changes after a result names it. A new set gets a new file, so results compare over time.
+
+1. Turn dev mode on: `timeways-dev on`.
+2. Start the local model. Ollama runs in the background after its install. If it does not run, start it with `ollama serve`.
+3. Run one model, or two side by side:
+
+   ```sh
+   timeways-dev bench-model --local                        # the local model
+   timeways-dev bench-model --claude                       # Claude Code with no tools
+   timeways-dev bench-model --model "<shell command>"      # any model that reads the prompt on stdin
+   timeways-dev bench-model --compare local,claude --runs 3
+   ```
+
+- `--local` is `local_url` and `local_model` of `[story]` in the config. With none, it is `llama3.2:3b` in Ollama at `http://127.0.0.1:11434`, the model that the setup of the relay installs. It calls `/v1/chat/completions` with `curl`, as the bridge does.
+- `--runs N` plays the set N times, each time in a new scratch world. `--moments <file.jsonl>` takes a set of your own.
+- It needs no network when the local model is installed.
+- The first call only loads the model. Its time shows as the warm-up, and no other number counts it.
+
+How to read the results:
+
+- One row for each moment and kind of call, such as `tale / tale` or `chapter-end / narrator`.
+- **shown**: the player reads the line. **silence**: the model answered SILENCE, as the prompt allows. **refused**: the checks refused the last try. **failed**: the model gave no answer.
+- **retries**: the asks that needed a second call.
+- **refused calls by fault**: the reasons of the story program, in short names: `slop`, `copy`, `cutoff`, `arrival`, `inside-hero`, `json-shape`, `ungrounded`, and so on. A refused first answer takes the reasons of its retry prompt. A last answer takes a check of its text alone, which misses the faults that need the moment. Those show as `other`.
+- **p50 s** and **p95 s**: the time of a call. **first s**: the time to the first byte, for a shell command that prints as it goes. **tok/s**: the tokens of the answers over the time of their calls, when the runner counts tokens. Ollama counts them. The time holds the reading of the prompt too.
+- "Moments with no model call": a moment whose lore is too thin, so the narrator stays quiet with no call.
+- Then every shown line, and the last refused answer of each refused ask. Read the lines against the narrator voice (`docs/plans/narrator-style.md`).
+- The results go to `<data>/gnomish-relay/timeways/story/dev-bench/model-<time>.json` and `.txt`.
+
+#### The frame rate
+
+`timeways-dev bench-fps` runs a fixed timeline: N seconds idle (the baseline), N seconds of model calls back to back (the load), and N seconds idle again (the recovery). The desktop can't tell the addon when a phase starts, because the bridge only answers batches. So the addon samples all the time with the clock of the computer, and the desktop splits the samples by the times of its phases. This needs no change of the relay.
+
+1. Turn dev mode on, and run `gnomish-relay restart`. Log in, and stand in a busy place, such as a capital.
+2. On the desktop:
+
+   ```sh
+   timeways-dev bench-fps --model local --seconds 60
+   ```
+
+3. It tells you when: type `/twdev fps start bench` in the game. The baseline starts 15 seconds later (`--lead`).
+4. Don't move the camera. Wait until the desktop says "Done".
+5. Type `/twdev fps stop` in the game. The run goes to the desktop as one dev line. The desktop waits up to 5 minutes for it (`--wait`), and then prints the report.
+
+- `--model` is `local`, `claude`, or a shell command. `--seconds` is the length of each phase. Keep it at 80 or below: a run of 240 seconds or less sends every sample, and a longer run sends the means of groups.
+- For each phase: the min, the 5th percentile ("low 5%"), the median, and the mean frame rate, and the drop of the median and of the mean from the baseline, in percent.
+- The time of the model calls in the load.
+- The CPU, the memory, and the GPU of the model processes (`ollama`, `llama-server`, or the program of the command) in each phase. The GPU numbers come from `nvidia-smi` when it runs, and else from the DRM `fdinfo` in `/proc`, which the Intel and AMD drivers fill. On another system, or with no GPU use, they show as `-`.
+- Ollama skips an integrated GPU unless `OLLAMA_IGPU_ENABLE=1` is set. So on a computer with only an integrated GPU, such as an Intel Arc laptop, the model runs on the CPU, and the cost shows in the CPU column, not the GPU column.
+- The memory of Timeways, and its CPU time in the run when script profiling is on. To turn it on, type `/console scriptProfile 1`, then `/reload`. Profiling costs frame rate itself, so turn it off after the test: `/console scriptProfile 0`, then `/reload`.
+- The results go to `dev-bench/fps-<time>.json` and `.txt`, and each run of the addon goes to `dev-bench/fps.jsonl`.
+
+`/twdev fps` works alone too: `start`, play, and `stop` print the numbers of the run in the chat. A hidden frame rate (`issecretvalue`) counts as hidden and in no number. A run stops by itself after 15 minutes. It ends with no line when dev mode turns off.
 
 ### What dev mode can't fake
 

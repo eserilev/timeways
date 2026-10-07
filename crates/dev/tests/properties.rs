@@ -70,3 +70,26 @@ proptest! {
         prop_assert_eq!(first, second);
     }
 }
+
+/// A frame rate or a latency: the edges come often, as do equal values.
+fn bench_value() -> impl Strategy<Value = f64> {
+    prop_oneof![Just(0.0), Just(1.0), Just(60.0), Just(1e6), 0.0..300.0_f64]
+}
+
+proptest! {
+    /// The numbers of a bench report keep their order for any list of values.
+    #[test]
+    fn the_numbers_of_a_spread_keep_their_order(
+        values in prop::collection::vec(bench_value(), 0..40),
+    ) {
+        let Some(spread) = timeways_dev::stats::spread(&values) else {
+            prop_assert!(values.is_empty());
+            return Ok(());
+        };
+
+        prop_assert_eq!(spread.count, values.len());
+        prop_assert!(spread.min <= spread.p5 && spread.p5 <= spread.median);
+        prop_assert!(spread.median <= spread.p95 && spread.p95 <= spread.max);
+        prop_assert!(spread.min - 1e-9 <= spread.mean && spread.mean <= spread.max + 1e-9);
+    }
+}

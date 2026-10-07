@@ -1,12 +1,13 @@
 //! A command that changes a world runs only while dev mode is on, so a slip of the keyboard
-//! never writes over the world of a real character (GAMEPLAY.md 5.15).
+//! never writes over the world of a real character (GAMEPLAY.md 5.15). The benches need it
+//! too: they read the dev lines of the game, and run the dev tools of the desktop.
 
 use std::path::Path;
 use thiserror::Error;
 use timeways_story::dev_mode::DevMode;
 
-/// The commands that write a world. `snapshot` only copies one.
-const CHANGES_A_WORLD: [&str; 2] = ["seed", "restore"];
+/// The commands that write a world, and the benches. `snapshot` only copies a world.
+const NEEDS_DEV_MODE: [&str; 4] = ["seed", "restore", "bench-model", "bench-fps"];
 
 #[derive(Debug, Error, PartialEq, Eq)]
 #[error("Dev mode is off. Run `timeways-dev on` first, then `timeways-dev {command}` again.")]
@@ -15,8 +16,8 @@ pub struct DevModeOff {
 }
 
 #[must_use]
-pub fn changes_a_world(command: &str) -> bool {
-    CHANGES_A_WORLD.contains(&command)
+pub fn needs_dev_mode(command: &str) -> bool {
+    NEEDS_DEV_MODE.contains(&command)
 }
 
 /// # Errors

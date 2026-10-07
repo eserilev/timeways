@@ -6,6 +6,7 @@ mod common;
 
 use std::path::Path;
 use timeways_dev::desktop::{Desktop, ModelSetting};
+use timeways_dev::model_runner::LocalModel;
 use timeways_story::dev_mode::DevMode;
 
 fn desktop_with_config(name: &str, config: &str) -> Desktop {
@@ -39,15 +40,33 @@ fn the_claude_model_of_the_config_runs_claude_with_no_tools_and_its_model_name()
 }
 
 #[test]
-fn no_model_in_the_config_is_no_model_and_a_local_one_needs_a_command() {
+fn no_model_in_the_config_is_no_model() {
     assert_eq!(
         desktop_with_config("none", "[wow]\npath = \"~/wow\"\n").model(),
         ModelSetting::None
     );
-    assert_eq!(
-        desktop_with_config("local", "[story]\nmodel = \"local\"\n").model(),
-        ModelSetting::Other("local".to_string())
-    );
+}
+
+#[test]
+fn a_local_model_of_the_config_keeps_its_url_and_its_name() {
+    let config =
+        "[story]\nmodel = \"local\"\nlocal_url = \"http://[::1]:1234\"\nlocal_model = \"qwen3\"\n";
+
+    let model = desktop_with_config("local", config).model();
+
+    let expected = LocalModel {
+        url: "http://[::1]:1234".to_string(),
+        model: "qwen3".to_string(),
+    };
+    assert_eq!(model, ModelSetting::Local(expected));
+}
+
+#[test]
+fn with_no_local_model_in_the_config_the_bench_takes_the_one_that_the_relay_installs() {
+    let local = desktop_with_config("local-default", "[story]\nmodel = \"claude\"\n").local_model();
+
+    assert_eq!(local.url, "http://127.0.0.1:11434");
+    assert_eq!(local.model, "llama3.2:3b");
 }
 
 #[test]

@@ -1,0 +1,74 @@
+# The bench moments, version 1: a human warrior from level 18 to 20, from Westfall through
+# the Deadmines to Redridge (TESTING.md, "Testing the local model and the frame rate").
+# Never change a version that a result names: add a new file for a new set, so runs compare
+# over time.
+#
+# A batch after {"bench": "<moment>"} is measured, and its model calls go to the model. The
+# calls of a batch with no name fail at once, as with no model. Each measured batch comes two
+# hours after the one before, so the budget of the narrator is free. The foes and the places
+# have lore in the lore pack, so the narrator has something to tell.
+
+{"type":"character_described","at":0,"race":"Human","class":"WARRIOR"}
+{"type":"zone_entered","at":10,"zone":"Elwynn Forest","subzone":"Goldshire","hour":14}
+{"type":"level_reached","at":20,"level":18}
+{"type":"npc_met","at":30,"name":"Gryan Stoutmantle"}
+
+{"bench":"arrival"}
+{"type":"zone_entered","at":7300,"zone":"Westfall","subzone":"Sentinel Hill","hour":14}
+
+{"bench":"tenth-level"}
+{"type":"level_reached","at":14600,"level":20}
+
+{"bench":"dungeon-setup"}
+{"type":"zone_entered","at":21900,"zone":"The Deadmines","hour":14}
+{"type":"instance_entered","at":21901,"zone":"The Deadmines","kind":"party"}
+
+{"type":"npc_seen","at":22500,"name":"Mr. Smite","reaction":"hostile","creature":"humanoid"}
+{"type":"died","at":22600,"killer":"Mr. Smite","killer_level":20,"hour":14}
+
+{"bench":"revenge"}
+{"type":"npc_defeated","at":29200,"name":"Mr. Smite","kind":"boss"}
+
+{"bench":"deed"}
+{"type":"npc_defeated","at":36500,"name":"Edwin VanCleef","kind":"boss"}
+
+{"bench":"tale"}
+{"type":"zone_entered","at":43800,"zone":"Westfall","subzone":"Moonbrook","hour":15}
+
+{"bench":"chapter-end"}
+{"type":"game_quest_done","at":51100,"title":"The Forgotten Heirloom","kind":"normal"}
+{"type":"game_quest_done","at":51110,"title":"Westfall Stew","kind":"normal"}
+{"type":"game_quest_done","at":51120,"title":"Goretusk Liver Pie","kind":"normal"}
+{"type":"game_quest_done","at":51130,"title":"Poor Old Blanchy","kind":"normal"}
+{"type":"game_quest_done","at":51140,"title":"The Killing Fields","kind":"normal"}
+{"type":"game_quest_done","at":51150,"title":"Patrolling Westfall","kind":"normal"}
+{"type":"game_quest_done","at":51160,"title":"Red Leather Bandanas","kind":"normal"}
+{"type":"game_quest_done","at":51170,"title":"The People's Militia","kind":"normal"}
+{"type":"game_quest_done","at":51180,"title":"Murloc Poachers","kind":"normal"}
+{"type":"game_quest_done","at":51190,"title":"Riverpaw Gnoll Bounty","kind":"normal"}
+{"type":"game_quest_done","at":51200,"title":"Oh Brother. . .","kind":"normal"}
+{"type":"game_quest_done","at":51210,"title":"Collecting Memories","kind":"normal"}
+{"type":"game_quest_done","at":51220,"title":"Captain Sander's Hidden Treasure","kind":"normal"}
+{"type":"game_quest_done","at":51230,"title":"Sweet Amber","kind":"normal"}
+{"type":"game_quest_done","at":51240,"title":"The Coast Isn't Clear","kind":"normal"}
+{"type":"game_quest_done","at":51250,"title":"Report to Gryan Stoutmantle","kind":"normal"}
+{"type":"zone_entered","at":51300,"zone":"Redridge Mountains","subzone":"Lakeshire","hour":14}
+{"type":"game_quest_done","at":51310,"title":"Encroaching Gnolls","kind":"normal"}
+
+# The saga, the summary, and the history of the zone each start at the end of a batch with
+# no call open, one after the other.
+
+{"bench":"saga"}
+{"type":"npc_met","at":58400,"name":"Magistrate Solomon"}
+
+{"bench":"summary"}
+{"type":"npc_met","at":65700,"name":"Marshal Marris"}
+
+{"bench":"zone-history"}
+{"type":"npc_met","at":73000,"name":"Foreman Oslow"}
+
+{"bench":"talk"}
+{"type":"talk_asked","at":80300,"npc":"Magistrate Solomon","text":"Any news from the road?"}
+
+{"bench":"lore"}
+{"type":"lore_asked","at":87600,"question":"Who leads the Defias Brotherhood?"}

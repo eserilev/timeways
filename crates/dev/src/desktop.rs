@@ -1,6 +1,7 @@
 //! Where the desktop app of the player keeps its files, and the `[story]` table of its
 //! config: the lore pack and the model (relay SPEC.md 9.7). The paths follow the bridge.
 
+use crate::model_runner::LocalModel;
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
@@ -8,6 +9,9 @@ use timeways_story::dev_mode::{DevMode, SETTINGS_FILE};
 
 /// Claude Code with no tools, no MCP servers, and no settings, as the review tool runs it.
 const CLAUDE: &str = "claude -p --tools '' --strict-mcp-config --setting-sources ''";
+/// The free local model that the setup of the relay installs (relay `ollama_install.rs`).
+const LOCAL_URL: &str = "http://127.0.0.1:11434";
+const LOCAL_MODEL: &str = "llama3.2:3b";
 
 #[derive(Debug, Error)]
 pub enum DesktopError {
@@ -34,7 +38,9 @@ pub struct Desktop {
 pub enum ModelSetting {
     None,
     Command(String),
-    /// A model that this tool cannot run, such as a local server.
+    /// A local model behind the OpenAI-compatible API, such as Ollama.
+    Local(LocalModel),
+    /// A model that this tool cannot run.
     Other(String),
 }
 
@@ -49,6 +55,8 @@ struct StoryTable {
     lore_pack: Option<String>,
     model: Option<String>,
     claude_model: Option<String>,
+    local_url: Option<String>,
+    local_model: Option<String>,
 }
 
 impl Desktop {
@@ -104,11 +112,29 @@ impl Desktop {
         let table = self.story_table();
         match table.model.as_deref() {
             None | Some("none" | "") => ModelSetting::None,
-            Some("claude") => ModelSetting::Command(match table.claude_model {
-                Some(model) => format!("{CLAUDE} --model '{model}'"),
-                None => CLAUDE.to_string(),
-            }),
+            Some("claude") => ModelSetting::Command(self.claude_command()),
+            Some("local") => ModelSetting::Local(self.local_model()),
             Some(other) => ModelSetting::Other(other.to_string()),
+        }
+    }
+
+    /// Claude Code with the `claude_model` of the config, as the bridge runs it.
+    #[must_use]
+    pub fn claude_command(&self) -> String {
+        match self.story_table().claude_model {
+            Some(model) => format!("{CLAUDE} --model '{model}'"),
+            None => CLAUDE.to_string(),
+        }
+    }
+
+    /// The local model of the config. With none, the one that the setup of the relay
+    /// installs.
+    #[must_use]
+    pub fn local_model(&self) -> LocalModel {
+        let table = self.story_table();
+        LocalModel {
+            url: table.local_url.unwrap_or_else(|| LOCAL_URL.to_string()),
+            model: table.local_model.unwrap_or_else(|| LOCAL_MODEL.to_string()),
         }
     }
 

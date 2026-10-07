@@ -9,6 +9,8 @@
 //!   at the start of each batch, and the bridge adds the ids.
 //! - `{"model": "<kind of call>", "answer": ...}` is the answer of the next model call of
 //!   that kind, such as "quest". The answer is a text, or an object that goes as its JSON.
+//! - `{"bench": "<moment>"}` names the moment of its batch, for `timeways-dev bench-model`
+//!   (`bench.rs`). Other commands read no name.
 
 use serde_json::{Map, Value};
 use thiserror::Error;
@@ -71,6 +73,8 @@ pub struct Scenario {
 pub struct Batch {
     pub lines: Vec<Map<String, Value>>,
     pub answers: Vec<Answer>,
+    /// The moment that a bench measures in this batch.
+    pub moment: Option<String>,
 }
 
 /// A fixed answer for the next model call of `kind`.
@@ -92,6 +96,8 @@ pub enum ScenarioError {
     CharacterLine { line: usize },
     #[error("line {line}: a model answer needs \"model\" and \"answer\"")]
     BadAnswer { line: usize },
+    #[error("line {line}: \"bench\" needs the name of a moment, once in a batch")]
+    BadMoment { line: usize },
 }
 
 /// The built-in scenario of this name.
@@ -151,7 +157,7 @@ impl Scenario {
 }
 
 fn end_batch(batches: &mut Vec<Batch>, batch: &mut Batch) {
-    if !batch.lines.is_empty() || !batch.answers.is_empty() {
+    if !batch.lines.is_empty() || !batch.answers.is_empty() || batch.moment.is_some() {
         batches.push(std::mem::take(batch));
     }
 }
@@ -160,6 +166,14 @@ fn read_item(text: &str, line: usize, batch: &mut Batch) -> Result<(), ScenarioE
     let Ok(Value::Object(object)) = serde_json::from_str::<Value>(text) else {
         return Err(ScenarioError::NotAnObject { line });
     };
+    if let Some(moment) = object.get("bench") {
+        let name = moment.as_str().filter(|name| !name.is_empty());
+        let (Some(name), None) = (name, &batch.moment) else {
+            return Err(ScenarioError::BadMoment { line });
+        };
+        batch.moment = Some(name.to_string());
+        return Ok(());
+    }
     if object.contains_key("model") {
         batch.answers.push(answer_of(&object, line)?);
         return Ok(());
