@@ -34,6 +34,7 @@ function Dev.DesktopSays(value)
 	desktopOn = on
 	ns.TaskChannel.DropWaiting()
 	ns.Msp.DropWaiting()
+	ns.DevPeer.Clear()
 	if on then
 		DEFAULT_CHAT_FRAME:AddMessage("|cffc8a064Timeways|r: Dev mode is on. Nothing is shared with other players.")
 	end

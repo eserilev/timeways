@@ -30,6 +30,11 @@ function DevPeer.IsNear(name)
 	return peers[name] ~= nil and peers[name].near
 end
 
+-- The fake players belong to the dev world, so they go when dev mode turns on or off.
+function DevPeer.Clear()
+	peers = {}
+end
+
 local function Short(name)
 	return ns.TaskPeople.Short(name)
 end
@@ -50,9 +55,13 @@ function DevPeer.Send(from, message)
 	end
 end
 
+-- A fake player that went in the meantime sends nothing: with dev mode off, its message
+-- comes in as one of a real player.
 local function SendSoon(from, message)
 	C_Timer.After(ANSWER_SECONDS, function()
-		DevPeer.Send(from, message)
+		if DevPeer.Has(from) then
+			DevPeer.Send(from, message)
+		end
 	end)
 end
 

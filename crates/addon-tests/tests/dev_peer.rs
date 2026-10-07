@@ -254,3 +254,36 @@ fn peer_with_dev_mode_off_makes_no_fake_player() {
     assert!(waiting_authors(&ada).is_empty());
     assert!(!ada.eval::<bool>(&format!("ns.DevPeer.Has('{KOBEE}')")));
 }
+
+#[test]
+fn fake_players_go_when_dev_mode_turns_off() {
+    let ada = ada();
+    twdev(&ada, "peer Kobee near");
+
+    ada.run("ns.Dev.DesktopSays(false)");
+    ada.run("ns.PlayerTasks.Call()");
+    run_timers(&ada);
+
+    assert!(!ada.eval::<bool>(&format!("ns.DevPeer.Has('{KOBEE}')")));
+    let recipients: Vec<String> = ada.eval(
+        "local names = {} for _, r in ipairs(ns.PlayerTasks.Recipients()) do names[#names + 1] = r.name end return names",
+    );
+    assert!(!recipients.contains(&KOBEE.to_string()), "{recipients:?}");
+}
+
+#[test]
+fn a_fake_answer_on_its_way_when_dev_mode_turns_off_never_comes() {
+    let ada = ada();
+    twdev(&ada, "peer Kobee near");
+    ada.run("ns.PlayerTasks.Call()");
+
+    ada.run("ns.Dev.DesktopSays(false)");
+    ada.run(
+        "heard = 0
+         local received = ns.TaskChannel.Received
+         ns.TaskChannel.Received = function(...) heard = heard + 1 return received(...) end",
+    );
+    run_timers(&ada);
+
+    assert_eq!(ada.eval::<u32>("return heard"), 0);
+}
