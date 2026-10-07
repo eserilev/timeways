@@ -310,6 +310,7 @@ The story program then puts `"dev": true` on each journal. The addon reads it at
 `timeways-dev seed` builds the world of a character from a scenario: invented lines of the addon, in batches, through the real story program and the checks of the bridge. Model calls go to the model of your config (`[story]` in `~/.config/gnomish-relay/config.toml`). `--no-model` fails each call, as the bridge does with no model.
 
 ```sh
+timeways-dev on
 timeways-dev scenarios
 timeways-dev seed Testpal --realm "Classic Beta PvP 2" --scenario level-30-paladin
 timeways-dev seed Testpal --realm "Classic Beta PvP 2" --scenario raider-60 --replace --no-model
@@ -318,6 +319,7 @@ timeways-dev restore Testpal before-raid --realm "Classic Beta PvP 2"
 gnomish-relay restart
 ```
 
+- `seed` and `restore` change a world, so they run only while dev mode is on. Else they say "Dev mode is off." and change nothing. With `--data`, the switch is `settings.toml` in that folder. `on`, `off`, `status`, `scenarios`, and `snapshot` always work.
 - The seed refuses a world that exists. With `--replace`, it moves the old file to `<file>.bak-<seconds>` first. It never touches another character.
 - A snapshot goes to `<data>/gnomish-relay/timeways/story/dev-snapshots/`. A restore moves the world that exists to a backup first.
 - After a seed or a restore, run `gnomish-relay restart`, and log in as that character. The story program keeps the world of the active character open, so it sees the new file only after a restart.

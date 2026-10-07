@@ -1,0 +1,98 @@
+//! The commands of `timeways-dev` as a person runs them: a command that changes a world
+//! needs dev mode (GAMEPLAY.md 5.15).
+
+#![allow(clippy::unwrap_used, clippy::expect_used)]
+
+mod common;
+
+use std::path::Path;
+use std::process::{Command, Output};
+use timeways_dev::worlds::world_file;
+
+fn dev(args: &[&str], data: &Path) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_timeways-dev"))
+        .args(args)
+        .arg("--data")
+        .arg(data)
+        .output()
+        .unwrap()
+}
+
+fn seed(data: &Path) -> Output {
+    let no_pack = data.join("no-pack.sqlite");
+    let args = [
+        "seed",
+        common::NAME,
+        "--realm",
+        common::REALM,
+        "--scenario",
+        "fresh",
+        "--no-model",
+        "--pack",
+        no_pack.to_str().unwrap(),
+    ];
+    dev(&args, data)
+}
+
+fn restore(data: &Path) -> Output {
+    let args = ["restore", common::NAME, "before", "--realm", common::REALM];
+    dev(&args, data)
+}
+
+fn turn_dev_mode_on(data: &Path) {
+    std::fs::write(data.join("settings.toml"), "dev = true\n").unwrap();
+}
+
+fn says_dev_mode_is_off(output: &Output) -> bool {
+    String::from_utf8_lossy(&output.stderr).contains("Dev mode is off.")
+}
+
+#[test]
+fn a_seed_refuses_while_dev_mode_is_off_and_writes_no_world() {
+    let data = common::folder("seed-off");
+
+    let output = seed(&data);
+
+    assert!(!output.status.success());
+    assert!(says_dev_mode_is_off(&output), "{output:?}");
+    let world = world_file(&data, common::REALM, common::NAME).unwrap();
+    assert!(!world.exists());
+}
+
+#[test]
+fn a_restore_refuses_while_dev_mode_is_off() {
+    let data = common::folder("restore-off");
+
+    let output = restore(&data);
+
+    assert!(!output.status.success());
+    assert!(says_dev_mode_is_off(&output), "{output:?}");
+}
+
+#[test]
+fn a_seed_writes_its_world_while_dev_mode_is_on() {
+    let data = common::folder("seed-on");
+    turn_dev_mode_on(&data);
+
+    let output = seed(&data);
+
+    assert!(output.status.success(), "{output:?}");
+    let world = world_file(&data, common::REALM, common::NAME).unwrap();
+    assert!(world.exists());
+}
+
+#[test]
+fn a_command_that_changes_no_world_works_while_dev_mode_is_off() {
+    let data = common::folder("read-only-off");
+    common::seed("fresh", &data);
+    let snapshot = ["snapshot", common::NAME, "before", "--realm", common::REALM];
+
+    let saved = dev(&snapshot, &data);
+    let listed = Command::new(env!("CARGO_BIN_EXE_timeways-dev"))
+        .arg("scenarios")
+        .output()
+        .unwrap();
+
+    assert!(saved.status.success(), "{saved:?}");
+    assert!(listed.status.success(), "{listed:?}");
+}

@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use std::time::{SystemTime, UNIX_EPOCH};
 use timeways_dev::desktop::{Desktop, ModelSetting};
+use timeways_dev::gate::{changes_a_world, check_dev_mode};
 use timeways_dev::scenario::{BUILT_IN, Scenario, built_in};
 use timeways_dev::seed::{Model, Report, play};
 use timeways_dev::shell_model::shell_model;
@@ -25,6 +26,7 @@ const USAGE: &str = "usage:
   timeways-dev scenarios
   timeways-dev on | off | status
 
+  seed and restore change a world, so they run only while dev mode is on.
   --data is the data folder of the story program. By default it is the one of the
   desktop app: <data>/gnomish-relay/timeways/story.";
 
@@ -56,6 +58,9 @@ fn run(args: &[String]) -> Result<(), Box<dyn Error>> {
         return Err(USAGE.into());
     };
     let (words, flags) = split_flags(rest).ok_or(USAGE)?;
+    if changes_a_world(command) {
+        check_dev_mode(command, &data_folder(&flags)?)?;
+    }
     match (command.as_str(), words.as_slice()) {
         ("seed", [character]) => seed(character, &flags),
         ("snapshot", [character, name]) => snapshot(character, name, &flags),
