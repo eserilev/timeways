@@ -123,7 +123,7 @@ The check matches whole words and ignores case, as `slop_in` does today. A phras
 | 15 | ended him, ended her, ended it | A lame deed verb. Say the foe is dead. | New |
 | 16 | spoke of, speaks of, told of, tells of, wrote of, writes of, said that, as the tome, according to, it is said, legend says, they say, some say | The line cites its source. | New, with `legend says` today in `NO_SOURCE` |
 | 17 | in its own way, in their own way, more than just, not just, not merely | The "not X, but Y" pivot and its kin. | New |
-| 18 | heart of, soul of, weight of, scars of, bears the scars, the hunger of, lost to their hunger | A body or a feeling for a place or a group. | New, allowed when the lore holds it ("at its heart" for the Great Forge) |
+| 18 | heart of, at its heart, at their heart, soul of, weight of, scars of, bears the scars, the hunger of, lost to their hunger | A body or a feeling for a place or a group. | New. "At its heart" added 2026-10-06: "The Great Forge still burns at its heart." gives Ironforge a body. |
 | 19 | looms, loom, beckons, awaits, calls to, stands watch, stands as | A place that acts like a person. | New |
 | 20 | would not try it now, remembers $N, knows $N, recognizes $N, fears $N | NPC recognition and callback jokes. | New, the `$N` forms as a pattern (10.1) |
 | 21 | felled, vanquished, laid low, slain by $N | A grand verb for a plain deed. | New |

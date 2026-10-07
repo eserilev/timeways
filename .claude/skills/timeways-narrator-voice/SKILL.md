@@ -68,7 +68,7 @@ Refuse these. A phrase that the lore of the moment holds is allowed.
 | ended him, ended her, ended it, felled, vanquished, laid low | Lame or grand deed verb |
 | spoke of, told of, wrote of, said that, as the tome, according to, it is said, legend says, they say | Cites the source |
 | not just, not merely, more than just, in its own way | The "not X, but Y" pivot |
-| heart of, soul of, weight of, scars of, hunger of, lost to their hunger | Body or feeling for a group |
+| heart of, at its heart, at their heart, soul of, weight of, scars of, hunger of, lost to their hunger | Body or feeling for a place or a group |
 | looms, beckons, awaits, calls to, stands watch, stands as | A place that acts like a person |
 | knows / remembers / recognizes / fears + the hero, would not try it now | NPC recognition joke |
 | serves as, stands as a, pivotal, legacy, enduring, nestled, in the heart of, vibrant, bustling, realm, newfound, palpable, barely above a whisper, would never know | Signs of AI writing, irony about the future |

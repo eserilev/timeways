@@ -57,12 +57,12 @@ shape: k.lost_u.one
 line: Edwin VanCleef built the Defias Brotherhood from the stonemasons Stormwind never paid, and it holds Westfall now. The Defias Brotherhood has lost its leader.
 
 moment: The player arrived in the capital city Ironforge. They had never been there before.
-lore: Ironforge is the capital of the dwarves, carved deep into the mountain of Khaz Modan. The Great Forge burns at its heart.
+lore: Ironforge is the capital of the dwarves, carved deep into the mountain of Khaz Modan. King Magni Bronzebeard rules from the High Seat, and the Great Forge supplies arms and armor to the Alliance.
 hero: not at all, the line is about the place
-history: The dwarves carved Ironforge from the mountain long before Stormwind laid its first stone. The Great Forge still burns at its heart.
+history: The dwarves carved Ironforge from the mountain long before Stormwind laid its first stone. King Magni Bronzebeard rules it now, and its Great Forge arms the Alliance.
 choices: {}
 shape: f.place
-line: The dwarves carved Ironforge from the mountain long before Stormwind laid its first stone. The Great Forge still burns at its heart.
+line: The dwarves carved Ironforge from the mountain long before Stormwind laid its first stone. King Magni Bronzebeard rules it now, and its Great Forge arms the Alliance.
 
 moment: The player arrived in the capital city Thunder Bluff. They had never been there before.
 who: a troll hunter

@@ -283,6 +283,26 @@ fn a_place_that_acts_like_a_person_is_refused_unless_the_lore_holds_it() {
 }
 
 #[test]
+fn a_place_with_a_heart_is_slop() {
+    assert_eq!(
+        slop_in("The Great Forge still burns at its heart.", ""),
+        ["at its heart"]
+    );
+    assert_eq!(
+        slop_in("The trolls keep their shrines at their heart.", ""),
+        ["at their heart"]
+    );
+}
+
+#[test]
+fn a_heart_word_that_gives_no_body_is_no_slop() {
+    assert!(slop_in("The Scarlet Crusade holds Hearthglen in the north.", "").is_empty());
+    assert!(slop_in("The dwarves sit at its hearth in the evening.", "").is_empty());
+    assert!(slop_in("The priests know the old prayers by heart.", "").is_empty());
+    assert!(slop_in("The orcs took the heartland of Lordaeron.", "").is_empty());
+}
+
+#[test]
 fn a_whole_word_of_a_name_is_no_slop() {
     assert!(slop_in("Tyrande Whisperwind leads the night elves.", "").is_empty());
     assert!(slop_in("The trolls of Echo Isles followed Thrall.", "").is_empty());
