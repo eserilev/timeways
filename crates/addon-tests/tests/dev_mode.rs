@@ -113,6 +113,7 @@ fn help_lists_every_command_with_dev_mode_on() {
         "taxi",
         "peer",
         "inbox",
+        "fps",
     ] {
         assert!(printed.contains(&format!("/twdev {command}")), "{command}");
     }
@@ -394,7 +395,7 @@ fn welcome_opens_the_setup_window_for_a_reason() {
 }
 
 /// Each command of the help, with words, for the tests of every command.
-const EVERY_COMMAND: [&str; 35] = [
+const EVERY_COMMAND: [&str; 37] = [
     "level 12",
     "zone Westfall / Moonbrook",
     "taxi",
@@ -430,6 +431,8 @@ const EVERY_COMMAND: [&str; 35] = [
     "welcome setup",
     "peer Kobee quest",
     "inbox",
+    "fps start bench",
+    "fps stop",
 ];
 
 #[test]

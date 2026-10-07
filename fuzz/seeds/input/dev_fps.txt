@@ -1,0 +1,7 @@
+{"type":"character_entered","realm":"Testrealm","name":"Tester"}
+{"type":"dev_fps","label":"bench","started":1790000000,"ended":1790000004,"samples":[60,59,31,58],"hidden":1,"min":31,"p5":35,"median":58,"mean":52,"memory_kb":812,"cpu_ms":35,"dev":true}
+{"type":"dev_fps","label":"bench","started":1790000000,"ended":1790000004,"samples":[60],"hidden":0,"min":60,"p5":60,"median":60,"mean":60}
+{"type":"dev_fps","label":"","started":0,"ended":0,"samples":[],"hidden":0,"min":0,"p5":0,"median":0,"mean":0,"dev":true}
+{"type":"dev_fps","label":"a b","started":18446744073709551615,"ended":1,"samples":[4294967295],"hidden":4294967295,"min":0,"p5":0,"median":0,"mean":0,"dev":true}
+{"type":"dev_fps","label":"bench","started":1790000000,"ended":1790000004,"samples":[-1,60.5],"hidden":0,"min":0,"p5":0,"median":0,"mean":0,"dev":true}
+{"type":"dev_fps","label":"bench","dev":true}

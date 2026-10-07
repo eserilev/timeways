@@ -167,6 +167,18 @@ globals:
     args: []
   GetTime:
     args: []
+  GetFramerate:
+    args: []
+  UpdateAddOnMemoryUsage:
+    args: []
+  GetAddOnMemoryUsage:
+    args:
+      - type: string
+  UpdateAddOnCPUUsage:
+    args: []
+  GetAddOnCPUUsage:
+    args:
+      - type: string
   GetBuildInfo:
     args: []
   GetPhysicalScreenSize:

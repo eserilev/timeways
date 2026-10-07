@@ -5,6 +5,7 @@ use crate::best_of_two::Round;
 use crate::chapters::{self, Book};
 use crate::character::{Character, Item, Refusal};
 use crate::check;
+use crate::dev_fps::{self, FpsRun};
 use crate::dev_mode::{DevMode, DevOn};
 use crate::draft::Draft;
 use crate::flavor::{self, Flavor, HUMBLING_GAP, Kind, Teller, Told};
@@ -243,6 +244,12 @@ pub enum StoryError {
     BadHour,
     #[error("an item has a slot outside 1 to 19, or a quality that Classic does not have")]
     BadItem,
+    #[error("refused: a run of /twdev fps, and dev mode is off")]
+    DevModeOff,
+    #[error("a run of /twdev fps has a bad label, step, or sample list")]
+    BadFpsRun,
+    #[error("the file of the FPS runs: {0}")]
+    FpsFile(std::io::Error),
 }
 
 /// A flavor moment of the batch, scored when it came in.
@@ -626,6 +633,7 @@ impl Story {
             Input::QuestDeclined { at, number } => self.answer_quest(at, Status::Declined, number),
             Input::QuestAbandoned { at, number } => self.abandon_quest(at, number),
             Input::JournalAsked { id, page } => self.journal_answer(id, page),
+            Input::DevFps(run) => self.keep_fps_run(&run),
             Input::StoryAccepted {
                 at,
                 number,
@@ -1231,6 +1239,20 @@ impl Story {
             teller: Teller::Narrator,
         };
         Some((Moment::Flavor { what, book }, told))
+    }
+
+    /// A run with no data folder goes nowhere: that is a run by hand.
+    fn keep_fps_run(&self, run: &FpsRun) -> Result<Vec<Output>, StoryError> {
+        if !self.dev_mode.is_on() {
+            return Err(StoryError::DevModeOff);
+        }
+        if !run.is_sane() {
+            return Err(StoryError::BadFpsRun);
+        }
+        if let Store::Folder(folder) = &self.store {
+            dev_fps::keep_run(folder, run).map_err(StoryError::FpsFile)?;
+        }
+        Ok(Vec::new())
     }
 
     fn journal_answer(&mut self, id: MessageId, page: usize) -> Result<Vec<Output>, StoryError> {

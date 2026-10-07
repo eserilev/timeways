@@ -42,6 +42,15 @@ return {
 				{ Name = "value", Type = "string", Nilable = true },
 			},
 		},
+		["C_CVar.GetCVar"] = {
+			SecretArguments = "NotAllowed",
+			Arguments = {
+				{ Name = "name", Type = "cstring", Nilable = false },
+			},
+			Returns = {
+				{ Name = "value", Type = "string", Nilable = true },
+			},
+		},
 		["C_ChatInfo.RegisterAddonMessagePrefix"] = {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {
@@ -330,6 +339,24 @@ return {
 			},
 		},
 		ClearCursor = {},
+		GetAddOnCPUUsage = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "name", Type = "uiAddon", Nilable = false },
+			},
+			Returns = {
+				{ Name = "result", Type = "number", Nilable = false },
+			},
+		},
+		GetAddOnMemoryUsage = {
+			SecretArguments = "AllowedWhenUntainted",
+			Arguments = {
+				{ Name = "name", Type = "uiAddon", Nilable = false },
+			},
+			Returns = {
+				{ Name = "result", Type = "number", Nilable = false },
+			},
+		},
 		GetBuildInfo = {
 			Returns = {
 				{ Name = "buildVersion", Type = "cstring", Nilable = false },
@@ -341,6 +368,11 @@ return {
 			},
 		},
 		GetCursorInfo = {},
+		GetFramerate = {
+			Returns = {
+				{ Name = "framerate", Type = "number", Nilable = false },
+			},
+		},
 		GetGameMessageInfo = {
 			MayReturnNothing = true,
 			SecretArguments = "AllowedWhenUntainted",
@@ -601,6 +633,8 @@ return {
 				{ Name = "sex", Type = "number", Nilable = true },
 			},
 		},
+		UpdateAddOnCPUUsage = {},
+		UpdateAddOnMemoryUsage = {},
 		issecretvalue = {
 			SecretArguments = "AllowedWhenUntainted",
 			SecureHooksAllowed = false,

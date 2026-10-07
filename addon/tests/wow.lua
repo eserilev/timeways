@@ -315,6 +315,29 @@ function wow.Hidden(value)
 	return value
 end
 
+-- The frame rate of the game. A test sets it, or hides it with `wow.secrets`.
+wow.framerate = 60
+
+function GetFramerate()
+	return wow.Hidden(wow.framerate)
+end
+
+-- The memory in KB and the CPU time in ms of each addon, by name, as the last update saw them.
+wow.addonMemory = {}
+wow.addonCpu = {}
+
+function UpdateAddOnMemoryUsage() end
+
+function GetAddOnMemoryUsage(name)
+	return wow.Hidden(wow.addonMemory[name] or 0)
+end
+
+function UpdateAddOnCPUUsage() end
+
+function GetAddOnCPUUsage(name)
+	return wow.Hidden(wow.addonCpu[name] or 0)
+end
+
 -- Runs `hook` after the function, as the game does. The function stays the same.
 function hooksecurefunc(owner, name, hook)
 	local original = owner[name]

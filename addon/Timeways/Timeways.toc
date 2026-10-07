@@ -95,4 +95,5 @@ Welcome.lua
 TalkWindow.lua
 DevTriggers.lua
 DevPeer.lua
+DevFps.lua
 Core.lua

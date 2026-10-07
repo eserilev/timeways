@@ -2,6 +2,7 @@
 //! answers to model calls (GAMEPLAY.md 3.1, 5.4, and 5.6).
 
 use crate::character::Resting;
+use crate::dev_fps::FpsRun;
 use crate::entry_edits::{EditText, EntryKey};
 use crate::places::InstanceKind;
 use crate::race_class::{Class, Race};
@@ -289,6 +290,8 @@ pub enum Input {
         at: Tick,
         number: u64,
     },
+    /// A run of `/twdev fps`. It lands only in dev mode, and in no world.
+    DevFps(FpsRun),
     /// The journal window opened, and needs its pages. Page 0 takes a new snapshot.
     JournalAsked {
         id: MessageId,
@@ -357,8 +360,8 @@ pub enum GameQuestKind {
 }
 
 impl Input {
-    /// A line of a model call fills its call. `hello`, a journal request, and a `/lore`
-    /// question change nothing in the world. Every other line is kept as an input
+    /// A line of a model call fills its call. `hello`, a journal request, a `/lore`
+    /// question, and a run of `/twdev fps` change nothing in the world. Every other line is kept as an input
     /// (GAMEPLAY.md 5.14).
     #[must_use]
     pub fn is_kept(&self) -> bool {
@@ -366,6 +369,7 @@ impl Input {
             self,
             Input::Hello
                 | Input::JournalAsked { .. }
+                | Input::DevFps(_)
                 | Input::LoreAsked { .. }
                 | Input::ModelAnswered { .. }
                 | Input::ModelFailed { .. }
@@ -463,6 +467,7 @@ impl Input {
             | Input::CharacterEntered { .. }
             | Input::LoreAsked { .. }
             | Input::JournalAsked { .. }
+            | Input::DevFps(_)
             | Input::BatchEnd { .. }
             | Input::ModelAnswered { .. }
             | Input::ModelFailed { .. } => None,
