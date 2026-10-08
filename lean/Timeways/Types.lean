@@ -320,7 +320,7 @@ structure narrator_shapes.Facts where
   named : Bool
 
 /-- [timeways_rules::narrator_shapes::Tier]
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 395:0-399:1
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 412:0-416:1
     Visibility: public -/
 @[discriminant isize]
 inductive narrator_shapes.Tier where

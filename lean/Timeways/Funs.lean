@@ -1508,7 +1508,7 @@ def narrator_shapes.assemble
     else ok none
 
 /-- [timeways_rules::narrator_shapes::is_hero]:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 289:0-291:1 -/
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 306:0-308:1 -/
 def narrator_shapes.is_hero (token : narrator_shapes.Token) : Result Bool := do
   match token with
   | narrator_shapes.Token.Word _ => ok false
@@ -1626,7 +1626,7 @@ def narrator_shapes.fits
     else ok false
 
 /-- [timeways_rules::narrator_shapes::same_token]:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 341:0-354:1 -/
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 358:0-371:1 -/
 def narrator_shapes.same_token
   (a : narrator_shapes.Token) (b : narrator_shapes.Token) : Result Bool := do
   match a with
@@ -1656,7 +1656,7 @@ def narrator_shapes.same_token
     | narrator_shapes.Token.Slot y => ok (x = y)
 
 /-- [timeways_rules::narrator_shapes::same_line]: loop 0:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 332:4-339:1 -/
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 349:4-356:1 -/
 @[rust_loop]
 def narrator_shapes.same_line_loop
   (a : Slice narrator_shapes.Token) (b : Slice narrator_shapes.Token)
@@ -1678,7 +1678,7 @@ def narrator_shapes.same_line_loop
 partial_fixpoint
 
 /-- [timeways_rules::narrator_shapes::same_line]:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 327:0-339:1 -/
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 344:0-356:1 -/
 def narrator_shapes.same_line
   (a : Slice narrator_shapes.Token) (b : Slice narrator_shapes.Token) :
   Result Bool
@@ -1690,7 +1690,7 @@ def narrator_shapes.same_line
   else narrator_shapes.same_line_loop a b 0#usize
 
 /-- [timeways_rules::narrator_shapes::differs_from_later]: loop 0:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 314:4-324:1 -/
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 331:4-341:1 -/
 @[rust_loop]
 def narrator_shapes.differs_from_later_loop
   (table : narrator_shapes.Table) (shapes : Slice narrator_shapes.Shape)
@@ -1717,7 +1717,7 @@ def narrator_shapes.differs_from_later_loop
 partial_fixpoint
 
 /-- [timeways_rules::narrator_shapes::differs_from_later]:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 309:0-324:1 -/
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 326:0-341:1 -/
 def narrator_shapes.differs_from_later
   (table : narrator_shapes.Table) (shapes : Slice narrator_shapes.Shape)
   (first : Std.Usize) :
@@ -1732,7 +1732,7 @@ def narrator_shapes.differs_from_later
     narrator_shapes.differs_from_later_loop table shapes line later
 
 /-- [timeways_rules::narrator_shapes::distinct_skeletons]: loop 0:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 298:4-305:1
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 315:4-322:1
     Visibility: public -/
 @[rust_loop]
 def narrator_shapes.distinct_skeletons_loop
@@ -1753,7 +1753,7 @@ def narrator_shapes.distinct_skeletons_loop
 partial_fixpoint
 
 /-- [timeways_rules::narrator_shapes::distinct_skeletons]:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 296:0-305:1
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 313:0-322:1
     Visibility: public -/
 @[reducible]
 def narrator_shapes.distinct_skeletons
@@ -1763,7 +1763,7 @@ def narrator_shapes.distinct_skeletons
   narrator_shapes.distinct_skeletons_loop table shapes 0#usize
 
 /-- [timeways_rules::narrator_shapes::holds]: loop 0:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 359:4-366:1 -/
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 376:4-383:1 -/
 @[rust_loop]
 def narrator_shapes.holds_loop
   (ids : Slice Std.U16) (id : Std.U16) (index : Std.Usize) : Result Bool := do
@@ -1780,14 +1780,14 @@ def narrator_shapes.holds_loop
 partial_fixpoint
 
 /-- [timeways_rules::narrator_shapes::holds]:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 357:0-366:1 -/
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 374:0-383:1 -/
 @[reducible]
 def narrator_shapes.holds
   (ids : Slice Std.U16) (id : Std.U16) : Result Bool := do
   narrator_shapes.holds_loop ids id 0#usize
 
 /-- [timeways_rules::narrator_shapes::is_inside_word]:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 282:0-287:1 -/
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 299:0-304:1 -/
 def narrator_shapes.is_inside_word
   (token : narrator_shapes.Token) (inside_words : Slice Std.U16) :
   Result Bool
@@ -1799,7 +1799,7 @@ def narrator_shapes.is_inside_word
   | narrator_shapes.Token.Slot _ => ok false
 
 /-- [timeways_rules::narrator_shapes::inside_the_hero]: loop 0:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 273:4-280:1 -/
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 290:4-297:1 -/
 @[rust_loop]
 def narrator_shapes.inside_the_hero_loop
   (line : Slice narrator_shapes.Token) (inside_words : Slice Std.U16)
@@ -1828,7 +1828,7 @@ def narrator_shapes.inside_the_hero_loop
 partial_fixpoint
 
 /-- [timeways_rules::narrator_shapes::inside_the_hero]:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 271:0-280:1 -/
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 288:0-297:1 -/
 @[reducible]
 def narrator_shapes.inside_the_hero
   (line : Slice narrator_shapes.Token) (inside_words : Slice Std.U16) :
@@ -1837,7 +1837,7 @@ def narrator_shapes.inside_the_hero
   narrator_shapes.inside_the_hero_loop line inside_words 1#usize
 
 /-- [timeways_rules::narrator_shapes::shapes_ok]: loop 0:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 258:4-268:1 -/
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 275:4-285:1 -/
 @[rust_loop]
 def narrator_shapes.shapes_ok_loop
   (table : narrator_shapes.Table) (shapes : Slice narrator_shapes.Shape)
@@ -1864,7 +1864,7 @@ def narrator_shapes.shapes_ok_loop
 partial_fixpoint
 
 /-- [timeways_rules::narrator_shapes::shapes_ok]:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 256:0-268:1 -/
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 273:0-285:1 -/
 @[reducible]
 def narrator_shapes.shapes_ok
   (table : narrator_shapes.Table) (shapes : Slice narrator_shapes.Shape) :
@@ -1873,7 +1873,7 @@ def narrator_shapes.shapes_ok
   narrator_shapes.shapes_ok_loop table shapes 0#usize
 
 /-- [timeways_rules::narrator_shapes::part_ok]: loop 0:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 240:4-253:1 -/
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 257:4-270:1 -/
 @[rust_loop]
 def narrator_shapes.part_ok_loop
   (v : alloc.vec.Vec narrator_shapes.Token) (may_name : Bool)
@@ -1904,7 +1904,7 @@ def narrator_shapes.part_ok_loop
 partial_fixpoint
 
 /-- [timeways_rules::narrator_shapes::part_ok]:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 234:0-253:1 -/
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 251:0-270:1 -/
 def narrator_shapes.part_ok (part : narrator_shapes.Part) : Result Bool := do
   let may_name ←
     match part.kind with
@@ -1916,7 +1916,7 @@ def narrator_shapes.part_ok (part : narrator_shapes.Part) : Result Bool := do
   narrator_shapes.part_ok_loop part.tokens may_name 0#usize
 
 /-- [timeways_rules::narrator_shapes::parts_ok]: loop 0:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 224:4-231:1 -/
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 241:4-248:1 -/
 @[rust_loop]
 def narrator_shapes.parts_ok_loop
   (table : narrator_shapes.Table) (index : Std.Usize) : Result Bool := do
@@ -1936,7 +1936,7 @@ def narrator_shapes.parts_ok_loop
 partial_fixpoint
 
 /-- [timeways_rules::narrator_shapes::parts_ok]:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 222:0-231:1 -/
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 239:0-248:1 -/
 @[reducible]
 def narrator_shapes.parts_ok
   (table : narrator_shapes.Table) : Result Bool := do
@@ -1958,8 +1958,37 @@ def narrator_shapes.table_ok
     else ok false
   else ok false
 
+/-- [timeways_rules::narrator_shapes::ends_on_coda]:
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 226:0-236:1
+    Visibility: public -/
+def narrator_shapes.ends_on_coda
+  (table : narrator_shapes.Table) (shape : narrator_shapes.Shape) :
+  Result Bool
+  := do
+  let count := alloc.vec.Vec.len shape.parts
+  if count = 0#usize
+  then ok false
+  else
+    let i ← count - 1#usize
+    let id ←
+      alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice Std.Usize)
+        shape.parts i
+    let i1 := alloc.vec.Vec.len table.parts
+    if id >= i1
+    then ok false
+    else
+      let p ←
+        alloc.vec.Vec.index (core.slice.index.SliceIndexUsizeSlice
+          narrator_shapes.Part) table.parts id
+      match p.kind with
+      | narrator_shapes.PartKind.Connective => ok false
+      | narrator_shapes.PartKind.Deed => ok false
+      | narrator_shapes.PartKind.Group => ok false
+      | narrator_shapes.PartKind.Grow => ok false
+      | narrator_shapes.PartKind.Coda => ok true
+
 /-- [timeways_rules::narrator_shapes::last_use]: loop 0:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 511:4-518:1 -/
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 528:4-535:1 -/
 @[rust_loop]
 def narrator_shapes.last_use_loop
   (recent : Slice Std.U16) (main : Std.U16) (index : Std.Usize) :
@@ -1976,14 +2005,14 @@ def narrator_shapes.last_use_loop
 partial_fixpoint
 
 /-- [timeways_rules::narrator_shapes::last_use]:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 509:0-518:1 -/
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 526:0-535:1 -/
 def narrator_shapes.last_use
   (recent : Slice Std.U16) (main : Std.U16) : Result Std.Usize := do
   let index := Slice.len recent
   narrator_shapes.last_use_loop recent main index
 
 /-- [timeways_rules::narrator_shapes::around]:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 462:0-468:1 -/
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 479:0-485:1 -/
 def narrator_shapes.around
   (start : Std.Usize) (step : Std.Usize) (count : Std.Usize) :
   Result Std.Usize
@@ -1994,7 +2023,7 @@ def narrator_shapes.around
   else step - i
 
 /-- [timeways_rules::narrator_shapes::longest_unused]: loop 0:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 489:4-503:5 -/
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 506:4-520:5 -/
 @[rust_loop]
 def narrator_shapes.longest_unused_loop
   (fits : Slice Bool) (mains : Slice Std.U16) (recent : Slice Std.U16)
@@ -2029,7 +2058,7 @@ def narrator_shapes.longest_unused_loop
 partial_fixpoint
 
 /-- [timeways_rules::narrator_shapes::longest_unused]:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 485:0-505:1 -/
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 502:0-522:1 -/
 @[reducible]
 def narrator_shapes.longest_unused
   (fits : Slice Bool) (mains : Slice Std.U16) (recent : Slice Std.U16)
@@ -2040,7 +2069,7 @@ def narrator_shapes.longest_unused
     0#usize
 
 /-- [timeways_rules::narrator_shapes::first_fresh]: loop 0:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 473:4-481:1 -/
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 490:4-498:1 -/
 @[rust_loop]
 def narrator_shapes.first_fresh_loop
   (fits : Slice Bool) (mains : Slice Std.U16) (recent : Slice Std.U16)
@@ -2069,7 +2098,7 @@ def narrator_shapes.first_fresh_loop
 partial_fixpoint
 
 /-- [timeways_rules::narrator_shapes::first_fresh]:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 471:0-481:1 -/
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 488:0-498:1 -/
 @[reducible]
 def narrator_shapes.first_fresh
   (fits : Slice Bool) (mains : Slice Std.U16) (recent : Slice Std.U16)
@@ -2079,7 +2108,7 @@ def narrator_shapes.first_fresh
   narrator_shapes.first_fresh_loop fits mains recent start 0#usize
 
 /-- [timeways_rules::narrator_shapes::pick]:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 377:0-391:1
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 394:0-408:1
     Visibility: public -/
 def narrator_shapes.pick
   (fits : Slice Bool) (mains : Slice Std.U16) (recent : Slice Std.U16)
@@ -2103,7 +2132,7 @@ def narrator_shapes.pick
       | some _ => ok o
 
 /-- [timeways_rules::narrator_shapes::fresh_pick]:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 430:0-438:1 -/
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 447:0-455:1 -/
 def narrator_shapes.fresh_pick
   (fits : Slice Bool) (mains : Slice Std.U16) (recent : Slice Std.U16)
   (turn : Std.U64) :
@@ -2120,7 +2149,7 @@ def narrator_shapes.fresh_pick
     else ok o
 
 /-- [timeways_rules::narrator_shapes::pick_preferring]:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 409:0-427:1
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 426:0-444:1
     Visibility: public -/
 def narrator_shapes.pick_preferring
   (preferred : Slice Bool) (usual : Slice Bool) (fallback : Slice Bool)
@@ -2141,7 +2170,7 @@ def narrator_shapes.pick_preferring
   | some index => ok (some (index, narrator_shapes.Tier.Preferred))
 
 /-- [timeways_rules::narrator_shapes::window]: loop 0:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 449:4-456:5
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 466:4-473:5
     Visibility: public -/
 @[rust_loop]
 def narrator_shapes.window_loop
@@ -2163,7 +2192,7 @@ def narrator_shapes.window_loop
 partial_fixpoint
 
 /-- [timeways_rules::narrator_shapes::window]:
-    Source: 'crates/rules/src/narrator_shapes.rs', lines 446:0-458:1
+    Source: 'crates/rules/src/narrator_shapes.rs', lines 463:0-475:1
     Visibility: public -/
 def narrator_shapes.window
   (lines : Slice (Option Std.U16)) : Result (alloc.vec.Vec Std.U16) := do

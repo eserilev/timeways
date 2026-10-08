@@ -329,6 +329,8 @@ are in `Timeways/NarratorShapes.lean`.
 | `the_pick_falls_back_only_when_nothing_before_fits` | The pick takes the usual set only when no fresh shape of the first set fits, and the fallback only when no shape of the usual set fits either. | `a_recent_preferred_shape_gives_way_to_the_usual_set`, `the_fallback_comes_only_when_nothing_else_fits` |
 | `the_preferring_pick_fits` | The pick never takes a shape that does not fit its set, and it takes a shape whenever one of the three sets has one. | the same |
 | `window.spec` | The window holds the main parts of the last 8 lines, oldest first. A line with no main part, such as an arrival, takes its place and adds nothing. | `the_window_holds_the_main_parts_of_the_last_eight_lines` |
+| `ends_on_coda.spec`, `skeleton.ends` | `ends_on_coda` never panics, and holds only when the last part of the shape is a coda part of the table. A skeleton ends with the tokens of the last part of its shape. | `a_shape_ends_on_a_coda_only_when_its_last_part_is_one` |
+| `a_setup_line_ends_on_its_coda` | When the last part of a shape is a coda, the line that the shape builds ends with the tokens of that coda. The loader checks every shape of a setup with `ends_on_coda`, so a setup line ends on "{Foe} is still alive.", which the code writes and the gate of setups proves (`docs/plans/lore-names-and-now.md` 2.3 A). | `a_setup_entry_ends_on_the_code_coda` |
 | `a_run_never_repeats` | In a run of narrator lines from the start, where an arrival is a line with no main part and each deed has more than 8 fitting main parts in its usual set, two lines at most 8 apart never share a main part. | `no_main_part_repeats_within_eight_lines` |
 
 These laws differ in form from the plan. Each keeps its intent:

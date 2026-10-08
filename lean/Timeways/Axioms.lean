@@ -371,6 +371,10 @@ open timeways_rules
 #guard_msgs (whitespace := lax) in
 #print axioms narrator_shapes.a_run_never_repeats
 
+/-- info: 'timeways_rules.narrator_shapes.a_setup_line_ends_on_its_coda' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms narrator_shapes.a_setup_line_ends_on_its_coda
+
 /-- info: 'timeways_rules.narrator_shapes.pick_preferring.spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs (whitespace := lax) in
 #print axioms narrator_shapes.pick_preferring.spec

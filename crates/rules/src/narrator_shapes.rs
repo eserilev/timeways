@@ -218,6 +218,23 @@ pub fn table_ok(table: &Table, shapes: &[Shape]) -> bool {
     parts_ok(table) && shapes_ok(table, shapes) && distinct_skeletons(table, shapes)
 }
 
+/// True when the last part of the shape is a coda of the table. A setup line ends on its
+/// coda: the code tells what holds now, and the model never does
+/// (docs/plans/lore-names-and-now.md 2.3 A).
+#[cfg_attr(charon, verify::start_from)]
+#[must_use]
+pub fn ends_on_coda(table: &Table, shape: &Shape) -> bool {
+    let count = shape.parts.len();
+    if count == 0 {
+        return false;
+    }
+    let id = shape.parts[count - 1];
+    if id >= table.parts.len() {
+        return false;
+    }
+    matches!(table.parts[id].kind, PartKind::Coda)
+}
+
 /// An index loop.
 fn parts_ok(table: &Table) -> bool {
     let mut index = 0;
@@ -565,6 +582,17 @@ mod tests {
                 Token::Word(DOT),
             ],
         )
+    }
+
+    #[test]
+    fn a_shape_ends_on_a_coda_only_when_its_last_part_is_one() {
+        let coda = part(PartKind::Coda, &[Token::Slot(0), Token::Word(DOT)]);
+        let table = table(vec![deed(), coda]);
+
+        assert!(ends_on_coda(&table, &shape(&[0, 1])));
+        assert!(!ends_on_coda(&table, &shape(&[1, 0])));
+        assert!(!ends_on_coda(&table, &shape(&[])));
+        assert!(!ends_on_coda(&table, &shape(&[2])));
     }
 
     #[test]

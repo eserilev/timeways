@@ -1722,4 +1722,128 @@ theorem a_run_never_repeats (run : List LineStep) (hw : WideRun run) :
   intro a b ma mb hab hwin ha hb
   exact h1 b mb hb a ma hab hwin ha
 
+
+/-! ## The end of a setup line (docs/plans/lore-names-and-now.md 2.3 A) -/
+
+/-- `p` is the last part of the shape, and it is in the table. -/
+def LastPart (t : Table) (s : Shape) (p : Part) : Prop :=
+  ∃ id, s.parts.val.getLast? = some id ∧ t.parts.val[id.val]? = some p
+
+/-- The loop only adds tokens to the line. Past the last index it adds none, and from any
+index before it the line ends with the tokens of the last part. -/
+theorem skeleton_loop.ends (t : Table) (s : Shape) (line : alloc.vec.Vec Token) (i : Usize)
+    (hi : i.val ≤ s.parts.val.length) (hl : line.val.length ≤ 1024) :
+    skeleton_loop t s line i ⦃ r => ∀ o, r = some o →
+      (∃ more, o.val = line.val ++ more) ∧
+      (i.val = s.parts.val.length → o.val = line.val) ∧
+      (i.val < s.parts.val.length → ∀ p, LastPart t s p → ∃ pre, o.val = pre ++ p.tokens.val) ⦄ := by
+  unfold skeleton_loop
+  dsimp only
+  have hm := most_tokens_val
+  split
+  · rename_i hlt
+    step as ⟨id, hid⟩
+    split
+    · simp
+    · rename_i hin
+      step as ⟨p, hp⟩
+      step as ⟨i4, hi4⟩
+      split
+      · simp
+      · rename_i hfit
+        have hd := deref_val p.tokens
+        have hroom : line.val.length + (alloc.vec.Vec.deref p.tokens).val.length ≤ Usize.max := by
+          rw [hd]; scalar_tac
+        apply WP.spec_bind (with_tokens.spec line (alloc.vec.Vec.deref p.tokens) hroom)
+        intro line1 hl1
+        rw [hd] at hl1
+        step as ⟨i1, hi1⟩
+        have hl1len : line1.val.length ≤ 1024 := by
+          rw [hl1]; simp only [List.length_append]; scalar_tac
+        apply WP.spec_mono (skeleton_loop.ends t s line1 i1 (by scalar_tac) hl1len)
+        intro r hr o ho
+        obtain ⟨⟨more, hmore⟩, hend, hlast⟩ := hr o ho
+        refine ⟨⟨p.tokens.val ++ more, by rw [hmore, hl1, List.append_assoc]⟩,
+          fun h => by scalar_tac, ?_⟩
+        intro _ q ⟨id', hlastid, hq⟩
+        by_cases hnext : i1.val < s.parts.val.length
+        · exact hlast hnext q ⟨id', hlastid, hq⟩
+        · have heq : i1.val = s.parts.val.length := by scalar_tac
+          have hlen : s.parts.val.length - 1 = i.val := by scalar_tac
+          have hb : i.val < s.parts.val.length := by scalar_tac
+          have hget : s.parts.val[i.val]? = some id := by
+            rw [hid, List.getElem?_eq_getElem hb]
+          rw [List.getLast?_eq_getElem?, hlen, hget] at hlastid
+          cases hlastid
+          have hpq : p = q := by
+            have hb2 : id.val < t.parts.val.length := by scalar_tac
+            have hp' : t.parts.val[id.val]? = some p := by
+              rw [hp, List.getElem?_eq_getElem hb2]
+            rw [hp'] at hq
+            simpa using hq
+          subst hpq
+          exact ⟨line.val, by rw [hend heq, hl1]⟩
+  · rename_i hge
+    simp only [WP.spec_ok, Option.some.injEq]
+    rintro o rfl
+    exact ⟨⟨[], by simp⟩, fun _ => rfl, fun h => by scalar_tac⟩
+termination_by s.parts.length - i.val
+decreasing_by all_goals scalar_decr_tac
+
+/-- A skeleton ends with the tokens of the last part of its shape. -/
+theorem skeleton.ends (t : Table) (s : Shape) :
+    skeleton t s ⦃ r => ∀ o, r = some o →
+      ∀ p, LastPart t s p → ∃ pre, o.val = pre ++ p.tokens.val ⦄ := by
+  unfold skeleton
+  step as ⟨line, hl⟩
+  apply WP.spec_mono (skeleton_loop.ends t s line 0#usize (by simp) (by simp [hl]))
+  intro r hr o ho p hlast
+  have ⟨id, hid, _⟩ := hlast
+  have hpos : 0 < s.parts.val.length := by
+    cases hparts : s.parts.val with
+    | nil => rw [hparts] at hid; simp at hid
+    | cons _ _ => simp
+  exact (hr o ho).2.2 (by simpa using hpos) p hlast
+
+/-- `ends_on_coda` holds only when the last part of the shape is a coda of the table. -/
+@[step]
+theorem ends_on_coda.spec (t : Table) (s : Shape) :
+    ends_on_coda t s ⦃ b => b = true → ∃ p, LastPart t s p ∧ p.kind = .Coda ⦄ := by
+  unfold ends_on_coda
+  dsimp only
+  split
+  · simp
+  · rename_i hne
+    step as ⟨i, hi⟩
+    step as ⟨id, hid⟩
+    split
+    · simp
+    · rename_i hin
+      step as ⟨p, hp⟩
+      have hb : i.val < s.parts.val.length := by scalar_tac
+      have hb2 : id.val < t.parts.val.length := by scalar_tac
+      have hlast : LastPart t s p := by
+        refine ⟨id, ?_, by rw [hp, List.getElem?_eq_getElem hb2]⟩
+        have hlen : s.parts.val.length - 1 = i.val := by scalar_tac
+        rw [List.getLast?_eq_getElem?, hlen, List.getElem?_eq_getElem hb, hid]
+      cases hk : p.kind <;> simp only [WP.spec_ok, Bool.false_eq_true, false_implies]
+      intro _
+      exact ⟨p, hlast, hk⟩
+
+/-- Law 9: a setup line ends on its coda. When the last part of a shape is a coda, the line
+that the shape builds ends with the tokens of that coda, so the present of a setup is the
+code's, never the model's. -/
+theorem a_setup_line_ends_on_its_coda (t : Table) (s : Shape) (f : Facts)
+    (o : alloc.vec.Vec Token) (he : ends_on_coda t s = ok true)
+    (h : assemble t s f = ok (some o)) :
+    ∃ p pre, LastPart t s p ∧ p.kind = .Coda ∧ o.val = pre ++ p.tokens.val := by
+  obtain ⟨b, hb, hpost⟩ := WP.spec_imp_exists (ends_on_coda.spec t s)
+  rw [he] at hb
+  obtain ⟨p, hlast, hkind⟩ := hpost (by simpa using hb.symm)
+  obtain ⟨r, hr, hends⟩ := WP.spec_imp_exists (skeleton.ends t s)
+  rw [(assembled h).2.1] at hr
+  have hro : r = some o := by simpa using hr.symm
+  obtain ⟨pre, hpre⟩ := hends o hro p hlast
+  exact ⟨p, pre, hlast, hkind, hpre⟩
+
 end timeways_rules.narrator_shapes
