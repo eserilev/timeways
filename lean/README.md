@@ -6,7 +6,7 @@ Lean functions. The theorems in `Timeways/QuestLog.lean`,
 `Timeways/TrustBand.lean`, `Timeways/Prompts.lean`,
 `Timeways/Aliases.lean`, `Timeways/StoryShelf.lean`,
 `Timeways/EntryEdits.lean`, `Timeways/Chapters.lean`, `Timeways/ChaptersDeaths.lean`,
-`Timeways/NarratorShapes.lean`, `Timeways/ThinLore.lean`, `Timeways/GameNames.lean`, `Timeways/Outcomes.lean`, `Timeways/Setups.lean`, `Timeways/InstanceLore.lean`, and `Timeways/Prologue.lean` are about those functions. A theorem holds for every input, with no bound. The
+`Timeways/NarratorShapes.lean`, `Timeways/ThinLore.lean`, `Timeways/GameNames.lean`, `Timeways/Outcomes.lean`, `Timeways/Setups.lean`, `Timeways/InstanceLore.lean`, `Timeways/Prologue.lean`, and `Timeways/Grounding.lean` are about those functions. A theorem holds for every input, with no bound. The
 property tests in `crates/story/tests/properties.rs` check the same
 rules on random input, and they stay as a second check.
 
@@ -491,6 +491,26 @@ and property tests check it.
 | `the_instance_pick_never_panics` | For every list of counts, the pick gives a value. | none |
 | `an_instance_passage_is_told_at_most_once` | The pick is always a passage that was never told. That a told passage then counts one is glue, and tests check it, not a proof. The store keeps the told lore after the prompt ages out, so a count never goes back to 0. | `entries_tell_each_passage_once_and_then_fall_silent`, `told_lore_stays_told_at_any_call_count`, `a_later_entry_never_tells_a_passage_again_after_many_calls` |
 | `entries_are_silent_once_every_passage_is_told` | When every passage was told, the pick is none, and the entry is silent. | `each_later_entry_tells_lore_never_told_and_then_falls_silent` |
+
+## What is proved: no invented names
+
+`grounded` in `crates/rules/src/grounding.rs` decides if a model text
+names only what its prompt gave (GAMEPLAY.md 3.2.1). It reads ids,
+never strings. `answer` holds the ids of the words of the names of the
+text, and `given` the ids of every word that the prompt gave. `is_given`
+names each ungrounded name of a refused text. The glue in
+`crates/story/src/grounding.rs` finds the names, drops the common words,
+and gives one id to each distinct word. No proof reads the glue. Its
+named tests and property tests check it.
+
+| Theorem | The law | Test |
+|---|---|---|
+| `grounded.spec` | The check ends and gives its pure model: true exactly when each id of `answer` is in `given`. | `a_text_is_grounded_exactly_when_each_of_its_names_is_given` |
+| `is_given.spec` | A name is given exactly when `given` holds it. | the same |
+| `the_grounding_check_never_panics` | For every two lists of ids, the check gives a value. | none |
+| `is_given_never_panics` | For every id and every list, `is_given` gives a value. | none |
+| `an_ungrounded_name_is_refused` | A text with one name that the prompt did not give is refused. | `a_text_with_one_name_not_given_is_refused` |
+| `a_text_whose_names_are_all_given_passes_this_check` | A text whose names are all given passes this check. Other checks can still refuse it. | `a_text_built_only_from_given_names_is_grounded` |
 
 ## What you trust
 

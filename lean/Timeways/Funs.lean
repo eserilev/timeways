@@ -1289,6 +1289,64 @@ def game_names.holds_person
   let wanted ← game_names.person rows id
   game_names.holds_person_loop rows ids wanted 0#usize
 
+/-- [timeways_rules::thin_lore::holds]: loop 0:
+    Source: 'crates/rules/src/thin_lore.rs', lines 47:4-54:1 -/
+@[rust_loop]
+def thin_lore.holds_loop
+  (ids : Slice Std.U32) (id : Std.U32) (index : Std.Usize) : Result Bool := do
+  let i := Slice.len ids
+  if index < i
+  then
+    let i1 ← Slice.index_usize ids index
+    if i1 = id
+    then ok true
+    else let index1 ← index + 1#usize
+         thin_lore.holds_loop ids id index1
+  else ok false
+partial_fixpoint
+
+/-- [timeways_rules::thin_lore::holds]:
+    Source: 'crates/rules/src/thin_lore.rs', lines 45:0-54:1 -/
+@[reducible]
+def thin_lore.holds (ids : Slice Std.U32) (id : Std.U32) : Result Bool := do
+  thin_lore.holds_loop ids id 0#usize
+
+/-- [timeways_rules::grounding::grounded]: loop 0:
+    Source: 'crates/rules/src/grounding.rs', lines 16:4-23:1
+    Visibility: public -/
+@[rust_loop]
+def grounding.grounded_loop
+  (answer : Slice Std.U32) (given : Slice Std.U32) (index : Std.Usize) :
+  Result Bool
+  := do
+  let i := Slice.len answer
+  if index < i
+  then
+    let i1 ← Slice.index_usize answer index
+    let b ← thin_lore.holds given i1
+    if b
+    then
+      let index1 ← index + 1#usize
+      grounding.grounded_loop answer given index1
+    else ok false
+  else ok true
+partial_fixpoint
+
+/-- [timeways_rules::grounding::grounded]:
+    Source: 'crates/rules/src/grounding.rs', lines 14:0-23:1
+    Visibility: public -/
+@[reducible]
+def grounding.grounded
+  (answer : Slice Std.U32) (given : Slice Std.U32) : Result Bool := do
+  grounding.grounded_loop answer given 0#usize
+
+/-- [timeways_rules::grounding::is_given]:
+    Source: 'crates/rules/src/grounding.rs', lines 29:0-31:1
+    Visibility: public -/
+def grounding.is_given
+  («name» : Std.U32) (given : Slice Std.U32) : Result Bool := do
+  thin_lore.holds given «name»
+
 /-- [timeways_rules::hero_hook::HOOK_EVERY]
     Source: 'crates/rules/src/hero_hook.rs', lines 4:0-4:30
     Visibility: public -/
@@ -2199,28 +2257,6 @@ def narrator_shapes.window
   let i := Slice.len lines
   let index ← lift (core.num.Usize.saturating_sub i narrator_shapes.WINDOW)
   narrator_shapes.window_loop lines (alloc.vec.Vec.new Std.U16) index
-
-/-- [timeways_rules::thin_lore::holds]: loop 0:
-    Source: 'crates/rules/src/thin_lore.rs', lines 47:4-54:1 -/
-@[rust_loop]
-def thin_lore.holds_loop
-  (ids : Slice Std.U32) (id : Std.U32) (index : Std.Usize) : Result Bool := do
-  let i := Slice.len ids
-  if index < i
-  then
-    let i1 ← Slice.index_usize ids index
-    if i1 = id
-    then ok true
-    else let index1 ← index + 1#usize
-         thin_lore.holds_loop ids id index1
-  else ok false
-partial_fixpoint
-
-/-- [timeways_rules::thin_lore::holds]:
-    Source: 'crates/rules/src/thin_lore.rs', lines 45:0-54:1 -/
-@[reducible]
-def thin_lore.holds (ids : Slice Std.U32) (id : Std.U32) : Result Bool := do
-  thin_lore.holds_loop ids id 0#usize
 
 /-- [timeways_rules::outcomes::outcome_usable]:
     Source: 'crates/rules/src/outcomes.rs', lines 37:0-44:1

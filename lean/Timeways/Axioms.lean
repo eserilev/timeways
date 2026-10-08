@@ -17,6 +17,7 @@ import Timeways.Outcomes
 import Timeways.Setups
 import Timeways.InstanceLore
 import Timeways.Prologue
+import Timeways.Grounding
 
 open timeways_rules
 
@@ -562,3 +563,26 @@ open timeways_rules
 /-- info: 'timeways_rules.prologue.a_written_prologue_is_never_due' depends on axioms: [propext] -/
 #guard_msgs (whitespace := lax) in
 #print axioms prologue.a_written_prologue_is_never_due
+/-- info: 'timeways_rules.grounding.grounded.spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms grounding.grounded.spec
+
+/-- info: 'timeways_rules.grounding.is_given.spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms grounding.is_given.spec
+
+/-- info: 'timeways_rules.grounding.the_grounding_check_never_panics' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms grounding.the_grounding_check_never_panics
+
+/-- info: 'timeways_rules.grounding.an_ungrounded_name_is_refused' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms grounding.an_ungrounded_name_is_refused
+
+/-- info: 'timeways_rules.grounding.a_text_whose_names_are_all_given_passes_this_check' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms grounding.a_text_whose_names_are_all_given_passes_this_check
+
+/-- info: 'timeways_rules.grounding.is_given_never_panics' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms grounding.is_given_never_panics
