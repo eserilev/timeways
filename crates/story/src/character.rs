@@ -4,7 +4,6 @@ use crate::game_names;
 use crate::gear::{Quality, item_name};
 use crate::input::{GameQuestKind, Reaction};
 use crate::mounts::mount_name;
-use crate::pack::Link;
 use crate::places::InstanceKind;
 use crate::race_class::{Class, Race};
 use crate::spot::{self, Spot};
@@ -119,15 +118,20 @@ impl Character {
         self.holds_about(VISITED, place)
     }
 
-    /// The spoiler limit (GAMEPLAY.md 3.1): every place of the links is visited, and every
-    /// NPC met.
+    /// Every place that you visited, under its name in the game. The spoiler limit reads it
+    /// (`spoiler`).
     #[must_use]
-    pub fn knows_all(&self, links: &[Link]) -> bool {
-        links.iter().all(|link| match link {
-            Link::Place(name) => self.has_visited(name),
-            Link::Npc(name) => self.has_met(name),
-            Link::Common => true,
-        })
+    pub fn places_visited(&self) -> Vec<&str> {
+        self.visited(|_| true)
+    }
+
+    /// Every NPC that you met. Seeing is not meeting.
+    #[must_use]
+    pub fn npcs_met(&self) -> Vec<&str> {
+        self.linked_by_you(&[MET])
+            .into_iter()
+            .map(|npc| npc.name.as_str())
+            .collect()
     }
 
     #[must_use]

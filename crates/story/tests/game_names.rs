@@ -15,7 +15,7 @@ use timeways_story::outcome_passages::{Npc, PageKind, Stance, with_known_bosses}
 use timeways_story::pack::{Deed, Dependency, Link, Origin, Pack, Passage, SetupFor};
 use timeways_story::places::InstanceKind;
 use timeways_story::seen::SeenIndex;
-use timeways_story::spoiler::{outcome_allowed, setup_allowed};
+use timeways_story::spoiler::{may_show, outcome_allowed, setup_allowed};
 
 #[test]
 fn the_bundled_game_names_read() {
@@ -42,9 +42,15 @@ fn no_row_holds_a_bare_surname() {
         let wiki_words = row.wiki.split_whitespace().count();
         for game in &row.game {
             let one_word = game.split_whitespace().count() == 1;
-            assert!(!one_word || wiki_words == 1 || is_whole_first_word(game, &row.wiki));
+            let whole = is_whole_first_word(game, &row.wiki) || is_without_the(game, &row.wiki);
+            assert!(!one_word || wiki_words == 1 || whole, "{game}");
         }
     }
+}
+
+/// "Deadmines" is the whole name of "The Deadmines": the game drops the article.
+fn is_without_the(game: &str, wiki: &str) -> bool {
+    wiki.strip_prefix("The ") == Some(game)
 }
 
 /// "Aku'mai" is the whole name of "Aku'mai the Devourer", not a surname.
@@ -147,7 +153,42 @@ fn meeting_an_npc_under_the_game_name_meets_the_wiki_name() {
         .meet_npc(Tick(2), "King Magni Bronzebeard")
         .unwrap();
 
-    assert!(character.knows_all(&[Link::Npc("Magni Bronzebeard".to_string())]));
+    assert!(may_show(
+        &character,
+        &linked_to(Link::Npc("Magni Bronzebeard".to_string()))
+    ));
+}
+
+fn linked_to(link: Link) -> Passage {
+    Passage {
+        links: vec![link],
+        ..whitemane_page()
+    }
+}
+
+#[test]
+fn a_foe_defeated_under_the_game_name_is_known_under_the_wiki_name() {
+    let mut character = Character::new();
+    let page = linked_to(Link::Npc("Sally Whitemane".to_string()));
+    assert!(!may_show(&character, &page));
+
+    character
+        .defeat_npc(Tick(2), "High Inquisitor Whitemane")
+        .unwrap();
+
+    assert!(may_show(&character, &page));
+}
+
+#[test]
+fn a_visit_to_deadmines_is_a_visit_to_the_deadmines() {
+    let mut character = Character::new();
+
+    character.enter_zone(Tick(1), "Deadmines", None).unwrap();
+
+    assert!(may_show(
+        &character,
+        &linked_to(Link::Place("The Deadmines".to_string()))
+    ));
 }
 
 fn whitemane_page() -> Passage {

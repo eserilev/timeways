@@ -3071,6 +3071,134 @@ def setups.setup_usable
     let b ← thin_lore.holds s quest
     ok (¬ b)
 
+/-- [timeways_rules::spoiler::link_known]:
+    Source: 'crates/rules/src/spoiler.rs', lines 38:0-47:1
+    Visibility: public -/
+def spoiler.link_known
+  (link : spoiler.LinkTo) (facts : spoiler.WorldFacts) : Result Bool := do
+  match link with
+  | spoiler.LinkTo.Common => ok true
+  | spoiler.LinkTo.Place place =>
+    let s := alloc.vec.Vec.deref facts.deeds.names
+    let s1 := alloc.vec.Vec.deref facts.visited
+    game_names.holds_person s s1 place
+  | spoiler.LinkTo.Npc npc =>
+    let s := alloc.vec.Vec.deref facts.deeds.names
+    let s1 := alloc.vec.Vec.deref facts.met
+    let b ← game_names.holds_person s s1 npc
+    if b
+    then ok true
+    else
+      let s2 := alloc.vec.Vec.deref facts.deeds.names
+      let s3 := alloc.vec.Vec.deref facts.deeds.defeated
+      game_names.holds_person s2 s3 npc
+
+/-- [timeways_rules::spoiler::is_deed]:
+    Source: 'crates/rules/src/spoiler.rs', lines 51:0-53:1
+    Visibility: public -/
+def spoiler.is_deed (tag : outcomes.DependsOn) : Result Bool := do
+  match tag with
+  | outcomes.DependsOn.Nothing => ok false
+  | outcomes.DependsOn.Unresolved => ok false
+  | outcomes.DependsOn.Foe _ => ok true
+  | outcomes.DependsOn.Quest _ => ok true
+
+/-- [timeways_rules::spoiler::tells_a_deed]: loop 0:
+    Source: 'crates/rules/src/spoiler.rs', lines 59:4-66:1
+    Visibility: public -/
+@[rust_loop]
+def spoiler.tells_a_deed_loop
+  (tags : Slice outcomes.DependsOn) (index : Std.Usize) : Result Bool := do
+  let i := Slice.len tags
+  if index < i
+  then
+    let «do» ← Slice.index_usize tags index
+    let b ← spoiler.is_deed «do»
+    if b
+    then ok true
+    else let index1 ← index + 1#usize
+         spoiler.tells_a_deed_loop tags index1
+  else ok false
+partial_fixpoint
+
+/-- [timeways_rules::spoiler::tells_a_deed]:
+    Source: 'crates/rules/src/spoiler.rs', lines 57:0-66:1
+    Visibility: public -/
+@[reducible]
+def spoiler.tells_a_deed (tags : Slice outcomes.DependsOn) : Result Bool := do
+  spoiler.tells_a_deed_loop tags 0#usize
+
+/-- [timeways_rules::spoiler::is_waived]:
+    Source: 'crates/rules/src/spoiler.rs', lines 71:0-73:1
+    Visibility: public -/
+def spoiler.is_waived
+  (link : spoiler.LinkTo) (deed_done : Bool) : Result Bool := do
+  if deed_done
+  then
+    match link with
+    | spoiler.LinkTo.Common => ok false
+    | spoiler.LinkTo.Place _ => ok true
+    | spoiler.LinkTo.Npc _ => ok false
+  else ok false
+
+/-- [timeways_rules::spoiler::links_known]: loop 0:
+    Source: 'crates/rules/src/spoiler.rs', lines 79:4-86:1
+    Visibility: public -/
+@[rust_loop]
+def spoiler.links_known_loop
+  (links : Slice spoiler.LinkTo) (deed_done : Bool)
+  (facts : spoiler.WorldFacts) (index : Std.Usize) :
+  Result Bool
+  := do
+  let i := Slice.len links
+  if index < i
+  then
+    let lt ← Slice.index_usize links index
+    let b ← spoiler.is_waived lt deed_done
+    if b
+    then
+      let index1 ← index + 1#usize
+      spoiler.links_known_loop links deed_done facts index1
+    else
+      let b1 ← spoiler.link_known lt facts
+      if b1
+      then
+        let index1 ← index + 1#usize
+        spoiler.links_known_loop links deed_done facts index1
+      else ok false
+  else ok true
+partial_fixpoint
+
+/-- [timeways_rules::spoiler::links_known]:
+    Source: 'crates/rules/src/spoiler.rs', lines 77:0-86:1
+    Visibility: public -/
+@[reducible]
+def spoiler.links_known
+  (links : Slice spoiler.LinkTo) (deed_done : Bool)
+  (facts : spoiler.WorldFacts) :
+  Result Bool
+  := do
+  spoiler.links_known_loop links deed_done facts 0#usize
+
+/-- [timeways_rules::spoiler::passage_usable]:
+    Source: 'crates/rules/src/spoiler.rs', lines 92:0-105:1
+    Visibility: public -/
+def spoiler.passage_usable
+  (links : Slice spoiler.LinkTo) (tags : Slice outcomes.DependsOn)
+  (setup_for : setups.SetupFor) (facts : spoiler.WorldFacts) :
+  Result Bool
+  := do
+  let b ← outcomes.outcomes_usable tags facts.deeds
+  if b
+  then
+    let b1 ← setups.setup_usable setup_for facts.deeds
+    if b1
+    then
+      let b2 ← spoiler.tells_a_deed tags
+      spoiler.links_known links b2 facts
+    else ok false
+  else ok false
+
 /-- [timeways_rules::story_shelf::is_taken]: loop 0:
     Source: 'crates/rules/src/story_shelf.rs', lines 18:4-29:1
     Visibility: public -/

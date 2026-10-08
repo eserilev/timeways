@@ -75,3 +75,7 @@ game = ["Keeper Remulos"]
 [[place]]
 wiki = "Stormwind Stockade"
 game = ["The Stockade"]
+
+[[place]]
+wiki = "The Deadmines"
+game = ["Deadmines"]

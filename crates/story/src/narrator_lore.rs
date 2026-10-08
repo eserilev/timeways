@@ -143,7 +143,7 @@ fn first_setup(
     told: &[String],
     places: &[String],
 ) -> Result<Option<Passage>, LoreError> {
-    let setups = known(character, pack.setups_of(instance)?);
+    let setups = known(character, pack.setups_of(wiki_name(instance))?);
     Ok(setups
         .into_iter()
         .map(shown)
@@ -161,7 +161,7 @@ fn next_of_instance(
     told: &[String],
     places: &[String],
 ) -> Result<Option<Passage>, LoreError> {
-    let usable = known(character, pack.of_place(instance)?)
+    let usable = known(character, pack.of_place(wiki_name(instance))?)
         .into_iter()
         .map(shown)
         .filter(|passage| tells_a_place(passage, instance, places));

@@ -2939,7 +2939,11 @@ fn an_outcome_after_the_kill_never_asks_for_a_foe_that_still_holds_the_place() {
     };
     let mut story = story_with("entries-outcome-note", &[sent_and_killed]);
     defeat(&mut story, HOUR, "Edwin VanCleef");
-    batch_end(&mut story, 9);
+    // The kill tells the outcome too. A failed call tells nothing, so the entries still can.
+    let (kill_line, _) = model_call(batch_end(&mut story, 9));
+    story
+        .handle(Input::ModelFailed { call: kill_line })
+        .unwrap();
     entry_prompt(&mut story, 2 * HOUR, 1);
 
     let again = entry_prompt(&mut story, 4 * HOUR, 2).unwrap();

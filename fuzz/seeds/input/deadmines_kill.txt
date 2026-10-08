@@ -1,0 +1,12 @@
+{"type":"character_described","at":1791438957,"race":"Scourge","class":"PALADIN"}
+{"type":"level_reached","at":1791438957,"level":6}
+{"type":"zone_entered","at":1791438960,"zone":"Tirisfal Glades","subzone":"Deathknell","spot":{"map":1420,"x":318,"y":663},"hour":22,"taxi":null}
+{"type":"batch_end","id":2}
+{"type":"zone_entered","at":1791439372,"zone":"Tirisfal Glades","subzone":null,"spot":null,"hour":23,"taxi":null}
+{"type":"zone_entered","at":1791439372,"zone":"Deadmines","subzone":null,"spot":null,"hour":23,"taxi":null}
+{"type":"instance_entered","at":1791439372,"zone":"Deadmines","kind":"party"}
+{"type":"batch_end","id":8}
+{"type":"zone_entered","at":1791439415,"zone":"Tirisfal Glades","subzone":"Brill","spot":{"map":1420,"x":650,"y":300},"hour":23,"taxi":null}
+{"type":"npc_defeated","at":1791439611,"name":"Edwin VanCleef","kind":"boss"}
+{"type":"batch_end","id":18}
+{"type":"lore_asked","id":7,"question":"What happened to Edwin VanCleef?","target":null}

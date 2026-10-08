@@ -345,6 +345,15 @@ This test needs a model. A model text names only what its prompt gave: the lore,
 2. Each person, place, and group that a text names is in its lore or in what you did. No text names a person that the game and the lore don't know, such as a new owner of the Deadmines.
 3. In the bench report, `ungrounded-name` counts the texts that named something that their prompt did not give.
 
+### 34. The lore of a boss after its kill
+
+A boss that you killed is known to you. The lore of his end shows wherever the wiki files it, also on the page of a town that you never visited.
+
+1. Enter the Deadmines, kill Edwin VanCleef, and leave. Don't visit Moonbrook.
+2. The narrator line of the kill tells something of VanCleef, unless the narrator already spoke three times in the last hour.
+3. Ask `/lore What happened to Edwin VanCleef?`. The answer tells of his life and of his end.
+4. Ask the same question on a new character that never killed him. The answer tells nothing of his end.
+
 ## Dev mode
 
 Dev mode makes the moments of hours of play in seconds. It runs the real code: the addon, the bridge, and the story program. Only the moment itself is fake.
@@ -483,6 +492,7 @@ Type `/twdev help` for the list. A name with spaces needs no quotes. A slash sep
 | 31. Ratings | The `ratings` scenario, then `timeways-dev export-ratings <character> --realm <realm>`. In the game: `/timeways ratings on`, the Chronicle of that world, and Like on chapter 1. After any narrator line: `/timeways like` | The file holds two ratings of narrator lines with `new_zone`, and after the Like a rating of the chapter, with `$N` and no name. Like and Dislike show only while ratings are on, and only on a page with a story. |
 | 32. A prologue at the first login | The `prologue-35` scenario with a model, then log in and open the Chronicle | The prologue as chapter 0, about the lands and the people of the hero, and the title page with a summary. |
 | 33. No invented names | `timeways-dev bench-model --local`, then `/twdev dungeon The Deadmines` and `/twdev talk Gryan Stoutmantle / Who holds the Deadmines?` | `ungrounded-name` under refused calls by fault, and no shown text that names someone its lore lacks. |
+| 34. The lore of a boss after its kill | `/twdev dungeon Deadmines`, `/twdev kill Edwin VanCleef boss`, then `/lore What happened to Edwin VanCleef?`. Also on a fresh character with no dungeon: `/twdev kill Edwin VanCleef boss` and the same question | The entry line has lore of the Deadmines. The kill gets a narrator line about VanCleef. The answer tells of his end. With no visit, it still tells of his end, from the pages of the Deadmines and Moonbrook. |
 
 Each scenario and each command has a named test. Three tests fail when a new feature has no way in dev mode: `every_input_line_has_a_dev_command_or_a_scenario` and `every_section_of_the_journal_has_a_scenario_that_fills_it` (`crates/addon-tests/tests/dev_mode.rs`), and `every_kind_of_narrator_moment_comes_in_a_scenario` (`crates/dev/tests/scenarios.rs`).
 

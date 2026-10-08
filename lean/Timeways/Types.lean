@@ -447,6 +447,23 @@ inductive setups.SetupFor where
 | Foe : Std.U32 → setups.SetupFor
 | Quest : Std.U32 → setups.SetupFor
 
+/-- [timeways_rules::spoiler::LinkTo]
+    Source: 'crates/rules/src/spoiler.rs', lines 16:0-23:1
+    Visibility: public -/
+@[discriminant isize]
+inductive spoiler.LinkTo where
+| Common : spoiler.LinkTo
+| Place : Std.U32 → spoiler.LinkTo
+| Npc : Std.U32 → spoiler.LinkTo
+
+/-- [timeways_rules::spoiler::WorldFacts]
+    Source: 'crates/rules/src/spoiler.rs', lines 28:0-32:1
+    Visibility: public -/
+structure spoiler.WorldFacts where
+  deeds : outcomes.PlayerFacts
+  visited : alloc.vec.Vec Std.U32
+  met : alloc.vec.Vec Std.U32
+
 /-- [timeways_rules::story_shelf::ShelfLine]
     Source: 'crates/rules/src/story_shelf.rs', lines 9:0-12:1
     Visibility: public -/

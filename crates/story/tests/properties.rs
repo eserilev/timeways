@@ -14,6 +14,7 @@ use timeways_rules::instance_lore::next_passage;
 use timeways_rules::narrator_shapes::WINDOW;
 use timeways_rules::outcomes::{DependsOn, PlayerFacts, outcome_usable};
 use timeways_rules::setups::{self, setup_usable};
+use timeways_rules::spoiler::{LinkTo, WorldFacts, passage_usable};
 use timeways_story::aliases::{
     AliasRow, MAX_PLAYER_NAME_BYTES, alias_of, key_of, knows_every_id, plain_joined, text_pieces,
     unmarked, with_names, without_names,
@@ -4192,6 +4193,108 @@ proptest! {
         prop_assert_eq!(outcome_usable(DependsOn::Foe(tag), &facts), killed);
         prop_assert_eq!(setup_usable(setups::SetupFor::Foe(tag), &facts), !killed);
         prop_assert_eq!(person(&rows, person(&rows, tag)), person(&rows, tag));
+    }
+}
+
+/// A link of a passage over the ids of `name_rows`: a game id, a wiki id, or another one.
+fn link_to() -> impl Strategy<Value = LinkTo> {
+    let id = || prop_oneof![0u32..8, 100u32..103, Just(50u32)];
+    prop_oneof![
+        1 => Just(LinkTo::Common),
+        3 => id().prop_map(LinkTo::Place),
+        3 => id().prop_map(LinkTo::Npc),
+    ]
+}
+
+fn depends_on() -> impl Strategy<Value = DependsOn> {
+    let id = || prop_oneof![0u32..8, 100u32..103, Just(50u32)];
+    prop_oneof![
+        1 => Just(DependsOn::Nothing),
+        1 => Just(DependsOn::Unresolved),
+        3 => id().prop_map(DependsOn::Foe),
+        1 => id().prop_map(DependsOn::Quest),
+    ]
+}
+
+/// The worlds of `passage_usable`, with the rows of game names.
+fn world_facts() -> impl Strategy<Value = WorldFacts> {
+    let ids = || prop::collection::vec(named_kill(), 0..4);
+    (name_rows(), ids(), ids(), ids(), ids()).prop_map(
+        |(names, defeated, quests_done, visited, met)| WorldFacts {
+            deeds: PlayerFacts {
+                defeated,
+                quests_done,
+                names,
+            },
+            visited,
+            met,
+        },
+    )
+}
+
+/// True when one name of `held` names the same person or place as `id`.
+fn holds_one(facts: &WorldFacts, held: &[u32], id: u32) -> bool {
+    let rows = &facts.deeds.names;
+    held.iter()
+        .any(|name| person(rows, *name) == person(rows, id))
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(512))]
+
+    /// GAMEPLAY.md 3.1 and 5.10: the one gate, exactly. A foe that the player defeated is
+    /// known, an outcome whose deeds the player did needs no visit to its place, and a setup
+    /// keeps its gate.
+    #[test]
+    fn the_spoiler_gate_shows_a_passage_exactly_when_its_rules_allow_it(
+        links in prop::collection::vec(link_to(), 0..4),
+        tags in prop::collection::vec(depends_on(), 0..3),
+        setup in prop_oneof![Just(setups::SetupFor::Nothing), (0u32..8).prop_map(setups::SetupFor::Foe)],
+        facts in world_facts(),
+    ) {
+        let did = |tag: &DependsOn| match tag {
+            DependsOn::Nothing => true,
+            DependsOn::Unresolved => false,
+            DependsOn::Foe(foe) => holds_one(&facts, &facts.deeds.defeated, *foe),
+            DependsOn::Quest(quest) => facts.deeds.quests_done.contains(quest),
+        };
+        let deeds_done = tags.iter().all(did);
+        let tells_a_deed = tags.iter().any(|tag| matches!(tag, DependsOn::Foe(_) | DependsOn::Quest(_)));
+        let stale = match setup {
+            setups::SetupFor::Foe(foe) => holds_one(&facts, &facts.deeds.defeated, foe),
+            _ => false,
+        };
+        let known = |link: &LinkTo| match link {
+            LinkTo::Common => true,
+            LinkTo::Place(place) => holds_one(&facts, &facts.visited, *place) || tells_a_deed,
+            LinkTo::Npc(npc) => {
+                holds_one(&facts, &facts.met, *npc) || holds_one(&facts, &facts.deeds.defeated, *npc)
+            }
+        };
+        let expected = deeds_done && !stale && links.iter().all(known);
+
+        prop_assert_eq!(passage_usable(&links, &tags, setup, &facts), expected);
+    }
+
+    /// A passage the player neither met nor did stays hidden: a link that the world does
+    /// not hold hides it, unless it is the place of an outcome whose deeds the player did.
+    #[test]
+    fn a_passage_the_player_neither_met_nor_did_stays_hidden(
+        links in prop::collection::vec(link_to(), 1..4),
+        facts in world_facts(),
+    ) {
+        let held = |link: &LinkTo| match link {
+            LinkTo::Common => true,
+            LinkTo::Place(place) => holds_one(&facts, &facts.visited, *place),
+            LinkTo::Npc(npc) => {
+                holds_one(&facts, &facts.met, *npc) || holds_one(&facts, &facts.deeds.defeated, *npc)
+            }
+        };
+        let no_deed = [DependsOn::Nothing];
+
+        let usable = passage_usable(&links, &no_deed, setups::SetupFor::Nothing, &facts);
+
+        prop_assert_eq!(usable, links.iter().all(held));
     }
 }
 

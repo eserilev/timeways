@@ -18,6 +18,7 @@ import Timeways.ThinLore
 import Timeways.GameNames
 import Timeways.Outcomes
 import Timeways.Setups
+import Timeways.Spoiler
 import Timeways.InstanceLore
 import Timeways.Prologue
 import Timeways.Grounding

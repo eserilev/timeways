@@ -15,6 +15,7 @@ import Timeways.ThinLore
 import Timeways.GameNames
 import Timeways.Outcomes
 import Timeways.Setups
+import Timeways.Spoiler
 import Timeways.InstanceLore
 import Timeways.Prologue
 import Timeways.Grounding
@@ -586,3 +587,27 @@ open timeways_rules
 /-- info: 'timeways_rules.grounding.is_given_never_panics' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs (whitespace := lax) in
 #print axioms grounding.is_given_never_panics
+
+/-- info: 'timeways_rules.spoiler.passage_usable.spec' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms spoiler.passage_usable.spec
+
+/-- info: 'timeways_rules.spoiler.the_spoiler_gate_never_panics' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms spoiler.the_spoiler_gate_never_panics
+
+/-- info: 'timeways_rules.spoiler.a_defeated_foe_is_known' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms spoiler.a_defeated_foe_is_known
+
+/-- info: 'timeways_rules.spoiler.a_foe_defeated_under_either_name_is_known' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms spoiler.a_foe_defeated_under_either_name_is_known
+
+/-- info: 'timeways_rules.spoiler.an_outcome_the_player_did_is_usable_wherever_it_is_filed' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms spoiler.an_outcome_the_player_did_is_usable_wherever_it_is_filed
+
+/-- info: 'timeways_rules.spoiler.a_passage_the_player_neither_met_nor_did_stays_hidden' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms spoiler.a_passage_the_player_neither_met_nor_did_stays_hidden

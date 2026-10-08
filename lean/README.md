@@ -6,7 +6,7 @@ Lean functions. The theorems in `Timeways/QuestLog.lean`,
 `Timeways/TrustBand.lean`, `Timeways/Prompts.lean`,
 `Timeways/Aliases.lean`, `Timeways/StoryShelf.lean`,
 `Timeways/EntryEdits.lean`, `Timeways/Chapters.lean`, `Timeways/ChaptersDeaths.lean`,
-`Timeways/NarratorShapes.lean`, `Timeways/ThinLore.lean`, `Timeways/GameNames.lean`, `Timeways/Outcomes.lean`, `Timeways/Setups.lean`, `Timeways/InstanceLore.lean`, `Timeways/Prologue.lean`, and `Timeways/Grounding.lean` are about those functions. A theorem holds for every input, with no bound. The
+`Timeways/NarratorShapes.lean`, `Timeways/ThinLore.lean`, `Timeways/GameNames.lean`, `Timeways/Outcomes.lean`, `Timeways/Setups.lean`, `Timeways/Spoiler.lean`, `Timeways/InstanceLore.lean`, `Timeways/Prologue.lean`, and `Timeways/Grounding.lean` are about those functions. A theorem holds for every input, with no bound. The
 property tests in `crates/story/tests/properties.rs` check the same
 rules on random input, and they stay as a second check.
 
@@ -456,6 +456,27 @@ proof reads the glue. Its named tests and property tests check it.
 | `a_passage_with_no_setup_is_not_gated_by_this_rule` | A passage with no setup passes this gate, whatever the world holds. | `a_passage_with_no_setup_passes_with_any_facts` |
 | `a_kill_under_either_name_makes_the_setup_stale` | For a row (g, w) of game names that are a function, a setup tagged w is refused after a kill of g, and after a kill of w. | `a_kill_under_the_game_name_makes_a_setup_tagged_with_the_wiki_name_stale` |
 | `a_kill_of_another_person_keeps_the_setup` | When no kill names the person of the tag under any name, the setup passes. | `a_kill_under_any_name_of_a_row_unlocks_its_tags` |
+
+## What is proved: the one gate of the spoiler limit
+
+`passage_usable` in `crates/rules/src/spoiler.rs` is the one gate of
+every pick of lore (GAMEPLAY.md 3.1 and 5.10). It reads the links of a
+passage, its outcome tags, and its setup, as ids. A link to an NPC is
+held after a meeting or after a defeat, under either name of a row. A
+place link is held after a visit, also under either name: "Deadmines"
+is "The Deadmines". An outcome passage whose deeds the player did needs
+no visit to the place where the pack files it. Its NPC links and its
+setup still count. `spoiler::may_show` in the story program only turns
+names into ids.
+
+| Theorem | The law | Test |
+|---|---|---|
+| `passage_usable.spec` | The gate ends and gives its pure model: every tag done, the setup not stale, and each link held, or a place of a passage that tells a deed. | `the_spoiler_gate_shows_a_passage_exactly_when_its_rules_allow_it` |
+| `the_spoiler_gate_never_panics` | For every passage and every world, the gate gives a value. | none |
+| `a_defeated_foe_is_known` | A link to an NPC that the player defeated, under any name of the person, is held. | `a_defeated_foe_is_known` |
+| `a_foe_defeated_under_either_name_is_known` | For a row (g, w) of game names that are a function, a kill of g or of w makes both names known. | `a_foe_defeated_under_the_game_name_is_known_under_the_wiki_name` |
+| `an_outcome_the_player_did_is_usable_wherever_it_is_filed` | A passage that tells a deed, with every deed done, no stale setup, and each link a place or held, passes. | `after_the_kill_lore_tells_his_own_page_and_his_end` |
+| `a_passage_the_player_neither_met_nor_did_stays_hidden` | A link that the world does not hold refuses the passage, unless it is a place and the passage tells a deed that the player did. | `a_passage_the_player_neither_met_nor_did_stays_hidden` |
 
 ## What is proved: game names
 

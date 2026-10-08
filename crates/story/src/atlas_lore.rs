@@ -4,6 +4,7 @@
 //! No model takes part.
 
 use crate::character::Character;
+use crate::game_names::wiki_name;
 use crate::journal::{Person, Place};
 use crate::pack::{Dependency, Pack, PackError, Passage};
 use crate::spoiler;
@@ -90,7 +91,7 @@ fn is_zone(place: &Place) -> bool {
 }
 
 fn own_text(pack: &Pack, character: &Character, name: &str) -> Result<Option<String>, PackError> {
-    let own = pack.about(name, CANDIDATES)?;
+    let own = pack.about(wiki_name(name), CANDIDATES)?;
     Ok(own
         .iter()
         .find(|passage| spoiler::may_show(character, passage))
@@ -102,6 +103,7 @@ fn own_text(pack: &Pack, character: &Character, name: &str) -> Result<Option<Str
 /// open. A stale setup and a deed that the pack never tied to anyone stay hidden for good,
 /// so they promise nothing.
 fn more_to_learn(pack: &Pack, character: &Character, place: &str) -> Result<bool, PackError> {
+    let place = wiki_name(place);
     let mut passages = pack.of_place(place)?;
     passages.extend(pack.about(place, CANDIDATES)?);
     Ok(passages

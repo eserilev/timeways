@@ -33,6 +33,7 @@ pub mod prologue;
 pub mod prompts;
 pub mod quest_log;
 pub mod setups;
+pub mod spoiler;
 pub mod story_shelf;
 pub mod thin_lore;
 pub mod trust;
