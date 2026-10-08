@@ -545,3 +545,33 @@ fn every_closed_chapter_gets_the_history_of_its_zone() {
         .collect();
     assert_eq!(zones, ["Westfall", "Duskwood"]);
 }
+
+#[test]
+fn a_backlog_of_closed_chapters_gets_histories_only_for_the_newest_three() {
+    let mut story = started("history-backlog");
+    let zones = [
+        ("Westfall", "Gryan Stoutmantle"),
+        ("Duskwood", "Madame Eva"),
+        ("Redridge Mountains", "Magistrate Solomon"),
+        ("Wetlands", "Captain Stoutfist"),
+        ("Loch Modan", "Mountaineer Stormpike"),
+    ];
+    for (n, (zone, npc)) in (1..).zip(zones) {
+        a_chapter_in(&mut story, 2 * n * HOUR, zone, npc);
+    }
+    enter(&mut story, 12 * HOUR, "Stormwind City", None);
+    meet(&mut story, 12 * HOUR, "Innkeeper Allison");
+    let answer = |kind: &str| (kind == "history").then(|| HISTORY.to_string());
+
+    let mut prompts = settle(&mut story, 1, &answer);
+    prompts.extend(settle(&mut story, 9, &answer));
+
+    let histories = prompts.iter().filter(|prompt| kind(prompt) == "history");
+    assert_eq!(histories.count(), 3);
+    let zones: Vec<String> = journal(&mut story)
+        .histories
+        .into_iter()
+        .map(|history| history.zone)
+        .collect();
+    assert_eq!(zones, ["Redridge Mountains", "Wetlands", "Loch Modan"]);
+}

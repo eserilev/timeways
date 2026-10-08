@@ -237,6 +237,7 @@ Each new line gets a fuzz seed for the `input` target.
 Each open-world zone page in the atlas gets "Your history here": one narrated paragraph about what you did there, over all visits. An instance shows its tale instead.
 
 - After a chapter closes, its zone with the most new `World` weight (5 or more) gets a rewrite. One model call.
+- Only the newest 3 closed chapters wait for a history. A backlog after an upgrade, or a long run with no model, asks for at most 3.
 - The call waits behind sagas, tales, and the summary. A chapter costs at most 5 calls.
 - The check is the saga check: at most 400 characters, no slop, never "our hero". It must not copy 8 words in a row from a saga. A refused answer gets one retry, then the old text stays.
 - The page also lists every chapter that had weight in the zone.

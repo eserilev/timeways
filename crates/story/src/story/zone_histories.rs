@@ -13,6 +13,9 @@ use crate::zone_history::{self, Facts, MIN_ZONE_WEIGHT};
 use hourglass::{EntityId, EventId};
 use std::collections::BTreeSet;
 
+/// The newest closed chapters that can wait for a history.
+const MAX_WAITING_CHAPTERS: usize = 3;
+
 const HISTORY_LIMITS: TextLimits = TextLimits {
     chars: zone_history::MAX_HISTORY_CHARS,
     bytes: zone_history::MAX_HISTORY_BYTES,
@@ -105,15 +108,23 @@ impl Story {
     }
 }
 
-/// The oldest closed chapter whose zone with the most new weight in the open world gained
-/// enough, with that zone, when the chapter has no history after it and was not asked for
-/// one in this run. The rows tell which chapter waits, so a restart never loses one.
+/// The oldest of the newest closed chapters whose zone with the most new weight in the open
+/// world gained enough, with that zone, when the chapter has no history after it and was
+/// not asked for one in this run. The rows tell which chapter waits, so a restart never
+/// loses one. Only the newest chapters wait: after an upgrade, every old chapter has no
+/// history, and a call for each would flood the model.
 fn history_waiting(active: &Active, asked: &BTreeSet<EventId>) -> Option<(ChapterSpan, EntityId)> {
-    active
+    let mut closed: Vec<ChapterSpan> = active
         .book
         .chapters()
         .into_iter()
-        .filter(|chapter| chapter.state == SpanState::Closed && !asked.contains(&chapter.first))
+        .filter(|chapter| chapter.state == SpanState::Closed)
+        .collect();
+    let older = closed.len().saturating_sub(MAX_WAITING_CHAPTERS);
+    closed
+        .split_off(older)
+        .into_iter()
+        .filter(|chapter| !asked.contains(&chapter.first))
         .filter(|chapter| !has_history(active, chapter.first))
         .find_map(|chapter| {
             let zone = zone_with_most_weight(active, &chapter)?;
