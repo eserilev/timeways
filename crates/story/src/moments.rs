@@ -221,6 +221,15 @@ impl Moment {
         }
     }
 
+    /// The foe that the moment tells the defeat of: the line never tells it as alive.
+    #[must_use]
+    pub fn defeated(&self) -> Option<&str> {
+        match self {
+            Moment::FirstKill { foe, .. } | Moment::Revenge { foe, .. } => Some(foe),
+            _ => None,
+        }
+    }
+
     /// The names that the game gave and no lore holds: a mount, an item, a quest, a buff,
     /// or a book. Such a name allows no word of the history that the checks refuse
     /// (GAMEPLAY.md 3.2.1).

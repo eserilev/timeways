@@ -7,6 +7,7 @@ use timeways_story::line_check::{
     Checked, Grounds, MOST_SENTENCES, built_faults, checked_line, lore_faults,
 };
 use timeways_story::narrator::Naming;
+use timeways_story::present_check::{PresentGrounds, unsourced_present_in};
 use timeways_story::prose::prose_faults;
 use timeways_story::sentences::sentences;
 
@@ -63,6 +64,68 @@ const LOVED: [&str; 26] = [
      worships Aku'mai there now.",
     "The night elves planted Teldrassil to win back their immortality. The dragons never \
      blessed the tree, and the Gnarlpine furbolgs of the island have turned corrupt.",
+];
+
+/// The lore of each loved line, in the order of `LOVED`: the passage that a prompt shows.
+/// Each present clause of a loved line has a source in it (docs/plans/lore-names-and-now.md
+/// 2.3 C).
+const LOVED_LORE: [&str; 26] = [
+    "For a time, the Miners' League was partly in charge of the Deadmines under Foreman \
+     Thistlenettle. One day the Defias Brotherhood attacked them, and the mine tunnel \
+     collapsed. Only Wilder escaped, while the rest died and began to roam as restless undead.",
+    "The Royal Apothecary Society was founded to find a cure for the plague. Beneath the ruins \
+     of Lordaeron, its apothecaries brew a new plague to destroy the living.",
+    "Archmage Arugal of the Kirin Tor summoned the worgen to fight the Scourge. They turned on \
+     him, and he now hides in Shadowfang Keep, calling them his children.",
+    "The region was stolen right under the Alliance's nose by its own bitter people. This rich \
+     land has lain fallow since the Second War, but it is now held by the Defias Brotherhood.",
+    "The vineyards of Northshire Abbey were once the pride of Stormwind. Defias bandits now \
+     hold the vineyards, and kobolds work the Echo Ridge Mine.",
+    "The Silver Hand burned the dead of Lordaeron in the Third War. The Forsaken rose from \
+     those dead, and Sylvanas Windrunner leads them from the Undercity.",
+    "Magistrate Solomon has asked Stormwind for soldiers more than once, and none have come. \
+     The Blackrock orcs still hold Stonewatch Keep.",
+    "Troggs rose from below and took Gnomeregan. High Tinker Mekkatorque flooded the city with \
+     radiation to stop them, and the gnomes who lived fled to Ironforge. The survivors live in \
+     Ironforge now.",
+    "The Scarlet Crusade swore to purge the Scourge from Lordaeron. It now kills anyone it \
+     suspects of carrying the plague.",
+    "Archmage Arugal cursed the villagers of Pyrewood. By day they are human, and by night they \
+     turn into worgen.",
+    "Edwin VanCleef led the stonemasons who rebuilt Stormwind. When the nobles refused their \
+     wages, he founded the Defias Brotherhood. The Brotherhood now holds Westfall.",
+    "Hogger leads the Riverpaw gnolls of Elwynn Forest. His raids on its farms go on, and the \
+     guards of Stormwind have a price on his head.",
+    "Naralex, a night elf druid of the Cenarion Circle, led his disciples into the Wailing \
+     Caverns to make the Barrens green through the Emerald Dream. The Emerald Nightmare \
+     corrupted them, and they became the Druids of the Fang. The Druids of the Fang serve the \
+     Nightmare now.",
+    "Durnholde Keep was the internment camp where Thrall grew up a slave and was trained to \
+     fight. The keep lies in ruins now, and the Syndicate holds it.",
+    "The War of the Three Hammers ended with the Bronzebeards on the throne of Ironforge. The \
+     Dark Irons fled south, and the Wildhammers went north to the Hinterlands.",
+    "Lakeshire guards its bridge against the Blackrock orcs, who raid its farms from Stonewatch \
+     Keep.",
+    "Grom Hellscream killed the demigod Cenarius in Ashenvale. The Warsong Clan still logs the \
+     forest for Orgrimmar, and the night elves fight it.",
+    "The Shadow Council taught the first orcs to bargain with demons, and the warlocks of the \
+     Horde learned their craft from it.",
+    "Dark magic from Karazhan turned the trees of Duskwood. The Night Watch defends Darkshire \
+     against the dead.",
+    "The Burning Blade, a cult of demon worshippers, hides in Ragefire Chasm beneath \
+     Orgrimmar.",
+    "The prisoners rose up and took the Stockade from their guards. Stormwind guards hold the \
+     gate while the riot goes on inside.",
+    "The Gurubashi Empire once ruled Stranglethorn. It broke apart, and its tribes now fight \
+     each other among its ruins.",
+    "The Crossroads is a Horde fort where the roads of the Barrens meet. Orc grunts guard its \
+     walls against the centaur raids, and caravans of the Horde stop there.",
+    "The quilboar believe Agamaggan died in the Barrens, and that the thorns of Razorfen grew \
+     from his blood. They guard the thorns as holy ground.",
+    "Blackfathom Deeps was once a temple to Elune. The sea swallowed it, and the Twilight's \
+     Hammer now worships Aku'mai in its depths.",
+    "The night elves planted Teldrassil without the blessing of the dragons. The Gnarlpine \
+     furbolgs of the island have been corrupted.",
 ];
 
 /// The lines that the user hated (7.1), and the "don't" lines of the new pairs (7.2) that a
@@ -194,6 +257,7 @@ fn grounds_of(line: &str, hero_words: Vec<String>) -> Grounds {
         naming: Naming::Name,
         hero_words,
         outside: Vec::new(),
+        defeated: Vec::new(),
     }
 }
 
@@ -249,6 +313,29 @@ fn every_loved_line_still_passes_the_checks_of_the_templates() {
         );
         assert_eq!(built_faults(line, &history, &grounds), [], "{line}");
     }
+}
+
+#[test]
+fn every_loved_line_passes_the_present_check() {
+    for (line, lore) in LOVED.iter().zip(LOVED_LORE) {
+        let history = history_of(line);
+        let grounds = PresentGrounds {
+            lore,
+            names: &[],
+            defeated: &[],
+        };
+
+        assert_eq!(unsourced_present_in(&history, &grounds), [], "{line}");
+    }
+}
+
+/// The sentences of a loved line before the hero: what a model writes with templates.
+fn history_of(line: &str) -> String {
+    let history: Vec<&str> = sentences(line)
+        .into_iter()
+        .take_while(|sentence| !sentence.contains("$N"))
+        .collect();
+    history.join(" ")
 }
 
 #[test]

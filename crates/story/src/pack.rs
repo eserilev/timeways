@@ -271,6 +271,19 @@ impl Pack {
         self.passages(rows)
     }
 
+    /// The name of every place that a passage links to, in name order.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when SQLite fails.
+    pub fn place_names(&self) -> Result<Vec<String>, PackError> {
+        let mut statement = self
+            .connection
+            .prepare_cached("SELECT DISTINCT name FROM link WHERE kind = ?1 ORDER BY name")?;
+        let rows = statement.query_map(params![PLACE], |row| row.get(0))?;
+        Ok(rows.collect::<rusqlite::Result<Vec<String>>>()?)
+    }
+
     fn passages(
         &self,
         rows: impl Iterator<Item = rusqlite::Result<Row>>,

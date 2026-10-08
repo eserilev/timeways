@@ -10,7 +10,6 @@ use crate::narrator_templates::Kind;
 use crate::places::InstanceKind;
 use crate::race_class::{Class, Race};
 use crate::samples;
-use crate::setup_passages;
 use hourglass::Tick;
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
@@ -43,7 +42,8 @@ where you can. $N stands for the name of the hero: the game puts the name there.
 const PLACE_NOTE: &str = "\
 Remember: the line is about the place alone. Never tell that the hero came, entered, or \
 arrived. Take the history from the lore, and add nothing. End on what holds in the place \
-now. When the lore gives you nothing true to tell, answer SILENCE.
+now when the lore says it, and else on the last event of the lore. When the lore gives you \
+nothing true to tell, answer SILENCE.
 Answer with the line only.";
 
 const DEED_NOTE: &str = "\
@@ -220,32 +220,35 @@ pub struct Telling<'a> {
 }
 
 /// The task of an arrival with templates: the history of the place, which is the whole line.
+/// A lore with no present ends on its last event (docs/plans/narrator-style.md, principle 4).
 const PLACE_LORE_TASK: &str = "Write one or two sentences of history about the place of the \
 moment below, from the lore. The place is the subject, and the hero is not in it. End on \
-what holds in the place now.";
+what holds in the place now when the lore says it, and else on the last event of the lore.";
+
+/// The task of an arrival whose lore sets up the defeat of a foe. The code adds that the
+/// foe is still alive, which the gate of setups proves (GAMEPLAY.md 5.10).
+const SETUP_LORE_TASK: &str = "Write one or two sentences of history about the place of the \
+moment below, from the lore: who wants a deed done there, or what threat waits in it. The \
+place is the subject, and the hero is not in it. The game then adds that the foe is still \
+alive, so never tell who holds the place now, and end on the last event of the lore.";
 
 /// The task of a deed with templates. The code adds the deed, so the model never names the
 /// hero (docs/plans/narrator-templates.md 8.2).
 const DEED_LORE_TASK: &str = "Write one sentence of history about the moment below, from \
 the lore: its place, its foe, its people, or its order. Do not tell the deed, and do not \
-name the hero: the game adds both after your sentence. End on what holds now.";
+name the hero: the game adds both after your sentence. End on what holds now when the lore \
+says it, and else on the last event of the lore.";
 
 /// The task of a tenth level with templates (docs/plans/level-lines.md).
 const LEVEL_LORE_TASK: &str = "Write one sentence of history about one of the groups below, \
 from the lore. Tell of the group as a whole. The game adds after your sentence that the \
 group grows stronger, and the level of the hero, so leave both out, and never name the \
-hero. End on what holds now.";
+hero. End on what holds now when the lore says it, and else on the last event of the lore.";
 
 const LORE_NOTE: &str = "\
 Remember: history only, from the lore. Add nothing. Never name the hero, and never tell \
 the deed. When the lore gives you nothing true to tell, answer {\"lore\": \"SILENCE\"}.
 Answer with the JSON only.";
-
-/// The note of an entry whose lore is a setup: who wants a deed done in the place
-/// (GAMEPLAY.md 5.10). The line keeps the place as its subject and ends on the present.
-const SETUP_NOTE: &str = "The lore tells who wants a deed done in this place, or what \
-threat waits in it. Tell that, and end on what still holds now, in this shape: \
-\"..., and <the foe> still holds <the place>.\"";
 
 /// A word is about 6 characters, with its space.
 const CHARS_PER_WORD: usize = 6;
@@ -259,6 +262,7 @@ pub fn prompt(telling: &Telling<'_>, turn: usize) -> String {
         who: telling.who.clone(),
         turn,
         recent: Vec::new(),
+        setup_foe: None,
     };
     match narrator_build::offer(&setup) {
         Some(offer) => lore_prompt(telling, turn, &offer),
@@ -272,6 +276,7 @@ pub fn prompt(telling: &Telling<'_>, turn: usize) -> String {
 pub fn lore_prompt(telling: &Telling<'_>, turn: usize, offer: &Offer) -> String {
     let task = match offer.kind {
         Kind::Arrival => PLACE_LORE_TASK,
+        Kind::Setup => SETUP_LORE_TASK,
         Kind::Level => LEVEL_LORE_TASK,
         _ => DEED_LORE_TASK,
     };
@@ -295,9 +300,6 @@ pub fn lore_prompt(telling: &Telling<'_>, turn: usize, offer: &Offer) -> String 
     match telling.lore {
         Some(lore) => {
             let _ = write!(prompt, "{LORE_HEADING}{}", fenced(lore));
-            if is_setup_entry(telling.moment, lore) {
-                let _ = write!(prompt, "\n{SETUP_NOTE}");
-            }
         }
         None => prompt.push_str("\n\nThe lore: none"),
     }
@@ -311,14 +313,6 @@ pub fn lore_prompt(telling: &Telling<'_>, turn: usize, offer: &Offer) -> String 
         answer_form(offer)
     );
     prompt
-}
-
-/// Lore that tells the end of its deed is no setup: after the kill, "the foe still holds
-/// the place" is false.
-fn is_setup_entry(moment: &Moment, lore: &str) -> bool {
-    moment.enters_an_instance()
-        && !setup_passages::setup_sentences(lore).is_empty()
-        && !setup_passages::tells_an_end(lore)
 }
 
 /// One line of meaning for each closed field of the moment (2.2).

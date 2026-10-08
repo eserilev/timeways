@@ -285,7 +285,7 @@ fn a_place_prompt_asks_for_the_place_alone() {
 
     assert!(prompt.contains("the hero is not in it"), "{prompt}");
     assert!(
-        prompt.contains("End on what holds in the place now."),
+        prompt.contains("End on what holds in the place now when the lore says it, and else on the last event of the lore."),
         "{prompt}"
     );
     assert!(
@@ -368,10 +368,10 @@ fn the_persona_is_a_keeper_of_time_that_tells_no_future_and_no_name() {
 }
 
 #[test]
-fn the_persona_is_a_chronicler_who_tells_one_turn_and_ends_on_the_present() {
+fn the_persona_is_a_chronicler_who_tells_one_turn_and_the_present_of_the_lore() {
     assert!(PERSONA.contains("You are a chronicler"));
     assert!(PERSONA.contains("Tell one turn of history"));
-    assert!(PERSONA.contains("End on the present."));
+    assert!(PERSONA.contains("what holds now if the lore says."));
 }
 
 #[test]
@@ -411,10 +411,13 @@ fn the_author_notes_ask_to_end_on_the_present_and_to_leave_the_hero_out() {
     let deed = prompt_of(&murloc(), None, &who, 0);
 
     assert!(
-        arrival.contains("End on what holds in the place now."),
+        arrival.contains("End on what holds in the place now when the lore says it, and else on the last event of the lore."),
         "{arrival}"
     );
-    assert!(deed.contains("End on what holds now."), "{deed}");
+    assert!(
+        deed.contains("End on what holds now when the lore says it"),
+        "{deed}"
+    );
     assert!(
         deed.contains("Never name the hero, and never tell the deed."),
         "{deed}"

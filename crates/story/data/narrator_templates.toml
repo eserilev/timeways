@@ -370,6 +370,15 @@ alone = "That makes level {level}."
 
 # A level line with no coda is the shape with no coda part ("co.none_u" of the plan).
 
+# --- Setup codas: the present of an entry whose lore sets up the defeat of a foe. The
+# gate shows such lore only while the foe lives, so the code says so, and the model never
+# invents who holds the place (docs/plans/lore-names-and-now.md 2.3 A, approved
+# 2026-10-07).
+
+[[setup_coda]]
+id = "sc.alive"
+text = "{Foe} is still alive."
+
 # --- The peoples of Classic: the people group of a tenth level, the plural of the race,
 # the faction, and the words of the lore that name the people.
 

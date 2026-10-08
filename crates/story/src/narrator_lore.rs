@@ -13,6 +13,7 @@ use crate::narrator::{Who, lore_excerpt};
 use crate::pack::{Link, Pack, PackError, Passage};
 use crate::passage_limits;
 use crate::places::InstanceKind;
+use crate::present_check::has_present_sentence;
 use crate::race_class::Race;
 use crate::seen::SeenIndex;
 use crate::setup_passages;
@@ -60,12 +61,18 @@ fn any_lore(
     who: &Who,
     told: &[String],
 ) -> Result<Option<Passage>, LoreError> {
+    let places = if moment.is_arrival() {
+        Some(pack.place_names()?)
+    } else {
+        None
+    };
+    let all_places = places.as_deref().unwrap_or_default();
     if let Moment::InstanceAgain { zone, .. } = moment {
-        return next_of_instance(pack, character, zone, told);
+        return next_of_instance(pack, character, zone, told, all_places);
     }
     if let Moment::FirstInstance { zone, kind } = moment
         && *kind != InstanceKind::Battleground
-        && let Some(setup) = first_setup(pack, character, zone, told)?
+        && let Some(setup) = first_setup(pack, character, zone, told, all_places)?
     {
         return Ok(Some(setup));
     }
@@ -79,11 +86,53 @@ fn any_lore(
         return Ok(nth_for_level(found, *level));
     }
     for subject in lore_subjects(moment, who) {
-        if let Some(passage) = lore_about(pack, seen, character, &subject)? {
-            return Ok(Some(passage));
+        let found = match &places {
+            Some(places) => place_lore(pack, seen, character, &subject, places)?,
+            None => lore_about(pack, seen, character, &subject)?,
+        };
+        if found.is_some() {
+            return Ok(found);
         }
     }
     Ok(None)
+}
+
+/// The lore of a place moment, in the order of `lore_about`, with no passage of pure
+/// biography (`tells_a_place`).
+fn place_lore(
+    pack: &Pack,
+    seen: &SeenIndex,
+    character: &Character,
+    place: &str,
+    places: &[String],
+) -> Result<Option<Passage>, LoreError> {
+    let own = known(character, pack.about(place, CANDIDATES)?);
+    let found = found_about(pack, seen, character, place)?;
+    Ok(own
+        .into_iter()
+        .chain(found)
+        .find(|passage| tells_a_place(passage, place, places)))
+}
+
+/// A place moment takes a passage of a page about a person or a group only when its shown
+/// text names a place: the place of the moment, or any place of the pack
+/// (docs/plans/lore-names-and-now.md 2.3 B). "Mathias Shaw trained Edwin as a rogue" tells
+/// no place, so it never tells an entry into the Deadmines.
+fn tells_a_place(passage: &Passage, place: &str, places: &[String]) -> bool {
+    let Some(about) = &passage.about else {
+        return true;
+    };
+    if places.contains(about) {
+        return true;
+    }
+    let shown = lore_excerpt(&passage.text);
+    let names = |name: &String| mentions(&shown, bare_place(name));
+    mentions(&shown, bare_place(place)) || places.iter().any(names)
+}
+
+/// "The Deadmines" is named by "Deadmines" too.
+fn bare_place(name: &str) -> &str {
+    name.strip_prefix("The ").unwrap_or(name)
 }
 
 /// The first usable setup of the instance, in pack order, that no call told.
@@ -92,26 +141,35 @@ fn first_setup(
     character: &Character,
     instance: &str,
     told: &[String],
+    places: &[String],
 ) -> Result<Option<Passage>, LoreError> {
     let setups = known(character, pack.setups_of(instance)?);
     Ok(setups
         .into_iter()
         .map(shown)
+        .filter(|setup| tells_a_place(setup, instance, places))
         .find(|setup| times_told(setup, told) == 0))
 }
 
 /// The next passage of the instance that no call told, by the rule of
 /// `timeways_rules::instance_lore`, where Lean proves it. None once every passage was told.
+/// A passage of pure biography goes (`tells_a_place`).
 fn next_of_instance(
     pack: &Pack,
     character: &Character,
     instance: &str,
     told: &[String],
+    places: &[String],
 ) -> Result<Option<Passage>, LoreError> {
-    let candidates: Vec<Passage> = known(character, pack.of_place(instance)?)
+    let usable = known(character, pack.of_place(instance)?)
         .into_iter()
         .map(shown)
-        .collect();
+        .filter(|passage| tells_a_place(passage, instance, places));
+    // A passage with a present sentence first: the line can end on what holds now. The
+    // pick reads the candidates in any order (`an_instance_passage_is_told_at_most_once`).
+    let (present, past): (Vec<Passage>, Vec<Passage>) =
+        usable.partition(|passage| has_present_sentence(&lore_excerpt(&passage.text)));
+    let candidates: Vec<Passage> = present.into_iter().chain(past).collect();
     let counts: Vec<u32> = candidates
         .iter()
         .map(|passage| times_told(passage, told))

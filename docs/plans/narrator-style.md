@@ -36,7 +36,7 @@ The contrasts in the research teach what to avoid:
 1. **The world is the main character.** A line tells the history of a place, a people, a foe, or an order. The hero is a guest in that history.
 2. **A lore chronicler, not a bard.** The narrator reports what happened and what holds now. It does not perform, praise, or mourn.
 3. **Show the turn.** Each line holds one turn of history: a before, a cause, and an after. A line with no turn is a fact list.
-4. **Land on the present.** The last clause tells what holds in the world now: who rules, who is dead, what lies empty.
+4. **Land on the present, when the lore or the game holds it.** The last clause tells what holds in the world now: who rules, who is dead, what lies empty. The present comes from the lore or from the game, never from the model alone. When the lore of an arrival holds no present, the line ends on its last event (the user's decision of 2026-10-07): "Wilder alone escaped, and the rest of the company died in the tunnel."
 5. **Literal over figurative.** Use a figure only when the lore makes it literally true. Never give a group, an order, or a place a body or a feeling.
 6. **Name the hero only for a real deed, and rarely even then.** A dead foe is news. Who killed it is mostly not.
 7. **Never cite the source.** The lore that the player read feeds the facts. The line never says who said it or where it was written.
@@ -53,7 +53,7 @@ The contrasts in the research teach what to avoid:
 | Turns in a line | Exactly 1. | Two turns crowd one line. Zero turns is a fact list. |
 | Facts in a clause | 1 to 2. | "The Defias attacked, the tunnel collapsed, and only Wilder escaped" is three clauses with one fact each. It reads well. "The Defias, who were stonemasons from Stormwind that the nobles refused to pay, attacked" does not. |
 | Subject of a sentence | A place, a people, a person of the lore, or an order. The hero only in a deed sentence. | Principle 1. |
-| The last clause | The present state of the world. | Principle 4. |
+| The last clause | The present state of the world, when the lore or the game holds it. Else the last event of the lore. | Principle 4. |
 | Tense | Past for the history, present for the state now. | The turn reads as a change of tense: "was founded to cure" then "brews". |
 | Order | Cause before effect. Time order. | The reader follows the turn without effort. |
 
@@ -200,7 +200,7 @@ The narrator prompt fits a local model with 2048 tokens (GAMEPLAY.md 3.2.1). The
 
 ```text
 Your manner:
-- Tell one turn of history: what was, what changed it, what holds now. End on the present.
+- Tell one turn of history: what was, what changed it, what holds now if the lore says.
 - The subject is a place, a people, a foe, or an order. Name the hero only for a deed, and rarely.
 - Plain past tense for history, present for now. Sentences of 12 to 25 words.
 - Literal words only. A place or an order has no body, no feeling, and no voice. Nothing grows inside the hero.
@@ -214,7 +214,7 @@ This adds about 30 tokens over the manner block of today. The size test of GAMEP
 
 The place note and the deed note of `narrator.rs` add one line each, because a model weighs the end of a prompt most:
 
-- Place: "End on what holds in the place now."
+- Place: "End on what holds in the place now when the lore says it, and else on the last event of the lore."
 - Deed: "When the deed reads well without the hero, say what changed and leave the hero out."
 
 ### 8.3 The samples
@@ -263,6 +263,7 @@ These are exact. Each one goes into `line_check.rs` or `slop_words.txt`. Every p
 | Too many sentences | more than 3 sentences in a narrator line | new, with `TooManySentences` of the templates plan |
 | A ledger | more than one number in a line | new, beside `NewNumber` |
 | A level opener | a line that starts with `Level \d+` | new |
+| A present with no source | a present clause of the history that no present sentence of the lore backs, or that names a defeated foe (`docs/plans/lore-names-and-now.md` 2.3 C) | `present_check.rs`, built 2026-10-07 |
 | A Hero-page callback | a run of 3 words in a row from the player's Hero answers, in a narrator line | new, for the saga and the summary check only when the narrator line holds no sheet |
 
 A sentence ends at `.`, `!`, or `?` followed by a space or the end. The tests: one unit test for each pattern with a hated line, and one that each loved line passes.
@@ -283,7 +284,7 @@ A sentence ends at `.`, `!`, or `?` followed by a space or the end. The tests: o
 These need judgment. The prompt, the samples, the skill, and the review of the user carry them:
 
 - The line holds one turn, and the turn is true to the lore.
-- The line lands on the present.
+- The line lands on the present when the lore holds one. The present check of 10.1 catches a present that the lore lacks, and the guide carries the rest.
 - A figure of speech that the ban list does not name.
 - A triplet of moods, or of grand nouns.
 - The fit of the line to its moment: "Kobee was a corpse in Deathknell" next to the Scarlet Crusade is unrelated.
@@ -293,6 +294,7 @@ These need judgment. The prompt, the samples, the skill, and the review of the u
 ## 11. Tests
 
 - `every_loved_line_passes_every_check`
+- `every_loved_line_passes_the_present_check`, with its lore
 - `every_hated_line_fails_a_check`, for each hated line that a pattern of 10.1 can catch. The rest are in a list in the test, with the reason that no pattern catches it.
 - `an_order_never_grows_inside_the_hero`
 - `a_line_never_cites_its_source`

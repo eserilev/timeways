@@ -8,11 +8,12 @@ use crate::line_check::Grounds;
 use crate::moments::{Creature, SlotKind};
 use crate::moments::{Moment, moments};
 use crate::narrator::{self, Telling, Who};
-use crate::narrator_build::{Offer, Setup, every_line, kind_of, offer};
+use crate::narrator_build::{Offer, Setup, every_line, kind_of, offer, setup_foe};
 use crate::narrator_lore::{LoreError, is_silent, lore_of_moment, lore_subjects};
 use crate::narrator_slots::{ChoiceField, Choices, KillerKind, Tone, fields_of};
 use crate::narrator_templates::Number;
 use crate::pack::Pack;
+use crate::places::InstanceKind;
 use crate::seen::{SeenIndex, SeenText};
 use hourglass::{Event, Tick};
 use std::slice;
@@ -104,19 +105,20 @@ fn review(
     let subjects = lore_subjects(&moment, &who);
     let mut silence =
         is_silent(&moment, &subjects, passage.as_ref()).then(|| thin_reason(&subjects));
+    let foe = setup_foe(&moment, passage.as_ref());
     let lore = passage.map(|passage| narrator::lore_excerpt(&passage.text));
     let telling = Telling {
         moment: &moment,
         lore: lore.as_deref(),
         who: &who,
     };
-    let prompt = narrator::prompt(&telling, turn);
     let grounds = Grounds::of(&telling, turn);
     let setup = Setup {
         moment: moment.clone(),
         who: who.clone(),
         turn,
         recent: Vec::new(),
+        setup_foe: foe,
     };
     let templated = match (kind_of(&moment), offer(&setup)) {
         (None, _) => None,
@@ -125,6 +127,10 @@ fn review(
             silence.get_or_insert_with(|| "no template fits the moment".to_string());
             None
         }
+    };
+    let prompt = match &templated {
+        Some((_, offer)) => narrator::lore_prompt(&telling, turn, offer),
+        None => narrator::line_prompt(&telling, turn),
     };
     Ok(Review {
         at,
@@ -209,19 +215,35 @@ fn fixed_moments() -> Vec<Moment> {
     ]
 }
 
+/// A setup for each fixed moment, and the first entry of a dungeon whose lore sets up the
+/// defeat of its boss.
+fn fixed_setups(who: &Who) -> Vec<Setup> {
+    let setup = |moment, setup_foe| Setup {
+        moment,
+        who: who.clone(),
+        turn: 0,
+        recent: Vec::new(),
+        setup_foe,
+    };
+    let mut setups: Vec<Setup> = fixed_moments()
+        .into_iter()
+        .map(|moment| setup(moment, None))
+        .collect();
+    let entry = Moment::FirstInstance {
+        zone: "The Deadmines".to_string(),
+        kind: InstanceKind::Dungeon,
+    };
+    setups.push(setup(entry, Some("Edwin VanCleef".to_string())));
+    setups
+}
+
 /// Every line that the templates can build for a pairing, with fixed values, so a person
 /// reviews the templates in one list (docs/plans/narrator-templates.md 4). Each line names
 /// its parts.
 #[must_use]
 pub fn template_lines(who: &Who) -> Vec<String> {
     let mut printed = Vec::new();
-    for moment in fixed_moments() {
-        let setup = Setup {
-            moment,
-            who: who.clone(),
-            turn: 0,
-            recent: Vec::new(),
-        };
+    for setup in fixed_setups(who) {
         printed.push(format!("=== {}", narrator::what_happened(&setup.moment)));
         let Some(offer) = offer(&setup) else {
             printed.push("(no shape fits)".to_string());

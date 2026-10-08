@@ -7,7 +7,7 @@ use crate::input::MessageId;
 use crate::line_check::{Checked, Grounds, LineFault, checked_line};
 use crate::moments::Moment;
 use crate::narrator::{self, Telling, Who};
-use crate::narrator_build::{self, Answered, Built, Offer, Setup, answered, kind_of};
+use crate::narrator_build::{self, Answered, Built, Offer, Setup, answered, kind_of, setup_foe};
 use crate::narrator_lore::{is_silent, lore_of_moment, lore_subjects};
 use crate::prompt::{self, Attempt};
 use crate::ratings::ShownLine;
@@ -76,6 +76,7 @@ impl Story {
                     who: who.clone(),
                     turn,
                     recent: active.recent_shapes().ok()?,
+                    setup_foe: setup_foe(moment, passage.as_ref()),
                 };
                 // No shape fits the moment whatever the model says, so no call.
                 let offer = narrator_build::offer(&setup)?;
@@ -87,7 +88,9 @@ impl Story {
             Some((_, offer)) => narrator::lore_prompt(&telling, turn, offer),
             None => narrator::line_prompt(&telling, turn),
         };
-        let grounds = Grounds::of(&telling, turn);
+        let mut grounds = Grounds::of(&telling, turn);
+        let defeated = active.character.foes_defeated().into_iter();
+        grounds.defeated.extend(defeated.map(str::to_string));
         let mut reads = std::mem::take(&mut self.batch_rows);
         reads.extend(reads::passages_read(active, passage.as_slice()));
         let call = NarratorCall {

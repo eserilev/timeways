@@ -35,6 +35,7 @@ fn grounds_of(sample: &LineSample) -> Grounds {
         naming: Naming::Name,
         hero_words: Vec::new(),
         outside: Vec::new(),
+        defeated: Vec::new(),
     }
 }
 

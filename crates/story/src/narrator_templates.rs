@@ -29,12 +29,17 @@ pub enum TemplateError {
     Part { part: String, reason: String },
     #[error("the shapes of the moment {0:?} fail the checks of the rules")]
     Table(Kind),
+    #[error("a shape of a setup does not end on its coda")]
+    SetupEnd,
 }
 
 /// The kind of a narrator moment, as the templates see it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Kind {
     Arrival,
+    /// An arrival whose lore sets up the defeat of a foe: the lore, then a coda that the
+    /// foe is still alive (docs/plans/lore-names-and-now.md 2.3 A).
+    Setup,
     Kill,
     Revenge,
     Death,
@@ -50,7 +55,8 @@ pub enum Kind {
 }
 
 /// Every kind that has shapes. An arrival is the lore alone.
-pub const DEED_KINDS: [Kind; 12] = [
+pub const DEED_KINDS: [Kind; 13] = [
+    Kind::Setup,
     Kind::Kill,
     Kind::Revenge,
     Kind::Death,
@@ -249,6 +255,7 @@ struct Data {
     killer: Vec<KillerData>,
     grow: Vec<GrowData>,
     coda: Vec<CodaData>,
+    setup_coda: Vec<SetupCodaData>,
     people: Vec<PeopleData>,
     class: Vec<ClassData>,
     group: Vec<GroupData>,
@@ -305,6 +312,14 @@ struct CodaData {
     joined: Option<String>,
     #[serde(default)]
     tags: Vec<String>,
+}
+
+/// The present of a setup, which the gate of setups proves: "{Foe} is still alive."
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SetupCodaData {
+    id: String,
+    text: String,
 }
 
 /// A people of Classic, by the word of its race.
@@ -395,6 +410,7 @@ impl Templates {
             let built = match kind {
                 Kind::Revenge => builder.revenge_shapes(&data)?,
                 Kind::Level => builder.level_shapes(&data)?,
+                Kind::Setup => builder.setup_shapes(&data)?,
                 _ => builder.deed_shapes(&data, kind)?,
             };
             shapes.insert(kind, built);
@@ -411,6 +427,13 @@ impl Templates {
             if !rules::table_ok(&table, &of_kind) {
                 return Err(TemplateError::Table(kind));
             }
+        }
+        let setups = shapes.get(&Kind::Setup).map_or(&[][..], Vec::as_slice);
+        if !setups
+            .iter()
+            .all(|info| rules::ends_on_coda(&table, &info.shape))
+        {
+            return Err(TemplateError::SetupEnd);
         }
         Ok(Templates {
             words: builder.words,
@@ -660,6 +683,17 @@ impl Builder {
             }
         }
         Ok(found)
+    }
+
+    /// `f.setup`: the lore, then one coda. The coda is the main part.
+    fn setup_shapes(&mut self, data: &Data) -> Result<Vec<ShapeInfo>, TemplateError> {
+        let mut shapes = Vec::new();
+        for coda in &data.setup_coda {
+            let main = self.main(&coda.id);
+            let part = self.part(&coda.id, PartKind::Coda, &coda.text, &[], 0)?;
+            shapes.push(shape_info(vec![part], main, &self.keys_of(&[part])));
+        }
+        Ok(shapes)
     }
 
     /// `f.level`: [connective] group grow. [coda]. `f.level_joined`: [connective] group

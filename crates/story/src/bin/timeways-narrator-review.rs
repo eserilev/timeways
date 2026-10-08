@@ -213,6 +213,7 @@ fn verdict(review: &Review, answer: &str, recent: &[String]) -> Answered {
     if let Some((setup, offer)) = &review.templated {
         let setup = Setup {
             recent: recent.to_vec(),
+            setup_foe: None,
             ..setup.clone()
         };
         return answered(answer, &setup, offer, &review.grounds, "");

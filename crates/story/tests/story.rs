@@ -1998,14 +1998,14 @@ fn the_narrator_may_name_a_later_place_that_the_player_wrote() {
     enter(&mut story, 10, "Westfall", None);
     let (call, _) = model_call(batch_end(&mut story, 2));
 
-    let text = "{\"lore\": \"Westfall has no road to Shattrath.\"}".to_string();
+    let text = "{\"lore\": \"Westfall never had a road to Shattrath.\"}".to_string();
     let output = one(story.handle(Input::ModelAnswered { call, text }).unwrap());
 
     assert_eq!(
         output,
         Some(Output::EventsSeen {
             id: MessageId(2),
-            narrator: Some("Westfall has no road to Shattrath.".to_string()),
+            narrator: Some("Westfall never had a road to Shattrath.".to_string()),
             notice: None,
         })
     );
@@ -2783,18 +2783,37 @@ fn a_first_deadmines_entry_tells_the_setup_until_vancleef_dies() {
         first.contains("sent adventurers to kill Edwin VanCleef"),
         "{first}"
     );
-    assert!(first.contains("still holds"), "{first}");
+    assert!(first.contains("the foe is still alive"), "{first}");
     assert!(!late.contains("Stoutmantle"), "{late}");
     assert!(late.contains("the richest gold mine of Westfall"), "{late}");
+}
+
+#[test]
+fn a_first_deadmines_entry_ends_on_the_setup_coda() {
+    let mut story = story_with("setup-coda", &[deadmines_lead(), stoutmantle_asks()]);
+    enter(&mut story, 1, "Westfall", None);
+    enter_dungeon(&mut story, HOUR, "The Deadmines");
+    let (call, _) = model_call(batch_end(&mut story, 3));
+
+    let text = format!("{{\"lore\": \"{}\"}}", line_for("Stoutmantle"));
+    let shown = shown_line(one(story
+        .handle(Input::ModelAnswered { call, text })
+        .unwrap()));
+
+    assert_eq!(
+        shown,
+        "Gryan Stoutmantle sent adventurers into the Deadmines to kill Edwin VanCleef. Edwin \
+         VanCleef is still alive."
+    );
 }
 
 /// A line that passes the checks for each passage of the Deadmines.
 fn line_for(prompt: &str) -> &'static str {
     if prompt.contains("Stoutmantle") {
-        return "Gryan Stoutmantle sent adventurers to kill Edwin VanCleef, and VanCleef still holds the Deadmines.";
+        return "Gryan Stoutmantle sent adventurers into the Deadmines to kill Edwin VanCleef.";
     }
     if prompt.contains("on his ship") {
-        return "Adventurers killed Edwin VanCleef on his ship, so the Defias Brotherhood is leaderless now.";
+        return "Adventurers killed Edwin VanCleef on his ship in the Deadmines.";
     }
     if prompt.contains("Greenskin") {
         return "Mr. Smite was the first mate of Captain Greenskin, and he still guards the ship in the Deadmines.";
@@ -2839,9 +2858,42 @@ fn each_later_entry_tells_lore_never_told_and_then_falls_silent() {
         told(0, "sent adventurers to kill Edwin VanCleef"),
         "{lore:?}"
     );
-    assert!(told(1, "the richest gold mine of Westfall"), "{lore:?}");
-    assert!(told(2, "first mate of Captain Greenskin"), "{lore:?}");
+    assert!(told(1, "first mate of Captain Greenskin"), "{lore:?}");
+    assert!(told(2, "the richest gold mine of Westfall"), "{lore:?}");
     assert_eq!(lore[3], None, "{lore:?}");
+}
+
+#[test]
+fn a_later_entry_prefers_a_passage_with_a_present_sentence() {
+    let mut story = story_with("entries-present", &[deadmines_lead(), smite_lore()]);
+    entry_prompt(&mut story, 2 * HOUR, 1);
+
+    let again = entry_prompt(&mut story, 4 * HOUR, 2).unwrap();
+
+    assert!(again.contains("he guards the ship"), "{again}");
+}
+
+/// A passage of the page of VanCleef that names no place.
+fn shaw_lore() -> Passage {
+    Passage {
+        about: Some("Edwin VanCleef".to_string()),
+        ..passage(
+            "Mathias Shaw was a childhood friend of Edwin, and personally trained him as a rogue.",
+            "the wiki page \"Edwin VanCleef\"",
+            vec![place("The Deadmines")],
+        )
+    }
+}
+
+#[test]
+fn a_place_moment_never_takes_a_person_passage_that_names_no_place() {
+    let mut story = story_with("entries-biography", &[shaw_lore(), smite_lore()]);
+
+    let first = entry_prompt(&mut story, 2 * HOUR, 1);
+    let second = entry_prompt(&mut story, 4 * HOUR, 2);
+
+    assert!(first.is_some_and(|p| p.contains("Captain Greenskin")));
+    assert_eq!(second, None);
 }
 
 /// An outcome passage of the Deadmines: it waits for the defeat of VanCleef.

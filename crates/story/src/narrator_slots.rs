@@ -57,7 +57,12 @@ pub fn fields_of(kind: Kind) -> &'static [ChoiceField] {
         Kind::Slap => &[ChoiceField::Tone, ChoiceField::There],
         Kind::Mount | Kind::EpicMount => &[ChoiceField::Breed],
         Kind::Item => &[ChoiceField::There],
-        Kind::Arrival | Kind::SideQuest | Kind::ClassQuest | Kind::Title | Kind::Mark => &[],
+        Kind::Arrival
+        | Kind::Setup
+        | Kind::SideQuest
+        | Kind::ClassQuest
+        | Kind::Title
+        | Kind::Mark => &[],
     }
 }
 

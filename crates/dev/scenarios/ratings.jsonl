@@ -26,12 +26,12 @@
 
 {"type": "zone_entered", "at": 4000, "zone": "Duskwood", "subzone": "Darkshire", "hour": 21}
 {"type": "game_quest_done", "at": 4030, "title": "The Night Watch", "kind": "normal"}
-{"model": "narrator", "answer": {"lore": "Duskwood was the Grand Hamlet of Elwynn until the Scourge and the worgen came, and the Night Watch of Darkshire guards its last town now."}}
+{"model": "narrator", "answer": {"lore": "Duskwood was the Grand Hamlet of Elwynn until the Scourge and the worgen came, and the Night Watch of Darkshire was raised to guard its last town."}}
 {"model": "saga", "answer": {"saga": "Marshal McBride trains the young of Stormwind at Northshire Abbey, and the kobolds and gnolls of Elwynn Forest give them work enough. $N took up those errands from Echo Ridge to the Jasperlode Mine."}}
 
 {"type": "line_rated", "at": 4060, "rated": "narrator", "rating": "up"}
 
 {"type": "zone_entered", "at": 8000, "zone": "Westfall", "subzone": "Sentinel Hill", "hour": 15}
-{"model": "narrator", "answer": {"lore": "The farmers of Westfall turned on Stormwind after the Second War, and the People's Militia holds Sentinel Hill against the Defias now."}}
+{"model": "narrator", "answer": {"lore": "The farmers of Westfall turned on Stormwind after the Second War, and the People's Militia rose at Sentinel Hill to fight the Defias."}}
 
 {"type": "line_rated", "at": 8060, "rated": "narrator", "rating": "down"}

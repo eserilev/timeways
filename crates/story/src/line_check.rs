@@ -8,6 +8,7 @@ use crate::check::{
 };
 use crate::house::NAME_MARK;
 use crate::narrator::{MAX_LINE_BYTES, MAX_LINE_CHARS, Naming, Telling, naming, what_happened};
+use crate::present_check::{PresentFault, PresentGrounds, unsourced_present_in};
 use crate::prose::{ProseFault, prose_faults};
 use crate::samples;
 use crate::sentences::sentences;
@@ -52,6 +53,8 @@ pub struct Grounds {
     pub hero_words: Vec<String>,
     /// The names of a mount or an item, from the game (`Moment::outside_names`).
     pub outside: Vec<String>,
+    /// The foes that the player defeated: a present clause never tells one as alive.
+    pub defeated: Vec<String>,
 }
 
 impl Grounds {
@@ -71,6 +74,7 @@ impl Grounds {
                 .into_iter()
                 .map(str::to_string)
                 .collect(),
+            defeated: moment.defeated().into_iter().map(str::to_string).collect(),
         }
     }
 
@@ -183,6 +187,10 @@ pub enum LineFault {
     OverBudget(usize),
     /// The history has more sentences than the moment allows: the count, and the most.
     HistorySentences(usize, usize),
+    /// A present clause of the history that the lore does not hold.
+    UnsourcedPresent(String),
+    /// A present clause of the history tells a defeated foe as alive: the clause, the foe.
+    DefeatedAlive(String, String),
 }
 
 impl fmt::Display for LineFault {
@@ -275,6 +283,15 @@ impl fmt::Display for LineFault {
             LineFault::OverBudget(chars) => write!(
                 f,
                 "The history is longer than {chars} characters. Make it shorter."
+            ),
+            LineFault::UnsourcedPresent(clause) => write!(
+                f,
+                "\"{clause}\": the lore does not say that this holds now. End on a fact that \
+                 the lore holds, or answer SILENCE."
+            ),
+            LineFault::DefeatedAlive(clause, foe) => write!(
+                f,
+                "\"{clause}\" tells {foe} as alive now, and {foe} was defeated. Leave it out."
             ),
         }
     }
@@ -388,7 +405,25 @@ pub fn lore_faults(
     if count > most_sentences {
         found.push(LineFault::HistorySentences(count, most_sentences));
     }
+    found.extend(present_faults(&lore, grounds));
     found
+}
+
+/// The present clauses of a history that its lore does not hold
+/// (docs/plans/lore-names-and-now.md 2.3 C).
+fn present_faults(history: &str, grounds: &Grounds) -> Vec<LineFault> {
+    let present = PresentGrounds {
+        lore: grounds.lore.as_deref().unwrap_or_default(),
+        names: &grounds.names,
+        defeated: &grounds.defeated,
+    };
+    let faults = unsourced_present_in(history, &present).into_iter();
+    faults
+        .map(|fault| match fault {
+            PresentFault::Unsourced(clause) => LineFault::UnsourcedPresent(clause),
+            PresentFault::Defeated(clause, foe) => LineFault::DefeatedAlive(clause, foe),
+        })
+        .collect()
 }
 
 /// The faults of a line that the code built from templates: the second guard. The lore

@@ -49,7 +49,7 @@ line: The Miners' League once worked the Deadmines under Foreman Thistlenettle. 
 
 moment: The player defeated Edwin VanCleef in The Deadmines. They never had before.
 who: a human rogue
-lore: Edwin VanCleef led the stonemasons who rebuilt Stormwind. When the nobles refused their wages, he founded the Defias Brotherhood.
+lore: Edwin VanCleef led the stonemasons who rebuilt Stormwind. When the nobles refused their wages, he founded the Defias Brotherhood. The Brotherhood now holds Westfall.
 hero: no name
 history: Edwin VanCleef built the Defias Brotherhood from the stonemasons Stormwind never paid, and it holds Westfall now.
 choices: {"there": false, "leads": "the Defias Brotherhood", "leads_number": "one"}
@@ -66,7 +66,7 @@ line: The dwarves carved Ironforge from the mountain long before Stormwind laid 
 
 moment: The player arrived in the capital city Thunder Bluff. They had never been there before.
 who: a troll hunter
-lore: The centaur drove the tauren across the plains of Kalimdor for generations. With the help of the Horde, Cairne Bloodhoof led them to the mesas of Mulgore, where they built Thunder Bluff.
+lore: The centaur drove the tauren across the plains of Kalimdor for generations. With the help of the Horde, Cairne Bloodhoof led them to the mesas of Mulgore, where they built Thunder Bluff. The tauren now hunt the grasslands of Mulgore.
 hero: not at all, the line is about the place
 history: For generations the centaur hunted the tauren across Kalimdor. Cairne Bloodhoof built Thunder Bluff on the mesas of Mulgore, and the tauren hold its grasslands now.
 choices: {}
@@ -99,7 +99,7 @@ shape: d.killed
 line: The murlocs of the Westfall coast have no kingdom and no history, and they raid its fishing camps now. One Murloc Coastrunner or another has now killed $N three times.
 
 moment: The player arrived in Durotar. They had never been there before.
-lore: Thrall named Durotar after his father, Durotan, who died when Thrall was an infant. The orcs settled its red canyons after their years in the internment camps of Lordaeron.
+lore: Thrall named Durotar after his father, Durotan, who died when Thrall was an infant. The orcs settled its red canyons after their years in the internment camps of Lordaeron. They hold the canyons now.
 hero: not at all, the line is about the place
 history: Thrall named Durotar for a father he never knew. The orcs who spent years in human camps hold its red canyons now.
 choices: {}
@@ -126,7 +126,7 @@ line: The Silver Hand once burned the dead of Lordaeron with the Light, and the 
 
 moment: The player finished "The Tome of Divinity", a quest of their class.
 who: a dwarf paladin
-lore: Uther the Lightbringer founded the Order of the Silver Hand in the Second War, to carry the Light into battle.
+lore: Uther the Lightbringer founded the Order of the Silver Hand in the Second War, to carry the Light into battle. Its paladins train in Ironforge now.
 hero: by the title "Bookworm"
 history: Uther the Lightbringer founded the Silver Hand to carry the Light into war, and its paladins still train in Ironforge.
 choices: {}
@@ -134,7 +134,7 @@ shape: cq.for
 line: Uther the Lightbringer founded the Silver Hand to carry the Light into war, and its paladins still train in Ironforge. The Bookworm finished "The Tome of Divinity" for the order.
 
 moment: The player entered the dungeon Wailing Caverns. They had never been inside before.
-lore: Naralex, a night elf druid of the Cenarion Circle, led his disciples into the Wailing Caverns to make the Barrens green through the Emerald Dream. The Emerald Nightmare corrupted them, and they became the Druids of the Fang.
+lore: Naralex, a night elf druid of the Cenarion Circle, led his disciples into the Wailing Caverns to make the Barrens green through the Emerald Dream. The Emerald Nightmare corrupted them, and they became the Druids of the Fang. The Druids of the Fang serve the Nightmare now.
 hero: not at all, the line is about the place
 history: Naralex went into the Wailing Caverns to make the Barrens green again. The Emerald Nightmare took his mind, and his own Druids of the Fang serve it now.
 choices: {}
@@ -160,7 +160,7 @@ shape: f.place
 line: The night elves planted Teldrassil without the blessing of the dragons. Darnassus sits in its crown.
 
 moment: The player arrived in Dun Morogh. They had never been there before.
-lore: Troggs rose from below and took Gnomeregan. High Tinker Mekkatorque flooded the city with radiation to stop them, and the gnomes who lived fled to Ironforge.
+lore: Troggs rose from below and took Gnomeregan. High Tinker Mekkatorque flooded the city with radiation to stop them, and the gnomes who lived fled to Ironforge. The survivors live in Ironforge now.
 hero: not at all, the line is about the place
 history: Gnomeregan fell to the troggs, and Mekkatorque poisoned his own city to stop them. Its survivors live as guests in Ironforge now.
 choices: {}
@@ -168,7 +168,7 @@ shape: f.place
 line: Gnomeregan fell to the troggs, and Mekkatorque poisoned his own city to stop them. Its survivors live as guests in Ironforge now.
 
 moment: The player arrived in the capital city Orgrimmar. They had never been there before.
-lore: Thrall built Orgrimmar in Durotar and named it after Orgrim Doomhammer, the Warchief before him.
+lore: Thrall built Orgrimmar in Durotar and named it after Orgrim Doomhammer, the Warchief before him. Thrall rules the Horde from Orgrimmar.
 hero: not at all, the line is about the place
 history: Orgrimmar carries the name of Orgrim Doomhammer, the Warchief before Thrall. Thrall built it, and he rules the Horde from it.
 choices: {}
@@ -194,7 +194,7 @@ line: The Defias took Westfall farm by farm, and the militia of Sentinel Hill ho
 
 moment: The player defeated Gath'Ilzogg in Redridge Mountains. Gath'Ilzogg had killed them 2 times before.
 who: a dwarf hunter
-lore: Gath'Ilzogg led a force of Blackrock orcs from the Burning Steppes and claimed Stonewatch Keep in the Redridge Mountains. From there the clan raided north of Lakeshire, and kept its people penned in their town.
+lore: Gath'Ilzogg led a force of Blackrock orcs from the Burning Steppes and claimed Stonewatch Keep in the Redridge Mountains. From there the clan raided north of Lakeshire, and kept its people penned in their town. Its orcs still pen the people of Lakeshire in their town.
 hero: $N
 history: Gath'Ilzogg led the Blackrock orcs into Stonewatch Keep, and they still keep the people of Lakeshire penned in their town.
 choices: {"tone": "plain"}
@@ -203,7 +203,7 @@ line: Gath'Ilzogg led the Blackrock orcs into Stonewatch Keep, and they still ke
 
 moment: The player rode a mount of their own, Gray Ram. They never had one before.
 who: a dwarf hunter
-lore: The Mountaineers of Ironforge patrol the passes of Khaz Modan on rams bred in the snows of Dun Morogh.
+lore: The Mountaineers of Ironforge patrol the passes of Khaz Modan on rams bred in the snows of Dun Morogh. They still guard the passes, and they ride those rams now.
 hero: the dwarf
 history: The Mountaineers of Ironforge have guarded the passes of Khaz Modan for generations, and they ride rams from Dun Morogh now.
 choices: {"breed": true}

@@ -48,6 +48,7 @@ use timeways_story::pace::{Pace, WINDOW_SECONDS};
 use timeways_story::pack::{Deed, Dependency, Link, Origin, Pack, Passage, SetupFor};
 use timeways_story::passage_limits::{MAX_PASSAGE_BYTES, pieces};
 use timeways_story::places::InstanceKind;
+use timeways_story::present_check::{PresentFault, PresentGrounds, unsourced_present_in};
 use timeways_story::prose::{FEWEST_WORDS, MOST_WORDS, ProseFault, prose_faults};
 use timeways_story::quest::variety::{Recent, SHAPES_TO_AVOID, Shape, TITLES_TO_AVOID, main_words};
 use timeways_story::quest::{
@@ -3315,6 +3316,7 @@ fn level_grounds() -> Grounds {
         naming: Naming::Name,
         hero_words: Vec::new(),
         outside: Vec::new(),
+        defeated: Vec::new(),
     }
 }
 
@@ -3780,6 +3782,7 @@ fn template_setup(moment: Moment, who: Who, turn: usize) -> Setup {
         who,
         turn,
         recent: Vec::new(),
+        setup_foe: None,
     }
 }
 
@@ -4228,6 +4231,102 @@ proptest! {
         let budget = Size { line: MAX_LINE, slot: MAX_SLOT };
         for page in &pages {
             prop_assert!(Size::of(page).fits(budget));
+        }
+    }
+}
+
+/// A lore of the present check (docs/plans/lore-names-and-now.md 2.3 C): what holds the
+/// fact of the clause, if anything.
+#[derive(Clone, Copy, Debug)]
+enum PresentLore {
+    /// Only past sentences: no source.
+    PastOnly,
+    /// The present sentence stands inside quote marks: no source.
+    Quoted,
+    /// No lore at all.
+    Empty,
+    /// A present sentence that holds the fact.
+    Present,
+}
+
+fn present_lore() -> impl Strategy<Value = PresentLore> {
+    prop_oneof![
+        Just(PresentLore::PastOnly),
+        Just(PresentLore::Quoted),
+        Just(PresentLore::Empty),
+        Just(PresentLore::Present),
+    ]
+}
+
+fn present_holder() -> impl Strategy<Value = &'static str> {
+    prop::sample::select(vec![
+        "Edwin VanCleef",
+        "Bazil Thredd",
+        "Hogger",
+        "Archaedas",
+        "Mutanus the Devourer",
+    ])
+}
+
+fn present_place() -> impl Strategy<Value = &'static str> {
+    prop::sample::select(vec![
+        "the Deadmines",
+        "Stonewatch Keep",
+        "the Stockade",
+        "Uldaman",
+        "the Wailing Caverns",
+    ])
+}
+
+fn present_lore_text(kind: PresentLore, holder: &str, place: &str) -> String {
+    match kind {
+        PresentLore::PastOnly => {
+            format!("{holder} attacked {place} long ago. The guards fled and never returned.")
+        }
+        PresentLore::Quoted => format!("\"{holder} holds {place} now.\""),
+        PresentLore::Empty => String::new(),
+        PresentLore::Present => format!("{holder} holds {place} now."),
+    }
+}
+
+proptest! {
+    /// docs/plans/lore-names-and-now.md 2.3 C: a present clause passes only with a present
+    /// source in the lore that shares a word past the names of the moment, and never when it
+    /// names a defeated foe.
+    #[test]
+    fn no_present_clause_without_a_present_source(
+        kind in present_lore(),
+        holder in present_holder(),
+        place in present_place(),
+        defeated in any::<bool>(),
+        only_the_moment in any::<bool>(),
+        past_filler in prop::collection::vec(Just("The war ended in the north."), 0..3),
+    ) {
+        let lore = format!("{} {}", past_filler.join(" "), present_lore_text(kind, holder, place));
+        let names = if only_the_moment {
+            vec![holder.to_string(), place.to_string()]
+        } else {
+            Vec::new()
+        };
+        let foes = if defeated { vec![holder.to_string()] } else { Vec::new() };
+        let grounds = PresentGrounds { lore: &lore, names: &names, defeated: &foes };
+        let history = format!("{holder} still holds {place}.");
+
+        let faults = unsourced_present_in(&history, &grounds);
+
+        let sourced = matches!(kind, PresentLore::Present) && !only_the_moment;
+        if defeated {
+            prop_assert!(
+                matches!(faults.as_slice(), [PresentFault::Defeated(_, _)]),
+                "{:?}", faults
+            );
+        } else if sourced {
+            prop_assert_eq!(faults, []);
+        } else {
+            prop_assert!(
+                matches!(faults.as_slice(), [PresentFault::Unsourced(_)]),
+                "{:?}", faults
+            );
         }
     }
 }

@@ -49,6 +49,7 @@ pub mod pack_coverage;
 pub mod pack_sources;
 pub mod passage_limits;
 pub mod places;
+pub mod present_check;
 pub mod prompt;
 pub mod prose;
 pub mod quest;

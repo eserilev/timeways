@@ -13,6 +13,7 @@ use crate::narrator_render::{
 };
 use crate::narrator_slots::{Choices, KillerKind, Parsed, SlotFault, Tone, parse};
 use crate::narrator_templates::{Kind, Need, Number, ShapeInfo, Slot, TEMPLATES, Templates};
+use crate::pack::{Deed, Passage};
 use timeways_rules::narrator_shapes::{self as rules, Facts, Tier, Token};
 
 /// The main part of the line of an arrival, for the window of the rotation.
@@ -29,6 +30,9 @@ const LEADS_ROOM: &str = "the Defias Brotherhood of Westfall";
 const ARRIVAL_SENTENCES: usize = MOST_SENTENCES;
 const DEED_SENTENCES: usize = 1;
 
+/// The coda of a setup is a sentence of the line, so its lore takes one less.
+const SETUP_SENTENCES: usize = MOST_SENTENCES - 1;
+
 /// What one call knows of its moment.
 #[derive(Clone, Debug)]
 pub struct Setup {
@@ -38,6 +42,21 @@ pub struct Setup {
     pub turn: usize,
     /// The main parts of the last accepted lines of the character, oldest first.
     pub recent: Vec<String>,
+    /// The foe whose defeat the lore of an arrival sets up. The gate shows a setup only
+    /// while that foe lives, so the line ends on a coda that says so (`Kind::Setup`).
+    pub setup_foe: Option<String>,
+}
+
+impl Setup {
+    /// The kind of the moment, and `Kind::Setup` for an arrival with a setup foe.
+    #[must_use]
+    pub fn kind(&self) -> Option<Kind> {
+        let kind = kind_of(&self.moment)?;
+        if kind == Kind::Arrival && self.setup_foe.is_some() {
+            return Some(Kind::Setup);
+        }
+        Some(kind)
+    }
 }
 
 /// What the prompt offers: the kind, the groups of a pairing, and the budget of the lore.
@@ -103,12 +122,25 @@ pub fn kind_of(moment: &Moment) -> Option<Kind> {
     Some(kind)
 }
 
+/// The foe whose defeat the lore of an arrival sets up, for the coda of its line. A setup
+/// of a quest gets no coda: the game knows no present of it to tell.
+#[must_use]
+pub fn setup_foe(moment: &Moment, passage: Option<&Passage>) -> Option<String> {
+    if !moment.is_arrival() {
+        return None;
+    }
+    match &passage?.setup_for.as_ref()?.deed {
+        Deed::Foe(name) => Some(name.clone()),
+        Deed::Quest(_) => None,
+    }
+}
+
 /// The offer of a moment, or None when no shape can fit it whatever the model answers:
 /// then the moment is silent before any call. A tenth level needs the race and the class.
 #[must_use]
 pub fn offer(setup: &Setup) -> Option<Offer> {
     let templates = TEMPLATES.as_ref().ok()?;
-    let kind = kind_of(&setup.moment)?;
+    let kind = setup.kind()?;
     let (groups, strange) = match kind {
         Kind::Level | Kind::ClassQuest => match (setup.who.race, setup.who.class) {
             (Some(race), Some(class)) => (
@@ -179,10 +211,10 @@ pub fn answered(
     let Parsed::Answer { lore, choices } = parsed else {
         return Answered::Silent;
     };
-    let most = if offer.kind == Kind::Arrival {
-        ARRIVAL_SENTENCES
-    } else {
-        DEED_SENTENCES
+    let most = match offer.kind {
+        Kind::Arrival => ARRIVAL_SENTENCES,
+        Kind::Setup => SETUP_SENTENCES,
+        _ => DEED_SENTENCES,
     };
     let mut faults = lore_faults(&lore, grounds, player_text, most, offer.budget);
     let built = build(setup, offer, &lore, &choices);
@@ -392,6 +424,9 @@ impl Plan {
             plan.naming = Naming::Name;
         }
         plan.moment_values(templates, &setup.moment);
+        if let Some(foe) = &setup.setup_foe {
+            plan.slot(Slot::Foe, foe.clone());
+        }
         plan
     }
 

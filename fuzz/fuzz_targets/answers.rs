@@ -18,11 +18,15 @@ use timeways_story::input::MessageId;
 use timeways_story::line_check::{Checked, Grounds, MOST_SENTENCES, checked_line, grounded};
 use timeways_story::moments::Moment;
 use timeways_story::narrator::{Telling, Who};
+use timeways_story::narrator_build::{Answered, Setup, answered, offer};
+use timeways_story::narrator_slots::parse;
+use timeways_story::places::InstanceKind;
+use timeways_story::present_check::{
+    PresentFault, PresentGrounds, has_present_sentence, unsourced_present_in,
+};
 use timeways_story::prose::prose_faults;
 use timeways_story::quest::variety::{Recent, Shape, main_words};
 use timeways_story::quest::{self, Genre, Known, Step};
-use timeways_story::narrator_build::{Answered, Setup, answered, offer};
-use timeways_story::narrator_slots::parse;
 use timeways_story::race_class::{Class, Race};
 use timeways_story::seen::{SeenText, TextKind};
 use timeways_story::sentences::sentences;
@@ -326,10 +330,26 @@ fn slot_moments() -> Vec<(Moment, Who, &'static str)> {
         people: Some("Ironforge".to_string()),
     };
     vec![
-        (hogger, paladin.clone(), "Hogger leads the Riverpaw gnolls of Elwynn Forest."),
-        (level, paladin.clone(), "The Silver Hand guards Stormwind with the Light."),
-        (elwynn, paladin.clone(), "Northshire Abbey stands in Elwynn Forest."),
-        (murloc, paladin.clone(), "Murlocs raid the coast of Westfall."),
+        (
+            hogger,
+            paladin.clone(),
+            "Hogger leads the Riverpaw gnolls of Elwynn Forest.",
+        ),
+        (
+            level,
+            paladin.clone(),
+            "The Silver Hand guards Stormwind with the Light.",
+        ),
+        (
+            elwynn,
+            paladin.clone(),
+            "Northshire Abbey stands in Elwynn Forest.",
+        ),
+        (
+            murloc,
+            paladin.clone(),
+            "Murlocs raid the coast of Westfall.",
+        ),
         (ram, paladin, "The Mountaineers of Ironforge ride rams."),
     ]
 }
@@ -344,6 +364,7 @@ fn assert_slots(text: &str) {
             who,
             turn: text.len(),
             recent: vec!["k.fell".to_string(), "v.stronger".to_string()],
+            setup_foe: None,
         };
         let offer = offer(&setup).unwrap();
         let _ = parse(text, offer.kind, &offer.group_ids());
@@ -356,19 +377,84 @@ fn assert_slots(text: &str) {
         let Answered::Line(built) = answered(text, &setup, &offer, &grounds, "") else {
             continue;
         };
-        assert_voice(&built.line, narrator::MAX_LINE_CHARS, narrator::MAX_LINE_BYTES);
+        assert_voice(
+            &built.line,
+            narrator::MAX_LINE_CHARS,
+            narrator::MAX_LINE_BYTES,
+        );
         assert!(slop_in(&built.line, "").is_empty(), "{built:?}");
         assert!(built.line.matches("$N").count() <= 1, "{built:?}");
-        assert!(!built.line.contains(['[', ']', '{', '}', '<', '>']), "{built:?}");
-        assert_eq!(arrival_in(&built.line, &grounds.hero_words), None, "{built:?}");
-        assert!(!setup.moment.is_arrival() || !built.line.contains("$N"), "{built:?}");
+        assert!(
+            !built.line.contains(['[', ']', '{', '}', '<', '>']),
+            "{built:?}"
+        );
+        assert_eq!(
+            arrival_in(&built.line, &grounds.hero_words),
+            None,
+            "{built:?}"
+        );
+        assert!(
+            !setup.moment.is_arrival() || !built.line.contains("$N"),
+            "{built:?}"
+        );
         assert!(!built.shape.is_empty(), "{built:?}");
+    }
+}
+
+/// The present check never panics, refuses only clauses of the history, and refuses every
+/// present clause that names a defeated foe (docs/plans/lore-names-and-now.md 2.3 C).
+fn assert_present(text: &str) {
+    let _ = has_present_sentence(text);
+    let names = vec!["The Deadmines".to_string()];
+    let defeated = vec!["Edwin VanCleef".to_string()];
+    for lore in ["Edwin VanCleef leads the Defias Brotherhood.", text, ""] {
+        let grounds = PresentGrounds {
+            lore,
+            names: &names,
+            defeated: &defeated,
+        };
+        for fault in unsourced_present_in(text, &grounds) {
+            let (PresentFault::Unsourced(clause) | PresentFault::Defeated(clause, _)) = fault;
+            assert!(text.contains(clause.as_str()), "{clause:?} in {text:?}");
+        }
+    }
+}
+
+/// A setup line that the code builds ends on its coda, whatever the history says
+/// (docs/plans/lore-names-and-now.md 2.3 A).
+fn assert_setup(text: &str) {
+    let setup = Setup {
+        moment: Moment::FirstInstance {
+            zone: "The Deadmines".to_string(),
+            kind: InstanceKind::Dungeon,
+        },
+        who: Who::default(),
+        turn: text.len(),
+        recent: Vec::new(),
+        setup_foe: Some("Edwin VanCleef".to_string()),
+    };
+    let lore = "Gryan Stoutmantle sent adventurers into the Deadmines to kill Edwin VanCleef.";
+    let offer = offer(&setup).unwrap();
+    let telling = Telling {
+        moment: &setup.moment,
+        lore: Some(lore),
+        who: &setup.who,
+    };
+    let grounds = Grounds::of(&telling, setup.turn);
+    if let Answered::Line(built) = answered(text, &setup, &offer, &grounds, "") {
+        assert!(
+            built.line.ends_with("Edwin VanCleef is still alive."),
+            "{built:?}"
+        );
+        assert!(!built.line.contains("$N"), "{built:?}");
     }
 }
 
 fuzz_target!(|data: &[u8]| {
     let moments = data.first().map_or(0, |byte| usize::from(byte % 9));
     let text = String::from_utf8_lossy(data);
+    assert_present(&text);
+    assert_setup(&text);
 
     if let Some(saga) = chronicle::checked_saga(&text, moments, "", "") {
         assert_voice(
