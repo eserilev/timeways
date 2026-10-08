@@ -716,6 +716,50 @@ impl Database {
             .map_err(|source| self.error(source))
     }
 
+    /// The kind of each input from this position on, in order.
+    ///
+    /// # Errors
+    ///
+    /// Returns the error of SQLite.
+    pub fn input_kinds_from(&self, position: u64) -> Result<Vec<String>, StoreError> {
+        let select = "SELECT kind FROM inputs WHERE position >= ?1 ORDER BY position";
+        let mut statement = self
+            .connection
+            .prepare_cached(select)
+            .map_err(|source| self.error(source))?;
+        let rows = statement
+            .query_map(params![as_sql(position)], |row| row.get(0))
+            .map_err(|source| self.error(source))?;
+        rows.collect::<Result<Vec<String>, _>>()
+            .map_err(|source| self.error(source))
+    }
+
+    /// Each call from this position on, in order, with its prompt while the file keeps it.
+    ///
+    /// # Errors
+    ///
+    /// Returns the error of SQLite.
+    pub fn calls_from(&self, position: u64) -> Result<Vec<CallRow>, StoreError> {
+        let select = "SELECT position, kind, result, prompt FROM calls WHERE position >= ?1 \
+                      ORDER BY position";
+        let mut statement = self
+            .connection
+            .prepare_cached(select)
+            .map_err(|source| self.error(source))?;
+        let rows = statement
+            .query_map(params![as_sql(position)], |row| {
+                Ok(CallRow {
+                    position: from_sql(row.get(0)?).unwrap_or_default(),
+                    kind: row.get(1)?,
+                    result: row.get(2)?,
+                    prompt: row.get(3)?,
+                })
+            })
+            .map_err(|source| self.error(source))?;
+        rows.collect::<Result<Vec<CallRow>, _>>()
+            .map_err(|source| self.error(source))
+    }
+
     /// The prompt, the answer, and how a call ended.
     ///
     /// # Errors
@@ -756,6 +800,15 @@ impl Database {
     fn error(&self, source: rusqlite::Error) -> StoreError {
         sqlite_error(&self.path, source)
     }
+}
+
+/// A call of `calls_from`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CallRow {
+    pub position: u64,
+    pub kind: String,
+    pub result: String,
+    pub prompt: Option<String>,
 }
 
 /// A call as the database keeps it.

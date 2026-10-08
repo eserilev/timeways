@@ -8,7 +8,7 @@ use common::{NAME, REALM, START, folder, journal, list, seed, texts};
 use serde_json::{Value, json};
 use std::collections::BTreeSet;
 use timeways_dev::scenario::{BUILT_IN, Scenario};
-use timeways_story::moments::Moment;
+use timeways_story::moments::{KINDS, Moment};
 use timeways_story::narrator::Who;
 use timeways_story::narrator_review::{Sources, reviews};
 use timeways_story::pack::Pack;
@@ -290,7 +290,7 @@ fn the_flavor_and_hero_scenario_earns_every_joke_title_of_the_horde() {
 
 /// The name of each kind of narrator moment. A new kind fails to compile here until it
 /// gets a name, and then fails `every_kind_of_narrator_moment_comes_in_a_scenario` until
-/// a scenario makes it.
+/// `moments::KINDS` holds it and a scenario makes it.
 fn kind_of(moment: &Moment) -> &'static str {
     match moment {
         Moment::Flavor { .. } => "flavor",
@@ -314,27 +314,6 @@ fn kind_of(moment: &Moment) -> &'static str {
     }
 }
 
-const MOMENT_KINDS: [&str; 18] = [
-    "flavor",
-    "titled",
-    "first_kill",
-    "revenge",
-    "slain_again",
-    "slapped",
-    "level_up",
-    "class_quest_done",
-    "quest_done",
-    "new_zone",
-    "first_instance",
-    "instance_again",
-    "quest_marked",
-    "first_capital",
-    "first_mount",
-    "first_epic_mount",
-    "first_epic_item",
-    "big_upgrade",
-];
-
 #[test]
 fn every_kind_of_narrator_moment_comes_in_a_scenario() {
     let mut found = BTreeSet::new();
@@ -351,7 +330,9 @@ fn every_kind_of_narrator_moment_comes_in_a_scenario() {
             fallback: &Who::default(),
         };
         for review in reviews(&events, &sources).unwrap() {
-            found.insert(kind_of(&review.moment));
+            let kind = kind_of(&review.moment);
+            assert!(KINDS.contains(&kind), "moments::KINDS lacks {kind}");
+            found.insert(kind);
         }
     }
     // A flavor moment comes from the score of an emote or a book, never from an event
@@ -359,10 +340,7 @@ fn every_kind_of_narrator_moment_comes_in_a_scenario() {
     // flavor-and-hero make it.
     found.insert("flavor");
 
-    let missing: Vec<_> = MOMENT_KINDS
-        .iter()
-        .filter(|kind| !found.contains(*kind))
-        .collect();
+    let missing: Vec<_> = KINDS.iter().filter(|kind| !found.contains(*kind)).collect();
     assert!(missing.is_empty(), "no scenario makes {missing:?}");
 }
 

@@ -104,6 +104,9 @@ pub fn retry_tokens() -> usize {
 /// A retry puts this after the first prompt, then the last answer.
 pub const RETRY_MARK: &str = "\n\nYour last answer was:\n";
 
+/// What opens the reasons of a retry, after the last answer.
+const RULES_MARK: &str = "It broke these rules:\n";
+
 /// The model wrote the answer, and a reason can quote a word of it, so both are data.
 #[must_use]
 pub fn retry(prompt: &str, answer: &str, reasons: &[String]) -> String {
@@ -114,8 +117,22 @@ pub fn retry(prompt: &str, answer: &str, reasons: &[String]) -> String {
         .collect();
     let answer = first_chars(answer, RETRY_ANSWER_CHARS);
     format!(
-        "{prompt}{RETRY_MARK}{}\n\nIt broke these rules:\n{}\nWrite the answer again.",
+        "{prompt}{RETRY_MARK}{}\n\n{RULES_MARK}{}\nWrite the answer again.",
         fenced(answer),
         fenced(&bulleted(&faults))
     )
+}
+
+/// The reasons that a retry prompt gives for the answer before it: the inverse of `retry`.
+#[must_use]
+pub fn reasons_of_retry(prompt: &str) -> Vec<String> {
+    let Some(at) = prompt.rfind(RULES_MARK) else {
+        return Vec::new();
+    };
+    prompt[at + RULES_MARK.len()..]
+        .lines()
+        .take_while(|line| !line.starts_with(">>>"))
+        .filter_map(|line| line.strip_prefix("- "))
+        .map(str::to_string)
+        .collect()
 }

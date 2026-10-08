@@ -183,6 +183,13 @@ globals:
     args: []
   GetFramerate:
     args: []
+  GetCurrentKeyBoardFocus:
+    args: []
+  geterrorhandler:
+    args: []
+  seterrorhandler:
+    args:
+      - type: function
   UpdateAddOnMemoryUsage:
     args: []
   GetAddOnMemoryUsage:

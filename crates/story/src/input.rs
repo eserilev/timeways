@@ -3,6 +3,7 @@
 
 use crate::character::Resting;
 use crate::dev_fps::FpsRun;
+use crate::dev_smoke::{SmokeDone, SmokeStep};
 use crate::entry_edits::{EditText, EntryKey};
 use crate::past::Past;
 use crate::places::InstanceKind;
@@ -311,6 +312,10 @@ pub enum Input {
     },
     /// A run of `/twdev fps`. It lands only in dev mode, and in no world.
     DevFps(FpsRun),
+    /// A step of `/twdev smoke`. It lands only in dev mode, in the log of its run.
+    DevSmoke(SmokeStep),
+    /// The end of a run of `/twdev smoke`, with the counts of the addon.
+    DevSmokeDone(SmokeDone),
     /// What the game tells of the past of the character at a login, while the journal asks
     /// for it (GAMEPLAY.md 3.3, the prologue). The line has no reply.
     PastRead(Past),
@@ -383,8 +388,8 @@ pub enum GameQuestKind {
 
 impl Input {
     /// A line of a model call fills its call. `hello`, a journal request, a `/lore`
-    /// question, and a run of `/twdev fps` change nothing in the world. Every other line is kept as an input
-    /// (GAMEPLAY.md 5.14).
+    /// question, and the lines of `/twdev fps` and `/twdev smoke` change nothing in the world.
+    /// Every other line is kept as an input (GAMEPLAY.md 5.14).
     #[must_use]
     pub fn is_kept(&self) -> bool {
         !matches!(
@@ -392,6 +397,8 @@ impl Input {
             Input::Hello
                 | Input::JournalAsked { .. }
                 | Input::DevFps(_)
+                | Input::DevSmoke(_)
+                | Input::DevSmokeDone(_)
                 | Input::LoreAsked { .. }
                 | Input::ModelAnswered { .. }
                 | Input::ModelFailed { .. }
@@ -493,6 +500,8 @@ impl Input {
             | Input::LoreAsked { .. }
             | Input::JournalAsked { .. }
             | Input::DevFps(_)
+            | Input::DevSmoke(_)
+            | Input::DevSmokeDone(_)
             | Input::BatchEnd { .. }
             | Input::ModelAnswered { .. }
             | Input::ModelFailed { .. } => None,

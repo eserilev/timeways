@@ -63,3 +63,8 @@
 "\"reason\":\"wrong_lore\""
 "\"reason\":\"made_up_name\""
 "\"reason\":\"too_long\""
+"{\"type\":\"dev_smoke\",\"run\":"
+"{\"type\":\"dev_smoke_done\",\"run\":"
+"\"result\":\"pass\""
+"\"gate\":{\"subject\":"
+"\"dev\":true"

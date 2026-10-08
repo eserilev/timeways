@@ -440,7 +440,7 @@ fn welcome_opens_the_setup_window_for_a_reason() {
 }
 
 /// Each command of the help, with words, for the tests of every command.
-const EVERY_COMMAND: [&str; 38] = [
+const EVERY_COMMAND: [&str; 40] = [
     "level 12",
     "zone Westfall / Moonbrook",
     "taxi",
@@ -479,6 +479,8 @@ const EVERY_COMMAND: [&str; 38] = [
     "inbox",
     "fps start bench",
     "fps stop",
+    "smoke",
+    "smoke stop",
 ];
 
 #[test]

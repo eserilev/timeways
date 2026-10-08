@@ -1,0 +1,14 @@
+{"type":"character_entered","realm":"Testrealm","name":"Tester"}
+{"type":"dev_smoke","run":1790000000,"step":0,"name":"start","result":"pass","dev":true}
+{"type":"zone_entered","at":1790000001,"zone":"Elwynn Forest","subzone":"Goldshire","dev":true}
+{"type":"dev_smoke","run":1790000000,"step":1,"name":"zone-move","result":"pass","reason":"Elwynn Forest / Goldshire","expect":["zone_entered"],"dev":true}
+{"type":"dev_smoke","run":1790000000,"step":2,"name":"vancleef-kill","result":"wait","reason":"no narrator line in 30 s","text":"Edwin VanCleef swore that $N would pay.","expect":["npc_defeated"],"dev":true}
+{"type":"dev_smoke","run":1790000000,"step":3,"name":"lore-before-kill","result":"pass","gate":{"subject":"Edwin VanCleef","expect":"blocked"},"dev":true}
+{"type":"dev_smoke","run":1790000000,"step":4,"name":"lore-after-kill","result":"fail","gate":{"subject":"Edwin VanCleef","expect":"open"}}
+{"type":"dev_smoke","run":0,"step":121,"name":"Zone Move","result":"maybe","dev":true}
+{"type":"dev_smoke","run":18446744073709551615,"step":4294967295,"name":"","result":"pass","text":"","expect":["a","b","c","d","e","f","g"],"dev":true}
+{"type":"dev_smoke","run":1790000000,"step":5,"name":"talk","result":"pass","gate":{"subject":"","expect":"shut"},"dev":true}
+{"type":"dev_smoke","run":1790000000,"dev":true}
+{"type":"dev_smoke_done","run":1790000000,"steps":5,"passed":3,"failed":1,"waited":1,"seconds":120,"stopped":"done","errors":["Talk.lua:12: attempt to index a nil value"],"fps":{"samples":10,"hidden":0,"min":55,"p5":56,"median":60,"mean":59},"dev":true}
+{"type":"dev_smoke_done","run":1790000000,"steps":0,"passed":0,"failed":0,"waited":0,"seconds":0,"stopped":"timeout"}
+{"type":"dev_smoke_done","run":1790000001,"steps":999,"passed":0,"failed":0,"waited":0,"seconds":0,"stopped":"never","errors":["a","b","c","d","e","f"],"dev":true}

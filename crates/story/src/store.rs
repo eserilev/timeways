@@ -7,8 +7,8 @@ mod logs;
 mod shared;
 
 pub use database::{
-    CallEnd, CallRecord, Database, Line, NewCall, NewInput, NewRow, Next, Node, Origin, Outcome,
-    PROMPTS_KEPT, Root, Table,
+    CallEnd, CallRecord, CallRow, Database, Line, NewCall, NewInput, NewRow, Next, Node, Origin,
+    Outcome, PROMPTS_KEPT, Root, Table,
 };
 pub use logs::{
     AliasLog, FlavorLog, HeroLog, LearnedLog, Prose, QuestLog, RowLog, SagaSpan, StoryLog, Summary,

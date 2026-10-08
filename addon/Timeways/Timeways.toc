@@ -103,4 +103,5 @@ DevTriggers.lua
 DevAtlas.lua
 DevPeer.lua
 DevFps.lua
+DevSmoke.lua
 Core.lua

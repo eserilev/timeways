@@ -882,6 +882,10 @@ function Widget:HasFocus()
 	return wow.focus == self
 end
 
+function GetCurrentKeyBoardFocus()
+	return wow.focus
+end
+
 function Widget:EnableMouse(enabled)
 	self.mouse = enabled
 end
@@ -1268,6 +1272,24 @@ function wow.Fire(event, ...)
 			frame.scripts.OnEvent(frame, event, ...)
 		end
 	end
+end
+
+-- The game hands each Lua error of a frame script to this handler. A test calls
+-- `wow.ScriptError` for an error that the game would catch.
+local errorHandler = function(message)
+	wow.printed[#wow.printed + 1] = "Lua error: " .. tostring(message)
+end
+
+function geterrorhandler()
+	return errorHandler
+end
+
+function seterrorhandler(handler)
+	errorHandler = handler
+end
+
+function wow.ScriptError(message)
+	errorHandler(message)
 end
 
 function wow.RunTickers()

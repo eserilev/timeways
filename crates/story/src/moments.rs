@@ -129,6 +129,29 @@ impl SlotKind {
     }
 }
 
+/// The name of each kind of moment, as `Moment::kind_name` gives it. A test of the
+/// scenarios and of the smoke run checks that some play makes each one.
+pub const KINDS: [&str; 18] = [
+    "flavor",
+    "titled",
+    "first_kill",
+    "revenge",
+    "slain_again",
+    "slapped",
+    "level_up",
+    "class_quest_done",
+    "quest_done",
+    "new_zone",
+    "first_instance",
+    "instance_again",
+    "quest_marked",
+    "first_capital",
+    "first_mount",
+    "first_epic_mount",
+    "first_epic_item",
+    "big_upgrade",
+];
+
 impl Moment {
     /// The kind of the moment, for a rating of its line (GAMEPLAY.md 3.2.2).
     #[must_use]

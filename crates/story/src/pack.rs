@@ -255,6 +255,21 @@ impl Pack {
         Ok(statement.query_row(params![FOE, name], |row| row.get(0))?)
     }
 
+    /// The outcome passages that wait for the defeat of this foe, in pack order.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when SQLite fails, or when the pack holds an unknown kind.
+    pub fn waiting_on_foe(&self, name: &str, limit: u32) -> Result<Vec<Passage>, PackError> {
+        let mut statement = self.connection.prepare_cached(
+            "SELECT id, text, source, about FROM passage
+             WHERE id IN (SELECT passage FROM depends_on WHERE kind = ?1 AND name = ?2)
+             ORDER BY id LIMIT ?3",
+        )?;
+        let rows = statement.query_map(params![FOE, name, limit], row_of)?;
+        self.passages(rows)
+    }
+
     /// Every passage of a place, in pack order: each one that links to it, and each setup
     /// of it.
     ///

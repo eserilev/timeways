@@ -145,6 +145,7 @@ local function RunLine(stopped, summary, memory, cpu)
 	}
 end
 
+-- The numbers of the run, or nil when it had no samples.
 function DevFps.Stop()
 	if not run then
 		Dev.Say("no FPS run is on.")
@@ -174,6 +175,14 @@ function DevFps.Stop()
 		)
 	)
 	SayCost(memory, used)
+	return {
+		samples = #stopped.samples,
+		hidden = stopped.hidden,
+		min = Round(summary.min),
+		p5 = Round(summary.p5),
+		median = Round(summary.median),
+		mean = Round(summary.mean),
+	}
 end
 
 -- A run ends without its line when dev mode turns off: the desktop refuses a dev line then.

@@ -756,6 +756,12 @@ return {
 				{ Name = "isShown", Type = "bool", Nilable = false },
 			},
 		},
+		["FrameAPIModelSceneFrameActorBase:IsVisible"] = {
+			Arguments = {},
+			Returns = {
+				{ Name = "isVisible", Type = "bool", Nilable = false },
+			},
+		},
 		["FrameAPIModelSceneFrameActorBase:SetAlpha"] = {
 			SecretArguments = "AllowedWhenUntainted",
 			SecretArgumentsAddAspect = { Enum.SecretAspect.Alpha },
@@ -852,6 +858,14 @@ return {
 		},
 		["SimpleBrowserAPI:SetFocus"] = {
 			Arguments = {},
+		},
+		["SimpleButtonAPI:Click"] = {
+			ChecksForbiddenAspects = { { Argument = "self", Aspect = Enum.ForbiddenAspect.ScriptedInput } },
+			SecretArguments = "NotAllowed",
+			Arguments = {
+				{ Name = "button", Type = "cstring", Nilable = false, Default = "LeftButton" },
+				{ Name = "isDown", Type = "bool", Nilable = false, Default = false },
+			},
 		},
 		["SimpleButtonAPI:GetFontString"] = {
 			Arguments = {},
@@ -1182,6 +1196,13 @@ return {
 				{ Name = "isShown", Type = "bool", Nilable = false },
 			},
 		},
+		["SimpleFrameAPI:IsVisible"] = {
+			SecretReturnsForAspect = { Enum.SecretAspect.Shown },
+			Arguments = {},
+			Returns = {
+				{ Name = "isVisible", Type = "bool", Nilable = false },
+			},
+		},
 		["SimpleFrameAPI:RegisterEvent"] = {
 			AddsForbiddenAspects = { { Argument = "self", Aspect = Enum.ForbiddenAspect.EventRegistrations } },
 			ChecksForbiddenAspects = { { Argument = "self", Aspect = Enum.ForbiddenAspect.EventRegistrations } },
@@ -1449,6 +1470,13 @@ return {
 			Arguments = {},
 			Returns = {
 				{ Name = "isShown", Type = "bool", Nilable = false },
+			},
+		},
+		["SimpleScriptRegionAPI:IsVisible"] = {
+			SecretReturnsForAspect = { Enum.SecretAspect.Shown },
+			Arguments = {},
+			Returns = {
+				{ Name = "isVisible", Type = "bool", Nilable = false },
 			},
 		},
 		["SimpleScriptRegionAPI:SetScript"] = {
@@ -1878,6 +1906,7 @@ return {
 		"CreateFrame",
 		"EnumerateFrames",
 		"GetBattlefieldWinner",
+		"GetCurrentKeyBoardFocus",
 		"GetGreetingText",
 		"GetGuildRosterInfo",
 		"GetInventoryItemLink",
@@ -1906,7 +1935,9 @@ return {
 		"bit.lshift",
 		"bit.rshift",
 		"date",
+		"geterrorhandler",
 		"hooksecurefunc",
+		"seterrorhandler",
 		"strtrim",
 		"time",
 	},

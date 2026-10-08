@@ -13,8 +13,7 @@ use timeways_story::line_check::SILENCE;
 use timeways_story::narrated::{Limits, checked};
 use timeways_story::npc_voice::{Asked, NpcFault, npc_faults};
 
-pub use timeways_story::prompt::RETRY_MARK;
-const RULES_MARK: &str = "It broke these rules:\n";
+pub use timeways_story::prompt::{RETRY_MARK, reasons_of_retry};
 
 /// The short name for each reason, by a phrase of its text. The first match wins, so a
 /// longer phrase comes before a shorter one that it holds.
@@ -70,20 +69,6 @@ pub fn name_of_reason(reason: &str) -> &'static str {
 #[must_use]
 pub fn is_retry(prompt: &str) -> bool {
     prompt.contains(RETRY_MARK)
-}
-
-/// The reasons that a retry prompt gives for the answer before it.
-#[must_use]
-pub fn reasons_of_retry(prompt: &str) -> Vec<String> {
-    let Some(at) = prompt.rfind(RULES_MARK) else {
-        return Vec::new();
-    };
-    prompt[at + RULES_MARK.len()..]
-        .lines()
-        .take_while(|line| !line.starts_with(">>>"))
-        .filter_map(|line| line.strip_prefix("- "))
-        .map(str::to_string)
-        .collect()
 }
 
 /// The answer without a fence of Markdown around it.

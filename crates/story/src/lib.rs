@@ -10,6 +10,7 @@ pub mod check;
 pub mod chronicle;
 pub mod dev_fps;
 pub mod dev_mode;
+pub mod dev_smoke;
 pub mod draft;
 pub mod dump;
 pub mod ends;

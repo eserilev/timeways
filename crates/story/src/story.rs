@@ -55,6 +55,7 @@ mod quests;
 mod ratings;
 mod reads;
 mod sagas;
+mod smoke;
 mod stories;
 mod summaries;
 mod tales;
@@ -265,12 +266,18 @@ pub enum StoryError {
     BadHour,
     #[error("an item has a slot outside 1 to 19, or a quality that Classic does not have")]
     BadItem,
-    #[error("refused: a run of /twdev fps, and dev mode is off")]
+    #[error("refused: a line of /twdev, and dev mode is off")]
     DevModeOff,
     #[error("a run of /twdev fps has a bad label, step, or sample list")]
     BadFpsRun,
     #[error("the file of the FPS runs: {0}")]
     FpsFile(std::io::Error),
+    #[error("a step of /twdev smoke has a bad name, text, or count")]
+    BadSmokeLine,
+    #[error("the end of a /twdev smoke run that has no steps here")]
+    NoSmokeRun,
+    #[error("the log of /twdev smoke: {0}")]
+    SmokeFile(std::io::Error),
     #[error(transparent)]
     BadPast(#[from] crate::past::PastError),
 }
@@ -350,6 +357,8 @@ pub struct Story {
     /// end of its call keeps it, for the window of the rotation.
     told_shape: Option<String>,
     dev_mode: DevMode,
+    /// The run of `/twdev smoke` whose log is open.
+    smoke: Option<smoke::SmokeRun>,
 }
 
 impl Story {
@@ -385,6 +394,7 @@ impl Story {
             events_deadline: EVENTS_DEADLINE,
             told_shape: None,
             dev_mode: DevMode::Off,
+            smoke: None,
         }
     }
 
@@ -654,6 +664,8 @@ impl Story {
             Input::QuestAbandoned { at, number } => self.abandon_quest(at, number),
             Input::JournalAsked { id, page } => self.journal_answer(id, page),
             Input::DevFps(run) => self.keep_fps_run(&run),
+            Input::DevSmoke(step) => self.smoke_step(step),
+            Input::DevSmokeDone(done) => self.smoke_done(done),
             Input::PastRead(past) => self.read_past(past),
             Input::StoryAccepted {
                 at,
@@ -1299,9 +1311,7 @@ impl Story {
 
     /// A run with no data folder goes nowhere: that is a run by hand.
     fn keep_fps_run(&self, run: &FpsRun) -> Result<Vec<Output>, StoryError> {
-        if !self.dev_mode.is_on() {
-            return Err(StoryError::DevModeOff);
-        }
+        self.check_dev_mode()?;
         if !run.is_sane() {
             return Err(StoryError::BadFpsRun);
         }

@@ -162,6 +162,7 @@ function ns.OnReply(text)
 		if type(value) == "table" then
 			ns.Narrator.Say(value.narrator, value.narrator_id)
 			ShowNotice(value.notice)
+			ns.DevSmoke.Heard(value)
 		end
 	end
 end

@@ -372,8 +372,8 @@ local function BuildBox()
 	box:Hide()
 end
 
-local function Button(label, point, x, run)
-	local button = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+local function Button(name, label, point, x, run)
+	local button = CreateFrame("Button", name, frame, "UIPanelButtonTemplate")
 	button:SetSize(BUTTON_WIDTH, BUTTON_HEIGHT)
 	button:SetPoint(point, frame, point, x, 14)
 	button:SetText(label)
@@ -382,11 +382,12 @@ local function Button(label, point, x, run)
 end
 
 local function BuildFooter()
-	Button("Goodbye", "BOTTOMRIGHT", -EDGE - 4, function()
+	Button(nil, "Goodbye", "BOTTOMRIGHT", -EDGE - 4, function()
 		frame:Hide()
 	end)
-	acceptButton = Button("Accept", "BOTTOMLEFT", EDGE + 4, AnswerCard("accepted", ns.Quest.Accept))
-	declineButton = Button("Decline", "BOTTOMLEFT", EDGE + 8 + BUTTON_WIDTH, AnswerCard("declined", ns.Quest.Decline))
+	local accept, decline = AnswerCard("accepted", ns.Quest.Accept), AnswerCard("declined", ns.Quest.Decline)
+	acceptButton = Button(NAME .. "Accept", "Accept", "BOTTOMLEFT", EDGE + 4, accept)
+	declineButton = Button(NAME .. "Decline", "Decline", "BOTTOMLEFT", EDGE + 8 + BUTTON_WIDTH, decline)
 	acceptButton:Hide()
 	declineButton:Hide()
 end
@@ -543,6 +544,14 @@ function TalkWindow.CombatEnded()
 		frame:Show()
 		Draw()
 	end
+end
+
+-- The text of each row of the talk, top to bottom, as the window shows it.
+function TalkWindow.Lines()
+	if not talk then
+		return {}
+	end
+	return Rows()
 end
 
 function TalkWindow.IsShown()
