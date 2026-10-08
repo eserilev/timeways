@@ -732,3 +732,175 @@ fn a_broken_quest_of_a_talk_shows_nothing_and_raises_no_error() {
 
     assert_eq!(page(&game), ["You: Any news?", "Nothing but rain."]);
 }
+
+// The talk stays after the card.
+
+/// The lantern after Accept, as the journal that confirms it carries it.
+fn accepted() -> String {
+    let mut taken = lantern();
+    taken.status = Status::Accepted;
+    journal_reply(NOW, TalkQuestState::Offered { number: 4 }, vec![taken])
+}
+
+const LANTERN_TALK: [&str; 4] = [
+    "You: Any news?",
+    "Nothing but rain.",
+    "The Lost Lantern",
+    "I lost my lantern by the pond. Find it.",
+];
+
+fn with(rows: &[&str], more: &[&str]) -> Vec<String> {
+    rows.iter().chain(more).map(ToString::to_string).collect()
+}
+
+#[test]
+fn accept_keeps_the_words_of_the_npc_and_its_quest_in_the_window() {
+    let game = Game::new();
+    farley_answered(&game);
+    game.reply(&offered());
+
+    click(&game, "Accept");
+
+    assert_eq!(page(&game), with(&LANTERN_TALK, &["Quest accepted."]));
+}
+
+#[test]
+fn decline_keeps_the_words_of_the_npc_and_its_quest_in_the_window() {
+    let game = Game::new();
+    farley_answered(&game);
+    game.reply(&offered());
+
+    click(&game, "Decline");
+
+    assert_eq!(page(&game), with(&LANTERN_TALK, &["Quest declined."]));
+}
+
+#[test]
+fn the_journal_that_confirms_accept_keeps_the_talk_in_the_window() {
+    let game = Game::new();
+    farley_answered(&game);
+    game.reply(&offered());
+    click(&game, "Accept");
+
+    game.reply(&accepted());
+
+    assert!(shown(&game));
+    assert_eq!(page(&game), with(&LANTERN_TALK, &["Quest accepted."]));
+}
+
+#[test]
+fn accept_leaves_the_cursor_in_the_reply_box_and_enter_still_sends() {
+    let game = Game::new();
+    farley_answered(&game);
+    game.reply(&offered());
+
+    click(&game, "Accept");
+
+    assert!(cursor_at_end(&game));
+    reply(&game, "Thank you.");
+    assert_eq!(
+        talks_sent(&game).last().unwrap(),
+        &(FARLEY.to_string(), "Thank you.".to_string())
+    );
+}
+
+#[test]
+fn accept_gives_no_cursor_to_a_box_that_had_none() {
+    let game = Game::new();
+    game.run("wow.speed = 7");
+    farley_answered(&game);
+    game.reply(&offered());
+
+    click(&game, "Accept");
+
+    assert!(nothing_has_the_cursor(&game));
+}
+
+#[test]
+fn a_reply_after_accept_comes_under_the_accepted_quest() {
+    let game = Game::new();
+    farley_answered(&game);
+    game.reply(&offered());
+    click(&game, "Accept");
+    game.reply(&accepted());
+    wait(&game, 30);
+
+    reply(&game, "Thank you.");
+
+    let more = ["Quest accepted.", "You: Thank you.", "Thinking..."];
+    assert_eq!(page(&game), with(&LANTERN_TALK, &more));
+}
+
+#[test]
+fn a_new_quest_of_the_talk_keeps_the_quest_that_came_before() {
+    let game = Game::new();
+    farley_answered(&game);
+    game.reply(&offered());
+    click(&game, "Accept");
+    wait(&game, 30);
+    reply(&game, "More work?");
+    answer(&game, FARLEY, Some("Ask the miller."));
+
+    game.reply(&journal_reply(
+        NOW + 30,
+        TalkQuestState::Writing,
+        Vec::new(),
+    ));
+
+    let more = [
+        "Quest accepted.",
+        "You: More work?",
+        "Ask the miller.",
+        "Thinking of a quest...",
+    ];
+    assert_eq!(page(&game), with(&LANTERN_TALK, &more));
+}
+
+#[test]
+fn a_refused_quest_stays_under_its_talk_after_a_reply() {
+    let game = Game::new();
+    farley_answered(&game);
+    let line = "You already have 3 quests. Finish one first.".to_string();
+    game.reply(&journal_reply(
+        NOW,
+        TalkQuestState::Refused { line },
+        Vec::new(),
+    ));
+    wait(&game, 30);
+
+    reply(&game, "Too bad.");
+
+    assert_eq!(
+        page(&game),
+        [
+            "You: Any news?",
+            "Nothing but rain.",
+            "You already have 3 quests. Finish one first.",
+            "You: Too bad.",
+            "Thinking..."
+        ]
+    );
+}
+
+#[test]
+fn the_past_talks_keep_the_exchange_after_accept_and_goodbye() {
+    let game = Game::new();
+    farley_answered(&game);
+    game.reply(&offered());
+    click(&game, "Accept");
+    click(&game, "Goodbye");
+    wait(&game, 30);
+
+    talk(&game, "Hello again.");
+
+    assert_eq!(
+        page(&game),
+        [
+            "Today",
+            "You: Any news?",
+            "Nothing but rain.",
+            "You: Hello again.",
+            "Thinking..."
+        ]
+    );
+}

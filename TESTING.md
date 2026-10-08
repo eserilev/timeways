@@ -198,12 +198,13 @@ This test needs a model.
 
 1. Target an innkeeper and type `/talk`. A window opens with the name of the NPC at the top. "Thinking..." shows, then the answer. Nothing goes to the chat.
 2. Type a reply in the box under the answer and press Enter. The answer comes in the same window. Target someone else and reply again: the words still go to the innkeeper.
-3. Ask "Any work for me?". The NPC answers, then the window says "Thinking of a quest...". A quest card comes: a title, the NPC's text, "Quest Objectives", and Accept and Decline. Click Accept. The Quests tab of `/journal` shows the quest in progress.
-4. Ask an NPC for work while you have 3 quests in progress. Its words show, then "You already have 3 quests. Finish one first."
-5. Pull a mob while the window is open. The window hides, and comes back after the fight.
-6. Press Escape. The window closes. `/talk` the same NPC again: the earlier talk shows lighter at the top, under "Today".
-7. `/reload`, then `/talk` the NPC again. The earlier talk is still there.
-8. Open the Knowledge tab of `/journal`. It shows no "A rumor from ..." lines.
+3. Ask "Any work for me?". In dev mode, `/twdev talk Innkeeper Farley / Any work for me?` does it with no NPC near. The NPC answers, then the window says "Thinking of a quest...". A quest card comes: a title, the NPC's text, "Quest Objectives", and Accept and Decline. Click Accept. Your words, the NPC's answer, the title, and the NPC's text stay, and "Quest accepted." shows under them. The reply box still sends. The Quests tab of `/journal` shows the quest in progress.
+4. Reply to the NPC after Accept. The new turn shows under "Quest accepted.". Ask for work again, and click Decline on the new card. Both quests stay in the window, each under its own turn.
+5. Ask an NPC for work while you have 3 quests in progress. Its words show, then "You already have 3 quests. Finish one first."
+6. Pull a mob while the window is open. The window hides, and comes back after the fight.
+7. Press Escape. The window closes. `/talk` the same NPC again: the earlier talk shows lighter at the top, under "Today".
+8. `/reload`, then `/talk` the NPC again. The earlier talk is still there.
+9. Open the Knowledge tab of `/journal`. It shows no "A rumor from ..." lines.
 
 ### 19. The narrator
 
@@ -467,7 +468,7 @@ Type `/twdev help` for the list. A name with spaces needs no quotes. A slash sep
 | 15. Roleplay profiles | Turn on Share, `/twdev msp Kobee / Keeper of the Flame`, `/twdev tooltip Kobee` | "Kobee of the Reef, Keeper of the Flame". |
 | 16. Remembered players | `/twdev remember Kobee avoid`, `/twdev note Kobee`, `/twdev tooltip Kobee` | "Avoid: " and the note. |
 | 17. The welcome window | `/twdev welcome setup`, `files`, or `offline` | The heading of each reason. |
-| 18. The talk window | `/twdev talk Innkeeper Farley / Any work for me?` | The quest card, with a model. |
+| 18. The talk window | `/twdev talk Innkeeper Farley / Any work for me?`, then Accept or Decline | The quest card, with a model. After Accept or Decline, the talk and the quest text stay, with "Quest accepted." or "Quest declined.". |
 | 19. The narrator | `/twdev level 20`, `/twdev zone Duskwood`, `/twdev kill Mor'Ladim rare`, `/twdev mount Swift Brown Wolf epic`, `/twdev item Ironfoe epic` | A line for each kind of moment, with a model. |
 | 22. The Chronicle title page | `/twdev chapter-end`, then a few more batches | The summary, with a model. |
 | 23. The Chronicle book | The `level-30-paladin` or `raider-60` scenario, or `/twdev chapter-end`, `/twdev dungeon The Deadmines`, `/twdev kill Edwin VanCleef boss` | Chapters, tales, run counts, tally lines. |

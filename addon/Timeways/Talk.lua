@@ -43,7 +43,7 @@ local function Send(npc, words)
 	end
 	ns.Carry.Met(npc)
 	sent[#sent + 1] = { npc = npc, words = words, at = at }
-	ns.TalkWindow.Asked(npc, words)
+	ns.TalkWindow.Asked(npc, words, at)
 	ns.Outbox.Add(input, function()
 		Failed(npc, words)
 	end)

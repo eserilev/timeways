@@ -53,16 +53,17 @@ local frame, scroll, page, box, hint, acceptButton, declineButton
 local scrollHeight
 local texts = {}
 
--- The talk that the window shows: { npc, since, past, turns }. `since` is the time of its
--- first words, `past` the exchanges before it, and each turn { said, heard, state }, with
--- the state "thinking", "answered", "silent", or "failed". Nil while the window is closed.
+-- The talk that the window shows: { npc, past, turns }. `past` holds the exchanges before
+-- it, and each turn is { at, said, heard, state, quest }. The state is "thinking",
+-- "answered", "silent", or "failed". `quest` is the quest of the turn once it is settled:
+-- { title, text, answer } after Accept or Decline, or { line } when it was refused. The
+-- journal holds only the newest quest of a talk, so the turn keeps its own. Nil while the
+-- window is closed.
 local talk
 -- True while combat hides the window. The talk stays.
 local away = false
 -- The quest that the window waits for: { npc, at, polls, planned }.
 local waiting
--- The answer of the player to each card, by quest number.
-local answered = {}
 
 local function Say(text)
 	DEFAULT_CHAT_FRAME:AddMessage("|cffc8a064Timeways|r: " .. text)
@@ -118,54 +119,84 @@ local function AnswerRow(turn)
 	return Row("status", COPY[turn.state])
 end
 
-local function TurnRows(rows)
-	for _, turn in ipairs(talk.turns) do
-		rows[#rows + 1] = Row("said", "You: " .. turn.said)
-		rows[#rows + 1] = AnswerRow(turn)
-	end
-end
-
--- The quest of the journal, when a talk of this window asked for it.
-local function OwnQuest()
-	local quest = ns.Journal.TalkQuest()
-	if talk and quest and quest.npc == talk.npc and quest.at >= talk.since then
-		return quest
+-- The turn that asked for the quest: the newest one at or before it.
+local function TurnOf(quest)
+	for n = #talk.turns, 1, -1 do
+		if talk.turns[n].at <= quest.at then
+			return talk.turns[n]
+		end
 	end
 	return nil
 end
 
+-- The quest of the journal and its turn, while a turn of this talk waits for it.
+local function OpenQuest()
+	local quest = ns.Journal.TalkQuest()
+	if not talk or not quest or quest.npc ~= talk.npc then
+		return nil
+	end
+	local turn = TurnOf(quest)
+	if not turn or turn.quest then
+		return nil
+	end
+	return quest, turn
+end
+
 -- The offer that waits for an answer, or nil.
 local function CardOffer(quest)
-	if not quest or quest.state ~= "offered" or answered[quest.number] then
+	if not quest or quest.state ~= "offered" then
 		return nil
 	end
 	local offer = ns.Journal.Quest(quest.number)
 	return offer and offer.status == "offered" and offer or nil
 end
 
-local function CardRows(rows, offer)
+-- The title and the words of the NPC stay after Accept or Decline. The objectives go.
+local function OfferRows(rows, offer)
 	rows[#rows + 1] = Row("questTitle", ns.JournalRows.Name(offer.title))
 	if type(offer.text) == "string" then
 		rows[#rows + 1] = Row("questText", ns.Plain(offer.text))
 	end
+end
+
+local function CardRows(rows, offer)
+	OfferRows(rows, offer)
 	rows[#rows + 1] = Row("questTitle", COPY.objectives)
 	for _, line in ipairs(ns.JournalQuests.StepLines(offer)) do
 		rows[#rows + 1] = Row("objective", line.text)
 	end
 end
 
-local function QuestRows(rows, quest)
-	if not quest then
+local function SettledRows(rows, settled)
+	if settled.line then
+		rows[#rows + 1] = Row("status", ns.Plain(settled.line))
 		return
 	end
+	OfferRows(rows, settled)
+	rows[#rows + 1] = Row("status", COPY[settled.answer])
+end
+
+local function OpenQuestRows(rows, quest)
 	if quest.state == "writing" then
 		rows[#rows + 1] = Row("status", COPY.questThinking)
 	elseif quest.state == "refused" then
 		rows[#rows + 1] = Row("status", ns.Plain(quest.line))
-	elseif answered[quest.number] then
-		rows[#rows + 1] = Row("status", COPY[answered[quest.number]])
 	elseif CardOffer(quest) then
 		CardRows(rows, CardOffer(quest))
+	end
+end
+
+-- Each quest shows under the turn that asked for it.
+local function TurnRows(rows)
+	local quest, waitingTurn = OpenQuest()
+	for _, turn in ipairs(talk.turns) do
+		rows[#rows + 1] = Row("said", "You: " .. turn.said)
+		rows[#rows + 1] = AnswerRow(turn)
+		if turn.quest then
+			SettledRows(rows, turn.quest)
+		elseif turn == waitingTurn then
+			OpenQuestRows(rows, quest)
+		end
 	end
 end
 
@@ -173,7 +204,6 @@ local function Rows()
 	local rows = {}
 	PastRows(rows)
 	TurnRows(rows)
-	QuestRows(rows, OwnQuest())
 	return rows
 end
 
@@ -230,7 +260,7 @@ local function ShowBox()
 end
 
 local function ShowCardButtons()
-	local offer = CardOffer(OwnQuest())
+	local offer = CardOffer(OpenQuest())
 	acceptButton:SetShown(offer ~= nil)
 	declineButton:SetShown(offer ~= nil)
 end
@@ -255,13 +285,15 @@ local function Send()
 	ns.Talk.Reply(talk.npc, words)
 end
 
+-- A button of the card leaves the cursor where it was (GAMEPLAY.md 3.6, the cursor).
 local function AnswerCard(answer, run)
 	return function()
-		local quest = OwnQuest()
-		if not quest or quest.state ~= "offered" then
+		local quest, turn = OpenQuest()
+		local offer = CardOffer(quest)
+		if not offer then
 			return
 		end
-		answered[quest.number] = answer
+		turn.quest = { title = offer.title, text = offer.text, answer = answer }
 		run(quest.number)
 		Draw()
 	end
@@ -374,7 +406,7 @@ function TalkWindow.Open(npc)
 	if not talk or talk.npc ~= npc then
 		away = false
 		frame:Hide()
-		talk = { npc = npc, since = time(), past = ns.TalkHistory.Of(npc), turns = {} }
+		talk = { npc = npc, past = ns.TalkHistory.Of(npc), turns = {} }
 	end
 	if not frame:IsShown() and not away then
 		Show()
@@ -382,10 +414,10 @@ function TalkWindow.Open(npc)
 	Draw()
 end
 
--- The words of the player are on their way.
-function TalkWindow.Asked(npc, words)
+-- The words of the player are on their way. `at` is the time of the talk line.
+function TalkWindow.Asked(npc, words, at)
 	TalkWindow.Open(npc)
-	talk.turns[#talk.turns + 1] = { said = words, state = "thinking" }
+	talk.turns[#talk.turns + 1] = { at = at, said = words, state = "thinking" }
 	Draw()
 end
 
@@ -467,7 +499,7 @@ local function Follow(quest)
 		return
 	end
 	if quest.state == "writing" then
-		if OwnQuest() and not IsWaitedFor(quest) then
+		if OpenQuest() and not IsWaitedFor(quest) then
 			waiting = { npc = quest.npc, at = quest.at, polls = 0, planned = false }
 		end
 		if IsWaitedFor(quest) then
@@ -477,15 +509,24 @@ local function Follow(quest)
 	end
 	if IsWaitedFor(quest) then
 		waiting = nil
-		if not OwnQuest() then
+		if not OpenQuest() then
 			SayInChat(quest)
 		end
+	end
+end
+
+-- The turn keeps a refusal, because the next talk with work takes its place in the journal.
+local function KeepRefusal()
+	local quest, turn = OpenQuest()
+	if quest and quest.state == "refused" then
+		turn.quest = { line = quest.line }
 	end
 end
 
 -- A new journal can carry the quest of a talk of the window.
 function TalkWindow.JournalCame()
 	Follow(ns.Journal.TalkQuest())
+	KeepRefusal()
 	Draw()
 end
 
