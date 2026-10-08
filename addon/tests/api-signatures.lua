@@ -1,9 +1,9 @@
--- The documented WoW Forever 1.60.1.70009 API that Timeways uses.
+-- The documented WoW Forever 1.60.1.70205 API that Timeways uses.
 -- Written by scripts/wow-api.sh from Blizzard_APIDocumentationGenerated. Do not edit.
 -- A patch can change the arguments, returns, or secret flags and keep the name. The diff shows it.
 -- The scan does not know the type of each object, so methods has each widget type with a called name.
 return {
-	build = "1.60.1.70009",
+	build = "1.60.1.70205",
 	functions = {
 		Ambiguate = {
 			SecretArguments = "AllowedWhenTainted",
@@ -1298,6 +1298,13 @@ return {
 				{ Name = "registered", Type = "bool", Nilable = false },
 			},
 		},
+		["SimpleFrameScriptObjectAPI:GetName"] = {
+			SecretReturnsForAspect = { Enum.SecretAspect.ObjectName },
+			Arguments = {},
+			Returns = {
+				{ Name = "name", Type = "cstring", Nilable = false },
+			},
+		},
 		["SimpleHTMLAPI:SetFontObject"] = {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {
@@ -1558,6 +1565,13 @@ return {
 				{ Name = "colorG", Type = "number", Nilable = false },
 				{ Name = "colorB", Type = "number", Nilable = false },
 				{ Name = "a", Type = "SingleColorValue", Nilable = true },
+			},
+		},
+		["SimpleTextureBaseAPI:SetDesaturated"] = {
+			SecretArguments = "AllowedWhenTainted",
+			SecretArgumentsAddAspect = { Enum.SecretAspect.Desaturation },
+			Arguments = {
+				{ Name = "desaturated", Type = "bool", Nilable = false, Default = false },
 			},
 		},
 		["SimpleTextureBaseAPI:SetSnapToPixelGrid"] = {
@@ -1862,6 +1876,7 @@ return {
 	},
 	undocumented = {
 		"CreateFrame",
+		"EnumerateFrames",
 		"GetBattlefieldWinner",
 		"GetGreetingText",
 		"GetGuildRosterInfo",

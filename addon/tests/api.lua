@@ -1,7 +1,7 @@
--- The WoW Forever 1.60.1.70009 API that Timeways uses.
+-- The WoW Forever 1.60.1.70205 API that Timeways uses.
 -- Written by scripts/wow-api.sh. Do not edit.
 return {
-	build = "1.60.1.70009",
+	build = "1.60.1.70205",
 	globals = {
 		"ActionStatus",
 		"Ambiguate",
@@ -73,6 +73,8 @@ return {
 		"Enum.TooltipDataType.Unit",
 		"Enum.UIMapType.Continent",
 		"Enum.UIMapType.Zone",
+		"EnumerateFrames",
+		"EventRegistry",
 		"GameTooltip",
 		"GetAddOnCPUUsage",
 		"GetAddOnMemoryUsage",
@@ -114,6 +116,7 @@ return {
 		"ItemTextGetItem",
 		"ItemTextGetText",
 		"Menu",
+		"MenuUtil",
 		"PlaySound",
 		"ReloadUI",
 		"RequestTimePlayed",

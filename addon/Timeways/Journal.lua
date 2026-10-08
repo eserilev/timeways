@@ -207,6 +207,7 @@ end
 --   edit: the run of the Edit button when the player can edit the text of the page, or nil.
 --     A press anywhere on the text runs it too.
 --   footer: the text at the bottom left.
+--   thumbs: the thumbs of a rating beside the footer, from `Ratings.Thumbs`, or nil.
 --   crumb: the last step of the path at the top, or nil for the name of the map.
 --   zone: the zone that the map shows, or nil for the zone of the player.
 --   map: the id of the map to show, which wins over `zone` when the game has its art.

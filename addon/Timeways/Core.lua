@@ -160,7 +160,7 @@ function ns.OnReply(text)
 			handler(value)
 		end
 		if type(value) == "table" then
-			ns.Narrator.Say(value.narrator)
+			ns.Narrator.Say(value.narrator, value.narrator_id)
 			ShowNotice(value.notice)
 		end
 	end

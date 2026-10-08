@@ -61,7 +61,16 @@ local PILL_PADDING, PILL_HEIGHT, PILL_GAP = 6, 16, 4
 -- The button over the map stands over its pins.
 local MAP_BUTTON_LEVEL = 4
 
+-- The thumbs of a rating stand right of the footer text (GAMEPLAY.md 3.2.2).
+local THUMB_SIZE, THUMB_GAP = 18, 4
+local THUMB_ICONS = {
+	up = "Interface\\RaidFrame\\ReadyCheck-Ready",
+	down = "Interface\\RaidFrame\\ReadyCheck-NotReady",
+}
+local THUMB_TIPS = { up = "Like this %s", down = "Dislike this %s" }
+
 local frame, detail, scroll, page, crumb, footer, footerText, mapButton
+local thumbs = {}
 local strings, bullets, actions, buttons, tabs = {}, {}, {}, {}, {}
 local details, pillTexts, pillBoxes = {}, {}, {}
 -- The mouse is over a link of the page, so a press opens the link, not the editor.
@@ -163,6 +172,46 @@ local function BuildFooter()
 	footerText = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
 	footerText:SetPoint("LEFT", footer, "LEFT", 10, 0)
 	footerText:SetJustifyH("LEFT")
+end
+
+local function Thumb(rating)
+	local thumb = CreateFrame("Button", nil, footer)
+	thumb:SetSize(THUMB_SIZE, THUMB_SIZE)
+	thumb.icon = thumb:CreateTexture(nil, "ARTWORK")
+	thumb.icon:SetAllPoints(thumb)
+	thumb.icon:SetTexture(THUMB_ICONS[rating])
+	thumb:SetScript("OnLeave", function()
+		GameTooltip:Hide()
+	end)
+	return thumb
+end
+
+local function BuildThumbs()
+	thumbs.up = Thumb("up")
+	thumbs.up:SetPoint("LEFT", footerText, "RIGHT", 8, 0)
+	thumbs.down = Thumb("down")
+	thumbs.down:SetPoint("LEFT", thumbs.up, "RIGHT", THUMB_GAP, 0)
+end
+
+-- A thumb shows filled while it holds the rating of the page, and faded otherwise.
+local function DrawThumb(rating, pageThumbs)
+	local thumb = thumbs[rating]
+	thumb:SetShown(pageThumbs ~= nil)
+	if not pageThumbs then
+		return
+	end
+	local filled = pageThumbs.rating == rating
+	thumb.icon:SetDesaturated(not filled)
+	thumb.icon:SetAlpha(filled and 1 or 0.6)
+	local run = rating == "up" and pageThumbs.like or pageThumbs.dislike
+	thumb:SetScript("OnClick", function()
+		run(thumb)
+	end)
+	thumb:SetScript("OnEnter", function()
+		GameTooltip:SetOwner(thumb, "ANCHOR_TOP")
+		GameTooltip:SetText(THUMB_TIPS[rating]:format(pageThumbs.noun))
+		GameTooltip:Show()
+	end)
 end
 
 local function LabelWidth(button)
@@ -488,6 +537,8 @@ function JournalFrame.Refresh()
 	DrawLines(journalPage.lines)
 	DrawButtons(journalPage.buttons)
 	footerText:SetText(journalPage.footer)
+	DrawThumb("up", journalPage.thumbs)
+	DrawThumb("down", journalPage.thumbs)
 	local place = DrawSide(journalPage, writing)
 	if journalPage.side ~= "map" then
 		mapButton:Hide()
@@ -532,6 +583,7 @@ function JournalFrame.Open(name)
 		BuildFrame()
 		BuildSides()
 		BuildFooter()
+		BuildThumbs()
 		BuildTabs()
 	end
 	if name and name ~= section then

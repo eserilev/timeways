@@ -564,6 +564,51 @@ function MenuItem:CreateDivider()
 	return NewMenuItem(self, "divider")
 end
 
+-- The context menu that shows now, or nil. A choice closes it, as in the game.
+wow.contextMenu = nil
+MenuUtil = {
+	CreateContextMenu = function(owner, generator)
+		local root = NewMenuItem(nil, "root")
+		generator(owner, root)
+		wow.contextMenu = root
+		return root
+	end,
+}
+
+local function MenuItemAt(path)
+	local item = wow.contextMenu
+	for _, text in ipairs(path) do
+		local found
+		for _, child in ipairs(item and item.items or {}) do
+			if child.text == text then
+				found = child
+			end
+		end
+		item = found
+	end
+	return item
+end
+
+-- The texts of the items of the open context menu, or of the submenu at the path of texts.
+function wow.MenuTexts(...)
+	local texts = {}
+	local item = MenuItemAt({ ... })
+	for _, child in ipairs(item and item.items or {}) do
+		texts[#texts + 1] = child.text
+	end
+	return texts
+end
+
+-- The player picks the item at the end of the path of texts in the open context menu.
+function wow.Choose(...)
+	local item = MenuItemAt({ ... })
+	if not item or not item.callback then
+		error("no menu item " .. table.concat({ ... }, " > "))
+	end
+	wow.contextMenu = nil
+	item.callback()
+end
+
 -- The menu with this tag, as the game builds it for `contextData`.
 function wow.OpenMenu(tag, contextData)
 	local root = NewMenuItem(nil, "root")
@@ -944,6 +989,10 @@ function Widget:SetAlpha(alpha)
 	self.alpha = alpha
 end
 
+function Widget:SetDesaturated(desaturated)
+	self.desaturated = desaturated
+end
+
 -- The player copies the selected text of an edit box with Ctrl+C. A part of the text is
 -- selected from the cursor position `start` up to `stop`.
 function Widget:HighlightText(start, stop)
@@ -1093,6 +1142,19 @@ end
 
 UIParent = NewWidget("Frame", "UIParent")
 UISpecialFrames = {}
+
+-- The frames in the order of creation, with no texture or font string, as the game walks
+-- them.
+function EnumerateFrames(after)
+	local passed = after == nil
+	for _, widget in ipairs(wow.widgets) do
+		if passed and widget.kind ~= "Texture" and widget.kind ~= "FontString" then
+			return widget
+		end
+		passed = passed or widget == after
+	end
+	return nil
+end
 -- In UTC on the clock of the fake game, so a test never depends on the zone of its machine.
 function date(format, at)
 	return os.date("!" .. format, at or wow.now)
@@ -1169,7 +1231,34 @@ DEFAULT_CHAT_FRAME = {
 	AddMessage = function(_, text)
 		wow.printed[#wow.printed + 1] = text
 	end,
+	-- Each line for which `predicate` is true becomes the first value of `transform`.
+	TransformMessages = function(_, predicate, transform)
+		for n, text in ipairs(wow.printed) do
+			if predicate(text) then
+				wow.printed[n] = transform(text)
+			end
+		end
+	end,
 }
+
+-- The callbacks of the game's global event registry, by event.
+wow.registry = {}
+EventRegistry = {
+	RegisterCallback = function(_, event, callback, owner)
+		wow.registry[event] = wow.registry[event] or {}
+		table.insert(wow.registry[event], { callback = callback, owner = owner })
+	end,
+	TriggerEvent = function(_, event, ...)
+		for _, entry in ipairs(wow.registry[event] or {}) do
+			entry.callback(entry.owner, ...)
+		end
+	end,
+}
+
+-- The player clicks an addon link of the chat. The game sends it to "SetItemRef".
+function wow.ClickChatLink(link)
+	EventRegistry:TriggerEvent("SetItemRef", link, link, "LeftButton", DEFAULT_CHAT_FRAME)
+end
 
 SlashCmdList = {}
 

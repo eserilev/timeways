@@ -199,8 +199,15 @@ end
 
 -- A like ("up") or a dislike ("down") of a narrator text (GAMEPLAY.md 3.2.2). `first` is
 -- the first event of a chapter or a tale, and nil for a narrator line or the summary.
-function Inputs.LineRated(at, rated, first, rating)
-	return { type = "line_rated", at = at, rated = rated, first = first, rating = rating }
+-- `key` is the ID of a narrator line, or the first event of a chapter or a tale.
+function Inputs.LineRated(at, rated, key, rating, reason)
+	local input = { type = "line_rated", at = at, rated = rated, rating = rating, reason = reason }
+	if rated == "narrator" then
+		input.line = key
+	else
+		input.first = key
+	end
+	return input
 end
 
 function Inputs.StoryRemoved(at, number)
