@@ -12,7 +12,7 @@ use timeways_rules::prompts::oldest_prompt_kept;
 
 /// A file of another version is refused, never changed. Nothing is live, so a new version
 /// starts with new worlds. A file of version 8 to 11 is upgraded (`upgrade`).
-const VERSION: i64 = 12;
+const VERSION: i64 = 13;
 
 /// Version 9 added the column `shape` to `calls`.
 const ADD_SHAPE: &str = "ALTER TABLE calls ADD COLUMN shape TEXT";
@@ -105,10 +105,13 @@ pub enum Table {
     /// The past of the character before Timeways, as the game told it at a login. Only the
     /// first one decides the prologue.
     Past,
+    /// The narrator lines that showed, each by the row of its call, so a rating names one
+    /// exact line (GAMEPLAY.md 3.2.2). Version 13 added it.
+    NarratorLines,
 }
 
 impl Table {
-    pub const ALL: [Table; 15] = [
+    pub const ALL: [Table; 16] = [
         Table::Events,
         Table::Chapters,
         Table::Flavor,
@@ -124,6 +127,7 @@ impl Table {
         Table::EntryEdits,
         Table::Ratings,
         Table::Past,
+        Table::NarratorLines,
     ];
 
     #[must_use]
@@ -144,6 +148,7 @@ impl Table {
             Table::EntryEdits => "entry_edits",
             Table::Ratings => "ratings",
             Table::Past => "past",
+            Table::NarratorLines => "narrator_lines",
         }
     }
 
@@ -381,11 +386,12 @@ impl Database {
             self.connection.execute_batch(ADD_TOLD_LORE)?;
             self.keep_lore_of_kept_prompts()?;
         }
-        // Version 11 added the row table `ratings`.
-        let ratings = Table::Ratings.name();
-        self.connection.execute_batch(&format!(
-            "CREATE TABLE IF NOT EXISTS {ratings} ({ROW_TABLE})"
-        ))?;
+        // Version 11 added the row table `ratings`, and version 13 `narrator_lines`.
+        for table in [Table::Ratings, Table::NarratorLines] {
+            let name = table.name();
+            self.connection
+                .execute_batch(&format!("CREATE TABLE IF NOT EXISTS {name} ({ROW_TABLE})"))?;
+        }
         self.connection.execute_batch(ADD_PAST)?;
         self.connection.pragma_update(None, "user_version", VERSION)
     }

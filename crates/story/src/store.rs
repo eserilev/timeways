@@ -19,7 +19,7 @@ pub use shared::Shared;
 use crate::character::Character;
 use crate::entry_edits::EntryEdit;
 use crate::past::PastRow;
-use crate::ratings::RatedLine;
+use crate::ratings::{RatedLine, ShownLine};
 use crate::walk::RuleRow;
 use hourglass::{Event, EventId};
 use logs::{ChapterProse, FlavorLine, LearnedLine};
@@ -171,6 +171,7 @@ pub struct Opened {
     pub zone_histories: RowLog<ZoneHistory>,
     pub entry_edits: RowLog<EntryEdit>,
     pub ratings: RowLog<RatedLine>,
+    pub narrator_lines: RowLog<ShownLine>,
     pub past: RowLog<PastRow>,
 }
 
@@ -192,6 +193,7 @@ struct Read {
     zone_histories: RowLog<ZoneHistory>,
     entry_edits: RowLog<EntryEdit>,
     ratings: RowLog<RatedLine>,
+    narrator_lines: RowLog<ShownLine>,
     past: RowLog<PastRow>,
 }
 
@@ -245,6 +247,7 @@ impl Store {
             zone_histories: read.zone_histories,
             entry_edits: read.entry_edits,
             ratings: read.ratings,
+            narrator_lines: read.narrator_lines,
             past: read.past,
         })
     }
@@ -283,6 +286,8 @@ fn read_all(database: &Database, path: PathBuf) -> Result<Read, StoreError> {
     let entry_edits = RowLog::from_rows(database.read_and_repair(Table::EntryEdits, |_, _| true)?);
     let ratings = RowLog::from_rows(database.read_and_repair(Table::Ratings, |_, _| true)?);
     let past = RowLog::from_rows(database.read_and_repair(Table::Past, |_, _| true)?);
+    let narrator_lines =
+        RowLog::from_rows(database.read_and_repair(Table::NarratorLines, |_, _| true)?);
     database.drop_broken_links()?;
     Ok(Read {
         character,
@@ -301,6 +306,7 @@ fn read_all(database: &Database, path: PathBuf) -> Result<Read, StoreError> {
         zone_histories,
         entry_edits,
         ratings,
+        narrator_lines,
         past,
     })
 }

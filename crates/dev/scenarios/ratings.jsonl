@@ -1,7 +1,8 @@
-# A human paladin who turned ratings on, and rated two narrator lines: one up, one down.
-# The answers of the narrator are fixed, so the lines and the story of the first chapter
-# show with no model. In the game, `/timeways ratings on` shows Like and Dislike on that
-# chapter, and `/timeways like` after a narrator line rates it.
+# A human paladin who turned ratings on, and rated two narrator lines: one up, and one down
+# as boring. Each rating names its line by the row of its call (1 and 4). The answers of
+# the narrator are fixed, so the lines and the story of the first chapter show with no
+# model. In the game, `/timeways ratings on` shows the thumbs on that chapter, and a
+# [Rate] link after each new narrator line.
 # `timeways-dev export-ratings <character> --realm <realm>` writes the ratings to a file.
 
 {"type": "character_described", "at": 30, "race": "Human", "class": "PALADIN"}
@@ -29,9 +30,9 @@
 {"model": "narrator", "answer": {"lore": "Duskwood was a green wood until the Scourge and the worgen came, and its last town raised a watch to guard it."}}
 {"model": "saga", "answer": {"saga": "Marshal McBride trains the young of Stormwind at the abbey, and the kobolds and gnolls of Elwynn Forest give them work enough. $N took up those errands from Echo Ridge to the Jasperlode Mine."}}
 
-{"type": "line_rated", "at": 4060, "rated": "narrator", "rating": "up"}
+{"type": "line_rated", "at": 4060, "rated": "narrator", "line": 1, "rating": "up"}
 
 {"type": "zone_entered", "at": 8000, "zone": "Westfall", "subzone": "Sentinel Hill", "hour": 15}
 {"model": "narrator", "answer": {"lore": "The farmers of Westfall turned on Stormwind after the Second War, and a militia rose to fight the bandits."}}
 
-{"type": "line_rated", "at": 8060, "rated": "narrator", "rating": "down"}
+{"type": "line_rated", "at": 8060, "rated": "narrator", "line": 4, "rating": "down", "reason": "boring"}

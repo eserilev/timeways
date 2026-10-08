@@ -8,6 +8,7 @@ use timeways_story::input::{Input, MessageId};
 use timeways_story::narrator::Budget;
 use timeways_story::pace::Pace;
 use timeways_story::pack::Pack;
+use timeways_story::ratings::RatedLine;
 use timeways_story::store::{
     CallEnd, CharacterKey, Database, Line, NewCall, Outcome, PROMPTS_KEPT, Store, StoreError,
     Table, name_of_safe_id, safe_id,
@@ -925,7 +926,7 @@ fn a_world_of_version_8_takes_the_shape_column_and_keeps_its_rows() {
 
     assert_eq!(database.newest_shapes(8).unwrap(), ["k.fell"]);
     assert!(database.call(0).unwrap().is_some());
-    assert_eq!(user_version(&path), 12);
+    assert_eq!(user_version(&path), 13);
 }
 
 fn user_version(path: &Path) -> i64 {
@@ -950,7 +951,7 @@ fn a_world_of_version_8_that_has_the_shape_column_opens_at_the_newest_version() 
     let opened = Database::open(&path);
 
     assert!(opened.is_ok(), "{:?}", opened.err());
-    assert_eq!(user_version(&path), 12);
+    assert_eq!(user_version(&path), 13);
 }
 
 /// Version 12 only added the table `past` (GAMEPLAY.md 3.3, the prologue).
@@ -971,9 +972,41 @@ fn a_world_of_version_11_takes_the_past_table_and_keeps_its_rows() {
     let database = Database::open(&path).unwrap();
 
     assert!(database.call(0).unwrap().is_some());
-    assert_eq!(user_version(&path), 12);
+    assert_eq!(user_version(&path), 13);
     let connection = Connection::open(&path).unwrap();
     assert!(connection.prepare("SELECT body FROM past").is_ok());
+}
+
+/// Version 13 added the table `narrator_lines`, and the optional `reason` of a rating
+/// (GAMEPLAY.md 3.2.2). An old rating reads with no reason.
+#[test]
+fn a_world_of_version_12_takes_the_narrator_lines_table_and_keeps_its_ratings() {
+    let folder = fresh_folder("version-12-lines");
+    fs::create_dir_all(&folder).unwrap();
+    let path = folder.join("world.sqlite");
+    drop(Database::open(&path).unwrap());
+    Connection::open(&path)
+        .unwrap()
+        .execute_batch(
+            r#"DROP TABLE narrator_lines; PRAGMA user_version = 12;
+             INSERT INTO ratings (position, body) VALUES (0, '{"at":1,"rated":"summary","rating":"down","moment":"summary","text":"An oath.","faults":[]}');"#,
+        )
+        .unwrap();
+
+    drop(Database::open(&path).unwrap());
+
+    assert_eq!(user_version(&path), 13);
+    let connection = Connection::open(&path).unwrap();
+    assert!(
+        connection
+            .prepare("SELECT body FROM narrator_lines")
+            .is_ok()
+    );
+    let body: String = connection
+        .query_row("SELECT body FROM ratings", [], |row| row.get(0))
+        .unwrap();
+    let rating: RatedLine = serde_json::from_str(&body).unwrap();
+    assert_eq!(rating.reason, None);
 }
 
 /// The column and the version change in one transaction, so a failed upgrade changes
@@ -1062,7 +1095,7 @@ fn a_world_of_version_9_keeps_the_lore_of_its_kept_prompts_as_told() {
     let database = Database::open(&path).unwrap();
 
     assert_eq!(database.told_lore().unwrap(), [TOLD_LORE]);
-    assert_eq!(user_version(&path), 12);
+    assert_eq!(user_version(&path), 13);
 }
 
 /// The table and the version change in one transaction, so a failed upgrade changes
@@ -1125,7 +1158,7 @@ fn a_world_of_version_10_takes_the_ratings_table_and_keeps_its_rows() {
     let database = Database::open(&path).unwrap();
 
     assert!(database.call(0).unwrap().is_some());
-    assert_eq!(user_version(&path), 12);
+    assert_eq!(user_version(&path), 13);
     let connection = Connection::open(&path).unwrap();
     assert!(connection.prepare("SELECT body FROM ratings").is_ok());
 }

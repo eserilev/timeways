@@ -128,8 +128,8 @@ impl Story {
         match verdict {
             Answered::Line(built) => {
                 self.told_shape = (!built.shape.is_empty()).then_some(built.shape);
-                self.keep_shown_line(row, &call, &built.line);
-                (vec![said(call.batch, built.line)], Outcome::Accepted)
+                let id = self.keep_shown_line(row, &call, &built.line);
+                (vec![said(call.batch, built.line, id)], Outcome::Accepted)
             }
             Answered::Refused(faults) if call.attempt == Attempt::First && self.has_free_slot() => {
                 let retry = self.retry_narrator(row, call, prompt, text, &faults);
@@ -141,17 +141,32 @@ impl Story {
         }
     }
 
-    /// The newest line of the active character, for a rating of it.
-    fn keep_shown_line(&mut self, row: Option<u64>, call: &NarratorCall, line: &str) {
-        let Some(active) = self.active.as_mut().filter(|active| active.key == call.key) else {
-            return;
-        };
-        active.shown_line = Some(ShownLine {
-            call: row,
-            moment: call.moment,
+    /// A line of the active character, kept by the row of its call for a rating of it.
+    /// Returns the ID of the line. A call with no row has no ID, so it gets no row.
+    fn keep_shown_line(
+        &mut self,
+        row: Option<u64>,
+        call: &NarratorCall,
+        line: &str,
+    ) -> Option<u64> {
+        let active = self
+            .active
+            .as_mut()
+            .filter(|active| active.key == call.key)?;
+        let call_row = row?;
+        let shown = ShownLine {
+            call: call_row,
+            moment: call.moment.to_string(),
             text: line.to_string(),
             faults: call.faults.clone(),
-        });
+        };
+        if active.narrator_lines.add(shown).is_err() {
+            self.notes.push(format!(
+                "the narrator line of call {call_row} does not save"
+            ));
+            return None;
+        }
+        Some(call_row)
     }
 
     /// The second call: the first prompt, the first answer, and the reasons. It reads what
@@ -197,10 +212,11 @@ fn free_line(text: &str, grounds: &Grounds, player_text: &str) -> Answered {
     }
 }
 
-fn said(batch: MessageId, line: String) -> Output {
+fn said(batch: MessageId, line: String, id: Option<u64>) -> Output {
     Output::EventsSeen {
         id: batch,
         narrator: Some(line),
+        narrator_id: id,
         notice: None,
     }
 }

@@ -29,6 +29,7 @@ use crate::places::InstanceKind;
 use crate::prompt::Context;
 use crate::quest::{Encounter, QuestView, Status, quest_log};
 use crate::race_class::{Class, Race};
+use crate::ratings::Rated;
 use crate::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use crate::seen::{MAX_SEEN_BYTES, SeenIndex, SeenText, TextKind};
 use crate::spoiler;
@@ -167,6 +168,10 @@ pub enum Output {
     EventsSeen {
         id: MessageId,
         narrator: Option<String>,
+        /// The ID of the narrator line, so a rating names it (GAMEPLAY.md 3.2.2). The bridge
+        /// drops it with its line.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        narrator_id: Option<u64>,
         /// A line of Timeways itself, not of the narrator: "You already have 3 tasks.".
         #[serde(skip_serializing_if = "Option::is_none")]
         notice: Option<String>,
@@ -671,8 +676,16 @@ impl Story {
                 at,
                 rated,
                 first,
+                line,
                 rating,
-            } => self.rate(at, rated, first, rating),
+                reason,
+            } => self.rate(
+                at,
+                rated,
+                ratings::named_key(rated, first, line),
+                rating,
+                reason,
+            ),
             Input::BatchEnd { id } => Ok(self.end_batch(id)),
             Input::ModelAnswered { call, text } => self.answered(call, &text),
             Input::ModelFailed { call } => self.failed(call),
@@ -994,6 +1007,7 @@ impl Story {
             zone_histories,
             entry_edits,
             ratings,
+            narrator_lines,
             past,
         } = self.store.open(&key)?;
         let read: Vec<SeenText> = learned
@@ -1031,13 +1045,13 @@ impl Story {
             zone_histories,
             entry_edits,
             ratings,
+            narrator_lines,
             past,
             edit_refused: None,
             book,
             seen_index,
             hero_refused: None,
             talk_quest: None,
-            shown_line: None,
         })
     }
 
@@ -1331,6 +1345,7 @@ impl Story {
                     .iter()
                     .map(|note| aliases::with_names(active, note))
                     .collect();
+                chapter.rating = ratings::rating_of(active, Rated::Chapter, Some(chapter.first));
             }
             journal.edits = edits::journal_edits(active, &journal);
             journal.edit_refused = active.edit_refused.take().map(String::into_boxed_str);
@@ -1339,8 +1354,10 @@ impl Story {
             }
             journal.stories = stories::journal_stories(active)?;
             journal.summary = summaries::journal_summary(active);
+            journal.summary_rating = ratings::summary_rating(active);
             for tale in &mut journal.tales {
                 tale.text = tales::shown_text(active, EventId(tale.first));
+                tale.rating = ratings::rating_of(active, Rated::Tale, Some(tale.first));
             }
             journal.histories = zone_histories::journal_histories(active);
             journal.lore = lore_of(

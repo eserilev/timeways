@@ -486,6 +486,7 @@ pub(super) fn quiet(batch: MessageId) -> Output {
     Output::EventsSeen {
         id: batch,
         narrator: None,
+        narrator_id: None,
         notice: None,
     }
 }
@@ -495,6 +496,7 @@ pub(super) fn notice_line(batch: MessageId, line: String) -> Output {
     Output::EventsSeen {
         id: batch,
         narrator: None,
+        narrator_id: None,
         notice: Some(line),
     }
 }

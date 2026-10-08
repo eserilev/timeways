@@ -60,7 +60,7 @@ use timeways_story::quest::{
     Step, Tracked, checked_quest, quest_log,
 };
 use timeways_story::race_class::{Class, Race};
-use timeways_story::ratings::{Rated, RatedLine, Rating, export};
+use timeways_story::ratings::{Rated, RatedLine, Rating, Reason, export};
 use timeways_story::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use timeways_story::seen::TextKind;
 use timeways_story::sentences::{sentences, word_count};
@@ -2271,6 +2271,7 @@ proptest! {
     fn an_export_of_ratings_holds_no_known_player_name(
         (names, text) in names_and_text(),
         rating in prop_oneof![Just(Rating::Up), Just(Rating::Down)],
+        reason in prop::option::of(Just(Reason::MadeUpName)),
     ) {
         let own = &names[0];
         prop_assume!(alias_of(own).is_some_and(|own| own.key.chars().count() >= 2));
@@ -2281,6 +2282,7 @@ proptest! {
             rated: Rated::Narrator,
             key: Some(0),
             rating,
+            reason,
             moment: "first_kill".to_string(),
             text: text.clone(),
             faults: vec![text.clone()],

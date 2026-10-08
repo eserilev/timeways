@@ -81,6 +81,8 @@ pub(super) struct Active {
     pub(super) entry_edits: RowLog<EntryEdit>,
     /// The player's ratings of narrator text (GAMEPLAY.md 3.2.2).
     pub(super) ratings: RowLog<RatedLine>,
+    /// The narrator lines that showed, for a rating of one of them.
+    pub(super) narrator_lines: RowLog<ShownLine>,
     /// The past of the character before Timeways: only the first row is kept.
     pub(super) past: RowLog<PastRow>,
     /// Why the last edit of an entry did not stand, until a journal page shows it.
@@ -93,9 +95,6 @@ pub(super) struct Active {
     /// The quest that the newest talk with work asked for (GAMEPLAY.md 3.5). It lives in
     /// memory only: the talk window waits a few minutes at most.
     pub(super) talk_quest: Option<Box<TalkQuest>>,
-    /// The newest narrator line of this run, for a rating of it. It lives in memory only:
-    /// a rating comes right after the line.
-    pub(super) shown_line: Option<ShownLine>,
 }
 
 impl Active {
@@ -161,6 +160,7 @@ impl Active {
             (Table::EntryEdits, self.entry_edits.take_unsaved()),
             (Table::Ratings, self.ratings.take_unsaved()),
             (Table::Past, self.past.take_unsaved()),
+            (Table::NarratorLines, self.narrator_lines.take_unsaved()),
         ])
     }
 

@@ -59,3 +59,7 @@
 "\"rated\":\"chapter\",\"first\":"
 "\"rating\":\"up\"}"
 "\"rating\":\"down\"}"
+"\"line\":"
+"\"reason\":\"wrong_lore\""
+"\"reason\":\"made_up_name\""
+"\"reason\":\"too_long\""

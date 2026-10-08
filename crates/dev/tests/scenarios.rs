@@ -390,10 +390,17 @@ fn the_ratings_scenario_rates_two_narrator_lines_and_exports_them_with_no_name()
         .collect();
     assert_eq!(ratings, [("new_zone", "up"), ("new_zone", "down")]);
     assert!(export.ratings[0].text.starts_with("Duskwood"));
+    assert!(
+        export.ratings[1]
+            .text
+            .starts_with("The farmers of Westfall")
+    );
+    assert_eq!(value["ratings"][0].get("reason"), None);
+    assert_eq!(value["ratings"][1]["reason"], "boring");
     assert!(!value.to_string().contains(NAME), "{value}");
 }
 
-/// The Like and Dislike of the Chronicle show only on a page with a story of the narrator.
+/// The thumbs of the Chronicle show only on a page with a story of the narrator.
 #[test]
 fn the_first_chapter_of_the_ratings_scenario_has_a_story_to_rate() {
     let folder = folder("ratings-chapter");
@@ -426,4 +433,25 @@ fn a_rating_of_a_chapter_keeps_the_story_with_the_mark_of_the_hero() {
     let chapter = export.ratings.last().unwrap();
     assert_eq!(chapter.moment, "chapter");
     assert!(chapter.text.contains("$N took up"), "{}", chapter.text);
+}
+
+#[test]
+fn a_rated_chapter_shows_its_rating_in_the_journal_after_a_restart() {
+    let folder = folder("ratings-thumbs");
+    seed("ratings", &folder);
+    let first = list(&journal(&folder), "chapters")[0]["first"].clone();
+    let mut story = Story::new(Pack::empty().unwrap(), Store::Folder(folder.clone()));
+    let character = json!({"type": "character_entered", "realm": REALM, "name": NAME});
+    let rated = json!({"type": "line_rated", "at": START + 9000, "rated": "chapter",
+        "first": first, "rating": "down", "reason": "too_long"});
+    for line in [character, rated] {
+        let served = serve::line(&mut story, line.to_string().into_bytes());
+        assert_eq!(served.error, None);
+    }
+    drop(story);
+
+    let chapters = list(&journal(&folder), "chapters");
+
+    assert_eq!(chapters[0]["rating"], "down", "{chapters:?}");
+    assert_eq!(chapters[1].get("rating"), None, "{chapters:?}");
 }

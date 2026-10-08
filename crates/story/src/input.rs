@@ -7,7 +7,7 @@ use crate::entry_edits::{EditText, EntryKey};
 use crate::past::Past;
 use crate::places::InstanceKind;
 use crate::race_class::{Class, Race};
-use crate::ratings::{Rated, Rating};
+use crate::ratings::{Rated, Rating, Reason};
 use crate::seen::TextKind;
 use crate::spot::{self, Spot};
 use crate::store::Root;
@@ -302,7 +302,12 @@ pub enum Input {
         /// The first event of a rated chapter or tale.
         #[serde(default)]
         first: Option<u64>,
+        /// The ID of a rated narrator line: the row of its call, from its reply.
+        #[serde(default)]
+        line: Option<u64>,
         rating: Rating,
+        #[serde(default)]
+        reason: Option<Reason>,
     },
     /// A run of `/twdev fps`. It lands only in dev mode, and in no world.
     DevFps(FpsRun),

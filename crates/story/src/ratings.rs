@@ -1,5 +1,5 @@
 //! The player's ratings of narrator text (GAMEPLAY.md 3.2.2): a narrator line, a chapter,
-//! a tale, or the summary, with a thumb up or down. Ratings are off unless the player turns
+//! a tale, or the summary, with a thumb up or down, and a reason for a thumb down. Ratings are off unless the player turns
 //! them on in the game. They stay in the world of the character, and only an export by
 //! the player takes them off the computer. An export never holds the name of a real player.
 
@@ -14,13 +14,13 @@ use timeways_rules::aliases::{Alias, Plain};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Rated {
-    /// The newest narrator line of this run of the story program.
+    /// The narrator line whose call is `line`.
     Narrator,
     /// The story of the chapter whose first event is `first`.
     Chapter,
     /// The text of the tale whose first event is `first`.
     Tale,
-    /// Who the character has become.
+    /// Who the character has become, as the newest summary tells it.
     Summary,
 }
 
@@ -29,6 +29,41 @@ pub enum Rated {
 pub enum Rating {
     Up,
     Down,
+}
+
+/// Why the player disliked a text. The addon offers one list for narrator text and another
+/// for a lore answer, so each reason names one kind of fault.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Reason {
+    WrongLore,
+    MadeUpName,
+    Boring,
+    TooLong,
+    DoesntFit,
+    Other,
+    /// The reasons of a lore answer, for the lore book (a later step).
+    Wrong,
+    NotWhatIAsked,
+    Spoiler,
+}
+
+impl Reason {
+    /// True for a reason that the addon offers for narrator text.
+    #[must_use]
+    pub fn fits_narrator_text(self) -> bool {
+        !matches!(
+            self,
+            Reason::Wrong | Reason::NotWhatIAsked | Reason::Spoiler
+        )
+    }
+}
+
+/// The reason that a row keeps: only a dislike has one, and only a reason of its kind.
+#[must_use]
+pub fn kept_reason(rating: Rating, reason: Option<Reason>) -> Option<Reason> {
+    let reason = reason.filter(|reason| reason.fits_narrator_text())?;
+    (rating == Rating::Down).then_some(reason)
 }
 
 /// One row of `ratings`. The text keeps `$N` and the ID of each player (GAMEPLAY.md 5.11).
@@ -41,6 +76,8 @@ pub struct RatedLine {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub key: Option<u64>,
     pub rating: Rating,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<Reason>,
     /// The kind of the narrator moment (`first_kill`), or the kind of the entry.
     pub moment: String,
     pub text: String,
@@ -49,12 +86,15 @@ pub struct RatedLine {
     pub faults: Vec<String>,
 }
 
-/// The newest narrator line that the story program showed, as a rating finds it.
-#[derive(Clone, Debug, PartialEq, Eq)]
+/// One row of `narrator_lines`: a line that the story program showed, so a rating finds it
+/// by the row of its call, also after a restart.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ShownLine {
-    pub call: Option<u64>,
-    pub moment: &'static str,
+    pub call: u64,
+    pub moment: String,
+    /// The line with `$N` and the IDs of players, as the disk keeps text.
     pub text: String,
+    #[serde(default)]
     pub faults: Vec<String>,
 }
 
@@ -63,6 +103,8 @@ pub struct ShownLine {
 pub struct ExportedRating {
     pub rated: Rated,
     pub rating: Rating,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<Reason>,
     pub moment: String,
     pub text: String,
     pub faults: Vec<String>,
@@ -90,6 +132,7 @@ pub fn export(
         .map(|(_, row)| ExportedRating {
             rated: row.rated,
             rating: row.rating,
+            reason: row.reason,
             moment: row.moment.clone(),
             text: shareable(&row.text, players, own),
             faults: row

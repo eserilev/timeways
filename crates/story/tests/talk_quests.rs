@@ -397,6 +397,7 @@ fn a_quest_command_while_a_talk_quest_is_written_asks_no_second_model() {
 
     let quiet = Output::EventsSeen {
         id: BATCH,
+        narrator_id: None,
         narrator: None,
         notice: None,
     };

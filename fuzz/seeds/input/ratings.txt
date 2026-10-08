@@ -1,6 +1,11 @@
 {"type":"character_entered","realm":"Testrealm","name":"Tester"}
 {"type":"zone_entered","at":1790000000,"zone":"Westfall","subzone":"Sentinel Hill","hour":14}
-{"type":"line_rated","at":1790000010,"rated":"narrator","rating":"up"}
+{"type":"line_rated","at":1790000010,"rated":"narrator","line":3,"rating":"up"}
+{"type":"line_rated","at":1790000011,"rated":"narrator","line":18446744073709551615,"rating":"down","reason":"made_up_name"}
+{"type":"line_rated","at":1790000012,"rated":"narrator","line":-1,"rating":"down","reason":"boring"}
+{"type":"line_rated","at":1790000013,"rated":"narrator","line":3,"rating":"down","reason":"rude"}
+{"type":"line_rated","at":1790000014,"rated":"narrator","line":3,"rating":"up","reason":"spoiler"}
+{"type":"line_rated","at":1790000015,"rated":"chapter","first":1,"line":3,"rating":"down","reason":"doesnt_fit"}
 {"type":"line_rated","at":1790000020,"rated":"chapter","first":1,"rating":"down"}
 {"type":"line_rated","at":1790000030,"rated":"tale","first":18446744073709551615,"rating":"up"}
 {"type":"line_rated","at":1790000040,"rated":"summary","rating":"down"}

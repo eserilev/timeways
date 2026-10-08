@@ -1,8 +1,9 @@
-//! The ratings of the player (GAMEPLAY.md 3.2.2): the desktop keeps the text that it showed,
-//! and an export holds no name of a real player.
+//! The ratings of the player (GAMEPLAY.md 3.2.2): a rating names the exact text, the desktop
+//! keeps the text that it showed, and an export holds no name of a real player.
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
+use fake_bridge::{FakeBridge, Model, Reply};
 use hourglass::Tick;
 use std::path::{Path, PathBuf};
 use timeways_rules::aliases::Alias;
@@ -10,7 +11,7 @@ use timeways_story::aliases::alias_of;
 use timeways_story::input::{CallId, Input, MessageId};
 use timeways_story::pack::{Link, Origin, Pack, Passage};
 use timeways_story::race_class::{Class, Race};
-use timeways_story::ratings::{Rated, RatedLine, Rating, export, shareable};
+use timeways_story::ratings::{Rated, RatedLine, Rating, Reason, export, shareable};
 use timeways_story::store::{CharacterKey, RowLog, Store};
 use timeways_story::story::{Output, Story};
 
@@ -87,14 +88,59 @@ fn answered(story: &mut Story, call: CallId, text: &str) -> Vec<Output> {
         .unwrap()
 }
 
-fn rate(story: &mut Story, rated: Rated, first: Option<u64>, rating: Rating) {
-    let line = Input::LineRated {
+/// A rating of the player, with no key and no reason.
+fn rating(rated: Rated, rating: Rating) -> Input {
+    Input::LineRated {
         at: Tick(10),
         rated,
-        first,
+        first: None,
+        line: None,
         rating,
-    };
+        reason: None,
+    }
+}
+
+fn of_line(line: u64, rating: Rating, reason: Option<Reason>) -> Input {
+    Input::LineRated {
+        at: Tick(10),
+        rated: Rated::Narrator,
+        first: None,
+        line: Some(line),
+        rating,
+        reason,
+    }
+}
+
+fn of_first(rated: Rated, first: u64, rating: Rating) -> Input {
+    Input::LineRated {
+        at: Tick(10),
+        rated,
+        first: Some(first),
+        line: None,
+        rating,
+        reason: None,
+    }
+}
+
+fn rate(story: &mut Story, line: Input) {
     assert!(story.handle(line).unwrap().is_empty());
+}
+
+/// The rows of the accepted narrator calls, oldest first: the IDs of the lines that showed.
+fn shown_lines(folder: &Path) -> Vec<u64> {
+    let key = CharacterKey::new(REALM, NAME).unwrap();
+    let connection = rusqlite::Connection::open(folder.join(key.relative_path())).unwrap();
+    let mut statement = connection
+        .prepare(
+            "SELECT position FROM calls WHERE kind = 'narrator' AND result = 'accepted' \
+             ORDER BY position",
+        )
+        .unwrap();
+    statement
+        .query_map([], |row| row.get::<_, i64>(0))
+        .unwrap()
+        .map(|position| u64::try_from(position.unwrap()).unwrap())
+        .collect()
 }
 
 /// The rows of `ratings` in the world file.
@@ -111,18 +157,40 @@ fn ratings_of(folder: &Path) -> Vec<RatedLine> {
         .collect()
 }
 
+/// Level 30 a few seconds after level 20: a second narrator call in the same minute.
+fn level_thirty(story: &mut Story) -> CallId {
+    for (at, level) in [(20, 29), (21, 30)] {
+        story
+            .handle(Input::LevelReached {
+                at: Tick(at),
+                level,
+            })
+            .unwrap();
+    }
+    let output = story.handle(Input::BatchEnd { id: MessageId(4) }).unwrap();
+    match output.as_slice() {
+        [Output::ModelCall { call, .. }] => *call,
+        other => panic!("expected a narrator call, got {other:?}"),
+    }
+}
+
+/// A second true sentence of the same lore, so the two lines differ.
+const SECOND_ANSWER: &str = "{\"lore\": \"The line of King Barathen Wrynn rules Stormwind City, and the gnolls of Elwynn remember how he scattered them.\", \"group\": \"g.people\"}";
+
 #[test]
-fn a_rating_of_the_newest_narrator_line_keeps_its_text_and_its_moment() {
+fn a_rating_of_a_narrator_line_keeps_the_text_and_the_moment_of_its_call() {
     let folder = folder("narrator");
     let mut story = paladin(&folder);
     let call = level_twenty(&mut story);
     answered(&mut story, call, HISTORY_ANSWER);
+    let line = shown_lines(&folder)[0];
 
-    rate(&mut story, Rated::Narrator, None, Rating::Up);
+    rate(&mut story, of_line(line, Rating::Up, None));
 
     let rows = ratings_of(&folder);
     assert_eq!(rows.len(), 1);
     assert_eq!(rows[0].rating, Rating::Up);
+    assert_eq!(rows[0].key, Some(line));
     assert_eq!(rows[0].moment, "level_up");
     assert!(
         rows[0].text.starts_with("King Barathen Wrynn"),
@@ -130,6 +198,94 @@ fn a_rating_of_the_newest_narrator_line_keeps_its_text_and_its_moment() {
         rows[0].text
     );
     assert!(rows[0].faults.is_empty());
+}
+
+#[test]
+fn a_narrator_reply_carries_the_id_of_its_line() {
+    let folder = folder("reply-id");
+    let mut story = paladin(&folder);
+    let call = level_twenty(&mut story);
+
+    let output = answered(&mut story, call, HISTORY_ANSWER);
+
+    let line = shown_lines(&folder)[0];
+    match output.as_slice() {
+        [Output::EventsSeen { narrator_id, .. }] => assert_eq!(*narrator_id, Some(line)),
+        other => panic!("expected a narrator line, got {other:?}"),
+    }
+}
+
+/// The bridge passes the ID on to the game, so the [Rate] link can name the line.
+#[test]
+fn the_id_of_a_narrator_line_reaches_the_game_through_the_bridge() {
+    let folder = folder("reply-id-bridge");
+    let story = paladin(&folder);
+    let model: Model = Box::new(|_| Some(HISTORY_ANSWER.to_string()));
+    let mut bridge = FakeBridge::new(story).with_model(model);
+    let character = format!(r#"{{"type":"character_entered","realm":"{REALM}","name":"{NAME}"}}"#);
+
+    let reply = bridge.batch(&format!(
+        "{character}\n{}\n{}",
+        r#"{"type":"level_reached","at":2,"level":19}"#,
+        r#"{"type":"level_reached","at":3,"level":20}"#
+    ));
+
+    let Reply::Done(text) = reply else {
+        panic!("{reply:?}")
+    };
+    let line = shown_lines(&folder)[0];
+    assert!(text.contains(&format!(r#""narrator_id":{line}"#)), "{text}");
+}
+
+#[test]
+fn a_quiet_reply_carries_no_line_id() {
+    let folder = folder("quiet-id");
+    let mut story = paladin(&folder);
+    let call = level_twenty(&mut story);
+
+    let output = answered(&mut story, call, "SILENCE");
+
+    match output.as_slice() {
+        [Output::EventsSeen { narrator_id, .. }] => assert_eq!(*narrator_id, None),
+        other => panic!("expected a quiet reply, got {other:?}"),
+    }
+}
+
+#[test]
+fn a_rating_names_the_older_of_two_lines_of_one_minute() {
+    let folder = folder("two-lines");
+    let mut story = paladin(&folder);
+    let first = level_twenty(&mut story);
+    answered(&mut story, first, HISTORY_ANSWER);
+    let second = level_thirty(&mut story);
+    answered(&mut story, second, SECOND_ANSWER);
+    let lines = shown_lines(&folder);
+    assert_eq!(lines.len(), 2, "{lines:?}");
+
+    rate(&mut story, of_line(lines[0], Rating::Down, None));
+
+    let rows = ratings_of(&folder);
+    assert_eq!(rows.len(), 1);
+    assert!(
+        rows[0].text.starts_with("King Barathen Wrynn"),
+        "{}",
+        rows[0].text
+    );
+}
+
+#[test]
+fn a_rating_of_a_line_still_finds_it_after_a_restart() {
+    let folder = folder("restart");
+    let mut story = paladin(&folder);
+    let call = level_twenty(&mut story);
+    answered(&mut story, call, HISTORY_ANSWER);
+    let line = shown_lines(&folder)[0];
+    drop(story);
+    let mut story = paladin(&folder);
+
+    rate(&mut story, of_line(line, Rating::Up, None));
+
+    assert_eq!(ratings_of(&folder).len(), 1);
 }
 
 #[test]
@@ -143,8 +299,9 @@ fn a_rating_of_a_retried_line_keeps_why_the_first_answer_was_refused() {
         other => panic!("expected a retry, got {other:?}"),
     };
     answered(&mut story, retry, HISTORY_ANSWER);
+    let line = shown_lines(&folder)[0];
 
-    rate(&mut story, Rated::Narrator, None, Rating::Down);
+    rate(&mut story, of_line(line, Rating::Down, None));
 
     let rows = ratings_of(&folder);
     assert_eq!(rows.len(), 1);
@@ -163,29 +320,85 @@ fn a_rating_with_no_line_shown_writes_no_row() {
     let folder = folder("nothing-shown");
     let mut story = paladin(&folder);
 
-    rate(&mut story, Rated::Narrator, None, Rating::Up);
-    rate(&mut story, Rated::Chapter, Some(0), Rating::Up);
-    rate(&mut story, Rated::Tale, Some(0), Rating::Down);
-    rate(&mut story, Rated::Summary, None, Rating::Up);
+    rate(&mut story, rating(Rated::Narrator, Rating::Up));
+    rate(&mut story, of_line(0, Rating::Up, None));
+    rate(&mut story, of_first(Rated::Chapter, 0, Rating::Up));
+    rate(&mut story, of_first(Rated::Tale, 0, Rating::Down));
+    rate(&mut story, rating(Rated::Summary, Rating::Up));
 
     assert!(ratings_of(&folder).is_empty());
 }
 
 #[test]
-fn a_silent_line_leaves_the_line_before_it_to_rate() {
+fn a_silent_line_has_no_line_to_rate() {
     let folder = folder("silent");
     let mut story = paladin(&folder);
     let call = level_twenty(&mut story);
     answered(&mut story, call, "SILENCE");
 
-    rate(&mut story, Rated::Narrator, None, Rating::Up);
+    rate(&mut story, of_line(call.0, Rating::Up, None));
 
+    assert!(shown_lines(&folder).is_empty());
     assert!(ratings_of(&folder).is_empty());
 }
 
 #[test]
+fn a_dislike_keeps_its_reason_and_the_export_holds_it() {
+    let folder = folder("reason");
+    let mut story = paladin(&folder);
+    let call = level_twenty(&mut story);
+    answered(&mut story, call, HISTORY_ANSWER);
+    let line = shown_lines(&folder)[0];
+
+    rate(
+        &mut story,
+        of_line(line, Rating::Down, Some(Reason::TooLong)),
+    );
+
+    let rows = ratings_of(&folder);
+    assert_eq!(rows[0].reason, Some(Reason::TooLong));
+    let mut log = RowLog::default();
+    log.add(rows[0].clone()).unwrap();
+    let exported = export(&log, &[], NAME, "none");
+    let value = serde_json::to_value(&exported).unwrap();
+    assert_eq!(value[0]["reason"], "too_long");
+}
+
+#[test]
+fn a_like_keeps_no_reason() {
+    let folder = folder("like-reason");
+    let mut story = paladin(&folder);
+    let call = level_twenty(&mut story);
+    answered(&mut story, call, HISTORY_ANSWER);
+    let line = shown_lines(&folder)[0];
+
+    rate(&mut story, of_line(line, Rating::Up, Some(Reason::Boring)));
+
+    assert_eq!(ratings_of(&folder)[0].reason, None);
+}
+
+/// The reasons of a lore answer are for the lore book only.
+#[test]
+fn a_reason_of_a_lore_answer_on_a_narrator_line_keeps_no_reason() {
+    let folder = folder("lore-reason");
+    let mut story = paladin(&folder);
+    let call = level_twenty(&mut story);
+    answered(&mut story, call, HISTORY_ANSWER);
+    let line = shown_lines(&folder)[0];
+
+    rate(
+        &mut story,
+        of_line(line, Rating::Down, Some(Reason::Spoiler)),
+    );
+
+    let rows = ratings_of(&folder);
+    assert_eq!(rows[0].rating, Rating::Down);
+    assert_eq!(rows[0].reason, None);
+}
+
+#[test]
 fn a_rating_line_holds_no_text_of_the_addon() {
-    let line = r#"{"type":"line_rated","at":1,"rated":"narrator","rating":"up"}"#;
+    let line = r#"{"type":"line_rated","at":1,"rated":"narrator","line":7,"rating":"down","reason":"made_up_name"}"#;
     let input: Input = serde_json::from_str(line).unwrap();
 
     assert_eq!(
@@ -194,9 +407,18 @@ fn a_rating_line_holds_no_text_of_the_addon() {
             at: Tick(1),
             rated: Rated::Narrator,
             first: None,
-            rating: Rating::Up,
+            line: Some(7),
+            rating: Rating::Down,
+            reason: Some(Reason::MadeUpName),
         }
     );
+}
+
+#[test]
+fn a_rating_line_with_an_unknown_reason_is_refused() {
+    let line = r#"{"type":"line_rated","at":1,"rated":"narrator","line":7,"rating":"down","reason":"rude"}"#;
+
+    assert!(serde_json::from_str::<Input>(line).is_err());
 }
 
 fn row(rated: Rated, key: Option<u64>, rating: Rating, text: &str) -> RatedLine {
@@ -205,6 +427,7 @@ fn row(rated: Rated, key: Option<u64>, rating: Rating, text: &str) -> RatedLine 
         rated,
         key,
         rating,
+        reason: None,
         moment: "chapter".to_string(),
         text: text.to_string(),
         faults: Vec::new(),

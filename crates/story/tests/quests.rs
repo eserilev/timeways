@@ -108,6 +108,7 @@ fn notice(outputs: Vec<Output>) -> Option<String> {
         Some(Output::EventsSeen {
             id,
             narrator: None,
+            narrator_id: None,
             notice,
         }) => {
             assert_eq!(id, BATCH);
@@ -403,6 +404,7 @@ fn a_giver_waits_for_you_to_finish_its_open_quest() {
         output,
         Output::EventsSeen {
             id: BATCH,
+            narrator_id: None,
             narrator: None,
             notice: Some(
                 "Keeper Tessa is waiting for you to finish \"The Lost Lantern\".".to_string()

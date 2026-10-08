@@ -11,6 +11,7 @@ use crate::learned::Learned;
 use crate::mounts::title_of_mount;
 use crate::places::{self, PlaceKind};
 use crate::quest::{QuestView, title_of_thing};
+use crate::ratings::Rating;
 use crate::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use crate::spot::{Spot, spot_of};
 use crate::stories::PlayerStory;
@@ -69,6 +70,9 @@ pub struct Journal {
     /// Who the character has become, for the title page of the Chronicle
     /// (docs/plans/hero-stories.md 3.5). Only the first page carries it.
     pub summary: Option<Box<str>>,
+    /// The player's rating of that summary (3.2.2).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub summary_rating: Option<Rating>,
     /// The quest that the newest talk with work asked for (3.5). The talk window shows it.
     /// A box keeps the page small, and every answer holds a page.
     pub talk_quest: Option<Box<TalkQuest>>,
@@ -125,6 +129,9 @@ pub struct Chapter {
     pub prose: Option<String>,
     /// The footnotes of the saga: small moments of the chapter (5.4.1).
     pub footnotes: Vec<String>,
+    /// The player's newest rating of the saga (3.2.2).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rating: Option<Rating>,
 }
 
 /// Why a chapter began. The contents of the addon mark it.
@@ -173,6 +180,9 @@ pub struct Tale {
     pub left_out: usize,
     /// The newest text of the narrator, once a model wrote one.
     pub text: Option<String>,
+    /// The player's newest rating of the text (3.2.2).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rating: Option<Rating>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
@@ -317,12 +327,14 @@ pub fn pages(journal: Journal) -> Vec<Page> {
         edit_refused: journal.edit_refused,
         talk_quest: journal.talk_quest,
         summary: journal.summary,
+        summary_rating: journal.summary_rating,
         ..Journal::default()
     };
     let mut used = Size::of(&current.hero_refused)
         .plus(Size::of(&current.edit_refused))
         .plus(Size::of(&current.talk_quest))
-        .plus(Size::of(&current.summary));
+        .plus(Size::of(&current.summary))
+        .plus(Size::of(&current.summary_rating));
     let budget = Size {
         line: MAX_LINE - FRAME.line,
         slot: MAX_SLOT - FRAME.slot,
@@ -573,6 +585,7 @@ fn chapters(world: &World, book: &Book, facts: &Facts<'_>) -> Vec<Chapter> {
             left_out,
             prose: None,
             footnotes: Vec::new(),
+            rating: None,
         });
     }
     chapters
@@ -602,6 +615,7 @@ fn tales(world: &World, book: &Book, facts: &Facts<'_>, chapters: &[Chapter]) ->
             again,
             left_out,
             text: None,
+            rating: None,
         });
     }
     tales

@@ -9,8 +9,9 @@ use timeways_story::aliases::{AliasRow, alias_of};
 use timeways_story::ratings::{ExportedRating, RatedLine, export};
 use timeways_story::store::{RowLog, StoreError, Table};
 
-/// The version of the file. A change of its shape takes the next one.
-const FORMAT: u32 = 1;
+/// The version of the file. A change of its shape takes the next one. Version 2 added
+/// `reason`.
+const FORMAT: u32 = 2;
 
 /// The exports live next to the worlds, in the data folder of the story program.
 const EXPORTS: &str = "exports";
