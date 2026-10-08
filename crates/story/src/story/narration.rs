@@ -91,6 +91,9 @@ impl Story {
         let mut grounds = Grounds::of(&telling, turn);
         let defeated = active.character.foes_defeated().into_iter();
         grounds.defeated.extend(defeated.map(str::to_string));
+        if let Some((_, offer)) = templated.as_deref() {
+            grounds.offered = offer.group_texts();
+        }
         let mut reads = std::mem::take(&mut self.batch_rows);
         reads.extend(reads::passages_read(active, passage.as_slice()));
         let call = NarratorCall {

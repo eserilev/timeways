@@ -5,6 +5,7 @@
 
 use crate::arrival::arrival_in;
 use crate::check::{json_object, slop_in, voice_text};
+use crate::grounding::ungrounded_names;
 use crate::hero::OWN_WORDS;
 use crate::house::{HOUSE_RULES, bulleted, fenced};
 use crate::narrator::PERSONA;
@@ -155,7 +156,7 @@ pub fn told(facts: &Facts) -> String {
 /// The summary as the player reads it, or None when it breaks a rule. `told` is the text of
 /// the facts (`told`), and `player_text` the hero in the player's own words.
 #[must_use]
-pub fn checked_summary(text: &str, told: &str, player_text: &str) -> Option<String> {
+pub fn checked_summary(text: &str, told: &str, player_text: &str, given: &str) -> Option<String> {
     let reply: Reply = serde_json::from_str(json_object(text)?).ok()?;
     let summary = voice_text(
         &reply.summary,
@@ -167,7 +168,8 @@ pub fn checked_summary(text: &str, told: &str, player_text: &str) -> Option<Stri
     let our_hero = summary.to_lowercase().contains("our hero");
     let clean = slop_in(&summary, told).is_empty()
         && arrival_in(&summary, &[]).is_none()
-        && prose_faults(&summary, &[]).is_empty();
+        && prose_faults(&summary, &[]).is_empty()
+        && ungrounded_names(&summary, &format!("{given}\n{player_text}")).is_empty();
     (names <= MAX_NAMES && !our_hero && clean).then_some(summary)
 }
 
@@ -183,32 +185,32 @@ mod tests {
     fn a_plain_paragraph_passes() {
         let text = reply("Deathknell buried its dead twice, and $N climbed back out.");
 
-        assert!(checked_summary(&text, "", "").is_some());
+        assert!(checked_summary(&text, "", "", "").is_some());
     }
 
     #[test]
     fn a_summary_that_names_the_hero_three_times_is_refused() {
         let text = reply("$N rose. $N fought. $N stayed.");
 
-        assert_eq!(checked_summary(&text, "", ""), None);
+        assert_eq!(checked_summary(&text, "", "", ""), None);
     }
 
     #[test]
     fn a_summary_that_says_our_hero_is_refused() {
         let text = reply("Our hero walked to Brill.");
 
-        assert_eq!(checked_summary(&text, "", ""), None);
+        assert_eq!(checked_summary(&text, "", "", ""), None);
     }
 
     #[test]
     fn a_summary_over_six_hundred_characters_is_refused() {
         let text = reply(&"word ".repeat(121));
 
-        assert_eq!(checked_summary(&text, "", ""), None);
+        assert_eq!(checked_summary(&text, "", "", ""), None);
     }
 
     #[test]
     fn a_reply_that_is_no_json_is_refused() {
-        assert_eq!(checked_summary("The hero walked on.", "", ""), None);
+        assert_eq!(checked_summary("The hero walked on.", "", "", ""), None);
     }
 }

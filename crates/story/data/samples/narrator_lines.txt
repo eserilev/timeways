@@ -8,8 +8,9 @@
 # line names the hero: "$N", "the <race or class>", "by the title "<title>"", "no name", or
 # "not at all, the line is about the place" for an arrival, whose line is the history alone.
 # A sample names real places and people of 25 ADP, before Molten Core. The check refuses a
-# history that copies 4 words in a row of the history of a sample, and the log names a
-# name in no fact.
+# history that copies 4 words in a row of the history of a sample, and a name of a sample
+# that the moment and its lore lack (GAMEPLAY.md 3.2.1). So each history names only what
+# its own moment and lore name.
 # Each sample follows the style guide (docs/plans/narrator-style.md): one turn of history
 # that ends on the present, and the hero only where the deed needs a doer.
 
@@ -143,7 +144,7 @@ line: Naralex went into the Wailing Caverns to make the Barrens green again. The
 
 moment: The player defeated Archmage Arugal in Shadowfang Keep. They never had before.
 who: a Forsaken mage
-lore: Archmage Arugal of the Kirin Tor summoned the worgen to fight the Scourge. They turned on him, and he now hides in Shadowfang Keep, calling them his children.
+lore: Archmage Arugal of the Kirin Tor summoned the worgen into Silverpine to fight the Scourge. They turned on him, and he now hides in Shadowfang Keep, calling them his children.
 hero: no name
 history: Arugal called the worgen into Silverpine to fight the Scourge, but he could not control them, and they roam Shadowfang Keep now.
 choices: {"there": false, "leads": "none", "leads_number": "many"}

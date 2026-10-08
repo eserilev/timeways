@@ -15,10 +15,16 @@ use crate::store::{CharacterKey, Node, Outcome, StoreError};
 /// The kind of a narrator call in the `calls` table.
 pub(super) const NARRATOR: &str = "narrator";
 use crate::talk::Work;
-use crate::{check, talk};
+use crate::{grounding, talk};
 use hourglass::EventId;
 use hourglass::Tick;
 use std::collections::VecDeque;
+
+/// The answer of a model, and what its prompt gave the model (`grounding::given_text`).
+pub(super) struct Reply<'a> {
+    pub(super) text: &'a str,
+    pub(super) given: &'a str,
+}
 
 /// An open model call, and what its answer is for.
 pub(super) enum Pending {
@@ -118,7 +124,7 @@ pub(super) struct CallsBefore {
 /// A call that the bridge runs or that waits for a slot.
 pub(super) struct OpenCall {
     pub(super) pending: Pending,
-    /// For the name check of the answer.
+    /// For the retry, and for the check of invented names in the answer.
     prompt: String,
     /// The position of the call in `calls`, in the world of its character. It stays the
     /// same after a change of character or a reopen. A lore call has none.
@@ -161,7 +167,11 @@ impl Story {
             prompt,
             row,
         } = self.take_call(call)?;
-        self.note_names_in_no_fact(call, text, &prompt);
+        let given = grounding::given_text(&prompt);
+        let reply = Reply {
+            text,
+            given: &given,
+        };
         let row = self.answer_with(&pending, row);
         let (outputs, outcome) = match pending {
             Pending::Lore { question, lore } => {
@@ -171,9 +181,9 @@ impl Story {
                 (self.follow(question, next).into_iter().collect(), outcome)
             }
             Pending::Narrator(narration) => self.narrator_answered(row, narration, &prompt, text),
-            Pending::Chronicle { key, first } => self.saga_answered(&key, first, Some(text))?,
+            Pending::Chronicle { key, first } => self.saga_answered(&key, first, Some(&reply))?,
             Pending::Summary { key, after, told } => {
-                self.summary_answered(&key, after, &told, Some(text))?
+                self.summary_answered(&key, after, &told, Some(&reply))?
             }
             Pending::Prologue { key, told } => self.prologue_answered(&key, &told, Some(text))?,
             Pending::Tale {
@@ -181,15 +191,15 @@ impl Story {
                 run,
                 instance,
                 told,
-            } => self.tale_answered(&key, run, instance, &told, Some(text))?,
-            Pending::ZoneHistory(call) => self.zone_history_answered(*call, Some(text))?,
+            } => self.tale_answered(&key, run, instance, &told, Some(&reply))?,
+            Pending::ZoneHistory(call) => self.zone_history_answered(*call, Some(&reply))?,
             Pending::Talk {
                 question,
                 key,
                 npc,
                 at,
             } => {
-                let outputs = self.talk_answered(question, &key, npc, at, text, row);
+                let outputs = self.talk_answered(question, &key, npc, at, &reply, row);
                 let said = matches!(
                     outputs.first(),
                     Some(Output::TalkAnswer { text: Some(_), .. })
@@ -234,10 +244,11 @@ impl Story {
         key: &CharacterKey,
         npc: String,
         asked_at: Tick,
-        text: &str,
+        reply: &Reply<'_>,
         row: Option<u64>,
     ) -> Vec<Output> {
-        let Some(answer) = talk::checked_answer(text, &self.player_text(key)) else {
+        let player_text = self.player_text(key);
+        let Some(answer) = talk::checked_answer(reply.text, &player_text, reply.given) else {
             return vec![Output::TalkAnswer {
                 id: question,
                 npc,
@@ -423,14 +434,6 @@ impl Story {
         self.calls
             .remove(&call)
             .ok_or(StoryError::UnknownCall(call))
-    }
-
-    /// Log only: the check refuses nothing yet (GAMEPLAY.md 3.2.1).
-    pub(super) fn note_names_in_no_fact(&mut self, call: CallId, answer: &str, prompt: &str) {
-        for name in check::names_in_no_fact(answer, prompt) {
-            let note = format!("call {}: the answer names {name}, and no fact does", call.0);
-            self.notes.push(note);
-        }
     }
 }
 

@@ -101,6 +101,9 @@ pub fn retry_tokens() -> usize {
     estimated_tokens(&retry("", &"w".repeat(RETRY_ANSWER_CHARS), &faults))
 }
 
+/// A retry puts this after the first prompt, then the last answer.
+pub const RETRY_MARK: &str = "\n\nYour last answer was:\n";
+
 /// The model wrote the answer, and a reason can quote a word of it, so both are data.
 #[must_use]
 pub fn retry(prompt: &str, answer: &str, reasons: &[String]) -> String {
@@ -111,7 +114,7 @@ pub fn retry(prompt: &str, answer: &str, reasons: &[String]) -> String {
         .collect();
     let answer = first_chars(answer, RETRY_ANSWER_CHARS);
     format!(
-        "{prompt}\n\nYour last answer was:\n{}\n\nIt broke these rules:\n{}\nWrite the answer again.",
+        "{prompt}{RETRY_MARK}{}\n\nIt broke these rules:\n{}\nWrite the answer again.",
         fenced(answer),
         fenced(&bulleted(&faults))
     )

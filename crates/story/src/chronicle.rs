@@ -3,6 +3,7 @@
 
 use crate::arrival::arrival_in;
 use crate::check::{json_object, slop_in, voice_text};
+use crate::grounding::ungrounded_names;
 use crate::hero::OWN_WORDS;
 use crate::house::{HOUSE_RULES, bulleted, fenced};
 use crate::journal::{Chapter, Deed, Place};
@@ -272,6 +273,7 @@ pub fn checked_saga(
     moment_count: usize,
     facts: &str,
     player_text: &str,
+    given: &str,
 ) -> Option<Saga> {
     let reply: Reply = serde_json::from_str(json_object(text)?).ok()?;
     let saga = voice_text(
@@ -279,8 +281,10 @@ pub fn checked_saga(
         MAX_CHAPTER_CHARS,
         MAX_CHAPTER_BYTES,
         player_text,
-    )
-    .filter(|saga| is_clean(saga, facts) && prose_faults(saga, &[]).is_empty())?;
+    );
+    let given = format!("{given}\n{player_text}");
+    let saga =
+        saga.filter(|saga| is_clean(saga, facts, &given) && prose_faults(saga, &[]).is_empty())?;
     let mut footnotes: Vec<(usize, String)> = Vec::new();
     for footnote in reply.footnotes {
         let known = (1..=moment_count).contains(&footnote.moment);
@@ -293,7 +297,7 @@ pub fn checked_saga(
             MAX_FOOTNOTE_BYTES,
             player_text,
         )
-        .filter(|text| is_clean(text, facts));
+        .filter(|text| is_clean(text, facts, &given));
         if let (true, true, Some(text)) = (known, new, text) {
             footnotes.push((footnote.moment, text));
         }
@@ -305,9 +309,11 @@ pub fn checked_saga(
     })
 }
 
-/// No slop, and no clause that only tells that the hero came.
-fn is_clean(text: &str, facts: &str) -> bool {
-    slop_in(text, facts).is_empty() && arrival_in(text, &[]).is_none()
+/// No slop, no clause that only tells that the hero came, and no invented name.
+fn is_clean(text: &str, facts: &str, given: &str) -> bool {
+    slop_in(text, facts).is_empty()
+        && arrival_in(text, &[]).is_none()
+        && ungrounded_names(text, given).is_empty()
 }
 
 fn described(places: &[Place], zone: &str) -> String {

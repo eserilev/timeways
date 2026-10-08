@@ -21,8 +21,8 @@ fn westfall() -> Grounds {
     let moment = Moment::NewZone {
         zone: "Westfall".to_string(),
     };
-    let lore = "Stormwind never paid the men who rebuilt it. Westfall's rich fields have lain \
-        fallow since the Second War.";
+    let lore = "Stormwind never paid the men who rebuilt it, and they became the Defias. \
+        Westfall's rich fields have lain fallow since the Second War.";
     grounds_of(&moment, Some(lore))
 }
 
@@ -268,7 +268,7 @@ fn the_race_of_the_hero_counts_as_the_hero() {
         race: Some(Race::Orc),
         ..Who::default()
     };
-    let grounds = told_by(&moment, None, &orc);
+    let grounds = told_by(&moment, Some("Hogger raids the farms of Elwynn."), &orc);
 
     assert_eq!(
         faults(
@@ -288,7 +288,8 @@ fn a_people_that_came_to_a_place_is_history() {
         race: Some(Race::Forsaken),
         ..Who::default()
     };
-    let grounds = told_by(&moment, None, &forsaken);
+    let lore = "The troll Zul'jin led the Amani with the Horde in the Second War.";
+    let grounds = told_by(&moment, Some(lore), &forsaken);
 
     for line in [
         "The Scourge came to Lordaeron, and Tirisfal Glades was its first field.",
@@ -493,7 +494,8 @@ fn level_twenty() -> Grounds {
         level: 20,
         zone: Some("Duskwood".to_string()),
     };
-    let lore = "The Night Watch of Darkshire guards the last town of Duskwood against the dead.";
+    let lore = "The Night Watch of Darkshire guards the last town of Duskwood against the dead \
+        of Raven Hill.";
     grounds_of(&moment, Some(lore))
 }
 
@@ -675,13 +677,20 @@ fn a_line_never_copies_the_sample_of_its_own_moment_because_the_prompt_left_it_o
     let line = "The farmers of Westfall left, and the Defias Brotherhood holds it now.";
 
     assert_eq!(
-        checked_line(line, &grounds_of(&westfall, None), ""),
+        checked_line(
+            line,
+            &grounds_of(&westfall, Some("The Defias Brotherhood took the farms.")),
+            ""
+        ),
         Checked::Line(line.to_string())
     );
     assert_eq!(
         faults(
             line,
-            &grounds_of(&darkshore, Some("Westfall lies south of Elwynn."))
+            &grounds_of(
+                &darkshore,
+                Some("Westfall lies south of Elwynn. The Brotherhood of the Defias holds it.")
+            )
         ),
         [LineFault::Copy("and the defias brotherhood".to_string())]
     );

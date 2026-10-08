@@ -2,6 +2,7 @@
 //! trust. The code checks both before anything shows or lands in the world (5.2).
 
 use crate::check::{json_object, voice_text};
+use crate::grounding::ungrounded_names;
 use crate::hero_hook::{Hook, TALK_RULE, hook_block};
 use crate::house::{HOUSE_RULES, bulleted, fenced};
 use crate::pack::Passage;
@@ -213,9 +214,12 @@ pub struct Answer {
 /// None when the words break a rule. A change of trust outside the band is dropped, and
 /// the words still show. `player_text` is the hero in the player's own words.
 #[must_use]
-pub fn checked_answer(text: &str, player_text: &str) -> Option<Answer> {
+pub fn checked_answer(text: &str, player_text: &str, given: &str) -> Option<Answer> {
     let reply: Reply = serde_json::from_str(json_object(text)?).ok()?;
     let say = voice_text(&reply.say, MAX_SAY_CHARS, MAX_SAY_BYTES, player_text)?;
+    if !ungrounded_names(&say, &format!("{given}\n{player_text}")).is_empty() {
+        return None;
+    }
     let in_band = (-MAX_TRUST_CHANGE..=MAX_TRUST_CHANGE).contains(&reply.trust);
     let work = if reply.work == serde_json::Value::Bool(true) {
         Work::Offered

@@ -2,6 +2,7 @@
 //! is due, its call, and its answer.
 
 use super::aliases::{TextLimits, shows_with_names};
+use super::calls::Reply;
 use super::{Active, Output, Pending, Story, StoryError};
 use crate::chapters::SpanState;
 use crate::check::copies_a_sample;
@@ -79,7 +80,7 @@ impl Story {
         key: &CharacterKey,
         after: EventId,
         told: &str,
-        text: Option<&str>,
+        reply: Option<&Reply<'_>>,
     ) -> Result<(Vec<Output>, Outcome), StoryError> {
         let player_text = self.player_text(key);
         let tellings = self
@@ -89,8 +90,8 @@ impl Story {
             .unwrap_or_default();
         let tellings: Vec<&str> = tellings.iter().map(String::as_str).collect();
         // A summary that copies 8 words of the player's telling is refused, as a saga is.
-        let checked = text
-            .and_then(|text| summary::checked_summary(text, told, &player_text))
+        let checked = reply
+            .and_then(|reply| summary::checked_summary(reply.text, told, &player_text, reply.given))
             .filter(|summary| !copies_a_sample(summary, &tellings))
             .filter(|summary| {
                 let active = self.active.as_ref();

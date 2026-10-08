@@ -112,7 +112,7 @@ fn review(
         lore: lore.as_deref(),
         who: &who,
     };
-    let grounds = Grounds::of(&telling, turn);
+    let mut grounds = Grounds::of(&telling, turn);
     let setup = Setup {
         moment: moment.clone(),
         who: who.clone(),
@@ -132,6 +132,9 @@ fn review(
         Some((_, offer)) => narrator::lore_prompt(&telling, turn, offer),
         None => narrator::line_prompt(&telling, turn),
     };
+    if let Some((_, offer)) = &templated {
+        grounds.offered = offer.group_texts();
+    }
     Ok(Review {
         at,
         moment,

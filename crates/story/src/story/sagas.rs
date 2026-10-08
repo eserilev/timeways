@@ -2,6 +2,7 @@
 //! the judge, and the final saga on the disk.
 
 use super::aliases::{TextLimits, shows_with_names};
+use super::calls::Reply;
 use super::{Active, CHAPTER_MOMENTS, Output, Pending, Story, StoryError, edits, reads};
 use crate::best_of_two::{Next, Round};
 use crate::check;
@@ -132,7 +133,7 @@ impl Story {
         &mut self,
         key: &CharacterKey,
         first: EventId,
-        text: Option<&str>,
+        reply: Option<&Reply<'_>>,
     ) -> Result<(Vec<Output>, Outcome), StoryError> {
         let Some(round) = self
             .saga_round
@@ -142,12 +143,12 @@ impl Story {
             return Ok((Vec::new(), Outcome::Refused));
         };
         if round.is_judged() {
-            let pick = text.map_or(Pick::First, chronicle::checked_pick);
+            let pick = reply.map_or(Pick::First, |reply| chronicle::checked_pick(reply.text));
             let saga = round.picked(pick);
             self.finish_round(saga)?;
             return Ok((Vec::new(), Outcome::Accepted));
         }
-        let draft = text.and_then(|text| self.checked_draft(round, text));
+        let draft = reply.and_then(|reply| self.checked_draft(round, reply));
         let outcome = if draft.is_some() {
             Outcome::Accepted
         } else {
@@ -161,10 +162,12 @@ impl Story {
 
     /// A draft that repeats an earlier saga of the character is refused (3.3), and so is
     /// one with an unknown player or too long with the names of its players (5.11).
-    fn checked_draft(&self, round: &Round, text: &str) -> Option<Saga> {
+    fn checked_draft(&self, round: &Round, reply: &Reply<'_>) -> Option<Saga> {
         let active = self.active.as_ref()?;
         let player_text = hero::player_text(&hero::hero(active.hero.changes()));
-        let saga = chronicle::checked_saga(text, round.kinds.len(), round.facts(), &player_text)?;
+        let count = round.kinds.len();
+        let saga =
+            chronicle::checked_saga(reply.text, count, round.facts(), &player_text, reply.given)?;
         let footnotes_show = saga
             .footnotes
             .iter()

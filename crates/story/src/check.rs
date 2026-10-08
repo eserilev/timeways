@@ -20,10 +20,20 @@ const NO_SOURCE: [&str; 2] = ["nobody knows", "legend says"];
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Fault {
     Empty,
-    TooLong { chars: usize },
+    TooLong {
+        chars: usize,
+    },
     NoCitation,
-    UnknownCitation { number: usize },
-    LaterName { name: String },
+    UnknownCitation {
+        number: usize,
+    },
+    LaterName {
+        name: String,
+    },
+    /// A proper name that no passage, fact, or question of the prompt holds.
+    UngroundedName {
+        name: String,
+    },
 }
 
 impl fmt::Display for Fault {
@@ -44,6 +54,11 @@ impl fmt::Display for Fault {
             Fault::LaterName { name } => {
                 write!(f, "\"{name}\" is from after the year 25 ADP. Leave it out.")
             }
+            Fault::UngroundedName { name } => write!(
+                f,
+                "\"{name}\" is in no fact or lore of the prompt. Name only what the passages \
+                 name."
+            ),
         }
     }
 }
@@ -183,26 +198,6 @@ fn is_emoji(c: char) -> bool {
         c,
         '\u{2600}'..='\u{27BF}' | '\u{1F000}'..='\u{1FAFF}' | '\u{FE0F}' | '\u{200D}'
     )
-}
-
-/// The proper names of an answer that its prompt never names: a capital word that does
-/// not start a sentence. The caller only logs them, because the test is rough.
-#[must_use]
-pub fn names_in_no_fact(answer: &str, prompt: &str) -> Vec<String> {
-    let mut names: Vec<String> = Vec::new();
-    for sentence in answer.split(['.', '!', '?', ':', ';', '"']) {
-        for word in words(sentence).skip(1) {
-            let new = !names.iter().any(|name| name == word);
-            if is_name(word) && new && !mentions(prompt, word) {
-                names.push(word.to_string());
-            }
-        }
-    }
-    names
-}
-
-fn is_name(word: &str) -> bool {
-    word.chars().next().is_some_and(char::is_uppercase) && word.chars().count() > 1
 }
 
 /// The text on one line, or None when it is empty, longer than `max_chars` or `max_bytes`,

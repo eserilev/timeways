@@ -3,6 +3,7 @@
 //! to the model, and each answer back.
 
 use crate::check::{Fault, check, without_citations};
+use crate::grounding::{given_text, ungrounded_names};
 use crate::pack::Passage;
 use crate::prompt::{self, Attempt, Context};
 use serde::Serialize;
@@ -46,7 +47,9 @@ impl LoreCall {
     /// A second bad answer is dropped, and the passages show alone.
     #[must_use]
     pub fn answered(self, text: &str) -> Next {
-        let faults = check(text, self.passages.len());
+        let mut faults = check(text, self.passages.len());
+        let names = ungrounded_names(text, &given_text(&self.prompt));
+        faults.extend(names.into_iter().map(|name| Fault::UngroundedName { name }));
         if faults.is_empty() {
             let text = Some(without_citations(text.trim()));
             return Next::Done(Answer {

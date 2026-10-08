@@ -3,8 +3,8 @@
 use hourglass::Tick;
 use timeways_story::check::{
     Fault, MAX_CHARS, banned_words, banned_words_in, check, in_voice, later_names, mentions,
-    names_after_cutoff, names_after_cutoff_except, names_in_no_fact, plain_text, slop_in,
-    voice_text, without_citations,
+    names_after_cutoff, names_after_cutoff_except, plain_text, slop_in, voice_text,
+    without_citations,
 };
 use timeways_story::flavor::{self, Flavor, Kind};
 use timeways_story::journal::{Chapter, Deed};
@@ -278,24 +278,6 @@ fn a_voice_text_is_a_plain_text_in_voice() {
 }
 
 #[test]
-fn a_capital_word_inside_a_sentence_that_no_fact_names_is_logged() {
-    let prompt = "The player arrived in Goldshire.";
-
-    let names = names_in_no_fact("$N met Varian in Goldshire. Then Varian left.", prompt);
-
-    assert_eq!(names, ["Varian"]);
-}
-
-#[test]
-fn the_first_word_of_a_sentence_and_a_known_name_are_no_unknown_names() {
-    let prompt = "The player defeated Hogger for the first time.";
-
-    let names = names_in_no_fact("Hogger fell. $N took the ear of HOGGER. I saw.", prompt);
-
-    assert!(names.is_empty(), "{names:?}");
-}
-
-#[test]
 fn the_names_of_the_keepers_of_time_are_after_the_cutoff() {
     for text in [
         "Murozond waited.",
@@ -464,13 +446,6 @@ fn brackets_that_are_no_citation_stay() {
     let text = "The [Scourge] came [soon], [] and [1a].";
 
     assert_eq!(without_citations(text), text);
-}
-
-#[test]
-fn a_capital_word_of_one_letter_is_no_name() {
-    let names = names_in_no_fact("Then I left, and A came.", "The facts.");
-
-    assert!(names.is_empty(), "{names:?}");
 }
 
 #[test]

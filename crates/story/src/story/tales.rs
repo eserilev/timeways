@@ -3,6 +3,7 @@
 //! summary waits behind them.
 
 use super::aliases::{TextLimits, shows_with_names};
+use super::calls::Reply;
 use super::{Active, Output, Pending, Story, StoryError};
 use crate::chapters::{SpanState, TaleSpan, VisitSpan};
 use crate::chronicle::deed_fact;
@@ -89,15 +90,17 @@ impl Story {
         run: TaleRun,
         instance: String,
         told: &str,
-        text: Option<&str>,
+        reply: Option<&Reply<'_>>,
     ) -> Result<(Vec<Output>, Outcome), StoryError> {
         let player_text = self.player_text(key);
         let telling = self.active.as_ref().and_then(|active| {
             super::edits::telling_of(active, super::edits::tale_key(run.tale.0))
         });
         let telling: Vec<&str> = telling.iter().map(|(text, _)| text.as_str()).collect();
-        let checked = text
-            .and_then(|text| tale::checked_tale(text, told, &player_text, &telling))
+        let checked = reply
+            .and_then(|reply| {
+                tale::checked_tale(reply.text, told, &player_text, &telling, reply.given)
+            })
             .filter(|text| {
                 let active = self.active.as_ref();
                 active.is_some_and(|active| shows_with_names(active, text, TALE_LIMITS))

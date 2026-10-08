@@ -58,35 +58,35 @@ fn a_lore_answer_that_names_garrosh_is_refused() {
 fn a_saga_that_names_garrosh_is_refused() {
     let answer = json("saga", GARROSH);
 
-    assert_eq!(chronicle::checked_saga(&answer, 0, "", ""), None);
+    assert_eq!(chronicle::checked_saga(&answer, 0, "", "", ""), None);
 }
 
 #[test]
 fn a_tale_that_names_garrosh_is_refused() {
     let answer = json("tale", GARROSH);
 
-    assert_eq!(tale::checked_tale(&answer, "", "", &[]), None);
+    assert_eq!(tale::checked_tale(&answer, "", "", &[], ""), None);
 }
 
 #[test]
 fn a_summary_that_names_garrosh_is_refused() {
     let answer = json("summary", GARROSH);
 
-    assert_eq!(summary::checked_summary(&answer, "", ""), None);
+    assert_eq!(summary::checked_summary(&answer, "", "", ""), None);
 }
 
 #[test]
 fn a_zone_history_that_names_garrosh_is_refused() {
     let answer = json("history", GARROSH);
 
-    assert!(zone_history::checked_history(&answer, "", "", &[]).is_err());
+    assert!(zone_history::checked_history(&answer, "", "", &[], "").is_err());
 }
 
 #[test]
 fn a_talk_reply_that_names_garrosh_is_refused() {
     let answer = json("say", GARROSH);
 
-    assert_eq!(talk::checked_answer(&answer, ""), None);
+    assert_eq!(talk::checked_answer(&answer, "", ""), None);
 }
 
 #[test]

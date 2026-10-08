@@ -105,6 +105,7 @@ pub fn checked_history(
     told: &str,
     player_text: &str,
     sagas: &[&str],
+    given: &str,
 ) -> Result<String, Vec<String>> {
     let reply: Reply = json_object(text)
         .and_then(|json| serde_json::from_str(json).ok())
@@ -115,6 +116,7 @@ pub fn checked_history(
         told,
         player_text,
         not_copied: sagas,
+        given,
     };
     narrated::checked(&reply.history, &limits)
 }
@@ -129,7 +131,7 @@ mod tests {
         let text =
             r#"{"history": "The people of Westfall still speak of the night the mill burned."}"#;
 
-        let refused = checked_history(text, "", "", &[saga]);
+        let refused = checked_history(text, "", "", &[saga], "");
 
         assert!(
             refused
@@ -143,7 +145,7 @@ mod tests {
     fn a_history_over_four_hundred_characters_is_refused() {
         let text = serde_json::json!({ "history": "word ".repeat(81) }).to_string();
 
-        assert!(checked_history(&text, "", "", &[]).is_err());
+        assert!(checked_history(&text, "", "", &[], "").is_err());
     }
 
     #[test]

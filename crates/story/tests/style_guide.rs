@@ -3,6 +3,7 @@
 
 use timeways_story::arrival::arrival_in;
 use timeways_story::check::{banned_words_in, slop_in};
+use timeways_story::grounding::ungrounded_names;
 use timeways_story::line_check::{
     Checked, Grounds, MOST_SENTENCES, built_faults, checked_line, lore_faults,
 };
@@ -75,8 +76,9 @@ const LOVED_LORE: [&str; 26] = [
      collapsed. Only Wilder escaped, while the rest died and began to roam as restless undead.",
     "The Royal Apothecary Society was founded to find a cure for the plague. Beneath the ruins \
      of Lordaeron, its apothecaries brew a new plague to destroy the living.",
-    "Archmage Arugal of the Kirin Tor summoned the worgen to fight the Scourge. They turned on \
-     him, and he now hides in Shadowfang Keep, calling them his children.",
+    "Archmage Arugal of the Kirin Tor summoned the worgen into Silverpine to fight the \
+     Scourge. They turned on him, and he now hides in Shadowfang Keep, calling them his \
+     children.",
     "The region was stolen right under the Alliance's nose by its own bitter people. This rich \
      land has lain fallow since the Second War, but it is now held by the Defias Brotherhood.",
     "The vineyards of Northshire Abbey were once the pride of Stormwind. Defias bandits now \
@@ -85,8 +87,8 @@ const LOVED_LORE: [&str; 26] = [
      those dead, and Sylvanas Windrunner leads them from the Undercity.",
     "Magistrate Solomon has asked Stormwind for soldiers more than once, and none have come. \
      The Blackrock orcs still hold Stonewatch Keep.",
-    "Troggs rose from below and took Gnomeregan. High Tinker Mekkatorque flooded the city with \
-     radiation to stop them, and the gnomes who lived fled to Ironforge. The survivors live in \
+    "Troggs rose from below and took Gnomeregan. On the advice of Mekgineer Thermaplugg, High \
+     Tinker Mekkatorque flooded the city with radiation to stop them, and the gnomes who lived fled to Ironforge. The survivors live in \
      Ironforge now.",
     "The Scarlet Crusade swore to purge the Scourge from Lordaeron. It now kills anyone it \
      suspects of carrying the plague.",
@@ -104,14 +106,14 @@ const LOVED_LORE: [&str; 26] = [
      fight. The keep lies in ruins now, and the Syndicate holds it.",
     "The War of the Three Hammers ended with the Bronzebeards on the throne of Ironforge. The \
      Dark Irons fled south, and the Wildhammers went north to the Hinterlands.",
-    "Lakeshire guards its bridge against the Blackrock orcs, who raid its farms from Stonewatch \
-     Keep.",
+    "Lakeshire guards its bridge in Redridge against the Blackrock orcs, who raid its farms \
+     from Stonewatch Keep.",
     "Grom Hellscream killed the demigod Cenarius in Ashenvale. The Warsong Clan still logs the \
      forest for Orgrimmar, and the night elves fight it.",
     "The Shadow Council taught the first orcs to bargain with demons, and the warlocks of the \
      Horde learned their craft from it.",
-    "Dark magic from Karazhan turned the trees of Duskwood. The Night Watch defends Darkshire \
-     against the dead.",
+    "Duskwood was part of Elwynn Forest. Dark magic from Karazhan turned its trees, and the \
+     Night Watch defends Darkshire against the dead.",
     "The Burning Blade, a cult of demon worshippers, hides in Ragefire Chasm beneath \
      Orgrimmar.",
     "The prisoners rose up and took the Stockade from their guards. Stormwind guards hold the \
@@ -258,6 +260,7 @@ fn grounds_of(line: &str, hero_words: Vec<String>) -> Grounds {
         hero_words,
         outside: Vec::new(),
         defeated: Vec::new(),
+        offered: Vec::new(),
     }
 }
 
@@ -289,6 +292,14 @@ fn every_loved_line_passes_every_check() {
             "{line}"
         );
         assert_eq!(prose_faults(line, &every_kind), [], "{line}");
+    }
+}
+
+/// False positives matter: a loved line names only what its lore names, in other forms.
+#[test]
+fn every_loved_line_names_only_what_its_own_lore_gives() {
+    for (line, lore) in LOVED.iter().zip(LOVED_LORE) {
+        assert_eq!(ungrounded_names(line, lore), [] as [&str; 0], "{line}");
     }
 }
 

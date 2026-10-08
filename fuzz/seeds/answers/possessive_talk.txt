@@ -1,0 +1,1 @@
+{"say": "Aye, Hogger's gnolls still raid Elwynn Forest.", "trust": 1}

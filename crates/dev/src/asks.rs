@@ -163,7 +163,7 @@ fn name_faults(ask: &mut Ask, chain: &[&Call]) {
                 .iter()
                 .map(|reason| name_of_reason(reason).to_string())
                 .collect(),
-            None => faults_of_answer(answer, chain[at].prompt.contains("JSON"))
+            None => faults_of_answer(answer, &chain[at].prompt)
                 .into_iter()
                 .map(String::from)
                 .collect(),

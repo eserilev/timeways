@@ -14,9 +14,10 @@ use timeways_story::story::{Output, Story};
 
 const HOUR: u64 = 3600;
 
-const TALE: &str = r#"{"tale": "The Defias dug a fleet out of the rock below Moonbrook. Edwin VanCleef fell on its deck."}"#;
+const TALE: &str =
+    r#"{"tale": "Edwin VanCleef dug a fleet out of the rock. He fell on its deck."}"#;
 const HISTORY: &str =
-    r#"{"history": "Westfall remembers the burned farms and the militia of Sentinel Hill."}"#;
+    r#"{"history": "Westfall remembers the burned farms and the militia that held them."}"#;
 
 fn fresh_path(name: &str) -> PathBuf {
     Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("tales-{name}"))
@@ -246,13 +247,13 @@ fn a_refused_tale_keeps_the_text_before() {
         tale.contains("The newest run:\n<<<\n- Defeated Cookie, a first kill"),
         "{tale}"
     );
-    assert!(tale.contains("Edwin VanCleef fell on its deck"), "{tale}");
+    assert!(tale.contains("He fell on its deck"), "{tale}");
     let journal = journal(&mut story);
     assert!(
         journal.tales[0]
             .text
             .as_deref()
-            .is_some_and(|text| text.contains("VanCleef fell"))
+            .is_some_and(|text| text.contains("He fell on its deck"))
     );
 }
 
@@ -277,13 +278,13 @@ fn a_tale_that_names_a_player_by_id_shows_the_name() {
     run(&mut story, HOUR, &["Edwin VanCleef"]);
     enter(&mut story, 2 * HOUR, "Westfall", None);
     let with_id =
-        tale_text("The Defias dug a fleet out of the rock. {P1} saw Edwin VanCleef fall.");
+        tale_text("Edwin VanCleef dug a fleet out of the rock. {P1} saw Edwin VanCleef fall.");
 
     settle(&mut story, 1, &with_id);
 
     assert_eq!(
         journal(&mut story).tales[0].text.as_deref(),
-        Some("The Defias dug a fleet out of the rock. Ada saw Edwin VanCleef fall.")
+        Some("Edwin VanCleef dug a fleet out of the rock. Ada saw Edwin VanCleef fall.")
     );
 }
 
@@ -293,7 +294,7 @@ fn a_tale_that_names_an_unknown_player_is_refused() {
     run(&mut story, HOUR, &["Edwin VanCleef"]);
     enter(&mut story, 2 * HOUR, "Westfall", None);
     let with_id =
-        tale_text("The Defias dug a fleet out of the rock. {P1} saw Edwin VanCleef fall.");
+        tale_text("Edwin VanCleef dug a fleet out of the rock. {P1} saw Edwin VanCleef fall.");
 
     settle(&mut story, 1, &with_id);
 
@@ -475,7 +476,8 @@ fn reopened(name: &str) -> Story {
     story
 }
 
-const SAGA: &str = r#"{"saga": "Westfall burned while Stormwind looked away, and the militia held Sentinel Hill."}"#;
+const SAGA: &str =
+    r#"{"saga": "Westfall burned while Stormwind looked away, and the militia held the hill."}"#;
 
 fn kinds_of(prompts: &[String]) -> Vec<&'static str> {
     prompts.iter().map(|prompt| kind(prompt)).collect()

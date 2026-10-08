@@ -6,6 +6,7 @@ use crate::check::{
     banned_words_in, content_words, has_emoji, mentions, names_after_cutoff_except, one_line,
     slop_in, words_of,
 };
+use crate::grounding::ungrounded_names;
 use crate::house::NAME_MARK;
 use crate::narrator::{MAX_LINE_BYTES, MAX_LINE_CHARS, Naming, Telling, naming, what_happened};
 use crate::present_check::{PresentFault, PresentGrounds, unsourced_present_in};
@@ -23,6 +24,10 @@ pub const MOST_SENTENCES: usize = 3;
 /// A line that shares this many words that tell something, in a row, with the player's own
 /// story calls back to it.
 pub const CALLBACK_WORDS: usize = 3;
+
+/// The reason of a name that no fact or lore of the moment holds, after the name.
+const UNGROUNDED_NAME: &str =
+    "is in no fact or lore of the moment. Name only what the moment and its lore name.";
 
 /// The answer of a model that has nothing true to tell.
 pub const SILENCE: &str = "SILENCE";
@@ -55,6 +60,9 @@ pub struct Grounds {
     pub outside: Vec<String>,
     /// The foes that the player defeated: a present clause never tells one as alive.
     pub defeated: Vec<String>,
+    /// The groups that the prompt offered for the history to tell of, such as "the Silver
+    /// Hand" (`narrator_build::Offer`).
+    pub offered: Vec<String>,
 }
 
 impl Grounds {
@@ -75,7 +83,21 @@ impl Grounds {
                 .map(str::to_string)
                 .collect(),
             defeated: moment.defeated().into_iter().map(str::to_string).collect(),
+            offered: Vec::new(),
         }
+    }
+
+    /// Everything that the prompt gave about the moment, for the check of invented names:
+    /// a name from outside counts here, and a golden sample never does.
+    #[must_use]
+    pub fn given(&self) -> String {
+        let mut parts = vec![self.moment.as_str()];
+        parts.extend(self.names.iter().map(String::as_str));
+        parts.extend(self.outside.iter().map(String::as_str));
+        parts.extend(self.lore.as_deref());
+        parts.extend(self.hero_words.iter().map(String::as_str));
+        parts.extend(self.offered.iter().map(String::as_str));
+        parts.join("\n")
     }
 
     /// Everything that the prompt told about the moment, as the words that a line can
@@ -155,6 +177,8 @@ pub enum LineFault {
     /// Empty, too long, or not one line.
     Unreadable,
     LaterName(String),
+    /// A proper name that the moment, its lore, and the hero do not hold.
+    UngroundedName(String),
     Emoji,
     Banned(String),
     Copy(String),
@@ -203,6 +227,7 @@ impl fmt::Display for LineFault {
             LineFault::LaterName(name) => {
                 write!(f, "\"{name}\" is from after the year 25 ADP. Leave it out.")
             }
+            LineFault::UngroundedName(name) => write!(f, "\"{name}\" {UNGROUNDED_NAME}"),
             LineFault::Emoji => write!(f, "The line has an emoji. Use words only."),
             LineFault::Banned(word) => {
                 write!(f, "\"{word}\" is empty or invented. Leave it out.")
@@ -332,6 +357,9 @@ fn faults(line: &str, grounds: &Grounds, player_text: &str) -> Vec<LineFault> {
         .into_iter()
         .map(|name| LineFault::LaterName(name.to_string()))
         .collect();
+    let given = format!("{}\n{player_text}", grounds.given());
+    let invented = ungrounded_names(line, &given);
+    faults.extend(invented.into_iter().map(LineFault::UngroundedName));
     if has_emoji(line) {
         faults.push(LineFault::Emoji);
     }

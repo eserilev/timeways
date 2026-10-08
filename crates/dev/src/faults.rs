@@ -2,17 +2,17 @@
 //! "slop", "copy", "cutoff", "arrival", "inside-hero", "json-shape", and so on.
 //!
 //! A refused first answer gets a retry whose prompt holds the real reasons of the story
-//! program, so those come first. An answer with no retry gets a check of its own text alone.
-//! That check misses the faults that need the moment, such as "ungrounded", and names them
-//! "other".
+//! program, so those come first. An answer with no retry gets a check of its own text and
+//! of what its prompt gave. That check misses the faults that need the moment, such as
+//! "ungrounded", and names them "other".
 
 use serde_json::Value;
 use timeways_story::check::json_object;
+use timeways_story::grounding::given_text;
 use timeways_story::line_check::SILENCE;
 use timeways_story::narrated::{Limits, checked};
 
-/// `prompt::retry` puts this after the first prompt.
-pub const RETRY_MARK: &str = "\n\nYour last answer was:\n";
+pub use timeways_story::prompt::RETRY_MARK;
 const RULES_MARK: &str = "It broke these rules:\n";
 
 /// The short name for each reason, by a phrase of its text. The first match wins, so a
@@ -35,6 +35,7 @@ const REASON_NAMES: &[(&str, &str)] = &[
     ("is not in the moment", "new-number"),
     ("more than one number", "ledger"),
     ("names nothing of the moment", "ungrounded"),
+    ("no fact or lore", "ungrounded-name"),
     ("has a bracket", "bracket"),
     ("names the hero twice", "named-twice"),
     ("names the hero more than", "named-twice"),
@@ -130,10 +131,12 @@ pub fn is_silence(answer: &str) -> bool {
         .unwrap_or(false)
 }
 
-/// The names of the faults that the text of an answer shows alone. `wants_json` is true
-/// when its prompt asks for JSON. An answer that opens a JSON object wants it too.
+/// The names of the faults that the text of an answer and its prompt show. An answer
+/// wants JSON when its prompt asks for it, or when it opens a JSON object.
 #[must_use]
-pub fn faults_of_answer(answer: &str, wants_json: bool) -> Vec<&'static str> {
+pub fn faults_of_answer(answer: &str, prompt: &str) -> Vec<&'static str> {
+    let wants_json = prompt.contains("JSON");
+    let given = given_text(prompt);
     let body = without_fence(answer);
     if body.is_empty() {
         return vec!["unreadable"];
@@ -149,6 +152,7 @@ pub fn faults_of_answer(answer: &str, wants_json: bool) -> Vec<&'static str> {
         told: "",
         player_text: "",
         not_copied: &[],
+        given: &given,
     };
     let mut names: Vec<&'static str> = match checked(&text, &limits) {
         Ok(_) => Vec::new(),

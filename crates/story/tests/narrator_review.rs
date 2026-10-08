@@ -235,14 +235,14 @@ fn the_review_tool_with_a_model_prints_the_line_that_the_player_sees() {
         .arg(&world)
         .args([
             "--model",
-            "echo '{\"lore\": \"Westfall was farmland once, before the Defias.\"}'",
+            "echo '{\"lore\": \"Westfall was farmland once, before the war.\"}'",
         ])
         .output()
         .unwrap();
 
     let printed = String::from_utf8_lossy(&output.stdout);
     assert!(
-        printed.contains("Shown: Westfall was farmland once, before the Defias."),
+        printed.contains("Shown: Westfall was farmland once, before the war."),
         "{printed}"
     );
 }

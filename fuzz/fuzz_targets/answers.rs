@@ -1,5 +1,6 @@
 //! Random model answers and random player text. Every text that passes a check keeps its
-//! limits, and the search never fails on syntax.
+//! limits, names nothing that its prompt did not give, and the search never fails on
+//! syntax.
 
 #![no_main]
 
@@ -13,6 +14,10 @@ use timeways_story::check::{
     same_words, slop_in,
 };
 use timeways_story::draft;
+use timeways_story::grounding::{given_text, ungrounded_names};
+use timeways_story::lore::{LoreCall, Next};
+use timeways_story::pack::{Link, Origin, Passage};
+use timeways_story::prompt::Context;
 use timeways_story::house::without_fence_marks;
 use timeways_story::input::MessageId;
 use timeways_story::line_check::{Checked, Grounds, MOST_SENTENCES, checked_line, grounded};
@@ -32,6 +37,15 @@ use timeways_story::seen::{SeenText, TextKind};
 use timeways_story::sentences::sentences;
 use timeways_story::story::Output;
 use timeways_story::{chronicle, hero, narrator, prologue, summary, tale, talk, zone_history};
+
+/// What the prompt of each kind of text gave the model, in these runs.
+const GIVEN: &str = "Hogger leads the gnolls of Elwynn Forest. Edwin VanCleef holds the Deadmines \
+    for the Defias Brotherhood.";
+
+/// An accepted text names only what its prompt gave (GAMEPLAY.md 3.2.1).
+fn assert_grounded(text: &str, given: &str) {
+    assert_eq!(ungrounded_names(text, given), Vec::<String>::new(), "{text:?}");
+}
 
 fn assert_plain(text: &str, max_chars: usize, max_bytes: usize) {
     assert!(
@@ -294,10 +308,31 @@ fn assert_line(text: &str) {
         assert!(line.matches("$N").count() <= 1, "{line:?}");
         assert!(!line.contains(['[', ']', '{', '}', '<', '>']), "{line:?}");
         assert!(grounded(&line, &grounds), "{line:?}");
+        assert_grounded(&line, &grounds.given());
         assert_eq!(arrival_in(&line, &grounds.hero_words), None, "{line:?}");
         assert!(!moment.is_arrival() || !line.contains("$N"), "{line:?}");
         assert_eq!(prose_faults(&line, &grounds.hero_words), [], "{line:?}");
         assert!(sentences(&line).len() <= MOST_SENTENCES, "{line:?}");
+    }
+}
+
+/// A `/lore` answer that shows names only what its passages and its question gave.
+fn assert_lore(text: &str) {
+    let passage = Passage {
+        text: GIVEN.to_string(),
+        source: "the wiki page \"Elwynn Forest\"".to_string(),
+        links: vec![Link::Place("Elwynn Forest".to_string())],
+        origin: Origin::Pack,
+        about: None,
+        depends_on: Vec::new(),
+        setup_for: None,
+    };
+    let call = LoreCall::new("Who leads the gnolls?", &Context::default(), vec![passage]);
+    let given = given_text(call.prompt());
+    if let Next::Done(answer) = call.answered(text)
+        && let Some(shown) = answer.text
+    {
+        assert_grounded(&shown, &given);
     }
 }
 
@@ -456,28 +491,31 @@ fuzz_target!(|data: &[u8]| {
     assert_present(&text);
     assert_setup(&text);
 
-    if let Some(saga) = chronicle::checked_saga(&text, moments, "", "") {
+    if let Some(saga) = chronicle::checked_saga(&text, moments, "", "", GIVEN) {
         assert_voice(
             &saga.text,
             chronicle::MAX_CHAPTER_CHARS,
             chronicle::MAX_CHAPTER_BYTES,
         );
         assert!(slop_in(&saga.text, "").is_empty(), "{saga:?}");
+        assert_grounded(&saga.text, GIVEN);
         assert_eq!(arrival_in(&saga.text, &[]), None, "{saga:?}");
         assert_eq!(prose_faults(&saga.text, &[]), [], "{saga:?}");
         assert!(saga.footnotes.len() <= chronicle::MAX_FOOTNOTES);
         for (moment, footnote) in &saga.footnotes {
             assert!((1..=moments).contains(moment));
+            assert_grounded(footnote, GIVEN);
             assert_voice(footnote, chronicle::MAX_FOOTNOTE_CHARS, 1600);
         }
     }
-    if let Some(summary) = summary::checked_summary(&text, "", "") {
+    if let Some(summary) = summary::checked_summary(&text, "", "", GIVEN) {
         assert_voice(
             &summary,
             summary::MAX_SUMMARY_CHARS,
             summary::MAX_SUMMARY_BYTES,
         );
         assert!(slop_in(&summary, "").is_empty(), "{summary:?}");
+        assert_grounded(&summary, GIVEN);
         assert_eq!(arrival_in(&summary, &[]), None, "{summary:?}");
         assert_eq!(prose_faults(&summary, &[]), [], "{summary:?}");
         assert!(
@@ -493,18 +531,21 @@ fuzz_target!(|data: &[u8]| {
             prologue::MAX_PROLOGUE_BYTES,
         );
     }
-    if let Some(tale) = tale::checked_tale(&text, "", "", &[]) {
+    if let Some(tale) = tale::checked_tale(&text, "", "", &[], GIVEN) {
         assert_entry_text(&tale, tale::MAX_TALE_CHARS, tale::MAX_TALE_BYTES);
+        assert_grounded(&tale, GIVEN);
     }
-    if let Ok(history) = zone_history::checked_history(&text, "", "", &[]) {
+    if let Ok(history) = zone_history::checked_history(&text, "", "", &[], GIVEN) {
         assert_entry_text(
             &history,
             zone_history::MAX_HISTORY_CHARS,
             zone_history::MAX_HISTORY_BYTES,
         );
+        assert_grounded(&history, GIVEN);
     }
-    if let Some(answer) = talk::checked_answer(&text, "") {
+    if let Some(answer) = talk::checked_answer(&text, "", GIVEN) {
         assert_voice(&answer.say, talk::MAX_SAY_CHARS, talk::MAX_SAY_BYTES);
+        assert_grounded(&answer.say, GIVEN);
         assert!((-talk::MAX_TRUST_CHANGE..=talk::MAX_TRUST_CHANGE).contains(&answer.trust_change));
         // Only the JSON `true` offers work, so a text with no "true" never does.
         if answer.work == talk::Work::Offered {
@@ -535,6 +576,7 @@ fuzz_target!(|data: &[u8]| {
         "the player's own names: {text:?}"
     );
     let _ = check(&text, moments);
+    assert_lore(&text);
     let known: Vec<&str> = later_names().collect();
     assert!(
         names_after_cutoff(&text)

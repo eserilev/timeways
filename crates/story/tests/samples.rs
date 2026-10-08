@@ -36,6 +36,7 @@ fn grounds_of(sample: &LineSample) -> Grounds {
         hero_words: Vec::new(),
         outside: Vec::new(),
         defeated: Vec::new(),
+        offered: Vec::new(),
     }
 }
 
@@ -360,7 +361,7 @@ fn a_copy_of_a_sample_is_refused() {
         "{checked:?}"
     );
     let answer = format!(r#"{{"say": "{say}", "trust": 0}}"#);
-    assert_eq!(talk::checked_answer(&answer, ""), None);
+    assert_eq!(talk::checked_answer(&answer, "", ""), None);
 }
 
 #[test]

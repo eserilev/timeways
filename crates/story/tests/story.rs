@@ -567,7 +567,7 @@ fn stormwind() -> Passage {
     Passage {
         about: Some("Stormwind City".to_string()),
         ..passage(
-            "King Barathen Wrynn scattered the gnolls, and his line rules Stormwind City.",
+            "King Barathen Wrynn scattered the gnolls of Elwynn, and his line rules Stormwind City.",
             "the wiki page \"Stormwind City\"",
             vec![Link::Common],
         )
@@ -888,7 +888,7 @@ fn a_quest_of_the_game_with_a_bad_title_is_refused() {
 }
 
 #[test]
-fn a_name_in_no_fact_is_logged_and_the_line_still_shows() {
+fn a_name_in_no_fact_is_refused_and_the_retry_names_it() {
     let mut story = paladin_story("unknown-name");
     level(&mut story, 1, 19);
     level(&mut story, 2, 20);
@@ -897,16 +897,11 @@ fn a_name_in_no_fact_is_logged_and_the_line_still_shows() {
     let text = "{\"lore\": \"Under the eyes of Varian, the line of King Barathen Wrynn still rules Stormwind City now.\", \"group\": \"g.people\"}".to_string();
     let output = one(story.handle(Input::ModelAnswered { call, text }).unwrap());
 
-    let line = shown_line(output);
-    assert!(line.starts_with("Under the eyes of Varian"), "{line}");
-    assert_eq!(
-        story.take_notes(),
-        [format!(
-            "call {}: the answer names Varian, and no fact does",
-            call.0
-        )]
+    let (_, retry) = model_call(output.unwrap());
+    assert!(
+        retry.contains("\"Varian\" is in no fact or lore of the moment."),
+        "{retry}"
     );
-    assert!(story.take_notes().is_empty());
 }
 
 #[test]
@@ -2818,7 +2813,10 @@ fn line_for(prompt: &str) -> &'static str {
     if prompt.contains("Greenskin") {
         return "Mr. Smite was the first mate of Captain Greenskin, and he still guards the ship in the Deadmines.";
     }
-    "The Deadmines were the richest gold mine of Westfall, and the Defias keep them today."
+    if prompt.contains("richest gold mine") {
+        return "The Deadmines were the richest gold mine of Westfall, and the Defias keep them today.";
+    }
+    "The Deadmines were a mine once, and men worked it for gold."
 }
 
 /// The narrator prompt of each entry, or None for silence. Each line is accepted, so its

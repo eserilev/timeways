@@ -8,6 +8,9 @@ use timeways_story::narrator::PERSONA;
 use timeways_story::places::PlaceKind;
 use timeways_story::samples::{Voice, rotated};
 
+/// What the prompts of these sagas gave the model.
+const GIVEN: &str = "Goldshire, Westfall, the Defias Brotherhood, and Shadow Hold.";
+
 fn chapter() -> Chapter {
     Chapter {
         number: 3,
@@ -144,7 +147,7 @@ fn a_prompt_numbers_the_small_moments_for_footnotes() {
 fn a_saga_reads_with_its_footnotes() {
     let text = r#"{"saga": "$N rode west from Goldshire to the farms of Westfall.", "footnotes": [{"moment": 2, "text": "A dance, alone."}]}"#;
 
-    let read = checked_saga(text, 2, "", "");
+    let read = checked_saga(text, 2, "", "", GIVEN);
 
     let expected = Saga {
         text: "$N rode west from Goldshire to the farms of Westfall.".to_string(),
@@ -157,29 +160,38 @@ fn a_saga_reads_with_its_footnotes() {
 fn a_saga_that_says_our_hero_is_refused() {
     let text = r#"{"saga": "Our hero rode into Westfall."}"#;
 
-    assert_eq!(checked_saga(text, 0, "- Traveled to: Westfall.", ""), None);
+    assert_eq!(
+        checked_saga(text, 0, "- Traveled to: Westfall.", "", GIVEN),
+        None
+    );
 }
 
 #[test]
 fn a_saga_with_invented_weather_is_refused() {
     let text = r#"{"saga": "$N rode into Westfall at dusk, in the rain."}"#;
 
-    assert_eq!(checked_saga(text, 0, "- Traveled to: Westfall.", ""), None);
+    assert_eq!(
+        checked_saga(text, 0, "- Traveled to: Westfall.", "", GIVEN),
+        None
+    );
 }
 
 #[test]
 fn a_slop_word_that_the_facts_of_the_chapter_hold_passes() {
     let text = r#"{"saga": "$N took the road to Shadow Hold."}"#;
 
-    assert!(checked_saga(text, 0, "- Traveled to: Shadow Hold.", "").is_some());
-    assert_eq!(checked_saga(text, 0, "- Traveled to: Felwood.", ""), None);
+    assert!(checked_saga(text, 0, "- Traveled to: Shadow Hold.", "", GIVEN).is_some());
+    assert_eq!(
+        checked_saga(text, 0, "- Traveled to: Felwood.", "", GIVEN),
+        None
+    );
 }
 
 #[test]
 fn a_footnote_of_slop_is_dropped_alone() {
     let text = r#"{"saga": "$N rode west from Goldshire to the farms of Westfall.", "footnotes": [{"moment": 1, "text": "Nobody knows why."}]}"#;
 
-    let read = checked_saga(text, 1, "", "").unwrap();
+    let read = checked_saga(text, 1, "", "", GIVEN).unwrap();
 
     assert!(read.footnotes.is_empty());
 }
@@ -191,7 +203,8 @@ fn a_saga_with_no_footnotes_reads() {
             r#"{"saga": "  $N\n rode west from Goldshire to the farms of Westfall.  "}"#,
             0,
             "",
-            ""
+            "",
+            GIVEN
         ),
         Some(saga(
             "$N rode west from Goldshire to the farms of Westfall."
@@ -206,7 +219,7 @@ fn a_footnote_of_no_listed_moment_twice_the_same_or_too_long_is_dropped_alone() 
         r#"{{"saga": "$N rode west from Goldshire to the farms of Westfall.", "footnotes": [{{"moment": 3, "text": "x"}}, {{"moment": 1, "text": "Why?"}}, {{"moment": 1, "text": "Again?"}}, {{"moment": 2, "text": "{long}"}}]}}"#
     );
 
-    let read = checked_saga(&text, 2, "", "").unwrap();
+    let read = checked_saga(&text, 2, "", "", GIVEN).unwrap();
 
     assert_eq!(read.footnotes, [(1, "Why?".to_string())]);
 }
@@ -216,10 +229,16 @@ fn a_saga_out_of_voice_is_dropped_and_a_footnote_out_of_voice_is_dropped_alone()
     let footnote = r#"{"saga": "$N rode west from Goldshire to the farms of Westfall.", "footnotes": [{"moment": 1, "text": "lol"}, {"moment": 2, "text": "Why?"}]}"#;
 
     assert_eq!(
-        checked_saga(r#"{"saga": "Like sand in an hourglass."}"#, 0, "", ""),
+        checked_saga(
+            r#"{"saga": "Like sand in an hourglass."}"#,
+            0,
+            "",
+            "",
+            GIVEN
+        ),
         None
     );
-    let read = checked_saga(footnote, 2, "", "").unwrap();
+    let read = checked_saga(footnote, 2, "", "", GIVEN).unwrap();
     assert_eq!(read.footnotes, [(2, "Why?".to_string())]);
 }
 
@@ -227,7 +246,13 @@ fn a_saga_out_of_voice_is_dropped_and_a_footnote_out_of_voice_is_dropped_alone()
 fn a_saga_keeps_at_most_three_footnotes() {
     let text = r#"{"saga": "The farms of Westfall fell to the Defias Brotherhood.", "footnotes": [{"moment": 1, "text": "a"}, {"moment": 2, "text": "b"}, {"moment": 3, "text": "c"}, {"moment": 4, "text": "d"}]}"#;
 
-    assert_eq!(checked_saga(text, 5, "", "").unwrap().footnotes.len(), 3);
+    assert_eq!(
+        checked_saga(text, 5, "", "", GIVEN)
+            .unwrap()
+            .footnotes
+            .len(),
+        3
+    );
 }
 
 #[test]
@@ -240,24 +265,25 @@ fn a_broken_empty_long_late_or_wide_saga_is_dropped() {
             "$N rode west from Goldshire to the farms of Westfall.",
             0,
             "",
-            ""
+            "",
+            GIVEN
         ),
         None
     );
-    assert_eq!(checked_saga(r#"{"saga": "  "}"#, 0, "", ""), None);
-    assert_eq!(checked_saga(&long, 0, "", ""), None);
+    assert_eq!(checked_saga(r#"{"saga": "  "}"#, 0, "", "", GIVEN), None);
+    assert_eq!(checked_saga(&long, 0, "", "", GIVEN), None);
     assert_eq!(
-        checked_saga(r#"{"saga": "$N sailed to Pandaria."}"#, 0, "", ""),
+        checked_saga(r#"{"saga": "$N sailed to Pandaria."}"#, 0, "", "", GIVEN),
         None
     );
-    assert_eq!(checked_saga(&wide, 0, "", ""), None);
+    assert_eq!(checked_saga(&wide, 0, "", "", GIVEN), None);
 }
 
 #[test]
 fn a_saga_may_name_what_the_player_wrote_first() {
     let saga = r#"{"saga": "$N dreamed of Pandaria."}"#;
 
-    let read = checked_saga(saga, 0, "", "I was born in Pandaria.").unwrap();
+    let read = checked_saga(saga, 0, "", "I was born in Pandaria.", GIVEN).unwrap();
 
     assert_eq!(read.text, "$N dreamed of Pandaria.");
 }

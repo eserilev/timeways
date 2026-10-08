@@ -7,6 +7,7 @@ use crate::check::{
     COPIED_WORDS, banned_words_in, copies_a_sample, has_emoji, names_after_cutoff_except, one_line,
     slop_in,
 };
+use crate::grounding::ungrounded_names;
 use crate::house::NAME_MARK;
 use crate::prose::prose_faults;
 use crate::samples;
@@ -24,6 +25,9 @@ pub struct Limits<'a> {
     pub player_text: &'a str,
     /// Texts that the answer must not copy 8 words of: earlier texts and the player's.
     pub not_copied: &'a [&'a str],
+    /// What the prompt gave the model (`grounding::given_text`): each name of the text is
+    /// a word of it.
+    pub given: &'a str,
 }
 
 /// The text as the player reads it, or the reasons why it breaks a rule.
@@ -42,6 +46,12 @@ pub fn checked(text: &str, limits: &Limits<'_>) -> Result<String, Vec<String>> {
     for name in names_after_cutoff_except(&line, limits.player_text) {
         faults.push(format!(
             "It names {name}, which comes after the time of the story."
+        ));
+    }
+    let given = format!("{}\n{}", limits.given, limits.player_text);
+    for name in ungrounded_names(&line, &given) {
+        faults.push(format!(
+            "It names {name}, which no fact or lore of the prompt holds."
         ));
     }
     if has_emoji(&line) || !banned_words_in(&line).is_empty() {
@@ -86,6 +96,7 @@ mod tests {
             told: "",
             player_text: "",
             not_copied,
+            given: "Westfall Deadmines VanCleef",
         }
     }
 

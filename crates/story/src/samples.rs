@@ -1,7 +1,7 @@
 //! The golden samples of each voice (GAMEPLAY.md 3.2.1). A prompt carries a few of them,
 //! in turn, so that no one sample sets the words of every answer. A sample names real
-//! places and people of 25 ADP. The copy check and the log of names in no fact stop a
-//! model that takes a name of a sample into its answer.
+//! places and people of 25 ADP. The copy check and the check of invented names
+//! (`grounding`) stop a model that takes a name of a sample into its answer.
 
 use crate::check::data_lines;
 use crate::house::{bulleted, fenced};
@@ -92,6 +92,19 @@ impl Voice {
             }
         }
     }
+}
+
+/// True when the line is the heading of the samples of a voice, so the fence after it
+/// holds samples, not data of the moment.
+#[must_use]
+pub fn is_sample_heading(line: &str) -> bool {
+    let voices = [
+        Voice::NarratorLine,
+        Voice::Chapter,
+        Voice::NpcReply,
+        Voice::Summary,
+    ];
+    voices.iter().any(|voice| voice.heading() == line)
 }
 
 /// Every narrator sample, in the order of the file. A sample starts at its `moment:` line,

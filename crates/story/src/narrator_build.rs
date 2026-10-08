@@ -76,6 +76,12 @@ impl Offer {
     pub fn group_ids(&self) -> Vec<String> {
         self.groups.iter().map(|group| group.id.clone()).collect()
     }
+
+    /// The groups in the words of the prompt, such as "the Silver Hand".
+    #[must_use]
+    pub fn group_texts(&self) -> Vec<String> {
+        self.groups.iter().map(|group| group.text.clone()).collect()
+    }
 }
 
 /// A built line, the main part of its shape, its parts, and whether it names the hero.

@@ -31,8 +31,9 @@ fn paladin(folder: &Path) -> Story {
     let pack_path = folder.with_extension("pack.sqlite");
     let _ = std::fs::remove_file(&pack_path);
     let stormwind = Passage {
-        text: "King Barathen Wrynn scattered the gnolls, and his line rules Stormwind City."
-            .to_string(),
+        text:
+            "King Barathen Wrynn scattered the gnolls of Elwynn, and his line rules Stormwind City."
+                .to_string(),
         source: "the wiki page \"Stormwind City\"".to_string(),
         links: vec![Link::Common],
         origin: Origin::Pack,

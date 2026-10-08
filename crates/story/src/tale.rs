@@ -136,7 +136,13 @@ pub fn told(facts: &Facts) -> String {
 /// The tale as the player reads it, or None when it breaks a rule. It must not copy the
 /// player's telling.
 #[must_use]
-pub fn checked_tale(text: &str, told: &str, player_text: &str, telling: &[&str]) -> Option<String> {
+pub fn checked_tale(
+    text: &str,
+    told: &str,
+    player_text: &str,
+    telling: &[&str],
+    given: &str,
+) -> Option<String> {
     let reply: Reply = serde_json::from_str(json_object(text)?).ok()?;
     let limits = Limits {
         max_chars: MAX_TALE_CHARS,
@@ -144,6 +150,7 @@ pub fn checked_tale(text: &str, told: &str, player_text: &str, telling: &[&str])
         told,
         player_text,
         not_copied: telling,
+        given,
     };
     narrated::checked(&reply.tale, &limits).ok()
 }
@@ -204,13 +211,13 @@ mod tests {
     fn a_tale_that_tells_only_an_arrival_is_refused() {
         let text = r#"{"tale": "$N went into the Deadmines."}"#;
 
-        assert_eq!(checked_tale(text, "", "", &[]), None);
+        assert_eq!(checked_tale(text, "", "", &[], &told(&facts())), None);
     }
 
     #[test]
     fn a_plain_tale_passes() {
         let text = r#"{"tale": "The Defias fleet never sailed. Edwin VanCleef fell on its deck."}"#;
 
-        assert!(checked_tale(text, &told(&facts()), "", &[]).is_some());
+        assert!(checked_tale(text, &told(&facts()), "", &[], &told(&facts())).is_some());
     }
 }

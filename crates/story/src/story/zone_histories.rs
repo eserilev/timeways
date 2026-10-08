@@ -3,6 +3,7 @@
 //! waits behind the sagas, the tales, and the summary. A refused answer gets one retry.
 
 use super::aliases::{TextLimits, shows_with_names, with_names};
+use super::calls::Reply;
 use super::{Active, Output, Pending, Story, StoryError};
 use crate::chapters::{ChapterSpan, SpanState};
 use crate::chronicle::deed_fact;
@@ -70,9 +71,9 @@ impl Story {
     pub(super) fn zone_history_answered(
         &mut self,
         call: HistoryCall,
-        text: Option<&str>,
+        reply: Option<&Reply<'_>>,
     ) -> Result<(Vec<Output>, Outcome), StoryError> {
-        let Some(text) = text else {
+        let Some(&Reply { text, given }) = reply else {
             return Ok((Vec::new(), Outcome::Refused));
         };
         let player_text = self.player_text(&call.key);
@@ -81,7 +82,7 @@ impl Story {
         };
         let sagas = active.prose.texts();
         let sagas: Vec<&str> = sagas.iter().map(String::as_str).collect();
-        match zone_history::checked_history(text, &call.told, &player_text, &sagas) {
+        match zone_history::checked_history(text, &call.told, &player_text, &sagas, given) {
             Ok(history) if !shows_with_names(active, &history, HISTORY_LIMITS) => {
                 Ok((Vec::new(), Outcome::Refused))
             }

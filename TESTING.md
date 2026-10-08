@@ -336,6 +336,14 @@ A character that Timeways first sees at level 10 or more, with a long past, gets
 4. Log out and in again. No second time played shows, and the prologue stays as it was.
 5. Read the past: `sqlite3 c_<name>.sqlite "SELECT body FROM past"`. The professions are Mining, Fishing, and the like, never a weapon skill. The zones are the ones that your map shows. Report a profession or a zone that is missing: the category ids of the skill lines and the map of explored zones need this test.
 
+### 33. No invented names
+
+This test needs a model. A model text names only what its prompt gave: the lore, the facts of the moment, and your own words.
+
+1. Play for an hour, or run `timeways-dev bench-model --local`. Read each narrator line, chapter, tale, title page, zone history, talk, and `/lore` answer.
+2. Each person, place, and group that a text names is in its lore or in what you did. No text names a person that the game and the lore don't know, such as a new owner of the Deadmines.
+3. In the bench report, `ungrounded-name` counts the texts that named something that their prompt did not give.
+
 ## Dev mode
 
 Dev mode makes the moments of hours of play in seconds. It runs the real code: the addon, the bridge, and the story program. Only the moment itself is fake.
@@ -473,6 +481,7 @@ Type `/twdev help` for the list. A name with spaces needs no quotes. A slash sep
 | 30. Knowledge, empty | `/twdev atlas empty`, or the `fresh` scenario | "You haven't been here yet." for a place that you never saw, or "Nothing yet. People you meet, books you read, and quests you finish show up here." |
 | 31. Ratings | The `ratings` scenario, then `timeways-dev export-ratings <character> --realm <realm>`. In the game: `/timeways ratings on`, the Chronicle of that world, and Like on chapter 1. After any narrator line: `/timeways like` | The file holds two ratings of narrator lines with `new_zone`, and after the Like a rating of the chapter, with `$N` and no name. Like and Dislike show only while ratings are on, and only on a page with a story. |
 | 32. A prologue at the first login | The `prologue-35` scenario with a model, then log in and open the Chronicle | The prologue as chapter 0, about the lands and the people of the hero, and the title page with a summary. |
+| 33. No invented names | `timeways-dev bench-model --local`, then `/twdev dungeon The Deadmines` and `/twdev talk Gryan Stoutmantle / Who holds the Deadmines?` | `ungrounded-name` under refused calls by fault, and no shown text that names someone its lore lacks. |
 
 Each scenario and each command has a named test. Three tests fail when a new feature has no way in dev mode: `every_input_line_has_a_dev_command_or_a_scenario` and `every_section_of_the_journal_has_a_scenario_that_fills_it` (`crates/addon-tests/tests/dev_mode.rs`), and `every_kind_of_narrator_moment_comes_in_a_scenario` (`crates/dev/tests/scenarios.rs`).
 
@@ -505,7 +514,7 @@ How to read the results:
 - One row for each moment and kind of call, such as `tale / tale` or `chapter-end / narrator`.
 - **shown**: the player reads the line. **silence**: the model answered SILENCE, as the prompt allows. **refused**: the checks refused the last try. **failed**: the model gave no answer.
 - **retries**: the asks that needed a second call.
-- **refused calls by fault**: the reasons of the story program, in short names: `slop`, `copy`, `cutoff`, `arrival`, `inside-hero`, `json-shape`, `ungrounded`, and so on. A refused first answer takes the reasons of its retry prompt. A last answer takes a check of its text alone, which misses the faults that need the moment. Those show as `other`.
+- **refused calls by fault**: the reasons of the story program, in short names: `slop`, `copy`, `cutoff`, `arrival`, `inside-hero`, `json-shape`, `ungrounded`, `ungrounded-name` (a name that the prompt did not give), and so on. A refused first answer takes the reasons of its retry prompt. A last answer takes a check of its text alone, which misses the faults that need the moment. Those show as `other`.
 - **p50 s** and **p95 s**: the time of a call. **first s**: the time to the first byte, for a shell command that prints as it goes. **tok/s**: the tokens of the answers over the time of their calls, when the runner counts tokens. Ollama counts them. The time holds the reading of the prompt too.
 - "Moments with no model call": a moment whose lore is too thin, so the narrator stays quiet with no call.
 - Then every shown line, and the last refused answer of each refused ask. Read the lines against the narrator voice (`docs/plans/narrator-style.md`).

@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use timeways_rules::aliases::{Alias, PlayerId, find, learn_all};
 use timeways_rules::game_names::{NameRow, person};
+use timeways_rules::grounding::{grounded, is_given};
 use timeways_rules::instance_lore::next_passage;
 use timeways_rules::narrator_shapes::WINDOW;
 use timeways_rules::outcomes::{DependsOn, PlayerFacts, outcome_usable};
@@ -25,6 +26,7 @@ use timeways_story::check::{Fault, check, later_names, mentions, without_citatio
 use timeways_story::chronicle::{Pick, Saga};
 use timeways_story::entry_edits::{EditText, EntryKey, EntryKind};
 use timeways_story::gear::{BIG_UPGRADE_LEVELS, Before, Quality, SLOTS, is_big_upgrade};
+use timeways_story::grounding::ungrounded_names;
 use timeways_story::hero::{Field, LONG, checked_text, cut, limit_of};
 use timeways_story::hero_hook::HOOK_FIELDS;
 use timeways_story::house::fenced;
@@ -3445,6 +3447,7 @@ fn level_grounds() -> Grounds {
         hero_words: Vec::new(),
         outside: Vec::new(),
         defeated: Vec::new(),
+        offered: Vec::new(),
     }
 }
 
@@ -4455,6 +4458,112 @@ proptest! {
                 matches!(faults.as_slice(), [PresentFault::Unsourced(_)]),
                 "{:?}", faults
             );
+        }
+    }
+}
+
+/// A name of the lore, with the edges likely: an apostrophe, a hyphen, a title, two words,
+/// and plain words of the letters a to m.
+fn given_name() -> impl Strategy<Value = String> {
+    prop_oneof![
+        Just("Gath'Ilzogg".to_string()),
+        Just("Mor'Ladim".to_string()),
+        Just("Zul'jin".to_string()),
+        Just("Edwin VanCleef".to_string()),
+        Just("Captain Greenskin".to_string()),
+        Just("Thal'darah".to_string()),
+        "[A-M][a-m]{2,9}",
+        "[A-M][a-m]{2,6}'[A-M][a-m]{2,6}",
+        "[A-M][a-m]{2,6}-[A-M][a-m]{2,6}",
+        "[A-M][a-m]{2,8} [A-M][a-m]{2,8}",
+    ]
+}
+
+/// The forms of a given name that a text can take: the whole name, its last word, a
+/// possessive, a plural, a curly apostrophe, and in another case.
+fn form_of(name: &str, form: u8) -> String {
+    let last = name.rsplit(' ').next().unwrap_or(name);
+    match form % 6 {
+        0 => name.to_string(),
+        1 => last.to_string(),
+        2 => format!("{name}'s"),
+        3 => format!("{last}s"),
+        4 => name.replace('\'', "\u{2019}"),
+        _ => name.to_uppercase(),
+    }
+}
+
+/// A text of the forms, each in one of the places of a sentence: alone at its start, after
+/// a small word at its start, in its middle, after `$N`, and before a comma.
+fn text_of(forms: &[String], places: &[u8]) -> String {
+    let mut sentences = Vec::new();
+    for (form, place) in forms.iter().zip(places.iter().cycle()) {
+        let sentence = match place % 5 {
+            0 => format!("{form} holds the hills now."),
+            1 => format!("The {form} hold the hills now."),
+            2 => format!("The hills belong to {form} now."),
+            3 => format!("$N met {form} there."),
+            _ => format!("Once, {form}, the hills burned."),
+        };
+        sentences.push(sentence);
+    }
+    sentences.join(" ")
+}
+
+proptest! {
+    /// GAMEPLAY.md 3.2.1: a text built only from names that the prompt gave passes the
+    /// check of invented names, in every form and every place of a sentence.
+    #[test]
+    fn a_text_built_only_from_given_names_is_grounded(
+        names in prop::collection::vec(given_name(), 1..6),
+        forms in prop::collection::vec(any::<u8>(), 1..12),
+        places in prop::collection::vec(any::<u8>(), 1..12),
+    ) {
+        let given = format!("The lore names {}.", names.join(", and "));
+        let used: Vec<String> = forms
+            .iter()
+            .enumerate()
+            .map(|(at, form)| form_of(&names[at % names.len()], *form))
+            .collect();
+        let text = text_of(&used, &places);
+
+        prop_assert_eq!(ungrounded_names(&text, &given), Vec::<String>::new(), "{}", text);
+    }
+
+    /// GAMEPLAY.md 3.2.1: one name that the prompt never gave is refused, whatever names
+    /// the prompt gave and wherever the text puts it, except alone at the start of a
+    /// sentence, where a capital word is mostly a plain word.
+    #[test]
+    fn a_text_with_one_name_not_given_is_refused(
+        names in prop::collection::vec(given_name(), 0..6),
+        invented in "[N-Z][n-z]{2,9}(['\u{2019}-][N-Z][n-z]{2,6})?",
+        place in 1..5u8,
+    ) {
+        prop_assume!(!ungrounded_names(&format!("The hills saw {invented}."), "").is_empty());
+        let given = format!("The lore names {}.", names.join(", and "));
+        let mut used: Vec<String> = names.clone();
+        used.push(invented.clone());
+        let places: Vec<u8> = (0..used.len()).map(|_| place).collect();
+        let text = text_of(&used, &places);
+
+        let ungrounded = ungrounded_names(&text, &given);
+
+        prop_assert_eq!(ungrounded, vec![invented.clone()], "{}", text);
+    }
+
+    /// The rule of `timeways_rules::grounding`, with ids from a small range so that a name
+    /// often repeats, and empty lists often: a text passes exactly when each of its names
+    /// is given.
+    #[test]
+    fn a_text_is_grounded_exactly_when_each_of_its_names_is_given(
+        answer in prop::collection::vec(0..6u32, 0..8),
+        given in prop::collection::vec(0..6u32, 0..8),
+    ) {
+        let each_given = answer.iter().all(|name| given.contains(name));
+
+        prop_assert_eq!(grounded(&answer, &given), each_given);
+        for name in &answer {
+            prop_assert_eq!(is_given(*name, &given), given.contains(name));
         }
     }
 }

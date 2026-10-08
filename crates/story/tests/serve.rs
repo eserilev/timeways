@@ -60,7 +60,7 @@ fn a_talk_that_fails_gets_an_answer_with_no_words() {
 }
 
 #[test]
-fn a_name_in_no_fact_goes_to_the_log_and_the_answer_still_goes_out() {
+fn a_talk_reply_with_a_name_in_no_fact_shows_nothing() {
     let mut story = story("names");
     send(
         &mut story,
@@ -75,9 +75,7 @@ fn a_name_in_no_fact_goes_to_the_log_and_the_answer_still_goes_out() {
         &json!({"type": "model_answered", "call": call, "text": say}),
     );
 
-    assert_eq!(answer(&served)["text"], json!("Go ask Varian."));
-    assert_eq!(served.notes.len(), 1, "{served:?}");
-    assert!(served.notes[0].contains("Varian"), "{served:?}");
+    assert_eq!(answer(&served)["text"], json!(null));
 }
 
 #[test]

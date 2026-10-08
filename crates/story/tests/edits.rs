@@ -147,8 +147,7 @@ fn settle(story: &mut Story, saga: &str) -> Vec<String> {
     sagas
 }
 
-const SAGA: &str =
-    "Westfall burned while Stormwind looked away, and the militia held Sentinel Hill.";
+const SAGA: &str = "Westfall burned while Stormwind looked away, and the militia held the hill.";
 
 #[test]
 fn an_edit_keeps_the_chapter_list() {
@@ -377,13 +376,13 @@ fn a_saga_that_names_a_player_by_id_shows_the_name() {
     close_it(&mut story);
     settle(
         &mut story,
-        "Westfall burned while Stormwind looked away, and {P1} held Sentinel Hill.",
+        "Westfall burned while Stormwind looked away, and {P1} held the hill.",
     );
 
     let (chapter, _) = first_chapter(&mut story);
     assert_eq!(
         chapter.prose.as_deref(),
-        Some("Westfall burned while Stormwind looked away, and Ada held Sentinel Hill.")
+        Some("Westfall burned while Stormwind looked away, and Ada held the hill.")
     );
 }
 

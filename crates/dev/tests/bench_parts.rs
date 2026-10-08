@@ -16,7 +16,9 @@ use timeways_dev::model_runner::{Asked, Runner, read_completion};
 use timeways_dev::proc_stats::{DrmClient, cpu_ticks, drm_client, nvidia_memory_of, rss_kb};
 use timeways_dev::scenario::{Scenario, ScenarioError};
 use timeways_dev::stats::{drop_percent, percentile, spread};
+use timeways_story::check::Fault;
 use timeways_story::dev_fps::FpsRun;
+use timeways_story::house::fenced;
 use timeways_story::line_check::LineFault;
 use timeways_story::prompt;
 use timeways_story::prose::ProseFault;
@@ -58,6 +60,7 @@ fn every_reason_of_the_narrator_check_has_a_short_name() {
     let faults = [
         LineFault::Unreadable,
         LineFault::LaterName("Arthas".into()),
+        LineFault::UngroundedName("Deuce Waterman".into()),
         LineFault::Emoji,
         LineFault::Banned("tapestry".into()),
         LineFault::Copy("the fields of".into()),
@@ -101,6 +104,10 @@ fn the_names_of_the_faults_that_the_bench_counts_most() {
     assert_eq!(named(LineFault::Arrival("x".into())), "arrival");
     assert_eq!(named(LineFault::BadAnswer), "json-shape");
     assert_eq!(
+        named(LineFault::UngroundedName("Deuce Waterman".into())),
+        "ungrounded-name"
+    );
+    assert_eq!(
         named(LineFault::Prose(ProseFault::InsideHero("x".into()))),
         "inside-hero"
     );
@@ -139,7 +146,7 @@ fn the_text_of_an_answer_is_its_prose_field_and_never_a_choice() {
 fn a_choice_field_never_makes_a_whole_line_look_cut_off() {
     let answer = r#"{"lore": "Kobolds hold the Jasperlode Mine and the Fargodeep Mine now.", "group": "g.class"}"#;
 
-    assert!(!faults_of_answer(answer, true).contains(&"cutoff"));
+    assert!(!faults_of_answer(answer, "Answer with JSON.").contains(&"cutoff"));
 }
 
 #[test]
@@ -155,32 +162,54 @@ fn silence_is_the_word_alone_or_the_lore_of_a_json_answer() {
 #[test]
 fn an_answer_alone_shows_a_cut_off_end_a_bad_shape_and_slop() {
     assert_eq!(
-        faults_of_answer(r#"{"lore": "Westfall once"#, true),
+        faults_of_answer(r#"{"lore": "Westfall once"#, "Answer with JSON."),
         ["cutoff"]
     );
     assert_eq!(
-        faults_of_answer(r#"{"lore": "Murlocs live in and"#, false),
+        faults_of_answer(r#"{"lore": "Murlocs live in and"#, ""),
         ["cutoff"]
     );
-    assert_eq!(faults_of_answer("Westfall burns.", true), ["json-shape"]);
-    assert_eq!(faults_of_answer("", false), ["unreadable"]);
+    assert_eq!(
+        faults_of_answer("Westfall burns.", "Answer with JSON."),
+        ["json-shape"]
+    );
+    assert_eq!(faults_of_answer("", ""), ["unreadable"]);
     assert!(
-        faults_of_answer("The Defias hold Westfall now, and the farms", false).contains(&"cutoff")
+        faults_of_answer("The Defias hold Westfall now, and the farms", "").contains(&"cutoff")
     );
     assert!(
-        faults_of_answer(
-            "Our hero walked the fields of Westfall at dawn today.",
-            false
-        )
-        .contains(&"slop")
+        faults_of_answer("Our hero walked the fields of Westfall at dawn today.", "")
+            .contains(&"slop")
     );
     assert_eq!(
         faults_of_answer(
             "The Defias Brotherhood holds the fields of Westfall now.",
-            false
+            &fenced("The Defias Brotherhood holds Westfall.")
         ),
         ["other"]
     );
+}
+
+#[test]
+fn an_invented_name_in_any_kind_of_text_counts_as_ungrounded_name() {
+    let prompt = format!(
+        "The facts:\n{}",
+        fenced("The Defias Brotherhood holds the Deadmines.")
+    );
+    let saga =
+        r#"{"saga": "The Defias hold the mine, and Deuce Waterman still holds The Deadmines."}"#;
+    let reasons = [
+        Fault::UngroundedName {
+            name: "Deuce Waterman".into(),
+        }
+        .to_string(),
+        "It names Deuce Waterman, which no fact or lore of the prompt holds.".to_string(),
+    ];
+
+    assert_eq!(faults_of_answer(saga, &prompt), ["ungrounded-name"]);
+    for reason in reasons {
+        assert_eq!(name_of_reason(&reason), "ungrounded-name", "{reason}");
+    }
 }
 
 // The verdict on each call -----------------------------------------------------------------
