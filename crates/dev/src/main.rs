@@ -19,6 +19,7 @@ use timeways_dev::worlds::{
     Existing, put_world, restore_snapshot, save_snapshot, snapshot_file, world_file,
 };
 use timeways_story::dev_mode::DevMode;
+use timeways_story::dev_smoke::newest_log;
 use timeways_story::pack::Pack;
 use timeways_story::store::{CharacterKey, Store};
 use timeways_story::story::Story;
@@ -34,9 +35,12 @@ const USAGE: &str = "usage:
       [--moments <v1 or file.jsonl>] [--runs <n>] [--pack <lore pack>] [--data <folder>]
   timeways-dev bench-fps --model <local | claude | shell command> [--seconds <n>] [--lead <n>]
       [--wait <n>] [--moments <v1 or file.jsonl>] [--pack <lore pack>] [--data <folder>]
+  timeways-dev smoke [--latest]
+  timeways-dev smoke --prepare <character> --realm <realm> [--pack <lore pack>] [--data <folder>]
   timeways-dev on | off | status
 
-  seed, restore, and the benches run only while dev mode is on.
+  seed, restore, smoke --prepare, and the benches run only while dev mode is on.
+  smoke prints the log of the newest /twdev smoke. --prepare seeds a fresh world for one.
   export-ratings writes the ratings of a character into a file to send, with no player names.
   In --model and --compare, local is the local model of the config, or llama3.2:3b in
   Ollama, and claude is Claude Code with no tools.
@@ -62,6 +66,8 @@ struct Flags {
     seconds: Option<String>,
     lead: Option<String>,
     wait: Option<String>,
+    /// The character of `smoke --prepare`.
+    prepare: Option<String>,
 }
 
 fn main() -> ExitCode {
@@ -96,6 +102,10 @@ fn run(args: &[String]) -> Result<(), Box<dyn Error>> {
         }
         ("bench-model", []) => bench_models(&flags),
         ("bench-fps", []) => bench_frame_rate(&flags),
+        ("smoke", []) => match &flags.prepare {
+            Some(character) => prepare_smoke(character, &flags),
+            None => print_smoke(&flags),
+        },
         ("on", []) => switch(DevMode::On),
         ("off", []) => switch(DevMode::Off),
         ("status", []) => {
@@ -114,6 +124,9 @@ fn split_flags(args: &[String]) -> Option<(Vec<String>, Flags)> {
     while let Some(arg) = rest.next() {
         match arg.as_str() {
             "--replace" => flags.replace = true,
+            // The newest log is the only one that `smoke` prints.
+            "--latest" => {}
+            "--prepare" => flags.prepare = Some(rest.next()?.clone()),
             "--no-model" => flags.no_model = true,
             "--local" => flags.named_model = Some("local"),
             "--claude" => flags.named_model = Some("claude"),
@@ -282,6 +295,36 @@ fn print_report(report: &Report) {
     for error in &report.failed_batches {
         eprintln!("A batch failed: {error}");
     }
+}
+
+/// The newest log of `/twdev smoke`, as the story program wrote it.
+fn print_smoke(flags: &Flags) -> Result<(), Box<dyn Error>> {
+    let data = data_folder(flags)?;
+    let log = newest_log(&data).ok_or(
+        "No smoke log yet. Type /twdev smoke in the game, and wait for \"Smoke test done\".",
+    )?;
+    println!("{}\n", log.display());
+    print!("{}", std::fs::read_to_string(&log)?);
+    Ok(())
+}
+
+/// A fresh world of the `fresh` scenario for the character, with no model call. It writes
+/// a world, so it needs dev mode.
+fn prepare_smoke(character: &str, flags: &Flags) -> Result<(), Box<dyn Error>> {
+    check_dev_mode("smoke --prepare", &data_folder(flags)?)?;
+    let fresh = Flags {
+        realm: flags.realm.clone(),
+        scenario: Some("fresh".to_string()),
+        replace: true,
+        no_model: true,
+        pack: flags.pack.clone(),
+        data: flags.data.clone(),
+        ..Flags::default()
+    };
+    seed(character, &fresh)?;
+    println!("Then type /twdev smoke in the game, and wait for \"Smoke test done\".");
+    println!("Then run `timeways-dev smoke --latest`.");
+    Ok(())
 }
 
 fn snapshot(character: &str, snapshot: &str, flags: &Flags) -> Result<(), Box<dyn Error>> {
