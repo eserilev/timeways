@@ -6,10 +6,11 @@ use serde::Serialize;
 use std::path::Path;
 use thiserror::Error;
 
-/// A pack of another version gets refused, never guessed at. Format 2 added `about`,
+/// A pack of another version gets refused, never guessed at. SQLite keeps it as
+/// `user_version`, in bytes 60 to 63 of the file, where the desktop app reads it. Format 2 added `about`,
 /// format 3 added `depends_on`, format 4 added `setup_for`, and format 5 gave a passage
 /// one `depends_on` row for each deed that it tells.
-const FORMAT_VERSION: i64 = 5;
+pub const FORMAT_VERSION: i64 = 5;
 
 const SCHEMA: &str = "
     CREATE TABLE passage (

@@ -19,6 +19,10 @@
 //!
 //! `timeways-pack coverage <pack> [--json]` reports the passages of each place of the
 //! leveling path, and the places where the narrator stays silent (`pack_coverage`).
+//!
+//! `timeways-pack format` prints the format version that it builds, so the desktop app
+//! knows when a pack is out of date. The relay depends on this exact shape: only the
+//! decimal number and a newline on stdout, exit code 0, no stdin, and nothing on stderr.
 
 use serde::Deserialize;
 use std::error::Error;
@@ -26,14 +30,17 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 use timeways_story::outcome_passages::is_outcome;
-use timeways_story::pack::{Deed, Dependency, Link, Origin, Pack, Passage, SetupFor};
+use timeways_story::pack::{
+    Deed, Dependency, FORMAT_VERSION, Link, Origin, Pack, Passage, SetupFor,
+};
 use timeways_story::pack_coverage::{self, ZoneLevels, leveling_path};
 use timeways_story::pack_sources::{self, Built, Outcome, Sources};
 use timeways_story::passage_limits;
 
 const USAGE: &str = "usage: timeways-pack <passages.jsonl> <new pack file>
        timeways-pack from-dump <wiki dump .xml or .7z> <new pack file>
-       timeways-pack coverage <pack> [--json]";
+       timeways-pack coverage <pack> [--json]
+       timeways-pack format";
 
 /// The gaps at the end of the text report.
 const GAPS: usize = 20;
@@ -129,6 +136,10 @@ impl PassageLine {
 fn main() -> ExitCode {
     let args: Vec<PathBuf> = std::env::args_os().skip(1).map(PathBuf::from).collect();
     let result = match args.as_slice() {
+        [mode] if mode.as_os_str() == "format" => {
+            println!("{FORMAT_VERSION}");
+            Ok(())
+        }
         [mode, dump, pack] if mode.as_os_str() == "from-dump" => from_dump(dump, pack),
         [mode, pack] if mode.as_os_str() == "coverage" => print_coverage(pack, Format::Text),
         [mode, pack, json] if mode.as_os_str() == "coverage" && json.as_os_str() == "--json" => {

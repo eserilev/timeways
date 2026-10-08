@@ -6,8 +6,8 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 use timeways_story::input::{Input, MessageId};
-use timeways_story::lore_start::{BUILDING_MARK, LORE_READY, open_lore};
-use timeways_story::pack::{Link, Origin, Pack, Passage};
+use timeways_story::lore_start::{BUILDING_MARK, LORE_READY, LoreStartError, open_lore};
+use timeways_story::pack::{FORMAT_VERSION, Link, Origin, Pack, PackError, Passage};
 use timeways_story::store::Store;
 use timeways_story::story::{Output, Story};
 
@@ -41,6 +41,81 @@ fn a_missing_pack_starts_with_no_passages_and_leaves_the_mark() {
     assert_eq!(start.notice, None);
     assert!(story_folder.join(BUILDING_MARK).is_file());
     assert!(!root.join("lore.sqlite").exists());
+}
+
+/// A pack of `format`, as an older or a newer Timeways left it.
+fn pack_of_format(root: &Path, format: i64) -> PathBuf {
+    let pack = root.join("lore.sqlite");
+    Pack::write(&pack, &[tower()]).unwrap();
+    rusqlite::Connection::open(&pack)
+        .unwrap()
+        .pragma_update(None, "user_version", format)
+        .unwrap();
+    pack
+}
+
+#[test]
+fn an_older_pack_starts_with_no_lore_and_asks_for_a_rebuild() {
+    let root = fresh("older");
+    let pack = pack_of_format(&root, FORMAT_VERSION - 3);
+
+    let start = open_lore(&pack, Some(&root)).unwrap();
+
+    assert!(start.pack.search("tower", 5).unwrap().is_empty());
+    assert!(root.join(BUILDING_MARK).is_file());
+    assert_eq!(
+        start.log.as_deref(),
+        Some(
+            format!(
+                "lore pack format {}, this program reads {FORMAT_VERSION}: \
+                 starting with no lore until it is rebuilt",
+                FORMAT_VERSION - 3
+            )
+            .as_str()
+        )
+    );
+}
+
+#[test]
+fn a_newer_pack_starts_with_no_lore_and_asks_for_a_rebuild() {
+    let root = fresh("newer");
+    let pack = pack_of_format(&root, FORMAT_VERSION + 1);
+
+    let start = open_lore(&pack, Some(&root)).unwrap();
+
+    assert!(start.pack.search("tower", 5).unwrap().is_empty());
+    assert!(root.join(BUILDING_MARK).is_file());
+    assert!(start.log.is_some());
+}
+
+#[test]
+fn a_pack_of_another_format_is_never_changed() {
+    let root = fresh("unchanged");
+    let pack = pack_of_format(&root, FORMAT_VERSION - 1);
+    let before = fs::read(&pack).unwrap();
+
+    open_lore(&pack, Some(&root)).unwrap();
+
+    assert_eq!(fs::read(&pack).unwrap(), before);
+}
+
+#[test]
+fn a_corrupt_pack_still_stops_the_start() {
+    let root = fresh("corrupt");
+    let pack = root.join("lore.sqlite");
+    fs::write(
+        &pack,
+        b"this is no pack, only some bytes that sqlite cannot read",
+    )
+    .unwrap();
+
+    let result = open_lore(&pack, Some(&root));
+
+    assert!(matches!(
+        result,
+        Err(LoreStartError::Pack(PackError::Sqlite(_)))
+    ));
+    assert!(!root.join(BUILDING_MARK).exists());
 }
 
 #[test]

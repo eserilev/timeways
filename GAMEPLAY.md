@@ -884,6 +884,7 @@ A web request for each question is slow, depends on one website, and sends whole
 
 - With no file at the pack path, `timeways-story` starts anyway, with an empty pack in memory. `/lore` then answers from the text that the player read (3.1.1). The story program never creates or writes the pack, and reads it only at its start.
 - While it runs with no pack, it keeps the mark `lore-building` in its story folder. At its first start with a pack, it removes the mark, and the next answer of any kind carries the notice "Lore is ready.". A change of character keeps this notice.
+- A pack of another format version, older or newer, counts as no pack: the story program starts with an empty pack, keeps the mark, logs the two versions, and never changes the file. `timeways-pack format` prints the format that it builds, so the desktop app knows when to build again. Any other bad pack still stops the start.
 
 **The builder** (built): `timeways-pack` writes the pack. It refuses a passage with no link, and it never writes over a pack that exists.
 

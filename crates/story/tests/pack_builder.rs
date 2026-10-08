@@ -3,8 +3,8 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
-use timeways_story::pack::{Deed, Dependency, Link, Pack, SetupFor};
+use std::process::{Command, Output, Stdio};
+use timeways_story::pack::{Deed, Dependency, FORMAT_VERSION, Link, Pack, SetupFor};
 
 fn fresh(name: &str) -> PathBuf {
     let path = Path::new(env!("CARGO_TARGET_TMPDIR")).join(name);
@@ -155,6 +155,23 @@ fn an_existing_pack_is_never_written_over() {
             .unwrap()
             .contains("exists already")
     );
+}
+
+/// The desktop app reads this exact shape (relay commit 45fdc23).
+#[test]
+fn the_pack_tool_prints_the_format_it_builds() {
+    let output = Command::new(env!("CARGO_BIN_EXE_timeways-pack"))
+        .arg("format")
+        .stdin(Stdio::null())
+        .output()
+        .unwrap();
+
+    assert!(output.status.success());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap().trim_end(),
+        FORMAT_VERSION.to_string()
+    );
+    assert!(output.stderr.is_empty());
 }
 
 mod wiki_dump;

@@ -29,6 +29,9 @@ fn main() -> ExitCode {
             if dev_mode.is_on() {
                 eprintln!("dev mode is on: /twdev lines land in the worlds");
             }
+            if let Some(log) = start.log {
+                eprintln!("{log}");
+            }
             if let Some(notice) = start.notice {
                 story.set_program_notice(notice);
             }
