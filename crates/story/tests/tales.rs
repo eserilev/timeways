@@ -313,6 +313,28 @@ fn a_chapter_in_westfall(story: &mut Story) {
     meet(story, 5 * HOUR, "Madame Eva");
 }
 
+/// Found by the bench: Claude named Sentinel Hill, where the hero stood, and its prompt
+/// did not hold it. A name of the hero's own world is no invention (GAMEPLAY.md 3.2.1).
+#[test]
+fn a_zone_history_may_name_a_place_that_the_hero_visited() {
+    let mut story = started("history-known-place");
+    enter(&mut story, HOUR / 2, "Westfall", Some("Sentinel Hill"));
+    a_chapter_in_westfall(&mut story);
+    let history =
+        r#"{"history": "The militia of Westfall holds Sentinel Hill, and Camp 3 stands empty."}"#;
+    let answer = |kind: &str| (kind == "history").then(|| history.to_string());
+
+    settle(&mut story, 1, &answer);
+
+    let histories = journal(&mut story).histories;
+    assert!(
+        histories
+            .iter()
+            .any(|history| history.text.contains("Sentinel Hill")),
+        "{histories:?}"
+    );
+}
+
 #[test]
 fn the_history_of_a_zone_comes_after_the_summary_of_its_chapter() {
     let mut story = started("history");

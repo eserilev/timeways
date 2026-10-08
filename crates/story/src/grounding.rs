@@ -37,12 +37,20 @@ pub fn ungrounded_names(text: &str, given: &str) -> Vec<String> {
         return Vec::new();
     }
     let mut ungrounded: Vec<String> = Vec::new();
+    let mut refused_keys: Vec<u32> = Vec::new();
     for (name, keys) in names.iter().zip(&name_ids) {
-        let new = keys.iter().any(|key| !is_given(*key, &given_ids));
+        let new: Vec<u32> = keys
+            .iter()
+            .copied()
+            .filter(|key| !is_given(*key, &given_ids))
+            .collect();
         // A later name gets its own fault, so a retry reads one reason for it.
         let later = !names_after_cutoff(&name.text).is_empty();
-        if new && !later && !ungrounded.contains(&name.text) {
+        // "Brotherhood" after "Defias Brotherhood" names nothing new.
+        let again = new.iter().all(|key| refused_keys.contains(key));
+        if !new.is_empty() && !later && !again {
             ungrounded.push(name.text.clone());
+            refused_keys.extend(new);
         }
     }
     ungrounded
@@ -116,11 +124,13 @@ fn name_keys(word: &Word<'_>, common: &[String]) -> Vec<String> {
 /// The capital parts of a word that the check reads: a hyphen splits "Stormwind-born", and
 /// an apostrophe keeps "Gath'Ilzogg" whole. A part of one letter, or with a digit, is none.
 fn name_parts(word: &str) -> Vec<&str> {
-    word.split('-')
-        .filter(|part| part.chars().next().is_some_and(char::is_uppercase))
-        .filter(|part| part.chars().count() >= SHORTEST_NAME)
-        .filter(|part| !part.chars().any(|c| c.is_ascii_digit()))
-        .collect()
+    word.split('-').filter(|part| is_name_part(part)).collect()
+}
+
+fn is_name_part(part: &str) -> bool {
+    let capital = part.chars().next().is_some_and(char::is_uppercase);
+    let long = part.chars().count() >= SHORTEST_NAME;
+    capital && long && !part.chars().any(|c| c.is_ascii_digit())
 }
 
 /// Every word of the given text, and each part of a word with an apostrophe or a hyphen,

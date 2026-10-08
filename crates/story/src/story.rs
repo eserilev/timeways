@@ -1239,7 +1239,7 @@ impl Story {
             }
         }
         let reads = call.reads.clone();
-        self.open_call(Pending::Narrator(call), prompt, reads)
+        self.open_call(Pending::Narrator(Box::new(call)), prompt, reads)
             .unwrap_or(quiet)
     }
 

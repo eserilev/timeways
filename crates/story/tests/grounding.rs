@@ -305,6 +305,14 @@ fn a_given_name_in_another_case_is_grounded() {
 }
 
 #[test]
+fn a_part_of_a_name_already_refused_is_not_named_again() {
+    let text =
+        "The Defias Brotherhood rose. The Brotherhood's camps burned, and Brotherhood men fled.";
+
+    assert_eq!(ungrounded_names(text, "Westfall"), ["Defias Brotherhood"]);
+}
+
+#[test]
 fn a_capital_word_of_one_letter_is_no_name() {
     let names = ungrounded_names("Then I left, and A came.", "The facts.");
 

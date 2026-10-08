@@ -37,6 +37,7 @@ fn grounds_of(sample: &LineSample) -> Grounds {
         outside: Vec::new(),
         defeated: Vec::new(),
         offered: Vec::new(),
+        known: Vec::new(),
     }
 }
 

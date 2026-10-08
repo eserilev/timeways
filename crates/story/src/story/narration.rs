@@ -91,6 +91,8 @@ impl Story {
         let mut grounds = Grounds::of(&telling, turn);
         let defeated = active.character.foes_defeated().into_iter();
         grounds.defeated.extend(defeated.map(str::to_string));
+        let known = active.character.known_names();
+        grounds.known = known.into_iter().map(str::to_string).collect();
         if let Some((_, offer)) = templated.as_deref() {
             grounds.offered = offer.group_texts();
         }
@@ -173,7 +175,7 @@ impl Story {
             ..call
         };
         let prompt = prompt::retry(prompt, text, &reasons);
-        let pending = super::Pending::Narrator(retry);
+        let pending = super::Pending::Narrator(Box::new(retry));
         vec![
             self.open_call(pending, prompt, reads)
                 .unwrap_or_else(|| quests::quiet(batch)),

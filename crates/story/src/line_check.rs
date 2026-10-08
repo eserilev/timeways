@@ -63,6 +63,8 @@ pub struct Grounds {
     /// The groups that the prompt offered for the history to tell of, such as "the Silver
     /// Hand" (`narrator_build::Offer`).
     pub offered: Vec<String>,
+    /// The names of the hero's own world (`Character::known_names`).
+    pub known: Vec<String>,
 }
 
 impl Grounds {
@@ -84,6 +86,7 @@ impl Grounds {
                 .collect(),
             defeated: moment.defeated().into_iter().map(str::to_string).collect(),
             offered: Vec::new(),
+            known: Vec::new(),
         }
     }
 
@@ -97,6 +100,7 @@ impl Grounds {
         parts.extend(self.lore.as_deref());
         parts.extend(self.hero_words.iter().map(String::as_str));
         parts.extend(self.offered.iter().map(String::as_str));
+        parts.extend(self.known.iter().map(String::as_str));
         parts.join("\n")
     }
 

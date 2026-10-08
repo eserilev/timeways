@@ -261,6 +261,7 @@ fn grounds_of(line: &str, hero_words: Vec<String>) -> Grounds {
         outside: Vec::new(),
         defeated: Vec::new(),
         offered: Vec::new(),
+        known: Vec::new(),
     }
 }
 

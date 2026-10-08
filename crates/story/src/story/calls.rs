@@ -33,7 +33,7 @@ pub(super) enum Pending {
         lore: LoreCall,
     },
     /// A narrator line for the batch (`NarratorCall`).
-    Narrator(NarratorCall),
+    Narrator(Box<NarratorCall>),
     /// A draft of the saga of the chapter whose first event is `first`, or the pick of the
     /// judge, for this character only. The round of the chapter knows which.
     Chronicle {
@@ -102,14 +102,14 @@ impl Pending {
     fn has_row_in(&self, active: &CharacterKey) -> bool {
         match self {
             Pending::Lore { .. } => false,
-            Pending::Narrator(NarratorCall { key, .. })
-            | Pending::Chronicle { key, .. }
+            Pending::Chronicle { key, .. }
             | Pending::Summary { key, .. }
             | Pending::Prologue { key, .. }
             | Pending::Tale { key, .. }
             | Pending::Quest(QuestCall { key, .. })
             | Pending::Draft { key, .. }
             | Pending::Talk { key, .. } => key == active,
+            Pending::Narrator(call) => &call.key == active,
             Pending::ZoneHistory(call) => &call.key == active,
         }
     }
@@ -167,7 +167,12 @@ impl Story {
             prompt,
             row,
         } = self.take_call(call)?;
-        let given = grounding::given_text(&prompt);
+        let known = self
+            .active
+            .as_ref()
+            .map(|active| active.character.known_names().join("\n"))
+            .unwrap_or_default();
+        let given = format!("{}\n{known}", grounding::given_text(&prompt));
         let reply = Reply {
             text,
             given: &given,
@@ -180,7 +185,7 @@ impl Story {
                     accepted_if(!matches!(&next, Next::Done(answer) if answer.text.is_none()));
                 (self.follow(question, next).into_iter().collect(), outcome)
             }
-            Pending::Narrator(narration) => self.narrator_answered(row, narration, &prompt, text),
+            Pending::Narrator(narration) => self.narrator_answered(row, *narration, &prompt, text),
             Pending::Chronicle { key, first } => self.saga_answered(&key, first, Some(&reply))?,
             Pending::Summary { key, after, told } => {
                 self.summary_answered(&key, after, &told, Some(&reply))?

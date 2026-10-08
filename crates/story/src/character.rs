@@ -290,6 +290,17 @@ impl Character {
             .collect()
     }
 
+    /// Every name of your own world: the places that you visited, the NPCs that you met,
+    /// saw, or defeated, and the quests of the game that you took. A model text may name
+    /// them, though its prompt does not (GAMEPLAY.md 3.2.1).
+    #[must_use]
+    pub fn known_names(&self) -> Vec<&str> {
+        let known = self.linked_by_you(&[VISITED, MET, SEEN, DEFEATED]);
+        let mut names: Vec<&str> = known.iter().map(|entity| entity.name.as_str()).collect();
+        names.extend(self.game_quest_titles(GAME_QUEST_TAKEN));
+        names
+    }
+
     /// The NPCs that a task can send you to meet: met or seen, alive, never hostile, and
     /// never a beast (GAMEPLAY.md 3.4). The newest first, as for each list of targets.
     #[must_use]

@@ -811,3 +811,18 @@ fn the_titles_come_oldest_first() {
 
     assert_eq!(character.titles(), ["Bookworm", "Slap Happy"]);
 }
+
+#[test]
+fn the_known_names_hold_every_place_visited_and_every_npc_met() {
+    let mut character = Character::new();
+    character
+        .enter_zone(Tick(1), "Elwynn Forest", Some("Northshire Valley"))
+        .unwrap();
+    character.meet_npc(Tick(2), "Marshal McBride").unwrap();
+
+    let known = character.known_names();
+
+    for name in ["Elwynn Forest", "Northshire Valley", "Marshal McBride"] {
+        assert!(known.contains(&name), "{name}: {known:?}");
+    }
+}
