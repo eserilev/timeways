@@ -2,6 +2,41 @@
 
 The steps to test Timeways in WoW: Forever, and what to send back.
 
+## One command to test everything
+
+`/twdev smoke` runs many features in the game, one after the other, through the real addon, the bridge, and the story program. Then you read one log on the desktop to see what works. It needs dev mode (see "Dev mode" below).
+
+1. On the desktop, turn dev mode on, and seed a fresh world for your character:
+
+   ```sh
+   timeways-dev on
+   timeways-dev smoke --prepare <character> --realm "<realm>"
+   ```
+
+   `--prepare` moves the world that exists to a backup first.
+2. Restart the bridge, so the story program reads dev mode and the new world. On a relay that you built from source, run `systemctl --user restart gnomish-relay`. Else run `gnomish-relay restart`.
+3. Log in as that character. Stand still in a quiet place, out of combat.
+4. Type `/twdev smoke`. Wait until the chat says "Smoke test done". This takes 3 to 15 minutes, because the steps wait for the answers of the model.
+5. On the desktop, run `timeways-dev smoke --latest`. It prints the newest log.
+
+The log is `<data>/gnomish-relay/timeways/story/dev-bench/smoke-<time>.log`, with a `.json` of the same run beside it. Each step has two lines: the verdict of the game, then the check of the desktop.
+
+```text
+PASS  10 vancleef-kill            "Edwin VanCleef swore that Stormwind would pay."
+           desk PASS: kept npc_defeated; facts +3; calls narrator refused, narrator accepted (retry after "The line names nothing of the moment.")
+PASS   8 lore-before-kill         nobody knows
+           desk PASS: kept nothing; facts +0; no calls; gate Edwin VanCleef: 0 open, 2 blocked
+```
+
+- **PASS**: the step did what it should. **FAIL**: it broke. The reason follows. **WAIT**: no answer came in time, or a part that the step needs is off, such as a model or ratings.
+- **The game checks** what the addon sees: a window that shows, the text in it, the cursor in a box, and each Lua error. It sends each result as a small dev line through the real outbox.
+- **The desktop checks** what only it sees: each kind of line that landed (`kept`), the new facts of the world, each model call with its result and the reason of a retry, and the spoiler gate. A step that sent a line that never landed fails on the desk. The gate step before the kill of Edwin VanCleef passes when his lore is blocked, and the step after it when his lore is open. A pack with no such lore gives WAIT.
+- **The summary** at the end counts both verdicts, names each failed step, and lists the Lua errors, the model calls by kind and result, the reasons of the refused tries, and the frame rate of 10 seconds.
+- **The steps**, in order: the start; moves to a zone, a subzone, a capital, and a flight; a level up; a dungeon and a later entry; `/lore` about Edwin VanCleef before his kill; a rare, the kill of VanCleef, and `/lore` again; a death, a second death to the same foe, the revenge, a fall, and two deaths in lava (a joke title); a second level up; a mount and an epic mount; an epic item; a kill for a quest step; an NPC seen; a quest of the game and a class quest; a quest mark; a battleground, a PvP rank, an inn, and a raid; meeting an NPC, its gossip, a quest text, and a book; a slap, an emote, a carry, and an hour; a talk, a talk that asks for work, its quest card, and Accept (the talk stays); `/quest`; the story and the quest of a fake player, each accepted and declined; a full box and a blocked box; the cursor in the story scroll and in the quest form; a chapter end; the journal and each tab; the atlas, full and empty; the `[Rate]` link; the three setup windows; and the frame rate.
+- The run waits while you fight, and never puts the cursor in a box in combat. It sends nothing to real players: the fake players are DevPeer only. It stops by itself after 20 minutes. Type `/twdev smoke stop` to end it early.
+- The commands of `/twdev` and the kinds of narrator moments that no step covers are in `DevSmoke.LEFT_OUT` and `DevSmoke.LEFT_OUT_MOMENTS`, each with its reason. Two tests fail when a new command or a new kind of moment is in neither a step nor that list: `every_command_of_twdev_has_a_smoke_step_or_a_reason_to_stay_out` and `every_kind_of_narrator_moment_has_a_smoke_step_or_a_reason_to_stay_out` (`crates/addon-tests/tests/dev_smoke.rs`).
+- After the test, seed or restore the world that you want, and run `timeways-dev off` when you are done with dev mode.
+
 ## The test setup
 
 The game runs a stable copy of the code, so work in the repo does not change the game in the middle of a test.
@@ -449,6 +484,7 @@ Type `/twdev help` for the list. A name with spaces needs no quotes. A slash sep
 | `atlas empty` | Knowledge opens on a place that you never visited. |
 | `welcome setup\|files\|offline` | The setup window for that reason. |
 | `fps start [label]`, `fps stop` | No fake: it samples the real frame rate once a second, and sends the run to the desktop at the stop. It stops by itself after 15 minutes. |
+| `smoke [stop]` | Many features in order, with a log on the desktop: see "One command to test everything". |
 | `peer <name> story [title]` | A fake player of your group tells a story about you. |
 | `peer <name> quest` | A fake player sends you a quest. |
 | `peer <name> open\|full\|blocked\|waiting` | The room of its story box, for its answer to your `/story`. |
@@ -494,7 +530,7 @@ Type `/twdev help` for the list. A name with spaces needs no quotes. A slash sep
 | 33. No invented names | `timeways-dev bench-model --local`, then `/twdev dungeon The Deadmines` and `/twdev talk Gryan Stoutmantle / Who holds the Deadmines?` | `ungrounded-name` under refused calls by fault, and no shown text that names someone its lore lacks. |
 | 34. The lore of a boss after its kill | `/twdev dungeon Deadmines`, `/twdev kill Edwin VanCleef boss`, then `/lore What happened to Edwin VanCleef?`. Also on a fresh character with no dungeon: `/twdev kill Edwin VanCleef boss` and the same question | The entry line has lore of the Deadmines. The kill gets a narrator line about VanCleef. The answer tells of his end. With no visit, it still tells of his end, from the pages of the Deadmines and Moonbrook. |
 
-Each scenario and each command has a named test. Three tests fail when a new feature has no way in dev mode: `every_input_line_has_a_dev_command_or_a_scenario` and `every_section_of_the_journal_has_a_scenario_that_fills_it` (`crates/addon-tests/tests/dev_mode.rs`), and `every_kind_of_narrator_moment_comes_in_a_scenario` (`crates/dev/tests/scenarios.rs`).
+Each scenario and each command has a named test. The smoke run has two tests of its own (see "One command to test everything"). Three tests fail when a new feature has no way in dev mode: `every_input_line_has_a_dev_command_or_a_scenario` and `every_section_of_the_journal_has_a_scenario_that_fills_it` (`crates/addon-tests/tests/dev_mode.rs`), and `every_kind_of_narrator_moment_comes_in_a_scenario` (`crates/dev/tests/scenarios.rs`).
 
 ### Testing the local model and the frame rate
 
