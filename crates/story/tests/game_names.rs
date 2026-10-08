@@ -8,9 +8,12 @@ use std::collections::BTreeSet;
 use std::path::Path;
 use timeways_story::character::Character;
 use timeways_story::game_names::{ROWS, parse, rows, wiki_name};
-use timeways_story::narrator_lore::{is_thin, lore_about};
+use timeways_story::moments::Moment;
+use timeways_story::narrator::Who;
+use timeways_story::narrator_lore::{is_thin, lore_about, lore_of_moment};
 use timeways_story::outcome_passages::{Npc, PageKind, Stance, with_known_bosses};
 use timeways_story::pack::{Deed, Dependency, Link, Origin, Pack, Passage, SetupFor};
+use timeways_story::places::InstanceKind;
 use timeways_story::seen::SeenIndex;
 use timeways_story::spoiler::{outcome_allowed, setup_allowed};
 
@@ -196,4 +199,33 @@ fn a_known_boss_under_its_page_title_is_a_foe_under_its_infobox_name() {
             stance: Stance::Foe,
         })
     );
+}
+
+#[test]
+fn the_first_entry_into_the_stockade_takes_the_page_of_stormwind_stockade() {
+    let page = Passage {
+        text: "Stormwind Stockade is a prison beneath the canal district of Stormwind City."
+            .to_string(),
+        source: "the wiki page \"Stormwind Stockade\"".to_string(),
+        links: vec![Link::Place("The Stockade".to_string())],
+        origin: Origin::Pack,
+        about: Some("Stormwind Stockade".to_string()),
+        depends_on: Vec::new(),
+        setup_for: None,
+    };
+    let path = Path::new(env!("CARGO_TARGET_TMPDIR")).join("game-names-stockade.sqlite");
+    let _ = std::fs::remove_file(&path);
+    Pack::write(&path, std::slice::from_ref(&page)).unwrap();
+    let pack = Pack::open(&path).unwrap();
+    let seen = SeenIndex::new(&[]).unwrap();
+    let mut character = Character::new();
+    character.enter_zone(Tick(1), "The Stockade", None).unwrap();
+    let moment = Moment::FirstInstance {
+        zone: "The Stockade".to_string(),
+        kind: InstanceKind::Dungeon,
+    };
+
+    let lore = lore_of_moment(&pack, &seen, &character, &moment, &Who::of(&character), &[]);
+
+    assert_eq!(lore.unwrap(), Some(page));
 }

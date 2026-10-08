@@ -106,7 +106,7 @@ fn place_lore(
     place: &str,
     places: &[String],
 ) -> Result<Option<Passage>, LoreError> {
-    let own = known(character, pack.about(place, CANDIDATES)?);
+    let own = known(character, pack.about(wiki_name(place), CANDIDATES)?);
     let found = found_about(pack, seen, character, place)?;
     Ok(own
         .into_iter()
@@ -122,7 +122,7 @@ fn tells_a_place(passage: &Passage, place: &str, places: &[String]) -> bool {
     let Some(about) = &passage.about else {
         return true;
     };
-    if places.contains(about) {
+    if places.iter().any(|known| game_names::same(known, about)) {
         return true;
     }
     let shown = lore_excerpt(&passage.text);
