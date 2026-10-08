@@ -4,13 +4,15 @@
 use crate::bench::{Call, Played, Row};
 use crate::faults::{
     faults_of_answer, is_retry, is_silence, main_text, name_of_reason, reasons_of_retry,
+    talk_faults_of_answer,
 };
 use serde::Serialize;
 
 const LORE: &str = "lore";
+const TALK: &str = "talk";
 const RETRY_SUFFIX: &str = "_retry";
 /// The kinds whose shown text is the reply of the batch, as the player reads it.
-const REPLY_KINDS: [&str; 3] = ["narrator", "talk", LORE];
+const REPLY_KINDS: [&str; 3] = ["narrator", TALK, LORE];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -162,6 +164,10 @@ fn name_faults(ask: &mut Ask, chain: &[&Call]) {
             Some(retry) => reasons_of_retry(&retry.prompt)
                 .iter()
                 .map(|reason| name_of_reason(reason).to_string())
+                .collect(),
+            None if ask.kind == TALK => talk_faults_of_answer(answer, &chain[at].prompt)
+                .into_iter()
+                .map(String::from)
                 .collect(),
             None => faults_of_answer(answer, &chain[at].prompt)
                 .into_iter()

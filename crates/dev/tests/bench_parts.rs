@@ -9,7 +9,7 @@ use timeways_dev::asks::{Outcome, asks_of, quiet_moments};
 use timeways_dev::bench::{Call, Played, Row};
 use timeways_dev::bench_fps::{Phase, covering_run, phase_reports, samples_in};
 use timeways_dev::faults::{
-    faults_of_answer, is_retry, is_silence, name_of_reason, reasons_of_retry,
+    faults_of_answer, is_retry, is_silence, name_of_reason, reasons_of_retry, talk_faults_of_answer,
 };
 use timeways_dev::gate::needs_dev_mode;
 use timeways_dev::model_runner::{Asked, Runner, read_completion};
@@ -22,6 +22,7 @@ use timeways_story::house::fenced;
 use timeways_story::line_check::LineFault;
 use timeways_story::prompt;
 use timeways_story::prose::ProseFault;
+use timeways_story::talk::{self, Scene};
 
 // The numbers ------------------------------------------------------------------------------
 
@@ -534,4 +535,29 @@ fn the_first_set_of_moments_holds_every_moment_of_the_bench() {
     ] {
         assert!(moments.contains(&moment), "{moment}");
     }
+}
+
+#[test]
+fn a_talk_answer_is_named_by_the_faults_of_the_voice_of_an_npc() {
+    let scene = Scene {
+        npc: "Magistrate Solomon",
+        ..Scene::default()
+    };
+    let prompt = talk::prompt(&scene, &[], "Any news from the road?", 0);
+    let answer = r#"{"say": "Ah, brave soul. The road is bad. Will you help us?", "trust": 0}"#;
+
+    assert_eq!(
+        talk_faults_of_answer(answer, &prompt),
+        ["npc-slop", "ah-opener", "closing-question"]
+    );
+}
+
+#[test]
+fn a_talk_answer_in_voice_takes_the_other_faults() {
+    let prompt = talk::prompt(&Scene::default(), &[], "hello", 0);
+
+    assert_eq!(
+        talk_faults_of_answer("The road is bad", &prompt),
+        faults_of_answer("The road is bad", &prompt)
+    );
 }

@@ -11,6 +11,7 @@ use timeways_story::check::json_object;
 use timeways_story::grounding::given_text;
 use timeways_story::line_check::SILENCE;
 use timeways_story::narrated::{Limits, checked};
+use timeways_story::npc_voice::{Asked, NpcFault, npc_faults};
 
 pub use timeways_story::prompt::RETRY_MARK;
 const RULES_MARK: &str = "It broke these rules:\n";
@@ -170,6 +171,46 @@ pub fn faults_of_answer(answer: &str, prompt: &str) -> Vec<&'static str> {
         names.push("other");
     }
     names
+}
+
+/// What opens the words of the player in a talk prompt (`talk::prompt`).
+const PLAYER_SAYS: &str = "The player says:\n<<<\n";
+
+/// The names of the faults of a talk answer: the voice of an NPC first, and else the
+/// faults of `faults_of_answer`.
+#[must_use]
+pub fn talk_faults_of_answer(answer: &str, prompt: &str) -> Vec<&'static str> {
+    let asked = Asked::of(player_words(prompt));
+    let mut names: Vec<&'static str> = npc_faults(&main_text(answer), asked, &given_text(prompt))
+        .iter()
+        .map(npc_fault_name)
+        .collect();
+    names.dedup();
+    if names.is_empty() {
+        return faults_of_answer(answer, prompt);
+    }
+    names
+}
+
+fn player_words(prompt: &str) -> &str {
+    let Some((_, after)) = prompt.rsplit_once(PLAYER_SAYS) else {
+        return "";
+    };
+    after.split("\n>>>").next().unwrap_or_default()
+}
+
+fn npc_fault_name(fault: &NpcFault) -> &'static str {
+    match fault {
+        NpcFault::Slop(_) => "npc-slop",
+        NpcFault::StockOpener => "ah-opener",
+        NpcFault::ClosingQuestion(_) => "closing-question",
+        NpcFault::TooManyWords(_) => "too-long",
+        NpcFault::TooManySentences(_) => "too-many-sentences",
+        NpcFault::LongSentence(_) => "long-sentence",
+        NpcFault::PlayerFeeling(_) => "player-feeling",
+        NpcFault::StageDirection => "stage-direction",
+        NpcFault::Caricature(_) => "caricature",
+    }
 }
 
 fn ends_a_sentence(text: &str) -> bool {

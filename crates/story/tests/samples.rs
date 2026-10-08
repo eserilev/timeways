@@ -13,6 +13,7 @@ use timeways_story::moments::Moment;
 use timeways_story::narrator::{ABSENT, Naming, Telling, Who};
 use timeways_story::narrator_render::{Values, render};
 use timeways_story::narrator_templates::{DEED_KINDS, TEMPLATES};
+use timeways_story::npc_voice::Asked;
 use timeways_story::prose::prose_faults;
 use timeways_story::samples::{LineSample, Voice, every_sample, line_samples, rotated};
 use timeways_story::talk::{self, Scene};
@@ -362,7 +363,10 @@ fn a_copy_of_a_sample_is_refused() {
         "{checked:?}"
     );
     let answer = format!(r#"{{"say": "{say}", "trust": 0}}"#);
-    assert_eq!(talk::checked_answer(&answer, "", ""), None);
+    assert_eq!(
+        talk::checked_answer(&answer, Asked::NoQuestion, "", ""),
+        None
+    );
 }
 
 #[test]

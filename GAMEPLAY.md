@@ -360,7 +360,8 @@ Built:
 
   An offer that a newer offer replaced is no memory, because you did nothing. A death that the NPC caused counts as a fight, never also as a death nearby. Seeing an NPC is no memory: it never noticed you. The world keeps one person for each name, so two NPCs with one name share their memories, as they share trust. With no memory, the prompt still tells the NPC to speak of no past with you that is not written there.
 - **The NPC proposes, and the code decides** (5.2). The model answers in JSON: `{"say": "...", "trust": n, "work": true}`.
-  - The words follow the rules of a narrator line, with at most 400 characters.
+  - The words are one line of at most 400 characters, with no emoji, no banned word, no copy of a sample, no name after the cutoff, and no name that the prompt did not give.
+  - The words follow the voice guide of an NPC (`docs/plans/npc-voice.md`, built 2026-10-07). The prompt carries its compact manner block. The check refuses a stock phrase of `crates/story/data/npc_slop.txt` ("brave soul", "trouble lingers", "I've taken to", "keep your wits about you", "thee"), an opening "Ah", more than 60 words, more than 4 sentences, a sentence of more than 25 words, words that tell the player how they look or feel ("you look tired"), a stage direction between asterisks, and more than 2 words of dialect. A phrase that the prompt gave is allowed. The words end on a question only when the player asked nothing, and then the question has at most 6 words ("What do you want?"). The player asked something when the words hold a question mark or open with a question word, such as "any" or "where".
   - A change of trust outside -5 to 5 is dropped, and the words still show.
   - A valid change goes through Hourglass, inside the band of -100 to 100.
   - `work` is `true` when the NPC offers you work, or when you ask for work and it has some. Only the JSON `true` counts. A missing field or any other value is no work, and the words still show.

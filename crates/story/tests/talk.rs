@@ -1,5 +1,6 @@
 use timeways_story::hero_hook::Hook;
 use timeways_story::narrator::PERSONA;
+use timeways_story::npc_voice::Asked;
 use timeways_story::pack::{Link, Origin, Passage};
 use timeways_story::talk::{Answer, MAX_SAY_CHARS, QuestTalk, Scene, Work, checked_answer, prompt};
 use timeways_story::tokens::{Call, estimated_tokens};
@@ -125,21 +126,27 @@ fn the_player_cannot_close_the_fence_around_their_words() {
 
 #[test]
 fn an_answer_reads_from_plain_or_fenced_json() {
-    let plain = r#"{"say": "Welcome, traveler.", "trust": 2}"#;
-    let fenced = "Here you go:\n```json\n{\"say\": \"Welcome, traveler.\", \"trust\": 2}\n```";
+    let plain = r#"{"say": "The inn is full tonight.", "trust": 2}"#;
+    let fenced =
+        "Here you go:\n```json\n{\"say\": \"The inn is full tonight.\", \"trust\": 2}\n```";
 
     let expected = Some(Answer {
-        say: "Welcome, traveler.".to_string(),
+        say: "The inn is full tonight.".to_string(),
         trust_change: 2,
         work: Work::NotOffered,
     });
-    assert_eq!(checked_answer(plain, "", ""), expected);
-    assert_eq!(checked_answer(fenced, "", ""), expected);
+    assert_eq!(checked_answer(plain, Asked::NoQuestion, "", ""), expected);
+    assert_eq!(checked_answer(fenced, Asked::NoQuestion, "", ""), expected);
 }
 
 #[test]
 fn a_change_of_trust_outside_the_band_is_dropped_and_the_words_stay() {
-    let answer = checked_answer(r#"{"say": "I love you!", "trust": 50}"#, "", "");
+    let answer = checked_answer(
+        r#"{"say": "I love you!", "trust": 50}"#,
+        Asked::NoQuestion,
+        "",
+        "",
+    );
 
     assert_eq!(
         answer,
@@ -155,6 +162,7 @@ fn a_change_of_trust_outside_the_band_is_dropped_and_the_words_stay() {
 fn an_answer_with_work_set_to_true_offers_work() {
     let answer = checked_answer(
         r#"{"say": "The mill has trouble.", "trust": 1, "work": true}"#,
+        Asked::NoQuestion,
         "",
         "",
     );
@@ -164,7 +172,12 @@ fn an_answer_with_work_set_to_true_offers_work() {
 
 #[test]
 fn an_answer_with_no_work_field_offers_no_work() {
-    let answer = checked_answer(r#"{"say": "Nothing but rain.", "trust": 0}"#, "", "");
+    let answer = checked_answer(
+        r#"{"say": "Nothing but rain.", "trust": 0}"#,
+        Asked::NoQuestion,
+        "",
+        "",
+    );
 
     assert_eq!(answer.map(|answer| answer.work), Some(Work::NotOffered));
 }
@@ -181,7 +194,7 @@ fn work_that_is_not_the_json_true_offers_no_work_and_keeps_the_words() {
     ] {
         let text = format!(r#"{{"say": "The mill has trouble.", "trust": 1, "work": {work}}}"#);
 
-        let answer = checked_answer(&text, "", "");
+        let answer = checked_answer(&text, Asked::NoQuestion, "", "");
 
         assert_eq!(
             answer,
@@ -211,7 +224,12 @@ fn the_prompt_tells_the_npc_that_work_becomes_a_real_quest() {
 #[test]
 fn an_answer_out_of_voice_is_dropped() {
     assert_eq!(
-        checked_answer(r#"{"say": "Okay, cool, I will help.", "trust": 1}"#, "", ""),
+        checked_answer(
+            r#"{"say": "Okay, cool, I will help.", "trust": 1}"#,
+            Asked::NoQuestion,
+            "",
+            ""
+        ),
         None
     );
 }
@@ -223,11 +241,22 @@ fn a_broken_long_or_late_answer_is_dropped() {
         "a".repeat(MAX_SAY_CHARS + 1)
     );
 
-    assert_eq!(checked_answer("I will not answer in JSON.", "", ""), None);
-    assert_eq!(checked_answer(r#"{"say": "hi"}"#, "", ""), None);
-    assert_eq!(checked_answer(&long, "", ""), None);
     assert_eq!(
-        checked_answer(r#"{"say": "Off to Shattrath!", "trust": 1}"#, "", ""),
+        checked_answer("I will not answer in JSON.", Asked::NoQuestion, "", ""),
+        None
+    );
+    assert_eq!(
+        checked_answer(r#"{"say": "hi"}"#, Asked::NoQuestion, "", ""),
+        None
+    );
+    assert_eq!(checked_answer(&long, Asked::NoQuestion, "", ""), None);
+    assert_eq!(
+        checked_answer(
+            r#"{"say": "Off to Shattrath!", "trust": 1}"#,
+            Asked::NoQuestion,
+            "",
+            ""
+        ),
         None
     );
 }
@@ -236,6 +265,7 @@ fn a_broken_long_or_late_answer_is_dropped() {
 fn an_npc_may_name_what_the_player_wrote_first() {
     let answer = checked_answer(
         r#"{"say": "Shattrath? Never heard of it.", "trust": 0}"#,
+        Asked::NoQuestion,
         "I search for Shattrath.",
         "",
     );
@@ -246,7 +276,12 @@ fn an_npc_may_name_what_the_player_wrote_first() {
 #[test]
 fn a_change_of_trust_at_the_ends_of_i64_is_dropped() {
     for trust in [i64::MIN, i64::MAX] {
-        let answer = checked_answer(&format!(r#"{{"say": "Hmm.", "trust": {trust}}}"#), "", "");
+        let answer = checked_answer(
+            &format!(r#"{{"say": "Hmm.", "trust": {trust}}}"#),
+            Asked::NoQuestion,
+            "",
+            "",
+        );
 
         assert_eq!(
             answer,

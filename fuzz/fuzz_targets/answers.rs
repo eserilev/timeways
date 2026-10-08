@@ -8,6 +8,7 @@
 mod common;
 
 use libfuzzer_sys::fuzz_target;
+use timeways_story::npc_voice::Asked;
 use timeways_story::arrival::arrival_in;
 use timeways_story::check::{
     check, in_voice, later_names, names_after_cutoff, names_after_cutoff_except, plain_text,
@@ -544,7 +545,7 @@ fuzz_target!(|data: &[u8]| {
         );
         assert_grounded(&history, GIVEN);
     }
-    if let Some(answer) = talk::checked_answer(&text, "", GIVEN) {
+    if let Some(answer) = talk::checked_answer(&text, Asked::NoQuestion, "", GIVEN) {
         assert_voice(&answer.say, talk::MAX_SAY_CHARS, talk::MAX_SAY_BYTES);
         assert_grounded(&answer.say, GIVEN);
         assert!((-talk::MAX_TRUST_CHANGE..=talk::MAX_TRUST_CHANGE).contains(&answer.trust_change));

@@ -16,6 +16,7 @@ use timeways_story::line_check::{Checked, Grounds, LineFault, SILENCE, checked_l
 use timeways_story::moments::Moment;
 use timeways_story::narrator::{self, Telling, Who};
 use timeways_story::npc_memory::{self, Memory, QuestEnding, RUMOR_CHARS, Recall};
+use timeways_story::npc_voice::Asked;
 use timeways_story::pack::{Link, Origin, Passage};
 use timeways_story::passage_limits::MAX_PASSAGE_BYTES;
 use timeways_story::places::InstanceKind;
@@ -471,7 +472,7 @@ fn saga_shown(answer: &str) -> Option<String> {
 }
 
 fn talk_shown(answer: &str) -> Option<String> {
-    let answer = talk::checked_answer(answer, "", "")?;
+    let answer = talk::checked_answer(answer, Asked::NoQuestion, "", "")?;
     Some(format!("{} (trust {:+})", answer.say, answer.trust_change))
 }
 

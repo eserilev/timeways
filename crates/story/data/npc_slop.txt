@@ -1,0 +1,153 @@
+# Words and phrases of slop in the words of an NPC (docs/plans/npc-voice.md 4). An answer of
+# a talk with one of them is dropped. The narrator has its own list in slop_words.txt.
+# The match ignores case and matches whole words within one sentence, across its commas.
+# A phrase that the prompt gave, such as a line of the lore or the words of the player, is
+# allowed.
+# One word or phrase per line. Write each spelling and each plural form on its own line.
+
+# A stock form of address: the player is a person, not "adventurer"
+ah adventurer
+ah traveler
+ah traveller
+greetings adventurer
+greetings traveler
+greetings traveller
+hail adventurer
+hail traveler
+hail traveller
+welcome adventurer
+welcome traveler
+welcome traveller
+well met adventurer
+well met traveler
+brave adventurer
+young adventurer
+dear adventurer
+noble adventurer
+weary traveler
+weary traveller
+brave soul
+brave souls
+brave one
+kind stranger
+hail hero
+brave hero
+young hero
+
+# Mood with no fact: say what happened instead
+dark times
+troubled times
+troubling times
+trying times
+perilous times
+uncertain times
+dark days
+trouble lingers
+danger lingers
+trouble brews
+trouble is brewing
+evil stirs
+darkness stirs
+something stirs
+a darkness
+growing darkness
+the winds of
+mark my words
+make no mistake
+
+# A habit or a feeling of the speaker in place of a fact
+i've taken to
+i have taken to
+i find myself
+i must say
+i must admit
+i must confess
+i daresay
+i dare say
+i assure you
+rest assured
+fear not
+worry not
+
+# A stock closer or a pep talk
+keep your wits about you
+keep your eyes open
+keep your eyes peeled
+keep your blade ready
+watch your back
+stay safe
+safe travels
+be careful out there
+tread carefully
+tread lightly
+stay vigilant
+remain vigilant
+be vigilant
+the road ahead
+your journey
+your travels
+
+# A stock question that hands the talk back to the player
+what brings you
+what say you
+how may i help
+how may i assist
+how can i help
+how can i assist
+how can i be of
+what can i do for you
+can i count on you
+are you up to the task
+if you're brave enough
+if you are brave enough
+if you dare
+should you choose to
+should you wish to
+
+# Old-timey words
+thee
+thou
+thy
+thine
+hath
+doth
+verily
+forsooth
+pray tell
+methinks
+
+# A past or a fame that no memory holds
+been expecting you
+i knew you would come
+your reputation
+word of your deeds
+tales of your
+your legend
+
+# The looks or the feelings of the player (npc_voice.rs also has a pattern)
+you look like
+you have the look of
+in your eyes
+your heart
+your soul
+i sense
+i can see it in your
+i can tell you're
+i can tell you are
+i can tell that you
+
+# A lecture opener: an NPC answers, it does not read from a book
+as you may know
+as you know
+legend has it
+legend tells
+it is said
+since time immemorial
+
+# A stage direction: the words of an NPC are only what it says
+leans in
+leans closer
+lowers his voice
+lowers her voice
+chuckles
+sighs

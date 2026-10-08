@@ -43,6 +43,7 @@ pub mod narrator_review;
 pub mod narrator_slots;
 pub mod narrator_templates;
 pub mod npc_memory;
+pub mod npc_voice;
 pub mod outcome_passages;
 pub mod pace;
 pub mod pack;

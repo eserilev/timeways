@@ -413,7 +413,7 @@ fn a_hero_entry_removed_during_a_call_still_counts_as_read() {
     answer(
         &mut story,
         call,
-        r#"{"say": "Ah, about that gold.", "trust": 0}"#,
+        r#"{"say": "About that gold. I have it here.", "trust": 0}"#,
     );
     drop(story);
 

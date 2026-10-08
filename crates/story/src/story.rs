@@ -21,6 +21,7 @@ use crate::moments::{Moment, best, moments};
 use crate::mounts;
 use crate::narrator::Budget;
 use crate::npc_memory::{self, Memory, Past};
+use crate::npc_voice::Asked;
 use crate::pace::Pace;
 use crate::pack::{Pack, PackError, Passage};
 use crate::passage_limits;
@@ -60,7 +61,7 @@ pub mod why;
 mod zone_histories;
 
 use active::{Active, Kept};
-use calls::{OpenCall, Pending};
+use calls::{OpenCall, Pending, TalkCall};
 use quests::QuestRequest;
 
 const DAY_SECONDS: u64 = 24 * 3600;
@@ -1385,12 +1386,13 @@ impl Story {
         self.advance_quests(at, None, &Encounter::Talk(npc.to_string()))?;
         let (prompt, read) = self.talk_prompt(at, npc, words)?;
         let active = self.active.as_ref().ok_or(StoryError::NoCharacter)?;
-        let pending = Pending::Talk {
+        let pending = Pending::Talk(TalkCall {
             question: id,
             key: active.key.clone(),
             npc: npc.to_string(),
             at,
-        };
+            asked: Asked::of(words),
+        });
         Ok(self.open_call(pending, prompt, read).into_iter().collect())
     }
 

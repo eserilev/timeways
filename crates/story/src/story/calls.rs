@@ -14,6 +14,7 @@ use crate::store::{CharacterKey, Node, Outcome, StoreError};
 
 /// The kind of a narrator call in the `calls` table.
 pub(super) const NARRATOR: &str = "narrator";
+use crate::npc_voice::Asked;
 use crate::talk::Work;
 use crate::{grounding, talk};
 use hourglass::EventId;
@@ -70,13 +71,18 @@ pub(super) enum Pending {
         question: MessageId,
         key: CharacterKey,
     },
-    /// A talk to `npc`, whose change of trust lands at `at`, for this character only.
-    Talk {
-        question: MessageId,
-        key: CharacterKey,
-        npc: String,
-        at: Tick,
-    },
+    /// A talk, for this character only.
+    Talk(TalkCall),
+}
+
+/// A talk to `npc`, whose change of trust lands at `at`.
+pub(super) struct TalkCall {
+    pub(super) question: MessageId,
+    pub(super) key: CharacterKey,
+    pub(super) npc: String,
+    pub(super) at: Tick,
+    /// Whether the player asked something, for the check of a closing question.
+    pub(super) asked: Asked,
 }
 
 impl Pending {
@@ -93,7 +99,7 @@ impl Pending {
             Pending::Quest(quest) if quest.attempt == Attempt::Retry => QUEST_RETRY,
             Pending::Quest(_) => QUEST,
             Pending::Draft { .. } => "draft",
-            Pending::Talk { .. } => TALK,
+            Pending::Talk(_) => TALK,
         }
     }
 
@@ -108,7 +114,7 @@ impl Pending {
             | Pending::Tale { key, .. }
             | Pending::Quest(QuestCall { key, .. })
             | Pending::Draft { key, .. }
-            | Pending::Talk { key, .. } => key == active,
+            | Pending::Talk(TalkCall { key, .. }) => key == active,
             Pending::Narrator(call) => &call.key == active,
             Pending::ZoneHistory(call) => &call.key == active,
         }
@@ -198,13 +204,8 @@ impl Story {
                 told,
             } => self.tale_answered(&key, run, instance, &told, Some(&reply))?,
             Pending::ZoneHistory(call) => self.zone_history_answered(*call, Some(&reply))?,
-            Pending::Talk {
-                question,
-                key,
-                npc,
-                at,
-            } => {
-                let outputs = self.talk_answered(question, &key, npc, at, &reply, row);
+            Pending::Talk(talk) => {
+                let outputs = self.talk_answered(talk, &reply, row);
                 let said = matches!(
                     outputs.first(),
                     Some(Output::TalkAnswer { text: Some(_), .. })
@@ -245,15 +246,21 @@ impl Story {
     /// the row of the talk call, which the quest call reads.
     pub(super) fn talk_answered(
         &mut self,
-        question: MessageId,
-        key: &CharacterKey,
-        npc: String,
-        asked_at: Tick,
+        talk: TalkCall,
         reply: &Reply<'_>,
         row: Option<u64>,
     ) -> Vec<Output> {
+        let TalkCall {
+            question,
+            key,
+            npc,
+            at: asked_at,
+            asked,
+        } = talk;
+        let key = &key;
         let player_text = self.player_text(key);
-        let Some(answer) = talk::checked_answer(reply.text, &player_text, reply.given) else {
+        let Some(answer) = talk::checked_answer(reply.text, asked, &player_text, reply.given)
+        else {
             return vec![Output::TalkAnswer {
                 id: question,
                 npc,
@@ -340,7 +347,7 @@ impl Story {
                 told,
             } => self.tale_answered(&key, run, instance, &told, None)?.0,
             Pending::ZoneHistory(call) => self.zone_history_answered(*call, None)?.0,
-            Pending::Talk { question, npc, .. } => vec![Output::TalkAnswer {
+            Pending::Talk(TalkCall { question, npc, .. }) => vec![Output::TalkAnswer {
                 id: question,
                 npc,
                 text: None,

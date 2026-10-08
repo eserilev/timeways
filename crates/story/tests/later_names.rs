@@ -7,6 +7,7 @@ use timeways_story::check::{Fault, check, later_names, names_after_cutoff};
 use timeways_story::line_check::{Checked, Grounds, LineFault, checked_line};
 use timeways_story::moments::Moment;
 use timeways_story::narrator::{Telling, Who};
+use timeways_story::npc_voice::Asked;
 use timeways_story::pack_sources::{Sources, later_pattern};
 use timeways_story::{chronicle, summary, tale, talk, zone_history};
 
@@ -86,7 +87,10 @@ fn a_zone_history_that_names_garrosh_is_refused() {
 fn a_talk_reply_that_names_garrosh_is_refused() {
     let answer = json("say", GARROSH);
 
-    assert_eq!(talk::checked_answer(&answer, "", ""), None);
+    assert_eq!(
+        talk::checked_answer(&answer, Asked::NoQuestion, "", ""),
+        None
+    );
 }
 
 #[test]

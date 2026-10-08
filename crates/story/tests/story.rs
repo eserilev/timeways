@@ -2144,7 +2144,7 @@ fn an_npc_knows_at_most_three_lore_passages() {
 
     let known = prompt
         .lines()
-        .filter(|line| line.contains("story "))
+        .filter(|line| line.contains("Farley story "))
         .count();
     assert_eq!(known, 3, "{prompt}");
 }

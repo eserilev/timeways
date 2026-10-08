@@ -5,6 +5,7 @@ use crate::check::{json_object, voice_text};
 use crate::grounding::ungrounded_names;
 use crate::hero_hook::{Hook, TALK_RULE, hook_block};
 use crate::house::{HOUSE_RULES, bulleted, fenced};
+use crate::npc_voice::{Asked, npc_faults};
 use crate::pack::Passage;
 use crate::samples::{self, Voice};
 use crate::tokens::{Call, largest_fit};
@@ -79,9 +80,10 @@ fn prompt_with(scene: &Scene<'_>, passages: &[Passage], words: &str, turn: usize
     format!(
         "{}\n{HOUSE_RULES}\n\nAnswer the player, and say how this talk changes your trust. \
          Stay true to the lore below. When you do not know, say so as this person would.{}\n\n\
-         {}\n\nThe player says:\n{}\n\n\
+         {}\n\n{MANNER}\n\nThe player says:\n{}\n\n\
          {WORK_RULE}\n\n\
-         Remember: you are the person of the name above. Speak plainly, in your own voice, in at most 60 words.\n\
+         Remember: you are the person of the name above. Answer first, in 1 to 4 short \
+         sentences and at most 40 words.\n\
          Reply with JSON only: {{\"say\": \"<your answer>\", \"trust\": <a whole number from \
          -{MAX_TRUST_CHANGE} to {MAX_TRUST_CHANGE}: how this talk changes your trust in the \
          player>, \"work\": <true when you offer the player work, else false>}}",
@@ -91,6 +93,18 @@ fn prompt_with(scene: &Scene<'_>, passages: &[Passage], words: &str, turn: usize
         fenced(words)
     )
 }
+
+/// The compact voice guide of an NPC (docs/plans/npc-voice.md 7). `npc_voice.rs` refuses
+/// what it forbids.
+const MANNER: &str = "Your manner:\n\
+     - Talk like a person of your people and trade: everyday words, short sentences.\n\
+     - Answer the player first. Then one thing you saw, want, or fear. One ask at most.\n\
+     - Be concrete: who, where, what happened, with the names of the lore. No speeches.\n\
+     - Show your people in what you care about, not in spelling.\n\
+     - Never open with \"Ah\". Never call the player \"adventurer\" or \"brave soul\". \
+     Never say how the player feels.\n\
+     - No \"dark times\", \"trouble lingers\", \"I've taken to\", or old words like \"thee\".\n\
+     - When the player asked something, end on your answer, not a question.";
 
 /// Work that the NPC mentions becomes a real quest, written and checked after the talk
 /// (GAMEPLAY.md 3.5). So the NPC names only the trouble, never a detail that the quest
@@ -212,12 +226,14 @@ pub struct Answer {
 }
 
 /// None when the words break a rule. A change of trust outside the band is dropped, and
-/// the words still show. `player_text` is the hero in the player's own words.
+/// the words still show. `asked` tells whether the player asked something, and
+/// `player_text` is the hero in the player's own words.
 #[must_use]
-pub fn checked_answer(text: &str, player_text: &str, given: &str) -> Option<Answer> {
+pub fn checked_answer(text: &str, asked: Asked, player_text: &str, given: &str) -> Option<Answer> {
     let reply: Reply = serde_json::from_str(json_object(text)?).ok()?;
     let say = voice_text(&reply.say, MAX_SAY_CHARS, MAX_SAY_BYTES, player_text)?;
-    if !ungrounded_names(&say, &format!("{given}\n{player_text}")).is_empty() {
+    let told = format!("{given}\n{player_text}");
+    if !ungrounded_names(&say, &told).is_empty() || !npc_faults(&say, asked, &told).is_empty() {
         return None;
     }
     let in_band = (-MAX_TRUST_CHANGE..=MAX_TRUST_CHANGE).contains(&reply.trust);

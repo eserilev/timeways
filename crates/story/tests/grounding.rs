@@ -11,6 +11,7 @@ use timeways_story::line_check::{Checked, Grounds, LineFault, checked_line};
 use timeways_story::lore::{LoreCall, Next};
 use timeways_story::moments::Moment;
 use timeways_story::narrator::{Telling, Who};
+use timeways_story::npc_voice::Asked;
 use timeways_story::pack::{Link, Origin, Passage};
 use timeways_story::prompt::{self, Context};
 use timeways_story::samples::{self, Voice};
@@ -182,7 +183,10 @@ fn a_zone_history_with_an_invented_person_is_refused_with_its_name() {
 fn a_talk_reply_with_an_invented_person_is_refused() {
     let answer = json("say", "Aye, Deuce Waterman runs the mine now.");
 
-    assert_eq!(talk::checked_answer(&answer, "", DEADMINES_LORE), None);
+    assert_eq!(
+        talk::checked_answer(&answer, Asked::NoQuestion, "", DEADMINES_LORE),
+        None
+    );
 }
 
 #[test]
@@ -192,7 +196,7 @@ fn a_talk_reply_that_names_only_what_the_npc_knows_passes() {
         "Aye, the Defias hold the Deadmines. VanCleef leads them.",
     );
 
-    assert!(talk::checked_answer(&answer, "", DEADMINES_LORE).is_some());
+    assert!(talk::checked_answer(&answer, Asked::NoQuestion, "", DEADMINES_LORE).is_some());
 }
 
 #[test]
