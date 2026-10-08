@@ -148,3 +148,33 @@ fn the_journal_with_the_dev_mark_passes_the_checks_of_the_bridge() {
     };
     assert!(text.contains(r#""dev":true"#), "{text}");
 }
+
+/// The bridge passes the dev mark of a line with a reply on, so a fake question of
+/// `/twdev` gets its answer while dev mode is on.
+#[test]
+fn a_dev_line_with_a_reply_passes_the_checks_of_the_bridge_with_its_mark() {
+    let mut bridge = FakeBridge::new(story(DevMode::On));
+
+    let reply = bridge.batch(&format!(
+        "{CHARACTER}\n{}",
+        r#"{"type":"journal_asked","dev":true}"#
+    ));
+
+    let Reply::Done(text) = reply else {
+        panic!("{reply:?}")
+    };
+    assert!(text.contains(r#""type":"journal""#), "{text}");
+    assert_eq!(bridge.dropped_lines(), 0);
+}
+
+#[test]
+fn a_dev_line_with_a_reply_gets_no_answer_while_dev_mode_is_off() {
+    let mut story = story(DevMode::Off);
+
+    let served = send(
+        &mut story,
+        r#"{"type":"journal_asked","id":5,"page":0,"dev":true}"#,
+    );
+
+    assert!(served.error.unwrap().contains("dev mode is off"));
+}

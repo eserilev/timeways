@@ -120,22 +120,21 @@ fn help_lists_every_command_with_dev_mode_on() {
 }
 
 #[test]
-fn every_fake_event_line_carries_the_dev_mark_and_the_shape_of_the_story_program() {
+fn every_fake_line_carries_the_dev_mark_and_the_shape_of_the_story_program() {
     let game = dev_game();
     for command in EVERY_COMMAND {
         twdev(&game, command);
     }
 
-    for line in sent_lines(&game) {
-        let reply = matches!(
-            line["type"].as_str(),
-            Some("talk_asked" | "journal_asked" | "lore_asked" | "draft_asked")
-        );
-        assert_eq!(
-            line.get("dev") == Some(&Value::Bool(true)),
-            !reply,
-            "{line}"
-        );
+    let lines = sent_lines(&game);
+    let replies = ["talk_asked", "journal_asked", "lore_asked", "draft_asked"];
+    let asked = lines
+        .iter()
+        .filter(|line| replies.contains(&line["type"].as_str().unwrap_or_default()))
+        .count();
+    assert!(asked > 0, "no fake line with a reply");
+    for line in lines {
+        assert_eq!(line.get("dev"), Some(&Value::Bool(true)), "{line}");
     }
     // `sent_inputs` reads each line as the story program does, so a wrong shape fails.
     assert!(!game.sent_inputs().is_empty());
