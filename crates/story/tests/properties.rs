@@ -3489,7 +3489,7 @@ proptest! {
             links: vec![Link::Place(other.clone())],
             origin: Origin::Pack,
             about: Some(other.clone()),
-            depends_on: None,
+            depends_on: Vec::new(),
             setup_for: None,
         };
         let related = match tie {
@@ -3518,7 +3518,7 @@ proptest! {
             links: vec![Link::Place(other.clone())],
             origin: Origin::Pack,
             about: Some(other),
-            depends_on: None,
+            depends_on: Vec::new(),
             setup_for: None,
         };
         let passage = lore.then_some(&passage);
@@ -3976,7 +3976,24 @@ proptest! {
             Dependency::Unresolved => false,
         };
 
-        prop_assert_eq!(outcome_allowed(&character, Some(&tag)), did);
+        prop_assert_eq!(outcome_allowed(&character, std::slice::from_ref(&tag)), did);
+    }
+
+    /// GAMEPLAY.md 5.10: for any play, a passage with several tags passes exactly when the
+    /// player did every deed. No tag is no deed, and one tag or two are likely.
+    #[test]
+    fn a_passage_passes_the_gate_exactly_when_the_player_did_every_deed(
+        acts in prop::collection::vec((act(), fold_gap()), 0..60),
+        tags in prop::collection::vec(outcome_tag(), 0..3),
+    ) {
+        let character = acted(&acts);
+        let did = |tag: &Dependency| match tag {
+            Dependency::Foe(name) => character.foes_defeated().contains(&name.as_str()),
+            Dependency::Quest(title) => character.game_quests_done().contains(&title.as_str()),
+            Dependency::Unresolved => false,
+        };
+
+        prop_assert_eq!(outcome_allowed(&character, &tags), tags.iter().all(did));
     }
 
     /// The rule over ids: an unmet foe or quest never passes, for any facts.

@@ -4,10 +4,11 @@
 //! instance, and the story program shows it only until the player did that deed
 //! (`spoiler.rs`).
 
-use crate::check::words_of;
+use crate::ends::{self, holds_phrase};
 use crate::game_names;
+use crate::name_match::{Words, lower_words, words_in_case};
 use crate::narrator::MAX_LORE_CHARS;
-use crate::outcome_passages::{Npc, PageKind, RESULTS, holds_phrase, linked_foes, own_quest};
+use crate::outcome_passages::{Npc, PageKind, linked_foes, own_quest};
 use crate::pack::{Deed, Link, SetupFor};
 use crate::sentences::sentences;
 use crate::wikitext::Cites;
@@ -53,10 +54,9 @@ const PASSIVE_MARKS: [&str; 5] = ["been", "was", "were", "is", "are"];
 const COMMISSION_PHRASES: [&[&str]; 2] = [&["called", "upon"], &["calls", "upon"]];
 
 /// The verbs of an intent: the foe itself wants something. The foe comes before the verb:
-/// "VanCleef sought to overthrow Stormwind".
-const INTENTS: [&str; 10] = [
-    "seek", "seeks", "sought", "want", "wants", "wanted", "plans", "planned", "hoping", "hopes",
-];
+/// "VanCleef sought to overthrow Stormwind". A wish or a hope is no hook: "Thaurissan
+/// wanted to free his people" tells a love story.
+const INTENTS: [&str; 5] = ["seek", "seeks", "sought", "plans", "planned"];
 
 /// A commission or an intent asks for one of these deeds within reach of its "to".
 /// "ordered the shaman to transform his sons" asks for none of them.
@@ -95,6 +95,39 @@ const DEED_VERBS: [&str; 32] = [
     "claim",
 ];
 
+/// The deeds that bind a foe: the foe of a commission stands after one of these.
+/// "retrieve", "rescue", "free", "recover", "find", and "investigate" bind none: "to kill
+/// Thaurissan and retrieve Moira" asks for the defeat of Thaurissan only. "protect" and
+/// "guard" bind the ward of a foe.
+const HOSTILE_DEEDS: [&str; 20] = [
+    "kill",
+    "slay",
+    "destroy",
+    "defeat",
+    "stop",
+    "end",
+    "eliminate",
+    "assassinate",
+    "hunt",
+    "confront",
+    "attack",
+    "raid",
+    "assault",
+    "punish",
+    "weaken",
+    "overthrow",
+    "purge",
+    "conquer",
+    "protect",
+    "guard",
+];
+
+/// After "and", one of these starts no second deed: "to destroy the Brotherhood and the
+/// Edwin at their head".
+const NO_VERBS: [&str; 9] = [
+    "the", "a", "an", "his", "her", "their", "its", "all", "other",
+];
+
 /// "to" comes at most this many words after the verb, and the deed at most this many
 /// words after "to": "called upon the heroes of the Alliance to destroy".
 const REACH: usize = 8;
@@ -131,52 +164,13 @@ const PREMISES: [&[&str]; 22] = [
 /// "the plot of land" is no plot.
 const NO_PLOT: [&str; 2] = ["plot", "of"];
 
-/// Words of an end that the outcome detector does not count, because they need no doer.
-const MORE_ENDS: [&[&str]; 4] = [
-    &["brought", "back"],
-    &["beheaded"],
-    &["solved"],
-    &["death", "of"],
-];
-
-/// Words of a name that name no one alone: "Emperor Dagran Thaurissan" is "Thaurissan", not
-/// "Emperor".
-const TITLES: [&str; 22] = [
-    "lord",
-    "lady",
-    "king",
-    "queen",
-    "prince",
-    "princess",
-    "baron",
-    "captain",
-    "emperor",
-    "high",
-    "grand",
-    "general",
-    "commander",
-    "master",
-    "elder",
-    "chief",
-    "chieftain",
-    "warchief",
-    "the",
-    "of",
-    "devourer",
-    "herald",
-];
-
-/// Words inside a name that start no name: "Aku'mai the Devourer".
-const LINK_WORDS: [&str; 2] = ["the", "of"];
-
-/// A word of a name names its owner alone when it has at least this many letters.
-const NAME_WORD_CHARS: usize = 5;
-
 /// Where in a sentence the foe of a cue must stand.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Span {
-    /// After the word at this index: the deed of a commission.
-    After(usize),
+    /// From the word at this index to the end of its deed: the deed of a commission.
+    After(usize, usize),
+    /// A commission whose deed binds no foe: "sent a group to investigate".
+    NoFoe,
     /// Before the word at this index: the one with the intent.
     Before(usize),
     /// Between two words: "wants VanCleef dead".
@@ -199,39 +193,21 @@ pub fn setup_sentences(text: &str) -> Vec<&str> {
 /// has one, goes into the pack as a passage of its own (`window`).
 #[must_use]
 pub fn tells_an_end(text: &str) -> bool {
-    sentences(text).iter().any(|sentence| ends(sentence))
+    sentences(text)
+        .iter()
+        .any(|sentence| ends::tells_an_end(sentence))
 }
 
-/// A result after "be" is no end: "outsiders must be destroyed".
-fn ends(sentence: &str) -> bool {
-    let words = words_of(sentence);
-    let ended = |phrase: &&[&str]| {
-        (0..words.len()).any(|at| {
-            holds_phrase(&words[at..words.len().min(at + phrase.len())], phrase)
-                && (at == 0 || words[at - 1] != "be")
-        })
-    };
-    RESULTS.iter().any(ended) || MORE_ENDS.iter().any(ended)
+/// The sentence holds a cue of a setup: it asks for a deed, and tells none.
+#[must_use]
+pub fn asks(sentence: &str) -> bool {
+    !spans_of(sentence).is_empty()
 }
 
 fn before_the_end(text: &str) -> Vec<&str> {
     sentences(text)
         .into_iter()
-        .take_while(|sentence| !ends(sentence))
-        .collect()
-}
-
-/// The words of a sentence with their case, so "to Stormwind" is no verb.
-fn words_in_case(text: &str) -> Vec<&str> {
-    text.split(|c: char| !(c.is_alphanumeric() || c == '\'' || c == '\u{2019}'))
-        .filter(|word| !word.is_empty())
-        .collect()
-}
-
-fn lower_words(sentence: &str) -> Vec<String> {
-    words_in_case(sentence)
-        .iter()
-        .map(|word| word.to_lowercase())
+        .take_while(|sentence| !ends::tells_an_end(sentence))
         .collect()
 }
 
@@ -245,7 +221,7 @@ fn spans_of(sentence: &str) -> Vec<Span> {
         if let Some(to) = to
             && is_commission_at(&lower, at)
         {
-            spans.push(Span::After(to));
+            spans.push(deed_span(&words, &lower, to));
             let passive = at > 0 && PASSIVE_MARKS.contains(&lower[at - 1].as_str());
             if passive {
                 spans.push(Span::Before(at));
@@ -288,6 +264,30 @@ fn deed_after_to(words: &[&str], lower: &[String], from: usize) -> Option<usize>
             .any(|word| DEED_VERBS.contains(&word.as_str()));
         starts_a_verb && asks_a_deed
     })
+}
+
+/// The span of the deed after "to": up to the next "and" before a second verb, after the
+/// verb of the deed. "to venture into the prison and kill Bazil" keeps "kill Bazil". A
+/// deed that binds no foe gives `Span::NoFoe`, unless it asks for a head: "to retrieve
+/// Rend's head".
+fn deed_span(words: &[&str], lower: &[String], to: usize) -> Span {
+    let first_deed = (to + 1..lower.len()).find(|at| DEED_VERBS.contains(&lower[*at].as_str()));
+    let second_verb = (first_deed.unwrap_or(lower.len())..lower.len()).find(|at| {
+        lower[*at] == "and"
+            && words
+                .get(at + 1)
+                .is_some_and(|next| next.starts_with(char::is_lowercase))
+            && !NO_VERBS.contains(&lower[at + 1].as_str())
+    });
+    let end = second_verb.unwrap_or(lower.len());
+    let deed = &lower[to + 1..end];
+    let verb = deed.iter().find(|word| DEED_VERBS.contains(&word.as_str()));
+    let hostile = verb.is_some_and(|verb| HOSTILE_DEEDS.contains(&verb.as_str()));
+    if hostile || deed.iter().any(|word| word == "head") {
+        Span::After(to, end)
+    } else {
+        Span::NoFoe
+    }
 }
 
 fn dead_after(lower: &[String], at: usize) -> Option<usize> {
@@ -359,10 +359,8 @@ pub fn setup_for(
         .or_else(|| own_foe_by_its_instance(found, instances, &kind_of))
         .map(Deed::Foe)
         .or_else(|| {
-            has_commission(found.text)
-                .then(|| own_quest(found.cites, &kind_of))
-                .flatten()
-                .map(Deed::Quest)
+            let commission = first_commission(found.text)?;
+            own_quest(&found.cites.of_sentence(commission), &kind_of).map(Deed::Quest)
         })?;
     let instance = instance_of(&deed, found.links, instances)?;
     Some(SetupFor { deed, instance })
@@ -380,7 +378,7 @@ fn own_foe_by_its_instance(
     let named = setup_sentences(found.text).into_iter().any(|sentence| {
         let lower = lower_words(sentence);
         spans_of(sentence).into_iter().any(|span| {
-            let words = span_words(&lower, span);
+            let words = lower.get(span_range(span, lower.len())).unwrap_or_default();
             places.iter().any(|place| holds_name(words, place))
         })
     });
@@ -394,34 +392,39 @@ fn holds_name(words: &[String], name: &str) -> bool {
     !bare.is_empty() && words.windows(bare.len()).any(|window| window == bare)
 }
 
-fn has_commission(text: &str) -> bool {
+/// The first setup sentence with a commission: the quest of a setup is the one that it
+/// cites.
+fn first_commission(text: &str) -> Option<&str> {
     setup_sentences(text)
-        .iter()
-        .any(|sentence| is_commission(sentence))
+        .into_iter()
+        .find(|sentence| is_commission(sentence))
 }
 
 fn is_commission(sentence: &str) -> bool {
     spans_of(sentence)
         .iter()
-        .any(|span| matches!(span, Span::After(_)))
+        .any(|span| matches!(span, Span::After(..) | Span::NoFoe))
 }
 
 /// The foe that the first setup sentence names in the span of a cue. Of two foes in one
-/// span, the one that comes first wins: "sent a team to kill Thaurissan and retrieve
-/// Moira" sets up the defeat of Thaurissan.
+/// span, the one that comes first wins: "sent a team to kill Thaurissan and destroy the
+/// Brotherhood" sets up the defeat of Thaurissan.
 fn named_foe(text: &str, foes: &[Npc]) -> Option<String> {
     setup_sentences(text)
         .into_iter()
-        .find_map(|sentence| first_named(sentence, foes))
+        .find_map(|sentence| asked_foe(sentence, foes))
+        .map(|foe| foe.name.clone())
 }
 
-fn first_named(sentence: &str, foes: &[Npc]) -> Option<String> {
-    let lower = lower_words(sentence);
+/// The foe that a cue of the sentence asks to end, the first in the sentence, or None.
+#[must_use]
+pub fn asked_foe<'a>(sentence: &str, foes: &'a [Npc]) -> Option<&'a Npc> {
+    let words = Words::of(sentence);
     let mut best: Option<(usize, &Npc)> = None;
     for span in spans_of(sentence) {
-        let words = span_words(&lower, span);
+        let range = span_range(span, words.len());
         for foe in foes {
-            let Some(at) = name_at(words, &foe.name) else {
+            let Some(at) = words.name_at(range.clone(), &foe.name) else {
                 continue;
             };
             if best.is_none_or(|(kept, _)| at < kept) {
@@ -429,63 +432,25 @@ fn first_named(sentence: &str, foes: &[Npc]) -> Option<String> {
             }
         }
     }
-    best.map(|(_, foe)| foe.name.clone())
+    best.map(|(_, foe)| foe)
 }
 
 /// The sentence sets up the defeat of `foe`: one of its cues names the foe in its span.
 fn sets_up(sentence: &str, foe: &str) -> bool {
-    let lower = lower_words(sentence);
+    let words = Words::of(sentence);
     spans_of(sentence)
         .into_iter()
-        .any(|span| names_in(span_words(&lower, span), foe))
+        .any(|span| words.names(span_range(span, words.len()), foe))
 }
 
-fn span_words(lower: &[String], span: Span) -> &[String] {
-    let range = match span {
-        Span::After(at) => at..lower.len(),
+fn span_range(span: Span, len: usize) -> std::ops::Range<usize> {
+    match span {
+        Span::After(at, end) => at..end,
+        Span::NoFoe => 0..0,
         Span::Before(at) => 0..at,
         Span::Between(from, to) => from..to,
-        Span::Anywhere => 0..lower.len(),
-    };
-    lower.get(range).unwrap_or_default()
-}
-
-/// The words name the person: the whole name, or one long word of it that is no title, so
-/// "VanCleef" names "Edwin VanCleef".
-fn names_in(words: &[String], name: &str) -> bool {
-    name_at(words, name).is_some()
-}
-
-/// The index of the first word of `words` that names the person.
-fn name_at(words: &[String], name: &str) -> Option<usize> {
-    let parts: Vec<String> = name.split_whitespace().map(str::to_lowercase).collect();
-    let whole = (!parts.is_empty())
-        .then(|| {
-            words
-                .windows(parts.len())
-                .position(|window| window == parts)
-        })
-        .flatten();
-    // "Emperor Thaurissan" is not "Moira Thaurissan": a title before the word must be one
-    // of this name.
-    let titled_other = |at: usize| {
-        at > 0 && TITLES.contains(&words[at - 1].as_str()) && !parts.contains(&words[at - 1])
-    };
-    let significant = parts
-        .iter()
-        .filter(|part| part.chars().count() >= NAME_WORD_CHARS)
-        .filter(|part| !TITLES.contains(&part.as_str()))
-        .any(|part| (0..words.len()).any(|at| words[at] == **part && !titled_other(at)));
-    if !significant {
-        return whole;
+        Span::Anywhere => 0..len,
     }
-    // A title counts for where the name starts: "Emperor Thaurissan" starts at "Emperor".
-    let start = parts
-        .iter()
-        .filter(|part| !LINK_WORDS.contains(&part.as_str()))
-        .filter_map(|part| words.iter().position(|word| word == part))
-        .min();
-    whole.into_iter().chain(start).min()
 }
 
 fn instance_of(deed: &Deed, links: &[Link], instances: &Instances) -> Option<String> {

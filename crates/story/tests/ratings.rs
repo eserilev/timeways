@@ -37,7 +37,7 @@ fn paladin(folder: &Path) -> Story {
         links: vec![Link::Common],
         origin: Origin::Pack,
         about: Some("Stormwind City".to_string()),
-        depends_on: None,
+        depends_on: Vec::new(),
         setup_for: None,
     };
     Pack::write(&pack_path, &[stormwind]).unwrap();

@@ -60,7 +60,7 @@ fn instances() -> Instances {
 fn links(names: &[&str]) -> Cites {
     Cites {
         links: names.iter().map(ToString::to_string).collect(),
-        refs: Vec::new(),
+        ..Cites::default()
     }
 }
 
@@ -201,8 +201,8 @@ fn a_title_of_another_name_never_names_the_foe() {
 fn a_commission_with_no_foe_takes_the_quest_that_the_line_cites() {
     let text = "The Explorers' League sent a team to investigate the strange happenings below.";
     let cites = Cites {
-        links: Vec::new(),
         refs: vec!["Into the Testvault".to_string()],
+        ..Cites::default()
     };
 
     let found = found_setup(text, &cites, "Testvault", &["Testvault"]);
@@ -260,7 +260,7 @@ fn stoutmantle_asks() -> Passage {
         links: vec![Link::Place("Westfall".to_string())],
         origin: Origin::Pack,
         about: None,
-        depends_on: None,
+        depends_on: Vec::new(),
         setup_for: Some(vancleef_setup()),
     }
 }

@@ -182,7 +182,7 @@ fn passage(text: &str) -> Passage {
         links: vec![Link::Place("Goldshire".to_string())],
         origin: Origin::Pack,
         about: None,
-        depends_on: None,
+        depends_on: Vec::new(),
         setup_for: None,
     }
 }

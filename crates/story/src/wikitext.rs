@@ -1,5 +1,7 @@
 //! The wikitext of a wiki page: its sections, its redirect, its book, and its plain words.
 
+use crate::check::words_of;
+
 /// The marks that `plain` never leaves, even from broken markup.
 const MARKUP_MARKS: [&str; 5] = ["[[", "]]", "{{", "}}", "''"];
 
@@ -198,27 +200,87 @@ pub fn template_fields(text: &str, name: &str) -> Option<Vec<(String, String)>> 
 
 /// The pages that one line of wikitext links to, and the pages that its references cite,
 /// each in the order of the line. A link inside a reference is a citation, not a link.
+/// `parts` cuts the line after each group of references, so a sentence gets the references
+/// right after it (`of_sentence`).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Cites {
     pub links: Vec<String>,
     pub refs: Vec<String>,
+    pub parts: Vec<CitedPart>,
+}
+
+/// A part of a line up to the end of a group of references: its plain text, its links, and
+/// the pages that the group cites.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct CitedPart {
+    pub text: String,
+    pub links: Vec<String>,
+    pub refs: Vec<String>,
+}
+
+/// The last words of a sentence that find its part.
+const SENTENCE_TAIL_WORDS: usize = 4;
+
+impl Cites {
+    /// The links and the references of the part that ends the sentence: "brought the
+    /// Grimtotem to justice.<ref>...</ref>" cites what its own group cites, never a group of
+    /// another sentence. Cites with no parts, made by hand, are one part.
+    #[must_use]
+    pub fn of_sentence(&self, sentence: &str) -> Cites {
+        if self.parts.is_empty() {
+            return self.clone();
+        }
+        let words = words_of(sentence);
+        let tail = &words[words.len().saturating_sub(SENTENCE_TAIL_WORDS)..];
+        let part = self.parts.iter().find(|part| {
+            let part_words = words_of(&part.text);
+            !tail.is_empty() && part_words.windows(tail.len()).any(|window| window == tail)
+        });
+        part.map(|part| Cites {
+            links: part.links.clone(),
+            refs: part.refs.clone(),
+            parts: Vec::new(),
+        })
+        .unwrap_or_default()
+    }
 }
 
 #[must_use]
 pub fn cites(line: &str) -> Cites {
     let mut cites = Cites::default();
+    let mut part = CitedPart::default();
     let mut rest = line;
     while let Some(start) = rest.find("<ref") {
-        cites.links.extend(link_targets(&rest[..start]));
+        let before = &rest[..start];
+        if !before.trim().is_empty() && !part.refs.is_empty() {
+            cites.parts.push(std::mem::take(&mut part));
+        }
+        part.text.push_str(&plain(before));
+        part.links.extend(link_targets(before));
         let span = &rest[start..];
         let Some(len) = reference_end(span) else {
             rest = &span["<ref".len()..];
             continue;
         };
-        cites.refs.extend(link_targets(&span[..len]));
+        part.refs.extend(link_targets(&span[..len]));
         rest = &span[len..];
     }
-    cites.links.extend(link_targets(rest));
+    if !rest.trim().is_empty() && !part.refs.is_empty() {
+        cites.parts.push(std::mem::take(&mut part));
+    }
+    part.text.push_str(&plain(rest));
+    part.links.extend(link_targets(rest));
+    cites.parts.push(part);
+    cites.links = cites
+        .parts
+        .iter()
+        .flat_map(|part| part.links.clone())
+        .collect();
+    cites.refs = cites
+        .parts
+        .iter()
+        .flat_map(|part| part.refs.clone())
+        .collect();
     cites
 }
 

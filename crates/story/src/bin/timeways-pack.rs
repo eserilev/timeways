@@ -110,7 +110,9 @@ impl PassageLine {
         let depends_on = self
             .depends_on
             .map(DependencyLine::into_dependency)
-            .or(told_deed);
+            .or(told_deed)
+            .into_iter()
+            .collect();
         let setup_for = self.setup_for.map(SetupLine::into_setup).transpose()?;
         Ok(Passage {
             text: self.text,
@@ -199,28 +201,41 @@ fn from_dump(dump: &Path, pack: &Path) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-/// Each outcome passage with what it depends on, for a check by eye.
+/// Each outcome passage with each deed that it tells, for a check by eye. The last line
+/// counts the tags of each kind, and the passages with two deeds or more.
 fn print_outcomes(passages: &[Passage]) {
     let mut counts = [0usize; 3];
-    for passage in passages {
-        let Some(dependency) = &passage.depends_on else {
-            continue;
-        };
-        let (index, kind, name) = match dependency {
-            Dependency::Foe(name) => (0, "foe", name.as_str()),
-            Dependency::Quest(title) => (1, "quest", title.as_str()),
-            Dependency::Unresolved => (2, "unresolved", ""),
-        };
-        counts[index] += 1;
+    let mut tagged = 0;
+    let mut with_two = 0;
+    for passage in passages
+        .iter()
+        .filter(|passage| !passage.depends_on.is_empty())
+    {
+        tagged += 1;
+        if passage.depends_on.len() > 1 {
+            with_two += 1;
+        }
+        let mut shown = Vec::new();
+        for dependency in &passage.depends_on {
+            let (index, tag) = match dependency {
+                Dependency::Foe(name) => (0, format!("foe  {name}")),
+                Dependency::Quest(title) => (1, format!("quest  {title}")),
+                Dependency::Unresolved => (2, "unresolved".to_string()),
+            };
+            counts[index] += 1;
+            shown.push(tag);
+        }
         println!(
-            "outcome  {kind}  {name}  |  {}  |  {}",
-            passage.source, passage.text
+            "outcome  {}  |  {}  |  {}",
+            shown.join(" + "),
+            passage.source,
+            passage.text
         );
     }
     let [foes, quests, unresolved] = counts;
     println!(
-        "tagged {} outcome passages: {foes} by foe, {quests} by quest, {unresolved} unresolved",
-        foes + quests + unresolved
+        "tagged {tagged} outcome passages, {with_two} with two deeds or more: \
+         {foes} tags by foe, {quests} by quest, {unresolved} unresolved"
     );
 }
 

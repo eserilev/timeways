@@ -16,7 +16,7 @@ fn passage(text: &str, source: &str, links: Vec<Link>) -> Passage {
         links,
         origin: Origin::Pack,
         about: None,
-        depends_on: None,
+        depends_on: Vec::new(),
         setup_for: None,
     }
 }
@@ -241,7 +241,7 @@ fn an_outcome_passage_comes_back_with_what_it_depends_on() {
     let passages: Vec<Passage> = tags
         .iter()
         .map(|tag| Passage {
-            depends_on: Some(tag.clone()),
+            depends_on: vec![tag.clone()],
             ..passage(
                 "The adventurers killed the test ooze.",
                 "https://example.test/1",

@@ -7,6 +7,11 @@
 # A game name never sits in two rows, and never is the wiki name of a row
 # (`the_game_names_are_a_function`).
 
+# Surnames of two people or more of the pack. Alone, such a word names no one, so the
+# kill of one never tells the end of the other. With a title of the name, it names its
+# person: "Emperor Thaurissan" is Dagran.
+shared = ["Thaurissan", "Bronzebeard", "Fordring", "Mograine", "Blackhand"]
+
 [[person]]
 wiki = "Sicco Thermaplugg"
 game = ["Mekgineer Thermaplugg"]

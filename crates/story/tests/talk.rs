@@ -26,7 +26,7 @@ fn a_prompt_holds_what_the_npc_knows_and_ends_with_the_words_of_the_player() {
         links: vec![Link::Place("Testvale".to_string())],
         origin: Origin::Pack,
         about: None,
-        depends_on: None,
+        depends_on: Vec::new(),
         setup_for: None,
     };
 
@@ -375,7 +375,7 @@ fn passage(text: &str) -> Passage {
         links: Vec::new(),
         origin: Origin::Pack,
         about: None,
-        depends_on: None,
+        depends_on: Vec::new(),
         setup_for: None,
     }
 }

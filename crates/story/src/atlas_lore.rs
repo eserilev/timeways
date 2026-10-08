@@ -110,7 +110,7 @@ fn more_to_learn(pack: &Pack, character: &Character, place: &str) -> Result<bool
 }
 
 fn can_open_later(character: &Character, passage: &Passage) -> bool {
-    let never = matches!(passage.depends_on, Some(Dependency::Unresolved))
+    let never = passage.depends_on.contains(&Dependency::Unresolved)
         || !spoiler::setup_allowed(character, passage.setup_for.as_ref());
     !never && !spoiler::may_show(character, passage)
 }

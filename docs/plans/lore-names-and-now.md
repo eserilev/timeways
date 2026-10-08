@@ -1,6 +1,6 @@
 # Plan: game names, the present of a line, and wrong deed tags
 
-Status: design review, 2026-10-07. Nothing here is built. The user decides the open questions of section 5. The facts come from the pack of 2026-10-07 (format 4, 1865 passages), the wiki dump of the build, and the Claude review run of 22 moments of that day.
+Status: design review, 2026-10-07. Built the same day: the game names of section 1, the tag fixes of section 3, and the outcome tag of every end. Section 2 is built apart (narrator-style.md). The user decides the open questions of section 5. The facts come from the pack of 2026-10-07 (format 4, 1865 passages), the wiki dump of the build, and the Claude review run of 22 moments of that day.
 
 The plan answers three proposals:
 

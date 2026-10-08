@@ -143,7 +143,7 @@ fn damaged_pack(lines: &[u8]) {
         links: vec![Link::Common],
         origin: Origin::Pack,
         about: None,
-        depends_on: None,
+        depends_on: Vec::new(),
         setup_for: None,
     };
     Pack::write(
@@ -175,8 +175,8 @@ fn damaged_pack(lines: &[u8]) {
         Ok(found) => {
             let fresh = Character::new();
             for passage in found {
-                let earned = outcome_allowed(&fresh, passage.depends_on.as_ref());
-                assert_eq!(earned, passage.depends_on.is_none(), "{passage:?}");
+                let earned = outcome_allowed(&fresh, &passage.depends_on);
+                assert_eq!(earned, passage.depends_on.is_empty(), "{passage:?}");
             }
         }
         Err(PackError::UnknownDependency { kind }) => assert_eq!(kind, "rumor"),
@@ -194,7 +194,7 @@ fn damaged_setups(lines: &[u8]) {
         links: vec![Link::Common],
         origin: Origin::Pack,
         about: None,
-        depends_on: None,
+        depends_on: Vec::new(),
         setup_for: None,
     };
     Pack::write(

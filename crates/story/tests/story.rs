@@ -25,7 +25,7 @@ fn passage(text: &str, source: &str, links: Vec<Link>) -> Passage {
         links,
         origin: Origin::Pack,
         about: None,
-        depends_on: None,
+        depends_on: Vec::new(),
         setup_for: None,
     }
 }
@@ -2667,7 +2667,7 @@ fn a_notice_never_pushes_a_full_journal_page_past_one_reply() {
 /// An outcome passage of the pack: it waits for the defeat of its foe, the kingpin.
 fn vancleef_falls() -> Passage {
     Passage {
-        depends_on: Some(Dependency::Foe("Edwin VanCleef".to_string())),
+        depends_on: vec![Dependency::Foe("Edwin VanCleef".to_string())],
         ..passage(
             "The adventurers liberated Moonbrook after they killed Edwin VanCleef in the Deadmines.",
             "the wiki page \"Moonbrook\"",
@@ -2704,7 +2704,7 @@ fn the_vancleef_passage_reaches_the_prompt_only_after_the_kill() {
 #[test]
 fn an_unresolved_outcome_passage_never_reaches_a_prompt() {
     let unresolved = Passage {
-        depends_on: Some(Dependency::Unresolved),
+        depends_on: vec![Dependency::Unresolved],
         ..vancleef_falls()
     };
     let mut story = story_with("outcome-unresolved", &[unresolved]);
@@ -2847,7 +2847,7 @@ fn each_later_entry_tells_lore_never_told_and_then_falls_silent() {
 /// An outcome passage of the Deadmines: it waits for the defeat of VanCleef.
 fn vancleef_falls_below() -> Passage {
     Passage {
-        depends_on: Some(Dependency::Foe("Edwin VanCleef".to_string())),
+        depends_on: vec![Dependency::Foe("Edwin VanCleef".to_string())],
         ..passage(
             "Adventurers killed Edwin VanCleef on his ship, and the Brotherhood lost its founder.",
             "the wiki page \"Deadmines\"",
@@ -2880,7 +2880,7 @@ fn after_the_kill_a_later_entry_skips_the_setup_and_tells_the_outcome() {
 #[test]
 fn an_outcome_after_the_kill_never_asks_for_a_foe_that_still_holds_the_place() {
     let sent_and_killed = Passage {
-        depends_on: Some(Dependency::Foe("Edwin VanCleef".to_string())),
+        depends_on: vec![Dependency::Foe("Edwin VanCleef".to_string())],
         ..passage(
             "Gryan Stoutmantle sent adventurers to kill Edwin VanCleef. They killed him on his ship.",
             "the wiki page \"Deadmines\"",
@@ -2898,13 +2898,34 @@ fn an_outcome_after_the_kill_never_asks_for_a_foe_that_still_holds_the_place() {
     assert!(!again.contains("still holds"), "{again}");
 }
 
+fn vancleef_page(title: &str) -> Option<timeways_story::outcome_passages::PageKind> {
+    use timeways_story::outcome_passages::{Npc, PageKind, Stance};
+    (title == "Edwin VanCleef").then(|| {
+        PageKind::Npc(Npc {
+            name: title.to_string(),
+            stance: Stance::Foe,
+        })
+    })
+}
+
 #[test]
-fn a_later_entry_never_tells_an_untagged_end_of_a_deed() {
-    let soldiers = passage(
-        "A group of Alliance soldiers killed Edwin VanCleef in the mine and took his head.",
-        "the wiki page \"Deadmines\"",
-        vec![place("The Deadmines")],
-    );
+fn a_later_entry_never_tells_the_end_of_a_boss_before_the_kill() {
+    let text = "A group of Alliance soldiers killed Edwin VanCleef in the mine and took his head.";
+    let paragraph = timeways_story::outcome_passages::Paragraph {
+        text,
+        cites: &timeways_story::wikitext::Cites::default(),
+        page: "Deadmines",
+        bosses: &["Edwin VanCleef".to_string()],
+        foes: &[],
+    };
+    let soldiers = Passage {
+        depends_on: timeways_story::outcome_passages::dependencies(&paragraph, vancleef_page),
+        ..passage(
+            text,
+            "the wiki page \"Deadmines\"",
+            vec![place("The Deadmines")],
+        )
+    };
     let mut story = story_with("entries-untagged-end", &[deadmines_lead(), soldiers]);
 
     let first = entry_prompt(&mut story, 2 * HOUR, 1);

@@ -621,11 +621,11 @@ fn moonbrook_dump(name: &str) -> std::path::PathBuf {
     )
 }
 
-fn depends_on_of<'a>(built: &'a [Passage], words: &str) -> Option<&'a Dependency> {
+fn depends_on_of<'a>(built: &'a [Passage], words: &str) -> &'a [Dependency] {
     built
         .iter()
         .find(|passage| passage.text.contains(words))
-        .and_then(|passage| passage.depends_on.as_ref())
+        .map_or(&[], |passage| passage.depends_on.as_slice())
 }
 
 #[test]
@@ -636,7 +636,7 @@ fn an_outcome_passage_depends_on_the_known_boss_that_it_names() {
 
     assert_eq!(
         depends_on_of(&built.passages, "liberated Moonbrook"),
-        Some(&Dependency::Foe("Test Kingpin".to_string()))
+        [Dependency::Foe("Test Kingpin".to_string())]
     );
 }
 
@@ -648,7 +648,7 @@ fn an_outcome_passage_depends_on_the_quest_that_it_cites() {
 
     assert_eq!(
         depends_on_of(&built.passages, "stolen linen"),
-        Some(&Dependency::Quest("Red Linen Goods".to_string()))
+        [Dependency::Quest("Red Linen Goods".to_string())]
     );
 }
 
@@ -658,7 +658,7 @@ fn a_passage_with_no_deed_depends_on_nothing() {
 
     let built = from_dump(&dump, &sources(MOONBROOK)).unwrap();
 
-    assert_eq!(depends_on_of(&built.passages, "visit the inn"), None);
+    assert!(depends_on_of(&built.passages, "visit the inn").is_empty());
 }
 
 #[test]
@@ -745,7 +745,7 @@ fn the_setup_of_an_outcome_paragraph_comes_as_a_passage_of_its_own_right_after_i
     let setup = &built.passages[at + 1];
     assert_eq!(
         outcome.depends_on,
-        Some(Dependency::Foe("Test Kingpin".to_string()))
+        [Dependency::Foe("Test Kingpin".to_string())]
     );
     assert_eq!(outcome.setup_for, None);
     assert_eq!(
@@ -754,7 +754,7 @@ fn the_setup_of_an_outcome_paragraph_comes_as_a_passage_of_its_own_right_after_i
          to destroy Test Kingpin."
     );
     assert_eq!(setup.setup_for, Some(kingpin_setup()));
-    assert_eq!(setup.depends_on, None);
+    assert!(setup.depends_on.is_empty());
     assert_eq!(setup.links, outcome.links);
 }
 

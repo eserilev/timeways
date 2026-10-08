@@ -109,10 +109,11 @@ pub enum Reach {
 /// visited, and so does the zone around it.
 #[must_use]
 pub fn reach_of(passage: &Passage, path: &[Stop], stop: usize) -> Reach {
-    match passage.depends_on {
-        Some(Dependency::Unresolved) => return Reach::Never,
-        Some(_) => return Reach::Outcome,
-        None => {}
+    if passage.depends_on.contains(&Dependency::Unresolved) {
+        return Reach::Never;
+    }
+    if !passage.depends_on.is_empty() {
+        return Reach::Outcome;
     }
     let known = |link: &Link| match link {
         Link::Common => true,
@@ -297,7 +298,7 @@ mod tests {
             links,
             origin: Origin::Pack,
             about: None,
-            depends_on: None,
+            depends_on: Vec::new(),
             setup_for: None,
         }
     }
@@ -403,7 +404,7 @@ mod tests {
     fn an_outcome_passage_waits_for_its_deed() {
         let path = path();
         let mut outcome = passage(vec![place("The Deadmines")]);
-        outcome.depends_on = Some(Dependency::Foe("Edwin VanCleef".to_string()));
+        outcome.depends_on = vec![Dependency::Foe("Edwin VanCleef".to_string())];
 
         let reach = reach_of(&outcome, &path, stop_of(&path, "The Deadmines"));
 
@@ -414,7 +415,7 @@ mod tests {
     fn an_unresolved_passage_never_shows() {
         let path = path();
         let mut unresolved = passage(vec![place("Westfall")]);
-        unresolved.depends_on = Some(Dependency::Unresolved);
+        unresolved.depends_on = vec![Dependency::Unresolved];
 
         assert_eq!(reach_of(&unresolved, &path, 1), Reach::Never);
     }
@@ -423,7 +424,7 @@ mod tests {
     fn a_place_with_no_usable_passage_is_silent() {
         let path = path();
         let mut outcome = passage(vec![place("Duskwood")]);
-        outcome.depends_on = Some(Dependency::Quest("The Night Watch".to_string()));
+        outcome.depends_on = vec![Dependency::Quest("The Night Watch".to_string())];
 
         let counts = counts_of(&[outcome], &path, stop_of(&path, "Duskwood"));
 

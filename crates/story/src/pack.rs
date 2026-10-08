@@ -7,8 +7,9 @@ use std::path::Path;
 use thiserror::Error;
 
 /// A pack of another version gets refused, never guessed at. Format 2 added `about`,
-/// format 3 added `depends_on`, and format 4 added `setup_for`.
-const FORMAT_VERSION: i64 = 4;
+/// format 3 added `depends_on`, format 4 added `setup_for`, and format 5 gave a passage
+/// one `depends_on` row for each deed that it tells.
+const FORMAT_VERSION: i64 = 5;
 
 const SCHEMA: &str = "
     CREATE TABLE passage (
@@ -24,9 +25,10 @@ const SCHEMA: &str = "
         name TEXT NOT NULL
     );
     CREATE TABLE depends_on (
-        passage INTEGER PRIMARY KEY REFERENCES passage (id),
+        passage INTEGER NOT NULL REFERENCES passage (id),
         kind TEXT NOT NULL,
-        name TEXT NOT NULL
+        name TEXT NOT NULL,
+        PRIMARY KEY (passage, kind, name)
     );
     CREATE TABLE setup_for (
         passage INTEGER PRIMARY KEY REFERENCES passage (id),
@@ -59,10 +61,10 @@ pub struct Passage {
     /// narrator takes the own page of a place first (GAMEPLAY.md 3.2).
     #[serde(skip)]
     pub about: Option<String>,
-    /// The deed of adventurers that the passage tells, or None for no deed. The passage
-    /// waits until the player did that deed (GAMEPLAY.md 5.10).
+    /// Each deed of adventurers that the passage tells, or none. The passage waits until
+    /// the player did every one of them (GAMEPLAY.md 5.10).
     #[serde(skip)]
-    pub depends_on: Option<Dependency>,
+    pub depends_on: Vec<Dependency>,
     /// The deed that the passage sets up in a dungeon or a raid, or None for no setup. The
     /// passage goes stale once the player did that deed (GAMEPLAY.md 5.10).
     #[serde(skip)]
@@ -305,14 +307,17 @@ impl Pack {
         Ok(links)
     }
 
-    fn depends_on(&self, passage: i64) -> Result<Option<Dependency>, PackError> {
-        let mut statement = self
-            .connection
-            .prepare_cached("SELECT kind, name FROM depends_on WHERE passage = ?1")?;
-        let row = statement
-            .query_row([passage], |row| Ok((row.get(0)?, row.get(1)?)))
-            .optional()?;
-        row.map(|(kind, name)| dependency(kind, name)).transpose()
+    fn depends_on(&self, passage: i64) -> Result<Vec<Dependency>, PackError> {
+        let mut statement = self.connection.prepare_cached(
+            "SELECT kind, name FROM depends_on WHERE passage = ?1 ORDER BY rowid",
+        )?;
+        let rows = statement.query_map([passage], |row| Ok((row.get(0)?, row.get(1)?)))?;
+        let mut tags = Vec::new();
+        for row in rows {
+            let (kind, name): (String, String) = row?;
+            tags.push(dependency(kind, name)?);
+        }
+        Ok(tags)
     }
 
     fn setup_for(&self, passage: i64) -> Result<Option<SetupFor>, PackError> {
@@ -355,14 +360,14 @@ fn insert(connection: &Connection, passage: &Passage) -> Result<(), PackError> {
             params![id, kind, name],
         )?;
     }
-    if let Some(dependency) = &passage.depends_on {
+    for dependency in &passage.depends_on {
         let (kind, name) = match dependency {
             Dependency::Foe(name) => (FOE, name.as_str()),
             Dependency::Quest(name) => (QUEST, name.as_str()),
             Dependency::Unresolved => (UNRESOLVED, ""),
         };
         connection.execute(
-            "INSERT INTO depends_on (passage, kind, name) VALUES (?1, ?2, ?3)",
+            "INSERT OR IGNORE INTO depends_on (passage, kind, name) VALUES (?1, ?2, ?3)",
             params![id, kind, name],
         )?;
     }

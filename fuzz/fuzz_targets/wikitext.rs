@@ -12,7 +12,7 @@ use libfuzzer_sys::fuzz_target;
 use std::collections::BTreeSet;
 use timeways_story::dump::{xml_scan, xml_texts};
 use timeways_story::game_talk::{Cut, cut_game_talk};
-use timeways_story::outcome_passages::{PageKind, dependency, is_outcome, page_kind};
+use timeways_story::outcome_passages::{PageKind, Paragraph, dependencies, may_tell_an_end, page_kind};
 use timeways_story::pack::{Deed, Dependency, Link};
 use timeways_story::setup_passages::{Found, Instances, setup_for, tells_an_end, window};
 use timeways_story::pack_sources::paragraphs;
@@ -107,7 +107,7 @@ fn outcome_of(text: &str) {
                 .all(|title| !title.is_empty())
         );
         let paragraph = plain(line);
-        if !is_outcome(&paragraph) {
+        if !may_tell_an_end(&paragraph) {
             continue;
         }
         let names: Vec<String> = match &kind {
@@ -115,11 +115,23 @@ fn outcome_of(text: &str) {
             PageKind::Quest(quest) => vec![quest.name.clone()],
             PageKind::Other => Vec::new(),
         };
-        match dependency(&paragraph, &cited, "Test Page (2)", |_| Some(kind.clone())) {
-            Dependency::Foe(name) | Dependency::Quest(name) => {
-                assert!(names.contains(&name), "{name} is no cited page");
+        let found = Paragraph {
+            text: &paragraph,
+            cites: &cited,
+            page: "Test Page (2)",
+            bosses: &[],
+            foes: &[],
+        };
+        let tags = dependencies(&found, |_| Some(kind.clone()));
+        let mut seen = BTreeSet::new();
+        for tag in &tags {
+            assert!(seen.insert(format!("{tag:?}")), "{tag:?} twice in {tags:?}");
+            match tag {
+                Dependency::Foe(name) | Dependency::Quest(name) => {
+                    assert!(names.contains(name), "{name} is no cited page");
+                }
+                Dependency::Unresolved => assert_eq!(tags.len(), 1, "{tags:?}"),
             }
-            Dependency::Unresolved => {}
         }
     }
 }

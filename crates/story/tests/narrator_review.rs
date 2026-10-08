@@ -29,7 +29,7 @@ fn westfall() -> Passage {
         links: vec![Link::Place("Westfall".to_string())],
         origin: Origin::Pack,
         about: None,
-        depends_on: None,
+        depends_on: Vec::new(),
         setup_for: None,
     }
 }
@@ -142,7 +142,7 @@ fn mine_passage(text: &str, about: Option<&str>) -> Passage {
         links: vec![Link::Place("The Deadmines".to_string())],
         origin: Origin::Pack,
         about: about.map(str::to_string),
-        depends_on: None,
+        depends_on: Vec::new(),
         setup_for: None,
     }
 }

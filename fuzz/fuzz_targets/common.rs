@@ -17,7 +17,7 @@ pub fn pack() -> Pack {
             links: vec![Link::Place(place.to_string())],
             origin: Origin::Pack,
             about: Some(place.to_string()),
-            depends_on: None,
+            depends_on: Vec::new(),
             setup_for: None,
         };
         let passages = [

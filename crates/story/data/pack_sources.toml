@@ -754,6 +754,7 @@ title = "Stromgarde Keep"
 lead = true
 sections = ["History", "Ancient times", "Founding", "Decline", "Second War", "World of Warcraft"]
 places = ["Stromgarde Keep"]
+foes = ["Galen Trollbane"]
 
 [[pages]]
 title = "Hammerfall"
@@ -1274,12 +1275,14 @@ title = "Shadowfang Keep (Classic)"
 lead = true
 sections = ["History", "Overview", "Geography"]
 places = ["Shadowfang Keep"]
+foes = ["Archmage Arugal"]
 
 [[pages]]
 title = "Shadowfang Keep"
 lead = true
 sections = ["History", "Overview", "Geography"]
 places = ["Shadowfang Keep"]
+foes = ["Archmage Arugal"]
 
 [[pages]]
 title = "Blackfathom Deeps (Classic)"
@@ -1560,6 +1563,7 @@ title = "Defias Brotherhood"
 lead = true
 sections = ["History", "Formation", "World of Warcraft"]
 places = ["Westfall"]
+foes = ["Edwin VanCleef"]
 
 [[pages]]
 title = "Scarlet Crusade"
@@ -2059,6 +2063,8 @@ terms = [
     "Ahn'Qiraj",
     'Hakkar.{0,3}s defeat',
     "Hakkar returned",
+    # The return of Hakkar comes after Molten Core (docs/plans/lore-names-and-now.md 3.2).
+    'rebirth the Blood God',
     # The keepers of time stay unnamed (crates/story/data/later_names.txt).
     "Caverns of Time",
     "Infinite dragonflight",
@@ -2066,6 +2072,9 @@ terms = [
     "timeline",
     # Later wars, places, and people.
     "Fourth War",
+    "war in Draenor",
+    # The fake Thermaplugg of Gnomeregan comes with a later patch.
+    "facsimile",
     "Shattering",
     "Deathwing's (return|defeat|emergence)",
     "war against Deathwing",

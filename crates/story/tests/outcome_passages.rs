@@ -10,7 +10,7 @@ use timeways_story::character::Character;
 use timeways_story::input::GameQuestKind;
 use timeways_story::narrator_lore::lore_about;
 use timeways_story::outcome_passages::{
-    Chain, Npc, PageKind, Quest, Stance, Title, dependency, is_outcome, page_kind,
+    Chain, Npc, PageKind, Paragraph, Quest, Stance, Title, dependencies, is_outcome, page_kind,
     with_known_bosses,
 };
 use timeways_story::pack::{Dependency, Link, Origin, Pack, Passage};
@@ -40,7 +40,25 @@ fn cites(links: &[&str], refs: &[&str]) -> Cites {
     Cites {
         links: links.iter().map(ToString::to_string).collect(),
         refs: refs.iter().map(ToString::to_string).collect(),
+        ..Cites::default()
     }
+}
+
+/// The deeds of a paragraph of `page`, with no known boss and no foe of the list.
+fn dependency(
+    text: &str,
+    cites: &Cites,
+    page: &str,
+    kind_of: impl Fn(&str) -> Option<PageKind>,
+) -> Vec<Dependency> {
+    let paragraph = Paragraph {
+        text,
+        cites,
+        page,
+        bosses: &[],
+        foes: &[],
+    };
+    dependencies(&paragraph, kind_of)
 }
 
 /// The pages of a small invented wiki.
@@ -114,7 +132,7 @@ fn a_foe_that_the_deed_names_is_what_the_passage_depends_on() {
 
     let found = dependency(VANCLEEF_FALLS, &links, "Moonbrook", kind_of);
 
-    assert_eq!(found, Dependency::Foe("Edwin VanCleef".to_string()));
+    assert_eq!(found, [Dependency::Foe("Edwin VanCleef".to_string())]);
 }
 
 #[test]
@@ -128,7 +146,7 @@ fn a_friend_that_the_deed_names_is_no_foe() {
         kind_of,
     );
 
-    assert_eq!(found, Dependency::Unresolved);
+    assert_eq!(found, [Dependency::Unresolved]);
 }
 
 #[test]
@@ -138,7 +156,7 @@ fn a_cited_quest_that_ends_its_chain_ties_the_deed() {
 
     let found = dependency(text, &citations, "Moonbrook", kind_of);
 
-    assert_eq!(found, Dependency::Quest("Red Linen Goods".to_string()));
+    assert_eq!(found, [Dependency::Quest("Red Linen Goods".to_string())]);
 }
 
 #[test]
@@ -152,7 +170,7 @@ fn a_quest_in_the_middle_of_a_chain_ties_nothing() {
         kind_of,
     );
 
-    assert_eq!(found, Dependency::Unresolved);
+    assert_eq!(found, [Dependency::Unresolved]);
 }
 
 #[test]
@@ -166,17 +184,17 @@ fn a_quest_whose_title_other_quests_share_ties_nothing() {
         kind_of,
     );
 
-    assert_eq!(found, Dependency::Unresolved);
+    assert_eq!(found, [Dependency::Unresolved]);
 }
 
 #[test]
-fn a_shared_quest_title_leaves_the_deed_to_a_linked_foe() {
+fn a_deed_that_names_no_foe_never_falls_to_a_foe_that_the_line_only_links() {
     let text = "He was killed at the hands of adventurers.";
     let citations = cites(&["Edwin VanCleef"], &["The Defias Brotherhood (7)"]);
 
     let found = dependency(text, &citations, "Moonbrook", kind_of);
 
-    assert_eq!(found, Dependency::Foe("Edwin VanCleef".to_string()));
+    assert_eq!(found, [Dependency::Unresolved]);
 }
 
 #[test]
@@ -185,7 +203,7 @@ fn the_page_of_a_foe_is_what_its_own_deed_depends_on() {
 
     let found = dependency(text, &cites(&["Mr. Smite"], &[]), "Edwin VanCleef", kind_of);
 
-    assert_eq!(found, Dependency::Foe("Edwin VanCleef".to_string()));
+    assert_eq!(found, [Dependency::Foe("Edwin VanCleef".to_string())]);
 }
 
 #[test]
@@ -194,7 +212,7 @@ fn a_deed_with_no_foe_and_no_quest_is_unresolved() {
 
     let found = dependency(text, &Cites::default(), "Orgrimmar", kind_of);
 
-    assert_eq!(found, Dependency::Unresolved);
+    assert_eq!(found, [Dependency::Unresolved]);
 }
 
 #[test]
@@ -246,7 +264,7 @@ fn vancleef_falls() -> Passage {
         links: vec![Link::Place("Moonbrook".to_string())],
         origin: Origin::Pack,
         about: Some("Moonbrook".to_string()),
-        depends_on: Some(Dependency::Foe("Edwin VanCleef".to_string())),
+        depends_on: vec![Dependency::Foe("Edwin VanCleef".to_string())],
         setup_for: None,
     }
 }
@@ -279,13 +297,13 @@ fn an_outcome_passes_after_the_player_defeats_its_foe() {
 fn a_quest_outcome_passes_after_the_player_turns_the_quest_in() {
     let mut character = Character::new();
     let linen = Dependency::Quest("Red Linen Goods".to_string());
-    assert!(!outcome_allowed(&character, Some(&linen)));
+    assert!(!outcome_allowed(&character, std::slice::from_ref(&linen)));
 
     character
         .finish_game_quest(Tick(1), "Red Linen Goods", GameQuestKind::Normal)
         .unwrap();
 
-    assert!(outcome_allowed(&character, Some(&linen)));
+    assert!(outcome_allowed(&character, std::slice::from_ref(&linen)));
 }
 
 #[test]
@@ -293,12 +311,12 @@ fn an_unresolved_outcome_never_passes_whatever_the_player_did() {
     let mut character = in_moonbrook();
     character.defeat_npc(Tick(2), "Edwin VanCleef").unwrap();
 
-    assert!(!outcome_allowed(&character, Some(&Dependency::Unresolved)));
+    assert!(!outcome_allowed(&character, &[Dependency::Unresolved]));
 }
 
 #[test]
 fn a_passage_with_no_deed_is_not_gated_by_the_outcome_rule() {
-    assert!(outcome_allowed(&Character::new(), None));
+    assert!(outcome_allowed(&Character::new(), &[]));
 }
 
 #[test]

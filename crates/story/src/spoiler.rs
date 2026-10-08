@@ -9,7 +9,7 @@ use crate::character::Character;
 use crate::game_names;
 use crate::pack::{Deed, Dependency, Passage, SetupFor};
 use timeways_rules::game_names::NameRow;
-use timeways_rules::outcomes::{DependsOn, PlayerFacts, outcome_usable};
+use timeways_rules::outcomes::{DependsOn, PlayerFacts, outcomes_usable};
 use timeways_rules::setups::{self, setup_usable};
 
 /// Every pick of lore goes through this: the narrator, `/lore`, and so each text that a
@@ -17,7 +17,7 @@ use timeways_rules::setups::{self, setup_usable};
 #[must_use]
 pub fn may_show(character: &Character, passage: &Passage) -> bool {
     character.knows_all(&passage.links)
-        && outcome_allowed(character, passage.depends_on.as_ref())
+        && outcome_allowed(character, &passage.depends_on)
         && setup_allowed(character, passage.setup_for.as_ref())
 }
 
@@ -57,18 +57,21 @@ fn name_rows(names: &mut Names<'_>) -> Vec<NameRow> {
     rows
 }
 
-/// True when the passage tells no deed, or a deed that the player did.
+/// True when the passage tells no deed, or only deeds that the player did. A passage
+/// that tells two deeds shows only after both.
 #[must_use]
-pub fn outcome_allowed(character: &Character, depends_on: Option<&Dependency>) -> bool {
+pub fn outcome_allowed(character: &Character, depends_on: &[Dependency]) -> bool {
     let mut names = Names::default();
     let facts = facts_of(character, &mut names);
-    let tag = match depends_on {
-        None => DependsOn::Nothing,
-        Some(Dependency::Unresolved) => DependsOn::Unresolved,
-        Some(Dependency::Foe(name)) => DependsOn::Foe(names.id(name)),
-        Some(Dependency::Quest(title)) => DependsOn::Quest(names.id(title)),
-    };
-    outcome_usable(tag, &facts)
+    let tags: Vec<DependsOn> = depends_on
+        .iter()
+        .map(|dependency| match dependency {
+            Dependency::Unresolved => DependsOn::Unresolved,
+            Dependency::Foe(name) => DependsOn::Foe(names.id(name)),
+            Dependency::Quest(title) => DependsOn::Quest(names.id(title)),
+        })
+        .collect();
+    outcomes_usable(&tags, &facts)
 }
 
 /// One id for each distinct name.

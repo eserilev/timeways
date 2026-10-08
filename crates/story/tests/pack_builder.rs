@@ -285,11 +285,11 @@ fn a_line_keeps_what_its_deed_depends_on() {
     let returned = pack.search("linen", 5).unwrap();
     assert_eq!(
         vancleef[0].depends_on,
-        Some(Dependency::Foe("Edwin VanCleef".to_string()))
+        [Dependency::Foe("Edwin VanCleef".to_string())]
     );
     assert_eq!(
         returned[0].depends_on,
-        Some(Dependency::Quest("Red Linen Goods".to_string()))
+        [Dependency::Quest("Red Linen Goods".to_string())]
     );
 }
 
@@ -312,9 +312,9 @@ fn a_line_that_tells_a_deed_with_no_tag_is_unresolved() {
     let pack = Pack::open(&pack).unwrap();
     assert_eq!(
         pack.search("ooze", 5).unwrap()[0].depends_on,
-        Some(Dependency::Unresolved)
+        [Dependency::Unresolved]
     );
-    assert_eq!(pack.search("inn", 5).unwrap()[0].depends_on, None);
+    assert!(pack.search("inn", 5).unwrap()[0].depends_on.is_empty());
 }
 
 #[test]
@@ -338,12 +338,15 @@ fn the_report_lists_each_outcome_passage_with_its_dependency() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(
         stdout.contains(
-            "outcome  unresolved    |  the book \"The Testvale Tower\"  |  The adventurers destroyed"
+            "outcome  unresolved  |  the book \"The Testvale Tower\"  |  The adventurers destroyed"
         ),
         "{stdout}"
     );
     assert!(
-        stdout.contains("tagged 1 outcome passages: 0 by foe, 0 by quest, 1 unresolved\n"),
+        stdout.contains(
+            "tagged 1 outcome passages, 0 with two deeds or more: 0 tags by foe, 0 by quest, \
+             1 unresolved\n"
+        ),
         "{stdout}"
     );
 }

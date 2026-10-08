@@ -1,64 +1,15 @@
 //! Outcome passages (GAMEPLAY.md 5.10). The wiki often tells the deed of a quest as
 //! history: "He was killed at the hands of adventurers sent by Gryan Stoutmantle." The
-//! builder keeps such a passage, and tags it with the deed that it tells: a foe, a quest,
-//! or unresolved. The story program shows it only after the player did that deed
-//! (`spoiler.rs`).
+//! builder keeps such a passage, and tags it with each deed that it tells: a foe, a quest,
+//! or unresolved. The story program shows it only after the player did every deed
+//! (`spoiler.rs`). The sentences of an end are in `ends`.
 
-use crate::check::mentions;
+use crate::ends::{self, Told, told};
 use crate::game_names;
 use crate::pack::Dependency;
 use crate::sentences::sentences;
+use crate::setup_passages;
 use crate::wikitext::{Cites, plain, template_fields};
-
-/// The words for the people who did the deed. "adventurers" also covers "a group of
-/// adventurers". A possessive, such as "the adventurer's guild", is another word.
-const DOERS: [&[&str]; 11] = [
-    &["adventurer"],
-    &["adventurers"],
-    &["heroes", "of", "the", "alliance"],
-    &["heroes", "of", "the", "horde"],
-    &["champions", "of", "the", "alliance"],
-    &["champions", "of", "the", "horde"],
-    &["band", "of", "heroes"],
-    &["group", "of", "heroes"],
-    &["party", "of", "heroes"],
-    &["the", "heroes"],
-    &["the", "hero"],
-];
-
-/// The words of a result: the deed is done, not only asked for. "sent adventurers to
-/// kill" asks, so the plain verb is no result.
-pub(crate) const RESULTS: [&[&str]; 29] = [
-    &["killed"],
-    &["slain"],
-    &["slew"],
-    &["defeated"],
-    &["recovered"],
-    &["returned"],
-    &["rescued"],
-    &["destroyed"],
-    &["ended"],
-    &["freed"],
-    &["retrieved"],
-    &["eliminated"],
-    &["vanquished"],
-    &["liberated"],
-    &["succeeded"],
-    &["saved"],
-    &["secured"],
-    &["captured"],
-    &["dispatched"],
-    &["disabled"],
-    &["executed"],
-    &["banished"],
-    &["avenged"],
-    &["obtained"],
-    &["uncovered"],
-    &["discovered"],
-    &["put", "down"],
-    &["put", "an", "end"],
-    &["to", "justice"],
-];
 
 /// The infobox templates of the wiki.
 const NPC_BOX: &str = "Npcbox";
@@ -70,42 +21,23 @@ const FOE_FACTIONS: [&str; 2] = ["combat", "boss"];
 /// The `aggro` of an infobox for an NPC that is hostile to the Alliance and to the Horde.
 const HOSTILE_TO_BOTH: &str = "{{Aggro|-1|-1}}";
 
-/// The sentences of `text` that tell a deed: each names the doers and a result.
+/// The paragraph tells some end, read loosely, so the builder reads its tags
+/// (`dependencies`).
 #[must_use]
-pub fn deed_sentences(text: &str) -> Vec<&str> {
+pub fn may_tell_an_end(text: &str) -> bool {
     sentences(text)
-        .into_iter()
-        .filter(|sentence| tells_a_deed(sentence))
-        .collect()
+        .iter()
+        .any(|sentence| ends::tells_an_end(sentence))
 }
 
+/// The text tells a deed with no list of foes: adventurers or agents with a result, or a
+/// passive end of a pronoun. A line of passages by hand that tells one and has no tag is
+/// unresolved (`timeways-pack`).
 #[must_use]
 pub fn is_outcome(text: &str) -> bool {
     sentences(text)
         .iter()
-        .any(|sentence| tells_a_deed(sentence))
-}
-
-fn tells_a_deed(sentence: &str) -> bool {
-    let words = words_with_apostrophes(sentence);
-    holds_any(&words, &DOERS) && holds_any(&words, &RESULTS)
-}
-
-/// The words in lower case. An apostrophe stays inside its word, so "adventurer's" is
-/// not "adventurer".
-pub(crate) fn words_with_apostrophes(text: &str) -> Vec<String> {
-    text.split(|c: char| !(c.is_alphanumeric() || c == '\'' || c == '\u{2019}'))
-        .filter(|word| !word.is_empty())
-        .map(str::to_lowercase)
-        .collect()
-}
-
-pub(crate) fn holds_any(words: &[String], phrases: &[&[&str]]) -> bool {
-    phrases.iter().any(|phrase| holds_phrase(words, phrase))
-}
-
-pub(crate) fn holds_phrase(words: &[String], phrase: &[&str]) -> bool {
-    words.windows(phrase.len()).any(|window| window == phrase)
+        .any(|sentence| ends::tells_a_deed(sentence))
 }
 
 /// What the builder reads from the infobox of a page that a passage links to or cites.
@@ -239,47 +171,125 @@ fn has_number_suffix(title: &str) -> bool {
     !inside.is_empty() && inside.chars().all(|c| c.is_ascii_digit())
 }
 
-/// What an outcome passage depends on, best first:
-///
-/// 1. a foe that a sentence of the deed names: the page of the passage, then each link;
-/// 2. the last cited quest that ends a chain, when its title is its own. A shared title
-///    cannot tell the end of a chain from its start, so it counts as no quest;
-/// 3. the page of the passage, when it is a foe;
-/// 4. the first foe that the paragraph links to.
-///
-/// Else the deed is unresolved. `kind_of` gives the kind of a page that the paragraph
-/// links to or cites, and of the page of the passage.
-#[must_use]
-pub fn dependency(
-    text: &str,
-    cites: &Cites,
-    page: &str,
-    kind_of: impl Fn(&str) -> Option<PageKind>,
-) -> Dependency {
-    resolve(&deed_sentences(text), cites, page, kind_of)
+/// A paragraph that the builder tags, with what the list knows of its page.
+pub struct Paragraph<'a> {
+    pub text: &'a str,
+    pub cites: &'a Cites,
+    /// The title of the page of the paragraph.
+    pub page: &'a str,
+    /// The known bosses of the list (`pack_sources::known_bosses`).
+    pub bosses: &'a [String],
+    /// The foes of the page from the list, by their names in the game: "Archmage Arugal"
+    /// for "Shadowfang Keep", and "Edwin VanCleef" for "Defias Brotherhood". A deed of the
+    /// page that names no foe is the defeat of the first.
+    pub foes: &'a [String],
 }
 
-/// The foe or the quest of the deed that `deeds` tell, by the rules of `dependency`.
+/// Each deed that the paragraph tells, once, in the order of the text. Empty for no deed.
+///
+/// 1. A sentence that tells the end of a foe, or a deed that names a foe, gives that foe.
+///    The foes are the page, the foes that the line links to, the known bosses with a page
+///    of a person, and the foes of the page in the list.
+/// 2. A deed sentence that names no foe takes the foe that a cue of the sentence before it
+///    asks to end: "Stoutmantle called upon the heroes to destroy Edwin. The heroes
+///    succeeded."
+/// 3. Else it takes the last cited quest of its own part of the line that ends a chain,
+///    when its title is its own (`own_quest`).
+/// 4. A deed sentence with none of these adds no tag of its own, when another sentence
+///    gave one. When none did, the passage depends on the page when it is a foe, else on
+///    the first foe of the page in the list, else it is unresolved.
+/// 5. On the page of a foe, a passive kill of "he" or "she" by any doer is the end of that
+///    foe: "he was later beheaded by Alexandros' vengeful spirit".
+///
+/// `kind_of` gives the kind of a page that the line links to or cites, and of the page of
+/// the passage.
 #[must_use]
-pub fn resolve(
-    deeds: &[&str],
-    cites: &Cites,
-    page: &str,
+pub fn dependencies(
+    paragraph: &Paragraph<'_>,
     kind_of: impl Fn(&str) -> Option<PageKind>,
-) -> Dependency {
-    let foes = linked_foes(cites, page, &kind_of);
-    let named = foes
+) -> Vec<Dependency> {
+    let foes = foes_of(paragraph, &kind_of);
+    let sentences = sentences(paragraph.text);
+    let mut tags = Vec::new();
+    let mut untied = false;
+    for (index, sentence) in sentences.iter().enumerate() {
+        let asks = setup_passages::asks(sentence);
+        let tag = match told(sentence, &foes, asks) {
+            Told::Nothing => match pronoun_end_of_the_page(sentence, paragraph, &kind_of) {
+                Some(tag) => Some(tag),
+                None => continue,
+            },
+            Told::EndOf(foe) => Some(Dependency::Foe(foe.name.clone())),
+            Told::Deed => {
+                let before = index.checked_sub(1).map(|at| sentences[at]);
+                tie(before, sentence, paragraph.cites, &foes, &kind_of)
+            }
+        };
+        match tag {
+            Some(tag) if !tags.contains(&tag) => tags.push(tag),
+            Some(_) => {}
+            None => untied = true,
+        }
+    }
+    if tags.is_empty() && untied {
+        tags.push(fallback(paragraph, &kind_of));
+    }
+    tags
+}
+
+/// The tag of a deed sentence that names no foe, by rules 2 and 3 of `dependencies`.
+fn tie(
+    before: Option<&str>,
+    sentence: &str,
+    cites: &Cites,
+    foes: &[Npc],
+    kind_of: &impl Fn(&str) -> Option<PageKind>,
+) -> Option<Dependency> {
+    let named_before = before.and_then(|before| setup_passages::asked_foe(before, foes));
+    if let Some(foe) = named_before {
+        return Some(Dependency::Foe(foe.name.clone()));
+    }
+    own_quest(&cites.of_sentence(sentence), kind_of).map(Dependency::Quest)
+}
+
+/// Rule 5 of `dependencies`.
+fn pronoun_end_of_the_page(
+    sentence: &str,
+    paragraph: &Paragraph<'_>,
+    kind_of: &impl Fn(&str) -> Option<PageKind>,
+) -> Option<Dependency> {
+    if !ends::kills_a_pronoun(sentence) {
+        return None;
+    }
+    foe(kind_of(paragraph.page)).map(|npc| Dependency::Foe(npc.name))
+}
+
+/// Rule 4 of `dependencies`.
+fn fallback(paragraph: &Paragraph<'_>, kind_of: &impl Fn(&str) -> Option<PageKind>) -> Dependency {
+    let own = foe(kind_of(paragraph.page)).map(|npc| npc.name);
+    own.or_else(|| paragraph.foes.first().cloned())
+        .map_or(Dependency::Unresolved, Dependency::Foe)
+}
+
+/// The foes that a paragraph can name: its linked foes, then each known boss whose page
+/// is about a person, and each foe of the page in the list. A known boss such as "Defias
+/// Brotherhood" has no box of an NPC, so it is no foe.
+fn foes_of(paragraph: &Paragraph<'_>, kind_of: &impl Fn(&str) -> Option<PageKind>) -> Vec<Npc> {
+    let mut foes = linked_foes(paragraph.cites, paragraph.page, kind_of);
+    let people = paragraph
+        .bosses
         .iter()
-        .find(|foe| deeds.iter().any(|sentence| mentions(sentence, &foe.name)));
-    if let Some(foe) = named {
-        return Dependency::Foe(foe.name.clone());
+        .filter(|boss| matches!(kind_of(boss), Some(PageKind::Npc(_))));
+    let more = people.chain(paragraph.foes);
+    for name in more {
+        if !foes.iter().any(|foe| game_names::same(&foe.name, name)) {
+            foes.push(Npc {
+                name: name.clone(),
+                stance: Stance::Foe,
+            });
+        }
     }
-    if let Some(quest) = own_quest(cites, &kind_of) {
-        return Dependency::Quest(quest);
-    }
-    foes.first().map_or(Dependency::Unresolved, |foe| {
-        Dependency::Foe(foe.name.clone())
-    })
+    foes
 }
 
 /// The foes of a paragraph: the page of the passage when it is a foe, then each foe that

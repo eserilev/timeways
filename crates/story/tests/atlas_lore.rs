@@ -27,7 +27,7 @@ fn passage(text: &str, about: &str, links: Vec<Link>) -> Passage {
         links,
         origin: Origin::Pack,
         about: Some(about.to_string()),
-        depends_on: None,
+        depends_on: Vec::new(),
         setup_for: None,
     }
 }
@@ -135,7 +135,7 @@ fn a_deed_that_the_pack_tied_to_no_one_promises_nothing_more() {
         "Silverpine Forest",
         vec![place("Silverpine Forest")],
     );
-    never.depends_on = Some(Dependency::Unresolved);
+    never.depends_on = vec![Dependency::Unresolved];
     let pack = pack_with("unresolved", &[never]);
 
     let lore = lore(&pack, &at_the_sepulcher());

@@ -21,7 +21,7 @@ fn passage(text: &str, about: Option<&str>, links: Vec<Link>) -> Passage {
         links,
         origin: Origin::Pack,
         about: about.map(str::to_string),
-        depends_on: None,
+        depends_on: Vec::new(),
         setup_for: None,
     }
 }
@@ -184,7 +184,7 @@ fn stormwind_pack(name: &str) -> Pack {
         links: vec![Link::Common],
         origin: Origin::Pack,
         about: Some("Stormwind City".to_string()),
-        depends_on: None,
+        depends_on: Vec::new(),
         setup_for: None,
     };
     let passages = [
@@ -226,7 +226,7 @@ fn stormwind_search_pack(name: &str) -> Pack {
         links: vec![Link::Common],
         origin: Origin::Pack,
         about: None,
-        depends_on: None,
+        depends_on: Vec::new(),
         setup_for: None,
     };
     let passages = [

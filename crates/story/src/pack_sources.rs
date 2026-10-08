@@ -5,7 +5,7 @@ use crate::check::later_names;
 use crate::dump::{self, DumpError, Page};
 use crate::game_talk::{Cut, cut_game_talk};
 use crate::outcome_passages::{self, PageKind, page_kind, with_known_bosses};
-use crate::pack::{Link, Origin, Passage};
+use crate::pack::{Deed, Dependency, Link, Origin, Passage};
 use crate::passage_limits::pieces;
 use crate::setup_passages::{self, Instances};
 use crate::wikitext::{Cites, book_content, cites, listed_pages, plain, sections};
@@ -66,6 +66,11 @@ pub struct WikiPage {
     pub npcs: Vec<String>,
     #[serde(default)]
     pub common: bool,
+    /// The foes that the page tells of with no link, by their names in the game: the boss of
+    /// a place, or the head of a group. A deed of the page that names no foe is the defeat
+    /// of the first (`outcome_passages::dependencies`).
+    #[serde(default)]
+    pub foes: Vec<String>,
 }
 
 /// Regular expressions. The match ignores case.
@@ -153,6 +158,7 @@ struct Tagged {
     passage: usize,
     page: String,
     cites: Cites,
+    foes: Vec<String>,
 }
 
 /// The passages of the dump, in the order of the list: the books by chapter, then the
@@ -236,9 +242,14 @@ fn tag_deeds(
         let Some(passage) = built.passages.get_mut(tagged.passage) else {
             continue;
         };
-        let dependency =
-            outcome_passages::dependency(&passage.text, &tagged.cites, &tagged.page, kind_of);
-        passage.depends_on = Some(dependency);
+        let paragraph = outcome_passages::Paragraph {
+            text: &passage.text,
+            cites: &tagged.cites,
+            page: &tagged.page,
+            bosses,
+            foes: &tagged.foes,
+        };
+        passage.depends_on = outcome_passages::dependencies(&paragraph, kind_of);
     }
     let mut windows = BTreeMap::new();
     for tagged in std::mem::take(&mut built.setups) {
@@ -273,10 +284,18 @@ fn tag_setup(
         passage.setup_for = Some(setup);
         return None;
     }
+    // An end that names no deed of its own is the end of the deed of the setup: "in time
+    // the other leaders succumbed" waits for the defeat of Whitemane.
+    if passage.depends_on.is_empty() {
+        passage.depends_on = vec![match &setup.deed {
+            Deed::Foe(name) => Dependency::Foe(name.clone()),
+            Deed::Quest(title) => Dependency::Quest(title.clone()),
+        }];
+    }
     let text = setup_passages::window(&passage.text, &setup.deed)?.to_string();
     Some(Passage {
         text,
-        depends_on: None,
+        depends_on: Vec::new(),
         setup_for: Some(setup),
         ..passage.clone()
     })
@@ -384,6 +403,7 @@ fn add_books(built: &mut Built, titles: &[String], books: &BTreeMap<String, Page
             source: &source,
             links: &[Link::Common],
             about: None,
+            foes: &[],
         };
         push_passages(built, &page.title, outcome, texts, &book);
     }
@@ -417,6 +437,7 @@ fn add_page(built: &mut Built, wanted: &WikiPage, page: Option<&Page>, filters: 
         source: &source,
         links: &links,
         about: Some(subject_of(&wanted.title, &links)),
+        foes: &wanted.foes,
     };
     push_passages(built, &page.title, outcome, texts, &shelf);
 }
@@ -592,6 +613,7 @@ struct Shelf<'a> {
     source: &'a str,
     links: &'a [Link],
     about: Option<String>,
+    foes: &'a [String],
 }
 
 /// An outcome passage waits in `Built::outcomes` for what it depends on.
@@ -611,11 +633,12 @@ fn push_passages(
             passage: built.passages.len(),
             page: title.to_string(),
             cites: paragraph.cites,
+            foes: shelf.foes.to_vec(),
         };
         if !setup_passages::setup_sentences(&paragraph.text).is_empty() {
             built.setups.push(tagged.clone());
         }
-        if outcome_passages::is_outcome(&paragraph.text) {
+        if outcome_passages::may_tell_an_end(&paragraph.text) {
             built.outcomes.push(tagged);
         }
         built.passages.push(Passage {
@@ -624,7 +647,7 @@ fn push_passages(
             links: shelf.links.to_vec(),
             origin: Origin::Pack,
             about: shelf.about.clone(),
-            depends_on: None,
+            depends_on: Vec::new(),
             setup_for: None,
         });
     }

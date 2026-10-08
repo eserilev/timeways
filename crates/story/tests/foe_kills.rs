@@ -30,7 +30,7 @@ fn passage(text: &str) -> Passage {
         links: vec![Link::Place("Duskwood".to_string())],
         origin: Origin::Pack,
         about: None,
-        depends_on: None,
+        depends_on: Vec::new(),
         setup_for: None,
     }
 }
@@ -38,7 +38,7 @@ fn passage(text: &str) -> Passage {
 /// An outcome passage whose foe is an elite of the open world, not a rare.
 fn morladim_falls() -> Passage {
     Passage {
-        depends_on: Some(Dependency::Foe("Mor'Ladim".to_string())),
+        depends_on: vec![Dependency::Foe("Mor'Ladim".to_string())],
         ..passage(
             "Mor'Ladim haunted the Raven Hill Cemetery until adventurers slew him for Abercrombie.",
         )
@@ -144,7 +144,7 @@ fn a_kill_of_a_foe_that_no_tag_names_is_no_deed() {
 #[test]
 fn a_kill_under_the_game_name_counts_for_a_tag_of_the_wiki_name() {
     let thermaplugg = Passage {
-        depends_on: Some(Dependency::Foe("Sicco Thermaplugg".to_string())),
+        depends_on: vec![Dependency::Foe("Sicco Thermaplugg".to_string())],
         ..passage("Sicco Thermaplugg ruled Gnomeregan until adventurers slew him.")
     };
     let mut story = story_with("game-name", &[thermaplugg]);

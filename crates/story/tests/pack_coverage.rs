@@ -14,7 +14,7 @@ fn passage(about: Option<&str>, links: Vec<Link>) -> Passage {
         links,
         origin: Origin::Pack,
         about: about.map(str::to_string),
-        depends_on: None,
+        depends_on: Vec::new(),
         setup_for: None,
     }
 }
@@ -106,7 +106,7 @@ fn the_report_counts_the_passages_of_each_place_from_the_pack() {
                 ],
             ),
             Passage {
-                depends_on: Some(Dependency::Foe("Edwin VanCleef".to_string())),
+                depends_on: vec![Dependency::Foe("Edwin VanCleef".to_string())],
                 ..passage(None, vec![place("The Deadmines")])
             },
             passage(Some("Edwin VanCleef"), vec![place("The Deadmines")]),

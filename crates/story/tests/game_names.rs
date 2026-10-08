@@ -74,13 +74,13 @@ fn in_the_monastery() -> Character {
 fn a_kill_under_the_game_name_unlocks_a_passage_tagged_with_the_wiki_name() {
     let tag = Dependency::Foe("Sally Whitemane".to_string());
     let mut character = in_the_monastery();
-    assert!(!outcome_allowed(&character, Some(&tag)));
+    assert!(!outcome_allowed(&character, std::slice::from_ref(&tag)));
 
     character
         .defeat_npc(Tick(2), "High Inquisitor Whitemane")
         .unwrap();
 
-    assert!(outcome_allowed(&character, Some(&tag)));
+    assert!(outcome_allowed(&character, std::slice::from_ref(&tag)));
 }
 
 #[test]
@@ -108,7 +108,7 @@ fn a_kill_of_moira_never_unlocks_a_tag_of_emperor_thaurissan() {
         .defeat_npc(Tick(2), "Princess Moira Bronzebeard")
         .unwrap();
 
-    assert!(!outcome_allowed(&character, Some(&tag)));
+    assert!(!outcome_allowed(&character, std::slice::from_ref(&tag)));
 }
 
 #[test]
@@ -120,7 +120,7 @@ fn a_kill_of_the_emperor_unlocks_a_tag_under_his_page_title() {
         .defeat_npc(Tick(2), "Emperor Dagran Thaurissan")
         .unwrap();
 
-    assert!(outcome_allowed(&character, Some(&tag)));
+    assert!(outcome_allowed(&character, std::slice::from_ref(&tag)));
 }
 
 #[test]
@@ -154,7 +154,7 @@ fn whitemane_page() -> Passage {
         links: vec![Link::Place("Scarlet Monastery".to_string())],
         origin: Origin::Pack,
         about: Some("Sally Whitemane".to_string()),
-        depends_on: None,
+        depends_on: Vec::new(),
         setup_for: None,
     }
 }

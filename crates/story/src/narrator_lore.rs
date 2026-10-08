@@ -15,7 +15,7 @@ use crate::passage_limits;
 use crate::places::InstanceKind;
 use crate::race_class::Race;
 use crate::seen::SeenIndex;
-use crate::setup_passages::{self, tells_an_end};
+use crate::setup_passages;
 use crate::spoiler;
 use crate::walk::LEVEL_STEP;
 use thiserror::Error;
@@ -102,8 +102,6 @@ fn first_setup(
 
 /// The next passage of the instance that no call told, by the rule of
 /// `timeways_rules::instance_lore`, where Lean proves it. None once every passage was told.
-/// A passage that tells the end of a deed with no outcome tag goes: the detector of outcome
-/// passages missed its doers, so it can tell the death of a boss before the kill.
 fn next_of_instance(
     pack: &Pack,
     character: &Character,
@@ -112,7 +110,6 @@ fn next_of_instance(
 ) -> Result<Option<Passage>, LoreError> {
     let candidates: Vec<Passage> = known(character, pack.of_place(instance)?)
         .into_iter()
-        .filter(|passage| passage.depends_on.is_some() || !tells_an_end(&passage.text))
         .map(shown)
         .collect();
     let counts: Vec<u32> = candidates

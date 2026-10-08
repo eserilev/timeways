@@ -576,7 +576,7 @@ fn story_with_passage(file: &str, text: &str) -> Story {
         links: vec![timeways_story::pack::Link::Place("Testvale".to_string())],
         origin: timeways_story::pack::Origin::Pack,
         about: None,
-        depends_on: None,
+        depends_on: Vec::new(),
         setup_for: None,
     };
     Pack::write(&path, &[tower]).unwrap();
