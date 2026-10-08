@@ -14,7 +14,7 @@ use timeways_story::narrator::{Telling, Who};
 use timeways_story::pack::{Link, Origin, Passage};
 use timeways_story::prompt::{self, Context};
 use timeways_story::samples::{self, Voice};
-use timeways_story::{chronicle, summary, tale, talk, zone_history};
+use timeways_story::{chronicle, prologue, summary, tale, talk, zone_history};
 
 const DEADMINES_LORE: &str = "The Defias Brotherhood holds the Deadmines. Edwin VanCleef \
     built it from the stonemasons that Stormwind never paid, and Captain Greenskin sails \
@@ -122,6 +122,26 @@ fn a_saga_with_an_invented_person_is_refused() {
         chronicle::checked_saga(&answer, 0, "", "", DEADMINES_LORE),
         None
     );
+}
+
+#[test]
+fn a_prologue_with_an_invented_person_is_refused() {
+    let answer = json("prologue", INVENTED);
+
+    assert_eq!(
+        prologue::checked_prologue(&answer, DEADMINES_LORE, "", DEADMINES_LORE),
+        None
+    );
+}
+
+#[test]
+fn a_prologue_whose_names_are_all_given_passes() {
+    let answer = json(
+        "prologue",
+        "Edwin VanCleef founded the Defias Brotherhood, and it holds the Deadmines.",
+    );
+
+    assert!(prologue::checked_prologue(&answer, DEADMINES_LORE, "", DEADMINES_LORE).is_some());
 }
 
 #[test]

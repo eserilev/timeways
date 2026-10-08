@@ -240,7 +240,7 @@ fn the_dungeon_setups_warrior_stands_in_westfall_and_never_entered_the_deadmines
 #[test]
 fn the_prologue_35_paladin_gets_a_prologue_as_chapter_0() {
     let folder = folder("prologue-35");
-    let prologue = r#"{"prologue": "The Gurubashi trolls ruled Stranglethorn Vale until their empire broke apart in a long war. The goblins of Booty Bay trade on its coast now, and the Bloodsail Buccaneers raid them."}"#;
+    let prologue = r#"{"prologue": "Booty Bay stands on the coast of Stranglethorn Vale, and its goblins trade with every ship that comes into its harbor."}"#;
     let model: timeways_dev::seed::Model = Box::new(move |prompt: &str| {
         prompt
             .contains("Write the prologue of the chronicle")

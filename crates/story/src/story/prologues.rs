@@ -3,6 +3,7 @@
 //! `timeways_rules::prologue`, where Lean proves it.
 
 use super::aliases::{TextLimits, shows_with_names};
+use super::calls::Reply;
 use super::{Active, Output, Pending, Story, StoryError, reads};
 use crate::chapters::{CURRENT_RULE, SpanState};
 use crate::journal::{Chapter, EntryState, OpenedBy};
@@ -90,10 +91,12 @@ impl Story {
         &mut self,
         key: &CharacterKey,
         told: &str,
-        text: Option<&str>,
+        reply: Option<&Reply<'_>>,
     ) -> Result<(Vec<Output>, Outcome), StoryError> {
         let player_text = self.player_text(key);
-        let checked = text.and_then(|text| prologue::checked_prologue(text, told, &player_text));
+        let checked = reply.and_then(|reply| {
+            prologue::checked_prologue(reply.text, told, &player_text, reply.given)
+        });
         let active = self.active.as_mut().filter(|active| &active.key == key);
         let (Some(active), Some(text)) = (active, checked) else {
             return Ok((Vec::new(), Outcome::Refused));

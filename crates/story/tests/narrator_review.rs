@@ -317,7 +317,7 @@ fn the_review_tool_prints_the_prologue_of_a_kept_past() {
 fn the_review_tool_with_a_model_shows_the_prologue() {
     let folder = Path::new(env!("CARGO_TARGET_TMPDIR")).join("review-tool-prologue-model");
     let world = saved_world_with_a_past(&folder);
-    let answer = "Stormwind once farmed Westfall. The Defias Brotherhood holds its fields now.";
+    let answer = "Stormwind once farmed Westfall, and its fields lie fallow now.";
 
     let output = Command::new(env!("CARGO_BIN_EXE_timeways-narrator-review"))
         .arg(&world)

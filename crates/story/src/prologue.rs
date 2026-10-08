@@ -5,6 +5,7 @@
 use crate::arrival::arrival_in;
 use crate::character::Character;
 use crate::check::{json_object, mentions, slop_in, voice_text};
+use crate::grounding::ungrounded_names;
 use crate::house::{HOUSE_RULES, bulleted, fenced};
 use crate::narrator::{PERSONA, Who, lore_excerpt};
 use crate::narrator_lore::people_pages;
@@ -172,7 +173,7 @@ pub fn told(facts: &Facts) -> String {
 /// The prologue as the player reads it, or None when it breaks a rule. It takes the checks
 /// of a saga, and it must name a place, a people, or a person of its facts or its lore.
 #[must_use]
-pub fn checked_prologue(text: &str, told: &str, player_text: &str) -> Option<String> {
+pub fn checked_prologue(text: &str, told: &str, player_text: &str, given: &str) -> Option<String> {
     let reply: Reply = serde_json::from_str(json_object(text)?).ok()?;
     let prologue = voice_text(
         &reply.prologue,
@@ -185,7 +186,8 @@ pub fn checked_prologue(text: &str, told: &str, player_text: &str) -> Option<Str
     let clean = slop_in(&prologue, told).is_empty()
         && arrival_in(&prologue, &[]).is_none()
         && prose_faults(&prologue, &[]).is_empty();
-    let grounded = names_something_of(&prologue, told);
+    let invented = ungrounded_names(&prologue, &format!("{given}\n{player_text}"));
+    let grounded = names_something_of(&prologue, told) && invented.is_empty();
     (names <= MAX_NAMES && !our_hero && clean && grounded).then_some(prologue)
 }
 
@@ -208,6 +210,10 @@ mod tests {
 
     const TOLD: &str = "a human paladin\nStands now in Westfall.\nHas traveled in: Elwynn Forest.";
 
+    /// The facts and the lore of the prompt.
+    const GIVEN: &str = "a human paladin\nStands now in Westfall.\nHas traveled in: Elwynn \
+        Forest.\nThe Defias Brotherhood raids Westfall. The People's Militia holds Sentinel Hill.";
+
     #[test]
     fn a_prologue_about_the_lands_of_the_facts_passes() {
         let text = reply(
@@ -215,21 +221,21 @@ mod tests {
              People's Militia still holds Sentinel Hill against it.",
         );
 
-        assert!(checked_prologue(&text, TOLD, "").is_some());
+        assert!(checked_prologue(&text, TOLD, "", GIVEN).is_some());
     }
 
     #[test]
     fn a_prologue_that_names_no_place_of_its_facts_is_refused() {
         let text = reply("The kingdom stood for a long age, and its people kept their roads safe.");
 
-        assert_eq!(checked_prologue(&text, TOLD, ""), None);
+        assert_eq!(checked_prologue(&text, TOLD, "", GIVEN), None);
     }
 
     #[test]
     fn a_prologue_that_says_our_hero_is_refused() {
         let text = reply("Our hero grew up in Elwynn Forest and left it for Westfall.");
 
-        assert_eq!(checked_prologue(&text, TOLD, ""), None);
+        assert_eq!(checked_prologue(&text, TOLD, "", GIVEN), None);
     }
 
     #[test]
@@ -239,12 +245,12 @@ mod tests {
              crown. $N fought for the Light in every town.",
         );
 
-        assert_eq!(checked_prologue(&text, TOLD, ""), None);
+        assert_eq!(checked_prologue(&text, TOLD, "", GIVEN), None);
     }
 
     #[test]
     fn a_reply_that_is_no_json_is_refused() {
-        assert_eq!(checked_prologue("Westfall burned.", TOLD, ""), None);
+        assert_eq!(checked_prologue("Westfall burned.", TOLD, "", GIVEN), None);
     }
 
     #[test]

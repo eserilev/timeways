@@ -15,6 +15,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode, Stdio};
 use timeways_rules::narrator_shapes::WINDOW;
 use timeways_story::character::Character;
+use timeways_story::grounding::given_text;
 use timeways_story::learned::Read;
 use timeways_story::line_check::{Checked, checked_line};
 use timeways_story::narrator::{Who, what_happened};
@@ -183,7 +184,8 @@ fn review_prologue(
     };
     let answer = ask(model, &prompt)?;
     println!("Answer: {answer}");
-    match prologue::checked_prologue(&answer, &prologue::told(&facts), "") {
+    let given = given_text(&prompt);
+    match prologue::checked_prologue(&answer, &prologue::told(&facts), "", &given) {
         Some(text) => println!("Shown: {text}\n"),
         None => println!("Shown: (refused: the checks of a saga, or no name of the facts)\n"),
     }

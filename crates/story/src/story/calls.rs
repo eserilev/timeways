@@ -190,7 +190,7 @@ impl Story {
             Pending::Summary { key, after, told } => {
                 self.summary_answered(&key, after, &told, Some(&reply))?
             }
-            Pending::Prologue { key, told } => self.prologue_answered(&key, &told, Some(text))?,
+            Pending::Prologue { key, told } => self.prologue_answered(&key, &told, Some(&reply))?,
             Pending::Tale {
                 key,
                 run,

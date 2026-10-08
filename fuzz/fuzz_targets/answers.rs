@@ -40,7 +40,7 @@ use timeways_story::{chronicle, hero, narrator, prologue, summary, tale, talk, z
 
 /// What the prompt of each kind of text gave the model, in these runs.
 const GIVEN: &str = "Hogger leads the gnolls of Elwynn Forest. Edwin VanCleef holds the Deadmines \
-    for the Defias Brotherhood.";
+    for the Defias Brotherhood in Westfall.";
 
 /// An accepted text names only what its prompt gave (GAMEPLAY.md 3.2.1).
 fn assert_grounded(text: &str, given: &str) {
@@ -524,7 +524,8 @@ fuzz_target!(|data: &[u8]| {
         );
         assert!(!summary.to_lowercase().contains("our hero"), "{summary:?}");
     }
-    if let Some(text) = prologue::checked_prologue(&text, "Westfall", "") {
+    if let Some(text) = prologue::checked_prologue(&text, "Westfall", "", GIVEN) {
+        assert_grounded(&text, GIVEN);
         assert_entry_text(
             &text,
             prologue::MAX_PROLOGUE_CHARS,
