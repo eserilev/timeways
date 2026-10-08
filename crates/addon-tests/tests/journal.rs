@@ -365,7 +365,7 @@ fn a_chapter_page_shows_its_dates_its_levels_and_what_happened_in_it() {
         "note: Chapter 1".to_string(),
         "heading: Elwynn Forest".to_string(),
         format!("text: {} · Levels 12 to 13.", day(&game)),
-        "help: This chapter isn't over yet. Its story comes when the next one starts.".to_string(),
+        "help: This chapter is still in progress.".to_string(),
         "section: In this chapter".to_string(),
         "text: Places: Elwynn Forest and Westfall.".to_string(),
         "text: People: Innkeeper Farley.".to_string(),
@@ -782,7 +782,7 @@ fn a_chapter_that_is_not_over_says_when_its_story_comes() {
 
     assert_eq!(
         lines(&game, "chapters")[3],
-        "help: This chapter isn't over yet. Its story comes when the next one starts."
+        "help: This chapter is still in progress."
     );
 }
 

@@ -226,7 +226,7 @@ function JournalChronicle.ChapterLines(journal, chapter, edit)
 	lines[#lines + 1] = Line("heading", title or ("Chapter " .. Number(chapter)))
 	lines[#lines + 1] = Line("text", When(chapter) .. ".")
 	if IsOpen(chapter) then
-		lines[#lines + 1] = Line("help", "This chapter isn't over yet. Its story comes when the next one starts.")
+		lines[#lines + 1] = Line("help", "This chapter is still in progress.")
 	end
 	Saving(lines, ns.JournalEdits.Chapter(chapter.first))
 	Story(lines, chapter.prose, chapter.footnotes, edit)
