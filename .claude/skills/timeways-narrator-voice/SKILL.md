@@ -12,7 +12,7 @@ The full guide is `docs/plans/narrator-style.md`. This skill is its core. If the
 1. Make the world the main character. Tell the history of a place, a people, a foe, or an order.
 2. Write as a lore chronicler. Report what happened and what holds now. Do not perform, praise, or mourn.
 3. Show one turn of history: what was, what changed it, what holds now.
-4. End on the present: who rules, who is dead, what lies empty.
+4. End on the present when the lore or the game holds it: who rules, who is dead, what lies empty. With no present in the lore, end on the last event.
 5. Use literal words. Use a figure only when the lore makes it literally true. Never give a place, a group, or an order a body, a voice, or a feeling.
 6. Name the hero only for a real deed, and rarely even then. Say what changed: "Shadowfang Keep has no master now."
 7. Never cite the source. Take the facts of what the player read, and drop who said it.
@@ -109,7 +109,7 @@ Also refuse: a callback to the player's Hero answers, a count of levels, mobs, o
 
 ## Before you hand in a line
 
-1. Does it tell one turn, and end on the present?
+1. Does it tell one turn, and end on a present that the lore holds, or else on the last event?
 2. Is the subject the world, not the hero?
 3. Is every word literal and in the lore?
 4. Is it free of every banned phrase?

@@ -156,6 +156,7 @@ The code fills `{hero}` from the naming of the turn (GAMEPLAY.md 3.2.1): `$N`, "
 | Frame | Order | For |
 |---|---|---|
 | `f.place` | lore | arrivals |
+| `f.setup` | lore. setup coda. | an arrival whose lore sets up the defeat of a foe (built 2026-10-07, `docs/plans/lore-names-and-now.md` 2.3 A). The coda "{Foe} is still alive." is the main part. |
 | `f.deed` | lore. [connective] deed. | kill, death, quests, title, slap, mark, mounts, items |
 | `f.revenge` | lore. before-clause. turn-clause. | revenge |
 | `f.level` | lore. [connective] group grow. coda. | tenth level |

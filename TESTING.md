@@ -293,9 +293,9 @@ The wiki tells some quests as history: "the adventurers killed Edwin VanCleef". 
 
 The first entry into a dungeon tells who wants what done there, while that deed still waits. Each later entry tells lore of the dungeon that no line told before, and then the narrator stays quiet.
 
-1. Before you kill Edwin VanCleef, enter the Deadmines for the first time. The narrator line tells who wants VanCleef dead, and ends on what still holds now.
-2. Leave, and enter again. Do it twice more. Each line tells something new about the Deadmines, and no line repeats the lore of another.
-3. Kill Edwin VanCleef, leave, and enter again. No line tells that someone wants him dead.
+1. Before you kill Edwin VanCleef, enter the Deadmines for the first time. The narrator line tells who wants VanCleef dead, and ends on "Edwin VanCleef is still alive."
+2. Leave, and enter again. Do it twice more. Each line tells something new about the Deadmines, and no line repeats the lore of another. No line is only about the life of a person, such as who trained VanCleef. No line says who holds the Deadmines now unless its lore says so.
+3. Kill Edwin VanCleef, leave, and enter again. No line tells that someone wants him dead, and no line tells him as alive.
 4. Run `gnomish-relay restart`, and enter the Deadmines again. No line repeats the lore of an earlier entry, also after a restart.
 
 ### 28. Lore of a foe that is no rare
@@ -455,7 +455,7 @@ Type `/twdev help` for the list. A name with spaces needs no quotes. A slash sep
 | 24. Battlegrounds, rank, inns, bosses | `/twdev bg-win`, `/twdev pvp-rank 3`, `/twdev rest`, `/twdev taxi`, `/twdev kill Azuregos worldboss` | The rows of `inputs`, with `"dev":true`. |
 | 25. Your own words | The `edits` scenario, or Edit on a chapter of any scenario | Edited, Restore, and the title page. |
 | 26. Lore of your own deeds | The `outcome-lore` scenario, `/lore What happened to Edwin VanCleef?`, then `/twdev kill Edwin VanCleef boss` and the same question | The first answer tells nothing of his death. The second one does. |
-| 27. Dungeon setups and later entries | The `dungeon-setups` scenario, then `/twdev dungeon-again The Deadmines` three times. Then seed again with `--replace`, `/twdev kill Edwin VanCleef boss`, and `/twdev dungeon-again The Deadmines` | Three lines with three different pieces of lore, the first one a setup. After the kill, no setup. |
+| 27. Dungeon setups and later entries | The `dungeon-setups` scenario, then `/twdev dungeon-again The Deadmines` three times. Then seed again with `--replace`, `/twdev kill Edwin VanCleef boss`, and `/twdev dungeon-again The Deadmines` | Three lines with three different pieces of lore, the first one a setup that ends on "Edwin VanCleef is still alive." No line of pure biography. After the kill, no setup, and no line tells VanCleef as alive. |
 | 28. Lore of a foe that is no rare | Kill Mor'Ladim in Duskwood, or `/twdev kill Mor'Ladim` (no kind), with a pack that tags him. Then `/lore What happened to Mor'Ladim?` | The answer tells of his death only after the kill. A kill of a common mob adds no deed. |
 | 29. Game names and the ends of bosses | `/twdev dungeon Shadowfang Keep`, `/lore What happened to Arugal?`, then `/twdev kill Archmage Arugal boss` and the same question. For a game name: `/twdev dungeon Scarlet Monastery`, `/twdev kill High Inquisitor Whitemane boss`, and `/lore What happened to Sally Whitemane?` | The first answer tells nothing of the beheading. The second one can. The kill under the game name opens the lore of Sally Whitemane. |
 | 30. Knowledge, full | `/twdev atlas` in any zone with a map | The zone page with its counts, People, Quests, "Read and heard", "Deaths and kills", and Chapters. Three pins on the real map ("Dev Camp", "Dev Ruins", "Dev Tower") and a skull at "Dev Ruins". Hover a pin for its counts, and click it. Click "Dev Scout", then Back. "< Eastern Kingdoms" (or your continent) opens the world page. With a lore pack, the zone shows "What you know". |
