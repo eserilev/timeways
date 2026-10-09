@@ -286,14 +286,19 @@ fn the_gate_keeps_the_lore_of_a_kill_shut_before_it_and_opens_it_after() {
     );
 }
 
+fn his_kill() -> String {
+    json!({
+        "type": "npc_defeated", "at": RUN, "name": "Edwin VanCleef", "kind": "boss", "dev": true
+    })
+    .to_string()
+}
+
 #[test]
 fn the_gate_fails_on_lore_that_shows_before_the_kill() {
     let folder = folder("gate-early");
     let mut story = story_with(&folder, DevMode::On, pack_with_his_end("gate-early"));
-    let kill = json!({
-        "type": "npc_defeated", "at": RUN, "name": "Edwin VanCleef", "kind": "boss", "dev": true
-    });
-    send(&mut story, &kill.to_string());
+    send(&mut story, &step_line(0, "start", "pass", &json!({})));
+    send(&mut story, &his_kill());
     let gate = json!({ "gate": { "subject": "Edwin VanCleef", "expect": "blocked" } });
 
     send(&mut story, &step_line(1, "lore-before-kill", "pass", &gate));
@@ -303,6 +308,70 @@ fn the_gate_fails_on_lore_that_shows_before_the_kill() {
         log.contains("desk FAIL: lore of the defeat of Edwin VanCleef shows before it"),
         "{log}"
     );
+}
+
+#[test]
+fn the_gate_waits_when_the_world_held_the_kill_before_the_run() {
+    let folder = folder("gate-before-run");
+    let mut story = story_with(&folder, DevMode::On, pack_with_his_end("gate-before-run"));
+    send(&mut story, &his_kill());
+    send(&mut story, &step_line(0, "start", "pass", &json!({})));
+    let gate = json!({ "gate": { "subject": "Edwin VanCleef", "expect": "blocked" } });
+
+    send(&mut story, &step_line(1, "lore-before-kill", "pass", &gate));
+
+    let log = log_text(&folder);
+    assert!(
+        log.contains(
+            "desk WAIT: Edwin VanCleef was already defeated in this world; \
+             run timeways-dev smoke --prepare for this check"
+        ),
+        "{log}"
+    );
+}
+
+fn notices(served: &serve::Served) -> Vec<String> {
+    served
+        .lines
+        .iter()
+        .filter_map(|line| serde_json::from_str::<Value>(line).ok())
+        .filter_map(|line| line["notice"].as_str().map(str::to_string))
+        .collect()
+}
+
+fn start_batch(story: &mut Story) -> serve::Served {
+    send(story, &step_line(0, "start", "pass", &json!({})));
+    send(story, r#"{"type":"batch_end","id":7}"#)
+}
+
+#[test]
+fn a_run_on_a_world_that_is_not_fresh_says_so_once_at_its_start() {
+    let folder = folder("not-fresh");
+    let mut story = story(&folder, DevMode::On);
+    send(&mut story, &his_kill());
+
+    let start = start_batch(&mut story);
+    send(&mut story, &step_line(1, "zone-move", "pass", &json!({})));
+    let later = send(&mut story, r#"{"type":"batch_end","id":8}"#);
+
+    assert_eq!(
+        notices(&start),
+        [
+            "This world isn't fresh, so a few checks will wait. For a clean run, \
+          first run timeways-dev smoke --prepare on your computer."
+        ]
+    );
+    assert!(notices(&later).is_empty());
+}
+
+#[test]
+fn a_run_on_a_fresh_world_starts_with_no_line() {
+    let folder = folder("fresh");
+    let mut story = story(&folder, DevMode::On);
+
+    let start = start_batch(&mut story);
+
+    assert!(notices(&start).is_empty(), "{:?}", start.lines);
 }
 
 #[test]

@@ -200,6 +200,9 @@ pub struct GateSeen {
     pub subject: String,
     pub open: u32,
     pub blocked: u32,
+    /// The world held the defeat before the run, so the gate is open by right.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub defeated_before_the_run: bool,
 }
 
 /// What the desktop saw for one step, since the step before it.
@@ -258,6 +261,13 @@ fn judge_gate(expect: GateExpect, seen: &GateSeen) -> DeskVerdict {
         return verdict(Verdict::Wait, why);
     }
     match expect {
+        GateExpect::Blocked if seen.defeated_before_the_run => verdict(
+            Verdict::Wait,
+            format!(
+                "{subject} was already defeated in this world; \
+                 run timeways-dev smoke --prepare for this check"
+            ),
+        ),
         GateExpect::Blocked if seen.open > 0 => verdict(
             Verdict::Fail,
             format!("lore of the defeat of {subject} shows before it"),
@@ -322,6 +332,11 @@ pub struct SmokeReport {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub calls: Option<CallTally>,
 }
+
+/// The line of the game at the start of a run on a world that already holds a defeat: the
+/// checks of the gate can't tell then.
+pub const NOT_FRESH: &str = "This world isn't fresh, so a few checks will wait. \
+     For a clean run, first run timeways-dev smoke --prepare on your computer.";
 
 // The text of the log ---------------------------------------------------------------------
 

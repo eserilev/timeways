@@ -250,6 +250,23 @@ fn each_room_step_waits_for_its_own_answer_also_when_the_ticker_runs_first() {
 }
 
 #[test]
+fn a_run_on_a_world_with_a_kill_from_before_says_in_the_chat_that_it_is_not_fresh() {
+    let (game, mut desk, _) = dev_session("not-fresh");
+    twdev(&game, "kill Edwin VanCleef boss");
+    game.run("ns.Outbox.Flush()");
+    desk.pump(&game);
+
+    run_to_the_end(&game, &mut desk);
+
+    let printed = game.printed().join("\n");
+    assert_eq!(
+        printed.matches("This world isn't fresh").count(),
+        1,
+        "{printed}"
+    );
+}
+
+#[test]
 fn a_feature_broken_on_purpose_fails_its_step_and_the_run_goes_on() {
     let (game, mut desk, folder) = dev_session("broken");
     game.run(

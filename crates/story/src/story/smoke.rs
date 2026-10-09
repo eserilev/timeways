@@ -12,7 +12,7 @@ use crate::pack::{Pack, PackError};
 use crate::prompt::reasons_of_retry;
 use crate::spoiler;
 use crate::store::{CallRow, Store};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// The lines of the bridge itself, which every batch has.
 const PROTOCOL_KINDS: [&str; 2] = ["batch_end", "character_entered"];
@@ -28,6 +28,8 @@ pub(super) struct SmokeRun {
     events: usize,
     /// The first call of the run.
     first_call: u64,
+    /// The foes that the world held as defeated at the start of the run.
+    defeated_before: BTreeSet<String>,
     /// The result of each call that a desk line named, so a line names each change once.
     named: BTreeMap<u64, String>,
 }
@@ -93,6 +95,15 @@ impl Story {
     /// The marks start where the world stands now, so the first step sees only its own lines.
     fn start_smoke(&mut self, run: u64) -> Result<(), StoryError> {
         let active = self.active.as_ref().ok_or(StoryError::NoCharacter)?;
+        let defeated_before: BTreeSet<String> = active
+            .character
+            .foes_defeated()
+            .into_iter()
+            .map(str::to_string)
+            .collect();
+        if !defeated_before.is_empty() {
+            self.notice = Some(dev_smoke::NOT_FRESH.to_string());
+        }
         self.smoke = Some(SmokeRun {
             report: SmokeReport {
                 run,
@@ -101,6 +112,7 @@ impl Story {
             next_input: active.next.input,
             events: active.character.world().history().len(),
             first_call: active.next.call,
+            defeated_before,
             named: BTreeMap::new(),
         });
         self.write_smoke(&dev_smoke::header(run))
@@ -131,7 +143,10 @@ impl Story {
         let gate = step
             .gate
             .as_ref()
-            .map(|ask| gate_of(&self.pack, &active.character, ask))
+            .map(|ask| {
+                let before = run.defeated_before.contains(&ask.subject);
+                gate_of(&self.pack, &active.character, ask, before)
+            })
             .transpose()?;
         Ok(Desk {
             kept,
@@ -169,7 +184,12 @@ fn seen_of(row: &CallRow) -> CallSeen {
 
 /// The outcome passages that wait for the defeat of the subject, and how many of them the
 /// spoiler gate lets through for this character.
-fn gate_of(pack: &Pack, character: &Character, ask: &GateAsk) -> Result<GateSeen, PackError> {
+fn gate_of(
+    pack: &Pack,
+    character: &Character,
+    ask: &GateAsk,
+    defeated_before_the_run: bool,
+) -> Result<GateSeen, PackError> {
     let passages = pack.waiting_on_foe(&ask.subject, MOST_GATED)?;
     let open = passages
         .iter()
@@ -180,5 +200,6 @@ fn gate_of(pack: &Pack, character: &Character, ask: &GateAsk) -> Result<GateSeen
         subject: ask.subject.clone(),
         open: count(open),
         blocked: count(passages.len() - open),
+        defeated_before_the_run,
     })
 }
