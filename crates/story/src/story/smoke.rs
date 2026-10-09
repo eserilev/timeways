@@ -58,8 +58,11 @@ impl Story {
         if run.report.steps.len() >= usize::try_from(MAX_STEPS).unwrap_or(usize::MAX) {
             return Err(StoryError::BadSmokeLine);
         }
-        run.report.steps.push(logged.clone());
-        self.write_smoke(&dev_smoke::step_text(&logged))?;
+        run.report.add(logged);
+        if run.report.done.is_some() {
+            self.tally_smoke_calls()?;
+        }
+        self.write_smoke()?;
         Ok(Vec::new())
     }
 
@@ -68,20 +71,24 @@ impl Story {
         if !done.is_sane() {
             return Err(StoryError::BadSmokeLine);
         }
-        let first_call = match &self.smoke {
-            Some(run) if run.report.run == done.run => run.first_call,
+        let run = match self.smoke.as_mut() {
+            Some(run) if run.report.run == done.run => run,
             _ => return Err(StoryError::NoSmokeRun),
         };
-        let active = self.active.as_ref().ok_or(StoryError::NoCharacter)?;
-        let rows = active.database.calls_from(first_call)?;
-        let tally = CallTally::of(&rows.iter().map(seen_of).collect::<Vec<_>>());
-        let run = self.smoke.as_mut().ok_or(StoryError::NoSmokeRun)?;
-        let text = dev_smoke::summary(&run.report.steps, &done, &tally);
         run.report.done = Some(done);
-        run.report.calls = Some(tally);
-        self.write_smoke(&text)?;
-        self.smoke = None;
+        self.tally_smoke_calls()?;
+        self.write_smoke()?;
         Ok(Vec::new())
+    }
+
+    /// The run stays open after its end, so a step that comes late still finds its place.
+    /// The calls are counted again then: a call can end after the run.
+    fn tally_smoke_calls(&mut self) -> Result<(), StoryError> {
+        let active = self.active.as_ref().ok_or(StoryError::NoCharacter)?;
+        let run = self.smoke.as_mut().ok_or(StoryError::NoSmokeRun)?;
+        let rows = active.database.calls_from(run.first_call)?;
+        run.report.calls = Some(CallTally::of(&rows.iter().map(seen_of).collect::<Vec<_>>()));
+        Ok(())
     }
 
     pub(super) fn check_dev_mode(&self) -> Result<(), StoryError> {
@@ -115,7 +122,7 @@ impl Story {
             defeated_before,
             named: BTreeMap::new(),
         });
-        self.write_smoke(&dev_smoke::header(run))
+        self.write_smoke()
     }
 
     /// What landed since the step before: the input lines, the facts, the calls, and the
@@ -157,12 +164,13 @@ impl Story {
     }
 
     /// A run with no data folder writes no file: that is a run of the tests.
-    fn write_smoke(&self, text: &str) -> Result<(), StoryError> {
+    fn write_smoke(&self) -> Result<(), StoryError> {
         let (Store::Folder(folder), Some(run)) = (&self.store, &self.smoke) else {
             return Ok(());
         };
         let number = run.report.run;
-        dev_smoke::append_log(&dev_smoke::log_file(folder, number), text)
+        let text = dev_smoke::log_text(&run.report);
+        dev_smoke::write_log(&dev_smoke::log_file(folder, number), &text)
             .and_then(|()| {
                 dev_smoke::write_report(&dev_smoke::json_file(folder, number), &run.report)
             })

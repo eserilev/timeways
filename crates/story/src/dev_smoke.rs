@@ -11,8 +11,8 @@ use crate::dev_fps::DEV_BENCH_FOLDER;
 use crate::house::first_chars;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use std::fs::{self, OpenOptions};
-use std::io::{self, Write};
+use std::fs;
+use std::io;
 use std::path::{Path, PathBuf};
 
 /// The most steps of one run. The addon has fewer, so a run never fills the disk.
@@ -24,7 +24,7 @@ pub const MAX_TEXT_BYTES: usize = 300;
 pub const MAX_ERROR_BYTES: usize = 300;
 const MAX_EXPECTED: usize = 6;
 const MAX_ERRORS: usize = 5;
-/// A full log takes no more lines.
+/// A log is cut at this size.
 pub const MAX_LOG_BYTES: u64 = 512 * 1024;
 /// The desk line names at most this many kinds of kept lines, and of calls.
 const MAX_LISTED: usize = 8;
@@ -333,6 +333,17 @@ pub struct SmokeReport {
     pub calls: Option<CallTally>,
 }
 
+impl SmokeReport {
+    /// The steps stay in the order of the run, also when the outbox of the game sends one
+    /// late.
+    pub fn add(&mut self, logged: Logged) {
+        let place = self
+            .steps
+            .partition_point(|before| before.step.step <= logged.step.step);
+        self.steps.insert(place, logged);
+    }
+}
+
 /// The line of the game at the start of a run on a world that already holds a defeat: the
 /// checks of the gate can't tell then.
 pub const NOT_FRESH: &str = "This world isn't fresh, so a few checks will wait. \
@@ -470,7 +481,8 @@ pub fn summary(steps: &[Logged], done: &SmokeDone, calls: &CallTally) -> String 
     ];
     if usize::try_from(done.steps).ok() != Some(steps.len()) {
         lines.push(format!(
-            "The game ran {} steps, and {} reached the desktop.",
+            "The game ran {} steps, and {} reached the desktop so far. \
+             The log puts the others in their place when they come.",
             done.steps,
             steps.len()
         ));
@@ -562,20 +574,43 @@ pub fn json_file(story_folder: &Path, run: u64) -> PathBuf {
     log_file(story_folder, run).with_extension("json")
 }
 
-/// Adds the text at the end of the log. A full log takes nothing more.
+/// The whole log of a run: the steps, then the summary once the run ended. The file is
+/// written new for each step, so a step that comes late still goes before the summary.
+#[must_use]
+pub fn log_text(report: &SmokeReport) -> String {
+    let mut text = header(report.run);
+    for logged in &report.steps {
+        text.push_str(&step_text(logged));
+    }
+    if let (Some(done), Some(calls)) = (&report.done, &report.calls) {
+        text.push_str(&summary(&report.steps, done, calls));
+    }
+    text
+}
+
+/// Writes the log, cut to its most size.
 ///
 /// # Errors
 ///
 /// Returns the error of the file system.
-pub fn append_log(file: &Path, text: &str) -> io::Result<()> {
+pub fn write_log(file: &Path, text: &str) -> io::Result<()> {
     if let Some(folder) = file.parent() {
         fs::create_dir_all(folder)?;
     }
-    if fs::metadata(file).is_ok_and(|meta| meta.len() > MAX_LOG_BYTES) {
-        return Ok(());
+    fs::write(file, first_bytes(text, MAX_LOG_BYTES))
+}
+
+/// The longest start of the text within `most` bytes that ends on a whole character.
+fn first_bytes(text: &str, most: u64) -> &str {
+    let most = usize::try_from(most).unwrap_or(usize::MAX);
+    if text.len() <= most {
+        return text;
     }
-    let mut out = OpenOptions::new().create(true).append(true).open(file)?;
-    out.write_all(text.as_bytes())
+    let mut end = most;
+    while !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    &text[..end]
 }
 
 /// # Errors

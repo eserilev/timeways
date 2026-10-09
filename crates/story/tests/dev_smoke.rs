@@ -470,7 +470,7 @@ fn the_summary_counts_both_verdicts_names_each_failed_step_and_tallies_the_calls
     assert!(text.contains("Summary: 3 steps in 90 s (it reached its most time)."));
     assert!(text.contains("Game: 1 passed, 1 failed, 1 waited."));
     assert!(text.contains("Desk: 2 passed, 1 failed, 0 waited."));
-    assert!(text.contains("The game ran 4 steps, and 3 reached the desktop."));
+    assert!(text.contains("The game ran 4 steps, and 3 reached the desktop so far."));
     assert!(text.contains("Failed: 2 talk, 3 level-10"));
     assert!(text.contains("Lua errors: none"));
     assert!(text.contains("Model calls: narrator 6 (3 accepted, 3 refused)"));
@@ -479,24 +479,71 @@ fn the_summary_counts_both_verdicts_names_each_failed_step_and_tallies_the_calls
 }
 
 #[test]
-fn a_full_log_takes_no_more_lines() {
+fn a_log_past_its_most_size_is_cut() {
     let folder = folder("full");
     let file = log_file(&folder, RUN);
-    let big = "x".repeat(usize::try_from(MAX_LOG_BYTES).unwrap() + 1);
-    dev_smoke::append_log(&file, &big).unwrap();
+    let big = "é".repeat(usize::try_from(MAX_LOG_BYTES).unwrap());
 
-    dev_smoke::append_log(&file, "one more line\n").unwrap();
+    dev_smoke::write_log(&file, &big).unwrap();
 
-    assert_eq!(std::fs::metadata(&file).unwrap().len(), MAX_LOG_BYTES + 1);
+    let written = std::fs::read_to_string(&file).unwrap();
+    assert_eq!(written.len(), usize::try_from(MAX_LOG_BYTES).unwrap());
+}
+
+#[test]
+fn steps_that_come_late_take_their_place_and_the_summary_stays_last() {
+    let folder = folder("late");
+    let mut story = story(&folder, DevMode::On);
+    send(&mut story, &step_line(0, "start", "pass", &json!({})));
+    send(&mut story, &step_line(1, "zone-move", "pass", &json!({})));
+
+    send(&mut story, &done_line(4));
+    send(&mut story, &step_line(3, "tab-quests", "pass", &json!({})));
+    send(&mut story, &step_line(2, "tab-hero", "pass", &json!({})));
+
+    let log = log_text(&folder);
+    assert_eq!(log.matches("Timeways smoke test, run").count(), 1, "{log}");
+    let order: Vec<usize> = [
+        "0 start",
+        "1 zone-move",
+        "2 tab-hero",
+        "3 tab-quests",
+        "Summary",
+    ]
+    .iter()
+    .map(|part| log.find(part).unwrap())
+    .collect();
+    assert!(order.is_sorted(), "{log}");
+    assert_eq!(log.matches("Summary: ").count(), 1, "{log}");
+    assert!(log.contains("Summary: 4 steps in 42 s"), "{log}");
+    assert!(!log.contains("reached the desktop"), "{log}");
+}
+
+#[test]
+fn the_summary_names_the_steps_that_did_not_come_yet() {
+    let folder = folder("missing-steps");
+    let mut story = story(&folder, DevMode::On);
+    send(&mut story, &step_line(0, "start", "pass", &json!({})));
+
+    send(&mut story, &done_line(3));
+
+    let log = log_text(&folder);
+    assert!(
+        log.contains(
+            "The game ran 3 steps, and 1 reached the desktop so far. \
+             The log puts the others in their place when they come."
+        ),
+        "{log}"
+    );
 }
 
 #[test]
 fn the_newest_log_is_the_run_with_the_highest_number() {
     let folder = folder("newest");
     for run in [1_790_000_100_u64, 1_790_000_900, 1_790_000_500] {
-        dev_smoke::append_log(&log_file(&folder, run), "x\n").unwrap();
+        dev_smoke::write_log(&log_file(&folder, run), "x\n").unwrap();
     }
-    dev_smoke::append_log(&folder.join("dev-bench/smoke-notes.log"), "x\n").unwrap();
+    dev_smoke::write_log(&folder.join("dev-bench/smoke-notes.log"), "x\n").unwrap();
 
     assert_eq!(newest_log(&folder), Some(log_file(&folder, 1_790_000_900)));
     assert_eq!(newest_log(&folder.join("none")), None);
