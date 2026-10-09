@@ -91,18 +91,38 @@ impl Desk {
     }
 }
 
+/// Which runs first in a second of the game. The game gives no order, so the run must
+/// work with both.
+#[derive(Clone, Copy)]
+enum Order {
+    TimersFirst,
+    TickersFirst,
+}
+
+const RUN_TIMERS: &str = "local due, later = {}, {}
+     for _, timer in ipairs(wow.after) do
+         if timer.at <= wow.now then due[#due + 1] = timer else later[#later + 1] = timer end
+     end
+     wow.after = later
+     for _, timer in ipairs(due) do timer.callback() end";
+
 /// One second of the game: its timers, its tickers, and the replies of the desktop.
 fn second(game: &Game, desk: &mut Desk) {
-    game.run(
-        "wow.now = wow.now + 1
-         local due, later = {}, {}
-         for _, timer in ipairs(wow.after) do
-             if timer.at <= wow.now then due[#due + 1] = timer else later[#later + 1] = timer end
-         end
-         wow.after = later
-         for _, timer in ipairs(due) do timer.callback() end
-         wow.RunTickers()",
-    );
+    second_in(game, desk, Order::TimersFirst);
+}
+
+fn second_in(game: &Game, desk: &mut Desk, order: Order) {
+    game.run("wow.now = wow.now + 1");
+    match order {
+        Order::TimersFirst => {
+            game.run(RUN_TIMERS);
+            game.run("wow.RunTickers()");
+        }
+        Order::TickersFirst => {
+            game.run("wow.RunTickers()");
+            game.run(RUN_TIMERS);
+        }
+    }
     desk.pump(game);
 }
 
@@ -126,12 +146,16 @@ fn dev_session(name: &str) -> (Game, Desk, PathBuf) {
 }
 
 fn run_to_the_end(game: &Game, desk: &mut Desk) {
+    run_to_the_end_in(game, desk, Order::TimersFirst);
+}
+
+fn run_to_the_end_in(game: &Game, desk: &mut Desk, order: Order) {
     twdev(game, "smoke");
     for _ in 0..MOST_SECONDS {
         if !game.eval::<bool>("return ns.DevSmoke.IsRunning()") {
             return;
         }
-        second(game, desk);
+        second_in(game, desk, order);
     }
     panic!("the smoke test never ended");
 }
@@ -212,6 +236,17 @@ fn the_smoke_test_runs_every_step_and_the_desktop_logs_each_one() {
     assert_eq!(desk.bridge.dropped_lines(), 0);
     let printed = game.printed().join("\n");
     assert!(printed.contains("Smoke test done:"), "{printed}");
+}
+
+#[test]
+fn each_room_step_waits_for_its_own_answer_also_when_the_ticker_runs_first() {
+    let (game, mut desk, folder) = dev_session("room-order");
+
+    run_to_the_end_in(&game, &mut desk, Order::TickersFirst);
+
+    let log = the_log(&folder);
+    assert_eq!(result_of(&log, "peer-full"), "PASS", "{log}");
+    assert_eq!(result_of(&log, "peer-blocked"), "PASS", "{log}");
 }
 
 #[test]

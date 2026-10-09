@@ -228,6 +228,8 @@ local function RoomAnswer(short, room)
 	return {
 		name = "peer-" .. room,
 		run = function(context)
+			-- The answer of the room step before must not end this one.
+			context.room = nil
 			command()
 			ns.PlayerStories.Ask(short .. "-" .. ns.DevPeer.REALM, function(answer)
 				context.room = answer
