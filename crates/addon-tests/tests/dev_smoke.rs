@@ -7,10 +7,11 @@
 mod common;
 
 use common::Game;
-use fake_bridge::{FakeBridge, Reply};
+use fake_bridge::{FakeBridge, ModelByKind, Reply};
 use serde_json::Value;
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 use timeways_story::dev_mode::DevMode;
 use timeways_story::dev_smoke::newest_log;
 use timeways_story::moments::KINDS;
@@ -46,9 +47,13 @@ fn folder(name: &str) -> PathBuf {
 }
 
 fn bridge(folder: &Path, mode: DevMode) -> FakeBridge {
+    bridge_with(folder, mode, Box::new(|_, prompt| Some(model(prompt))))
+}
+
+fn bridge_with(folder: &Path, mode: DevMode, model: ModelByKind) -> FakeBridge {
     let mut story = Story::new(Pack::empty().unwrap(), Store::Folder(folder.to_path_buf()));
     story.set_dev_mode(mode);
-    FakeBridge::new(story).with_model(Box::new(|prompt| Some(model(prompt))))
+    FakeBridge::new(story).with_model_by_kind(model)
 }
 
 /// The addon after the login, with each message of its link kept for the bridge.
@@ -133,10 +138,14 @@ fn twdev(game: &Game, message: &str) {
 
 /// The game with dev mode on at the desktop: the first journal carries the mark.
 fn dev_session(name: &str) -> (Game, Desk, PathBuf) {
+    dev_session_with(name, Box::new(|_, prompt| Some(model(prompt))))
+}
+
+fn dev_session_with(name: &str, model: ModelByKind) -> (Game, Desk, PathBuf) {
     let folder = folder(name);
     let game = game();
     let mut desk = Desk {
-        bridge: bridge(&folder, DevMode::On),
+        bridge: bridge_with(&folder, DevMode::On, model),
         done: 0,
     };
     game.run("ns.Journal.Request(0)");
@@ -184,9 +193,14 @@ fn the_log(folder: &Path) -> String {
 }
 
 /// The steps that need no model, or that the model of this test answers.
-const WORKING: [&str; 30] = [
+const WORKING: [&str; 38] = [
     "start",
     "subzone-move",
+    "to-duskwood",
+    "to-searing-gorge",
+    "to-elwynn",
+    "to-westfall",
+    "back-to-town",
     "rare-kill",
     "lore-before-kill",
     "lore-after-kill",
@@ -196,6 +210,9 @@ const WORKING: [&str; 30] = [
     "gossip",
     "book",
     "talk",
+    "talk-work",
+    "talk-quest-card",
+    "talk-accept",
     "peer-story-accept",
     "peer-story-decline",
     "peer-quest-accept",
@@ -264,6 +281,38 @@ fn a_run_on_a_world_with_a_kill_from_before_says_in_the_chat_that_it_is_not_fres
         1,
         "{printed}"
     );
+}
+
+/// The prompts of a whole run, each with the kind of its call.
+fn prompts_of_a_run(name: &str) -> Vec<(String, String)> {
+    let prompts = Arc::new(Mutex::new(Vec::new()));
+    let kept = Arc::clone(&prompts);
+    let keep = move |kind: &str, prompt: &str| {
+        let call = (kind.to_string(), prompt.to_string());
+        kept.lock().unwrap().push(call);
+        Some(model(prompt))
+    };
+    let (game, mut desk, _) = dev_session_with(name, Box::new(keep));
+
+    run_to_the_end(&game, &mut desk);
+
+    prompts.lock().unwrap().clone()
+}
+
+#[test]
+fn the_talk_steps_happen_in_goldshire_not_in_the_raid_of_the_step_before() {
+    let prompts = prompts_of_a_run("talk-place");
+
+    let talks: Vec<&String> = prompts
+        .iter()
+        .filter(|(kind, _)| kind == "talk")
+        .map(|(_, prompt)| prompt)
+        .collect();
+    assert!(!talks.is_empty());
+    for prompt in talks {
+        assert!(prompt.contains("Place: Goldshire"), "{prompt}");
+        assert!(!prompt.contains("Place: Molten Core"), "{prompt}");
+    }
 }
 
 #[test]

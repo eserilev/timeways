@@ -95,6 +95,12 @@ local function LevelUp(above)
 	end
 end
 
+-- A walk to the place of the steps after it, so each moment, talk, and death happens where
+-- its people and its foes live: Hogger in Elwynn Forest, Mor'Ladim in Duskwood.
+local function GoTo(name, place)
+	return { name = name, run = Command("zone " .. place), expect = { "zone_entered" } }
+end
+
 local function TalkTo(words)
 	return Command("talk " .. NPC .. " / " .. words)
 end
@@ -297,6 +303,7 @@ local STEPS = {
 		expect = { "zone_entered" },
 		wait = "narrator",
 	},
+	{ name = "rare-kill", run = Command("kill Hogger rare"), expect = { "npc_defeated" } },
 	{ name = "subzone-move", run = Command("zone Elwynn Forest / Lion's Pride Inn"), expect = { "zone_entered" } },
 	{ name = "capital", run = Command("zone Stormwind City / Trade District"), expect = { "zone_entered" } },
 	{ name = "taxi", run = Command("taxi"), expect = { "zone_entered" } },
@@ -321,7 +328,6 @@ local STEPS = {
 		gate = { subject = VANCLEEF, expect = "blocked" },
 		check = LoreCheck,
 	},
-	{ name = "rare-kill", run = Command("kill Hogger rare"), expect = { "npc_defeated" } },
 	{
 		name = "vancleef-kill",
 		run = Command("kill " .. VANCLEEF .. " boss"),
@@ -337,10 +343,12 @@ local STEPS = {
 		gate = { subject = VANCLEEF, expect = "open" },
 		check = LoreCheck,
 	},
+	GoTo("to-duskwood", "Duskwood / Raven Hill Cemetery"),
 	{ name = "death", run = Command("death Mor'Ladim"), expect = { "died" }, wait = "narrator" },
 	{ name = "death-again", run = Command("death Mor'Ladim"), expect = { "died" } },
 	{ name = "revenge", run = Command("kill Mor'Ladim rare"), expect = { "npc_defeated" } },
 	{ name = "fall", run = Command("fall"), expect = { "died" } },
+	GoTo("to-searing-gorge", "Searing Gorge / The Cauldron"),
 	-- The second death in lava earns the joke title "Lava Enthusiast".
 	{ name = "lava", run = Command("lava"), expect = { "died" } },
 	{ name = "lava-again", run = Command("lava"), expect = { "died" } },
@@ -353,8 +361,10 @@ local STEPS = {
 		wait = "narrator",
 	},
 	{ name = "epic-item", run = Command("item Ironfoe epic"), expect = { "item_equipped" }, wait = "narrator" },
+	GoTo("to-elwynn", "Elwynn Forest / Eastvale Logging Camp"),
 	{ name = "quest-step-kill", run = Command("kill Prowler"), expect = { "npc_killed" } },
 	{ name = "seen-npc", run = Command("seen Prowler beast"), expect = { "npc_seen" } },
+	GoTo("to-westfall", "Westfall / Sentinel Hill"),
 	{
 		name = "game-quest",
 		run = Command("game-quest Westfall Stew"),
@@ -364,8 +374,9 @@ local STEPS = {
 	{ name = "quest-mark", run = Command("mark Call of Earth / Earth Sapta"), expect = { "quest_marked" } },
 	{ name = "battleground", run = Command("bg-win"), expect = { "bg_won" } },
 	{ name = "pvp-rank", run = Command("pvp-rank 3"), expect = { "pvp_rank" } },
-	{ name = "rest", run = Command("rest"), expect = { "rest_changed" } },
 	{ name = "raid", run = Command("raid Molten Core"), expect = { "instance_entered" } },
+	GoTo("back-to-town", "Elwynn Forest / Goldshire"),
+	{ name = "rest", run = Command("rest"), expect = { "rest_changed" } },
 	{ name = "meet-npc", run = Command("meet " .. NPC), expect = { "npc_met" } },
 	{ name = "gossip", run = Command("gossip " .. NPC .. " / Rest a while, friend."), expect = { "text_seen" } },
 	{ name = "quest-text", run = Command("quest-text " .. NPC .. " / Lost Necklace"), expect = { "text_seen" } },
@@ -592,9 +603,7 @@ DevSmoke.LEFT_OUT = {
 
 -- The kinds of narrator moments that no step makes, and why (crates/addon-tests/tests/
 -- dev_smoke.rs).
-DevSmoke.LEFT_OUT_MOMENTS = {
-	quest_done = "a side quest ends only after its steps, and a model writes the steps",
-}
+DevSmoke.LEFT_OUT_MOMENTS = {}
 
 local function CloseWindows()
 	if ns.StoryScroll.IsShown() then
