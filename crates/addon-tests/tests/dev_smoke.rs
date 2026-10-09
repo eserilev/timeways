@@ -316,6 +316,18 @@ fn the_talk_steps_happen_in_goldshire_not_in_the_raid_of_the_step_before() {
 }
 
 #[test]
+fn a_frame_rate_at_the_background_cap_waits_and_the_summary_says_why() {
+    let (game, mut desk, folder) = dev_session("fps-cap");
+    game.run("wow.cvars.maxFPSBk = '60'");
+
+    run_to_the_end(&game, &mut desk);
+
+    let log = the_log(&folder);
+    assert_eq!(result_of(&log, "fps"), "WAIT", "{log}");
+    assert!(log.contains("so maxFPSBk capped it at 60"), "{log}");
+}
+
+#[test]
 fn a_feature_broken_on_purpose_fails_its_step_and_the_run_goes_on() {
     let (game, mut desk, folder) = dev_session("broken");
     game.run(

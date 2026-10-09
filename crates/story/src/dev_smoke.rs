@@ -151,6 +151,9 @@ pub struct FpsNumbers {
     pub p5: u32,
     pub median: u32,
     pub mean: u32,
+    /// The cap of `maxFPSBk` when the run sat at it: the game window was in the background.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background_cap: Option<u32>,
 }
 
 /// The end of a run, as the addon counted it.
@@ -554,10 +557,17 @@ fn fps_text(fps: Option<FpsNumbers>) -> String {
     let Some(fps) = fps else {
         return "FPS: no samples".to_string();
     };
-    format!(
+    let numbers = format!(
         "FPS: {} samples ({} hidden): min {}, low 5% {}, median {}, mean {}.",
         fps.samples, fps.hidden, fps.min, fps.p5, fps.median, fps.mean
-    )
+    );
+    match fps.background_cap {
+        Some(cap) => format!(
+            "{numbers} The game window was in the background, \
+             so maxFPSBk capped it at {cap}: not a real number."
+        ),
+        None => numbers,
+    }
 }
 
 // The files of a run ------------------------------------------------------------------------

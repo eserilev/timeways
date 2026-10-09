@@ -89,6 +89,48 @@ fn a_run_sends_one_dev_line_with_its_samples_and_their_numbers() {
     assert_eq!(line["hidden"], 0);
 }
 
+const BACKGROUND_HINT: &str = "the cap of maxFPSBk while the game window is in the background";
+
+#[test]
+fn a_run_that_sat_at_the_background_cap_says_so_and_gives_the_cap() {
+    let game = dev_game();
+    game.run("wow.framerate = 30 wow.cvars.maxFPSBk = '30'");
+
+    twdev(&game, "fps start bench");
+    tick_at(&game, 30);
+    tick_at(&game, 30);
+    let cap: Option<u32> = game.eval("return ns.DevFps.Stop().background_cap");
+
+    assert_eq!(cap, Some(30));
+    let printed = game.printed().join("\n");
+    assert!(printed.contains(BACKGROUND_HINT), "{printed}");
+}
+
+#[test]
+fn a_run_above_the_background_cap_says_nothing_of_it() {
+    let game = dev_game();
+    game.run("wow.framerate = 60 wow.cvars.maxFPSBk = '30'");
+
+    twdev(&game, "fps start bench");
+    tick_at(&game, 30);
+    let cap: Option<u32> = game.eval("return ns.DevFps.Stop().background_cap");
+
+    assert_eq!(cap, None);
+    assert!(!game.printed().join("\n").contains(BACKGROUND_HINT));
+}
+
+#[test]
+fn a_run_with_no_background_cap_says_nothing_of_it() {
+    let game = dev_game();
+    game.run("wow.framerate = 30 wow.cvars.maxFPSBk = '0'");
+
+    twdev(&game, "fps start bench");
+    tick_at(&game, 30);
+    let cap: Option<u32> = game.eval("return ns.DevFps.Stop().background_cap");
+
+    assert_eq!(cap, None);
+}
+
 #[test]
 fn the_line_reads_as_the_story_program_reads_it() {
     let game = dev_game();

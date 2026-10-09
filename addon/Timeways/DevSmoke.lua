@@ -565,6 +565,9 @@ local STEPS = {
 			if not context.fps then
 				return Wait("the game hid every frame rate")
 			end
+			if context.fps.background_cap then
+				return Wait("the game window was in the background, so maxFPSBk capped the frame rate")
+			end
 			return Pass(string.format("median %d, low 5%% %d", context.fps.median, context.fps.p5))
 		end,
 	},

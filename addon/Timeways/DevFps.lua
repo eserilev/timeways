@@ -93,6 +93,25 @@ local function CpuMs()
 	return ms
 end
 
+-- The cap of maxFPSBk when the run sat at it, or nil. The game holds the frame rate at this
+-- cap while its window is in the background, so such a run measures the cap, not the game.
+local function BackgroundCap(summary, samples)
+	local value = C_CVar.GetCVar("maxFPSBk")
+	if issecretvalue(value) then
+		return nil
+	end
+	local cap = tonumber(value)
+	if not cap or cap <= 0 or summary.median < cap - 1 then
+		return nil
+	end
+	for _, sample in ipairs(samples) do
+		if sample > cap + 1 then
+			return nil
+		end
+	end
+	return cap
+end
+
 function DevFps.IsRunning()
 	return run ~= nil
 end
@@ -175,6 +194,16 @@ function DevFps.Stop()
 		)
 	)
 	SayCost(memory, used)
+	local cap = BackgroundCap(summary, stopped.samples)
+	if cap then
+		Dev.Say(
+			string.format(
+				"The frame rate sat at %d, the cap of maxFPSBk while the game window is in the background. "
+					.. "Keep the game window in front for a real number.",
+				cap
+			)
+		)
+	end
 	return {
 		samples = #stopped.samples,
 		hidden = stopped.hidden,
@@ -182,6 +211,7 @@ function DevFps.Stop()
 		p5 = Round(summary.p5),
 		median = Round(summary.median),
 		mean = Round(summary.mean),
+		background_cap = cap,
 	}
 end
 

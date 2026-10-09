@@ -592,7 +592,7 @@ How to read the results:
 - The memory of Timeways, and its CPU time in the run when script profiling is on. To turn it on, type `/console scriptProfile 1`, then `/reload`. Profiling costs frame rate itself, so turn it off after the test: `/console scriptProfile 0`, then `/reload`.
 - The results go to `dev-bench/fps-<time>.json` and `.txt`, and each run of the addon goes to `dev-bench/fps.jsonl`.
 
-`/twdev fps` works alone too: `start`, play, and `stop` print the numbers of the run in the chat. A hidden frame rate (`issecretvalue`) counts as hidden and in no number. A run stops by itself after 15 minutes. It ends with no line when dev mode turns off.
+`/twdev fps` works alone too: `start`, play, and `stop` print the numbers of the run in the chat. A hidden frame rate (`issecretvalue`) counts as hidden and in no number. A run stops by itself after 15 minutes. It ends with no line when dev mode turns off. The game holds the frame rate at the cvar `maxFPSBk` while its window is in the background. A run that sat at that cap says so in the chat, because it measured the cap, not the game. In `/twdev smoke`, the `fps` step then gives WAIT, and the FPS line of the summary says that the number isn't real.
 
 ### What dev mode can't fake
 

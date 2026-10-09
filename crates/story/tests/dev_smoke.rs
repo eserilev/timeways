@@ -462,6 +462,7 @@ fn the_summary_counts_both_verdicts_names_each_failed_step_and_tallies_the_calls
             p5: 22,
             median: 30,
             mean: 29,
+            background_cap: None,
         }),
     };
 
@@ -476,6 +477,30 @@ fn the_summary_counts_both_verdicts_names_each_failed_step_and_tallies_the_calls
     assert!(text.contains("Model calls: narrator 6 (3 accepted, 3 refused)"));
     assert!(text.contains("Refused: narrator: The line names nothing of the moment. (3)"));
     assert!(text.contains("FPS: 10 samples (1 hidden)"));
+}
+
+#[test]
+fn the_summary_says_when_the_frame_rate_sat_at_the_background_cap() {
+    let folder = folder("fps-cap");
+    let mut story = story(&folder, DevMode::On);
+    send(&mut story, &step_line(0, "start", "pass", &json!({})));
+    let mut done: Value = serde_json::from_str(&done_line(1)).unwrap();
+    done["fps"] = json!({
+        "samples": 10, "hidden": 0, "min": 30, "p5": 30, "median": 30, "mean": 30,
+        "background_cap": 30
+    });
+
+    send(&mut story, &done.to_string());
+
+    let log = log_text(&folder);
+    assert!(
+        log.contains(
+            "FPS: 10 samples (0 hidden): min 30, low 5% 30, median 30, mean 30. \
+             The game window was in the background, so maxFPSBk capped it at 30: \
+             not a real number."
+        ),
+        "{log}"
+    );
 }
 
 #[test]
