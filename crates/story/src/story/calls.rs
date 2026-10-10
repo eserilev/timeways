@@ -83,6 +83,9 @@ pub(super) struct TalkCall {
     pub(super) at: Tick,
     /// Whether the player asked something, for the check of a closing question.
     pub(super) asked: Asked,
+    pub(super) attempt: Attempt,
+    /// What the first call read, which the retry reads too.
+    pub(super) reads: Vec<Node>,
 }
 
 impl Pending {
@@ -99,6 +102,7 @@ impl Pending {
             Pending::Quest(quest) if quest.attempt == Attempt::Retry => QUEST_RETRY,
             Pending::Quest(_) => QUEST,
             Pending::Draft { .. } => "draft",
+            Pending::Talk(talk) if talk.attempt == Attempt::Retry => TALK_RETRY,
             Pending::Talk(_) => TALK,
         }
     }
@@ -142,6 +146,8 @@ const TALK: &str = "talk";
 const QUEST: &str = "quest";
 /// A retry is no new offer, so the hook does not count it (docs/plans/quest-variety.md 3.6).
 const QUEST_RETRY: &str = "quest_retry";
+/// A retry is no new talk, so the hook does not count it.
+pub(super) const TALK_RETRY: &str = "talk_retry";
 
 /// The kinds of call that share the count of the hook (GAMEPLAY.md 3.7).
 const HOOK_KINDS: [&str; 2] = [TALK, QUEST];
@@ -205,7 +211,7 @@ impl Story {
             } => self.tale_answered(&key, run, instance, &told, Some(&reply))?,
             Pending::ZoneHistory(call) => self.zone_history_answered(*call, Some(&reply))?,
             Pending::Talk(talk) => {
-                let outputs = self.talk_answered(talk, &reply, row);
+                let outputs = self.talk_answered(talk, &reply, row, &prompt);
                 let said = matches!(
                     outputs.first(),
                     Some(Output::TalkAnswer { text: Some(_), .. })
@@ -243,31 +249,33 @@ impl Story {
     /// The words always show. The change of trust lands only for the character that
     /// talked, and never before the last event, because the world can move on while the
     /// model thinks. Work asks the NPC for a quest, also only for that character. `row` is
-    /// the row of the talk call, which the quest call reads.
+    /// the row of the talk call, which the quest call reads. A first reply that fails the
+    /// check gets one more call with the reasons, when a slot is free. A second failure is
+    /// silence.
     pub(super) fn talk_answered(
         &mut self,
         talk: TalkCall,
         reply: &Reply<'_>,
         row: Option<u64>,
+        prompt: &str,
     ) -> Vec<Output> {
+        let player_text = self.player_text(&talk.key);
+        let checked = talk::answer_or_reasons(reply.text, talk.asked, &player_text, reply.given);
+        let answer = match checked {
+            Ok(answer) => answer,
+            Err(reasons) if talk.attempt == Attempt::First && self.has_free_slot() => {
+                return self.retry_talk(talk, row, prompt, reply.text, &reasons);
+            }
+            Err(_) => return vec![silent_talk(talk.question, talk.npc)],
+        };
         let TalkCall {
             question,
             key,
             npc,
             at: asked_at,
-            asked,
+            ..
         } = talk;
         let key = &key;
-        let player_text = self.player_text(key);
-        let Some(answer) = talk::checked_answer(reply.text, asked, &player_text, reply.given)
-        else {
-            return vec![Output::TalkAnswer {
-                id: question,
-                npc,
-                text: None,
-                notice: None,
-            }];
-        };
         let same = self
             .active
             .as_ref()
@@ -295,6 +303,33 @@ impl Story {
             },
         );
         outputs
+    }
+
+    /// The second call: the first prompt, the first reply, and the reasons. It reads what
+    /// the first call read, and the first call. A retry over the budget is silence.
+    fn retry_talk(
+        &mut self,
+        talk: TalkCall,
+        first_row: Option<u64>,
+        prompt: &str,
+        text: &str,
+        reasons: &[String],
+    ) -> Vec<Output> {
+        let (question, npc) = (talk.question, talk.npc.clone());
+        let Some(prompt) = talk::retry_prompt(prompt, text, reasons) else {
+            return vec![silent_talk(question, npc)];
+        };
+        let mut reads = talk.reads.clone();
+        reads.extend(first_row.map(Node::Call));
+        let retry = TalkCall {
+            attempt: Attempt::Retry,
+            reads: reads.clone(),
+            ..talk
+        };
+        vec![
+            self.open_call(Pending::Talk(retry), prompt, reads)
+                .unwrap_or_else(|| silent_talk(question, npc)),
+        ]
     }
 
     /// The words become a rumor that the NPC remembers (GAMEPLAY.md 3.5), and the change of
@@ -347,12 +382,7 @@ impl Story {
                 told,
             } => self.tale_answered(&key, run, instance, &told, None)?.0,
             Pending::ZoneHistory(call) => self.zone_history_answered(*call, None)?.0,
-            Pending::Talk(TalkCall { question, npc, .. }) => vec![Output::TalkAnswer {
-                id: question,
-                npc,
-                text: None,
-                notice: None,
-            }],
+            Pending::Talk(TalkCall { question, npc, .. }) => vec![silent_talk(question, npc)],
             Pending::Quest(quest) => self.quest_failed(&quest),
             Pending::Draft { question, .. } => vec![drafts::draft_answer(question, None)],
         })
@@ -454,5 +484,14 @@ fn accepted_if(accepted: bool) -> Outcome {
         Outcome::Accepted
     } else {
         Outcome::Refused
+    }
+}
+
+fn silent_talk(question: MessageId, npc: String) -> Output {
+    Output::TalkAnswer {
+        id: question,
+        npc,
+        text: None,
+        notice: None,
     }
 }

@@ -1,0 +1,1 @@
+{"say": "Ah, greetings traveler. Dark times, friend.", "trust": 0}

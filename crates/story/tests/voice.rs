@@ -422,6 +422,25 @@ fn full_npc_talk() -> String {
     talk::prompt(&scene, &lore, &words, 0)
 }
 
+/// The most reasons at their longest.
+fn long_reasons() -> Vec<String> {
+    vec!["w".repeat(200); 8]
+}
+
+/// A talk, a long bad reply, and the most reasons at their longest.
+fn npc_talk_retry() -> String {
+    talk::retry_prompt(&npc_talk(), &"w".repeat(2000), &long_reasons()).unwrap()
+}
+
+#[test]
+fn a_talk_retry_that_does_not_fit_the_budget_is_not_sent() {
+    let fullest = full_npc_talk();
+
+    let retry = talk::retry_prompt(&fullest, &"w".repeat(2000), &long_reasons());
+
+    assert_eq!(retry, None);
+}
+
 fn draft_known() -> draft::Known<'static> {
     draft::Known {
         zones: vec!["Elwynn Forest", "Westfall"],
@@ -650,6 +669,11 @@ fn every_prompt() -> Vec<(&'static str, Call, String)> {
         quiet_chapter_of_a_full_hero(),
     ));
     prompts.push(("an NPC talk with everything", Call::Talk, full_npc_talk()));
+    prompts.push((
+        "an NPC talk retry after a long bad reply",
+        Call::Talk,
+        npc_talk_retry(),
+    ));
     prompts.push((
         "a narrator line with a full lore passage",
         Call::NarratorLine,

@@ -736,10 +736,11 @@ fn play_once(story: &mut Story, play: &Play, clock: &mut u64) -> Vec<Output> {
         return Vec::new();
     };
     let text = match play {
-        Play::Talk(_, say) | Play::TalkAcrossRelog(_, say) => {
-            serde_json::json!({ "say": say, "trust": 1 }).to_string()
-        }
         // A refused answer gets a retry, and the model answers it the same way.
+        Play::Talk(_, say) | Play::TalkAcrossRelog(_, say) => {
+            let reply = serde_json::json!({ "say": say, "trust": 1 }).to_string();
+            return answer_every_call(story, outputs, &reply);
+        }
         Play::Quest(_, steps) => return answer_every_call(story, outputs, &quest_answer(steps)),
         Play::TalkWork(_, steps) => return talk_with_work(story, *call, steps),
         Play::DraftAsk(_) => DRAFT_WITH_A_PLAYER.to_string(),

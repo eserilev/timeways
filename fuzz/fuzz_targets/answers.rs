@@ -571,6 +571,13 @@ fuzz_target!(|data: &[u8]| {
             assert!(text.contains("true"), "work with no true: {text:?}");
         }
     }
+    // A refused reply always says why, so its retry can name the rule.
+    if let Err(reasons) = talk::answer_or_reasons(&text, Asked::NoQuestion, "", GIVEN) {
+        assert!(!reasons.is_empty(), "{text:?}");
+        if let Some(retry) = talk::retry_prompt(GIVEN, &text, &reasons) {
+            assert!(retry.starts_with(GIVEN), "{retry:?}");
+        }
+    }
     if chronicle::checked_pick(&text) == chronicle::Pick::Second {
         assert!(text.contains('2'), "a pick of draft 2 with no 2: {text:?}");
     }

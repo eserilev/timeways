@@ -26,7 +26,7 @@ use crate::pace::Pace;
 use crate::pack::{Pack, PackError, Passage};
 use crate::passage_limits;
 use crate::places::InstanceKind;
-use crate::prompt::Context;
+use crate::prompt::{Attempt, Context};
 use crate::quest::{Encounter, QuestView, Status, quest_log};
 use crate::race_class::{Class, Race};
 use crate::ratings::Rated;
@@ -1419,6 +1419,8 @@ impl Story {
             npc: npc.to_string(),
             at,
             asked: Asked::of(words),
+            attempt: Attempt::First,
+            reads: read.clone(),
         });
         Ok(self.open_call(pending, prompt, read).into_iter().collect())
     }

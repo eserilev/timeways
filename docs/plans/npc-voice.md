@@ -134,7 +134,7 @@ Real Classic lines that show the same rules (sources in appendix A.1):
 
 ### 6.1 Deterministic checks (built)
 
-The checks live in `crates/story/src/npc_voice.rs` and run in `talk::checked_answer`, after the checks that held before: one line, at most 400 characters, no emoji, no banned word, no copy of a sample, no name after the cutoff, and no name that the prompt did not give (`grounding.rs`). A talk has no retry, so an answer that fails any check gives the line "looks at you and says nothing".
+The checks live in `crates/story/src/npc_voice.rs` and run in `talk::checked_answer`, after the checks that held before: one line, at most 400 characters, no emoji, no banned word, no copy of a sample, no name after the cutoff, and no name that the prompt did not give (`grounding.rs`). An answer that fails any check gets one retry with the reasons (`talk::answer_or_reasons`), when a slot is free and the retry fits the budget. A second failure gives the line "looks at you and says nothing".
 
 | Rule | Pattern | Fault |
 |---|---|---|

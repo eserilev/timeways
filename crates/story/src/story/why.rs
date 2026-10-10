@@ -52,7 +52,7 @@ pub(super) fn trust_why(active: &Active, npc: &str) -> Result<Option<TrustWhy>, 
 fn cause_of(database: &Database, event: Node) -> Result<Option<TrustCause>, StoreError> {
     match database.origin(event)? {
         Some(Node::Call(call)) => {
-            let talk = database.call(call)?.is_some_and(|call| call.kind == "talk");
+            let talk = database.call(call)?.is_some_and(|call| is_talk(&call.kind));
             Ok(talk.then_some(TrustCause::Talk))
         }
         Some(Node::Input(input)) => Ok(match database.input_kind(input)?.as_deref() {
@@ -74,4 +74,8 @@ fn finishes_a_quest(character: &Character, trust_change: EventId) -> bool {
     history.get(EventId(before)).is_some_and(
         |event| matches!(&event.kind, EventKind::FactStart { name, .. } if name == QUEST_DONE),
     )
+}
+
+fn is_talk(kind: &str) -> bool {
+    kind == "talk" || kind == super::calls::TALK_RETRY
 }

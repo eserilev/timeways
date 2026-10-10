@@ -8,7 +8,7 @@ use crate::house::{HOUSE_RULES, bulleted, fenced};
 use crate::npc_voice::{Asked, npc_faults};
 use crate::pack::Passage;
 use crate::samples::{self, Voice};
-use crate::tokens::{Call, largest_fit};
+use crate::tokens::{Call, estimated_tokens, largest_fit};
 use serde::Deserialize;
 use std::fmt::Write;
 
@@ -225,16 +225,51 @@ pub struct Answer {
     pub work: Work,
 }
 
+/// The reason of a retry for a reply that is no JSON object of the prompt.
+const NOT_JSON: &str = "The reply is not the JSON object of the prompt. Reply with JSON only.";
+
+/// The reason of a retry for words that fail the plain checks of a voice.
+const NOT_PLAIN: &str = "The words are too long, hold a banned word, copy a sample, or name \
+something after Molten Core. Write one short plain line of your own.";
+
+/// The reason of a retry for a name that the prompt did not give, after the name.
+const UNGROUNDED_NAME: &str =
+    "is in nothing you know. Name only the people and places of the prompt.";
+
 /// None when the words break a rule. A change of trust outside the band is dropped, and
 /// the words still show. `asked` tells whether the player asked something, and
 /// `player_text` is the hero in the player's own words.
 #[must_use]
 pub fn checked_answer(text: &str, asked: Asked, player_text: &str, given: &str) -> Option<Answer> {
-    let reply: Reply = serde_json::from_str(json_object(text)?).ok()?;
-    let say = voice_text(&reply.say, MAX_SAY_CHARS, MAX_SAY_BYTES, player_text)?;
+    answer_or_reasons(text, asked, player_text, given).ok()
+}
+
+/// The answer, or every reason that refuses it, in plain words for a retry.
+///
+/// # Errors
+/// The reasons, when the reply breaks a rule.
+pub fn answer_or_reasons(
+    text: &str,
+    asked: Asked,
+    player_text: &str,
+    given: &str,
+) -> Result<Answer, Vec<String>> {
+    let reply = parsed_reply(text).ok_or_else(|| vec![NOT_JSON.to_string()])?;
+    let say = voice_text(&reply.say, MAX_SAY_CHARS, MAX_SAY_BYTES, player_text)
+        .ok_or_else(|| vec![NOT_PLAIN.to_string()])?;
     let told = format!("{given}\n{player_text}");
-    if !ungrounded_names(&say, &told).is_empty() || !npc_faults(&say, asked, &told).is_empty() {
-        return None;
+    let invented = ungrounded_names(&say, &told);
+    let mut reasons: Vec<String> = invented
+        .iter()
+        .map(|name| format!("\"{name}\" {UNGROUNDED_NAME}"))
+        .collect();
+    reasons.extend(
+        npc_faults(&say, asked, &told)
+            .iter()
+            .map(ToString::to_string),
+    );
+    if !reasons.is_empty() {
+        return Err(reasons);
     }
     let in_band = (-MAX_TRUST_CHANGE..=MAX_TRUST_CHANGE).contains(&reply.trust);
     let work = if reply.work == serde_json::Value::Bool(true) {
@@ -242,9 +277,21 @@ pub fn checked_answer(text: &str, asked: Asked, player_text: &str, given: &str) 
     } else {
         Work::NotOffered
     };
-    Some(Answer {
+    Ok(Answer {
         say,
         trust_change: if in_band { reply.trust } else { 0 },
         work,
     })
+}
+
+/// The prompt of the one retry of a talk. None when it does not fit the budget: the
+/// fixed parts of a full talk leave too little room, and that talk stays silent.
+#[must_use]
+pub fn retry_prompt(prompt: &str, answer: &str, reasons: &[String]) -> Option<String> {
+    let retry = crate::prompt::retry(prompt, answer, reasons);
+    (estimated_tokens(&retry) <= Call::Talk.prompt_budget()).then_some(retry)
+}
+
+fn parsed_reply(text: &str) -> Option<Reply> {
+    serde_json::from_str(json_object(text)?).ok()
 }

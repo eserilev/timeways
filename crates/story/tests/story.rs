@@ -1433,6 +1433,62 @@ fn a_talk_with_no_model_gets_no_words() {
     assert_eq!(people(&mut story)[0].trust, None);
 }
 
+/// A reply that the NPC check refuses: "Ah" opens it, and it is a stock greeting.
+const STOCK_REPLY: &str = r#"{"say": "Ah, greetings traveler.", "trust": 0}"#;
+
+#[test]
+fn a_refused_talk_reply_gets_one_retry_with_its_reasons_and_shows() {
+    let mut story = story_with("talk-retry", &[]);
+    let (call, _) =
+        model_call(one(talk(&mut story, "Innkeeper Farley", "any news?").unwrap()).unwrap());
+
+    let refused = Input::ModelAnswered {
+        call,
+        text: STOCK_REPLY.to_string(),
+    };
+    let (retry, prompt) = model_call(one(story.handle(refused).unwrap()).unwrap());
+    let retry_kind = story.call_kind(retry);
+    let text = r#"{"say": "Room's two silver.", "trust": 1}"#.to_string();
+    let output = one(story
+        .handle(Input::ModelAnswered { call: retry, text })
+        .unwrap());
+
+    assert!(prompt.contains("Your last answer was:"), "{prompt}");
+    assert!(prompt.contains("greetings traveler"), "{prompt}");
+    assert_eq!(retry_kind, Some("talk_retry"));
+    let shown = Output::TalkAnswer {
+        id: MessageId(8),
+        npc: "Innkeeper Farley".to_string(),
+        text: Some("Room's two silver.".to_string()),
+        notice: None,
+    };
+    assert_eq!(output, Some(shown));
+    assert_eq!(people(&mut story)[0].trust, Some(1));
+}
+
+#[test]
+fn a_talk_reply_refused_twice_stays_silent() {
+    let mut story = story_with("talk-retry-silent", &[]);
+    let (call, _) =
+        model_call(one(talk(&mut story, "Innkeeper Farley", "any news?").unwrap()).unwrap());
+    let refused = |call| Input::ModelAnswered {
+        call,
+        text: STOCK_REPLY.to_string(),
+    };
+    let (retry, _) = model_call(one(story.handle(refused(call)).unwrap()).unwrap());
+
+    let output = one(story.handle(refused(retry)).unwrap());
+
+    let silent = Output::TalkAnswer {
+        id: MessageId(8),
+        npc: "Innkeeper Farley".to_string(),
+        text: None,
+        notice: None,
+    };
+    assert_eq!(output, Some(silent));
+    assert_eq!(people(&mut story)[0].trust, None);
+}
+
 #[test]
 fn an_empty_long_or_odd_lore_question_or_target_is_refused() {
     let mut story = story_with("lore-bad-words", &[tower()]);
