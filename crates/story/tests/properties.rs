@@ -28,6 +28,7 @@ use timeways_story::chronicle::{Pick, Saga};
 use timeways_story::entry_edits::{EditText, EntryKey, EntryKind};
 use timeways_story::gear::{BIG_UPGRADE_LEVELS, Before, Quality, SLOTS, is_big_upgrade};
 use timeways_story::grounding::ungrounded_names;
+use timeways_story::group_words::{HeroWord, group_word_hero_in};
 use timeways_story::hero::{Field, LONG, checked_text, cut, limit_of};
 use timeways_story::hero_hook::HOOK_FIELDS;
 use timeways_story::house::fenced;
@@ -4670,6 +4671,108 @@ proptest! {
         prop_assert_eq!(grounded(&answer, &given), each_given);
         for name in &answer {
             prop_assert_eq!(is_given(*name, &given), given.contains(name));
+        }
+    }
+}
+
+/// A lore that names the groups of the hero's own words, so the build must fall back:
+/// `mix` picks the race, the class, the title, or all of them.
+fn lore_with_group_words(base: &str, who: &Who, mix: usize) -> String {
+    let race = who
+        .race
+        .map(|race| format!("The {} keep to their own.", race.plural()));
+    let class = who
+        .class
+        .map(|class| format!("The {} train there.", class.plural()));
+    let title = who
+        .titles
+        .last()
+        .map(|title| format!("The {title}s copy books."));
+    let picked: Vec<Option<String>> = match mix % 4 {
+        0 => vec![race],
+        1 => vec![class],
+        2 => vec![title],
+        _ => vec![race, class, title],
+    };
+    let mut lore = base.to_string();
+    for sentence in picked.into_iter().flatten() {
+        lore.push(' ');
+        lore.push_str(&sentence);
+    }
+    lore
+}
+
+/// The words of a hero naming such as "the paladin", as a race, a class, or a title.
+fn hero_word_of(who: &Who, words: &str) -> Option<HeroWord> {
+    let word = words.strip_prefix("the ")?;
+    let race = who
+        .race
+        .filter(|race| race.word() == word)
+        .map(HeroWord::race);
+    let class = who
+        .class
+        .filter(|class| class.word() == word)
+        .map(HeroWord::class);
+    let title = who
+        .titles
+        .iter()
+        .find(|title| *title == word)
+        .map(|title| HeroWord::title(title));
+    race.or(class).or(title)
+}
+
+/// The line with its first hero naming cut out, in any case.
+fn without_hero(line: &str, hero: &str) -> String {
+    let lower = line.to_ascii_lowercase();
+    let Some(at) = lower.find(&hero.to_ascii_lowercase()) else {
+        return line.to_string();
+    };
+    format!("{}{}", &line[..at], &line[at + hero.len()..])
+}
+
+proptest! {
+    // Each case builds every line of all 72 pairings.
+    #![proptest_config(ProptestConfig::with_cases(24))]
+
+    /// For every pairing of race and class and every template, no built line names the
+    /// hero by a word that names a group of the line: not the word, its plural, or its
+    /// people, and never a word that is its own plural (docs/plans/narrator-style.md 4.1).
+    #[test]
+    fn no_built_line_names_the_hero_by_a_group_word_of_the_line(
+        moment in templated_moment(),
+        title in prop::option::of(edge_title()),
+        turn in 0..64usize,
+        pick in 0..8usize,
+        mix in 0..8usize,
+    ) {
+        for race in Race::all() {
+            for class in Class::all() {
+                let who = Who {
+                    race: Some(race),
+                    class: Some(class),
+                    titles: title.clone().into_iter().collect(),
+                };
+                let setup = template_setup(moment.clone(), who.clone(), turn);
+                let offer = offer(&setup).unwrap();
+                let choices = rich_choices(&offer, pick, false, false);
+                let base = lore_naming(&setup, &offer, choices.group.as_deref());
+                let lore = lore_with_group_words(&base, &who, mix);
+
+                let lines = every_line(&setup, &offer, &lore, &choices).unwrap();
+
+                for built in &lines {
+                    prop_assert_eq!(group_word_hero_in(&built.line, &who.titles), None, "{}", built.line);
+                    let Some(hero) = &built.hero else {
+                        continue;
+                    };
+                    let Some(word) = hero_word_of(&who, hero) else {
+                        prop_assert_eq!(hero, "$N", "{}", built.line);
+                        continue;
+                    };
+                    let rest = without_hero(&built.line, hero);
+                    prop_assert!(!word.clashes_with(&rest), "{}", built.line);
+                }
+            }
         }
     }
 }

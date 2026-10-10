@@ -11,7 +11,7 @@ Examples of the voice (the lore of a real line comes from the pack):
 - Human paladin: "The Silver Hand was founded to carry the Light into war. The order grows stronger. $N has reached level 30."
 - Forsaken paladin: "The Silver Hand once burned the dead of Lordaeron. Now the dead channel the Light, and their power grows. $N has reached level 20."
 - Orc warlock: "The Shadow Council first taught the orcs to bargain with demons. The warlocks of the Horde grow stronger. $N has reached level 10."
-- Tauren druid: "The Cenarion Circle keeps the balance of Kalimdor, and its druids grow stronger. The druid has reached level 20."
+- Tauren druid: "The Cenarion Circle keeps the balance of Kalimdor, and its druids grow stronger. $N has reached level 20."
 
 ## The rule
 

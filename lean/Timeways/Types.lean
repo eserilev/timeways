@@ -268,6 +268,45 @@ structure game_names.NameRow where
   game : Std.U32
   wiki : Std.U32
 
+/-- [timeways_rules::hero_naming::Turn]
+    Source: 'crates/rules/src/hero_naming.rs', lines 9:0-15:1
+    Visibility: public -/
+@[discriminant isize]
+inductive hero_naming.Turn where
+| Name : hero_naming.Turn
+| Race : hero_naming.Turn
+| Class : hero_naming.Turn
+| Title : hero_naming.Turn
+| Unnamed : hero_naming.Turn
+
+/-- [timeways_rules::hero_naming::Word]
+    Source: 'crates/rules/src/hero_naming.rs', lines 19:0-25:1
+    Visibility: public -/
+@[discriminant isize]
+inductive hero_naming.Word where
+| Missing : hero_naming.Word
+| Clashes : hero_naming.Word
+| Clear : hero_naming.Word
+
+/-- [timeways_rules::hero_naming::Words]
+    Source: 'crates/rules/src/hero_naming.rs', lines 29:0-33:1
+    Visibility: public -/
+structure hero_naming.Words where
+  race : hero_naming.Word
+  «class» : hero_naming.Word
+  title : hero_naming.Word
+
+/-- [timeways_rules::hero_naming::Naming]
+    Source: 'crates/rules/src/hero_naming.rs', lines 37:0-43:1
+    Visibility: public -/
+@[discriminant isize]
+inductive hero_naming.Naming where
+| Name : hero_naming.Naming
+| Race : hero_naming.Naming
+| Class : hero_naming.Naming
+| Title : hero_naming.Naming
+| Unnamed : hero_naming.Naming
+
 /-- [timeways_rules::narrator_shapes::Token]
     Source: 'crates/rules/src/narrator_shapes.rs', lines 19:0-28:1
     Visibility: public -/

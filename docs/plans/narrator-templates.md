@@ -145,7 +145,7 @@ A line is a list of parts. Each part is a list of tokens: a word, a punctuation 
 
 ### 3.2 The hero slot
 
-The code fills `{hero}` from the naming of the turn (GAMEPLAY.md 3.2.1): `$N`, "the paladin", "the Forsaken", or a title. The model never sees the naming and never writes the hero.
+The code fills `{hero}` from the naming of the turn (GAMEPLAY.md 3.2.1): `$N`, "the paladin", "the night elf", or a title. A race, a class, or a title that names a group of the line falls back to another naming, and at last to `$N` (`docs/plans/narrator-style.md` 4.1). The model never sees the naming and never writes the hero.
 
 - `{Hero}` with a capital renders a capital at the start of a sentence: "The paladin".
 - A title naming renders "the" and the title: "the Bookworm".
@@ -669,14 +669,14 @@ The lore sentences come from the model, so these show the voice that the samples
    "The Silver Hand rode against the Horde of Orgrim Doomhammer in the Second War, and Thrall leads a new Horde from Orgrimmar today. Now, the orcs who wield the Light gain strength, and the paladin has reached level 10."
 3. Forsaken paladin, level 20. `f.level`, `s.dead_light`, `v.grown`, `co.is_now`, name.
    "The Silver Hand fought the Scourge as it raised the dead of Lordaeron, and the Forsaken hold those lands now. The dead who wield the Light have grown stronger. $N is level 20 now."
-4. Tauren druid, level 20. `f.level`, `o.cenarion` (short), `v.stronger`, `co.reached`, class.
-   "The Cenarion Circle keeps the balance of nature from Moonglade, where tauren and night elf druids study side by side. The Circle grows stronger. The druid has reached level 20."
+4. Tauren druid, level 20. `f.level`, `o.cenarion` (short), `v.stronger`, `co.reached`, class, which falls back to the name: "druids" names a group of the line.
+   "The Cenarion Circle keeps the balance of nature from Moonglade, where tauren and night elf druids study side by side. The Circle grows stronger. $N has reached level 20."
 5. Orc warlock, level 40. `f.level`, `g.class_faction`, `v.now`, `co.none_u`, unnamed.
    "The Shadow Council taught the orcs to bargain with demons on Draenor, and the Burning Blade still serves those demons in Ragefire Chasm. The warlocks of the Horde are stronger now."
 6. Dwarf shaman, level 30. `f.level_joined`, `s.elements`, `v.grown`, `co.reached`, name.
    "In the vaults of Uldaman, the dwarves learned that the titans shaped their forefathers from living stone, and the Explorers' League still digs there. The dwarves who speak to the elements have grown stronger, and $N has reached level 30."
-7. Night elf priest, level 30. `f.level`, `c.now`, `o.elune`, `v.stronger`, `co.reached`, race.
-   "Tyrande Whisperwind leads the night elves as the high priestess of Elune. Now, the priests of Elune grow stronger. The night elf has reached level 30."
+7. Night elf priest, level 30. `f.level`, `c.now`, `o.elune`, `v.stronger`, `co.reached`, race, which falls back to the name: "the night elves" and "the priests of Elune" name groups of the line.
+   "Tyrande Whisperwind leads the night elves as the high priestess of Elune. Now, the priests of Elune grow stronger. $N has reached level 30."
 8. Gnome mage, level 20. `f.level`, `o.kirin_tor`, `v.grown`, `co.reached`, name.
    "Dalaran lies behind a violet dome in the hills above Hillsbrad, where its magi rebuild their city. The Kirin Tor has grown stronger. $N has reached level 20."
 9. Kill, unnamed. `f.deed`, `k.lost_u` (many).
@@ -699,8 +699,8 @@ The lore sentences come from the model, so these show the voice that the samples
     "The summoning of Ragnaros blackened Searing Gorge, and the Dark Iron dwarves work its mines with slaves. There, the rogue carries Gutwrencher."
 18. Big upgrade. `f.deed`, `c.in_zone`, `i.carries`, title.
     "Gryan Stoutmantle left the Third War to save the farms of Westfall, and his militia holds Sentinel Hill. In Westfall, the Bookworm carries Cruel Barb."
-19. Slap. `f.deed`, `s.slapped`, race.
-    "Every caravan between Orgrimmar and Ratchet stops at the Crossroads. The tauren has now slapped Innkeeper Boorand Plainswind twice."
+19. Slap, tauren druid. `f.deed`, `s.slapped`, race, which falls back to the class: "the tauren" names the people.
+    "Every caravan between Orgrimmar and Ratchet stops at the Crossroads. The druid has now slapped Innkeeper Boorand Plainswind twice."
 20. Arrival. `f.place`.
     "Thrall named Durotar for a father he never knew. The orcs who spent years in human camps hold its red canyons now."
 

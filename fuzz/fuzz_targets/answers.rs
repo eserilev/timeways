@@ -16,6 +16,7 @@ use timeways_story::check::{
 };
 use timeways_story::draft;
 use timeways_story::grounding::{given_text, ungrounded_names};
+use timeways_story::group_words::group_word_hero_in;
 use timeways_story::lore::{LoreCall, Next};
 use timeways_story::pack::{Link, Origin, Passage};
 use timeways_story::prompt::Context;
@@ -365,7 +366,17 @@ fn slot_moments() -> Vec<(Moment, Who, &'static str)> {
         mount: "Gray Ram".to_string(),
         people: Some("Ironforge".to_string()),
     };
+    let forsaken = Who {
+        race: Some(Race::Forsaken),
+        class: Some(Class::Paladin),
+        titles: Vec::new(),
+    };
     vec![
+        (
+            level.clone(),
+            forsaken,
+            "The Forsaken hold the Undercity, and the paladins of the Horde wield the Light.",
+        ),
         (
             hogger,
             paladin.clone(),
@@ -392,7 +403,8 @@ fn slot_moments() -> Vec<(Moment, Who, &'static str)> {
 
 /// A slot answer never panics the parser. A line that the code builds from it keeps the
 /// limits of a line, holds no slop and no fault of the style guide, names the hero at most
-/// once, and never names the hero at a place (docs/plans/narrator-templates.md 6.2).
+/// once, never names the hero at a place (docs/plans/narrator-templates.md 6.2), and never
+/// names the hero by a word that names a group of the line (narrator-style.md 4.1).
 fn assert_slots(text: &str) {
     for (moment, who, lore) in slot_moments() {
         let setup = Setup {
@@ -434,6 +446,11 @@ fn assert_slots(text: &str) {
             "{built:?}"
         );
         assert!(!built.shape.is_empty(), "{built:?}");
+        assert_eq!(
+            group_word_hero_in(&built.line, &setup.who.titles),
+            None,
+            "{built:?}"
+        );
     }
 }
 

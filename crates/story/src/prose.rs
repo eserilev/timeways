@@ -3,6 +3,7 @@
 //! holds the words that broke the rule, so a retry can name them.
 
 use crate::check::{mentions, words_of};
+use crate::group_words::group_word_hero_in;
 use crate::inside_hero::{inside_hero_in, recognition_in};
 use crate::sentences::{sentences, word_count};
 use std::fmt;
@@ -70,6 +71,8 @@ pub enum ProseFault {
     Pivot(String),
     /// The text opens with "Level 10" or "Level ten".
     LevelOpener,
+    /// The hero is named by a word that names a group of the text: "the Forsaken has".
+    GroupWordForHero(String),
 }
 
 impl fmt::Display for ProseFault {
@@ -108,6 +111,11 @@ impl fmt::Display for ProseFault {
                 "The text opens with the level. Open with the history of the place, the foe, \
                  or the people."
             ),
+            ProseFault::GroupWordForHero(naming) => write!(
+                f,
+                "\"{naming}\" names the hero by a word that also names a people or a group. \
+                 Name the hero $N, or leave the hero out."
+            ),
         }
     }
 }
@@ -132,6 +140,7 @@ pub fn prose_faults(text: &str, hero_words: &[String]) -> Vec<ProseFault> {
     if opens_with_a_level(text) {
         faults.push(ProseFault::LevelOpener);
     }
+    faults.extend(group_word_hero_in(text, hero_words).map(ProseFault::GroupWordForHero));
     faults
 }
 

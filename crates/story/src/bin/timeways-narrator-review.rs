@@ -259,6 +259,7 @@ fn verdict(review: &Review, answer: &str, recent: &[String]) -> Answered {
             shape: String::new(),
             parts: Vec::new(),
             named: false,
+            hero: None,
         }),
         Checked::Silent => Answered::Silent,
         Checked::Refused(faults) => Answered::Refused(faults),

@@ -525,8 +525,8 @@ Written under the voice skill (`timeways-narrator-voice`). Each one names its sh
 
 1. Milestone, dwarf, Blacksmithing 150. `f.craft`, `po.great_forge`, `v.stronger`, `cc.reached`, name.
    "The dwarves built the Great Forge before the rest of Ironforge, and its fires still burn at the center of the city. The smiths of the Great Forge grow stronger. $N has reached 150 in Blacksmithing."
-2. Milestone, Forsaken, Alchemy 225. `f.craft_joined`, `po.apothecaries` (short), `v.strength`, `cc.reached`, race.
-   "Sylvanas created the Royal Apothecary Society to brew a new plague against the Scourge, and its alchemists still work in the Apothecarium of the Undercity. The Society gains strength, and the Forsaken has reached 225 in Alchemy."
+2. Milestone, Forsaken, Alchemy 225. `f.craft_joined`, `po.apothecaries` (short), `v.strength`, `cc.reached`, name. "The Forsaken" names the people, and "its alchemists" names a group, so neither the race nor "the alchemist" names the hero (`docs/plans/narrator-style.md` 4.1).
+   "Sylvanas created the Royal Apothecary Society to brew a new plague against the Scourge, and its alchemists still work in the Apothecarium of the Undercity. The Society gains strength, and $N has reached 225 in Alchemy."
 3. Milestone, gnome, Engineering 300. `f.craft`, `c.now`, `po.tinker_town`, `v.stronger`, `cc.title`, class.
    "The dwarves took in the gnomes when troggs overran Gnomeregan, and the exiles built Tinker Town beside the Deeprun Tram. Now, the engineers of Tinker Town grow stronger. The mage is an Artisan engineer now."
 4. Specialization, Goblin Engineering. `f.deed`, `pf.signed`, name.
@@ -536,6 +536,6 @@ Written under the voice skill (`timeways-narrator-voice`). Each one names its sh
 6. First epic craft, Arcanite Reaper. `f.deed`, `pf.made`, name.
    "Warriors of Azeroth long took an arcanite reaper as the mark of a true warrior, and having one made was a rite of passage. $N has made an Arcanite Reaper."
 
-These lines pass the checklist of the skill: one turn each, the world as the subject of the lore, the hero only in the deed or the coda, one number at most, and no word of the ban list.
+These lines pass the checklist of the skill: one turn each, the world as the subject of the lore, the hero only in the deed or the coda, one number at most, no word of the ban list, and no word for the hero that also names a group of the line.
 
 Line 6 takes its lore from the RPG quote on the item page, so it waits for question 2. Line 4 waits for question 8.

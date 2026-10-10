@@ -1378,6 +1378,75 @@ def hero_hook.pick
       ok (some index)
   else ok none
 
+/-- [timeways_rules::hero_naming::is_clear]:
+    Source: 'crates/rules/src/hero_naming.rs', lines 86:0-91:1 -/
+def hero_naming.is_clear (word : hero_naming.Word) : Result Bool := do
+  match word with
+  | hero_naming.Word.Missing => ok false
+  | hero_naming.Word.Clashes => ok false
+  | hero_naming.Word.Clear => ok true
+
+/-- [timeways_rules::hero_naming::title_first]:
+    Source: 'crates/rules/src/hero_naming.rs', lines 79:0-84:1 -/
+def hero_naming.title_first
+  (words : hero_naming.Words) : Result hero_naming.Naming := do
+  let b ← hero_naming.is_clear words.title
+  if b
+  then ok hero_naming.Naming.Title
+  else ok hero_naming.Naming.Name
+
+/-- [timeways_rules::hero_naming::is_missing]:
+    Source: 'crates/rules/src/hero_naming.rs', lines 93:0-98:1 -/
+def hero_naming.is_missing (word : hero_naming.Word) : Result Bool := do
+  match word with
+  | hero_naming.Word.Missing => ok true
+  | hero_naming.Word.Clashes => ok false
+  | hero_naming.Word.Clear => ok false
+
+/-- [timeways_rules::hero_naming::class_first]:
+    Source: 'crates/rules/src/hero_naming.rs', lines 69:0-77:1 -/
+def hero_naming.class_first
+  (words : hero_naming.Words) : Result hero_naming.Naming := do
+  let b ← hero_naming.is_clear words.class
+  if b
+  then ok hero_naming.Naming.Class
+  else
+    let b1 ← hero_naming.is_missing words.class
+    if b1
+    then
+      let b2 ← hero_naming.is_clear words.race
+      if b2
+      then ok hero_naming.Naming.Race
+      else ok hero_naming.Naming.Name
+    else ok hero_naming.Naming.Name
+
+/-- [timeways_rules::hero_naming::race_first]:
+    Source: 'crates/rules/src/hero_naming.rs', lines 59:0-67:1 -/
+def hero_naming.race_first
+  (words : hero_naming.Words) : Result hero_naming.Naming := do
+  let b ← hero_naming.is_clear words.race
+  if b
+  then ok hero_naming.Naming.Race
+  else
+    let b1 ← hero_naming.is_clear words.class
+    if b1
+    then ok hero_naming.Naming.Class
+    else ok hero_naming.Naming.Name
+
+/-- [timeways_rules::hero_naming::choose]:
+    Source: 'crates/rules/src/hero_naming.rs', lines 49:0-57:1
+    Visibility: public -/
+def hero_naming.choose
+  (turn : hero_naming.Turn) (words : hero_naming.Words) :
+  Result hero_naming.Naming
+  := do
+  match turn with
+  | hero_naming.Turn.Name => ok hero_naming.Naming.Name
+  | hero_naming.Turn.Race => hero_naming.race_first words
+  | hero_naming.Turn.Class => hero_naming.class_first words
+  | hero_naming.Turn.Title => hero_naming.title_first words
+  | hero_naming.Turn.Unnamed => ok hero_naming.Naming.Unnamed
+
 /-- [timeways_rules::instance_lore::next_passage]: loop 0:
     Source: 'crates/rules/src/instance_lore.rs', lines 14:4-21:1
     Visibility: public -/

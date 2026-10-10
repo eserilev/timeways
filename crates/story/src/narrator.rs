@@ -2,6 +2,7 @@
 //! words of its prompt live here, and the checks of a line live in `line_check`.
 
 use crate::character::Character;
+use crate::group_words::HeroWord;
 use crate::house::{HOUSE_RULES, NAME_MARK, fenced, first_chars, leading_fence};
 use crate::moments::Moment;
 use crate::narrator_build::{self, Offer, Setup};
@@ -13,7 +14,8 @@ use crate::samples;
 use hourglass::Tick;
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
-use timeways_rules::budget::{self as rules, LINES_PER_HOUR};
+use timeways_rules::budget::{self, LINES_PER_HOUR};
+use timeways_rules::hero_naming::{self, Turn, Word, Words, choose};
 
 /// About 50 words. The prompt asks for 30.
 pub const MAX_LINE_CHARS: usize = 300;
@@ -73,16 +75,16 @@ impl Budget {
     /// The budget that a load of the shared file keeps: a damaged one starts from empty.
     #[must_use]
     pub fn on_load(self) -> Budget {
-        Budget::from_rules(&rules::budget_on_load(self.to_rules()))
+        Budget::from_rules(&budget::budget_on_load(self.to_rules()))
     }
 
-    fn to_rules(&self) -> rules::Budget {
-        rules::Budget {
+    fn to_rules(&self) -> budget::Budget {
+        budget::Budget {
             spoken: self.spoken.map(|line| line.map(|line| line.0)),
         }
     }
 
-    fn from_rules(rules: &rules::Budget) -> Budget {
+    fn from_rules(rules: &budget::Budget) -> Budget {
         Budget {
             spoken: rules.spoken.map(|line| line.map(Tick)),
         }
@@ -132,7 +134,7 @@ impl Who {
 pub enum Naming {
     /// `$N`, which the addon swaps for the name.
     Name,
-    /// A race or a class: "the Forsaken", "the paladin".
+    /// A race or a class: "the night elf", "the paladin".
     Kind(&'static str),
     Title(String),
     /// The line tells the deed, but names nobody.
@@ -170,15 +172,6 @@ impl Naming {
 /// The naming of a place moment, as the prompt and the samples write it.
 pub const ABSENT: &str = "not at all, the line is about the place";
 
-#[derive(Clone, Copy)]
-enum Turn {
-    Name,
-    Class,
-    Race,
-    Title,
-    Unnamed,
-}
-
 /// Three names, two kinds, two lines with no name, and one title in each 8 lines.
 const ROTATION: [Turn; 8] = [
     Turn::Name,
@@ -191,23 +184,47 @@ const ROTATION: [Turn; 8] = [
     Turn::Title,
 ];
 
-/// A place moment leaves the hero out. A deed takes the naming of its turn, and a kind or
-/// a title that the hero lacks gives the name.
+/// The naming of a turn before the line exists, as the prompt asks for it.
 #[must_use]
 pub fn naming(moment: &Moment, who: &Who, turn: usize) -> Naming {
+    naming_in(moment, who, turn, "")
+}
+
+/// A place moment leaves the hero out. A deed takes the naming of its turn. A kind or a
+/// title that the hero lacks, or that names a group of `rest`, falls back
+/// (`timeways_rules::hero_naming::choose`). `rest` is the line without the hero.
+#[must_use]
+pub fn naming_in(moment: &Moment, who: &Who, turn: usize, rest: &str) -> Naming {
     if moment.is_arrival() {
         return Naming::Absent;
     }
-    let race = who.race.map(|race| Naming::Kind(race.word()));
-    let class = who.class.map(|class| Naming::Kind(class.word()));
-    let named = match ROTATION[turn % ROTATION.len()] {
-        Turn::Name => None,
-        Turn::Unnamed => Some(Naming::Unnamed),
-        Turn::Class => class.or(race),
-        Turn::Race => race.or(class),
-        Turn::Title => who.titles.last().cloned().map(Naming::Title),
+    let title = who.titles.last();
+    let words = Words {
+        race: word_state(who.race.map(HeroWord::race), rest),
+        class: word_state(who.class.map(HeroWord::class), rest),
+        title: word_state(title.map(|title| HeroWord::title(title)), rest),
     };
-    named.unwrap_or(Naming::Name)
+    match choose(ROTATION[turn % ROTATION.len()], words) {
+        hero_naming::Naming::Name => Naming::Name,
+        hero_naming::Naming::Unnamed => Naming::Unnamed,
+        hero_naming::Naming::Race => who
+            .race
+            .map_or(Naming::Name, |race| Naming::Kind(race.word())),
+        hero_naming::Naming::Class => who
+            .class
+            .map_or(Naming::Name, |class| Naming::Kind(class.word())),
+        hero_naming::Naming::Title => {
+            title.map_or(Naming::Name, |title| Naming::Title(title.clone()))
+        }
+    }
+}
+
+fn word_state(word: Option<HeroWord>, rest: &str) -> Word {
+    match word {
+        None => Word::Missing,
+        Some(word) if word.clashes_with(rest) => Word::Clashes,
+        Some(_) => Word::Clear,
+    }
 }
 
 /// One moment to tell, with its lore and what the narrator knows of the hero.

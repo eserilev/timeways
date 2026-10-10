@@ -8,6 +8,7 @@ use timeways_story::narrator_render::{
     Values, count_number, count_words, ordinal, render, with_article,
 };
 use timeways_story::narrator_templates::{DEED_KINDS, Kind, TEMPLATES, TemplateError, Templates};
+use timeways_story::race_class::{Class, Race};
 
 fn templates() -> &'static Templates {
     TEMPLATES.as_ref().unwrap()
@@ -124,4 +125,29 @@ fn a_line_starts_each_sentence_with_a_capital() {
         line,
         "The gnolls of Elwynn raid its farms. Hogger fell to the paladin."
     );
+}
+
+/// The check of group words reads the plurals of `race_class`, and the groups of a line
+/// read those of the templates. Both must agree.
+#[test]
+fn the_plurals_of_the_group_words_match_the_templates() {
+    let templates = TEMPLATES.as_ref().unwrap();
+
+    for race in Race::all() {
+        let people = templates
+            .peoples
+            .iter()
+            .find(|people| people.race == race.word());
+        assert_eq!(
+            people.map(|people| people.plural.as_str()),
+            Some(race.plural())
+        );
+    }
+    for class in Class::all() {
+        let data = templates
+            .classes
+            .iter()
+            .find(|data| data.class == class.word());
+        assert_eq!(data.map(|data| data.plural.as_str()), Some(class.plural()));
+    }
 }

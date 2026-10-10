@@ -2,6 +2,7 @@
 -- of Lean. A `sorry` or a new axiom changes the output, and the build fails.
 import Timeways.QuestLog
 import Timeways.HeroHook
+import Timeways.HeroNaming
 import Timeways.Budget
 import Timeways.TrustBand
 import Timeways.Prompts
@@ -611,3 +612,15 @@ open timeways_rules
 /-- info: 'timeways_rules.spoiler.a_passage_the_player_neither_met_nor_did_stays_hidden' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs (whitespace := lax) in
 #print axioms spoiler.a_passage_the_player_neither_met_nor_did_stays_hidden
+
+/-- info: 'timeways_rules.hero_naming.a_naming_always_exists' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms hero_naming.a_naming_always_exists
+
+/-- info: 'timeways_rules.hero_naming.the_hero_is_never_named_by_a_group_word_of_the_line' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms hero_naming.the_hero_is_never_named_by_a_group_word_of_the_line
+
+/-- info: 'timeways_rules.hero_naming.a_named_turn_always_names_the_hero' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs (whitespace := lax) in
+#print axioms hero_naming.a_named_turn_always_names_the_hero

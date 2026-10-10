@@ -695,3 +695,69 @@ fn a_setup_of_a_quest_gets_no_coda() {
         Some("Bazil Thredd")
     );
 }
+
+/// The line that made the user angry (2026-10-09): "The Society gains strength, and the
+/// Forsaken has reached 225 in Alchemy." "The Forsaken" names the people, so it never
+/// names the hero.
+#[test]
+fn a_forsaken_hero_is_never_called_the_forsaken() {
+    let lore = "Sylvanas Windrunner freed the Forsaken from the Lich King, and they hold the Undercity beneath the ruins of Lordaeron now.";
+    let answer = format!("{{\"lore\": \"{lore}\", \"group\": \"g.people\"}}");
+    // Turn 4 of the rotation names the hero by the race.
+    let (_, verdict) = told(
+        &setup(level(30), who(Race::Forsaken, Class::Warlock), 4),
+        lore,
+        &answer,
+    );
+
+    let built = line(verdict);
+    assert!(!built.line.contains("Forsaken has"), "{}", built.line);
+    assert!(!built.line.contains("Forsaken is"), "{}", built.line);
+    assert!(built.line.contains("The warlock has"), "{}", built.line);
+}
+
+#[test]
+fn a_paladin_is_never_called_the_paladin_in_a_line_about_the_paladins() {
+    let lore = "The paladins of the Silver Hand took their vows from Uther, and they carried the Light against the Scourge.";
+    let answer = format!("{{\"lore\": \"{lore}\", \"group\": \"o.silver_hand\"}}");
+    // Turn 1 of the rotation names the hero by the class.
+    let (_, verdict) = told(
+        &setup(level(30), who(Race::Human, Class::Paladin), 1),
+        lore,
+        &answer,
+    );
+
+    let built = line(verdict);
+    assert!(!built.line.contains("the paladin "), "{}", built.line);
+    assert!(built.line.contains("$N"), "{}", built.line);
+}
+
+#[test]
+fn a_dwarf_is_never_called_the_dwarf_in_a_line_about_the_dwarves() {
+    let lore = "The War of the Three Hammers left the Bronzebeard dwarves on the throne of Ironforge, and they rule it now.";
+    let answer = format!("{{\"lore\": \"{lore}\", \"group\": \"g.people\"}}");
+    // Turn 4 of the rotation names the hero by the race.
+    let (_, verdict) = told(
+        &setup(level(30), who(Race::Dwarf, Class::Hunter), 4),
+        lore,
+        &answer,
+    );
+
+    let built = line(verdict);
+    assert!(!built.line.contains("the dwarf"), "{}", built.line);
+    assert!(built.line.contains("the hunter"), "{}", built.line);
+}
+
+#[test]
+fn a_hero_whose_race_and_class_both_name_groups_of_the_line_gets_the_name() {
+    let lore = "The dwarves of Ironforge sent their hunters into Dun Morogh against the troggs, and they hold the passes now.";
+    let answer = format!("{{\"lore\": \"{lore}\", \"group\": \"g.people\"}}");
+    let (_, verdict) = told(
+        &setup(level(30), who(Race::Dwarf, Class::Hunter), 4),
+        lore,
+        &answer,
+    );
+
+    let built = line(verdict);
+    assert!(built.line.contains("$N"), "{}", built.line);
+}

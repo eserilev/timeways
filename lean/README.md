@@ -2,7 +2,7 @@
 
 Aeneas translates the crate `timeways-rules` (`crates/rules`) into pure
 Lean functions. The theorems in `Timeways/QuestLog.lean`,
-`Timeways/HeroHook.lean`, `Timeways/Budget.lean`,
+`Timeways/HeroHook.lean`, `Timeways/HeroNaming.lean`, `Timeways/Budget.lean`,
 `Timeways/TrustBand.lean`, `Timeways/Prompts.lean`,
 `Timeways/Aliases.lean`, `Timeways/StoryShelf.lean`,
 `Timeways/EntryEdits.lean`, `Timeways/Chapters.lean`, `Timeways/ChaptersDeaths.lean`,
@@ -84,6 +84,23 @@ the list: `OneOfferEach` and `LinesOk`.
 
 The hook calls are the calls with a count of 3k + 2. The second law
 holds for a row that starts at any k, while the counts fit a `u64`.
+
+## What is proved: the naming of the hero
+
+`choose` picks how a narrator line names the hero
+(`narrator::naming_in` in the story program). The story program tells it
+which word of the hero is missing, clear, or names a group of the line:
+"the Forsaken" next to "the Forsaken grow stronger", or "the paladin"
+next to "the paladins of the Silver Hand".
+
+| Theorem | The law | Test |
+|---|---|---|
+| `the_hero_is_never_named_by_a_group_word_of_the_line` | A line names the hero by the race, the class, or the title only when that word is clear. | `no_built_line_names_the_hero_by_a_group_word_of_the_line` |
+| `a_naming_always_exists` | Every turn and every state of the words gives a naming. | `the_choice_of_a_naming_never_takes_a_word_that_is_not_clear` |
+| `a_named_turn_always_names_the_hero` | Only an unnamed turn names nobody: a word that clashes gives `$N`. | the same |
+
+The story program decides which word clashes, with strings, so that part
+has unit tests and a property test, and no proof.
 
 ## What is proved: the narrator budget
 

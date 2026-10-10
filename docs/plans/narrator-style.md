@@ -91,6 +91,20 @@ Rules:
 - **When the hero is named, use one plain verb.** "defeated", "finished", "has reached". No "ended", "vanquished", "laid low", "felled".
 - **One hero per line, at most.** The rotation of GAMEPLAY.md 3.2.1 decides the naming. The guide asks for the unnamed form whenever the deed reads well without a doer.
 
+### 4.1 Never a group word for the hero
+
+The hero is never named by a word that the same line uses for a group or a people (2026-10-09). The user's verdict: "'...and the Forsaken has reached 225 in Alchemy' doesn't make sense. The PLAYER reached 225 Alchemy."
+
+- **The words.** A race (Forsaken and undead, dwarf and dwarves, orc and orcs, human and humans, troll and trolls, tauren, gnome and gnomes, night elf and elves), a class (paladin and paladins, warlock and warlocks, shaman), or a title.
+- **The clash.** The word, its plural, or its people stands anywhere else in the line: in the history, a group, or a coda. "The Forsaken grow stronger. The Forsaken has reached level 30." "The paladins of the Silver Hand ... The paladin has reached level 30."
+- **A word that is its own plural** names the people wherever it stands. "Forsaken", "tauren", and "shaman" never name the hero.
+- **The fallback.** A race gives the class, and then `$N`. A class gives `$N`. A title gives `$N`. `$N` always fits.
+
+| Don't | Do |
+|---|---|
+| "Sylvanas created the Royal Apothecary Society to brew a new plague against the Scourge, and its alchemists still work in the Apothecarium of the Undercity. The Society gains strength, and the Forsaken has reached 225 in Alchemy." | "Sylvanas created the Royal Apothecary Society to brew a new plague against the Scourge, and its alchemists still work in the Apothecarium of the Undercity. The Society gains strength, and $N has reached 225 in Alchemy." |
+| "The Cenarion Circle keeps the balance of Kalimdor, and its druids grow stronger. The druid has reached level 20." | "The Cenarion Circle keeps the balance of Kalimdor, and its druids grow stronger. $N has reached level 20." |
+
 ## 5. How to use what the player read
 
 The player reads a book, a quest, or a plaque in the game. That text becomes lore, and the lore feeds a line.
@@ -160,6 +174,7 @@ These are the ground truth. A new rule never contradicts one of them.
 | "$N ended him." | Lame. The hero need not be named. Say the foe is dead. |
 | "Apothecary Renferrel spoke of the Royal Apothecary Society's plague. In the Undercity, its masters keep their vats below the throne." | The shape "someone spoke of X. In Y, its Z does W" is stiff and badly built. |
 | "Arugal ... lost them to their hunger. He called them his children to the end." | Weird figurative phrasing, fake drama. |
+| "Sylvanas created the Royal Apothecary Society ... The Society gains strength, and the Forsaken has reached 225 in Alchemy." | "Doesn't make sense. The PLAYER reached 225 Alchemy." "The Forsaken" names the people, so the line reads as if the whole people did it (4.1). |
 
 Also rejected: callbacks to the player's own Hero answers in a line, "the worg would not try it now", NPC-recognition jokes, and fact ledgers of levels, mobs, and quest counts.
 
@@ -263,6 +278,7 @@ These are exact. Each one goes into `line_check.rs` or `slop_words.txt`. Every p
 | Too many sentences | more than 3 sentences in a narrator line | new, with `TooManySentences` of the templates plan |
 | A ledger | more than one number in a line | new, beside `NewNumber` |
 | A level opener | a line that starts with `Level \d+` | new |
+| A group word for the hero | `the (RACE\|CLASS\|TITLE) (has\|is\|was\|does\|reaches\|holds\|...)`, when the word is its own plural, or its plural or people stands in the text (4.1). A word with another plural ("paladin") also counts before a past verb or at the end of a sentence | `group_words.rs`, built 2026-10-09 |
 | A present with no source | a present clause of the history that no present sentence of the lore backs, or that names a defeated foe (`docs/plans/lore-names-and-now.md` 2.3 C) | `present_check.rs`, built 2026-10-07 |
 | A Hero-page callback | a run of 3 words in a row from the player's Hero answers, in a narrator line | new, for the saga and the summary check only when the narrator line holds no sheet |
 
@@ -270,7 +286,7 @@ A sentence ends at `.`, `!`, or `?` followed by a space or the end. The tests: o
 
 **As built** (2026-10-05). The patterns live in `prose.rs`, `inside_hero.rs`, and `line_check.rs`, and the phrases in `slop_words.txt`:
 
-- **Every narrator text** (a line, a saga, the summary, a tale, the history of a zone) takes the ban list, nothing inside the hero, NPC recognition, the source shape, a fragment, a long sentence, the pivot, and the level opener.
+- **Every narrator text** (a line, a saga, the summary, a tale, the history of a zone) takes the ban list, nothing inside the hero, NPC recognition, the source shape, a fragment, a long sentence, the pivot, the level opener, and a group word for the hero.
 - **A narrator line only** takes too many sentences, the ledger, and the Hero-page callback. A saga is a paragraph that tells levels and counts, and the saga and the summary use the hero sheet by design (GAMEPLAY.md 3.3 and 3.7).
 - **A footnote** of a saga is one short line of a small moment, so it keeps only the ban list and the arrival check.
 - **A ban phrase counts within one clause**, so "When the war ended, it..." holds no "ended it".

@@ -1,5 +1,5 @@
 //! The race and the class of the character, as the addon sends them (GAMEPLAY.md 3.2.1).
-//! The narrator calls the hero by them: "the Forsaken", "the paladin".
+//! The narrator calls the hero by them: "the night elf", "the paladin".
 
 use serde::{Deserialize, Serialize};
 
@@ -79,6 +79,40 @@ impl Race {
     pub fn from_word(word: &str) -> Option<Race> {
         RACES.into_iter().find(|race| race.word() == word)
     }
+
+    /// The people of the race in the plural: "dwarves", "Forsaken". The people data of
+    /// the templates holds the same plural, and a test compares them.
+    #[must_use]
+    pub fn plural(self) -> &'static str {
+        match self {
+            Race::Human => "humans",
+            Race::Orc => "orcs",
+            Race::Dwarf => "dwarves",
+            Race::NightElf => "night elves",
+            Race::Forsaken => "Forsaken",
+            Race::Tauren => "tauren",
+            Race::Gnome => "gnomes",
+            Race::Troll => "trolls",
+        }
+    }
+
+    /// The words of a line that name the people of the race as a group, past the
+    /// plural: "the undead", "the elves".
+    #[must_use]
+    pub fn people_words(self) -> &'static [&'static str] {
+        match self {
+            Race::Dwarf => &["dwarfs"],
+            Race::NightElf => &["elves"],
+            Race::Forsaken => &["undead"],
+            Race::Human | Race::Orc | Race::Tauren | Race::Gnome | Race::Troll => &[],
+        }
+    }
+
+    /// Every race of Classic.
+    #[must_use]
+    pub fn all() -> [Race; 8] {
+        RACES
+    }
 }
 
 impl Class {
@@ -102,5 +136,27 @@ impl Class {
     #[must_use]
     pub fn from_word(word: &str) -> Option<Class> {
         CLASSES.into_iter().find(|class| class.word() == word)
+    }
+
+    /// "paladins". The plural of "shaman" is "shaman", as the game writes it.
+    #[must_use]
+    pub fn plural(self) -> &'static str {
+        match self {
+            Class::Warrior => "warriors",
+            Class::Paladin => "paladins",
+            Class::Hunter => "hunters",
+            Class::Rogue => "rogues",
+            Class::Priest => "priests",
+            Class::Shaman => "shaman",
+            Class::Mage => "mages",
+            Class::Warlock => "warlocks",
+            Class::Druid => "druids",
+        }
+    }
+
+    /// Every class of Classic.
+    #[must_use]
+    pub fn all() -> [Class; 9] {
+        CLASSES
     }
 }

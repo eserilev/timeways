@@ -26,6 +26,7 @@ pub mod entry_edits;
 pub mod game_names;
 pub mod grounding;
 pub mod hero_hook;
+pub mod hero_naming;
 pub mod instance_lore;
 pub mod narrator_shapes;
 pub mod outcomes;

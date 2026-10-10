@@ -1,0 +1,1 @@
+{"lore": "The Forsaken hold the Undercity beneath the ruins of Lordaeron, and the paladins of the Horde wield the Light there now.", "group": "g.people"}

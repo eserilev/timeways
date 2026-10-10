@@ -4,8 +4,8 @@ use fences::unfenced_lines_with;
 use hourglass::Tick;
 use timeways_story::moments::Moment;
 use timeways_story::narrator::{
-    Budget, MAX_LORE_CHARS, Naming, PERSONA, Telling, Who, lore_excerpt, naming, prompt, told_lore,
-    what_happened,
+    Budget, MAX_LORE_CHARS, Naming, PERSONA, Telling, Who, lore_excerpt, naming, naming_in, prompt,
+    told_lore, what_happened,
 };
 use timeways_story::places::InstanceKind;
 use timeways_story::race_class::{Class, Race};
@@ -201,7 +201,10 @@ fn a_flavor_prompt_still_says_how_to_name_the_hero() {
 
 #[test]
 fn the_naming_mixes_the_name_the_kind_no_name_and_a_title() {
-    let who = forsaken_warlock();
+    let who = Who {
+        race: Some(Race::Orc),
+        ..forsaken_warlock()
+    };
 
     let namings: Vec<Naming> = (0..8).map(|turn| naming(&murloc(), &who, turn)).collect();
 
@@ -212,13 +215,72 @@ fn the_naming_mixes_the_name_the_kind_no_name_and_a_title() {
             Naming::Kind("warlock"),
             Naming::Unnamed,
             Naming::Name,
-            Naming::Kind("Forsaken"),
+            Naming::Kind("orc"),
             Naming::Name,
             Naming::Unnamed,
             Naming::Title("Slap Happy".to_string()),
         ]
     );
     assert_eq!(naming(&murloc(), &who, 8), Naming::Name);
+}
+
+/// "The Forsaken" names the people, so the turn of the race takes the class.
+#[test]
+fn a_forsaken_hero_is_named_by_the_class_on_the_turn_of_the_race() {
+    let who = forsaken_warlock();
+
+    assert_eq!(naming(&murloc(), &who, 4), Naming::Kind("warlock"));
+}
+
+#[test]
+fn a_kind_that_names_a_group_of_the_line_falls_back() {
+    let dwarf_hunter = Who {
+        race: Some(Race::Dwarf),
+        class: Some(Class::Hunter),
+        titles: vec!["Bookworm".to_string()],
+    };
+    let both = "The dwarves of Ironforge sent their hunters into Dun Morogh.";
+
+    assert_eq!(
+        naming_in(
+            &murloc(),
+            &dwarf_hunter,
+            4,
+            "The dwarves of Ironforge grow stronger."
+        ),
+        Naming::Kind("hunter")
+    );
+    assert_eq!(naming_in(&murloc(), &dwarf_hunter, 4, both), Naming::Name);
+    assert_eq!(
+        naming_in(
+            &murloc(),
+            &dwarf_hunter,
+            1,
+            "The hunters of the Alliance grow stronger."
+        ),
+        Naming::Name
+    );
+    assert_eq!(
+        naming_in(
+            &murloc(),
+            &dwarf_hunter,
+            7,
+            "The Bookworms copy the histories."
+        ),
+        Naming::Name
+    );
+}
+
+#[test]
+fn a_tauren_or_a_shaman_is_never_named_by_the_kind() {
+    let tauren_shaman = Who {
+        race: Some(Race::Tauren),
+        class: Some(Class::Shaman),
+        titles: Vec::new(),
+    };
+
+    assert_eq!(naming(&murloc(), &tauren_shaman, 1), Naming::Name);
+    assert_eq!(naming(&murloc(), &tauren_shaman, 4), Naming::Name);
 }
 
 #[test]
@@ -541,4 +603,43 @@ fn the_zone_of_a_kill_stands_only_inside_a_fence() {
 
     assert!(prompt.contains("\"there\""), "{prompt}");
     assert_eq!(unfenced_lines_with(&prompt, "Mockvale"), Vec::<&str>::new());
+}
+
+/// Every turn and every state of the three words: the choice never takes a word that is
+/// not clear, and a named turn always names the hero. Lean proves the same laws.
+#[test]
+fn the_choice_of_a_naming_never_takes_a_word_that_is_not_clear() {
+    use timeways_rules::hero_naming::{self as rules, Turn, Word, Words, choose};
+    let turns = [
+        Turn::Name,
+        Turn::Race,
+        Turn::Class,
+        Turn::Title,
+        Turn::Unnamed,
+    ];
+    let states = [Word::Missing, Word::Clashes, Word::Clear];
+
+    for turn in turns {
+        for race in states {
+            for class in states {
+                for title in states {
+                    let words = Words { race, class, title };
+
+                    let chosen = choose(turn, words);
+
+                    let used = match chosen {
+                        rules::Naming::Race => Some(race),
+                        rules::Naming::Class => Some(class),
+                        rules::Naming::Title => Some(title),
+                        rules::Naming::Name | rules::Naming::Unnamed => None,
+                    };
+                    assert!(
+                        used.is_none_or(|word| word == Word::Clear),
+                        "{turn:?} {words:?}"
+                    );
+                    assert_eq!(chosen == rules::Naming::Unnamed, turn == Turn::Unnamed);
+                }
+            }
+        }
+    }
 }

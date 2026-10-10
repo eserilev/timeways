@@ -45,6 +45,7 @@ The full guide is `docs/plans/narrator-style.md`. This skill is its core. If the
 - When you name the hero, use one plain verb: defeated, finished, has reached.
 - Never "ended", "vanquished", "laid low", "felled".
 - On a tenth level, the order or the people grows stronger as a group. Nothing grows, lives, or burns inside the hero.
+- Never name the hero by a word that the same line uses for a group or a people: a race, a class, or a title, its plural, or its people ("undead", "elves"). "Forsaken", "tauren", and "shaman" are their own plural, so they never name the hero. Fall back: race, then class, then `$N`; class, then `$N`. `$N` always fits.
 
 ## Ban list
 
@@ -95,6 +96,7 @@ Also refuse: a callback to the player's Hero answers, a count of levels, mobs, o
 - "$N ended him." (lame; say the foe is dead)
 - "Apothecary Renferrel spoke of the Royal Apothecary Society's plague. In the Undercity, its masters keep their vats below the throne." (stiff source shape)
 - "Arugal ... lost them to their hunger. He called them his children to the end." (figurative, fake drama)
+- "Sylvanas created the Royal Apothecary Society to brew a new plague against the Scourge, and its alchemists still work in the Apothecarium of the Undercity. The Society gains strength, and the Forsaken has reached 225 in Alchemy." ("Doesn't make sense. The PLAYER reached 225 Alchemy." "The Forsaken" names the people.)
 
 ## New pairs (don't, then do)
 
@@ -106,6 +108,8 @@ Also refuse: a callback to the player's Hero answers, a count of levels, mobs, o
 - "Ashenvale mourns its fallen demigod." -> "Grom Hellscream killed the demigod Cenarius in Ashenvale. The Warsong Clan still cuts its trees for Orgrimmar, and the night elves fight them for every grove."
 - "Duskwood: a forest of shadow, sorrow, and secrets." -> "Duskwood was part of Elwynn Forest until dark magic from Karazhan turned its trees. The Night Watch of Darkshire holds the town against the dead."
 - "Level 30. $N has killed 412 foes and finished 87 quests." -> SILENCE, or a tenth-level line.
+- "...The Society gains strength, and the Forsaken has reached 225 in Alchemy." -> "...The Society gains strength, and $N has reached 225 in Alchemy."
+- "...and its druids grow stronger. The druid has reached level 20." -> "...and its druids grow stronger. $N has reached level 20."
 
 ## Before you hand in a line
 
@@ -113,4 +117,5 @@ Also refuse: a callback to the player's Hero answers, a count of levels, mobs, o
 2. Is the subject the world, not the hero?
 3. Is every word literal and in the lore?
 4. Is it free of every banned phrase?
-5. Is silence better than the line? Then answer SILENCE.
+5. Does a word for the hero also name a group or a people of the line? Then use `$N`.
+6. Is silence better than the line? Then answer SILENCE.

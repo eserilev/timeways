@@ -206,6 +206,7 @@ fn free_line(text: &str, grounds: &Grounds, player_text: &str) -> Answered {
             shape: String::new(),
             parts: Vec::new(),
             named: false,
+            hero: None,
         }),
         Checked::Silent => Answered::Silent,
         Checked::Refused(faults) => Answered::Refused(faults),

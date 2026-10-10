@@ -110,11 +110,11 @@ line: Thrall named Durotar for a father he never knew. The orcs who spent years 
 moment: The player slapped Innkeeper Boorand Plainswind in The Barrens. That makes 2 times.
 who: a tauren druid
 lore: The Crossroads is a Horde fort where the roads of the Barrens meet. Caravans from Orgrimmar and Ratchet stop at its inn.
-hero: the tauren
+hero: the druid
 history: Every caravan between Orgrimmar and Ratchet stops at the Crossroads, where Horde grunts hold the walls now.
 choices: {"tone": "plain", "there": false}
 shape: s.slapped
-line: Every caravan between Orgrimmar and Ratchet stops at the Crossroads, where Horde grunts hold the walls now. The tauren has now slapped Innkeeper Boorand Plainswind twice.
+line: Every caravan between Orgrimmar and Ratchet stops at the Crossroads, where Horde grunts hold the walls now. The druid has now slapped Innkeeper Boorand Plainswind twice.
 
 moment: The player reached level 20 in Duskwood.
 who: a Forsaken paladin

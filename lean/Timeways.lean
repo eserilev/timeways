@@ -3,6 +3,7 @@ import Timeways.FunsExternal
 import Timeways.QuestQueries
 import Timeways.QuestLog
 import Timeways.HeroHook
+import Timeways.HeroNaming
 import Timeways.Budget
 import Timeways.TrustBand
 import Timeways.Prompts

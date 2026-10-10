@@ -326,3 +326,51 @@ fn each_fault_tells_the_retry_what_to_do() {
     assert!(reasons[6].contains("Open with the history"));
     assert!(reasons.iter().all(|reason| reason.ends_with('.')));
 }
+
+#[test]
+fn a_text_never_names_the_hero_by_the_word_of_its_people() {
+    let line = "Sylvanas created the Royal Apothecary Society to brew a new plague against the Scourge, and its alchemists still work in the Apothecarium of the Undercity. The Society gains strength, and the Forsaken has reached 225 in Alchemy.";
+
+    assert_eq!(
+        faults(line),
+        [ProseFault::GroupWordForHero("the forsaken has".to_string())]
+    );
+}
+
+#[test]
+fn a_text_never_names_the_hero_by_a_word_that_names_a_group_of_it() {
+    let line = "The paladins of the Silver Hand once burned the dead of Lordaeron, and the order is stronger now. The paladin has reached level 30.";
+
+    assert_eq!(
+        faults(line),
+        [ProseFault::GroupWordForHero("the paladin has".to_string())]
+    );
+}
+
+#[test]
+fn a_text_never_names_the_hero_by_a_title_that_names_a_group_of_it() {
+    let line = "The Bookworms of the Royal Library copy the histories of Arathor by hand. The Bookworm finished the last of them.";
+
+    assert_eq!(
+        prose_faults(line, &hero(&["Bookworm"])),
+        [ProseFault::GroupWordForHero(
+            "the bookworm finished".to_string()
+        )]
+    );
+}
+
+#[test]
+fn a_people_with_no_word_for_the_hero_passes() {
+    let lines = [
+        "The Forsaken of the Undercity hold the ruins of Lordaeron, and their apothecaries brew a new plague there now.",
+        "The Forsaken grow stronger, and $N has reached level 30 beneath the ruins of Lordaeron.",
+        "The dwarf Muradin Bronzebeard led the dwarves of Ironforge into Northrend, and none of his party came back.",
+        "The orc warlord Gul'dan sold the orcs to the demons, and the Horde drank the blood of Mannoroth.",
+        "The paladin has reached level 30, and Stormwind gains strength while the Defias still hold Westfall.",
+        "The Forsaken's apothecaries brew a new plague beneath the ruins of Lordaeron for the Dark Lady.",
+    ];
+
+    for line in lines {
+        assert_eq!(faults(line), [], "{line}");
+    }
+}

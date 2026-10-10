@@ -6,7 +6,7 @@
 use crate::check::{mentions, words_of};
 use crate::line_check::{Grounds, LineFault, MOST_SENTENCES, built_faults, lore_faults};
 use crate::moments::{Creature, Moment, SlotKind};
-use crate::narrator::{MAX_LINE_CHARS, Naming, Who, naming};
+use crate::narrator::{MAX_LINE_CHARS, Naming, Who, naming, naming_in};
 use crate::narrator_groups::{Group, groups_of, is_strange, order_of};
 use crate::narrator_render::{
     Values, count_number, count_words, ordinal, quoted, render, with_article,
@@ -92,6 +92,9 @@ pub struct Built {
     pub shape: String,
     pub parts: Vec<String>,
     pub named: bool,
+    /// The words for the hero in the line: `$N`, "the paladin". None when the line names
+    /// nobody, or for a line of free text.
+    pub hero: Option<String>,
 }
 
 /// The verdict on an answer.
@@ -189,7 +192,7 @@ fn longest_shape(templates: &Templates, setup: &Setup, offer: &Offer) -> Option<
                 if !rules::fits(&templates.table, &info.shape, &facts) {
                     continue;
                 }
-                let values = plan.values(named, "");
+                let values = plan.widest_values(named);
                 let length = render(templates, &tokens, &values).chars().count();
                 longest = Some(longest.unwrap_or(0).max(length));
             }
@@ -267,6 +270,7 @@ pub fn build(
             shape: PLACE_SHAPE.to_string(),
             parts: vec![PLACE_SHAPE.to_string()],
             named: false,
+            hero: None,
         });
     }
     let plan = Plan::of(templates, setup, offer, lore, choices)?;
@@ -317,8 +321,9 @@ fn built(
     named: bool,
     lore: &str,
 ) -> Built {
+    let values = plan.values(templates, tokens, named, lore);
     Built {
-        line: render(templates, tokens, &plan.values(named, lore)),
+        line: render(templates, tokens, &values),
         shape: templates
             .mains
             .get(usize::from(info.main))
@@ -326,6 +331,7 @@ fn built(
             .unwrap_or_default(),
         parts: info.parts.clone(),
         named,
+        hero: values.hero,
     }
 }
 
@@ -334,7 +340,30 @@ struct Plan {
     kind: Kind,
     slots: Vec<(Slot, String)>,
     holds: u32,
-    naming: Naming,
+    hero: Hero,
+}
+
+/// What the naming of the hero reads: the moment, the hero, and the turn of the call.
+struct Hero {
+    moment: Moment,
+    who: Who,
+    turn: usize,
+}
+
+impl Hero {
+    /// The naming in a line whose other words are `rest`.
+    fn naming_in(&self, rest: &str) -> Naming {
+        naming_in(&self.moment, &self.who, self.turn, rest)
+    }
+
+    /// Every naming that a line of this hero can take, for the budget.
+    fn every_naming(&self) -> Vec<Naming> {
+        let mut namings = vec![Naming::Name];
+        namings.extend(self.who.race.map(|race| Naming::Kind(race.word())));
+        namings.extend(self.who.class.map(|class| Naming::Kind(class.word())));
+        namings.extend(self.who.titles.last().cloned().map(Naming::Title));
+        namings
+    }
 }
 
 impl Plan {
@@ -420,15 +449,20 @@ impl Plan {
 
     /// The values that the moment holds itself, and its naming.
     fn base(templates: &Templates, setup: &Setup, kind: Kind) -> Plan {
+        let mut who = setup.who.clone();
+        if kind == Kind::Title {
+            who.titles.clear();
+        }
         let mut plan = Plan {
             kind,
             slots: Vec::new(),
             holds: 0,
-            naming: naming(&setup.moment, &setup.who, setup.turn),
+            hero: Hero {
+                moment: setup.moment.clone(),
+                who,
+                turn: setup.turn,
+            },
         };
-        if kind == Kind::Title && matches!(plan.naming, Naming::Title(_)) {
-            plan.naming = Naming::Name;
-        }
         plan.moment_values(templates, &setup.moment);
         if let Some(foe) = &setup.setup_foe {
             plan.slot(Slot::Foe, foe.clone());
@@ -545,22 +579,44 @@ impl Plan {
         }
     }
 
-    fn values(&self, named: bool, lore: &str) -> Values {
-        let hero = match (named, hero_words(&self.naming)) {
-            (false, _) => None,
-            (true, Some(words)) => Some(words),
-            (true, None) => hero_words(&Naming::Name),
-        };
-        Values {
+    /// The values of a line. A named line takes the naming that no other word of the
+    /// line clashes with, so the line renders once without the hero first.
+    fn values(&self, templates: &Templates, tokens: &[Token], named: bool, lore: &str) -> Values {
+        let mut values = Values {
             lore: lore.to_string(),
-            hero,
+            hero: None,
+            slots: self.slots.iter().cloned().collect(),
+        };
+        if named {
+            let rest = render(templates, tokens, &values);
+            values.hero = hero_words(&self.hero.naming_in(&rest)).or_else(name_words);
+        }
+        values
+    }
+
+    /// The values with the longest naming that a line of the hero can take.
+    fn widest_values(&self, named: bool) -> Values {
+        let widest = self
+            .hero
+            .every_naming()
+            .iter()
+            .filter_map(hero_words)
+            .max_by_key(|words| words.chars().count());
+        Values {
+            lore: String::new(),
+            hero: widest.filter(|_| named),
             slots: self.slots.iter().cloned().collect(),
         }
     }
 
     fn is_named(&self) -> bool {
-        !matches!(self.naming, Naming::Unnamed | Naming::Absent)
+        let naming = naming(&self.hero.moment, &self.hero.who, self.hero.turn);
+        !matches!(naming, Naming::Unnamed | Naming::Absent)
     }
+}
+
+fn name_words() -> Option<String> {
+    hero_words(&Naming::Name)
 }
 
 /// The words of a naming: `$N`, "the paladin", "the Bookworm".
