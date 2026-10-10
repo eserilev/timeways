@@ -199,7 +199,7 @@ Checked in the Wowpedia dump of 2026-10-05. Nothing goes into `pack_sources.toml
 | Blacksmithing | Great Forge | yes | no | The first part of Ironforge, the city grew around it, it never shuts down. Good lore. |
 | | Mithril Order | yes | no | Mithrilsmiths of every faction, led by Galvan the Ancient. The second half is a quest guide. |
 | | Thorium Brotherhood | yes | **yes** | Dark Iron smiths outside the Dark Iron clan, at Thorium Point. Its recipes come with patch 1.x reputation. |
-| | Lokhtos Darkbargainer | yes | no | The Brotherhood's trader in Blackrock Depths. Molten Core materials (question 1). |
+| | Lokhtos Darkbargainer | yes | no | The Brotherhood's trader in Blackrock Depths. Molten Core materials: wait for Forever (decided, question 1). |
 | | Dark Iron dwarf | yes | **yes** | |
 | | Arcanite Reaper, Truesilver Champion | yes | no | Item pages. The reaper has a quote of the RPG about a rite of passage. |
 | | Weaponsmithing, Armorsmithing, Hammersmith | yes | no | Game talk. Leave them out. |
@@ -209,7 +209,7 @@ Checked in the Wowpedia dump of 2026-10-05. Nothing goes into `pack_sources.toml
 | | Tinkers' Union | yes | no | The goblin union of Undermine, with workshops in Gadgetzan. |
 | | Gadgetzan, Steamwheedle Cartel | yes | **yes** | |
 | | Gnome Engineering, Goblin Engineering | yes | no | Game talk about the quests. Their trainers (Tinkmaster Overspark, Nixx Sprocketspring) are better as NPC pages. |
-| | Gnomish Battle Chicken, Goblin Rocket Boots, Gnomish Cloaking Device, Mithril Mechanical Dragonling | yes | no | Item pages, mostly game data. Keep only those with an "In the RPG" or a quote (question 2). |
+| | Gnomish Battle Chicken, Goblin Rocket Boots, Gnomish Cloaking Device, Mithril Mechanical Dragonling | yes | no | Item pages, mostly game data. Keep only those with a quote of the game: no "In the RPG" (decided, question 2). |
 | Alchemy | Royal Apothecary Society | yes | **yes** | Forsaken only. |
 | | Alchemist | yes | no | A lore page of the craft: potions, transmutation, and goblin alchemists. |
 | | Arcanite Bar, Flask of the Titans | yes | no | Item pages. |
@@ -222,7 +222,7 @@ Checked in the Wowpedia dump of 2026-10-05. Nothing goes into `pack_sources.toml
 | Skinning, Leatherworking | Leatherworking specialization | yes | no | Game talk. |
 | | Devilsaur | yes | no | A beast page with an "In the RPG". |
 | | Timbermaw tribe | yes | **yes** | |
-| | (no page) | | | Nothing tells of the leatherworkers of a people. Thin (question 3). |
+| | (no page) | | | Nothing tells of the leatherworkers of a people. Thin, so silent for now (decided, question 3). |
 | Tailoring | Mooncloth | yes | no | Cloth made with the power of the moonwells. |
 | | Moonglade | yes | **yes** | |
 | | Felcloth, Robe of the Archmage | yes | no | Item pages. |
@@ -231,7 +231,7 @@ Checked in the Wowpedia dump of 2026-10-05. Nothing goes into `pack_sources.toml
 | Fishing | Nat Pagle | yes | no | The most famous fisherman. His biography is good. Later sections drop on the cutoff. |
 | | Booty Bay | yes | **yes** | |
 | | Old Ironjaw, Old Crafty | yes | no | The rare fish of Ironforge and Orgrimmar. Both are of uncommon quality, so a rare catch needs the page, not the quality (question 4). |
-| | Stranglethorn Fishing Extravaganza | yes | no | A later patch (question 1). |
+| | Stranglethorn Fishing Extravaganza | yes | no | A later patch: it waits for Forever (decided, question 1). |
 | Cooking | Dirge Quikcleave | yes | no | NPC page, thin. |
 | | Thunderbrew Distillery, Barleybrew | yes | no | Thin. |
 | First Aid | Doctor Gregory Victor, Doctor Gustaf VanHowzen | yes | no | The Triage quest. NPC pages with quotes. |
@@ -279,7 +279,7 @@ Built as in `narrator-templates.md` 3.4, not listed for each pair.
 
 - `po.goblin` fits any faction: the goblins are neutral, so a goblin engineer of the Alliance is no strange pairing.
 - `ps.horde_gnomish` is the strange pairing of crafts: a Horde engineer who chose the gnomes. It never takes a gnomish group of the Alliance.
-- A Horde smith, leatherworker, tailor, or cook gets only `pg.faction` and `pg.capital` until the user approves a Horde page (question 3).
+- A Horde smith, leatherworker, tailor, or cook gets only `pg.faction` and `pg.capital` for now: thin crafts stay silent (decided, question 3).
 - A line never says that the hero fights their own faction. The check of `level-lines.md` holds.
 
 ### 5.4 Grow verbs
@@ -507,17 +507,19 @@ The story program adds the facts, the weights, the moments, and the calls of eac
 - **The templates.** New parts in `narrator_templates.toml`. The loader checks them, and `the_templates_load` fails CI first.
 - **The relay.** New event lines with no reply. The bridge passes them as it passes every event line. The relay session hears of them before the build.
 
-## 11. Open questions for the user
+## 11. Open questions: decided
 
-1. **The patch cutoff.** The Thorium Brotherhood recipes, Lokhtos and his Molten Core trades, and the Stranglethorn Fishing Extravaganza are later patches of Classic. Do they wait until Forever opens them, as Dire Maul does?
-2. **"In the RPG" sections.** Engineering, the Gnomish Battle Chicken, and the Arcanite Reaper quote have their best lore in the RPG. Keep it for crafts, or never (the same question as `mount-lore.md` 6.2)?
-3. **Thin crafts.** Leatherworking, skinning, tailoring, cooking, and first aid have almost no lore of their people, and the Horde has no craft order page at all. Accept silent milestones for them, add History of Warcraft passages by hand, or choose more pages?
-4. **What is a rare fish?** Old Ironjaw and Old Crafty are of uncommon quality. Is a rare catch "quality 3 or more", "a fish with a page in the pack", or both?
-5. **Gathering weight.** The spec gives a gather 0, so a herbalist's hours make no chapter. Do you want the first gather of each herb or ore to weigh 1?
-6. **Fishing milestones.** Fishing has Nat Pagle and Booty Bay. Is fishing a profession with milestones, or only rare catches?
-7. **The Professions page.** A new page under the world page of Knowledge, or a sub-tab of Hero?
-8. **Specialization words.** "Signed the pledge of Goblin Engineering" tells the quest. Is that a spoiler of the quest, or common knowledge in 25 ADP?
-9. **Fishy Fishy.** Do you approve the asks of 7.3, and that Timeways reads the old catches of the character as its past?
+The user decided each question on 2026-10-09. The plan follows these answers. Nothing of it is built yet.
+
+1. **The patch cutoff.** Decided: later-patch content waits for Forever. The Thorium Brotherhood recipes, Lokhtos and his Molten Core trades, and the Stranglethorn Fishing Extravaganza wait until Forever opens them, as Dire Maul does.
+2. **"In the RPG" sections.** Decided: no "In the RPG" sections. A craft takes no lore from the RPG, the same rule as `mount-lore.md` 6.2.
+3. **Thin crafts.** Decided: thin-lore crafts stay silent for now. Leatherworking, skinning, tailoring, cooking, and first aid get no milestone line until the pack has lore for their people. No passage is added by hand.
+4. **What is a rare fish?** Decided: a rare catch is a fish of quality 3 or more, OR a fish with its own pack page. So Old Ironjaw and Old Crafty count by their pages.
+5. **Gathering weight.** Decided: the first gather weighs 0, as the spec says. A herbalist's hours make no chapter.
+6. **Fishing milestones.** Decided: fishing is a profession with milestones, and it has rare catches too.
+7. **The Professions page.** Decided: a new page under Knowledge.
+8. **Specialization words.** Decided: "signed the pledge" is fine. It is common knowledge in 25 ADP, not a spoiler.
+9. **Fishy Fishy.** Decided: the asks of 7.3 and the interface of 7.1 are approved, and Timeways reads the old catches of the character as its past.
 
 ## 12. Example lines
 
@@ -538,4 +540,4 @@ Written under the voice skill (`timeways-narrator-voice`). Each one names its sh
 
 These lines pass the checklist of the skill: one turn each, the world as the subject of the lore, the hero only in the deed or the coda, one number at most, no word of the ban list, and no word for the hero that also names a group of the line.
 
-Line 6 takes its lore from the RPG quote on the item page, so it waits for question 2. Line 4 waits for question 8.
+Line 6 takes its lore from the RPG quote on the item page. Question 2 refuses RPG lore, so line 6 needs other lore or stays silent. Question 8 allows line 4.
