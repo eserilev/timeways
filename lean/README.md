@@ -125,6 +125,18 @@ the narrator a fourth line in an hour. The law says nothing about a time
 far in the future in a damaged file: such a budget keeps the narrator
 silent until the game time passes it.
 
+The law has one precondition: no `/twdev smoke` run is open in dev mode.
+While such a run is open, the story program does not ask the budget,
+so a test run can ask the model for every narrator step
+(`smoke_budget::narrator_budget`). Those lines go to no `take`, so the
+budget keeps no line of the run. The proof covers the lines outside
+such a run. The choice of the gate has no proof: it is a match on two
+values, and `the_budget_is_lifted_only_in_dev_mode_during_an_open_smoke_run`
+tests all six cases. The property test
+`the_narrator_budget_holds_outside_a_smoke_run` checks the law at the
+level of the story program for random plays of dev mode, smoke runs,
+and waits.
+
 ## What is proved: trust
 
 | Theorem | The law | Test |

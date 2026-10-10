@@ -10,6 +10,7 @@ use crate::dev_smoke::{
 };
 use crate::pack::{Pack, PackError};
 use crate::prompt::reasons_of_retry;
+use crate::smoke_budget::SmokeRunState;
 use crate::spoiler;
 use crate::store::{CallRow, Store};
 use std::collections::{BTreeMap, BTreeSet};
@@ -89,6 +90,14 @@ impl Story {
         let rows = active.database.calls_from(run.first_call)?;
         run.report.calls = Some(CallTally::of(&rows.iter().map(seen_of).collect::<Vec<_>>()));
         Ok(())
+    }
+
+    pub(super) fn smoke_run_state(&self) -> SmokeRunState {
+        match &self.smoke {
+            None => SmokeRunState::None,
+            Some(run) if run.report.done.is_some() => SmokeRunState::Ended,
+            Some(_) => SmokeRunState::Open,
+        }
     }
 
     pub(super) fn check_dev_mode(&self) -> Result<(), StoryError> {

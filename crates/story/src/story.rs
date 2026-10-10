@@ -32,6 +32,7 @@ use crate::race_class::{Class, Race};
 use crate::ratings::Rated;
 use crate::reply_size::{MAX_LINE, MAX_SLOT, Size};
 use crate::seen::{MAX_SEEN_BYTES, SeenIndex, SeenText, TextKind};
+use crate::smoke_budget::{NarratorBudget, narrator_budget};
 use crate::spoiler;
 use crate::spot::Spot;
 use crate::store::{CharacterKey, Node, Opened, Shared, Store, StoreError, Table};
@@ -1253,7 +1254,7 @@ impl Story {
         let Some((prompt, call)) = self.narration(batch, &moment) else {
             return quiet;
         };
-        if !self.budget.take(now) {
+        if !self.budget_allows(now) {
             return quiet;
         }
         if let Some(told) = telling {
@@ -1268,6 +1269,15 @@ impl Story {
         let reads = call.reads.clone();
         self.open_call(Pending::Narrator(Box::new(call)), prompt, reads)
             .unwrap_or(quiet)
+    }
+
+    /// A smoke run in dev mode tests every narrator step, so it takes no line of the
+    /// budget (`smoke_budget`).
+    fn budget_allows(&mut self, now: Tick) -> bool {
+        match narrator_budget(self.dev_mode, self.smoke_run_state()) {
+            NarratorBudget::LiftedForSmoke => true,
+            NarratorBudget::Holds => self.budget.take(now),
+        }
     }
 
     /// The best flavor moment of the batch, when it scores enough, no flavor line came in

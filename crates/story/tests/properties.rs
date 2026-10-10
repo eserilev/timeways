@@ -4779,3 +4779,137 @@ proptest! {
         }
     }
 }
+
+use timeways_story::dev_mode::DevMode;
+use timeways_story::dev_smoke::{SmokeDone, SmokeStep, Stopped, Verdict};
+
+/// One step of a play around `/twdev smoke`.
+#[derive(Clone, Debug)]
+enum SmokePlay {
+    /// The next tenth level, and the end of its batch.
+    TenthLevel,
+    Wait(u64),
+    DevMode(DevMode),
+    SmokeStart,
+    SmokeDone,
+}
+
+fn smoke_play() -> impl Strategy<Value = SmokePlay> {
+    prop_oneof![
+        4 => Just(SmokePlay::TenthLevel),
+        // Waits near the edge of the hour of the budget are likely.
+        2 => prop_oneof![0..120u64, 3500..3700u64].prop_map(SmokePlay::Wait),
+        1 => prop_oneof![Just(DevMode::On), Just(DevMode::Off)].prop_map(SmokePlay::DevMode),
+        1 => Just(SmokePlay::SmokeStart),
+        1 => Just(SmokePlay::SmokeDone),
+    ]
+}
+
+/// The lore of the people of a human hero: a tenth level speaks only with it.
+fn stormwind_lore() -> Passage {
+    Passage {
+        text:
+            "King Barathen Wrynn scattered the gnolls of Elwynn, and his line rules Stormwind City."
+                .to_string(),
+        source: "the wiki page \"Stormwind City\"".to_string(),
+        links: vec![Link::Common],
+        origin: Origin::Pack,
+        about: Some("Stormwind City".to_string()),
+        depends_on: Vec::new(),
+        setup_for: None,
+    }
+}
+
+const SMOKE_RUN: u64 = 1_790_000_000;
+
+fn smoke_line(play: &SmokePlay) -> Option<Input> {
+    match play {
+        SmokePlay::SmokeStart => Some(Input::DevSmoke(SmokeStep {
+            run: SMOKE_RUN,
+            step: 0,
+            name: "start".to_string(),
+            result: Verdict::Pass,
+            reason: None,
+            text: None,
+            expect: Vec::new(),
+            gate: None,
+        })),
+        SmokePlay::SmokeDone => Some(Input::DevSmokeDone(SmokeDone {
+            run: SMOKE_RUN,
+            steps: 1,
+            passed: 1,
+            failed: 0,
+            waited: 0,
+            seconds: 1,
+            stopped: Stopped::Done,
+            errors: Vec::new(),
+            fps: None,
+        })),
+        _ => None,
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(64))]
+
+    /// Outside an open `/twdev smoke` run in dev mode, any four narrator calls in a row span
+    /// an hour or more, whatever dev mode and the run did before. A smoke run takes no line
+    /// of the budget.
+    #[test]
+    fn the_narrator_budget_holds_outside_a_smoke_run(
+        plays in prop::collection::vec(smoke_play(), 1..40),
+    ) {
+        let folder = fresh("smoke-budget");
+        let pack = folder.join("pack.sqlite");
+        Pack::write(&pack, &[stormwind_lore()]).unwrap();
+        let mut story = story(&folder, Store::Folder(folder.clone()));
+        let described = Input::CharacterDescribed { at: Tick(1), race: Race::Human, class: Class::Paladin };
+        story.handle(described).unwrap();
+        let (mut clock, mut level, mut batch) = (10u64, 10u8, 1u64);
+        story.handle(Input::LevelReached { at: Tick(clock), level }).unwrap();
+        let mut mode = DevMode::Off;
+        let mut run_open = false;
+        let mut run_seen = false;
+        let mut budgeted: Vec<u64> = Vec::new();
+
+        for play in &plays {
+            clock += 1;
+            match play {
+                SmokePlay::TenthLevel if level < 60 => {
+                    level += 10;
+                    story.handle(Input::LevelReached { at: Tick(clock), level }).unwrap();
+                    let outputs = story.handle(Input::BatchEnd { id: MessageId(batch) }).unwrap();
+                    batch += 1;
+                    for output in outputs {
+                        if let Output::ModelCall { call, .. } = output {
+                            if !(mode == DevMode::On && run_open) {
+                                budgeted.push(clock);
+                            }
+                            story.handle(Input::ModelFailed { call }).unwrap();
+                        }
+                    }
+                }
+                SmokePlay::TenthLevel => {}
+                SmokePlay::Wait(seconds) => clock += seconds,
+                SmokePlay::DevMode(new) => {
+                    mode = *new;
+                    story.set_dev_mode(mode);
+                }
+                SmokePlay::SmokeStart | SmokePlay::SmokeDone => {
+                    let landed = story.handle(smoke_line(play).unwrap()).is_ok();
+                    if landed && matches!(play, SmokePlay::SmokeStart) && !run_seen {
+                        run_open = true;
+                        run_seen = true;
+                    }
+                    if landed && matches!(play, SmokePlay::SmokeDone) {
+                        run_open = false;
+                    }
+                }
+            }
+        }
+
+        for four in budgeted.windows(4) {
+            prop_assert!(four[3] - four[0] >= 3600, "{budgeted:?}");
+        }
+    }
+}
