@@ -279,7 +279,7 @@ Built as in `narrator-templates.md` 3.4, not listed for each pair.
 
 - `po.goblin` fits any faction: the goblins are neutral, so a goblin engineer of the Alliance is no strange pairing.
 - `ps.horde_gnomish` is the strange pairing of crafts: a Horde engineer who chose the gnomes. It never takes a gnomish group of the Alliance.
-- A Horde smith, leatherworker, tailor, or cook gets only `pg.faction` and `pg.capital` for now: thin crafts stay silent (decided, question 3).
+- A Horde smith gets only `pg.faction` and `pg.capital`. A Horde leatherworker, tailor, or cook stays silent for now, as every thin craft does (decided, question 3).
 - A line never says that the hero fights their own faction. The check of `level-lines.md` holds.
 
 ### 5.4 Grow verbs
