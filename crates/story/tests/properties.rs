@@ -4043,7 +4043,8 @@ proptest! {
 
     /// A group of any pairing never holds a word for the hero: `$N`, "hero", "stranger",
     /// or the race or the class of the hero. A word that is also its own plural ("the
-    /// Forsaken", "the tauren of Mulgore", "the shaman of the Horde") names the group.
+    /// Forsaken", "the tauren of Mulgore", "the shaman of the Horde") can stand in a group,
+    /// and then it clashes, so the line names the hero by another word.
     #[test]
     fn a_group_never_holds_a_hero_word(who in any_hero()) {
         let templates = TEMPLATES.as_ref().unwrap();
@@ -4736,7 +4737,8 @@ proptest! {
 
     /// For every pairing of race and class and every template, no built line names the
     /// hero by a word that names a group of the line: not the word, its plural, or its
-    /// people, and never a word that is its own plural (docs/plans/narrator-style.md 4.1).
+    /// people, and never "the Forsaken", which names only the people
+    /// (docs/plans/narrator-style.md 4.1).
     #[test]
     fn no_built_line_names_the_hero_by_a_group_word_of_the_line(
         moment in templated_moment(),

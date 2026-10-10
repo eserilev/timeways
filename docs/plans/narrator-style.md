@@ -97,7 +97,8 @@ The hero is never named by a word that the same line uses for a group or a peopl
 
 - **The words.** A race (Forsaken and undead, dwarf and dwarves, orc and orcs, human and humans, troll and trolls, tauren, gnome and gnomes, night elf and elves), a class (paladin and paladins, warlock and warlocks, shaman), or a title.
 - **The clash.** The word, its plural, or its people stands anywhere else in the line: in the history, a group, or a coda. "The Forsaken grow stronger. The Forsaken has reached level 30." "The paladins of the Silver Hand ... The paladin has reached level 30."
-- **A word that is its own plural** names the people wherever it stands. "Forsaken", "tauren", and "shaman" never name the hero.
+- **A people name** names the whole people wherever it stands. "Forsaken" never names the hero.
+- **A word that is its own plural but names one person** ("tauren", "shaman") names the hero when the rest of the line holds no "tauren", "shaman", or people word. "The tauren has reached level 20" passes. Before a group verb ("the tauren hunt") or at the end of a sentence, the word names the group.
 - **The fallback.** A race gives the class, and then `$N`. A class gives `$N`. A title gives `$N`. `$N` always fits.
 
 | Don't | Do |
@@ -278,7 +279,7 @@ These are exact. Each one goes into `line_check.rs` or `slop_words.txt`. Every p
 | Too many sentences | more than 3 sentences in a narrator line | new, with `TooManySentences` of the templates plan |
 | A ledger | more than one number in a line | new, beside `NewNumber` |
 | A level opener | a line that starts with `Level \d+` | new |
-| A group word for the hero | `the (RACE\|CLASS\|TITLE) (has\|is\|was\|does\|reaches\|holds\|...)`, when the word is its own plural, or its plural or people stands in the text (4.1). A word with another plural ("paladin") also counts before a past verb or at the end of a sentence | `group_words.rs`, built 2026-10-09 |
+| A group word for the hero | `the (RACE\|CLASS\|TITLE) (has\|is\|was\|does\|reaches\|holds\|...)`, when the word names only the people ("Forsaken"), or its plural or its people stands in the rest of the text (4.1). A word with another plural ("paladin") also counts before a past verb or at the end of a sentence | `group_words.rs`, built 2026-10-09 |
 | A present with no source | a present clause of the history that no present sentence of the lore backs, or that names a defeated foe (`docs/plans/lore-names-and-now.md` 2.3 C) | `present_check.rs`, built 2026-10-07 |
 | A Hero-page callback | a run of 3 words in a row from the player's Hero answers, in a narrator line | new, for the saga and the summary check only when the narrator line holds no sheet |
 

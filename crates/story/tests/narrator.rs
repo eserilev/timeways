@@ -272,15 +272,44 @@ fn a_kind_that_names_a_group_of_the_line_falls_back() {
 }
 
 #[test]
-fn a_tauren_or_a_shaman_is_never_named_by_the_kind() {
+fn a_tauren_or_a_shaman_can_be_named_by_the_kind_when_nothing_clashes() {
     let tauren_shaman = Who {
         race: Some(Race::Tauren),
         class: Some(Class::Shaman),
         titles: Vec::new(),
     };
 
-    assert_eq!(naming(&murloc(), &tauren_shaman, 1), Naming::Name);
-    assert_eq!(naming(&murloc(), &tauren_shaman, 4), Naming::Name);
+    assert_eq!(naming(&murloc(), &tauren_shaman, 1), Naming::Kind("shaman"));
+    assert_eq!(naming(&murloc(), &tauren_shaman, 4), Naming::Kind("tauren"));
+}
+
+#[test]
+fn a_tauren_is_not_named_by_the_kind_in_a_line_about_the_tauren() {
+    let tauren_shaman = Who {
+        race: Some(Race::Tauren),
+        class: Some(Class::Shaman),
+        titles: Vec::new(),
+    };
+    let rest = "The tauren of Mulgore grow stronger.";
+
+    assert_eq!(
+        naming_in(&murloc(), &tauren_shaman, 4, rest),
+        Naming::Kind("shaman")
+    );
+}
+
+#[test]
+fn the_forsaken_is_never_named_by_the_word_of_its_people() {
+    let forsaken_priest = Who {
+        race: Some(Race::Forsaken),
+        class: Some(Class::Priest),
+        titles: Vec::new(),
+    };
+
+    assert_eq!(
+        naming(&murloc(), &forsaken_priest, 4),
+        Naming::Kind("priest")
+    );
 }
 
 #[test]

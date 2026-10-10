@@ -360,6 +360,30 @@ fn a_text_never_names_the_hero_by_a_title_that_names_a_group_of_it() {
 }
 
 #[test]
+fn a_text_can_name_the_hero_the_tauren_when_no_tauren_group_is_in_it() {
+    let line = "Cairne Bloodhoof led his people out of the Barrens to Mulgore with the help of Thrall. The tauren has reached level 20.";
+
+    assert_eq!(faults(line), []);
+}
+
+#[test]
+fn a_text_never_names_the_hero_the_tauren_beside_the_tauren_of_mulgore() {
+    let line = "The tauren of Mulgore hunt the plains with the help of the Horde. The tauren has reached level 20.";
+
+    assert_eq!(
+        faults(line),
+        [ProseFault::GroupWordForHero("the tauren has".to_string())]
+    );
+}
+
+#[test]
+fn a_text_can_name_the_hero_the_shaman_when_no_shaman_group_is_in_it() {
+    let line = "Thrall freed the orcs from the internment camps and led them across the sea to Kalimdor. The shaman has reached level 20.";
+
+    assert_eq!(faults(line), []);
+}
+
+#[test]
 fn a_people_with_no_word_for_the_hero_passes() {
     let lines = [
         "The Forsaken of the Undercity hold the ruins of Lordaeron, and their apothecaries brew a new plague there now.",

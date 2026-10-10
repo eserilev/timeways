@@ -108,6 +108,13 @@ impl Race {
         }
     }
 
+    /// True when the word names the whole people and never one person: "the Forsaken".
+    /// "The tauren" is its own plural too, but it names one tauren as well.
+    #[must_use]
+    pub fn names_only_the_people(self) -> bool {
+        self == Race::Forsaken
+    }
+
     /// Every race of Classic.
     #[must_use]
     pub fn all() -> [Race; 8] {

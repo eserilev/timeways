@@ -45,7 +45,7 @@ The full guide is `docs/plans/narrator-style.md`. This skill is its core. If the
 - When you name the hero, use one plain verb: defeated, finished, has reached.
 - Never "ended", "vanquished", "laid low", "felled".
 - On a tenth level, the order or the people grows stronger as a group. Nothing grows, lives, or burns inside the hero.
-- Never name the hero by a word that the same line uses for a group or a people: a race, a class, or a title, its plural, or its people ("undead", "elves"). "Forsaken", "tauren", and "shaman" are their own plural, so they never name the hero. Fall back: race, then class, then `$N`; class, then `$N`. `$N` always fits.
+- Never name the hero by a word that the same line uses for a group or a people: a race, a class, or a title, its plural, or its people ("undead", "elves"). "The Forsaken" names the whole people, so it never names the hero. "The tauren" and "the shaman" name one person, so they name the hero when the line holds no other "tauren", "shaman", or people word. Fall back: race, then class, then `$N`; class, then `$N`. `$N` always fits.
 
 ## Ban list
 

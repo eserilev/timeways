@@ -8,7 +8,7 @@ use crate::check::{mentions, words_of};
 use crate::race_class::{Class, Race};
 use crate::sentences::sentences;
 
-/// Verbs right after "the <word>" that only one person takes: "the Forsaken has". A people
+/// Verbs right after "the <word>" that only one person takes: "the tauren has". A people
 /// whose word is its own plural takes "have", "grow", or "hold".
 const SINGULAR_VERBS: [&str; 19] = [
     "has", "is", "was", "does", "reaches", "holds", "finishes", "defeats", "earns", "gains",
@@ -18,6 +18,15 @@ const SINGULAR_VERBS: [&str; 19] = [
 /// Past verbs that take a person or a people: "the dwarf had".
 const PAST_VERBS: [&str; 2] = ["had", "did"];
 
+/// What "the <word>" names in a line.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Names {
+    /// "The Forsaken" names the whole people, so it never names the hero.
+    OnlyThePeople,
+    /// "The tauren" or "the paladin" names one person when nothing in the line clashes.
+    OnePerson,
+}
+
 /// One word for the hero: a race, a class, or a title, and the words that name its group.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HeroWord {
@@ -25,6 +34,7 @@ pub struct HeroWord {
     pub plural: String,
     /// More words for the people of the word: "undead" for the Forsaken.
     pub people: Vec<String>,
+    pub names: Names,
 }
 
 impl HeroWord {
@@ -38,6 +48,11 @@ impl HeroWord {
                 .iter()
                 .map(|w| (*w).to_string())
                 .collect(),
+            names: if race.names_only_the_people() {
+                Names::OnlyThePeople
+            } else {
+                Names::OnePerson
+            },
         }
     }
 
@@ -53,6 +68,7 @@ impl HeroWord {
             word: class.word().to_string(),
             plural: class.plural().to_string(),
             people,
+            names: Names::OnePerson,
         }
     }
 
@@ -62,30 +78,35 @@ impl HeroWord {
             word: title.to_string(),
             plural: format!("{title}s"),
             people: Vec::new(),
+            names: Names::OnePerson,
         }
     }
 
-    /// "Forsaken", "tauren", and "shaman" are their own plural, so "the Forsaken" names
-    /// the people wherever it stands.
+    /// "Tauren" and "shaman" are their own plural, so "the tauren hunt" names the group.
+    /// Only a verb that one person takes makes them name the hero.
     #[must_use]
-    pub fn names_a_group_alone(&self) -> bool {
+    pub fn is_its_own_plural(&self) -> bool {
         self.word.eq_ignore_ascii_case(&self.plural)
     }
 
     /// True when the word cannot name the hero in a line whose other words are `rest`:
-    /// the word, its plural, or its people stands in `rest`, or the word names a group
-    /// alone.
+    /// the word names only the people, or the word, its plural, or its people stands in
+    /// `rest`.
     #[must_use]
     pub fn clashes_with(&self, rest: &str) -> bool {
-        self.names_a_group_alone()
+        self.names == Names::OnlyThePeople
             || mentions(rest, &self.word)
             || mentions(rest, &self.plural)
             || self.people.iter().any(|word| mentions(rest, word))
     }
 
-    /// True when the plural or the people of the word stands in `text`.
-    fn group_in(&self, text: &str) -> bool {
-        mentions(text, &self.plural) || self.people.iter().any(|word| mentions(text, word))
+    /// True when `rest` names the group of the word: "the warrior served, and the warrior
+    /// owns" names one person twice, but "the tauren has, and the tauren hunt" names a
+    /// group.
+    fn group_in(&self, rest: &str) -> bool {
+        self.names == Names::OnlyThePeople
+            || mentions(rest, &self.plural)
+            || self.people.iter().any(|word| mentions(rest, word))
     }
 }
 
@@ -110,12 +131,28 @@ fn candidates(also_hero: &[String]) -> Vec<HeroWord> {
     words
 }
 
-/// The naming of the hero by `word` in `text`, when the word names a group of the text.
+/// The naming of the hero by `word` in `text`, when the rest of the text names its group.
 fn clashing_naming(text: &str, word: &HeroWord) -> Option<String> {
     let naming = sentences(text)
         .into_iter()
         .find_map(|sentence| hero_naming_in(sentence, word))?;
-    (word.names_a_group_alone() || word.group_in(text)).then_some(naming)
+    let rest = without_first(&words_of(text), &words_of(&naming));
+    word.group_in(&rest).then_some(naming)
+}
+
+/// The words of a text, joined, with the first run of `cut` taken out.
+fn without_first(words: &[String], cut: &[String]) -> String {
+    let at = words
+        .windows(cut.len())
+        .position(|window| window == cut)
+        .unwrap_or(words.len());
+    let after = (at + cut.len()).min(words.len());
+    let kept: Vec<&str> = words[..at]
+        .iter()
+        .chain(&words[after..])
+        .map(String::as_str)
+        .collect();
+    kept.join(" ")
 }
 
 /// "the paladin has" in one sentence: "the", the word, and a verb that one person takes.
@@ -131,7 +168,7 @@ fn hero_naming_in(sentence: &str, word: &HeroWord) -> Option<String> {
             return None;
         }
         let next = words.get(at + size).map(String::as_str);
-        if !takes_a_person(next, word.names_a_group_alone()) {
+        if !takes_a_person(next, word.is_its_own_plural()) {
             return None;
         }
         let named = run.join(" ");
@@ -139,13 +176,13 @@ fn hero_naming_in(sentence: &str, word: &HeroWord) -> Option<String> {
     })
 }
 
-fn takes_a_person(next: Option<&str>, names_a_group_alone: bool) -> bool {
+fn takes_a_person(next: Option<&str>, own_plural: bool) -> bool {
     let Some(verb) = next else {
-        return !names_a_group_alone;
+        return !own_plural;
     };
     if SINGULAR_VERBS.contains(&verb) {
         return true;
     }
     let past = PAST_VERBS.contains(&verb) || verb.ends_with("ed");
-    past && !names_a_group_alone
+    past && !own_plural
 }
