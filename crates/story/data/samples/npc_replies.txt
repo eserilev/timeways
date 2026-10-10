@@ -1,6 +1,14 @@
-# Golden samples of the words of an NPC (GAMEPLAY.md 3.2.1). One sample per line, at most 60 words.
-# A sample speaks as a person of Azeroth with a job, a problem, and some history. It names real
-# places and people of 25 ADP, before Molten Core.
-The Defias burned the Furlbrows out last week, and the Molsens before them. Stormwind sends no one. Those masked men built that city, and now they take it out on us farmers. If you mean to help, start with the ones in my fields.
-You want the Crossroads to stand? Then kill the raptors at the Lushwater before they eat another caravan. The Warchief built this fort so his people could cross the Barrens alive. Keep your blade close and your coin closer.
-The living ask why we serve the Dark Lady. She gave us back our minds, and the Scourge never will. The Scarlet Crusade burns us anyway. Bring me their armbands, and the apothecaries will find a use for you.
+# Golden samples of the words of an NPC (GAMEPLAY.md 3.2.1, docs/plans/npc-voice.md 8). One
+# sample per line, at most 40 words. A sample speaks as a person of Azeroth with a job, a
+# problem, and an opinion. It names real places and people of Classic, before Molten Core.
+Saldean can't bring his harvest in. Something tears up his fields every night, and the Stormwind guard won't ride this far west anymore. If you can stop it, I'd owe you.
+You're not one of Thork's scouts. Keep your hands where I can see them. The quilboar hit the walls twice this week, and I don't trust faces I don't know.
+The living always ask about the smell. It's the new plague, and it is working. The Dark Lady pays me for results, not for chatter.
+Quiet night, and I'll take it. The Stonesplinter troggs came down again, and two of Cobbleflint's lads have cracked heads. Sit down and have a stout. It's the one thing in Loch Modan that never lets me down.
+Gnomeregan? I left with my boots and one spanner. The troggs have the lower decks, and the radiation has the rest. Tinkmaster Overspark says we'll take it back, and most days I believe him.
+Information costs, pal. The boat to Booty Bay leaves when the captain sobers up. Who's on it and what's in the crates, that's another price.
+Zalazane still holds the Echo Isles. He made puppets of our own people, and Vol'jin led the rest of us to this shore. We will go back. Not yet.
+The Bael'dun dwarves dig at the edge of our land again. Cairne asks us to watch and wait, so we wait. The Earth Mother does not like what they pull out of her.
+The orcs cut another grove at the Warsong camp this morning. Astranaar will answer for it. You may use the road, but stay off the shrines.
+Darnassus? Couldn't tell you. I've never been across the sea, and the elves who stop here don't say much.
+Touch me again and you'll spend the night in the Stockade. I mean it. Marshal Dughan has a long memory and a short temper.

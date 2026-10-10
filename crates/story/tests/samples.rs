@@ -23,7 +23,7 @@ use timeways_story::{chronicle, narrator, summary};
 const VOICES: [(Voice, usize, usize); 4] = [
     (Voice::NarratorLine, narrator::MAX_LINE_CHARS, 30),
     (Voice::Chapter, chronicle::MAX_CHAPTER_CHARS, 80),
-    (Voice::NpcReply, talk::MAX_SAY_CHARS, 60),
+    (Voice::NpcReply, talk::MAX_SAY_CHARS, 40),
     (Voice::Summary, summary::MAX_SUMMARY_CHARS, 80),
 ];
 
@@ -51,10 +51,10 @@ fn shares_a_run(text: &str, other: &str, length: usize) -> bool {
 }
 
 #[test]
-fn the_narrator_has_twenty_six_samples_a_chapter_five_an_npc_reply_three_and_a_summary_six() {
+fn the_narrator_has_twenty_six_samples_a_chapter_five_an_npc_reply_eleven_and_a_summary_six() {
     assert_eq!(Voice::NarratorLine.samples().len(), 26);
     assert_eq!(Voice::Chapter.samples().len(), 5);
-    assert_eq!(Voice::NpcReply.samples().len(), 3);
+    assert_eq!(Voice::NpcReply.samples().len(), 11);
     assert_eq!(Voice::Summary.samples().len(), 6);
 }
 

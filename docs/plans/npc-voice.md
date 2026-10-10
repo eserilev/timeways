@@ -1,6 +1,6 @@
 # Plan: the voice of an NPC
 
-Status: draft 1, 2026-10-07. The prompt block of section 7 and the checks of section 6 are built. The samples of section 8 wait for the approval of the user. `npc_replies.txt` keeps its 3 old samples until then.
+Status: draft 1, 2026-10-07. The prompt block of section 7 and the checks of section 6 are built. The 11 samples of section 8 are installed in `npc_replies.txt` (2026-10-09).
 
 ## 0. Why this guide exists
 
@@ -180,14 +180,16 @@ The persona (`talk::persona`) does not change, because the quest prompt shares i
 
 The samples teach the voice more than the rules do. Section 8 holds the new samples for approval.
 
-## 8. Draft samples, for the approval of the user
+## 8. The samples
+
+Installed in `npc_replies.txt` on 2026-10-09. The review against the skill and the checks changed one sample: sample 4 had "the troggs came up by the dam", which no lore holds. Mountaineer Cobbleflint fights the Stonesplinter troggs, so the sample says that now.
 
 Each sample passes every check of section 6. They cover humans, orcs, Forsaken, dwarves, gnomes, goblins, trolls, tauren, and night elves, and the moods friendly, wary, hostile, a quest offer, and "I don't know". The quest offer follows `WORK_RULE`: it names the trouble, and no creature, count, or reward.
 
 1. (human farmer, Westfall, a quest offer) "Saldean can't bring his harvest in. Something tears up his fields every night, and the Stormwind guard won't ride this far west anymore. If you can stop it, I'd owe you."
 2. (orc grunt, the Crossroads, wary) "You're not one of Thork's scouts. Keep your hands where I can see them. The quilboar hit the walls twice this week, and I don't trust faces I don't know."
 3. (Forsaken apothecary, Brill, cold) "The living always ask about the smell. It's the new plague, and it is working. The Dark Lady pays me for results, not for chatter."
-4. (dwarf, Thelsamar, friendly) "Quiet night, and I'll take it. The troggs came up by the dam again, and two of Cobbleflint's lads have cracked heads. Sit down and have a stout. It's the one thing in Loch Modan that never lets me down."
+4. (dwarf, Thelsamar, friendly) "Quiet night, and I'll take it. The Stonesplinter troggs came down again, and two of Cobbleflint's lads have cracked heads. Sit down and have a stout. It's the one thing in Loch Modan that never lets me down."
 5. (gnome, Tinker Town, friendly) "Gnomeregan? I left with my boots and one spanner. The troggs have the lower decks, and the radiation has the rest. Tinkmaster Overspark says we'll take it back, and most days I believe him."
 6. (goblin, Ratchet, a question about a boat) "Information costs, pal. The boat to Booty Bay leaves when the captain sobers up. Who's on it and what's in the crates, that's another price."
 7. (troll, Sen'jin Village, grave) "Zalazane still holds the Echo Isles. He made puppets of our own people, and Vol'jin led the rest of us to this shore. We will go back. Not yet."
