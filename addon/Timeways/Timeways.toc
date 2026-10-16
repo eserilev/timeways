@@ -5,7 +5,7 @@
 # CurseForge project id. 0 means no upload: put the real id here once the project exists.
 ## X-Curse-Project-ID: 0
 ## SavedVariables: TimewaysDB, TimewaysPlayers, TimewaysSettings
-## SavedVariablesPerCharacter: TimewaysTasks, TimewaysStories, TimewaysProfile, TimewaysTalk
+## SavedVariablesPerCharacter: TimewaysTasks, TimewaysStories, TimewaysProfile, TimewaysTalk, TimewaysWaiting
 
 App.lua
 KeyHandoff.lua

@@ -2,6 +2,9 @@
 -- (GAMEPLAY.md 5.4). Each batch costs a screenshot, so most events wait for the flush
 -- timer. A big moment goes soon, because its narrator line belongs to that moment.
 
+-- The kept events are a global from the TOC, so only _G can reach it.
+--# selene: allow(global_usage)
+
 local _, ns = ...
 
 local Outbox = {}
@@ -10,6 +13,10 @@ ns.Outbox = Outbox
 -- A few hours of play. Past this, the oldest events go first: the story loses a detail,
 -- and the memory of the game stays bounded.
 local MAX_WAITING = 500
+
+-- The events that wait at logout, kept for the next login of the character. Any addon can
+-- change this file, so a kept line is only a string that fits in a message.
+local KEPT = "TimewaysWaiting"
 
 -- The lines that get a reply. The bridge takes at most one in a batch, as its last line.
 local REPLIES = { lore_asked = true, journal_asked = true, talk_asked = true, draft_asked = true }
@@ -171,10 +178,31 @@ local function Send(batch)
 	return true
 end
 
+-- A question was for that moment, so it does not wait for the desktop app.
+local function RefuseQuestions()
+	local kept = {}
+	for _, entry in ipairs(waiting) do
+		if not entry.reply then
+			kept[#kept + 1] = entry
+		else
+			ns.Link.ShowError(ns.Link.OFFLINE)
+			if entry.failed then
+				entry.failed(ns.Link.OFFLINE)
+			end
+		end
+	end
+	waiting = kept
+end
+
 -- Lines that do not go stay, in order, for the next flush. Before the character is known,
--- every line waits.
+-- every line waits. While the desktop app is off, no batch goes: each one costs a
+-- screenshot that nothing reads.
 function Outbox.Flush()
 	if not character then
+		return
+	end
+	if ns.Link.Bridge() == "offline" then
+		RefuseQuestions()
 		return
 	end
 	local kept = {}
@@ -186,4 +214,35 @@ function Outbox.Flush()
 		end
 	end
 	waiting = kept
+end
+
+-- At logout. A batch on its way is not kept: the transport keeps its frame.
+function Outbox.Save()
+	local lines = {}
+	for _, entry in ipairs(waiting) do
+		if not entry.reply then
+			lines[#lines + 1] = entry.line
+		end
+	end
+	_G[KEPT] = #lines > 0 and lines or nil
+end
+
+-- At the load of the addon, before any new event: the kept events go first.
+function Outbox.Load()
+	local lines = _G[KEPT]
+	_G[KEPT] = nil
+	if type(lines) ~= "table" then
+		return
+	end
+	local loaded = {}
+	for _, line in ipairs(lines) do
+		if type(line) == "string" and ns.Link.Fits(line) then
+			loaded[#loaded + 1] = { line = line, reply = false }
+		end
+	end
+	for _, entry in ipairs(waiting) do
+		loaded[#loaded + 1] = entry
+	end
+	waiting = loaded
+	Bound()
 end

@@ -61,6 +61,7 @@ fn game() -> Game {
     let game = Game::with_transport();
     game.run(
         "sent = {}
+         ns.Link.Bridge = function() return 'online' end
          ns.Link.Send = function(text)
              table.insert(sent, text)
              return #sent

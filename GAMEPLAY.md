@@ -676,7 +676,12 @@ The addon sends game events in batches with the next strip. Each strip is a scre
 - **Big moments go within 5 seconds:** a level up, a death, a new zone (not a new subzone), the kill of a rare or a boss, a finished quest of the game, the entry into a dungeon, a raid, or a battleground, a battleground won, a new PvP rank, a mount, and a rare or epic item put on. The narrator line belongs to that moment, so it must not come late. The other events of those 5 seconds go in the same batch.
 - **Every other event waits** for the flush every 10 minutes, or for the next big moment or question.
 - **A question goes at once:** `/lore`, a talk, `/quest`, a task answer, and a journal page.
-- **Camping and quitting send what waits** (`PLAYER_CAMPING`, `PLAYER_QUITING`), because the game still draws then. At `PLAYER_LOGOUT` no screenshot can go, so a logout in an inn can lose the small events of the last 10 minutes.
+- **Camping and quitting send what waits** (`PLAYER_CAMPING`, `PLAYER_QUITING`), because the game still draws then.
+- **Events wait while the desktop app is off.** A poll of the slots tells the addon that the desktop app stopped. While it is off, no batch goes, because a screenshot that nothing reads only fills the disk. The events keep their order and their times, up to 500.
+- **Waiting events stay for the next login.** At `PLAYER_LOGOUT` no screenshot can go, so the addon saves the waiting events of the character in `TimewaysWaiting`. At the next login they go first. A kept line that is not text, or that does not fit in a message, is dropped, because any addon can change the file.
+- **A question while the desktop app is off fails at once**, with no screenshot: "Not sent: the desktop app isn't running. On your desktop, run gnomish-relay restart."
+- **Screenshots are PNG.** At login, the addon sets `screenshotFormat` to `png`, because the desktop app reads the strip pixel by pixel. A JPEG changes the pixels.
+- **Still open, in the shared transport** (relay owns it, decision of the user): with no desktop app, each slot poll still takes a hello strip. And each strip is a full screenshot of the game, 12 to 18 MB at 4K. A black backdrop for the frame of the strip cuts that to some KB, with a one-frame blink.
 
 **The combat log is closed to addons in this client.** `COMBAT_LOG_EVENT_UNFILTERED` fires, but only Blizzard code can read its payload (`C_CombatLogSecure` is secure-only). So the addon reads kills and deaths from the events above:
 

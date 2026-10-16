@@ -10,6 +10,11 @@ local CHAT = { id = "story" }
 local claimed = {}
 
 ns.Link = {
+	OFFLINE = "Not sent: the desktop app isn't running. On your desktop, run gnomish-relay restart.",
+	-- "checking" until the first poll, then "online", "slow", or "offline".
+	Bridge = function()
+		return ns.Messages.Bridge()
+	end,
 	Fits = function(text)
 		return ns.Messages.Fits(CHAT, text)
 	end,

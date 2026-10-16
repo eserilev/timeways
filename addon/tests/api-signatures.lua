@@ -51,6 +51,19 @@ return {
 				{ Name = "value", Type = "string", Nilable = true },
 			},
 		},
+		["C_CVar.SetCVar"] = {
+			RequiresNonReadOnlyCVar = true,
+			RequiresNonSecureCVar = true,
+			RequiresValidAndPublicCVar = true,
+			SecretArguments = "NotAllowed",
+			Arguments = {
+				{ Name = "name", Type = "cstring", Nilable = false },
+				{ Name = "value", Type = "cstring", Nilable = true },
+			},
+			Returns = {
+				{ Name = "success", Type = "bool", Nilable = false },
+			},
+		},
 		["C_ChatInfo.RegisterAddonMessagePrefix"] = {
 			SecretArguments = "AllowedWhenUntainted",
 			Arguments = {

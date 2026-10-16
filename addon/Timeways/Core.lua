@@ -11,11 +11,15 @@ local HANDLERS = {
 	ADDON_LOADED = function(name)
 		if name == ADDON_NAME then
 			ns.KeyHandoff.Try("ADDON_LOADED")
+			ns.Outbox.Load()
 		end
 	end,
 	PLAYER_LOGIN = function()
 		ns.KeyHandoff.Try("PLAYER_LOGIN")
+		-- The desktop app reads the strip pixel by pixel, so it needs a lossless picture.
+		C_CVar.SetCVar("screenshotFormat", "png")
 	end,
+	PLAYER_LOGOUT = ns.Outbox.Save,
 	PLAYER_ENTERING_WORLD = function()
 		-- First, so an error in the rest never hides the setup window.
 		ns.Welcome.Login()
@@ -88,6 +92,7 @@ local frame = CreateFrame("Frame")
 -- Literal names, so the API gate of Gnomish Relay checks each one against the client.
 frame:RegisterEvent("ADDON_LOADED")
 frame:RegisterEvent("PLAYER_LOGIN")
+frame:RegisterEvent("PLAYER_LOGOUT")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 frame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 frame:RegisterEvent("ZONE_CHANGED")

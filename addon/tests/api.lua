@@ -11,6 +11,7 @@ return {
 		"C_AddOns.LoadAddOn",
 		"C_CVar",
 		"C_CVar.GetCVar",
+		"C_CVar.SetCVar",
 		"C_ChatInfo",
 		"C_ChatInfo.RegisterAddonMessagePrefix",
 		"C_ChatInfo.SendAddonMessage",

@@ -78,6 +78,8 @@ impl Game {
              answered = 0
              linkUp = true
              linkLimit = 3000
+             bridge = "online"
+             ns.Link.Bridge = function() return bridge end
              ns.Link.Fits = function(text) return #text <= linkLimit end
              ns.Link.Send = function(text)
                  if not linkUp or #text > linkLimit then return nil end

@@ -35,19 +35,80 @@ fn enter_zone(game: &Game, zone: &str) {
 }
 
 #[test]
-fn an_event_goes_out_again_after_the_transport_gives_up_on_it() {
+fn an_event_waits_after_the_transport_gives_up_on_it() {
     let game = offline();
     enter_zone(&game, "Elwynn Forest");
 
     wait(&game, 600);
 
-    let sent: Vec<String> = game.eval(
-        "local out = {}
-         for _, message in ipairs(TimewaysDB.sent) do table.insert(out, message.text) end
-         return out",
+    assert_eq!(game.eval::<u32>("#TimewaysDB.sent"), 1);
+    assert_eq!(game.eval::<u32>("ns.Outbox.Waiting()"), 1);
+}
+
+#[test]
+fn no_batch_goes_while_the_desktop_app_is_off() {
+    let game = offline();
+    wait(&game, 10);
+
+    enter_zone(&game, "Elwynn Forest");
+    wait(&game, 1800);
+
+    assert_eq!(game.eval::<u32>("#(TimewaysDB.sent or {})"), 0);
+    assert_eq!(game.eval::<u32>("ns.Outbox.Waiting()"), 1);
+}
+
+#[test]
+fn a_question_while_the_desktop_app_is_off_fails_at_once() {
+    let game = offline();
+    wait(&game, 10);
+
+    game.run("wow.Slash('/lore', 'any news?')");
+
+    assert_eq!(game.eval::<u32>("#(TimewaysDB.sent or {})"), 0);
+    assert_eq!(
+        game.printed(),
+        [
+            "|cffc8a064Timeways|r: Not sent: the desktop app isn't running. On your desktop, run gnomish-relay restart."
+        ]
     );
-    assert!(sent.len() >= 2, "{sent:?}");
-    assert!(sent.last().unwrap().contains("Elwynn Forest"), "{sent:?}");
+}
+
+#[test]
+fn waiting_events_are_kept_at_logout_for_the_next_login() {
+    let game = offline();
+    wait(&game, 10);
+    enter_zone(&game, "Elwynn Forest");
+    enter_zone(&game, "Westfall");
+
+    game.run("wow.Fire('PLAYER_LOGOUT')");
+    let kept: Vec<String> = game.eval("TimewaysWaiting");
+    let next = Game::with_transport();
+    next.lua.globals().set("TimewaysWaiting", kept).unwrap();
+    next.run("wow.Fire('ADDON_LOADED', 'Timeways')");
+
+    assert_eq!(next.eval::<u32>("ns.Outbox.Waiting()"), 2);
+    assert!(next.eval::<bool>("TimewaysWaiting == nil"));
+}
+
+#[test]
+fn a_kept_event_that_is_not_text_is_dropped() {
+    let game = Game::with_transport();
+    game.run(
+        "TimewaysWaiting = { 42, {}, '{\"type\":\"level_reached\",\"at\":1,\"level\":3}' }
+         wow.Fire('ADDON_LOADED', 'Timeways')",
+    );
+
+    assert_eq!(game.eval::<u32>("ns.Outbox.Waiting()"), 1);
+}
+
+#[test]
+fn the_login_asks_the_game_for_lossless_screenshots() {
+    let game = offline();
+    game.run("wow.cvars.screenshotFormat = 'jpg'");
+
+    game.run("wow.Fire('PLAYER_LOGIN')");
+
+    assert_eq!(game.eval::<String>("wow.cvars.screenshotFormat"), "png");
 }
 
 #[test]
