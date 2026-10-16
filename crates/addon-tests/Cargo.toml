@@ -10,7 +10,7 @@ publish = false
 [dev-dependencies]
 fake-bridge = { path = "../fake-bridge" }
 # The version range of the bridge, at the same pin as the transport copy (CI checks both).
-protocol = { git = "https://github.com/eserilev/gnomish-relay", rev = "be6a0904149313a9be552da3447f679438154bbe" }
+protocol = { git = "https://github.com/eserilev/gnomish-relay", rev = "0ecc4e2b11003781eb1f9847e455f94f471d5e60" }
 mlua = { version = "0.12", features = ["lua51", "vendored"] }
 proptest.workspace = true
 serde_json.workspace = true

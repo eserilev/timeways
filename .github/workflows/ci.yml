@@ -120,7 +120,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           repository: eserilev/gnomish-relay
-          ref: be6a0904149313a9be552da3447f679438154bbe
+          ref: 0ecc4e2b11003781eb1f9847e455f94f471d5e60
           path: target/gnomish-relay
       - uses: taiki-e/install-action@7623a79cdfecb99d681017af368ca353d9f49bb5 # v2.87.19
         with:
@@ -139,7 +139,7 @@ jobs:
       # Each crate that uses the relay must name the same commit.
       - run: |
           grep -q 'gnomish-relay' crates/fake-bridge/Cargo.toml crates/addon-tests/Cargo.toml
-          ! grep -h 'gnomish-relay' crates/*/Cargo.toml | grep -v 'rev = "be6a0904149313a9be552da3447f679438154bbe"'
+          ! grep -h 'gnomish-relay' crates/*/Cargo.toml | grep -v 'rev = "0ecc4e2b11003781eb1f9847e455f94f471d5e60"'
       - run: |
           for file in Sha256 Codec Saved Health Strip Slots Messages KeyHandoff; do
             diff -u target/gnomish-relay/addon/transport/$file.lua addon/Timeways/$file.lua

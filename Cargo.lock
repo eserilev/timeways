@@ -28,7 +28,7 @@ dependencies = [
 [[package]]
 name = "app-protocol"
 version = "0.5.2"
-source = "git+https://github.com/eserilev/gnomish-relay?rev=be6a0904149313a9be552da3447f679438154bbe#be6a0904149313a9be552da3447f679438154bbe"
+source = "git+https://github.com/eserilev/gnomish-relay?rev=0ecc4e2b11003781eb1f9847e455f94f471d5e60#0ecc4e2b11003781eb1f9847e455f94f471d5e60"
 dependencies = [
  "protocol",
  "serde",
@@ -453,7 +453,7 @@ dependencies = [
 [[package]]
 name = "protocol"
 version = "0.5.2"
-source = "git+https://github.com/eserilev/gnomish-relay?rev=be6a0904149313a9be552da3447f679438154bbe#be6a0904149313a9be552da3447f679438154bbe"
+source = "git+https://github.com/eserilev/gnomish-relay?rev=0ecc4e2b11003781eb1f9847e455f94f471d5e60#0ecc4e2b11003781eb1f9847e455f94f471d5e60"
 
 [[package]]
 name = "quick-error"
