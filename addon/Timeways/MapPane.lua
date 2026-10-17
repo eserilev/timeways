@@ -23,6 +23,9 @@ local BAND_SUBLEVEL = -1
 -- The pins are buttons, which draw over every texture of the pane, and under the list of
 -- the journal and the button over the map.
 local PIN_LEVEL = 2
+-- The list and the cards cover the map, so they float over its pins. A page with no map
+-- leaves the pins of the last map drawn under them.
+MapPane.SHEET_LEVEL = 4
 
 local pane, empty, pin, visitedBand, visited
 local paneWidth, paneHeight

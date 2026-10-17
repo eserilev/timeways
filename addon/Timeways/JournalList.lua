@@ -15,8 +15,6 @@ local PADDING = 8
 local SCROLL_BAR = 24
 local HELP_GAP = 8
 local MARK_WIDTH = 60
--- The list floats over the pins of the map.
-local BOX_LEVEL = 4
 
 -- Over the map, the list prints in the gold UI fonts of the Quest Log. On parchment, it
 -- prints in the quest fonts of the right page. Their shadow smudges dark ink, so it goes.
@@ -58,7 +56,7 @@ local items, texts = {}, {}
 function JournalList.Build(parent, width, height)
 	pane, paneWidth, paneHeight = parent, width, height
 	box = CreateFrame("Frame", nil, pane)
-	ns.MapPane.Stack(box, pane, BOX_LEVEL)
+	ns.MapPane.Stack(box, pane, ns.MapPane.SHEET_LEVEL)
 	night = box:CreateTexture(nil, "BACKGROUND")
 	night:SetAllPoints(box)
 	night:SetColorTexture(unpack(ns.Ink.night))
@@ -218,8 +216,10 @@ local function ShowScrollBar(rowsHeight, skin)
 end
 
 -- `skin` is "map" for a box over the map, or "sheet" for the whole left half.
+-- A sheet stays with no rows, as plain parchment, because it covers the map of the last page.
 function JournalList.Draw(rows, openKey, skin)
-	if not rows or #rows == 0 then
+	rows = rows or {}
+	if #rows == 0 and skin ~= "sheet" then
 		box:Hide()
 		return
 	end

@@ -31,6 +31,7 @@ local focusDue = false
 function JournalCards.Build(parent, width, height)
 	pane, paneWidth, paneHeight = parent, width, height
 	box = CreateFrame("Frame", nil, pane)
+	ns.MapPane.Stack(box, pane, ns.MapPane.SHEET_LEVEL)
 	box:SetAllPoints(pane)
 	local parchment = box:CreateTexture(nil, "BACKGROUND")
 	parchment:SetAllPoints(box)

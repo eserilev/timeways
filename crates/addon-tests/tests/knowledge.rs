@@ -538,3 +538,43 @@ fn the_contents_of_the_chronicle_float_over_the_pins_of_its_map() {
 
     assert!(levels[1] > levels[0], "{levels:?}");
 }
+
+/// With no stories, the Stories page has no list, but its parchment still covers the map.
+#[test]
+fn the_stories_page_with_no_stories_still_covers_the_last_map() {
+    let game = at_the_sepulcher(&silverpine());
+    game.run("ns.JournalFrame.Open('chapters')");
+
+    game.run("ns.JournalFrame.Open('stories')");
+
+    let covered: bool = game.eval(
+        "local sheet = TimewaysJournalListScroll.parent
+         return sheet.shown and sheet:GetFrameLevel() > 2",
+    );
+    assert!(covered);
+}
+
+/// The Hero page covers the map with its cards and leaves the pins of the last map drawn
+/// under them.
+#[test]
+fn the_cards_of_the_hero_page_cover_the_pins_of_the_last_map() {
+    let game = at_the_sepulcher(&silverpine());
+    game.run("ns.JournalFrame.Open('chapters')");
+
+    game.run("ns.JournalFrame.Open('hero')");
+
+    let levels: Vec<i64> = game.eval(
+        "local pin
+         for _, widget in ipairs(wow.widgets) do
+             if widget.kind == 'Button' and widget.shown and widget.scripts.OnEnter
+                 and widget.parent and widget.parent.parent == TimewaysJournalFrame then
+                 pin = widget
+             end
+         end
+         local cards = TimewaysJournalCardsScroll.parent
+         assert(cards.shown, 'the cards show')
+         return { pin:GetFrameLevel(), cards:GetFrameLevel() }",
+    );
+
+    assert!(levels[1] > levels[0], "{levels:?}");
+}
