@@ -291,11 +291,13 @@ fn known_player() -> impl Strategy<Value = (usize, usize, bool)> {
     (0..FIRSTS.len(), 0..SURNAMES.len(), any::<bool>())
 }
 
-/// One way to write a player: the whole name, with a dash, the first name in any case, or
-/// the surname alone, with a capital or in lower case.
+/// One way to write a player: the whole name, with a dash, the first name in any case, the
+/// surname alone, with a capital or in lower case, or the whole name and its surname again,
+/// "Kobee Will Will", the edge of a whole-name mark and a surname mark side by side.
 fn written(first: &str, surname: &str, form: u8) -> String {
-    match form % 7 {
+    match form % 8 {
         0 => format!("{first} {surname}"),
+        7 => format!("{first} {surname} {surname}"),
         1 => format!("{first}-{surname}"),
         2 => first.to_lowercase(),
         3 => first.to_uppercase(),

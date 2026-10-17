@@ -155,9 +155,10 @@ pub struct Marked {
 
 /// "{Ada} and {Bob-Stormrage} met" is "Ada and Bob met", with the names "Ada" and
 /// "Bob-Stormrage". On WoW Forever the part after the dash is the surname. A surname mark,
-/// "{~Kobee-Will}", is a surname alone, and its text keeps the surname: "Will". So the text
-/// holds the words that the player typed, and the limits of the addon hold. Every other
-/// brace becomes a parenthesis, so a text that a player typed never holds an ID.
+/// "{~Kobee-Will}", is a surname alone, and its text holds the surname as the game writes it:
+/// "Will". So the text holds the words of the player, as long as typed, and the limits of
+/// the addon hold. Every other brace becomes a parenthesis, so a text that a player typed
+/// never holds an ID.
 #[must_use]
 pub fn unmarked(text: &str) -> Marked {
     read_marks(text, |mark| mark.typed().to_string())
