@@ -463,6 +463,19 @@ fn a_name_learned_after_an_edit_never_reaches_a_saga() {
 }
 
 #[test]
+fn the_own_name_in_an_edit_never_reaches_a_saga() {
+    let mut story = started("own-name");
+    a_chapter_in_westfall(&mut story);
+    let (_, key) = first_chapter(&mut story);
+    edit(&mut story, key, EditText::Keep, &["TESTER held the hill."]);
+
+    close_it(&mut story);
+    let sagas = settle(&mut story, SAGA);
+
+    assert!(sagas[0].contains("$N held the hill."), "{}", sagas[0]);
+}
+
+#[test]
 fn an_edit_of_an_entry_that_does_not_exist_stays_out_of_the_journal() {
     let mut story = started("no-such-entry");
     a_chapter_in_westfall(&mut story);

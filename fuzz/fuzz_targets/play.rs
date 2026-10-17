@@ -65,6 +65,10 @@ impl<'a, const LIST: u8> Arbitrary<'a> for Pick<LIST> {
     }
 }
 
+fn picked<const LIST: u8>(picks: &[Pick<LIST>]) -> Vec<&str> {
+    picks.iter().map(|pick| pick.0.as_str()).collect()
+}
+
 fn text<const LIST: u8>(pick: &Option<Pick<LIST>>) -> Option<&str> {
     pick.as_ref().map(|pick| pick.0.as_str())
 }
@@ -97,11 +101,13 @@ pub enum Play {
         emote: Emote,
         hour: Option<u8>,
     },
+    /// A field of the hero, with the players that the addon says it names.
     SetHero {
         field: u8,
         text: Prose,
+        names: Vec<Name>,
     },
-    AddHero(Prose),
+    AddHero(Prose, Vec<Name>),
     RemoveHero(u64),
     Read {
         kind: u8,
@@ -231,11 +237,18 @@ fn input(play: &Play, at: u64) -> Option<Value> {
         Play::Emote { emote, hour } => {
             json!({"type": "emote_done", "at": at, "emote": emote.0, "hour": hour})
         }
-        Play::SetHero { field, text } => {
+        Play::SetHero {
+            field,
+            text,
+            names,
+        } => {
             let field = FIELDS[usize::from(*field) % FIELDS.len()];
-            json!({"type": "hero_set", "at": at, "field": field, "text": text.0})
+            json!({"type": "hero_set", "at": at, "field": field, "text": text.0,
+                "names": picked(names)})
         }
-        Play::AddHero(text) => json!({"type": "hero_added", "at": at, "text": text.0}),
+        Play::AddHero(text, names) => {
+            json!({"type": "hero_added", "at": at, "text": text.0, "names": picked(names)})
+        }
         Play::RemoveHero(number) => json!({"type": "hero_removed", "at": at, "number": number}),
         Play::Read {
             kind,

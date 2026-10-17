@@ -135,7 +135,8 @@ fn holds_entry(journal: &Journal, entry: EntryKey) -> bool {
     }
 }
 
-/// The player's telling of an entry for a prompt, with the IDs of the players, cut short,
+/// The player's telling of an entry for a prompt, with the IDs of the players and `$N` for
+/// the character, cut short,
 /// and the row behind it. None when the entry shows no words of the player. The swap runs
 /// again, because the table can know a name now that it did not know at the edit.
 pub(super) fn telling_of(active: &Active, entry: EntryKey) -> Option<(String, Node)> {
@@ -143,7 +144,8 @@ pub(super) fn telling_of(active: &Active, entry: EntryKey) -> Option<(String, No
     let mut parts: Vec<&str> = edit.title.iter().map(String::as_str).collect();
     parts.extend(edit.paragraphs.iter().map(String::as_str));
     let with_ids = aliases::with_ids(active, &parts.join("\n"));
-    let telling = first_chars(&with_ids, TELLING_CHARS).to_string();
+    let hidden = aliases::without_own_name(active, &with_ids);
+    let telling = first_chars(&hidden, TELLING_CHARS).to_string();
     Some((telling, Node::Row(Table::EntryEdits, row)))
 }
 

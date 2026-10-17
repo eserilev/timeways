@@ -25,6 +25,7 @@ impl Story {
             return Ok(vec![draft_answer(id, None)]);
         }
         let idea = aliases::without_names(active, &marked.names, idea)?;
+        let idea = aliases::without_own_name(active, &idea);
         let cards = active.aliases.cards(&idea);
         let known = known(active);
         let prompt = draft::prompt(&known, &idea, &cards);

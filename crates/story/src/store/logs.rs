@@ -509,7 +509,7 @@ impl AliasLog {
     pub(super) fn from_rows(rows: Vec<AliasRow>) -> AliasLog {
         let mut table = Vec::with_capacity(rows.len());
         for row in &rows {
-            if let Some(alias) = aliases::alias_of(&row.name) {
+            if let Some(alias) = aliases::alias_of_row(row) {
                 rules::learn(&mut table, alias);
             }
         }
@@ -538,7 +538,7 @@ impl AliasLog {
     ///
     /// Returns `Json` for a row that does not serialize, and then keeps nothing.
     pub fn learn(&mut self, row: &AliasRow) -> Result<Option<PlayerId>, StoreError> {
-        let Some(alias) = aliases::alias_of(&row.name) else {
+        let Some(alias) = aliases::alias_of_row(row) else {
             return Ok(None);
         };
         if let Some(id) = rules::find(&self.table, &alias.key) {
@@ -567,19 +567,11 @@ impl AliasLog {
             .collect()
     }
 
-    /// A surname reads as the surname of its player: "{P2}: the surname of {P1}".
+    /// A surname alone can belong to several players, so its card names none.
     fn card(&self, id: PlayerId) -> Option<String> {
         let row = self.row(id)?;
-        let first = row
-            .surname_of
-            .as_deref()
-            .and_then(|first| rules::find(&self.table, &aliases::key_of(first)));
-        Some(match first {
-            Some(first) => format!(
-                "{}: the surname of {}",
-                aliases::id_text(id),
-                aliases::id_text(first)
-            ),
+        Some(match row.surname_of {
+            Some(_) => format!("{}: a surname of a player you know", aliases::id_text(id)),
             None => row.card(id),
         })
     }
@@ -593,7 +585,7 @@ impl AliasLog {
 /// `seen` gathers the keys of the rows before.
 pub(super) fn is_new_name(row: &AliasRow, seen: &mut std::collections::BTreeSet<String>) -> bool {
     aliases::player_name(&row.name) == Some(row.name.as_str())
-        && seen.insert(aliases::key_of(&row.name))
+        && aliases::alias_of_row(row).is_some_and(|alias| seen.insert(alias.key))
 }
 
 /// The rows of a table that only grows, oldest first. The row of an item is its place in

@@ -1009,3 +1009,32 @@ fn the_page_shows_the_edit_as_typed_while_it_saves() {
         cards(&game)
     );
 }
+
+#[test]
+fn a_hero_edit_names_at_most_the_first_thirty_two_players_of_its_text() {
+    let game = Game::new();
+    let names: Vec<String> = (0..33u8)
+        .map(|n| {
+            format!(
+                "Q{}{}",
+                char::from(b'a' + n / 26),
+                char::from(b'a' + n % 26)
+            )
+        })
+        .collect();
+    let roster: Vec<String> = names
+        .iter()
+        .map(|name| format!("{{ name = '{name}-Stormrage', online = false }}"))
+        .collect();
+    game.run(&format!(
+        "wow.guild = {{ {} }} wow.Fire('GUILD_ROSTER_UPDATE', false)",
+        roster.join(", ")
+    ));
+    let text: Vec<&str> = names.iter().rev().map(String::as_str).collect();
+
+    game.run(&format!("wow.Slash('/hero', 'add {}')", text.join(" ")));
+
+    let (_, sent) = hero_edits(&game).remove(0);
+    let expected: Vec<String> = names.iter().rev().take(32).cloned().collect();
+    assert_eq!(sent, expected);
+}

@@ -17,8 +17,8 @@ use timeways_rules::setups::{self, setup_usable};
 use timeways_rules::spoiler::{LinkTo, WorldFacts, passage_usable};
 use timeways_story::ai::AiWord;
 use timeways_story::aliases::{
-    AliasRow, MAX_PLAYER_NAME_BYTES, alias_of, key_of, knows_every_id, plain_joined, text_pieces,
-    typed_for_model, unmarked, with_names, without_names,
+    AliasRow, MAX_PLAYER_NAME_BYTES, alias_of, alias_of_row, key_of, knows_every_id, plain_joined,
+    text_pieces, typed_for_model, unmarked, with_names, without_names,
 };
 use timeways_story::arrival::arrival_in;
 use timeways_story::atlas_lore::{LORE_BYTES, LORE_CHARS, Lore, clipped};
@@ -741,13 +741,20 @@ fn story(folder: &Path, files: Store) -> Story {
         Pack::write(&pack, &[]).unwrap();
     }
     let mut story = Story::new(Pack::open(&pack).unwrap(), files);
+    enter_as(&mut story, CHARACTER);
+    story
+}
+
+/// The character of the plays.
+const CHARACTER: &str = "Ada";
+
+fn enter_as(story: &mut Story, name: &str) {
     story
         .handle(Input::CharacterEntered {
             realm: "Stormrage".to_string(),
-            name: "Ada".to_string(),
+            name: name.to_string(),
         })
         .unwrap();
-    story
 }
 
 /// Plays each step, and moves the clock. A refused step is part of the game.
@@ -963,6 +970,12 @@ fn first_page(story: &mut Story) -> Journal {
 }
 
 /// Every page of the journal as the bridge gets it.
+/// The world of the character of this name.
+fn world_file_of(folder: &Path, name: &str) -> PathBuf {
+    let key = CharacterKey::new("Stormrage", name).unwrap();
+    folder.join(key.relative_path())
+}
+
 fn world_file(folder: &Path) -> PathBuf {
     folder
         .join("worlds")
@@ -2171,12 +2184,9 @@ fn hooks_are_read_from_their_rows(plays: &[Play]) -> Result<(), TestCaseError> {
     let mut table: Vec<Alias> = Vec::new();
     learn_all(
         &mut table,
-        &rows
-            .iter()
-            .filter_map(|row| alias_of(&row.name))
-            .collect::<Vec<_>>(),
+        &rows.iter().filter_map(alias_of_row).collect::<Vec<_>>(),
     );
-    let for_model = |text: &str| typed_for_model(&table, &rows, "Ada", text);
+    let for_model = |text: &str| typed_for_model(&table, &rows, CHARACTER, text);
     for (call, prompt) in hook_calls(&connection) {
         let Some(text) = hook_text(&prompt) else {
             continue;
@@ -2332,11 +2342,29 @@ fn player_mark() -> impl Strategy<Value = String> {
     })
 }
 
-/// A text of the hero that names the character "Ada" in any case, with a realm, and with
-/// signs around it. No other word holds the letter "a".
+/// A text of the hero that names the character "Ada Zqbe": the first name in any case,
+/// with a realm, and with signs around it, and the surname with a capital or in lower
+/// case, often first in a sentence. No other word holds an "a" or a "z".
 fn own_name_words() -> impl Strategy<Value = String> {
-    let own = prop::sample::select(vec!["Ada", "ADA", "ada", "Ada-Stormrage", "Ada's", "(Ada)"]);
-    let part = prop_oneof![own.prop_map(String::from), "[b-z]{1,6}"];
+    let own = prop::sample::select(vec![
+        "Ada",
+        "ADA",
+        "ada",
+        "Ada-Stormrage",
+        "Ada's",
+        "(Ada)",
+        "Ada Zqbe",
+        "ada zqbe",
+        "Zqbe",
+        "ZQBE",
+        "zqbe",
+        ". Zqbe",
+        ". zqbe",
+        "Zqbe's",
+        "Ada\nZqbe",
+        "Ada,  Zqbe",
+    ]);
+    let part = prop_oneof![own.prop_map(String::from), "[b-y]{1,6}"];
     prop::collection::vec(part, 1..8).prop_map(|parts| parts.join(" "))
 }
 
@@ -2547,14 +2575,17 @@ proptest! {
         let folder = fresh("own-name");
         let mut clock = 1_000;
         let mut story = story(&folder, Store::Folder(folder.clone()));
+        enter_as(&mut story, "Ada Zqbe");
         run(&mut story, &plays, &mut clock);
         drop(story);
 
-        let connection = rusqlite::Connection::open(world_file(&folder)).unwrap();
+        let connection = rusqlite::Connection::open(world_file_of(&folder, "Ada Zqbe")).unwrap();
         for row in rows_of(&connection, "SELECT prompt FROM calls WHERE prompt IS NOT NULL") {
             let prompt = row[0].clone().unwrap_or_default();
             for word in text_words(&prompt) {
                 prop_assert!(key_of(word) != "ada", "{} in {}", word, prompt);
+                let surname = key_of(word) == "zqbe" && word.starts_with('Z');
+                prop_assert!(!surname, "{} in {}", word, prompt);
             }
         }
     }

@@ -2,7 +2,7 @@
 //! the table gives each one an ID before any prompt is built.
 
 use super::{Active, Output, Story, StoryError};
-use crate::aliases::{self, AliasRow};
+use crate::aliases::{self, AliasRow, Surname};
 use crate::hero::{self, Hero};
 use crate::store::StoreError;
 
@@ -23,16 +23,31 @@ pub(super) fn learn_names(active: &mut Active, marked: &[String]) -> Result<(), 
     Ok(())
 }
 
-/// Learns each player that a text of the hero names, as "First-Surname" or "First".
-pub(super) fn learn_players(active: &mut Active, players: &[String]) -> Result<(), StoreError> {
-    for player in players {
+/// Learns each player that a text of the hero names, as "First-Surname" or "First". Only
+/// the first `MAX_NAMES` count, and a first name that the text does not hold is no player
+/// of it.
+pub(super) fn learn_players(
+    active: &mut Active,
+    text: &str,
+    players: &[String],
+) -> Result<(), StoreError> {
+    let words: Vec<String> = aliases::words_in(text).map(aliases::key_of).collect();
+    for player in players.iter().take(aliases::MAX_NAMES) {
         let (first, surname) = player.split_once('-').unwrap_or((player, ""));
+        if !words.contains(&aliases::key_of(first)) {
+            continue;
+        }
         active.aliases.learn(&AliasRow::named(first))?;
         if aliases::player_name(surname).is_some() {
             active.aliases.learn(&AliasRow::surname(surname, first))?;
         }
     }
     Ok(())
+}
+
+/// The text with the name of the character as `$N`, for a text that the player wrote.
+pub(super) fn without_own_name(active: &Active, text: &str) -> String {
+    aliases::without_own_name(text, active.key.name(), Surname::AsWritten)
 }
 
 /// The text with each name that the table knows as its ID. A surname right after its first

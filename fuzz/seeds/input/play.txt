@@ -8,6 +8,7 @@
 {"type":"hero_set","at":8,"field":"goal","text":"Find my brother."}
 {"type":"hero_added","at":9,"text":"An oath.","npc":"Keeper Stubbs"}
 {"type":"hero_added","at":9,"text":"Leborc James {P1} owes me.","names":["Leborc-James","Bram","-","Ada-"]}
+{"type": "hero_set", "at": 9, "field": "bond", "text": "Qaa Qab Qac Qad Qae Qaf Qag Qah Qai Qaj Qak Qal Qam Qan Qao Qap Qaq Qar Qas Qat Qau Qav Qaw Qax Qay Qaz Qba Qbb Qbc Qbd Qbe Qbf Qbg Qbh Qbi Qbj Qbk Qbl Qbm Qbn Ada Élise Leborc", "names": ["Qaa-Zq", "Qab-Zq", "Qac-Zq", "Qad-Zq", "Qae-Zq", "Qaf-Zq", "Qag-Zq", "Qah-Zq", "Qai-Zq", "Qaj-Zq", "Qak-Zq", "Qal-Zq", "Qam-Zq", "Qan-Zq", "Qao-Zq", "Qap-Zq", "Qaq-Zq", "Qar-Zq", "Qas-Zq", "Qat-Zq", "Qau-Zq", "Qav-Zq", "Qaw-Zq", "Qax-Zq", "Qay-Zq", "Qaz-Zq", "Qba-Zq", "Qbb-Zq", "Qbc-Zq", "Qbd-Zq", "Qbe-Zq", "Qbf-Zq", "Qbg-Zq", "Qbh-Zq", "Qbi-Zq", "Qbj-Zq", "Qbk-Zq", "Qbl-Zq", "Qbm-Zq", "Qbn-Zq", "", "-", "Ada-", "-James", "Élise-Bright", "P7", "Leborc-James-Extra", "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "Ada Bean", "{Ada}"]}
 {"type":"batch_end","id":1}
 {"type":"model_answered","call":1,"text":"Our hero danced."}
 {"type":"lore_asked","id":2,"at":10,"question":"why is this tower in ruins?"}

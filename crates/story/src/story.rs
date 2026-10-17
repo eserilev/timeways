@@ -1174,7 +1174,7 @@ impl Story {
                 Err(reason) => return self.refuse_hero(reason),
             }
         };
-        self.learn_hero_names(names)?;
+        self.learn_hero_names(&text, names)?;
         self.hero_change(Change::Set { at, field, text })?;
         Ok(Vec::new())
     }
@@ -1191,7 +1191,7 @@ impl Story {
             Ok(text) => text,
             Err(reason) => return self.refuse_hero(reason),
         };
-        self.learn_hero_names(names)?;
+        self.learn_hero_names(&text, names)?;
         let active = self.active.as_ref().ok_or(StoryError::NoCharacter)?;
         let number = hero::next_number(active.hero.changes());
         let place = active
@@ -1211,9 +1211,9 @@ impl Story {
 
     /// The sheet keeps the names as the player typed them, and the table swaps them for a
     /// model (`aliases::hero_for_model`).
-    fn learn_hero_names(&mut self, names: &[String]) -> Result<(), StoryError> {
+    fn learn_hero_names(&mut self, text: &str, names: &[String]) -> Result<(), StoryError> {
         let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
-        aliases::learn_players(active, names)?;
+        aliases::learn_players(active, text, names)?;
         Ok(())
     }
 

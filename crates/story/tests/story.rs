@@ -2851,14 +2851,14 @@ fn the_own_name_in_the_hero_sheet_reaches_no_prompt() {
 fn a_common_word_surname_in_the_hero_sheet_keeps_its_meaning_in_the_prompt() {
     let mut story = story_with("hero-common-surname", &[]);
     enter_as(&mut story, "Kobee Will");
-    let goal = "I will find my father. Will he know me? Ask the Will family. Kobee Will rests.";
+    let goal = "Kobee will find his father. Will is my house. Ask the will clan. kobee Will rests.";
     set_field(&mut story, "goal", goal).unwrap();
     talk_failed(&mut story);
     talk_failed(&mut story);
 
     let third = talk_failed(&mut story);
 
-    let hook = "I will find my father. Will he know me? Ask the $N family. $N rests.";
+    let hook = "$N will find his father. $N is my house. Ask the will clan. $N rests.";
     assert!(third.contains(hook), "{third}");
 }
 

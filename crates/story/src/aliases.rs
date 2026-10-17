@@ -102,6 +102,26 @@ pub fn alias_of(name: &str) -> Option<Alias> {
     })
 }
 
+/// The table entry of a row. A surname has a key with spaces, "james of leborc", so it
+/// never matches a word: the proved swap reads first names only, and the surname pass
+/// (`without_surnames`) reads the surnames. One surname row stands for each pair, so two
+/// players can share a surname, and a player can share the name of a surname.
+#[must_use]
+pub fn alias_of_row(row: &AliasRow) -> Option<Alias> {
+    let Some(first) = &row.surname_of else {
+        return alias_of(&row.name);
+    };
+    let surname = player_name(&row.name)?;
+    let first = player_name(first)?;
+    Some(Alias {
+        key: format!("{} of {}", key_of(surname), key_of(first)),
+        shown: surname.to_string(),
+    })
+}
+
+/// The most players that one text of the hero names (GAMEPLAY.md 5.11).
+pub const MAX_NAMES: usize = 32;
+
 /// A part that `alias_of` refuses still names the character, so each word in it is hidden:
 /// "E\u{301}lise" with its accent in a code point of its own, a digit, or a long part.
 fn part_aliases(part: &str) -> Vec<Alias> {
@@ -217,6 +237,13 @@ pub fn text_pieces(text: &str, table: &[Alias]) -> Vec<Plain> {
     pieces
 }
 
+/// The words of a text: runs of letters and digits.
+pub fn words_in(text: &str) -> impl Iterator<Item = &str> {
+    runs(text)
+        .into_iter()
+        .filter_map(|(is_word, run)| is_word.then_some(run))
+}
+
 /// The runs of word letters and of other letters, in order, each with whether it is a word.
 fn runs(text: &str) -> Vec<(bool, &str)> {
     let mut runs = Vec::new();
@@ -274,14 +301,14 @@ pub fn without_names(table: &[Alias], text: &str) -> String {
 pub enum Surname {
     /// In any case. An export blanks too much rather than too little.
     Always,
-    /// Only when it is written as a name: with a capital, and not first in its sentence.
-    /// So "I will go" keeps its meaning for Kobee Will.
+    /// Only when it is written with a capital, anywhere, also first in a sentence. In lower
+    /// case it is a word: "I will go" keeps its meaning for Kobee Will.
     AsWritten,
 }
 
-/// The text with the name of the character as `$N`. The first name always goes. The parts
-/// in a row, "Kobee Bean", become one `$N`, in any case. A part that is no plain name, such
-/// as one with a digit, hides each word in it.
+/// The text with the name of the character as `$N`. The first name always goes, in any
+/// case. Hidden parts in a row, "Kobee Bean", become one `$N`. A part that is no plain
+/// name, such as one with a digit, hides each word in it.
 #[must_use]
 pub fn without_own_name(text: &str, own: &str, surname: Surname) -> String {
     let mut parts = own.split_whitespace();
@@ -295,9 +322,7 @@ pub fn without_own_name(text: &str, own: &str, surname: Surname) -> String {
         let hides = match &piece {
             Plain::Word { key, .. } if rules::find(&first, key).is_some() => true,
             Plain::Word { key, written } if rules::find(&surnames, key).is_some() => {
-                after_mark.is_some()
-                    || surname == Surname::Always
-                    || (is_capitalized(written) && !starts_a_sentence(&hidden))
+                surname == Surname::Always || is_capitalized(written)
             }
             _ => false,
         };
@@ -340,34 +365,101 @@ pub fn starts_a_sentence(before: &str) -> bool {
         .is_none_or(|c| matches!(c, '.' | '!' | '?'))
 }
 
-/// The text with each surname right after its first name taken out: "{P1} {P2}" is "{P1}"
-/// when `rows` holds P2 as the surname of P1. The proved swap leaves the surname its own
-/// ID, so no name is left either way.
+/// The text with the surnames of other players hidden, after the proved swap of first
+/// names. A surname right after the ID of its first name, with only spaces between, goes
+/// with it, in any case: "{P1} James" is "{P1}". A surname alone with a capital becomes
+/// the ID of its row: "the James family" is "the {P2} family". In lower case it is a word.
 #[must_use]
 pub fn without_surnames(rows: &[AliasRow], text: &str) -> String {
-    let mut kept: Vec<Piece> = Vec::new();
+    let mut out = String::with_capacity(text.len());
+    // The ID that the text ends with, and the spaces after it.
+    let mut after: Option<(PlayerId, String)> = None;
     for piece in id_pieces(text) {
-        if let Piece::Player(id) = piece
-            && follows_its_first_name(rows, &kept, id)
-        {
-            kept.pop();
-            continue;
+        match piece {
+            Piece::Player(id) => {
+                let surname = rows.get(id.0).map(|row| row.name.as_str());
+                if after_its_first_name(rows, after.as_ref(), surname) {
+                    after = None;
+                    continue;
+                }
+                flush(&mut out, &mut after);
+                out.push_str(&id_text(id));
+                after = Some((id, String::new()));
+            }
+            Piece::Text(plain) => {
+                for (is_word, run) in runs(&plain) {
+                    surname_run(rows, &mut out, &mut after, is_word, run);
+                }
+            }
+            Piece::Word { written, .. } => {
+                flush(&mut out, &mut after);
+                out.push_str(&written);
+            }
         }
-        kept.push(piece);
     }
-    joined(&kept)
+    flush(&mut out, &mut after);
+    out
 }
 
-fn follows_its_first_name(rows: &[AliasRow], kept: &[Piece], surname: PlayerId) -> bool {
-    let [.., Piece::Player(first), Piece::Text(space)] = kept else {
+fn surname_run(
+    rows: &[AliasRow],
+    out: &mut String,
+    after: &mut Option<(PlayerId, String)>,
+    is_word: bool,
+    run: &str,
+) {
+    if !is_word {
+        match after {
+            Some((_, spaces)) if is_spaces(run) => spaces.push_str(run),
+            _ => {
+                flush(out, after);
+                out.push_str(run);
+            }
+        }
+        return;
+    }
+    if after_its_first_name(rows, after.as_ref(), Some(run)) {
+        *after = None;
+        return;
+    }
+    flush(out, after);
+    match surname_id(rows, run).filter(|_| is_capitalized(run)) {
+        Some(id) => out.push_str(&id_text(id)),
+        None => out.push_str(run),
+    }
+}
+
+fn flush(out: &mut String, after: &mut Option<(PlayerId, String)>) {
+    if let Some((_, spaces)) = after.take() {
+        out.push_str(&spaces);
+    }
+}
+
+/// True when `word` is a surname of the player whose ID the text ends with, with only
+/// spaces between.
+fn after_its_first_name(
+    rows: &[AliasRow],
+    after: Option<&(PlayerId, String)>,
+    word: Option<&str>,
+) -> bool {
+    let (Some((first, _)), Some(word)) = (after, word) else {
         return false;
     };
-    let first_key = rows.get(first.0).map(|row| key_of(&row.name));
-    let surname_of = rows
-        .get(surname.0)
-        .and_then(|row| row.surname_of.as_deref())
-        .map(key_of);
-    space == " " && first_key.is_some() && first_key == surname_of
+    let Some(first) = rows.get(first.0).filter(|row| row.surname_of.is_none()) else {
+        return false;
+    };
+    let (first, word) = (key_of(&first.name), key_of(word));
+    rows.iter().any(|row| {
+        row.surname_of.as_deref().map(key_of).as_ref() == Some(&first) && key_of(&row.name) == word
+    })
+}
+
+/// The ID of the first surname row of the word.
+fn surname_id(rows: &[AliasRow], word: &str) -> Option<PlayerId> {
+    let key = key_of(word);
+    rows.iter()
+        .position(|row| row.surname_of.is_some() && key_of(&row.name) == key)
+        .map(PlayerId)
 }
 
 /// A text that the player typed, as a model reads it: a brace becomes a parenthesis, each
@@ -520,5 +612,79 @@ mod tests {
 
         assert!(knows_every_id(&table, "{P1} waits"));
         assert!(!knows_every_id(&table, "{P2} waits"));
+    }
+
+    /// Leborc James, P1 and P2, and Bram Will, P3 and P4.
+    fn rows() -> Vec<AliasRow> {
+        vec![
+            AliasRow::named("Leborc"),
+            AliasRow::surname("James", "Leborc"),
+            AliasRow::named("Bram"),
+            AliasRow::surname("Will", "Bram"),
+        ]
+    }
+
+    #[test]
+    fn a_surname_right_after_its_first_name_goes_with_it_in_any_case() {
+        let text = without_surnames(&rows(), "{P1} James and {P1}  james and {P3} Will.");
+
+        assert_eq!(text, "{P1} and {P1} and {P3}.");
+    }
+
+    #[test]
+    fn a_surname_with_a_capital_alone_is_hidden_anywhere() {
+        let text = without_surnames(&rows(), "James is my house. {P1}, James.\n{P1}\nJames");
+
+        assert_eq!(text, "{P2} is my house. {P1}, {P2}.\n{P1}\n{P2}");
+    }
+
+    #[test]
+    fn a_surname_in_lower_case_alone_is_a_word() {
+        let text = without_surnames(&rows(), "I will carry the james stone. {P1}, will you?");
+
+        assert_eq!(text, "I will carry the james stone. {P1}, will you?");
+    }
+
+    #[test]
+    fn a_surname_after_another_first_name_is_hidden_only_with_a_capital() {
+        let text = without_surnames(&rows(), "{P3} James and {P3} james");
+
+        assert_eq!(text, "{P3} {P2} and {P3} james");
+    }
+
+    #[test]
+    fn a_surname_row_never_matches_a_word_of_the_proved_swap() {
+        let rows = rows();
+        let table: Vec<Alias> = rows.iter().filter_map(alias_of_row).collect();
+
+        let text = without_names(&table, "Leborc James met Bram Will");
+
+        assert_eq!(text, "{P1} James met {P3} Will");
+    }
+
+    #[test]
+    fn the_own_first_name_goes_in_any_case_and_a_surname_only_with_a_capital() {
+        let own = "Kobee Will";
+
+        let hidden = |text| without_own_name(text, own, Surname::AsWritten);
+
+        assert_eq!(
+            hidden("Kobee will avenge his father."),
+            "$N will avenge his father."
+        );
+        assert_eq!(
+            hidden("Will is my house. kobee Will rests."),
+            "$N is my house. $N rests."
+        );
+        assert_eq!(hidden("the will clan"), "the will clan");
+        assert_eq!(hidden("KOBEE  Will"), "$N");
+        assert_eq!(hidden("Kobee,\nWill"), "$N,\n$N");
+    }
+
+    #[test]
+    fn the_strict_own_name_pass_hides_each_part_in_any_case() {
+        let hidden = without_own_name("I will go. kobee will.", "Kobee Will", Surname::Always);
+
+        assert_eq!(hidden, "I $N go. $N.");
     }
 }

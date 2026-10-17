@@ -357,22 +357,147 @@ fn a_player_in_the_idea_reaches_the_model_as_an_id_with_a_card() {
     assert!(!prompt.contains("Ada"), "{prompt}");
 }
 
-#[test]
-fn a_surname_goes_with_its_first_name_and_alone_reads_as_the_surname_of_its_player() {
-    let mut story = story("surname");
+/// A note of the hero that names these players, as the addon sends it.
+fn note_naming(story: &mut Story, text: &str, names: &[&str]) {
     let note = Input::HeroAdded {
         at: Tick(3),
-        text: "Ada Bright owes me.".to_string(),
+        text: text.to_string(),
         npc: None,
-        names: vec!["Ada-Bright".to_string()],
+        names: names.iter().map(|name| (*name).to_string()).collect(),
     };
     story.handle(note).unwrap();
+}
 
-    let (_, prompt) = ask(&mut story, "help {Ada} Bright and the Bright family");
+fn described(story: &mut Story, name: &str) {
+    let seen = Input::PlayerDescribed {
+        at: Tick(3),
+        name: name.to_string(),
+        race: Some(Race::Orc),
+        class: Some(Class::Mage),
+    };
+    story.handle(seen).unwrap();
+}
 
-    assert!(prompt.contains("help {P1} and the {P2} family"), "{prompt}");
-    assert!(prompt.contains("- {P2}: the surname of {P1}"), "{prompt}");
-    assert!(!prompt.contains("Bright"), "{prompt}");
+#[test]
+fn a_surname_goes_with_its_first_name_and_alone_with_a_capital_is_an_id() {
+    let mut story = story("surname");
+    note_naming(&mut story, "Ada Bright owes me.", &["Ada-Bright"]);
+
+    let (_, prompt) = ask(
+        &mut story,
+        "help {Ada} Bright and the Bright family, brightly",
+    );
+
+    assert!(
+        prompt.contains("help {P1} and the {P2} family, brightly"),
+        "{prompt}"
+    );
+    assert!(
+        prompt.contains("- {P2}: a surname of a player you know"),
+        "{prompt}"
+    );
+    assert!(!prompt.contains("Bright "), "{prompt}");
+}
+
+#[test]
+fn a_surname_in_lower_case_stays_a_word() {
+    let mut story = story("surname-word");
+    note_naming(&mut story, "Bram Will owes me.", &["Bram-Will"]);
+
+    let (_, prompt) = ask(&mut story, "i will carry the stone for {Bram} Will");
+
+    assert!(
+        prompt.contains("i will carry the stone for {P1}"),
+        "{prompt}"
+    );
+}
+
+#[test]
+fn two_players_with_one_surname_get_no_card_that_names_the_wrong_one() {
+    let mut story = story("shared-surname");
+    note_naming(
+        &mut story,
+        "Leborc James and Kobee James.",
+        &["Leborc-James", "Kobee-James"],
+    );
+
+    let (_, prompt) = ask(&mut story, "help {Kobee} James and {Leborc} James");
+
+    assert!(prompt.contains("help {P3} and {P1}"), "{prompt}");
+    assert!(!prompt.contains("James"), "{prompt}");
+}
+
+#[test]
+fn a_player_named_like_a_surname_learned_before_keeps_their_own_card() {
+    let mut story = story("surname-then-player");
+    note_naming(&mut story, "Leborc James owes me.", &["Leborc-James"]);
+    described(&mut story, "James");
+
+    let (_, prompt) = ask(&mut story, "help {James} and {Leborc} James");
+
+    assert!(prompt.contains("help {P3} and {P1}"), "{prompt}");
+    assert!(prompt.contains("- {P3}: an orc mage"), "{prompt}");
+}
+
+#[test]
+fn a_surname_learned_after_a_player_of_that_name_still_goes_with_its_first_name() {
+    let mut story = story("player-then-surname");
+    described(&mut story, "James");
+    note_naming(&mut story, "Leborc James owes me.", &["Leborc-James"]);
+
+    let (_, prompt) = ask(&mut story, "help {James} and {Leborc} James");
+
+    assert!(prompt.contains("help {P1} and {P2}"), "{prompt}");
+    assert!(prompt.contains("- {P1}: an orc mage"), "{prompt}");
+    assert!(!prompt.contains("{P2} {P1}"), "{prompt}");
+}
+
+#[test]
+fn the_own_surname_alone_with_a_capital_reaches_no_draft() {
+    let mut story = story("own-surname");
+    let character = Input::CharacterEntered {
+        realm: "Testrealm".to_string(),
+        name: "Tester Jamesy".to_string(),
+    };
+    story.handle(character).unwrap();
+
+    let (_, prompt) = ask(&mut story, "ask the Jamesy family, not the jamesy one");
+
+    assert!(
+        prompt.contains("ask the $N family, not the jamesy one"),
+        "{prompt}"
+    );
+}
+
+#[test]
+fn a_name_that_the_text_does_not_hold_is_not_learned() {
+    let mut story = story("unnamed");
+    note_naming(&mut story, "A quiet day.", &["Bram"]);
+
+    let (_, prompt) = ask(&mut story, "help Bram at the mill");
+
+    assert!(prompt.contains("help Bram at the mill"), "{prompt}");
+}
+
+#[test]
+fn a_note_learns_at_most_thirty_two_names() {
+    let mut story = story("many-names");
+    let names: Vec<String> = (0..33).map(name_number).collect();
+    let refs: Vec<&str> = names.iter().map(String::as_str).collect();
+    note_naming(&mut story, &names.join(" "), &refs);
+
+    let (_, prompt) = ask(&mut story, &format!("help {} and {}", names[31], names[32]));
+
+    assert!(
+        prompt.contains(&format!("help {{P32}} and {}", names[32])),
+        "{prompt}"
+    );
+}
+
+/// A name of letters for each number: "Qaa", "Qab", and so on.
+fn name_number(n: usize) -> String {
+    let letter = |k: usize| char::from(b'a' + u8::try_from(k % 26).unwrap());
+    format!("Q{}{}", letter(n / 26), letter(n))
 }
 
 #[test]

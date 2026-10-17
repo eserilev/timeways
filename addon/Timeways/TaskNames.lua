@@ -234,14 +234,19 @@ function TaskNames.Send(text)
 	return marked
 end
 
--- The players that a text names, as "First-Surname", or the first name alone. A realm is
--- no surname.
+-- The desktop learns at most this many players from one text of the hero.
+TaskNames.MAX_NAMES = 32
+
+-- The first players that a text names, in the order of the text, as "First-Surname", or
+-- the first name alone. A realm is no surname.
 function TaskNames.Named(text)
-	local _, players = TaskNames.Marked(text)
-	local names = {}
-	for n, full in ipairs(players) do
+	local _, found = TaskNames.Marked(text)
+	local names, players = {}, {}
+	for n = 1, math.min(#found, TaskNames.MAX_NAMES) do
+		local full = found[n]
 		local first, surname = ns.PlayerNames.Parts(full)
 		names[n] = surname and (first .. "-" .. surname) or full:match("^[^-]+")
+		players[n] = full
 	end
 	return names, players
 end
