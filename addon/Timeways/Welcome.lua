@@ -126,7 +126,7 @@ local function BuildSheet()
 
 	heading = Text(sheet, "QuestTitleFont", ns.Ink.title, -16)
 	Text(sheet, "QuestFont", ns.Ink.text, -48):SetText(
-		"Timeways needs its desktop app, Gnomish Relay, because addons can't save your story or talk to an AI on their own."
+		"Timeways needs its desktop app, Gnomish Relay, to save your story."
 	)
 	Text(sheet, "QuestFont", ns.Ink.text, -96):SetText("Windows: press Windows+R, paste this, and press Enter.")
 	CommandBox(sheet, Welcome.COMMANDS.windows, -114)

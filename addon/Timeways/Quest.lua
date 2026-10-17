@@ -50,6 +50,10 @@ function Quest.Ask()
 	if ns.Welcome.OpenIfNoApp() then
 		return
 	end
+	if not ns.Ai.IsOn() then
+		Say("Quests from NPCs need AI. " .. ns.Ai.TURN_ON)
+		return
+	end
 	Send(ns.Inputs.QuestAsked(time(), npc))
 	Say("You ask " .. ns.Plain(npc) .. " for a quest.")
 end

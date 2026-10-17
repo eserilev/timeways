@@ -13,6 +13,7 @@ local Line = ns.JournalRows.Line
 local SAVING = ns.JournalRows.SAVING
 
 JournalHero.USAGE = "Shapes your chapters and what NPCs say to you."
+JournalHero.USAGE_AI_OFF = "Tell us about your character."
 
 -- The fields of the profile that a card shows on its own row: their texts run long.
 local WIDE = { currently = true, appearance = true }
@@ -210,7 +211,7 @@ end
 
 local function StoryPage(hero, texts, unsaved)
 	local cards = Tabs("story")
-	cards.rows[1] = { kind = "line", text = JournalHero.USAGE, ink = "faded" }
+	cards.rows[1] = { kind = "line", text = ns.Journal.Usage("hero"), ink = "faded" }
 	local shared = ns.MspProfile.IsSharing() and ns.Dev.CanTalkToPlayers()
 	local summary = ns.JournalEdits.SharedSummary()
 	for _, field in ipairs(ns.Hero.FIELDS) do

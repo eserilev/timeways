@@ -42,6 +42,13 @@ local function Send(npc, words)
 		return
 	end
 	ns.Carry.Met(npc)
+	-- The talk still meets the NPC and finishes a talk step of a quest, so it goes out.
+	if not ns.Ai.IsOn() then
+		Say("Talking to NPCs needs AI. " .. ns.Ai.TURN_ON)
+		ns.Outbox.Add(input)
+		ns.Outbox.Flush()
+		return
+	end
 	sent[#sent + 1] = { npc = npc, words = words, at = at }
 	ns.TalkWindow.Asked(npc, words, at)
 	ns.Outbox.Add(input, function()
@@ -86,6 +93,11 @@ function Talk.Show(answer)
 	local npc = type(answer.npc) == "string" and answer.npc or nil
 	local text = type(answer.text) == "string" and answer.text or nil
 	local words = TakeSent(npc)
+	-- The chat said why when the talk went out.
+	if not text and not ns.Ai.IsOn() then
+		ns.Journal.Request(0)
+		return
+	end
 	if words and text then
 		ns.TalkHistory.Add(npc, words.words, text, words.at)
 	end

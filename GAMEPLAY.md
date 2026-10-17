@@ -814,6 +814,15 @@ Timeways uses the transport of Gnomish Relay, with its own key and its own slots
   - The end of a batch is silent. Its moments go, and a later batch never tells them. They spend no line of the budget and no flavor telling (3.2).
   - No saga, tale, summary, prologue, or history of a zone is asked, and a chapter keeps its list (3.3). Once AI is on again, the same rules hold as with AI on all along: each closed chapter with no saga gets its saga, and a due prologue comes. The summary covers only the newest closed chapter, a history only the last 3 closed chapters, and a tale only its newest run. So older chapters keep their lists.
   A property test plays any game with AI off and finds no model call and no call row (`with_ai_off_no_input_ever_opens_a_model_call`), and the input fuzzer checks the same after a hello with AI off.
+- **The addon hides what needs a model** (built, `Ai.lua`). It reads `ai` from page 0 of each journal, and it is on until a journal says off.
+  - `/talk` opens no window. It still sends the talk, so the NPC is met and a talk step of a quest finishes. The chat says "Talking to NPCs needs AI. To turn it on, run gnomish-relay setup --timeways --ai on." The answer with no words adds no line.
+  - `/quest` sends nothing. The chat says "Quests from NPCs need AI. To turn it on, run gnomish-relay setup --timeways --ai on."
+  - The quest form has no "Help me write", and a typed step stays as the giver wrote it, with no question to the desktop (4.7).
+  - The Chronicle title page does not say "Fills in when your first chapter ends.". The Hero tab says "Tell us about your character.". The Quests page says "Quests from other players." and, when empty, "No quests yet.".
+  - `/timeways help` says "AI: On" or "AI: Off".
+  - `/twdev smoke` runs each step. A step that waits for a model ends at once with WAIT "AI is off".
+  - The setup window says "Timeways needs its desktop app, Gnomish Relay, to save your story.", with no word of AI, for every player.
+- **The choice is made in the terminal.** `gnomish-relay setup --timeways` asks "Use AI?", and `--ai on` or `--ai off` changes it later. No switch in the game turns AI on: a hostile addon could spend the plan of the player. The relay builds this (relay SPEC 9.7, 11.6); the addon copy already names the command.
 
 **Other rules:**
 

@@ -39,8 +39,10 @@ const USAGE: &str = "usage:
   timeways-dev smoke [--latest]
   timeways-dev smoke --prepare <character> --realm <realm> [--pack <lore pack>] [--data <folder>]
   timeways-dev on | off | status
+  timeways-dev ai on | off
 
   seed, restore, smoke --prepare, and the benches run only while dev mode is on.
+  ai off plays as with no model at all while dev mode is on (GAMEPLAY.md 5.6).
   smoke prints the log of the newest /twdev smoke. --prepare seeds a fresh world for one.
   export-ratings writes the ratings of a character into a file to send, with no player names.
   In --model and --compare, local is the local model of the config, or llama3.2:3b in
@@ -107,6 +109,7 @@ fn run(args: &[String]) -> Result<(), Box<dyn Error>> {
             Some(character) => prepare_smoke(character, &flags),
             None => print_smoke(&flags),
         },
+        ("ai", [word]) => switch_ai(word),
         ("on", []) => switch(DevMode::On),
         ("off", []) => switch(DevMode::Off),
         ("status", []) => {
@@ -373,6 +376,17 @@ fn switch(mode: DevMode) -> Result<(), Box<dyn Error>> {
     desktop.set_dev_mode(mode)?;
     let word = if mode.is_on() { "on" } else { "off" };
     println!("Dev mode is {word}. Run `gnomish-relay restart` to apply it.");
+    Ok(())
+}
+
+fn switch_ai(word: &str) -> Result<(), Box<dyn Error>> {
+    let ai = match word {
+        "on" => Ai::On,
+        "off" => Ai::Off,
+        _ => return Err(USAGE.into()),
+    };
+    Desktop::here()?.set_dev_ai(ai)?;
+    println!("AI is {word} while dev mode is on. Run `gnomish-relay restart` to apply it.");
     Ok(())
 }
 

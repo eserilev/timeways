@@ -541,8 +541,10 @@ end
 
 local function FormButtons(form)
 	local buttons = {}
-	local busy = ns.TaskDraftHelp.Busy()
-	buttons[#buttons + 1] = busy and Disabled("Help me write") or Button("Help me write", ns.TaskDraftHelp.Open)
+	if ns.Ai.IsOn() then
+		local busy = ns.TaskDraftHelp.Busy()
+		buttons[#buttons + 1] = busy and Disabled("Help me write") or Button("Help me write", ns.TaskDraftHelp.Open)
+	end
 	if form.id then
 		buttons[#buttons + 1] = Button("Delete", function()
 			StaticPopup_Show("TIMEWAYS_DELETE_TASK")

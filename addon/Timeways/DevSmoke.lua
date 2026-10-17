@@ -19,6 +19,9 @@ local GAP_SECONDS = 1
 -- The longest wait for each kind of answer. A quest card takes one or two model calls,
 -- and the talk window asks the journal for it every 10 seconds.
 local WAITS = { narrator = 30, talk = 60, lore = 60, journal = 30, card = 180, room = 10 }
+-- The answers that only a model writes. With AI off, a step that waits for one still runs,
+-- so its lines land, and it ends at once.
+local AI_WAITS = { narrator = true, talk = true, card = true }
 local FPS_SECONDS = 10
 -- The run stops by itself after this time, also with steps left.
 local MAX_SECONDS = 20 * 60
@@ -288,8 +291,9 @@ local startFps = Command("fps start smoke")
 -- The steps, in order. Each step has a `name`, a `run` (a command of `/twdev`), and else
 -- what it needs: `expect` (the kinds of the lines that it sends, which the desktop checks),
 -- `wait` (an answer of the desktop to wait for), `seconds` (a fixed wait), `gate` (the
--- spoiler gate that the desktop checks), `check` (what the addon sees after it), and
--- `keepWindows` (the windows of the step before stay open).
+-- spoiler gate that the desktop checks), `check` (what the addon sees after it),
+-- `keepWindows` (the windows of the step before stay open), and `needsAi` (the step needs a
+-- model, so with AI off it ends at once with WAIT).
 local STEPS = {
 	{
 		name = "start",
@@ -421,6 +425,7 @@ local STEPS = {
 	{
 		name = "talk-accept",
 		keepWindows = true,
+		needsAi = true,
 		run = function(context)
 			context.accepted = CardShown()
 			if context.accepted then
@@ -532,6 +537,7 @@ local STEPS = {
 	},
 	{
 		name = "ratings-link",
+		needsAi = true,
 		check = function(_, context)
 			if not ns.Ratings.IsOn() then
 				return Wait("ratings are off: type /timeways ratings on")
@@ -660,10 +666,17 @@ local function Checked(check)
 	return unpack(verdict)
 end
 
+local function WaitsForAi(step)
+	return (AI_WAITS[step.wait] or step.needsAi) and not ns.Ai.IsOn()
+end
+
 -- A step with no check passes when its run raised no error: the desktop checks its lines.
 local function Judge(step)
 	if run.failure then
 		return Fail(run.failure)
+	end
+	if WaitsForAi(step) then
+		return Wait("AI is off")
 	end
 	if not step.check then
 		if step.wait == "narrator" then
@@ -742,7 +755,7 @@ local function StartStep(step)
 		run.failure = "Lua error: " .. tostring(problem)
 	end
 	local seconds = step.seconds or WAITS[step.wait]
-	if not seconds or run.failure then
+	if not seconds or run.failure or WaitsForAi(step) then
 		EndStep(step)
 		return
 	end

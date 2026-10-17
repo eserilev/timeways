@@ -204,6 +204,7 @@ SlashCmdList.TIMEWAYSJOURNAL = function(message)
 		return
 	end
 	if message:match("^%s*help%s*$") then
+		DEFAULT_CHAT_FRAME:AddMessage("|cffc8a064Timeways|r: AI: " .. (ns.Ai.IsOn() and "On" or "Off"))
 		ns.Welcome.Open(ns.Welcome.Reason())
 		return
 	end

@@ -86,7 +86,7 @@ end
 
 function TaskDraftHelp.CheckStep(text)
 	local idea = Marked(STEP_IDEA:format(text))
-	if DesktopAway() or #idea > IDEA_BYTES then
+	if DesktopAway() or not ns.Ai.IsOn() or #idea > IDEA_BYTES then
 		ns.TaskForm.AddWritten(text)
 		return
 	end

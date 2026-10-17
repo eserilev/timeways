@@ -311,14 +311,14 @@ local function LevelLine()
 end
 
 -- The summary that a model writes when a chapter ends. With no model, the page holds the
--- header alone.
+-- header alone, and with AI off it promises no summary.
 local function TitleLines(journal, chapterEnded, edit)
 	local lines = {
 		Line("heading", ns.PlayerNames.Mine() or "?"),
 		Line("text", LevelLine()),
 	}
 	Saving(lines, ns.JournalEdits.SUMMARY)
-	if type(journal.summary) ~= "string" and not edit and not chapterEnded then
+	if type(journal.summary) ~= "string" and not edit and not chapterEnded and ns.Ai.IsOn() then
 		lines[#lines + 1] = Line("help", "Fills in when your first chapter ends.")
 	end
 	Story(lines, journal.summary, nil, edit)

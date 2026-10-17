@@ -102,6 +102,7 @@ function Journal.Receive(value)
 	end
 	if page == 0 then
 		ns.Dev.DesktopSays(value.dev)
+		ns.Ai.DesktopSays(value.ai)
 		ns.Past.JournalSays(value.past)
 		collecting = Started()
 		collecting.talk_quest = value.talk_quest
@@ -178,6 +179,15 @@ local EMPTY = {
 	quests = "No quests yet. Target someone and type /quest to ask for one.",
 }
 
+-- With AI off, no NPC gives a quest.
+local EMPTY_AI_OFF = {
+	quests = "No quests yet.",
+}
+
+local function Empty(section)
+	return not ns.Ai.IsOn() and EMPTY_AI_OFF[section] or EMPTY[section]
+end
+
 -- The line at the bottom of the book, on how to use the page.
 Journal.USAGE = {
 	hero = ns.JournalHero.USAGE,
@@ -186,6 +196,16 @@ Journal.USAGE = {
 	knowledge = ns.JournalKnowledge.USAGE,
 	quests = "Quests from the people you meet. Target someone and type /quest.",
 }
+
+-- With AI off, the answers of the hero shape no story, and no NPC gives a quest.
+local USAGE_AI_OFF = {
+	hero = ns.JournalHero.USAGE_AI_OFF,
+	quests = "Quests from other players.",
+}
+
+function Journal.Usage(section)
+	return not ns.Ai.IsOn() and USAGE_AI_OFF[section] or Journal.USAGE[section]
+end
 
 -- A tab that starts fresh each time it opens: Knowledge opens on the zone where you stand.
 local OPENED = { knowledge = ns.JournalKnowledge.Home }
@@ -217,9 +237,9 @@ end
 --   cards: the sub-tabs and the cards of the left half, for the side "cards".
 function Journal.Render(journal, section)
 	local page = BUILDERS[section](journal)
-	page.footer = page.footer or Journal.USAGE[section]
+	page.footer = page.footer or Journal.Usage(section)
 	if #page.lines == 0 then
-		page.lines = { Line("help", EMPTY[section]) }
+		page.lines = { Line("help", Empty(section)) }
 	end
 	return page
 end
@@ -242,7 +262,7 @@ function Journal.Page(section)
 	end
 	local loading = Line("help", "Loading... If this stays empty, start Gnomish Relay on your computer.")
 	if section ~= "quests" then
-		return { lines = { loading }, buttons = {}, footer = Journal.USAGE[section], side = "map" }
+		return { lines = { loading }, buttons = {}, footer = Journal.Usage(section), side = "map" }
 	end
 	local page = Journal.Render(Started(), section)
 	if not ns.TaskPages.Owns(page.selected) then

@@ -153,3 +153,25 @@ fn on_refuses_settings_that_are_not_text_and_keeps_them() {
     assert!(desktop.set_dev_mode(DevMode::On).is_err());
     assert_eq!(settings_text(&desktop), b"dev = \xff\n");
 }
+
+#[test]
+fn the_ai_switch_writes_the_settings_and_keeps_dev_mode() {
+    let desktop = desktop_with_config("ai-switch", "");
+    desktop.set_dev_mode(DevMode::On).unwrap();
+
+    desktop.set_dev_ai(Ai::Off).unwrap();
+    assert_eq!(desktop.dev_ai(), Ai::Off);
+    assert_eq!(desktop.dev_mode(), DevMode::On);
+
+    desktop.set_dev_ai(Ai::On).unwrap();
+    assert_eq!(desktop.dev_ai(), Ai::On);
+    assert_eq!(desktop.dev_mode(), DevMode::On);
+}
+
+#[test]
+fn the_ai_switch_refuses_settings_that_do_not_read_and_keeps_them() {
+    let desktop = desktop_with_settings("ai-switch-unread", b"dev = yes\n");
+
+    assert!(desktop.set_dev_ai(Ai::Off).is_err());
+    assert_eq!(settings_text(&desktop), b"dev = yes\n");
+}

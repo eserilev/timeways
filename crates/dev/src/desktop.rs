@@ -183,6 +183,19 @@ impl Desktop {
         self.write_settings(mode, ai)
     }
 
+    /// Writes `ai = "off"` into the settings of the story program, or takes it out, and
+    /// keeps dev mode. The story program reads it at its start.
+    ///
+    /// # Errors
+    ///
+    /// Returns the error of the file system, or a file that does not read as TOML.
+    pub fn set_dev_ai(&self, ai: Ai) -> Result<(), DesktopError> {
+        let mode = self
+            .settings()?
+            .map_or(DevMode::Off, |text| DevMode::of_settings(&text));
+        self.write_settings(mode, ai)
+    }
+
     /// The text of the settings, or None with no file. A file that does not read stops a
     /// change, so a switch that a person wrote by hand is never lost.
     fn settings(&self) -> Result<Option<String>, DesktopError> {

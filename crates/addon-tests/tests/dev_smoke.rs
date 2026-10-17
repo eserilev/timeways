@@ -256,6 +256,56 @@ fn the_smoke_test_runs_every_step_and_the_desktop_logs_each_one() {
     assert!(printed.contains("Smoke test done:"), "{printed}");
 }
 
+/// The steps that wait for an answer of a model.
+const NEED_AI: [&str; 12] = [
+    "zone-move",
+    "level-up",
+    "dungeon-entry",
+    "vancleef-kill",
+    "death",
+    "epic-mount",
+    "epic-item",
+    "talk",
+    "talk-work",
+    "talk-quest-card",
+    "talk-accept",
+    "ratings-link",
+];
+
+#[test]
+fn with_ai_off_each_step_that_needs_a_model_waits_at_once_and_the_rest_pass() {
+    let folder = folder("ai-off");
+    let game = game();
+    let mut story = Story::new(Pack::empty().unwrap(), Store::Folder(folder.clone()));
+    story.set_dev_mode(DevMode::On);
+    let mut desk = Desk {
+        bridge: FakeBridge::new(story).with_ai_off(),
+        done: 0,
+    };
+    game.run("ns.Journal.Request(0)");
+    desk.pump(&game);
+    let started: i64 = game.eval("return wow.now");
+
+    run_to_the_end(&game, &mut desk);
+
+    let log = the_log(&folder);
+    for step in NEED_AI {
+        let line = log
+            .lines()
+            .find(|line| line.split_whitespace().nth(2) == Some(step));
+        let line = line.unwrap_or_else(|| panic!("no step {step} in\n{log}"));
+        assert!(
+            line.starts_with("WAIT") && line.ends_with("AI is off"),
+            "{line}"
+        );
+    }
+    for step in WORKING.iter().filter(|step| !NEED_AI.contains(step)) {
+        assert_eq!(result_of(&log, step), "PASS", "{step}\n{log}");
+    }
+    let seconds = game.eval::<i64>("return wow.now") - started;
+    assert!(seconds < 240, "the run took {seconds} s");
+}
+
 #[test]
 fn each_room_step_waits_for_its_own_answer_also_when_the_ticker_runs_first() {
     let (game, mut desk, folder) = dev_session("room-order");
