@@ -62,6 +62,7 @@ TaskWire.lua
 TaskReward.lua
 TaskChunks.lua
 TaskPeople.lua
+SeenPlayers.lua
 TaskSaved.lua
 TaskStore.lua
 TaskProof.lua

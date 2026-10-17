@@ -1,0 +1,1 @@
+1:1:1:1;story;a1;{Ada} and {~Ada-Bean};We held it with {Lysara-Moon}, {~Lysara-Moon} and {Ada}.%0A{~}{~-X}{Bad Mark} {Corvin}

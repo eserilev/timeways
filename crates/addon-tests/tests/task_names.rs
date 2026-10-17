@@ -91,6 +91,41 @@ fn each_player_that_the_addon_knows_gets_a_mark() {
 }
 
 #[test]
+fn a_player_you_saw_lately_gets_a_mark() {
+    let ada = Player::new("Ada");
+    ada.run(
+        "wow.units.mouseover = { name = 'Lysara', player = true, guid = 'Player-1-Lysara' }
+         wow.Fire('UPDATE_MOUSEOVER_UNIT')
+         wow.units.mouseover = nil
+         wow.units.nameplate3 = { name = 'Bryn', player = true, guid = 'Player-1-Bryn' }
+         wow.Fire('NAME_PLATE_UNIT_ADDED', 'nameplate3')
+         wow.units.nameplate3 = nil",
+    );
+    let mark: mlua::Function =
+        ada.eval("return function(text) return (ns.TaskNames.Marked(text)) end");
+
+    let text: String = mark.call("lysara and Bryn came").unwrap();
+
+    assert_eq!(text, "{Lysara} and {Bryn} came");
+}
+
+#[test]
+fn the_addon_remembers_at_most_two_hundred_players_it_saw() {
+    let ada = Player::new("Ada");
+    ada.run(
+        "for n = 1, 201 do
+             wow.units.target = { name = 'Seen' .. string.char(97 + n % 26) .. string.char(97 + math.floor(n / 26)), player = true }
+             wow.Fire('PLAYER_TARGET_CHANGED')
+         end
+         wow.units.target = nil",
+    );
+
+    let count: usize = ada.eval("return #ns.SeenPlayers.Names()");
+
+    assert_eq!(count, 200);
+}
+
+#[test]
 fn a_player_in_sight_gets_a_line_with_the_race_and_the_class() {
     let ada = Player::new("Ada");
     ada.run(

@@ -315,6 +315,119 @@ fn accept_sends_the_title_and_the_paragraphs_with_names_marked_and_the_author_he
     );
 }
 
+/// The lines of the stories page of the journal, with the newest waiting story open.
+fn story_page(corvin: &Player) -> Vec<String> {
+    corvin.eval(
+        "local story = ns.PlayerStories.Waiting()[#ns.PlayerStories.Waiting()]
+         ns.Journal.Select('stories', 'w:' .. story.author .. ':' .. story.id)
+         local out = {}
+         for _, line in ipairs(ns.Journal.Lines('stories')) do out[#out + 1] = line.text end
+         return out",
+    )
+}
+
+/// Ada saw Lysara, a stranger to Corvin: Ada targeted her once.
+fn ada_saw_lysara(ada: &Player) {
+    ada.run(
+        "wow.units.target = { name = 'Lysara', player = true, guid = 'Player-1-Lysara' }
+         wow.Fire('PLAYER_TARGET_CHANGED')
+         wow.units.target = nil",
+    );
+}
+
+#[test]
+fn the_author_marks_a_player_that_only_the_author_knows_and_the_story_reaches_the_desktop_with_ids()
+{
+    let (ada, corvin) = party();
+    ada_saw_lysara(&ada);
+    send(
+        &ada,
+        &corvin,
+        "Lysara and Me",
+        "We held the bridge with Lysara.",
+    );
+
+    let waiting: String = corvin.eval("return ns.PlayerStories.Waiting()[1].text");
+    let page = story_page(&corvin).join("\n");
+    corvin.run("wow.Slash('/story', 'accept')");
+    let (title, paragraphs) = accepted(&sent_inputs(&corvin)).expect("an accepted story");
+    let mut desktop = desktop_of("Corvin");
+    let stored = accept_on_desktop(&mut desktop, title, paragraphs.clone());
+
+    assert_eq!(waiting, "We held the bridge with {Lysara}.");
+    assert!(page.contains("We held the bridge with Lysara."), "{page}");
+    assert!(!page.contains('{'), "{page}");
+    assert_eq!(paragraphs, ["We held the bridge with {Lysara}."]);
+    assert_eq!(stored, ["We held the bridge with Lysara."]);
+}
+
+#[test]
+fn a_story_from_an_old_author_with_no_marks_still_shows_and_marks_what_the_reader_knows() {
+    let (_, corvin) = party();
+
+    hear_story(&corvin, "a1;;Ada and Lysara held it.");
+    let page = story_page(&corvin).join("\n");
+    corvin.run("wow.Slash('/story', 'accept')");
+
+    assert!(page.contains("Ada and Lysara held it."), "{page}");
+    let (_, paragraphs) = accepted(&sent_inputs(&corvin)).expect("an accepted story");
+    assert_eq!(paragraphs, ["{Ada} and Lysara held it."]);
+}
+
+#[test]
+fn a_mark_of_the_reader_in_a_story_becomes_the_reader() {
+    let (ada, corvin) = party();
+    send(&ada, &corvin, "", "Corvin and Ada held it.");
+
+    corvin.run("wow.Slash('/story', 'accept')");
+
+    let (_, paragraphs) = accepted(&sent_inputs(&corvin)).expect("an accepted story");
+    assert_eq!(paragraphs, ["$N and {Ada} held it."]);
+}
+
+/// A desktop with this character, as the story program runs it.
+fn desktop_of(name: &str) -> timeways_story::story::Story {
+    let path = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join("player-stories-pack.sqlite");
+    if !path.exists() {
+        timeways_story::pack::Pack::write(&path, &[]).unwrap();
+    }
+    let pack = timeways_story::pack::Pack::open(&path).unwrap();
+    let mut story = timeways_story::story::Story::new(pack, timeways_story::store::Store::Memory);
+    story
+        .handle(Input::CharacterEntered {
+            realm: "Stormrage".to_string(),
+            name: name.to_string(),
+        })
+        .unwrap();
+    story
+}
+
+/// Accepts the story on the desktop, and gives the paragraphs that its journal shows.
+fn accept_on_desktop(
+    desktop: &mut timeways_story::story::Story,
+    title: Option<String>,
+    paragraphs: Vec<String>,
+) -> Vec<String> {
+    desktop
+        .handle(Input::StoryAccepted {
+            at: hourglass::Tick(1),
+            number: 1,
+            title,
+            paragraphs,
+        })
+        .unwrap();
+    let asked = Input::JournalAsked {
+        id: timeways_story::input::MessageId(1),
+        page: 0,
+    };
+    match desktop.handle(asked).unwrap().remove(0) {
+        timeways_story::story::Output::Journal { page, .. } => {
+            page.journal.stories[0].paragraphs.clone()
+        }
+        other => panic!("no journal: {other:?}"),
+    }
+}
+
 #[test]
 fn a_declined_story_never_reaches_the_desktop_and_the_author_hears() {
     let (ada, corvin) = party();

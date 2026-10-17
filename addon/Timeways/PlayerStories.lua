@@ -89,7 +89,8 @@ end
 
 local function ArrivedLine(sender, title)
 	if title ~= "" then
-		return Short(sender) .. " told a story about you: " .. title .. ". Type /stories to read it."
+		local shown = ns.TaskNames.Shown(title)
+		return Short(sender) .. " told a story about you: " .. shown .. ". Type /stories to read it."
 	end
 	return Short(sender) .. " told a story about you. Type /stories to read it."
 end
@@ -183,6 +184,18 @@ local function Answered(sender, message, status)
 	Say(Short(sender) .. (status == "accepted" and " accepted your story." or " declined your story."))
 end
 
+-- The title and the body with each player that you know marked, so the reader's desktop
+-- hides a player whom only you know (GAMEPLAY.md 4.8). A story whose marks make it too long
+-- goes as typed: the reader still marks the players that the reader knows.
+local function ForPeer(title, body)
+	local markedTitle = title ~= "" and ns.TaskNames.ForPeer(title) or ""
+	local markedBody = ns.TaskNames.ForPeer(body)
+	if ns.StoryText.IsTitle(markedTitle) and ns.StoryText.IsBody(markedBody) then
+		return markedTitle, markedBody
+	end
+	return title, body
+end
+
 -- Sends a checked story now, and keeps its title for the answer. A story goes only after the
 -- answer "open", so an older story to this player that waits for an answer is lost. A sent
 -- story deletes its draft.
@@ -192,7 +205,8 @@ function PlayerStories.Send(to, title, body)
 	local id = ns.TaskStore.NewId(time())
 	data.told[id] = { to = to, title = title, at = time(), status = "sent" }
 	ns.StorySaved.TrimTold(data.told)
-	ns.TaskChannel.Whisper(to, { type = "story", id = id, story_title = title, body = body })
+	local markedTitle, markedBody = ForPeer(title, body)
+	ns.TaskChannel.Whisper(to, { type = "story", id = id, story_title = markedTitle, body = markedBody })
 	ns.StoryDrafts.Delete(to)
 	return id
 end
@@ -264,11 +278,12 @@ function PlayerStories.Names()
 	return names
 end
 
--- The title and the paragraphs with each known player marked, and the players marked.
+-- The title and the paragraphs with the marks of the author, each other known player
+-- marked, and the players marked.
 local function Marked(story)
 	local players, seen = {}, {}
 	local function Mark(text)
-		local marked, named = ns.TaskNames.Marked(text)
+		local marked, named = ns.TaskNames.MarkedKeeping(text)
 		for _, full in ipairs(named) do
 			if not seen[full] then
 				seen[full] = true

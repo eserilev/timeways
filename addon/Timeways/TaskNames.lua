@@ -232,6 +232,7 @@ local function KnownNames()
 	AddTaskPlayers(names)
 	-- An author can leave your group long before you accept the story.
 	AddAll(names, ns.PlayerStories.Names())
+	AddAll(names, ns.SeenPlayers.Names())
 	return Ordered(names, group), group
 end
 
@@ -382,7 +383,7 @@ end
 -- name of a known player, and then a first name alone, which is you when it is yours. A
 -- surname alone with a capital becomes a surname mark, "{~Kobee-Will}".
 -- Returns the text, and the players that it marks as "Name-Realm", once each.
-function TaskNames.Marked(text)
+local function Mark(text, ownMark)
 	-- The bridge reads broken bytes as U+FFFD, so the marks must read them so too.
 	text = WithoutBraces(TaskNames.Visible(ns.Utf8.Lossy(text)))
 	local names, group = KnownNames()
@@ -408,7 +409,7 @@ function TaskNames.Marked(text)
 		local who = WholeName(candidates, folded == me, mySurname, after) or (folded == me and "me") or candidates[1]
 		local surnameMark, surnameOf = LoneSurnameMark(word, surnames, mySurname)
 		if who == "me" then
-			parts[#parts + 1] = "$N"
+			parts[#parts + 1] = ownMark
 			last = NameEnd(last, after, mySurname and TaskNames.Fold(mySurname))
 		elseif who then
 			parts[#parts + 1] = MarkOf(who)
@@ -423,6 +424,96 @@ function TaskNames.Marked(text)
 		at = last + 1
 	end
 	parts[#parts + 1] = text:sub(at)
+	return table.concat(parts), players
+end
+
+function TaskNames.Marked(text)
+	return Mark(text, "$N")
+end
+
+-- The text for another player: your own name is your mark too, because `$N` names the
+-- reader on the other side.
+function TaskNames.ForPeer(text)
+	local me = ns.TaskPeople.Me()
+	return Mark(text, me and MarkOf(me) or "$N")
+end
+
+-- The first name and the surname of the key of a mark, or nil when it is no key: only
+-- word letters, and at most one dash.
+local function KeyParts(key)
+	local first, surname = key:match("^([^-]+)%-?(.*)$")
+	local function IsWord(part)
+		local from, to = NextWord(part, 1)
+		return from == 1 and to == #part
+	end
+	if not first or not IsWord(first) or (surname ~= "" and not IsWord(surname)) then
+		return nil
+	end
+	return first, surname ~= "" and surname or nil
+end
+
+-- Each mark of a text that another player sent: the start and the end of the mark, whether
+-- it is a surname mark, its first name, and its surname.
+local function PeerMarks(text)
+	local marks, at = {}, 1
+	while true do
+		local open, close, tilde, key = text:find("{(~?)([^{}]*)}", at)
+		if not open then
+			return marks
+		end
+		local first, surname = KeyParts(key)
+		if first and (tilde == "" or surname) then
+			marks[#marks + 1] = { open = open, close = close, alone = tilde == "~", first = first, surname = surname }
+		end
+		at = close + 1
+	end
+end
+
+-- The text as your screen shows it: a mark of a player as its first name, and a surname
+-- mark as the surname.
+function TaskNames.Shown(text)
+	local parts, at = {}, 1
+	for _, mark in ipairs(PeerMarks(text)) do
+		parts[#parts + 1] = text:sub(at, mark.open - 1)
+		parts[#parts + 1] = mark.alone and mark.surname or mark.first
+		at = mark.close + 1
+	end
+	parts[#parts + 1] = text:sub(at)
+	return table.concat(parts)
+end
+
+-- A text that another player sent, for the story program: the marks of the author stay,
+-- a mark of you becomes `$N`, and the rest is marked as `Marked` does. Returns the text,
+-- and the players that it marks, once each.
+function TaskNames.MarkedKeeping(text)
+	local me, mySurname = MyName()
+	local parts, players, seen, at = {}, {}, {}, 1
+	local function Named(full)
+		if full and not seen[full] then
+			seen[full] = true
+			players[#players + 1] = full
+		end
+	end
+	local function MarkRest(rest)
+		local marked, named = TaskNames.Marked(rest)
+		parts[#parts + 1] = marked
+		for _, full in ipairs(named) do
+			Named(full)
+		end
+	end
+	for _, mark in ipairs(PeerMarks(text)) do
+		MarkRest(text:sub(at, mark.open - 1))
+		local isMe = TaskNames.Fold(mark.first) == me
+			and (not mark.surname or (mySurname and TaskNames.Fold(mark.surname) == TaskNames.Fold(mySurname)))
+		if isMe then
+			parts[#parts + 1] = "$N"
+		else
+			parts[#parts + 1] = text:sub(mark.open, mark.close)
+			Named(ns.TaskPeople.Full(mark.surname and (mark.first .. "-" .. mark.surname) or mark.first))
+		end
+		at = mark.close + 1
+	end
+	MarkRest(text:sub(at))
 	return table.concat(parts), players
 end
 

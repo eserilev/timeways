@@ -56,9 +56,14 @@ local function AuthorName(story)
 	return author and Short(author) or "a friend"
 end
 
+-- A waiting story holds the marks of its author: the page shows the names.
+local function ShownPlain(text)
+	return ns.Plain(ns.TaskNames.Shown(text))
+end
+
 local function WaitingTitle(story)
 	if story.title ~= "" then
-		return ns.Plain(story.title), false
+		return ShownPlain(story.title), false
 	end
 	return "A story from " .. Short(story.author), true
 end
@@ -169,7 +174,7 @@ local function WaitingPage(row)
 		Line("heading", row.text),
 		Line("note", "By " .. Short(story.author) .. " · " .. Day(story.at)),
 	}
-	Paragraphs(lines, ns.StoryText.Paragraphs(story.text), ns.Plain)
+	Paragraphs(lines, ns.StoryText.Paragraphs(story.text), ShownPlain)
 	lines[#lines + 1] = Line("help", ns.TaskPages.REPORT)
 	if problems[row.key] then
 		lines[#lines + 1] = Line("hint", problems[row.key])

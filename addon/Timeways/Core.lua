@@ -69,12 +69,18 @@ local HANDLERS = {
 	PLAYER_TARGET_CHANGED = function()
 		ns.Foes.SeeTarget()
 		ns.Sightings.SeeTarget()
+		ns.SeenPlayers.SeeTarget()
 	end,
 	UPDATE_MOUSEOVER_UNIT = function()
 		ns.Foes.SeeMouseover()
 		ns.Sightings.SeeMouseover()
+		ns.SeenPlayers.SeeMouseover()
 	end,
-	NAME_PLATE_UNIT_ADDED = ns.Foes.See,
+	NAME_PLATE_UNIT_ADDED = function(unit)
+		ns.Foes.See(unit)
+		ns.SeenPlayers.See(unit)
+	end,
+	GROUP_ROSTER_UPDATE = ns.SeenPlayers.SeeGroup,
 	PARTY_KILL = ns.Foes.PartyKill,
 	ENCOUNTER_END = ns.Foes.EncounterEnd,
 	PLAYER_DEAD = ns.Foes.Died,
@@ -110,6 +116,7 @@ frame:RegisterEvent("ITEM_TEXT_READY")
 frame:RegisterEvent("PLAYER_TARGET_CHANGED")
 frame:RegisterEvent("UPDATE_MOUSEOVER_UNIT")
 frame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
+frame:RegisterEvent("GROUP_ROSTER_UPDATE")
 frame:RegisterEvent("PARTY_KILL")
 frame:RegisterEvent("ENCOUNTER_END")
 frame:RegisterEvent("PLAYER_DEAD")
