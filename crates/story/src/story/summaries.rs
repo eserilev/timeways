@@ -1,7 +1,7 @@
 //! The summary of the character in the story program (docs/plans/hero-stories.md 3.5): when it
 //! is due, its call, and its answer.
 
-use super::aliases::{TextLimits, shows_with_names};
+use super::aliases::{self, TextLimits, shows_with_names};
 use super::calls::Reply;
 use super::{Active, Output, Pending, Story, StoryError};
 use crate::chapters::SpanState;
@@ -162,7 +162,7 @@ fn deed_name(deed: &Deed) -> Option<&str> {
 /// level, and the summary before it. Reading too much only counts a row as used.
 fn facts_and_read(active: &Active, after: EventId) -> (Facts, Vec<Node>) {
     let world = active.journal();
-    let hero = hero::hero(active.hero.changes());
+    let hero = aliases::hero_for_model(active);
     let chapters = finished_up_to(&world.chapters, after);
     let tellings = chapter_tellings(active, &chapters);
     let deeds = deeds_of_note(&world.deeds);

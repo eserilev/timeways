@@ -1,7 +1,7 @@
 //! The saga of each finished chapter in the story program (GAMEPLAY.md 3.3): the drafts,
 //! the judge, and the final saga on the disk.
 
-use super::aliases::{TextLimits, shows_with_names};
+use super::aliases::{self, TextLimits, shows_with_names};
 use super::calls::Reply;
 use super::{Active, CHAPTER_MOMENTS, Output, Pending, Story, StoryError, edits, reads};
 use crate::best_of_two::{Next, Round};
@@ -69,7 +69,7 @@ impl Story {
             key: active.key.clone(),
             first,
         };
-        let hero = hero::hero(active.hero.changes());
+        let hero = aliases::hero_for_model(active);
         let in_chapter = |entry: &Entry| entry.at >= chapter.began && entry.at < next;
         let written = hero::newest_texts(&hero.entries, in_chapter);
         // The entries of the chapter and of the portrait share one limit, so a full story

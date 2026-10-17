@@ -2685,6 +2685,98 @@ fn a_task_draft_does_not_count_toward_a_hook() {
     assert!(third.contains(HOOK_LINE), "{third}");
 }
 
+const OATH: &str = "My guildmate {Leborc} and I swore an oath.";
+
+#[test]
+fn a_hero_bond_that_names_a_known_player_reaches_no_prompt_with_the_name() {
+    let mut story = story_with("hero-bond-player", &[]);
+    set_field(&mut story, "bond", OATH).unwrap();
+    talk_failed(&mut story);
+    talk_failed(&mut story);
+
+    let third = talk_failed(&mut story);
+
+    let hook = "<<<\nMy guildmate {P1} and I swore an oath.\n>>>";
+    assert!(third.contains(hook), "{third}");
+    assert!(!third.contains("Leborc"), "{third}");
+}
+
+#[test]
+fn a_hero_note_that_names_a_known_player_reaches_no_talk_with_the_name() {
+    let mut story = story_with("hero-note-player", &[]);
+    add_entry(&mut story, 40, OATH, Some("Innkeeper Farley"));
+
+    let prompt = talk_failed(&mut story);
+
+    assert!(prompt.contains("- My guildmate {P1} and I"), "{prompt}");
+    assert!(!prompt.contains("Leborc"), "{prompt}");
+}
+
+#[test]
+fn a_hero_note_that_names_a_known_player_reaches_no_chapter_with_the_name() {
+    let mut story = story_with("hero-note-chapter", &[]);
+    meet(&mut story, HOUR, "Gryan Stoutmantle");
+    add_entry(&mut story, HOUR, OATH, None);
+    set_field(&mut story, "goal", "Find {Leborc}.").unwrap();
+    play_a_chapter(&mut story, HOUR, "Westfall", "Marshal McBride");
+    new_chapter(&mut story, 5 * HOUR, "Duskwood", 91);
+
+    let prompt = saga_prompt(&mut story, 2);
+
+    assert!(prompt.contains("- My guildmate {P1} and I"), "{prompt}");
+    assert!(prompt.contains("- goal: Find {P1}."), "{prompt}");
+    assert!(!prompt.contains("Leborc"), "{prompt}");
+}
+
+#[test]
+fn the_hero_sheet_shows_a_marked_name_as_the_name() {
+    let mut story = story_with("hero-sheet-names", &[]);
+    set_field(&mut story, "bond", OATH).unwrap();
+    add_entry(&mut story, 40, OATH, None);
+
+    let (hero, _) = hero_page(&mut story);
+
+    assert_eq!(
+        hero.sheet[0].text,
+        "My guildmate Leborc and I swore an oath."
+    );
+    assert_eq!(
+        hero.entries[0].text,
+        "My guildmate Leborc and I swore an oath."
+    );
+}
+
+#[test]
+fn the_own_name_in_the_hero_sheet_reaches_no_prompt() {
+    let mut story = story_with("hero-own-name", &[]);
+    let character = Input::CharacterEntered {
+        realm: "Testrealm".to_string(),
+        name: "Kobee Bean".to_string(),
+    };
+    story.handle(character).unwrap();
+    set_field(&mut story, "bond", "kobee Bean and the Bean family.").unwrap();
+    add_entry(
+        &mut story,
+        40,
+        "Kobee swore an oath.",
+        Some("Innkeeper Farley"),
+    );
+    talk_failed(&mut story);
+    talk_failed(&mut story);
+
+    let third = talk_failed(&mut story);
+
+    assert!(third.contains("<<<\n$N and the $N family.\n>>>"), "{third}");
+    assert!(third.contains("- $N swore an oath."), "{third}");
+    let words: Vec<&str> = third.split(|c: char| !c.is_alphanumeric()).collect();
+    assert!(
+        !words
+            .iter()
+            .any(|word| ["kobee", "bean"].contains(&word.to_lowercase().as_str())),
+        "{third}"
+    );
+}
+
 fn journal_line(story: &mut Story, page: usize) -> (Option<String>, String) {
     let asked = Input::JournalAsked {
         id: MessageId(u64::MAX),

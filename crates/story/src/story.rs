@@ -1,7 +1,7 @@
 //! One input in, and the outputs for it out (GAMEPLAY.md 3.1, 5.2, and 5.6).
 
 use crate::ai::{Ai, HelloAi};
-use crate::aliases::AliasRow;
+use crate::aliases::{AliasRow, unmarked};
 use crate::atlas_lore::lore_of;
 use crate::best_of_two::Round;
 use crate::chapters::{self, Book};
@@ -1137,14 +1137,16 @@ impl Story {
         text: &str,
     ) -> Result<Vec<Output>, StoryError> {
         let limit = hero::limit_of(&field).ok_or(StoryError::BadName)?;
-        let text = if text.trim().is_empty() {
+        let marked = unmarked(text);
+        let text = if marked.text.trim().is_empty() {
             String::new()
         } else {
-            match hero::checked_text(text, limit) {
+            match hero::checked_text(&marked.text, limit) {
                 Ok(text) => text,
                 Err(reason) => return self.refuse_hero(reason),
             }
         };
+        self.learn_hero_names(&marked.names)?;
         self.hero_change(Change::Set { at, field, text })?;
         Ok(Vec::new())
     }
@@ -1156,10 +1158,12 @@ impl Story {
         text: &str,
         npc: Option<String>,
     ) -> Result<Vec<Output>, StoryError> {
-        let text = match hero::checked_text(text, hero::LONG) {
+        let marked = unmarked(text);
+        let text = match hero::checked_text(&marked.text, hero::LONG) {
             Ok(text) => text,
             Err(reason) => return self.refuse_hero(reason),
         };
+        self.learn_hero_names(&marked.names)?;
         let active = self.active.as_ref().ok_or(StoryError::NoCharacter)?;
         let number = hero::next_number(active.hero.changes());
         let place = active
@@ -1175,6 +1179,14 @@ impl Story {
             npc,
         }))?;
         Ok(Vec::new())
+    }
+
+    /// The sheet keeps the names as the player wrote them, and the table swaps them for a
+    /// model (`aliases::hero_for_model`).
+    fn learn_hero_names(&mut self, names: &[String]) -> Result<(), StoryError> {
+        let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
+        aliases::learn_names(active, names)?;
+        Ok(())
     }
 
     fn hero_change(&mut self, change: Change) -> Result<(), StoryError> {
@@ -1498,7 +1510,7 @@ impl Story {
             passages_for(&self.pack, &active.seen_index, character, words, Some(npc))?;
         passages.truncate(TALK_PASSAGES);
         let place = character.place_of(npc);
-        let hero = hero::hero(active.hero.changes());
+        let hero = aliases::hero_for_model(active);
         let about = |entry: &Entry| {
             entry.npc.as_deref() == Some(npc)
                 || (place.is_some() && entry.place.as_deref() == place)

@@ -912,3 +912,73 @@ fn a_sheet_that_spreads_over_two_pages_shows_whole() {
     assert_eq!(card(&game, "Origin"), "Origin: A farm. [Edit]");
     assert_eq!(card(&game, "Goal"), "Goal: Find my brother. [Edit]");
 }
+
+/// Kobee Bean, with Leborc James in the party, on WoW Forever.
+fn kobee_with_leborc() -> Game {
+    let game = Game::new();
+    game.run(
+        "wow.regional = true
+         wow.units.player = { name = 'Kobee', realm = 'Bean', player = true, guid = 'Player-1-Kobee' }
+         wow.units.party1 = { name = 'Leborc', realm = 'James', player = true, guid = 'Player-1-Leborc' }",
+    );
+    game
+}
+
+fn hero_texts(game: &Game) -> Vec<String> {
+    game.sent_inputs()
+        .into_iter()
+        .filter_map(|input| match input {
+            Input::HeroSet { text, .. } | Input::HeroAdded { text, .. } => Some(text),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn a_hero_edit_marks_each_known_player_and_keeps_your_own_name_as_typed() {
+    let game = kobee_with_leborc();
+
+    game.run(
+        "wow.Slash('/hero', 'set bond My friend Leborc James and I, Kobee Bean, swore an oath.')",
+    );
+    game.run("wow.Slash('/hero', 'add leborc owes kobee.')");
+
+    assert_eq!(
+        hero_texts(&game),
+        [
+            "My friend {Leborc} and I, Kobee Bean, swore an oath.",
+            "{Leborc} owes kobee."
+        ]
+    );
+}
+
+#[test]
+fn a_player_in_a_hero_edit_gets_a_line_with_the_race_and_the_class_before_the_edit() {
+    let game = kobee_with_leborc();
+
+    game.run("wow.Slash('/hero', 'add Leborc owes me.')");
+
+    let inputs = game.sent_inputs();
+    let described = inputs
+        .iter()
+        .position(|input| matches!(input, Input::PlayerDescribed { name, .. } if name == "Leborc"));
+    let added = inputs
+        .iter()
+        .position(|input| matches!(input, Input::HeroAdded { .. }));
+    assert!(described.unwrap() < added.unwrap(), "{inputs:?}");
+}
+
+#[test]
+fn the_page_shows_the_edit_as_typed_while_it_saves() {
+    let game = kobee_with_leborc();
+    game.run("wow.Slash('/hero', '')");
+    game.reply(&hero_reply(FILLED, "null"));
+
+    game.run("wow.Slash('/hero', 'set goal Find Leborc James.')");
+
+    assert!(
+        card(&game, "Goal").starts_with("Goal: Find Leborc James."),
+        "{:?}",
+        cards(&game)
+    );
+}

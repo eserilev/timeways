@@ -259,6 +259,40 @@ pub fn without_names(table: &[Alias], text: &str) -> String {
     joined(&rules::to_ids(table, &text_pieces(text, table)))
 }
 
+/// The text with each part of the name of the character as `$N`. The parts in a row,
+/// "Kobee Bean", become one `$N`. A part that is also a common word, as "will" for Kobee
+/// Will, goes too: a text blanks too much rather than too little.
+#[must_use]
+pub fn without_own_name(text: &str, own: &str) -> String {
+    let own = own_aliases(own);
+    let mut hidden = String::with_capacity(text.len());
+    // The spaces after a `$N`: they go when another part of the name follows.
+    let mut after_mark: Option<String> = None;
+    for piece in text_pieces(text, &own) {
+        match piece {
+            Plain::Word { key, .. } if rules::find(&own, &key).is_some() => {
+                if after_mark.is_none() {
+                    hidden.push_str("$N");
+                }
+                after_mark = Some(String::new());
+            }
+            Plain::Text(text) if is_spaces(&text) && after_mark.is_some() => {
+                after_mark.get_or_insert_default().push_str(&text);
+            }
+            Plain::Word { written: text, .. } | Plain::Text(text) => {
+                hidden.push_str(&after_mark.take().unwrap_or_default());
+                hidden.push_str(&text);
+            }
+        }
+    }
+    hidden.push_str(&after_mark.unwrap_or_default());
+    hidden
+}
+
+fn is_spaces(text: &str) -> bool {
+    text.chars().all(|c| c == ' ')
+}
+
 /// A text that holds IDs, cut into IDs and the rest. Only `{P1}` and up are IDs, with no
 /// leading zero, so the cut joins back to the same text.
 #[must_use]

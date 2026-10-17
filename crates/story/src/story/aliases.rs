@@ -3,6 +3,7 @@
 
 use super::{Active, Output, Story, StoryError};
 use crate::aliases::{self, AliasRow};
+use crate::hero::{self, Hero};
 use crate::store::StoreError;
 
 impl Story {
@@ -25,6 +26,23 @@ pub(super) fn learn_names(active: &mut Active, marked: &[String]) -> Result<(), 
 /// The text with each name that the table knows as its ID.
 pub(super) fn with_ids(active: &Active, text: &str) -> String {
     aliases::without_names(active.aliases.table(), text)
+}
+
+/// The hero as a model reads it: each name of a player as its ID, and the name of the
+/// character as `$N`. The disk keeps the words as the player wrote them, for the sheet.
+pub(super) fn hero_for_model(active: &Active) -> Hero {
+    let mut hero = hero::hero(active.hero.changes());
+    for field in &mut hero.sheet {
+        field.text = for_model(active, &field.text);
+    }
+    for entry in &mut hero.entries {
+        entry.text = for_model(active, &entry.text);
+    }
+    hero
+}
+
+fn for_model(active: &Active, text: &str) -> String {
+    aliases::without_own_name(&with_ids(active, text), active.key.name())
 }
 
 /// The text for the player's own screen: each ID becomes the name of its player.

@@ -1,9 +1,8 @@
 //! Side quests in the story program (GAMEPLAY.md 3.4): the offer at the end of a batch,
 //! the answer of the player, and the progress from game events.
 
-use super::{Active, EventsBatch, Pending, Story, StoryError, calls, checked_name, reads};
+use super::{Active, EventsBatch, Pending, Story, StoryError, aliases, calls, checked_name, reads};
 use crate::character::Character;
-use crate::hero;
 use crate::input::{Input, MessageId};
 use crate::journal::{TalkQuest, TalkQuestState};
 use crate::prompt::{self, Attempt};
@@ -156,7 +155,7 @@ impl Story {
         let giver = request.giver.as_str();
         let seen = seen_texts(active);
         let known = known(&active.character, giver, &seen, &quests);
-        let hero = hero::hero(active.hero.changes());
+        let hero = aliases::hero_for_model(active);
         // A failed count gives no hook, and the offer still goes out.
         let (hook, hook_read) = calls::hook_for(active, &hero).unwrap_or_default();
         let said = talk.as_ref().map(|(said, _)| said.as_str());

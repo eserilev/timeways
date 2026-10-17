@@ -2276,6 +2276,14 @@ fn player_mark() -> impl Strategy<Value = String> {
     })
 }
 
+/// A text of the hero that names the character "Ada" in any case, with a realm, and with
+/// signs around it. No other word holds the letter "a".
+fn own_name_words() -> impl Strategy<Value = String> {
+    let own = prop::sample::select(vec!["Ada", "ADA", "ada", "Ada-Stormrage", "Ada's", "(Ada)"]);
+    let part = prop_oneof![own.prop_map(String::from), "[b-z]{1,6}"];
+    prop::collection::vec(part, 1..8).prop_map(|parts| parts.join(" "))
+}
+
 /// A text from the addon with its players marked.
 fn marked_words() -> impl Strategy<Value = String> {
     let part = prop_oneof![player_mark(), "[a-z]{1,6}"];
@@ -2398,17 +2406,21 @@ proptest! {
     #![proptest_config(ProptestConfig::with_cases(48))]
 
     /// GAMEPLAY.md 5.11: no model sees the name of a player that the table knows. Every
-    /// story and idea marks its players, as the addon does.
+    /// story, idea, and text of the hero marks its players, as the addon does. The last
+    /// play always learns a name and asks a model, so the check never passes empty.
     #[test]
     fn no_prompt_holds_a_known_player_name(
-        plays in prop::collection::vec(prop_oneof![
+        mut plays in prop::collection::vec(prop_oneof![
             4 => play(),
             1 => marked_words().prop_map(Play::DraftAsk),
             1 => (0u64..4, marked_words()).prop_map(|(number, text)| Play::StoryAccept(number, text)),
             1 => (edit_entry_kind(), edit_first(), edit_text(), marked_words())
                 .prop_map(|(kind, first, text, words)| Play::Edit(kind, first, text, words)),
+            1 => (0usize..FIELDS.len(), marked_words()).prop_map(|(field, text)| Play::HeroSet(field, text)),
+            1 => marked_words().prop_map(Play::HeroAdd),
         ], 0..60)
     ) {
+        plays.push(Play::DraftAsk("help {Qorvin}".to_string()));
         let folder = fresh("aliases");
         let mut clock = 1_000;
         let mut story = story(&folder, Store::Folder(folder.clone()));
@@ -2418,13 +2430,42 @@ proptest! {
         let connection = rusqlite::Connection::open(world_file(&folder)).unwrap();
         let keys: Vec<String> = rows_of(&connection, "SELECT body FROM aliases")
             .into_iter()
-            .filter_map(|row| serde_json::from_str::<AliasRow>(row[0].as_deref()?).ok())
+            .map(|row| serde_json::from_str::<AliasRow>(&row[0].clone().unwrap()).unwrap())
             .map(|row| key_of(&row.name))
             .collect();
-        for row in rows_of(&connection, "SELECT prompt FROM calls WHERE prompt IS NOT NULL") {
+        let prompts = rows_of(&connection, "SELECT prompt FROM calls WHERE prompt IS NOT NULL");
+        prop_assert!(keys.contains(&key_of("Qorvin")), "{:?}", keys);
+        prop_assert!(!prompts.is_empty());
+        for row in prompts {
             let prompt = row[0].clone().unwrap_or_default();
             for word in text_words(&prompt) {
                 prop_assert!(!keys.contains(&key_of(word)), "{} in {}", word, prompt);
+            }
+        }
+    }
+
+    /// GAMEPLAY.md 3.7 and 5.11: the name of the character in any text of the hero reaches
+    /// no model. The NPC is fixed, so no other word of a prompt is the name by chance.
+    #[test]
+    fn no_prompt_holds_the_own_name_from_the_hero_sheet(
+        plays in prop::collection::vec(prop_oneof![
+            2 => (0usize..FIELDS.len(), own_name_words()).prop_map(|(field, text)| Play::HeroSet(field, text)),
+            2 => own_name_words().prop_map(Play::HeroAdd),
+            3 => Just(Play::Talk("Innkeeper Farley".to_string(), "Hm.".to_string())),
+            1 => Just(Play::Quest("Innkeeper Farley".to_string(), Vec::new())),
+        ], 1..30)
+    ) {
+        let folder = fresh("own-name");
+        let mut clock = 1_000;
+        let mut story = story(&folder, Store::Folder(folder.clone()));
+        run(&mut story, &plays, &mut clock);
+        drop(story);
+
+        let connection = rusqlite::Connection::open(world_file(&folder)).unwrap();
+        for row in rows_of(&connection, "SELECT prompt FROM calls WHERE prompt IS NOT NULL") {
+            let prompt = row[0].clone().unwrap_or_default();
+            for word in text_words(&prompt) {
+                prop_assert!(key_of(word) != "ada", "{} in {}", word, prompt);
             }
         }
     }

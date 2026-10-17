@@ -116,7 +116,7 @@ function Hero.Set(field, text)
 	text = Clean(text)
 	unsaved.fields[field] = text
 	ns.MspProfile.Edited(field, text)
-	Send(ns.Inputs.HeroSet(time(), field, text))
+	Send(ns.Inputs.HeroSet(time(), field, ns.TaskNames.SendKeepingMine(text)))
 end
 
 function Hero.Add(text, npc)
@@ -125,7 +125,7 @@ function Hero.Add(text, npc)
 		return
 	end
 	table.insert(unsaved.added, { text = text, npc = npc })
-	Send(ns.Inputs.HeroAdded(time(), text, npc))
+	Send(ns.Inputs.HeroAdded(time(), ns.TaskNames.SendKeepingMine(text), npc))
 end
 
 StaticPopupDialogs.TIMEWAYS_HERO_REMOVE = {
