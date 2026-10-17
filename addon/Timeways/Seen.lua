@@ -51,11 +51,7 @@ local function IsLetter(byte)
 end
 
 -- The name counts only as a whole word: "Ed" is not the end of "killed".
-local function WithoutName(text)
-	local name = UnitName("player")
-	if not Readable(name) then
-		return text
-	end
+local function Without(text, name)
 	local lower, needle = Fold(text), Fold(name)
 	local parts, start, from = {}, 1, 1
 	while true do
@@ -78,6 +74,15 @@ local function WithoutName(text)
 	end
 	parts[#parts + 1] = text:sub(start)
 	return table.concat(parts)
+end
+
+-- The whole name goes first, so no surname stays behind the mark of the first name.
+local function WithoutName(text)
+	local first = ns.PlayerNames.MyParts()
+	if not first then
+		return text
+	end
+	return Without(Without(text, ns.PlayerNames.Mine()), first)
 end
 
 -- A byte from 0x80 to 0xBF continues a UTF-8 character, so the cut never lands on one.

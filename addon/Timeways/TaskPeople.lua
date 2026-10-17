@@ -17,10 +17,14 @@ end
 
 -- "Ada" becomes "Ada-Stormrage". The realm loses its spaces, as in the name of the sender
 -- of an addon message: "Bram-Argent Dawn" becomes "Bram-ArgentDawn". A character name
--- with a space or a dash is no name, so "-Stormrage" never becomes a name.
+-- with a space or a dash is no name, so "-Stormrage" never becomes a name. On WoW Forever,
+-- chat writes "First Surname", and the key of the game is "First-Surname".
 function TaskPeople.Full(name)
 	if not Readable(name) or #name > MAX_NAME or name:find("[%c|;]") then
 		return nil
+	end
+	if ns.PlayerNames.Regional() and not name:find("-", 1, true) then
+		name = name:gsub(" ", "-", 1)
 	end
 	local short, realm = name:match("^([^-]+)%-(.+)$")
 	if not short then

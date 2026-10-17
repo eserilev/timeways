@@ -309,7 +309,7 @@ end
 -- What other players see: the tooltip and the profile of a roleplay addon. It reads the
 -- sheet and the unsaved edits, so it shows before you share.
 local function Preview(texts)
-	local name = UnitName("player") or "?"
+	local name = ns.PlayerNames.Mine() or "?"
 	local title = Shown(texts, "title")
 	local lines = {
 		Line("heading", "What Others See"),

@@ -547,6 +547,11 @@ return {
 				{ Name = "result", Type = "bool", Nilable = false },
 			},
 		},
+		RegionalUniqueNamesEnabled = {
+			Returns = {
+				{ Name = "result", Type = "bool", Nilable = false },
+			},
+		},
 		RequestTimePlayed = {},
 		Screenshot = {},
 		UnitCanAttack = {

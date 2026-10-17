@@ -1355,6 +1355,13 @@ function GetNormalizedRealmName()
 end
 
 -- "none" drops the realm of a player of your own realm, as the game does.
+-- True on WoW Forever: a character has a first name and a surname, and no realm. The unit
+-- functions then give the surname where they give the realm on other clients.
+wow.regional = false
+function RegionalUniqueNamesEnabled()
+	return wow.regional
+end
+
 function Ambiguate(name, _)
 	local short, realm = name:match("^(.-)%-(.+)$")
 	if short and realm == GetNormalizedRealmName() then

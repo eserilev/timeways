@@ -161,7 +161,7 @@ end
 function PlayerNotes.EditNote(name)
 	local entry = PlayerNotes.Of(name)
 	ns.JournalFrame.Edit({
-		title = ns.TaskPeople.Short(name),
+		title = ns.PlayerNames.Shown(name),
 		hint = "A note about this player. Only you can see it.",
 		text = entry and entry.note or "",
 		limit = PlayerNotes.MAX_LETTERS,

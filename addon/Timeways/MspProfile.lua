@@ -135,7 +135,7 @@ function MspProfile.Fields()
 	for code, text in pairs(Data().fields) do
 		fields[code] = text
 	end
-	fields.NA = UnitName("player")
+	fields.NA = ns.PlayerNames.Mine()
 	return fields
 end
 

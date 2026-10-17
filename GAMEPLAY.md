@@ -992,6 +992,12 @@ The name of a real player never goes to a model, local or cloud. The model does 
 
 **Your own name is `$N`** (built). A model never sees the name of your character. It writes `$N` in its place, as the quest text of the game does. The addon puts the name back on your own screen only: in a narrator line, a saga and its footnotes, the words of an NPC, and a lore page. The text that you read keeps its `$N` too (5.10).
 
+**A name is the whole name** (built 2026-10-17, `PlayerNames.lua`). On WoW Forever a character has a first name and, often, a surname, and no realm (`RegionalUniqueNamesEnabled()`). The unit functions give the surname where other clients give the realm, so the key of a character is "First-Surname", and chat writes "First Surname".
+- Timeways shows the whole name everywhere: "Kobee Bean" on the title page of the Chronicle, the hero sheet, the Roleplay Profile, `$N` in a line from the desktop, and the name of each other player. A character with no surname shows the first name alone.
+- A name from chat with a space becomes the key of the game: "Leborc James" is "Leborc-James".
+- A surname is part of the name, so it never reaches a model either. Your whole name in the text of an NPC becomes `$N`, and then your first name alone. In typed text, a surname right after a first name that gets a mark goes with it: "ask Leborc James" becomes "ask {Leborc}".
+- The world of a character keeps its old key, the first name (5.7). Open: two characters with the same first name and another surname share one world.
+
 A memory of an NPC (3.5) calls you "the player", never by name. A rumor that holds the name of your character is no memory.
 
 **Later, in Hourglass**, each player is a `Person` entity with the ID as its name. So the history holds `P7`, never the real name. When a guild world syncs its history between members, no real names travel with it. Each member swaps the IDs with their own table.

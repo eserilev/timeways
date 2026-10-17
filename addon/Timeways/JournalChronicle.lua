@@ -314,7 +314,7 @@ end
 -- header alone.
 local function TitleLines(journal, chapterEnded, edit)
 	local lines = {
-		Line("heading", UnitName("player") or "?"),
+		Line("heading", ns.PlayerNames.Mine() or "?"),
 		Line("text", LevelLine()),
 	}
 	Saving(lines, ns.JournalEdits.SUMMARY)
@@ -413,7 +413,7 @@ local function BookPages(journal)
 	local chapters = Entries(journal.chapters)
 	local tales = TalesByChapter(Entries(journal.tales))
 	local summaryEdit = ns.JournalEdits.Of(journal, ns.JournalEdits.SUMMARY)
-	local title = Item(TITLE_PAGE, UnitName("player") or "?", Edited("Who you've become", summaryEdit))
+	local title = Item(TITLE_PAGE, ns.PlayerNames.Mine() or "?", Edited("Who you've become", summaryEdit))
 	local pages = { { key = TITLE_PAGE, item = title, edit = summaryEdit } }
 	for n, chapter in ipairs(chapters) do
 		local own = tales[chapter.first] or {}

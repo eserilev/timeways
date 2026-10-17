@@ -19,7 +19,7 @@ JournalStories.USAGE = "Stories other players told about you."
 JournalStories.FULL = "Answer some stories to get new ones."
 
 local function Short(name)
-	return ns.TaskPeople.Short(name)
+	return ns.PlayerNames.Shown(name)
 end
 
 -- "Today", or the day of the month and the month: "3 Oct".

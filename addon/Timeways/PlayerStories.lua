@@ -35,7 +35,7 @@ local function Say(text)
 end
 
 local function Short(name)
-	return ns.TaskPeople.Short(name)
+	return ns.PlayerNames.Shown(name)
 end
 
 local function Data()

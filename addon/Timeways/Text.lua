@@ -12,7 +12,7 @@ end
 -- The desktop writes `$N` in place of the name of your character, so no model ever sees
 -- the name (GAMEPLAY.md 5.11). Only your own screen shows it.
 function ns.WithName(text)
-	local name = UnitName("player")
-	local shown = type(name) == "string" and not issecretvalue(name) and name:gsub("%%", "%%%%") or "you"
+	local name = ns.PlayerNames.Mine()
+	local shown = name and name:gsub("%%", "%%%%") or "you"
 	return (ns.Plain(text):gsub("%$N", shown))
 end

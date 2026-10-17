@@ -34,7 +34,7 @@ local function Say(text)
 end
 
 local function Short(player)
-	return ns.TaskPeople.Short(player)
+	return ns.PlayerNames.Shown(player)
 end
 
 local function InGroup()

@@ -571,6 +571,31 @@ fn the_title_page_puts_your_name_in_place_of_the_hero_mark() {
     );
 }
 
+/// On WoW Forever the title page names you with your surname (GAMEPLAY.md 5.11).
+#[test]
+fn the_title_page_shows_your_first_name_and_surname() {
+    let game = Game::new();
+    game.run(
+        "wow.regional = true
+         wow.units.player = { name = 'Kobee', realm = 'Bean', player = true, guid = 'Player-1-Kobee', level = 12 }
+         wow.race, wow.class = 'Undead', 'Paladin'",
+    );
+    game.reply(&THREE_CHAPTERS.replace(
+        r#""page":0,"#,
+        r#""page":0,"summary":"Brill trusts $N now.","#,
+    ));
+    game.run("ns.Journal.Select('chapters', 'title')");
+
+    assert_eq!(
+        lines(&game, "chapters"),
+        [
+            "heading: Kobee Bean",
+            "text: Level 12 Undead Paladin",
+            "prose: Brill trusts Kobee Bean now."
+        ]
+    );
+}
+
 #[test]
 fn with_no_model_the_title_page_holds_the_header_alone() {
     let game = Game::new();

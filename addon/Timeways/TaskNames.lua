@@ -137,10 +137,11 @@ local function KnownNames()
 	return names
 end
 
+-- Your first name, folded, and your surname.
 local function MyName()
-	local me = UnitName("player")
-	if type(me) == "string" and not issecretvalue(me) then
-		return TaskNames.Fold(me)
+	local first, surname = ns.PlayerNames.MyParts()
+	if first then
+		return TaskNames.Fold(first), surname
 	end
 end
 
@@ -159,12 +160,25 @@ local function RealmEnd(text, last)
 	return first == last + 2 and realmEnd or last
 end
 
+-- The end of the surname right after a word that ends at `last`, as in "Kobee Bean". The
+-- surname is part of the name, so it gets the mark too.
+local function SurnameEnd(text, last, surname)
+	if not surname or text:sub(last + 1, last + 1) ~= " " then
+		return last
+	end
+	local first, wordEnd = NextWord(text, last + 2)
+	if first == last + 2 and TaskNames.Fold(text:sub(first, wordEnd)) == TaskNames.Fold(surname) then
+		return wordEnd
+	end
+	return last
+end
+
 -- Each player that the addon knows becomes "{Name}", as the game writes the name, and your
 -- own name becomes `$N`. Returns the text, and the players that it marks as "Name-Realm",
 -- once each.
 function TaskNames.Marked(text)
 	text = WithoutBraces(text)
-	local names, me = KnownNames(), MyName()
+	local names, me, mySurname = KnownNames(), MyName()
 	local parts, players, seen, at = {}, {}, {}, 1
 	while true do
 		local first, last = NextWord(text, at)
@@ -176,10 +190,10 @@ function TaskNames.Marked(text)
 		local full = names[folded]
 		if folded == me then
 			parts[#parts + 1] = "$N"
-			last = RealmEnd(text, last)
+			last = SurnameEnd(text, RealmEnd(text, last), mySurname)
 		elseif full then
 			parts[#parts + 1] = "{" .. full:match("^[^-]+") .. "}"
-			last = RealmEnd(text, last)
+			last = SurnameEnd(text, RealmEnd(text, last), select(2, ns.PlayerNames.Parts(full)))
 			if not seen[full] then
 				seen[full] = true
 				players[#players + 1] = full

@@ -120,6 +120,7 @@ return {
 		"Menu",
 		"MenuUtil",
 		"PlaySound",
+		"RegionalUniqueNamesEnabled",
 		"ReloadUI",
 		"RequestTimePlayed",
 		"SOUNDKIT",

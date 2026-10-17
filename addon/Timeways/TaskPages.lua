@@ -24,7 +24,7 @@ local function Disabled(label)
 end
 
 local function Short(name)
-	return ns.TaskPeople.Short(name)
+	return ns.PlayerNames.Shown(name)
 end
 
 local function Day(at)

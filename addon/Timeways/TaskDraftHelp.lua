@@ -145,8 +145,8 @@ end
 -- The model writes `$N` for the giver, as the idea did. Any other `$` is a code of the game
 -- that shows as it is, so the draft drops.
 local function WithGiver(text)
-	local me = UnitName("player")
-	if type(text) ~= "string" or type(me) ~= "string" or issecretvalue(me) then
+	local me = ns.PlayerNames.Mine()
+	if type(text) ~= "string" or not me then
 		return nil
 	end
 	text = text:gsub("%$[Nn]", function()
