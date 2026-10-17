@@ -174,9 +174,15 @@ local function WaitingPage(row)
 		Line("heading", row.text),
 		Line("note", "By " .. Short(story.author) .. " · " .. Day(story.at)),
 	}
-	Paragraphs(lines, ns.StoryText.Paragraphs(story.text), ShownPlain)
+	local texts = { story.title }
+	for _, paragraph in ipairs(ns.StoryText.Paragraphs(story.text)) do
+		texts[#texts + 1] = paragraph
+	end
+	-- The page shows the words that the desktop will keep.
+	local shown = ns.TaskNames.ShownStory(texts)
+	Paragraphs(lines, { unpack(shown, 2) }, ns.Plain)
 	-- The author marked these words as players: the reader sees them before Accept.
-	local named = ns.TaskNames.PeerNames(story.title .. "\n" .. story.text)
+	local named = ns.TaskNames.PeerNames(texts)
 	if #named > 0 then
 		lines[#lines + 1] = Line("note", "Players named: " .. ns.Plain(table.concat(named, ", ")))
 	end

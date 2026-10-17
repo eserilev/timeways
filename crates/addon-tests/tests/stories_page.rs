@@ -143,7 +143,8 @@ fn a_story_with_no_title_shows_who_told_it() {
             "note: New",
             "heading: A story from Cora",
             "note: By Cora · Today",
-            "prose: $N froze me too.",
+            // A peer can't type `$N`: on your desktop it names you.
+            "prose: N froze me too.",
             "help: To report abuse, open Support in the game menu.",
         ]
     );

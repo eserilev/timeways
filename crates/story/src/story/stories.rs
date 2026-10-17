@@ -2,7 +2,9 @@
 //! the proof of another player, and the player removes it only while nothing used it.
 
 use super::{Active, Output, Story, StoryError, aliases};
-use crate::aliases::{MAX_NAMES, Marked, for_matching, unmarked, with_names, within_names};
+use crate::aliases::{
+    MAX_NAMES, Marked, for_matching, other_players, unlikely_marks_as_words, unmarked, with_names,
+};
 use crate::store::{Node, StoreError, Table};
 use crate::stories::{PlayerStory, ShelfLine, StoryChange, is_good_story, lands, standing};
 use hourglass::Tick;
@@ -18,14 +20,22 @@ impl Story {
         title: Option<&str>,
         paragraphs: &[String],
     ) -> Result<Vec<Output>, StoryError> {
-        // The author marked the story, so it teaches at most `MAX_NAMES` names.
+        // The author marked the story, so a mark teaches only a likely name, and a story
+        // names at most `MAX_NAMES` other players: a longer list is no story of the addon.
         let title = title.filter(|title| !title.is_empty());
-        let texts: Vec<String> = title
+        let mut cleaned: Vec<String> = title
             .into_iter()
             .chain(paragraphs.iter().map(String::as_str))
-            .map(for_matching)
+            .map(|text| unlikely_marks_as_words(&for_matching(text)))
             .collect();
-        let mut cleaned = within_names(&texts, MAX_NAMES);
+        let own = self
+            .active
+            .as_ref()
+            .map(|active| active.key.name())
+            .unwrap_or_default();
+        if other_players(&cleaned, own) > MAX_NAMES {
+            return Err(StoryError::BadStory);
+        }
         let cleaned_title = title.map(|_| cleaned.remove(0));
         let title = cleaned_title.as_deref().map(unmarked);
         let paragraphs: Vec<Marked> = cleaned.iter().map(|text| unmarked(text)).collect();
@@ -50,7 +60,7 @@ impl Story {
             .chain(&paragraphs)
             .flat_map(|marked| marked.names.iter().cloned())
             .collect();
-        aliases::learn_names_from_peer(active, &names)?;
+        aliases::learn_names(active, &names)?;
         let accepted = StoryChange::Accepted {
             number,
             at,

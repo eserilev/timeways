@@ -465,16 +465,15 @@ fn accept_reads_the_known_players_once_however_many_marks() {
 }
 
 /// A piece of a text from a peer: marks valid and broken, of strangers, of the reader, and
-/// surname marks, signs that touch them, braces, hidden characters, and plain words. A typed
-/// `$N` is left out: the property reads `$N` as the reader. A mark that touches a word is
-/// typed text, which the reader's addon marks as it marks any text, so no other name of the
-/// reader is in the pieces.
+/// surname marks, marks of words that no name can be, a typed `$N`, signs that touch them,
+/// braces, hidden characters, a name that the reader knows, and plain words.
 fn peer_piece() -> impl Strategy<Value = String> {
     prop_oneof![
         3 => prop::sample::select(vec![
             "{Lysara}", "{Zqada-Bean}", "{~Zqada-Bean}", "{Corvin}", "{Zqada-X}", "{~Lysara-X}",
             "{123}", "{Ada-}", "{~}", "{~-X}", "{Lys ara}", "{", "}", "x", " ", "  ", ", ",
-            "\u{200B}", "\u{A0}", "\u{301}", "{Ly\u{200B}sara}",
+            "\u{200B}", "\u{A0}", "\u{301}", "{Ly\u{200B}sara}", "$N", "{The}", "{I}",
+            "{lysara}", "{LYSARA}", "{Thequickbrownfox}", "ada",
         ]).prop_map(String::from),
         1 => "[Q][a-z]{1,3}".prop_map(|name| format!("{{{name}}}")),
         2 => "[e-h]{1,5}",
@@ -484,16 +483,118 @@ fn peer_piece() -> impl Strategy<Value = String> {
 #[test]
 fn the_reader_and_the_desktop_read_the_marks_of_a_peer_alike() {
     let (_, corvin) = party();
-    let mut runner = TestRunner::new(ProptestConfig::with_cases(512));
-    let text = prop::collection::vec(peer_piece(), 0..60).prop_map(|parts| parts.concat());
+    let mut runner = TestRunner::new(ProptestConfig::with_cases(256));
+    let text = || prop::collection::vec(peer_piece(), 1..30).prop_map(|parts| parts.concat());
+    let story = (
+        prop_oneof![Just(String::new()), text()],
+        prop::collection::vec(text(), 1..4),
+    );
 
-    let result = runner.run(&text, |text| {
-        let differ = peer_marks_disagree(&corvin, "Corvin", text.as_bytes());
+    let result = runner.run(&story, |(title, paragraphs)| {
+        let texts: Vec<Vec<u8>> = std::iter::once(title)
+            .chain(paragraphs)
+            .map(|text| text.trim().as_bytes().to_vec())
+            .collect();
+        let differ = peer_marks_disagree(&corvin, "Corvin", &texts);
         prop_assert!(differ.is_none(), "{}", differ.unwrap_or_default());
         Ok(())
     });
 
     result.unwrap();
+}
+
+#[test]
+fn a_story_counts_its_players_once_and_keeps_every_mark_it_sends() {
+    let (_, corvin) = party();
+    let marks: Vec<String> = (0..32u8)
+        .map(|n| {
+            format!(
+                "{{Q{}{}}}",
+                char::from(b'a' + n / 26),
+                char::from(b'a' + n % 26)
+            )
+        })
+        .collect();
+    hear_story(
+        &corvin,
+        &format!("a1;;{}%0A{{Corvin}} and Ada ran.", marks.join(" ")),
+    );
+
+    corvin.run("wow.Slash('/story', 'accept')");
+    let (title, paragraphs) = accepted(&sent_inputs(&corvin)).expect("an accepted story");
+    let kept = desktop_of("Corvin").handle(Input::StoryAccepted {
+        at: hourglass::Tick(1),
+        number: 1,
+        title,
+        paragraphs: paragraphs.clone(),
+    });
+
+    assert_eq!(paragraphs[1], "{Corvin} and {Ada} ran.");
+    assert_eq!(paragraphs[0].matches('{').count(), 31, "{}", paragraphs[0]);
+    assert!(kept.is_ok(), "{kept:?}");
+}
+
+#[test]
+fn a_story_that_names_too_many_players_you_know_stays_waiting() {
+    let (_, corvin) = party();
+    let names: Vec<String> = (0..33u8)
+        .map(|n| {
+            format!(
+                "Q{}{}",
+                char::from(b'a' + n / 26),
+                char::from(b'a' + n % 26)
+            )
+        })
+        .collect();
+    let roster: Vec<String> = names
+        .iter()
+        .map(|name| format!("{{ name = '{name}-Stormrage', online = false }}"))
+        .collect();
+    corvin.run(&format!(
+        "wow.guild = {{ {} }} wow.Fire('GUILD_ROSTER_UPDATE', false)",
+        roster.join(", ")
+    ));
+    hear_story(&corvin, &format!("a1;;{}", names.join(" ")));
+
+    let problem: String = corvin.eval("return ns.PlayerStories.Accept()");
+
+    assert_eq!(problem, "This story names too many players to keep.");
+    assert_eq!(waiting(&corvin), 1);
+    assert_eq!(accepted(&sent_inputs(&corvin)), None);
+}
+
+#[test]
+fn a_mark_of_a_word_that_no_name_can_be_is_its_word() {
+    let (_, corvin) = party();
+    hear_story(&corvin, "a1;;{The} wolf {A} came {I}, {Thequickbrownfox}.");
+
+    let page = story_page(&corvin).join("\n");
+    corvin.run("wow.Slash('/story', 'accept')");
+
+    assert!(
+        page.contains("The wolf A came I, Thequickbrownfox."),
+        "{page}"
+    );
+    assert!(!page.contains("Players named"), "{page}");
+    let (_, paragraphs) = accepted(&sent_inputs(&corvin)).expect("an accepted story");
+    assert_eq!(paragraphs, ["The wolf A came I, Thequickbrownfox."]);
+}
+
+#[test]
+fn a_typed_name_mark_of_a_peer_is_no_name_mark() {
+    let (_, corvin) = party();
+    hear_story(&corvin, "a1;;$N and {Lysara} and {lysara} and {LYSARA}");
+
+    let page = story_page(&corvin).join("\n");
+    corvin.run("wow.Slash('/story', 'accept')");
+
+    assert!(
+        page.contains("N and Lysara and lysara and LYSARA"),
+        "{page}"
+    );
+    assert!(page.contains("Players named: Lysara\n"), "{page}");
+    let (_, paragraphs) = accepted(&sent_inputs(&corvin)).expect("an accepted story");
+    assert_eq!(paragraphs, ["N and {Lysara} and {lysara} and {LYSARA}"]);
 }
 
 /// A desktop with this character, as the story program runs it.

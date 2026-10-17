@@ -198,32 +198,110 @@ pub fn accepted_task(steps: &str) -> (Player, Player, String) {
     (ada, corvin, id)
 }
 
-/// The story program and the addon of a reader read the marks of a peer's text alike: the
-/// page shows `TaskNames.Shown`, and the desktop gets the same words from the text of
-/// `TaskNames.MarkedKeeping`, with `$N` read back as the reader's name `name`, in any case.
-/// The marks name at most 32 players. Returns why they differ.
-pub fn peer_marks_disagree(reader: &Player, name: &str, text: &[u8]) -> Option<String> {
+/// The story program and the addon of a reader read the marks of a peer's story alike: the
+/// page shows `TaskNames.ShownStory` of its texts, the title first, and the desktop keeps the
+/// story that `TaskNames.MarkedStory` made, with the same words, `$N` read back as the
+/// reader's name `name`, in any case. The marks name at most 32 other players. A story that
+/// breaks the limits of a story is no case. Returns why they differ.
+pub fn peer_marks_disagree(reader: &Player, name: &str, texts: &[Vec<u8>]) -> Option<String> {
     let lua = &reader.game.lua;
     let read: mlua::Function = reader.eval(
-        "return function(text)
-             local kept = ns.TaskNames.MarkedKeeping(text)
-             return ns.TaskNames.Shown(text), kept
+        "return function(texts)
+             return ns.TaskNames.ShownStory(texts), ns.TaskNames.MarkedStory(texts)
          end",
     );
-    let (shown, kept): (mlua::LuaString, mlua::LuaString) =
-        read.call(lua.create_string(text).unwrap()).unwrap();
-    let shown = String::from_utf8_lossy(&shown.as_bytes()).into_owned();
-    let kept = String::from_utf8_lossy(&kept.as_bytes()).into_owned();
-    let marked = timeways_story::aliases::unmarked(&kept);
-    let desktop = marked.text.replace("$N", name);
-    // The reader's own name, typed in any case, comes back as `$N`.
-    if desktop.to_lowercase() != shown.to_lowercase() {
-        return Some(format!(
-            "{shown:?} on the page, {desktop:?} on the desktop, from {kept:?}"
-        ));
+    let lua_texts: Vec<mlua::LuaString> = texts
+        .iter()
+        .map(|text| lua.create_string(text).unwrap())
+        .collect();
+    let (shown, kept): (Vec<mlua::LuaString>, Option<Vec<mlua::LuaString>>) =
+        read.call(lua_texts).unwrap();
+    let text = |value: &mlua::LuaString| String::from_utf8_lossy(&value.as_bytes()).into_owned();
+    let shown: Vec<String> = shown.iter().map(text).collect();
+    let kept: Vec<String> = kept?.iter().map(text).collect();
+    let plain: Vec<String> = kept
+        .iter()
+        .map(|text| timeways_story::aliases::unmarked(text).text)
+        .collect();
+    let title = (!plain[0].is_empty()).then(|| plain[0].as_str());
+    if !timeways_story::stories::is_good_story(title, &plain[1..]) {
+        return None;
     }
-    let mut players: Vec<String> = marked.names.iter().map(|key| key.to_lowercase()).collect();
-    players.sort();
-    players.dedup();
-    (players.len() > 32).then(|| format!("{} players in {kept:?}", players.len()))
+    let others = timeways_story::aliases::other_players(&kept, name);
+    if others > 32 {
+        return Some(format!("{others} players in {kept:?}"));
+    }
+    let stored = match desktop_story(name, &kept) {
+        Ok(stored) => stored,
+        Err(error) => return Some(format!("the desktop refused {kept:?}: {error}")),
+    };
+    let desktop: Vec<String> = stored
+        .iter()
+        .map(|text| without_realms(&text.replace("$N", name).to_lowercase()))
+        .collect();
+    let page: Vec<String> = shown
+        .iter()
+        .map(|text| without_realms(&text.to_lowercase()))
+        .collect();
+    (desktop != page)
+        .then(|| format!("{page:?} on the page, {desktop:?} on the desktop, from {kept:?}"))
+}
+
+/// The story as the desktop of the character `name` keeps it, the title first: an empty
+/// title for none.
+fn desktop_story(name: &str, kept: &[String]) -> Result<Vec<String>, String> {
+    use timeways_story::input::{Input, MessageId};
+    use timeways_story::story::Output;
+    // A fuzz target has no test folder of cargo.
+    let folder = option_env!("CARGO_TARGET_TMPDIR")
+        .map_or_else(std::env::temp_dir, std::path::PathBuf::from);
+    let path = folder.join("peer-marks-pack.sqlite");
+    if !path.exists() {
+        timeways_story::pack::Pack::write(&path, &[]).unwrap();
+    }
+    let pack = timeways_story::pack::Pack::open(&path).unwrap();
+    let mut story = timeways_story::story::Story::new(pack, timeways_story::store::Store::Memory);
+    let entered = Input::CharacterEntered {
+        realm: "Stormrage".to_string(),
+        name: name.to_string(),
+    };
+    story.handle(entered).unwrap();
+    let accepted = Input::StoryAccepted {
+        at: hourglass::Tick(1),
+        number: 1,
+        title: (!kept[0].is_empty()).then(|| kept[0].clone()),
+        paragraphs: kept[1..].to_vec(),
+    };
+    story.handle(accepted).map_err(|error| error.to_string())?;
+    let asked = Input::JournalAsked {
+        id: MessageId(1),
+        page: 0,
+    };
+    let Output::Journal { page, .. } = story.handle(asked).unwrap().remove(0) else {
+        return Err("no journal".to_string());
+    };
+    let told = &page.journal.stories[0];
+    let mut texts = vec![told.title.clone().unwrap_or_default()];
+    texts.extend(told.paragraphs.iter().cloned());
+    Ok(texts)
+}
+
+/// The text with each "-Realm" after a word taken out. The desktop swaps a known name with
+/// its realm, "Lysara-X", for one ID, so the journal shows "Lysara" where the page shows the
+/// typed "Lysara-X": a word of the screen, no name.
+fn without_realms(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut chars = text.chars().peekable();
+    let is_word = timeways_story::aliases::is_word_char;
+    while let Some(c) = chars.next() {
+        let after_a_word = out.chars().last().is_some_and(is_word);
+        if c == '-' && after_a_word && chars.peek().is_some_and(|next| is_word(*next)) {
+            while chars.peek().is_some_and(|next| is_word(*next)) {
+                chars.next();
+            }
+            continue;
+        }
+        out.push(c);
+    }
+    out
 }

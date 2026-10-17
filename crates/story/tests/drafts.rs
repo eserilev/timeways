@@ -13,7 +13,7 @@ use timeways_story::pack::Pack;
 use timeways_story::race_class::{Class, Race};
 use timeways_story::serve;
 use timeways_story::store::Store;
-use timeways_story::story::{Output, Story};
+use timeways_story::story::{Output, Story, StoryError};
 
 fn known() -> Known<'static> {
     Known {
@@ -474,39 +474,64 @@ fn accept_story(story: &mut Story, text: &str) {
 }
 
 #[test]
-fn a_word_that_a_story_marked_swaps_later_only_with_a_capital() {
+fn a_story_never_teaches_a_word_that_no_name_of_the_game_can_be() {
     let mut story = story("hostile-story");
-    accept_story(&mut story, "{The} wolf {And} came.");
+    accept_story(&mut story, "{The} wolf {A} came {I}, {Thequickbrownfox}.");
 
-    let (_, prompt) = ask(&mut story, "the cat and the dog came. The end.");
+    let (_, prompt) = ask(
+        &mut story,
+        "The wolf, a cat, the end. I came, thequickbrownfox.",
+    );
 
     assert!(
-        prompt.contains("the cat and the dog came. {P1} end."),
+        prompt.contains("The wolf, a cat, the end. I came, thequickbrownfox."),
         "{prompt}"
     );
+    assert!(!prompt.contains("Players in the idea"), "{prompt}");
 }
 
 #[test]
-fn a_story_teaches_at_most_thirty_two_names() {
+fn a_name_that_a_story_taught_reaches_no_prompt_in_any_case() {
+    let mut story = story("story-name-any-case");
+    accept_story(&mut story, "{Lysara} came.");
+
+    let (_, prompt) = ask(&mut story, "help lysara and LYSARA");
+
+    assert!(prompt.contains("help {P1} and {P1}"), "{prompt}");
+}
+
+#[test]
+fn a_story_that_names_more_than_thirty_two_other_players_is_refused() {
     let mut story = story("story-names");
-    let names: Vec<String> = (0..40u8)
+    let marks: Vec<String> = (0..33u8)
         .map(|n| {
             format!(
-                "Q{}{}",
+                "{{Q{}{}}}",
                 char::from(b'a' + n / 26),
                 char::from(b'a' + n % 26)
             )
         })
         .collect();
-    let marks: Vec<String> = names.iter().map(|name| format!("{{{name}}}")).collect();
-    accept_story(&mut story, &marks.join(" "));
+    let mine = "{Tester} and {Tester}";
 
-    let (_, prompt) = ask(&mut story, &format!("help {} and {}", names[31], names[32]));
+    let refused = story.handle(Input::StoryAccepted {
+        at: Tick(3),
+        number: 1,
+        title: None,
+        paragraphs: vec![marks.join(" ")],
+    });
+    let kept = story.handle(Input::StoryAccepted {
+        at: Tick(3),
+        number: 2,
+        title: Some(marks[0].clone()),
+        paragraphs: vec![
+            marks[..16].join(" "),
+            format!("{} {mine}", marks[16..32].join(" ")),
+        ],
+    });
 
-    assert!(
-        prompt.contains(&format!("help {{P32}} and {}", names[32])),
-        "{prompt}"
-    );
+    assert!(matches!(refused, Err(StoryError::BadStory)), "{refused:?}");
+    assert!(kept.is_ok(), "{kept:?}");
 }
 
 #[test]

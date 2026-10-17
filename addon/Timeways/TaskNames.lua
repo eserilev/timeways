@@ -475,12 +475,23 @@ function TaskNames.ForPeer(text)
 	return Mark(text, me and MarkOf(me) or "$N", Known())
 end
 
--- The most players that the marks of one story name: the author can mark any word, so a
--- story teaches the reader's desktop a bounded number of names.
+-- The most players that one story names, besides the reader: the author can mark any
+-- word, so a story teaches the reader's desktop a bounded number of names. The desktop
+-- refuses a story with more.
 TaskNames.MAX_PEER_MARKS = 32
 
 -- The longest first name that the desktop takes, in bytes.
 local MAX_NAME_BYTES = 48
+
+-- English words that a mark of a story never teaches, though the game allows them as
+-- names. The desktop holds the same list (`aliases::FUNCTION_WORDS`).
+local FUNCTION_WORDS = {}
+for word in
+	([[the and but then when he she we it they you his her my our their in on at of
+	to for with from by as is was be not no yes this that there here so or if an me him]]):gmatch("%a+")
+do
+	FUNCTION_WORDS[word] = true
+end
 
 -- True for a text of word characters only, as the desktop reads a word.
 local function IsWordOnly(part, letters)
@@ -510,6 +521,13 @@ local function KeyParts(key)
 	return first, surname
 end
 
+-- True for a first name that a mark of a story can teach: 2 to 12 letters, as the game
+-- allows a name, and no function word. Else the mark is its word.
+local function IsLikelyName(first)
+	local letters = select(2, first:gsub(CHAR, ""))
+	return letters >= 2 and letters <= 12 and not FUNCTION_WORDS[TaskNames.Fold(first)]
+end
+
 -- The character that ends at byte `last`, or nil.
 local function CharBefore(text, last)
 	local start = last
@@ -525,8 +543,9 @@ local function CharAt(text, at)
 end
 
 -- Each mark of a text that another player sent, as the desktop reads it: the start and
--- the end of the mark, whether it is a surname mark, its first name, its surname, and its
--- key. A mark that touches a word character was typed, and is no mark.
+-- the end of the mark, whether it is a surname mark, its first name, its surname, its key,
+-- and whether it is a likely name. A mark that touches a word character was typed, and is
+-- no mark.
 local function PeerMarks(text)
 	local marks, at = {}, 1
 	while true do
@@ -545,6 +564,7 @@ local function PeerMarks(text)
 				first = first,
 				surname = surname,
 				key = key,
+				likely = IsLikelyName(first),
 			}
 		end
 		at = close + 1
@@ -563,10 +583,35 @@ local function IsMine(mark, me, mySurname)
 	return TaskNames.Fold(mark.first) == me and sameSurname
 end
 
+-- A text of a peer as the reader's addon reads it: broken bytes as U+FFFD, no character
+-- that shows nothing, and a typed `$N` as "N": on the reader's desktop `$N` names the
+-- reader, so a peer can't type it.
+local function PeerText(text)
+	return (TaskNames.Visible(ns.Utf8.Lossy(text)):gsub("%$N", "N"))
+end
+
+-- The text with each mark that `turns` picks as its word. A mark that touches the word
+-- of a mark before it is no mark any more, as the desktop reads the text.
+local function AsWords(text, turns)
+	local parts, at = {}, 1
+	for _, mark in ipairs(PeerMarks(text)) do
+		if turns(mark) then
+			parts[#parts + 1] = text:sub(at, mark.open - 1)
+			parts[#parts + 1] = MarkWord(mark)
+			at = mark.close + 1
+		end
+	end
+	parts[#parts + 1] = text:sub(at)
+	return table.concat(parts)
+end
+
+local function Unlikely(mark)
+	return not mark.likely
+end
+
 -- The text as your screen shows it: each mark as its word, every other brace as a
 -- parenthesis, as the desktop reads the text.
-function TaskNames.Shown(text)
-	text = TaskNames.Visible(ns.Utf8.Lossy(text))
+local function ShownText(text)
 	local parts, at = {}, 1
 	for _, mark in ipairs(PeerMarks(text)) do
 		parts[#parts + 1] = WithoutBraces(text:sub(at, mark.open - 1))
@@ -577,65 +622,138 @@ function TaskNames.Shown(text)
 	return table.concat(parts)
 end
 
--- The names that the marks of a story show, once each, for the page before Accept.
-function TaskNames.PeerNames(text)
-	local names, seen = {}, {}
-	local me, mySurname = MyName()
-	text = TaskNames.Visible(ns.Utf8.Lossy(text))
-	for _, mark in ipairs(PeerMarks(text)) do
-		local word = MarkWord(mark)
-		if not IsMine(mark, me, mySurname) and not seen[word] and #names < TaskNames.MAX_PEER_MARKS then
-			seen[word] = true
-			names[#names + 1] = word
-		end
-	end
-	return names
+function TaskNames.Shown(text)
+	return ShownText(AsWords(PeerText(text), Unlikely))
 end
 
--- A text that another player sent, for the story program: the marks of the author stay, at
--- most `MAX_PEER_MARKS` players, a mark past the limit becomes its word, and the rest is
--- marked as `Marked` does. A mark of you stays a mark too: the desktop reads it as `$N`,
--- and a `$N` here would touch the next mark. Returns the text, and the other players that
--- it marks, once each.
-function TaskNames.MarkedKeeping(text)
-	text = TaskNames.Visible(ns.Utf8.Lossy(text))
-	local known = Known()
-	local parts, players, seen, rest, at = {}, {}, {}, {}, 1
-	local kept, count = {}, 0
+-- The folded key of the mark of a player: "kobee-will", or "bram" for a player with a realm.
+local function KeyOf(full)
+	return TaskNames.Fold(MarkOf(full):sub(2, -2))
+end
+
+TaskNames.TOO_MANY_PLAYERS = "This story names too many players to keep."
+
+-- What the reader keeps of a story of a peer, the title and the paragraphs together, for
+-- the story program, which counts every mark of the story: a mark of an unlikely name as
+-- its word, the players that the reader's addon marks counted first, then the marks of the
+-- author that fit `MAX_PEER_MARKS`, the others as their words. A mark of the reader stays a
+-- mark, and the desktop reads it as `$N`. Returns the texts, the players that they mark,
+-- the words of the author's marks that stay, and the texts as your screen shows them, or
+-- nil and why.
+local function KeptStory(texts, known)
+	local cut = {}
+	for n, text in ipairs(texts) do
+		cut[n] = AsWords(PeerText(text), Unlikely)
+	end
+	local keys, count = {}, 0
+	local function Count(full)
+		local key = KeyOf(full)
+		if not keys[key] then
+			keys[key], count = true, count + 1
+		end
+	end
+	-- Each text with its marks, and the text between them marked by the reader's addon.
+	local function Pieces(text, each)
+		local at = 1
+		for _, mark in ipairs(PeerMarks(text)) do
+			each(text:sub(at, mark.open - 1), mark)
+			at = mark.close + 1
+		end
+		each(text:sub(at), nil)
+	end
+	for _, text in ipairs(cut) do
+		Pieces(text, function(rest)
+			for _, full in ipairs(select(2, Mark(rest, "$N", known))) do
+				Count(full)
+			end
+		end)
+	end
+	if count > TaskNames.MAX_PEER_MARKS then
+		return nil, TaskNames.TOO_MANY_PLAYERS
+	end
+	local function PastTheLimit(mark)
+		local key = TaskNames.Fold(mark.key)
+		if IsMine(mark, known.me, known.mySurname) or keys[key] then
+			return false
+		end
+		if count < TaskNames.MAX_PEER_MARKS then
+			keys[key], count = true, count + 1
+			return false
+		end
+		return true
+	end
+	for n, text in ipairs(cut) do
+		cut[n] = AsWords(text, PastTheLimit)
+	end
+	local marked, shown, players, seen, words = {}, {}, {}, {}, {}
 	local function Named(full)
 		if full and not seen[full] then
 			seen[full] = true
 			players[#players + 1] = full
 		end
 	end
-	local function MarkRest()
-		local marked, named = Mark(table.concat(rest), "$N", known)
-		parts[#parts + 1] = marked
-		rest = {}
-		for _, full in ipairs(named) do
-			Named(full)
-		end
-	end
-	for _, mark in ipairs(PeerMarks(text)) do
-		rest[#rest + 1] = text:sub(at, mark.open - 1)
-		local folded = TaskNames.Fold(mark.key)
-		if not kept[folded] and count < TaskNames.MAX_PEER_MARKS then
-			kept[folded], count = true, count + 1
-		end
-		if kept[folded] then
-			MarkRest()
-			parts[#parts + 1] = text:sub(mark.open, mark.close)
-			if not IsMine(mark, known.me, known.mySurname) then
-				Named(ns.TaskPeople.Full(mark.surname and (mark.first .. "-" .. mark.surname) or mark.first))
+	keys, count = {}, 0
+	for n, text in ipairs(cut) do
+		local parts = {}
+		Pieces(text, function(rest, mark)
+			local restMarked, named = Mark(rest, "$N", known)
+			parts[#parts + 1] = restMarked
+			for _, full in ipairs(named) do
+				Named(full)
+				Count(full)
 			end
-		else
-			rest[#rest + 1] = MarkWord(mark)
-		end
-		at = mark.close + 1
+			if mark then
+				parts[#parts + 1] = text:sub(mark.open, mark.close)
+				if not IsMine(mark, known.me, known.mySurname) then
+					local full = ns.TaskPeople.Full(mark.surname and (mark.first .. "-" .. mark.surname) or mark.first)
+					Named(full)
+					if full then
+						Count(full)
+					end
+					words[#words + 1] = MarkWord(mark)
+				end
+			end
+		end)
+		marked[n], shown[n] = table.concat(parts), ShownText(text)
 	end
-	rest[#rest + 1] = text:sub(at)
-	MarkRest()
-	return table.concat(parts), players
+	if count > TaskNames.MAX_PEER_MARKS then
+		return nil, TaskNames.TOO_MANY_PLAYERS
+	end
+	return marked, players, words, shown
+end
+
+-- A story that another player sent, for the story program: its texts, the title first.
+-- Returns the texts and the players that they mark, or nil and why.
+function TaskNames.MarkedStory(texts)
+	return KeptStory(texts, Known())
+end
+
+-- The texts of a story as your screen shows them, as the desktop will keep them.
+function TaskNames.ShownStory(texts)
+	local _, _, _, shown = KeptStory(texts, Known())
+	if shown then
+		return shown
+	end
+	local each = {}
+	for n, text in ipairs(texts) do
+		each[n] = TaskNames.Shown(text)
+	end
+	return each
+end
+
+-- The names that the marks of the author show, once each in any case, for the page before
+-- Accept: the ones that the reader keeps.
+function TaskNames.PeerNames(texts)
+	local _, _, words = KeptStory(texts, Known())
+	local names, seen = {}, {}
+	for _, word in ipairs(words or {}) do
+		local folded = TaskNames.Fold(word)
+		if not seen[folded] then
+			seen[folded] = true
+			names[#names + 1] = word
+		end
+	end
+	return names
 end
 
 -- A line with the race and the class of each player whom the game shows now, for the card

@@ -280,26 +280,20 @@ function PlayerStories.Names()
 	return names
 end
 
--- The title and the paragraphs with the marks of the author, each other known player
--- marked, and the players marked.
+-- The title and the paragraphs with the marks of the author that stay, each other known
+-- player marked, and the players marked. Nil and why for a story that names too many
+-- players.
 local function Marked(story)
-	local players, seen = {}, {}
-	local function Mark(text)
-		local marked, named = ns.TaskNames.MarkedKeeping(text)
-		for _, full in ipairs(named) do
-			if not seen[full] then
-				seen[full] = true
-				players[#players + 1] = full
-			end
-		end
-		return marked
-	end
-	local title = story.title ~= "" and Mark(story.title) or nil
-	local paragraphs = {}
+	local texts = { story.title }
 	for _, paragraph in ipairs(ns.StoryText.Paragraphs(story.text)) do
-		paragraphs[#paragraphs + 1] = Mark(paragraph)
+		texts[#texts + 1] = paragraph
 	end
-	return title, paragraphs, players
+	local marked, players = ns.TaskNames.MarkedStory(texts)
+	if not marked then
+		return nil, nil, nil, players
+	end
+	local title = story.title ~= "" and marked[1] or nil
+	return title, { unpack(marked, 2) }, players
 end
 
 PlayerStories.TOO_LONG_TO_KEEP = "This story is too long to keep. Decline it, or ask %s for a shorter one."
@@ -314,7 +308,11 @@ function PlayerStories.Accept(index)
 		return
 	end
 	local data = Data()
-	local title, paragraphs, players = Marked(story)
+	local title, paragraphs, players, refused = Marked(story)
+	if not paragraphs then
+		Say(refused)
+		return refused
+	end
 	local accepted = ns.Inputs.StoryAccepted(time(), data.nextNumber, title, paragraphs)
 	if not ns.Outbox.Fits(accepted) then
 		local problem = string.format(PlayerStories.TOO_LONG_TO_KEEP, Short(story.author))
