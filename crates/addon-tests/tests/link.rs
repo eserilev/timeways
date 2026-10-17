@@ -28,7 +28,8 @@ fn a_question_goes_into_the_saved_outbox_and_starts_a_strip() {
         lines[0],
         r#"{"name":"Ada","realm":"Stormrage","type":"character_entered"}"#
     );
-    assert!(lines[1].contains(r#""type":"lore_asked""#), "{text}");
+    assert_eq!(lines[1], r#"{"ai":"on","type":"ai_set"}"#);
+    assert!(lines[2].contains(r#""type":"lore_asked""#), "{text}");
     assert!(game.eval::<u32>("wow.shots") >= 1);
 }
 

@@ -140,11 +140,11 @@ end
 EventRegistry:RegisterCallback("SetItemRef", Ratings.LinkClicked, Ratings)
 
 local COMMANDS = {
-	["ratings on"] = function()
+	on = function()
 		Ratings.SetOn(true)
 		Say("Ratings are on. Click [Rate] after a narrator line. Ratings stay on your computer.")
 	end,
-	["ratings off"] = function()
+	off = function()
 		Ratings.SetOn(false)
 		Say("Ratings are off.")
 	end,
@@ -152,8 +152,7 @@ local COMMANDS = {
 
 -- Runs a command of `/timeways`, and returns false for a message that is no rating command.
 function Ratings.Command(message)
-	local words = message:lower():match("^%s*(.-)%s*$"):gsub("%s+", " ")
-	local command = COMMANDS[words]
+	local command = COMMANDS[ns.Switch.Read(message, "ratings")]
 	if not command then
 		return false
 	end

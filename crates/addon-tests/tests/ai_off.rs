@@ -189,14 +189,12 @@ fn help_says_whether_ai_is_on() {
     on.run("wow.Slash('/timeways', 'help')");
     off.run("wow.Slash('/timeways', 'help')");
 
-    assert!(
-        on.printed()
-            .contains(&"|cffc8a064Timeways|r: AI: On".to_string())
-    );
-    assert!(
-        off.printed()
-            .contains(&"|cffc8a064Timeways|r: AI: Off".to_string())
-    );
+    assert!(on.printed().contains(
+        &"|cffc8a064Timeways|r: AI: On. To turn it off, type /timeways ai off.".to_string()
+    ));
+    assert!(off.printed().contains(
+        &"|cffc8a064Timeways|r: AI: Off. To turn it on, type /timeways ai on.".to_string()
+    ));
 }
 
 #[test]

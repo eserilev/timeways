@@ -261,7 +261,7 @@ fn a_question_too_long_for_one_message_is_refused() {
 fn events_that_do_not_fit_in_one_message_go_in_several_in_order() {
     let game = Game::new();
     game.run(
-        "linkLimit = 120
+        "linkLimit = 160
          for level = 2, 6 do wow.Fire('PLAYER_LEVEL_UP', level) end
          wow.RunTickers()",
     );
@@ -275,7 +275,7 @@ fn events_that_do_not_fit_in_one_message_go_in_several_in_order() {
         })
         .collect();
     assert!(game.sent().len() > 1);
-    assert!(game.sent().iter().all(|message| message.len() <= 120));
+    assert!(game.sent().iter().all(|message| message.len() <= 160));
     assert_eq!(levels, [2, 3, 4, 5, 6]);
 }
 

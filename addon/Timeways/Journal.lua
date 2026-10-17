@@ -93,8 +93,9 @@ function Journal.FirstPage(value)
 	return journal
 end
 
--- A page out of order belongs to an older request, and is dropped.
-function Journal.Receive(value)
+-- A page out of order belongs to an older request, and is dropped. `aiChanges` comes from
+-- `ns.OnReply`.
+function Journal.Receive(value, aiChanges)
 	local page, count = value.page, value.pages
 	-- No pages: the desktop failed to read the journal, and the book keeps what it shows.
 	if type(page) ~= "number" or type(count) ~= "number" or count < 1 or count > MAX_PAGES then
@@ -102,7 +103,7 @@ function Journal.Receive(value)
 	end
 	if page == 0 then
 		ns.Dev.DesktopSays(value.dev)
-		ns.Ai.DesktopSays(value.ai)
+		ns.Ai.DesktopSays(value.ai, aiChanges)
 		ns.Past.JournalSays(value.past)
 		collecting = Started()
 		collecting.talk_quest = value.talk_quest

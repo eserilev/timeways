@@ -20,6 +20,9 @@ const AI_ON_LINE: &str = r#"{"ai":"on","type":"ai_set"}"#;
 const SAID_OFF: &str =
     "|cffc8a064Timeways|r: AI is off. NPCs won't talk and the narrator stays quiet.";
 const SAID_ON: &str = "|cffc8a064Timeways|r: AI is on.";
+const HELP_ON: &str = "|cffc8a064Timeways|r: AI: On. To turn it off, type /timeways ai off.";
+const HELP_OFF: &str = "|cffc8a064Timeways|r: AI: Off. To turn it on, type /timeways ai on.";
+const AI_USAGE: &str = "|cffc8a064Timeways|r: Type /timeways ai on or /timeways ai off.";
 
 fn slash(game: &Game, message: &str) {
     game.run(&format!("wow.Slash('/timeways', '{message}')"));
@@ -57,16 +60,23 @@ fn ai_is_on_by_default() {
 }
 
 #[test]
-fn the_ai_setting_saves_and_survives_a_reload() {
+fn ai_off_is_saved_as_false_in_the_account_settings() {
     let game = Game::new();
-    slash(&game, "ai off");
-    let saved: bool = game.eval("return TimewaysSettings.ai");
 
-    let reloaded = Game::new();
-    reloaded.run(&format!("TimewaysSettings = {{ ai = {saved} }}"));
+    slash(&game, "ai off");
+
+    assert!(!game.eval::<bool>("return TimewaysSettings.ai"));
+    assert!(!is_on(&game));
+}
+
+/// The harness has no real reload: a new game gets the saved variables as WoW loads them.
+#[test]
+fn a_saved_false_keeps_ai_off_in_a_new_session() {
+    let game = Game::new();
+
+    game.run("TimewaysSettings = { ai = false }");
 
     assert!(!is_on(&game));
-    assert!(!is_on(&reloaded));
 }
 
 /// Any addon can write the saved variables, so only a plain `false` turns AI off.
@@ -111,14 +121,21 @@ fn help_says_whether_ai_is_on_with_no_journal() {
     on.run("wow.Slash('/timeways', 'help')");
     off.run("wow.Slash('/timeways', 'help')");
 
-    assert!(
-        on.printed()
-            .contains(&"|cffc8a064Timeways|r: AI: On".to_string())
-    );
-    assert!(
-        off.printed()
-            .contains(&"|cffc8a064Timeways|r: AI: Off".to_string())
-    );
+    assert!(on.printed().contains(&HELP_ON.to_string()));
+    assert!(off.printed().contains(&HELP_OFF.to_string()));
+}
+
+#[test]
+fn ai_with_no_word_or_a_wrong_word_says_how_to_use_it() {
+    for message in ["ai", "ai maybe", " AI  of "] {
+        let game = Game::new();
+        game.run("opened = false; ns.JournalFrame.Toggle = function() opened = true end");
+
+        slash(&game, message);
+
+        assert_eq!(game.printed(), [AI_USAGE], "{message}");
+        assert!(!game.eval::<bool>("return opened"), "{message}");
+    }
 }
 
 #[test]
@@ -134,13 +151,39 @@ fn while_ai_is_off_each_batch_says_so_after_the_character_line() {
 }
 
 #[test]
-fn while_ai_is_on_no_batch_carries_the_ai_line() {
+fn while_ai_is_on_each_batch_says_so_after_the_character_line() {
     let game = Game::new();
 
     level_up(&game);
 
-    assert_eq!(lines_of(&newest_batch(&game))[0], CHARACTER);
-    assert!(!newest_batch(&game).contains("ai_set"));
+    assert_eq!(lines_of(&newest_batch(&game))[..2], [CHARACTER, AI_ON_LINE]);
+}
+
+#[test]
+fn a_batch_of_one_input_carries_the_ai_line() {
+    let game = game_with_setting_off();
+
+    let batch: String = game.eval("return ns.Outbox.Alone(ns.Inputs.JournalAsked(0))");
+
+    assert_eq!(lines_of(&batch)[..2], [CHARACTER, AI_OFF_LINE]);
+}
+
+#[test]
+fn events_kept_from_the_last_session_go_after_the_ai_line() {
+    let game = Game::before_login();
+    game.run(
+        r#"TimewaysSettings = { ai = false }
+           TimewaysWaiting = { '{"at":1790000000,"level":20,"type":"level_reached"}' }
+           ns.Outbox.Load()
+           ns.Outbox.SetCharacter(ns.Inputs.Character('Stormrage', 'Ada'))
+           ns.Outbox.Flush()"#,
+    );
+
+    let level = r#"{"at":1790000000,"level":20,"type":"level_reached"}"#;
+    assert_eq!(
+        lines_of(&newest_batch(&game)),
+        [CHARACTER, AI_OFF_LINE, level]
+    );
 }
 
 #[test]
@@ -153,16 +196,67 @@ fn turning_ai_off_tells_the_story_program_at_once() {
 }
 
 #[test]
-fn turning_ai_on_tells_the_story_program_once() {
+fn turning_ai_on_tells_the_story_program_at_once() {
     let game = game_with_setting_off();
 
     slash(&game, "ai on");
-    let told = newest_batch(&game);
-    game.run("wow.RunTickers()");
+
+    assert_eq!(lines_of(&newest_batch(&game)), [CHARACTER, AI_ON_LINE]);
+}
+
+#[test]
+fn an_on_line_lost_with_its_batch_is_sent_again_with_the_next() {
+    let game = game_with_setting_off();
+    slash(&game, "ai on");
+    let lost = game.sent().len();
+
+    game.run(&format!("ns.Link.Receive({lost}, 'error', 'Timed out.')"));
     level_up(&game);
 
-    assert_eq!(lines_of(&told), [CHARACTER, AI_ON_LINE]);
-    assert!(!newest_batch(&game).contains("ai_set"));
+    assert_eq!(lines_of(&newest_batch(&game))[..2], [CHARACTER, AI_ON_LINE]);
+}
+
+#[test]
+fn the_ai_line_survives_a_reload_before_the_next_flush() {
+    let game = Game::new();
+    game.run("TimewaysSettings = { ai = true }");
+
+    level_up(&game);
+
+    assert_eq!(lines_of(&newest_batch(&game))[..2], [CHARACTER, AI_ON_LINE]);
+}
+
+const JOURNAL_SAYS_OFF: &str = r#"{"type":"journal","page":0,"pages":1,"ai":"off"}"#;
+
+/// Answers batch `id` with a journal that says AI is off.
+fn answer_with_journal_off(game: &Game, id: usize) {
+    game.run(&format!(
+        "ns.Link.Receive({id}, 'done', [[{JOURNAL_SAYS_OFF}]])"
+    ));
+}
+
+#[test]
+fn a_journal_asked_before_ai_on_never_turns_ai_off_again() {
+    let game = game_with_setting_off();
+    game.run("ns.Journal.Request(0)");
+    let asked = game.sent().len();
+
+    slash(&game, "ai on");
+    answer_with_journal_off(&game, asked);
+
+    assert!(is_on(&game));
+}
+
+#[test]
+fn a_journal_asked_after_ai_on_can_still_say_off() {
+    let game = game_with_setting_off();
+    slash(&game, "ai on");
+    game.run("wow.RunTickers(); ns.Journal.Request(0)");
+    let asked = game.sent().len();
+
+    answer_with_journal_off(&game, asked);
+
+    assert!(!is_on(&game));
 }
 
 #[test]
@@ -177,6 +271,29 @@ fn a_change_while_the_desktop_is_away_goes_with_the_next_batch() {
 
     assert_eq!(game.sent().len(), 1);
     assert_eq!(lines_of(&newest_batch(&game))[..2], [CHARACTER, AI_ON_LINE]);
+}
+
+#[test]
+fn a_question_that_no_longer_fits_after_ai_off_fails_with_an_error() {
+    let game = Game::new();
+    let question: String = game.eval("return ns.Json.Encode(ns.Inputs.JournalAsked(0))");
+    let fits_with_on = [CHARACTER, AI_ON_LINE, &question].join("\n").len();
+    game.run(&format!(
+        "linkUp = false
+         linkLimit = {fits_with_on}
+         ns.Outbox.Add(ns.Inputs.JournalAsked(0), function(text) failedWith = text end)"
+    ));
+
+    slash(&game, "ai off");
+
+    let failed: Option<String> = game.eval("return failedWith");
+    let error = "|cffc8a064Timeways|r: Too long to send. Try something shorter.".to_string();
+    assert_eq!(
+        failed.as_deref(),
+        Some("Too long to send. Try something shorter.")
+    );
+    assert!(game.printed().contains(&error));
+    assert_eq!(game.eval::<usize>("return ns.Outbox.Waiting()"), 0);
 }
 
 fn passage(text: &str, links: Vec<Link>, about: Option<&str>) -> Passage {

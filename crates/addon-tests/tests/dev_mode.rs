@@ -40,7 +40,8 @@ fn twdev(game: &Game, message: &str) {
     slash.call::<()>(message).unwrap();
 }
 
-/// Each line of each batch that went to the desktop, as JSON.
+/// Each line of each batch that went to the desktop after the opening lines (the
+/// character and the AI setting), as JSON.
 fn sent_lines(game: &Game) -> Vec<Value> {
     game.run("wow.RunTickers()");
     game.sent()
@@ -48,7 +49,7 @@ fn sent_lines(game: &Game) -> Vec<Value> {
         .flat_map(|batch| {
             batch
                 .lines()
-                .skip(1)
+                .skip(2)
                 .map(str::to_string)
                 .collect::<Vec<_>>()
         })
@@ -523,19 +524,20 @@ fn every_input_type() -> Vec<String> {
         .collect()
 }
 
-/// The settings of `/timeways` that make a line of their own, with no play.
-const SETTING_COMMANDS: [&str; 1] = ["ai off"];
-
 #[test]
 fn every_input_line_has_a_dev_command_or_a_scenario() {
     let game = dev_game();
     for command in EVERY_COMMAND {
         twdev(&game, command);
     }
-    for command in SETTING_COMMANDS {
-        game.run(&format!("wow.Slash('/timeways', '{command}')"));
-    }
     let mut covered: Vec<String> = types(&sent_lines(&game));
+    let ai_lines: Vec<Value> = game
+        .sent()
+        .iter()
+        .filter_map(|batch| batch.lines().nth(1))
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    covered.extend(types(&ai_lines));
     for (_, _, text) in timeways_dev::scenario::BUILT_IN {
         let scenario = timeways_dev::scenario::Scenario::parse(text).unwrap();
         for line in scenario.batches.iter().flat_map(|batch| &batch.lines) {

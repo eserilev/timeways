@@ -153,8 +153,9 @@ local function ShowNotice(text)
 end
 
 -- A reply holds one JSON line: an answer, a journal page, or `events_seen` for a batch of
--- game events. Each one can carry a line of the narrator and a notice.
-function ns.OnReply(text)
+-- game events. Each one can carry a line of the narrator and a notice. `aiChanges` is
+-- `Ai.Changes()` when the batch went, or nil for a reply with no known batch.
+function ns.OnReply(text, aiChanges)
 	if type(text) ~= "string" then
 		return
 	end
@@ -162,7 +163,7 @@ function ns.OnReply(text)
 		local value = ns.Json.Decode(line)
 		local handler = type(value) == "table" and REPLIES[value.type]
 		if handler then
-			handler(value)
+			handler(value, aiChanges)
 		end
 		if type(value) == "table" then
 			ns.Narrator.Say(value.narrator, value.narrator_id)
@@ -204,7 +205,7 @@ SlashCmdList.TIMEWAYSJOURNAL = function(message)
 		return
 	end
 	if message:match("^%s*help%s*$") then
-		DEFAULT_CHAT_FRAME:AddMessage("|cffc8a064Timeways|r: AI: " .. (ns.Ai.IsOn() and "On" or "Off"))
+		DEFAULT_CHAT_FRAME:AddMessage("|cffc8a064Timeways|r: " .. ns.Ai.HelpLine())
 		ns.Welcome.Open(ns.Welcome.Reason())
 		return
 	end

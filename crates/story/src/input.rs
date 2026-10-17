@@ -27,8 +27,8 @@ pub enum Input {
         #[serde(default)]
         ai: AiWord,
     },
-    /// The AI setting of the addon. It comes after the character line of each batch while
-    /// AI is off, and of the first batch after a change. It has no reply.
+    /// The AI setting of the addon. It comes after the character line of each batch. It has
+    /// no reply.
     AiSet {
         ai: AiWord,
     },

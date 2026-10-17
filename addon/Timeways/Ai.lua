@@ -18,6 +18,9 @@ Ai.QUESTS_OFF = "Quests from NPCs need AI. To turn it on, type /timeways ai on."
 
 -- True after a journal said "off". A desktop from before the switch sends no `ai`.
 local desktopOff = false
+-- The changes of the setting in this session. A journal asked before the newest change
+-- tells an old state.
+local changes = 0
 
 -- Any addon can write the saved variables, so only a plain `false` turns AI off.
 function Ai.SettingIsOn()
@@ -30,8 +33,16 @@ function Ai.IsOn()
 	return Ai.SettingIsOn() and not desktopOff
 end
 
--- From the first page of each journal. Only "off" turns AI off.
-function Ai.DesktopSays(value)
+function Ai.Changes()
+	return changes
+end
+
+-- From the first page of each journal. Only "off" turns AI off. `asked` is `Ai.Changes()`
+-- when the batch of the journal went, or nil when the batch is unknown, as after a reload.
+function Ai.DesktopSays(value, asked)
+	if asked and asked < changes then
+		return
+	end
 	desktopOff = value == "off"
 end
 
@@ -47,6 +58,7 @@ local function SetOn(on)
 	end
 	_G[GLOBAL].ai = on
 	desktopOff = false
+	changes = changes + 1
 	ns.Outbox.AiChanged()
 	ns.JournalFrame.Refresh()
 end
@@ -56,23 +68,33 @@ local function Say(text)
 end
 
 local COMMANDS = {
-	["ai on"] = function()
+	on = function()
 		SetOn(true)
 		Say("AI is on.")
 	end,
-	["ai off"] = function()
+	off = function()
 		SetOn(false)
 		Say("AI is off. NPCs won't talk and the narrator stays quiet.")
+	end,
+	other = function()
+		Say("Type /timeways ai on or /timeways ai off.")
 	end,
 }
 
 -- Runs a command of `/timeways`, and returns false for a message that is no AI command.
 function Ai.Command(message)
-	local words = message:lower():match("^%s*(.-)%s*$"):gsub("%s+", " ")
-	local command = COMMANDS[words]
+	local command = COMMANDS[ns.Switch.Read(message, "ai")]
 	if not command then
 		return false
 	end
 	command()
 	return true
+end
+
+-- The line of `/timeways help`.
+function Ai.HelpLine()
+	if Ai.IsOn() then
+		return "AI: On. To turn it off, type /timeways ai off."
+	end
+	return "AI: Off. To turn it on, type /timeways ai on."
 end

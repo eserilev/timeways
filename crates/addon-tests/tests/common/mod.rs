@@ -162,13 +162,17 @@ impl Game {
         self.eval("sent")
     }
 
-    /// Each line of each message after the character line, read as the story program
-    /// reads it, with the message id that the bridge adds.
+    /// Each line of each message after the opening lines (the character and the AI
+    /// setting), read as the story program reads it, with the message id that the bridge
+    /// adds. `ai_setting.rs` checks the opening lines.
     pub fn sent_inputs(&self) -> Vec<Input> {
         let mut inputs = Vec::new();
         for (id, message) in self.sent().iter().enumerate() {
             for line in message.lines().skip(1) {
                 let mut value: serde_json::Value = serde_json::from_str(line).unwrap();
+                if value["type"] == "ai_set" {
+                    continue;
+                }
                 value["id"] = serde_json::json!(id + 1);
                 inputs.push(serde_json::from_value(value).unwrap());
             }

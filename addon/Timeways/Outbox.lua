@@ -18,6 +18,9 @@ local MAX_WAITING = 500
 -- change this file, so a kept line is only a string that fits in a message.
 local KEPT = "TimewaysWaiting"
 
+-- An entry that no longer fits a batch, for example after the AI line grew by a byte.
+local TOO_LONG = "Too long to send. Try something shorter."
+
 -- The lines that get a reply. The bridge takes at most one in a batch, as its last line.
 local REPLIES = { lore_asked = true, journal_asked = true, talk_asked = true, draft_asked = true }
 
@@ -48,9 +51,6 @@ local eventsOnTheWay = false
 -- The character line starts every batch, so the desktop always knows whose world a batch
 -- changes, also after the story program restarts.
 local character
--- The AI line follows the character line while AI is off, so even the first batch after a
--- login opens no model call. After a change, the next batch that goes carries it once.
-local aiChanged = false
 
 local function Bound()
 	while #waiting > MAX_WAITING do
@@ -97,20 +97,14 @@ function Outbox.SetCharacter(input)
 	character = ns.Json.Encode(input)
 end
 
-local function AiLine()
-	if ns.Ai.SettingIsOn() and not aiChanged then
-		return nil
-	end
-	return ns.Json.Encode(ns.Inputs.AiSet(ns.Ai.Word()))
-end
-
--- The text of a batch that starts with this line, or of the opening lines alone.
+-- The AI line follows the character line in every batch, so even the first batch after a
+-- login or a restart of the story program opens no model call while AI is off, and a lost
+-- batch never loses a change.
 local function Opening(line)
 	if not character then
 		return line
 	end
-	local ai = AiLine()
-	local head = ai and (character .. "\n" .. ai) or character
+	local head = character .. "\n" .. ns.Json.Encode(ns.Inputs.AiSet(ns.Ai.Word()))
 	return line and (head .. "\n" .. line) or head
 end
 
@@ -124,7 +118,18 @@ function Outbox.Fits(input)
 	return ns.Link.Fits(Opening(ns.Json.Encode(input)))
 end
 
--- An entry that does not fit even alone can never go, so it is dropped.
+-- An entry that does not fit even alone can never go, so it is dropped, and a question
+-- says so.
+local function Drop(entry)
+	if not entry.reply then
+		return
+	end
+	ns.Link.ShowError(TOO_LONG)
+	if entry.failed then
+		entry.failed(TOO_LONG)
+	end
+end
+
 local function Batches(entries)
 	local batches, current = {}, nil
 	for _, entry in ipairs(entries) do
@@ -139,6 +144,8 @@ local function Batches(entries)
 			current.ended = entry.reply
 		elseif ns.Link.Fits(Opening(entry.line)) then
 			current = { text = Opening(entry.line), entries = { entry }, ended = entry.reply }
+		else
+			Drop(entry)
 		end
 	end
 	batches[#batches + 1] = current
@@ -161,7 +168,7 @@ local function Answered(batch, status, text)
 		eventsOnTheWay = false
 	end
 	if status == "done" then
-		ns.OnReply(text)
+		ns.OnReply(text, batch.aiChanges)
 		-- The bridge is up, so the next batch of a backlog goes now, not at the next tick.
 		Outbox.Flush()
 		return
@@ -187,7 +194,7 @@ local function Send(batch)
 		return false
 	end
 	eventsOnTheWay = eventsOnTheWay or not batch.ended
-	aiChanged = false
+	batch.aiChanges = ns.Ai.Changes()
 	ns.Link.Claim(id, function(status, text)
 		Answered(batch, status, text)
 	end)
@@ -235,7 +242,6 @@ end
 -- The story program learns a change of the AI setting at once, also with no event waiting.
 -- While the desktop is away, the next batch carries it.
 function Outbox.AiChanged()
-	aiChanged = true
 	if #waiting > 0 then
 		Outbox.Flush()
 		return

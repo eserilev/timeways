@@ -25,6 +25,7 @@ Position.lua
 Json.lua
 Inputs.lua
 Dev.lua
+Switch.lua
 Ai.lua
 ToPlayers.lua
 Link.lua
