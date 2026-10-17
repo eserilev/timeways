@@ -18,6 +18,7 @@ use timeways_dev::shell_model::shell_model;
 use timeways_dev::worlds::{
     Existing, put_world, restore_snapshot, save_snapshot, snapshot_file, world_file,
 };
+use timeways_story::ai::Ai;
 use timeways_story::dev_mode::DevMode;
 use timeways_story::dev_smoke::newest_log;
 use timeways_story::pack::Pack;
@@ -109,8 +110,12 @@ fn run(args: &[String]) -> Result<(), Box<dyn Error>> {
         ("on", []) => switch(DevMode::On),
         ("off", []) => switch(DevMode::Off),
         ("status", []) => {
-            let mode = Desktop::here()?.dev_mode();
+            let desktop = Desktop::here()?;
+            let mode = desktop.dev_mode();
             println!("Dev mode is {}.", if mode.is_on() { "on" } else { "off" });
+            if desktop.dev_ai() == Ai::Off {
+                println!("The dev switch turns AI off while dev mode is on.");
+            }
             Ok(())
         }
         _ => Err(USAGE.into()),

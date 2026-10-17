@@ -2,7 +2,7 @@
 
 use hourglass::Tick;
 use std::path::Path;
-use timeways_story::ai::Ai;
+use timeways_story::ai::HelloAi;
 use timeways_story::hero::LONG;
 use timeways_story::input::{CallId, FoeKind, GameQuestKind, Input, MessageId, SlotWas};
 use timeways_story::lore::Answer;
@@ -395,7 +395,7 @@ fn an_answer_holds_at_most_eight_passages() {
 fn a_hello_gets_the_protocol() {
     let mut story = story_with("hello", &[]);
 
-    let output = one(story.handle(Input::Hello { ai: Ai::On }).unwrap());
+    let output = one(story.handle(Input::Hello { ai: HelloAi::On }).unwrap());
 
     assert_eq!(output, Some(Output::Hello { protocol: 1 }));
 }

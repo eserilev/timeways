@@ -66,6 +66,37 @@ fn the_journal_with_ai_off_passes_the_checks_of_the_bridge() {
 }
 
 #[test]
+fn a_journal_that_fails_still_says_ai_is_off() {
+    let mut story = story();
+    send(&mut story, HELLO_AI_OFF);
+
+    // With no character yet, the request fails, and it gets the empty journal.
+    let served = send(&mut story, r#"{"type":"journal_asked","id":9}"#);
+
+    assert!(served.error.is_some());
+    let empty: Value = serde_json::from_str(&served.lines[0]).unwrap();
+    assert_eq!(empty["ai"], json!("off"));
+}
+
+#[test]
+fn a_hello_with_an_unknown_ai_word_keeps_ai_on_and_gets_its_reply() {
+    for word in [r#""local""#, r#""Off""#, "null", "1"] {
+        let mut story = story();
+        let hello = format!(r#"{{"type":"hello","protocol":1,"app":"timeways","ai":{word}}}"#);
+
+        let served = send(&mut story, &hello);
+
+        assert_eq!(
+            served.lines,
+            vec![r#"{"type":"hello","protocol":1}"#],
+            "{word}"
+        );
+        assert_eq!(served.notes.len(), 1, "{word}");
+        assert_eq!(story.ai(), Ai::On, "{word}");
+    }
+}
+
+#[test]
 fn only_ai_off_in_the_settings_turns_ai_off() {
     assert_eq!(Ai::of_settings("ai = \"off\"\n"), Ai::Off);
     for text in [

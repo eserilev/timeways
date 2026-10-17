@@ -5,6 +5,7 @@ use crate::model_runner::LocalModel;
 use serde::Deserialize;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
+use timeways_story::ai::Ai;
 use timeways_story::dev_mode::{DevMode, SETTINGS_FILE};
 
 /// Claude Code with no tools, no MCP servers, and no settings, as the review tool runs it.
@@ -160,23 +161,53 @@ impl Desktop {
         DevMode::of_folder(&self.story)
     }
 
-    /// Writes `dev = true` or `dev = false` into the settings of the story program. The
-    /// story program reads it at its start.
+    /// The dev switch `ai = "off"` of the settings (TESTING.md, "Dev mode").
+    #[must_use]
+    pub fn dev_ai(&self) -> Ai {
+        Ai::of_folder(&self.story)
+    }
+
+    /// Writes `dev = true` or `dev = false` into the settings of the story program, and
+    /// keeps its other lines, such as the switch `ai = "off"`. The story program reads it
+    /// at its start.
     ///
     /// # Errors
     ///
     /// Returns the error of the file system.
     pub fn set_dev_mode(&self, mode: DevMode) -> Result<(), DesktopError> {
         let path = self.story.join(SETTINGS_FILE);
-        let text = format!(
-            "# Dev mode of Timeways: /twdev in the game (TESTING.md, \"Dev mode\").\n\
-             # The story program reads this file at its start.\ndev = {}\n",
-            mode.is_on()
-        );
+        let old = std::fs::read_to_string(&path).unwrap_or_else(|_| SETTINGS_HEADER.to_string());
+        let text = with_dev_line(&old, mode);
         std::fs::create_dir_all(&self.story)
             .and_then(|()| std::fs::write(&path, text))
             .map_err(|source| DesktopError::Io { path, source })
     }
+}
+
+const SETTINGS_HEADER: &str = "# Dev mode of Timeways: /twdev in the game (TESTING.md, \"Dev mode\").\n\
+                               # The story program reads this file at its start.\n";
+
+/// The `dev` line goes before the first key, so a table later in the file never holds it.
+fn with_dev_line(old: &str, mode: DevMode) -> String {
+    let lines: Vec<&str> = old.lines().filter(|line| !is_dev_key(line)).collect();
+    let top = lines
+        .iter()
+        .take_while(|line| line.trim().is_empty() || line.trim_start().starts_with('#'))
+        .count();
+    let dev = format!("dev = {}", mode.is_on());
+    let (head, rest) = lines.split_at(top);
+    let mut text = String::new();
+    for line in head.iter().chain([&dev.as_str()]).chain(rest) {
+        text.push_str(line);
+        text.push('\n');
+    }
+    text
+}
+
+fn is_dev_key(line: &str) -> bool {
+    line.trim_start()
+        .strip_prefix("dev")
+        .is_some_and(|rest| rest.trim_start().starts_with('='))
 }
 
 fn home_path(path: &str) -> PathBuf {

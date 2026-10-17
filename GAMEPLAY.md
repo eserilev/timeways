@@ -800,7 +800,12 @@ Timeways uses the transport of Gnomish Relay, with its own key and its own slots
    - On the processor, it does not hurt the game, but a small model writes about 10 to 20 words per second. That is fine for a narrator line, and slow for a chronicle chapter.
    - A small model invents more. The lore pack (5.10) and the checks (5.9) matter even more with it.
 
-**With no model at all, the addon still works.** The features that need no model stay on: the chronicle as a list of the real events, the nemesis counts, the guild boss log, and the lore passages of the pack shown as they are, with their sources. A model makes them better, but it is not required.
+**With no model at all, the addon still works.** The features that need no model stay on: the chronicle as a list of the real events, the nemesis counts, the guild boss log, and the lore passages of the pack shown as they are. The desktop sends the source of each passage, and the lore book shows the text alone (3.1). A model makes them better, but it is not required.
+
+**AI off** (the user, 2026-10-16: "I just want to give players the option to not use AI at all"). A player can choose no model of any kind: no model call, no model install, and no agent login. Everything that works without a model keeps working.
+
+- **The hello says it.** The hello of the bridge carries `"ai": "off"` when the player has no model, by choice or because setup found none. A hello with no `ai` field, or with any other word, means AI on: an older bridge keeps working, and a word that the story program does not know never stops it. The story program writes one note to stderr for an unknown word. Built in the story program. The relay sends the field later (relay SPEC 9.8).
+- **The journal tells the addon.** Each journal, also the empty one of a failed request, carries `"ai": "on"` or `"ai": "off"`. The addon reads it from page 0. Built.
 
 **Other rules:**
 
@@ -1148,6 +1153,7 @@ Each row of a world answers three questions: what proves it, which model call wr
 Dev mode lets a person test each feature with no hours of play (the user, 2026-10-06). TESTING.md, "Dev mode", has the commands. Built.
 
 - **Off by default.** It is on only while `settings.toml` in the story folder holds `dev = true`. `timeways-dev on` writes it, and the story program reads it at its start. A player can't turn it on in the game.
+- **A switch for AI off.** While dev mode is on, `ai = "off"` in the same `settings.toml` turns AI off, as the hello of the bridge does (5.6). So a person tests AI off with no change to the config of the bridge. The switch never turns AI on, and it does nothing while dev mode is off. `timeways-dev on` and `off` keep it.
 - **The journal tells the addon.** While dev mode is on, each journal carries `"dev": true`. `/twdev` works only while the newest journal had it. Else it says "Dev mode is off." and sends nothing.
 - **Each fake line is marked.** A line of `/twdev` carries `"dev": true`, also a line with a reply, and the story program refuses any line with a `dev` key while dev mode is off. The bridge passes the mark of a line with a reply on (relay commit 7dceef3).
 - **Fake players stay in the game.** A fake player of `/twdev peer` has the realm `Devrealm`, counts as a member of your group, and sends its messages through the real receive path. A message to it never goes on the wire. The player quests and the player stories of a dev world live in memory only, so the saved ones of real players never show in a dev world, and a fake one never stays after it.

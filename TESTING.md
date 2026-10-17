@@ -409,6 +409,8 @@ timeways-dev off       # writes dev = false
 
 The story program then puts `"dev": true` on each journal. The addon reads it at login and after each journal: `/twdev` works only while it is there. With dev mode off, `/twdev` says "Dev mode is off." and sends nothing.
 
+To test AI off, add `ai = "off"` to the same `settings.toml`, and restart the bridge. While dev mode is on, the story program then plays as with no model at all (GAMEPLAY.md 5.6), and each journal says `"ai": "off"`. `timeways-dev on` and `off` keep the line, and `timeways-dev status` says when the switch turns AI off. Take the line out to turn AI on again.
+
 ### What keeps it safe
 
 - Each fake line carries `"dev": true`. While dev mode is off, the story program refuses every line with a `dev` key (`crates/story/tests/dev_mode.rs`, the property test `a_dev_line_never_changes_a_world_while_dev_mode_is_off`, and the fuzz seeds `fuzz/seeds/input/dev.txt`).

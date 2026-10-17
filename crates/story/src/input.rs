@@ -1,7 +1,7 @@
 //! What the bridge sends, one JSON object per line: game events from the addon, and the
 //! answers to model calls (GAMEPLAY.md 3.1, 5.4, and 5.6).
 
-use crate::ai::Ai;
+use crate::ai::HelloAi;
 use crate::character::Resting;
 use crate::dev_fps::FpsRun;
 use crate::dev_smoke::{SmokeDone, SmokeStep};
@@ -24,7 +24,7 @@ pub enum Input {
     /// The first line from the bridge. The bridge compares the protocol of the reply.
     Hello {
         #[serde(default)]
-        ai: Ai,
+        ai: HelloAi,
     },
     /// The first line of each batch: whose world the batch changes.
     CharacterEntered {

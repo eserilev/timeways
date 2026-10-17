@@ -7,7 +7,8 @@ mod common;
 use std::path::Path;
 use timeways_dev::desktop::{Desktop, ModelSetting};
 use timeways_dev::model_runner::LocalModel;
-use timeways_story::dev_mode::DevMode;
+use timeways_story::ai::Ai;
+use timeways_story::dev_mode::{DevMode, SETTINGS_FILE};
 
 fn desktop_with_config(name: &str, config: &str) -> Desktop {
     let root = common::folder(name);
@@ -89,4 +90,33 @@ fn on_and_off_write_the_settings_that_the_story_program_reads() {
 
     desktop.set_dev_mode(DevMode::Off).unwrap();
     assert_eq!(desktop.dev_mode(), DevMode::Off);
+}
+
+#[test]
+fn on_and_off_keep_the_ai_switch_of_the_settings() {
+    let desktop = desktop_with_config("switch-keeps-ai", "");
+    std::fs::create_dir_all(&desktop.story).unwrap();
+    std::fs::write(desktop.story.join(SETTINGS_FILE), "ai = \"off\"\n").unwrap();
+
+    desktop.set_dev_mode(DevMode::On).unwrap();
+    desktop.set_dev_mode(DevMode::Off).unwrap();
+    desktop.set_dev_mode(DevMode::On).unwrap();
+
+    assert_eq!(desktop.dev_mode(), DevMode::On);
+    assert_eq!(desktop.dev_ai(), Ai::Off);
+}
+
+#[test]
+fn on_puts_dev_before_a_table_of_the_settings() {
+    let desktop = desktop_with_config("switch-before-table", "");
+    std::fs::create_dir_all(&desktop.story).unwrap();
+    std::fs::write(
+        desktop.story.join(SETTINGS_FILE),
+        "# mine\n[later]\nx = 1\n",
+    )
+    .unwrap();
+
+    desktop.set_dev_mode(DevMode::On).unwrap();
+
+    assert_eq!(desktop.dev_mode(), DevMode::On);
 }

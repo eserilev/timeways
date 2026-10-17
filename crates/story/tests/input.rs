@@ -1,5 +1,5 @@
 use hourglass::Tick;
-use timeways_story::ai::Ai;
+use timeways_story::ai::HelloAi;
 use timeways_story::input::{CallId, GameQuestKind, Input, MessageId, Reaction, SlotWas};
 use timeways_story::places::InstanceKind;
 use timeways_story::race_class::{Class, Race};
@@ -130,21 +130,26 @@ fn a_game_event_with_no_time_is_refused() {
 fn a_hello_with_no_ai_field_keeps_ai_on() {
     let line = r#"{"type":"hello","protocol":1,"app":"timeways"}"#;
 
-    assert_eq!(parse(line).unwrap(), Input::Hello { ai: Ai::On });
+    assert_eq!(parse(line).unwrap(), Input::Hello { ai: HelloAi::On });
 }
 
 #[test]
 fn a_hello_reads_ai_off() {
     let line = r#"{"type":"hello","protocol":1,"app":"timeways","ai":"off"}"#;
 
-    assert_eq!(parse(line).unwrap(), Input::Hello { ai: Ai::Off });
+    assert_eq!(parse(line).unwrap(), Input::Hello { ai: HelloAi::Off });
 }
 
 #[test]
-fn a_hello_with_an_unknown_ai_word_is_refused() {
+fn a_hello_with_an_unknown_ai_word_reads() {
     let line = r#"{"type":"hello","protocol":1,"app":"timeways","ai":"maybe"}"#;
 
-    assert!(parse(line).is_err());
+    assert_eq!(
+        parse(line).unwrap(),
+        Input::Hello {
+            ai: HelloAi::Unknown(r#""maybe""#.to_string())
+        }
+    );
 }
 
 #[test]

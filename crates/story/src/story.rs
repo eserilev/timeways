@@ -1,6 +1,6 @@
 //! One input in, and the outputs for it out (GAMEPLAY.md 3.1, 5.2, and 5.6).
 
-use crate::ai::Ai;
+use crate::ai::{Ai, HelloAi};
 use crate::aliases::AliasRow;
 use crate::atlas_lore::lore_of;
 use crate::best_of_two::Round;
@@ -562,7 +562,12 @@ impl Story {
     fn dispatch(&mut self, input: Input) -> Result<Vec<Output>, StoryError> {
         match input {
             Input::Hello { ai } => {
-                self.bridge_ai = ai;
+                if let HelloAi::Unknown(word) = &ai {
+                    self.notes.push(format!(
+                        "the hello has an unknown ai word {word}: AI stays on"
+                    ));
+                }
+                self.bridge_ai = ai.ai();
                 Ok(vec![Output::Hello { protocol: PROTOCOL }])
             }
             Input::CharacterEntered { realm, name } => {
