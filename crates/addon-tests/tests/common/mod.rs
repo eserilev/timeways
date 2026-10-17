@@ -6,8 +6,9 @@
     reason = "each test file uses a different part of the harness"
 )]
 
-use mlua::{Lua, Table};
+use mlua::{Function, Lua, MultiValue, Table};
 use std::path::PathBuf;
+use std::sync::{Mutex, PoisonError};
 use timeways_story::input::Input;
 use timeways_story::quest::{Status, Step, StepState, StepView};
 
@@ -23,6 +24,23 @@ fn addon_path(file: &str) -> PathBuf {
         assert!(root.pop(), "no addon folder above the crate");
     }
     root.join("addon").join(file)
+}
+
+/// Lua 5.1 `os.date` keeps its time in one static struct of the C library (`gmtime`), and
+/// the tests run Lua states on parallel threads. Without the lock, one test reads the day of
+/// another.
+static OS_DATE: Mutex<()> = Mutex::new(());
+
+fn lock_os_date(lua: &Lua) {
+    let os: Table = lua.globals().get("os").unwrap();
+    let original: Function = os.get("date").unwrap();
+    let locked = lua
+        .create_function(move |_, args: MultiValue| {
+            let _only_one = OS_DATE.lock().unwrap_or_else(PoisonError::into_inner);
+            original.call::<MultiValue>(args)
+        })
+        .unwrap();
+    os.set("date", locked).unwrap();
 }
 
 /// The Lua files in the order of the TOC, as WoW loads them.
@@ -99,6 +117,7 @@ impl Game {
     /// The fake game alone, with no addon: for the code of another addon.
     pub fn without_addon() -> Game {
         let lua = Lua::new();
+        lock_os_date(&lua);
         let bit: Table = lua
             .load(test_source("bit.lua"))
             .set_name("bit.lua")
