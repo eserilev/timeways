@@ -558,6 +558,16 @@ fn a_story_at_the_limit_with_a_surname_in_its_mark_is_kept() {
 }
 
 #[test]
+fn a_surname_said_again_after_a_whole_name_stays_on_the_page() {
+    let folder = fresh_folder("surname-again");
+    let mut story = story(&folder);
+
+    accept(&mut story, 1, "{Kobee-Will} {~Kobee-Will} came").unwrap();
+
+    assert_eq!(stories(&mut story)[0].paragraphs, ["Kobee Will came"]);
+}
+
+#[test]
 fn a_player_keeps_the_same_id_after_a_reopen() {
     let folder = fresh_folder("same-id");
     let mut story = story(&folder);

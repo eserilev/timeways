@@ -82,7 +82,9 @@ fn article(word: &str) -> &'static str {
 #[must_use]
 pub fn player_name(name: &str) -> Option<&str> {
     let short = name.split('-').next().unwrap_or_default();
-    let letters = !short.is_empty() && short.chars().all(char::is_alphabetic);
+    // A letter must be a word letter too, or the name would never match a word.
+    let is_letter = |c: char| c.is_alphabetic() && is_word_char(c);
+    let letters = !short.is_empty() && short.chars().all(is_letter);
     (letters && short.len() <= MAX_PLAYER_NAME_BYTES).then_some(short)
 }
 
@@ -541,7 +543,12 @@ pub fn without_surnames(rows: &[AliasRow], text: &str, rule: Surname) -> String 
     for piece in id_pieces(text) {
         match piece {
             Piece::Player(id) => {
-                let surname = rows.get(id.0).map(|row| row.name.as_str());
+                // A surname row's ID comes from a surname mark, a word that the player
+                // wrote again, so only a first name's ID that is also a surname goes.
+                let surname = rows
+                    .get(id.0)
+                    .filter(|row| row.surname_of.is_none())
+                    .map(|row| row.name.as_str());
                 if after_its_first_name(rows, after.as_ref(), surname) {
                     after = None;
                     continue;
@@ -1032,5 +1039,23 @@ mod tests {
         assert_eq!(marked.text, "The Will family");
         assert_eq!(marked.names, vec!["Kobee-Will"]);
         assert_eq!(ids, "The {P2} family");
+    }
+
+    #[test]
+    fn a_surname_mark_after_its_first_name_stays_its_own_id() {
+        let text = without_surnames(
+            &rows(),
+            "{P1} {P2} came, {P1} James went",
+            Surname::AsWritten,
+        );
+
+        assert_eq!(text, "{P1} {P2} came, {P1} went");
+    }
+
+    /// A name that the letter rule cuts in two would never match a word of a text.
+    #[test]
+    fn a_name_with_a_letter_outside_the_letter_ranges_is_no_name() {
+        assert_eq!(player_name("\u{289}liseceu"), None);
+        assert_eq!(player_name("Élise"), Some("Élise"));
     }
 }

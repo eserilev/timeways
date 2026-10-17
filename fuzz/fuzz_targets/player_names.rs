@@ -1,6 +1,7 @@
-//! Random names, a random text from the addon, and a random answer of a model, through the
-//! alias table (GAMEPLAY.md 5.11). The cut joins back to the same text, the text for a
-//! model holds no known name as a word, the player never reads an ID, and nothing panics.
+//! Random names, a random text from the addon, a random name of the character, and a random
+//! answer of a model, through the alias table (GAMEPLAY.md 5.11). The cut joins back to the
+//! same text, the text for a model holds no known name as a word, each mark becomes an ID,
+//! `$N`, or a name, the player never reads an ID, and nothing panics.
 
 #![no_main]
 
@@ -8,8 +9,8 @@ use arbitrary::Arbitrary;
 use libfuzzer_sys::fuzz_target;
 use timeways_rules::aliases::{Alias, Piece, PlayerId, find, learn_all};
 use timeways_story::aliases::{
-    AliasRow, alias_of, id_pieces, joined, key_of, knows_every_id, plain_joined, text_pieces, unmarked,
-    with_names, without_names,
+    AliasRow, alias_of, id_pieces, joined, key_of, knows_every_id, marks_as_ids, plain_joined,
+    text_pieces, unmarked, with_names, without_names, words_in,
 };
 
 #[derive(Arbitrary, Debug)]
@@ -21,12 +22,13 @@ struct Line {
     answer: String,
     /// A row of the table as another program can write it.
     row: Vec<u8>,
+    /// The name of the character, which a mark of its own turns into `$N`.
+    own: String,
 }
 
-/// The words of a text, as `TaskNames.lua` cuts them.
+/// The words of a text, by the letter rule of both sides.
 fn words(text: &str) -> impl Iterator<Item = &str> {
-    text.split(|c: char| c.is_ascii() && !c.is_ascii_alphanumeric())
-        .filter(|word| !word.is_empty())
+    words_in(text)
 }
 
 /// The player never reads an ID.
@@ -58,6 +60,17 @@ fuzz_target!(|line: Line| {
 
     let back = with_names(&table, &for_a_model);
     assert!(!holds_an_id(&back), "{back}");
+
+    // Each mark becomes an ID, `$N`, or a name: no brace is left but those of an ID.
+    let with_ids = marks_as_ids(&table, &line.own, &line.text);
+    let outside_ids: String = id_pieces(&with_ids)
+        .iter()
+        .filter_map(|piece| match piece {
+            Piece::Text(text) => Some(text.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert!(!outside_ids.contains(['{', '}']), "{with_ids}");
 
     assert_eq!(joined(&id_pieces(&line.answer)), line.answer);
     let shown = with_names(&table, &line.answer);

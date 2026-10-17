@@ -236,6 +236,15 @@ fn a_surname_alone_with_a_capital_gets_a_mark_of_its_own() {
 }
 
 #[test]
+fn a_surname_mark_carries_the_surname_as_the_game_writes_it() {
+    let game = two_kobees();
+
+    let text = marked(&game, "WILL rode off");
+
+    assert_eq!(text, "{~Kobee-Will} rode off");
+}
+
+#[test]
 fn a_text_of_the_hero_names_the_player_of_a_surname_alone() {
     let game = two_kobees();
 
@@ -300,12 +309,14 @@ proptest! {
     #![proptest_config(ProptestConfig::with_cases(64))]
 
     /// GAMEPLAY.md 5.11: no first name of a known player or of yours, and no surname with a
-    /// capital, reaches the prompt. Each mark becomes the ID of its player, and each `$N`
-    /// stays one. A surname in lower case is a word.
+    /// capital, reaches the prompt. Each mark becomes the ID of its own player or surname,
+    /// and each `$N` stays one. A surname in lower case is a word. Names often stand side by
+    /// side, and some worlds learned the players before.
     #[test]
     fn no_known_first_name_or_capital_surname_reaches_a_prompt(
         players in proptest::collection::vec(known_player(), 1..5),
-        named in proptest::collection::vec((0usize..6, any::<u8>(), "[c-k]{1,4}"), 1..8),
+        named in proptest::collection::vec((0usize..6, any::<u8>(), "[c-k]{0,4}"), 1..8),
+        teach in any::<bool>(),
     ) {
         let game = kobee_bean();
         let guild: Vec<String> = players.iter().filter(|p| p.2)
@@ -328,13 +339,19 @@ proptest! {
             .iter()
             .map(|(who, form, filler)| {
                 let (first, surname) = people[who % people.len()];
-                format!("{} {filler}", written(FIRSTS[first], SURNAMES[surname], *form))
+                let name = written(FIRSTS[first], SURNAMES[surname], *form);
+                if filler.is_empty() { name } else { format!("{name} {filler}") }
             })
             .collect();
         let text = text.join(" ");
+        let whole_names: Vec<String> = people
+            .iter()
+            .map(|(f, s)| format!("{} {}", FIRSTS[*f], SURNAMES[*s]))
+            .collect();
+        let teaching = teach.then(|| marked(&game, &whole_names.join(", ")));
 
         let marked = marked(&game, &text);
-        let idea = idea_in_the_prompt(&marked);
+        let (idea, cards) = draft_in_the_prompt(teaching.as_deref(), &marked);
 
         for word in words_in(&idea) {
             let first = people.iter().any(|(f, _)| FIRSTS[*f].eq_ignore_ascii_case(word));
@@ -342,34 +359,55 @@ proptest! {
             let surname = capital && people.iter().any(|(_, s)| SURNAMES[*s].eq_ignore_ascii_case(word));
             prop_assert!(!first && !surname, "{} in {} from {}", word, idea, text);
         }
-        // Each mark is another player, and becomes an ID of its own.
-        prop_assert_eq!(idea.matches("{P").count(), marked.matches('{').count(), "{} from {}", idea, marked);
-        // Each `$N` stays one, and your surname alone with a capital becomes one too.
-        let your_surname = outside_marks(&marked)
-            .iter()
-            .filter(|word| word.eq_ignore_ascii_case("Bean") && word.starts_with('B'))
-            .count();
-        prop_assert_eq!(idea.matches("$N").count(), marked.matches("$N").count() + your_surname, "{} from {}", idea, marked);
-    }
-}
-
-/// The words of a text outside its marks, as written.
-fn outside_marks(text: &str) -> Vec<String> {
-    let mut outside = String::new();
-    let mut in_mark = false;
-    for c in text.chars() {
-        match c {
-            '{' => in_mark = true,
-            '}' => in_mark = false,
-            _ if !in_mark => outside.push(c),
-            _ => {}
+        // Each mark becomes an ID of its own, in order: a surname mark the ID of a surname.
+        let marks = marks_of(&marked);
+        let ids = ids_of(&idea);
+        prop_assert_eq!(ids.len(), marks.len(), "{} from {}", idea, marked);
+        for (mark, id) in marks.iter().zip(&ids) {
+            let is_surname = cards.get(id).is_some_and(|card| card.contains("a surname of"));
+            prop_assert_eq!(mark.starts_with('~'), is_surname, "{} as {} in {}", mark, id, idea);
         }
+        // Each `$N` stays one, and each run of your surname alone with a capital becomes one.
+        let expected = marked.matches("$N").count() + runs_of_your_surname(&marked);
+        prop_assert_eq!(idea.matches("$N").count(), expected, "{} from {}", idea, marked);
     }
-    words_in(&outside).map(str::to_string).collect()
 }
 
-/// The idea of a draft as a model reads it, from a desktop with the character Kobee Bean.
-fn idea_in_the_prompt(marked: &str) -> String {
+/// The inner of each mark of a text, in order: "Kobee-Will", "~Kobee-Will".
+fn marks_of(text: &str) -> Vec<String> {
+    text.split('{')
+        .skip(1)
+        .filter_map(|rest| rest.split_once('}'))
+        .map(|(inner, _)| inner.to_string())
+        .collect()
+}
+
+/// The IDs of a text, in order: "P1".
+fn ids_of(text: &str) -> Vec<String> {
+    marks_of(text)
+        .into_iter()
+        .filter(|inner| inner.starts_with('P'))
+        .collect()
+}
+
+/// The runs of your surname Bean alone with a capital, side by side: the desktop makes each
+/// run one `$N`.
+fn runs_of_your_surname(text: &str) -> usize {
+    let is_bean = |word: &str| word.eq_ignore_ascii_case("Bean") && word.starts_with('B');
+    let words: Vec<&str> = text.split_whitespace().collect();
+    let starts = words
+        .iter()
+        .enumerate()
+        .filter(|(n, word)| is_bean(word) && (*n == 0 || !is_bean(words[n - 1])));
+    starts.count()
+}
+
+/// The idea of a draft as a model reads it, and the card of each ID, from a desktop with
+/// the character Kobee Bean. A text that teaches the players goes first when there is one.
+fn draft_in_the_prompt(
+    teaching: Option<&str>,
+    marked: &str,
+) -> (String, std::collections::HashMap<String, String>) {
     let path = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join("player-names-pack.sqlite");
     if !path.exists() {
         Pack::write(&path, &[]).unwrap();
@@ -381,15 +419,26 @@ fn idea_in_the_prompt(marked: &str) -> String {
             name: "Kobee Bean".to_string(),
         })
         .unwrap();
-    let asked = Input::DraftAsked {
-        id: MessageId(1),
-        at: Tick(1),
-        idea: marked.to_string(),
-    };
-    let Some(Output::ModelCall { prompt, .. }) = story.handle(asked).unwrap().into_iter().next()
-    else {
-        panic!("no draft call for {marked}");
-    };
+    let mut prompt = String::new();
+    for (id, idea) in (1..).zip(teaching.into_iter().chain([marked])) {
+        let asked = Input::DraftAsked {
+            id: MessageId(id),
+            at: Tick(id),
+            idea: idea.to_string(),
+        };
+        let Some(Output::ModelCall { prompt: asked, .. }) =
+            story.handle(asked).unwrap().into_iter().next()
+        else {
+            panic!("no draft call for {idea}");
+        };
+        prompt = asked;
+    }
     let (_, after) = prompt.split_once("The idea of the player:\n<<<\n").unwrap();
-    after.split_once("\n>>>").unwrap().0.to_string()
+    let idea = after.split_once("\n>>>").unwrap().0.to_string();
+    let cards = prompt
+        .lines()
+        .filter_map(|line| line.strip_prefix("- {")?.split_once("}: "))
+        .map(|(id, card)| (id.to_string(), card.to_string()))
+        .collect();
+    (idea, cards)
 }

@@ -353,7 +353,8 @@ local function KnownSurnames(names, group)
 end
 
 -- The mark of a surname alone with a capital, "the Will family": "{~Kobee-Will}", with the
--- surname as typed, so your screen keeps the word, and its player. Nil for a word that is
+-- surname as the game writes it, and its player. Your screen keeps the word, in the case of
+-- the game. Nil for a word that is
 -- no surname of a known player, for a surname in lower case, and for your own surname:
 -- the desktop hides that one.
 local function LoneSurnameMark(word, surnames, mySurname)
@@ -363,7 +364,9 @@ local function LoneSurnameMark(word, surnames, mySurname)
 	end
 	local full = (surnames[folded] or {})[1]
 	if full then
-		return "{~" .. full:match("^[^-]+") .. "-" .. word .. "}", full
+		-- The game's surname, not the typed one, names the row: "WILL" shows as "Will".
+		local first, surname = ns.PlayerNames.Parts(full)
+		return "{~" .. first .. "-" .. surname .. "}", full
 	end
 end
 
