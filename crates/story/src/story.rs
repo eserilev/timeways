@@ -1,7 +1,7 @@
 //! One input in, and the outputs for it out (GAMEPLAY.md 3.1, 5.2, and 5.6).
 
 use crate::ai::{Ai, AiWord};
-use crate::aliases::AliasRow;
+use crate::aliases::{AliasRow, MAX_NAMES};
 use crate::atlas_lore::lore_of;
 use crate::best_of_two::Round;
 use crate::chapters::{self, Book};
@@ -1166,6 +1166,9 @@ impl Story {
         names: &[String],
     ) -> Result<Vec<Output>, StoryError> {
         let limit = hero::limit_of(&field).ok_or(StoryError::BadName)?;
+        if names.len() > MAX_NAMES {
+            return self.refuse_hero(hero::TOO_MANY_NAMES.to_string());
+        }
         let text = if text.trim().is_empty() {
             String::new()
         } else {
@@ -1187,6 +1190,9 @@ impl Story {
         npc: Option<String>,
         names: &[String],
     ) -> Result<Vec<Output>, StoryError> {
+        if names.len() > MAX_NAMES {
+            return self.refuse_hero(hero::TOO_MANY_NAMES.to_string());
+        }
         let text = match hero::checked_text(text, hero::LONG) {
             Ok(text) => text,
             Err(reason) => return self.refuse_hero(reason),

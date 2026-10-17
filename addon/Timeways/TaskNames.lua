@@ -23,9 +23,22 @@ local NOT_LETTERS = {
 	"^[\240-\244]", -- emoji
 }
 
+-- The letters and numbers inside the ranges of NOT_LETTERS: ª ² ³ µ ¹ º ¼ ½ ¾, and the
+-- Roman numerals, U+2160 to U+2188.
+local LETTERS_AMONG_SIGNS = {
+	"^\194[\170\178\179\181\185\186\188-\190]",
+	"^\226\133[\160-\191]",
+	"^\226\134[\128-\136]",
+}
+
 local function IsWordChar(char)
 	if #char == 1 then
 		return char:find("^%w$") ~= nil
+	end
+	for _, letter in ipairs(LETTERS_AMONG_SIGNS) do
+		if char:find(letter) then
+			return true
+		end
 	end
 	for _, sign in ipairs(NOT_LETTERS) do
 		if char:find(sign) then
@@ -160,14 +173,22 @@ local function RealmEnd(text, last)
 	return first == last + 2 and realmEnd or last
 end
 
--- The end of the surname right after a word that ends at `last`, as in "Kobee Bean". The
--- surname is part of the name, so it gets the mark too.
+-- True when the word starts with a capital: its first letter changes when folded.
+local function IsCapitalized(word)
+	local first = word:match("^" .. CHAR)
+	return first ~= nil and TaskNames.Fold(first) ~= first
+end
+
+-- The end of the surname right after a word that ends at `last`, as in "Kobee Bean". A
+-- surname with a capital is part of the name, so it gets the mark too. In lower case it
+-- is a word: "Kobee will help" keeps "will" for Kobee Will.
 local function SurnameEnd(text, last, surname)
 	if not surname or text:sub(last + 1, last + 1) ~= " " then
 		return last
 	end
 	local first, wordEnd = NextWord(text, last + 2)
-	if first == last + 2 and TaskNames.Fold(text:sub(first, wordEnd)) == TaskNames.Fold(surname) then
+	local word = first == last + 2 and text:sub(first, wordEnd)
+	if word and IsCapitalized(word) and TaskNames.Fold(word) == TaskNames.Fold(surname) then
 		return wordEnd
 	end
 	return last
@@ -234,19 +255,17 @@ function TaskNames.Send(text)
 	return marked
 end
 
--- The desktop learns at most this many players from one text of the hero.
+-- A text of the hero can name at most this many players. The desktop refuses more.
 TaskNames.MAX_NAMES = 32
 
--- The first players that a text names, in the order of the text, as "First-Surname", or
--- the first name alone. A realm is no surname.
+-- The players that a text names, in the order of the text, as "First-Surname", or the
+-- first name alone. A realm is no surname.
 function TaskNames.Named(text)
-	local _, found = TaskNames.Marked(text)
-	local names, players = {}, {}
-	for n = 1, math.min(#found, TaskNames.MAX_NAMES) do
-		local full = found[n]
+	local _, players = TaskNames.Marked(text)
+	local names = {}
+	for n, full in ipairs(players) do
 		local first, surname = ns.PlayerNames.Parts(full)
 		names[n] = surname and (first .. "-" .. surname) or full:match("^[^-]+")
-		players[n] = full
 	end
 	return names, players
 end

@@ -23,16 +23,15 @@ pub(super) fn learn_names(active: &mut Active, marked: &[String]) -> Result<(), 
     Ok(())
 }
 
-/// Learns each player that a text of the hero names, as "First-Surname" or "First". Only
-/// the first `MAX_NAMES` count, and a first name that the text does not hold is no player
-/// of it.
+/// Learns each player that a text of the hero names, as "First-Surname" or "First". A
+/// first name that the text does not hold is no player of it.
 pub(super) fn learn_players(
     active: &mut Active,
     text: &str,
     players: &[String],
 ) -> Result<(), StoreError> {
     let words: Vec<String> = aliases::words_in(text).map(aliases::key_of).collect();
-    for player in players.iter().take(aliases::MAX_NAMES) {
+    for player in players {
         let (first, surname) = player.split_once('-').unwrap_or((player, ""));
         if !words.contains(&aliases::key_of(first)) {
             continue;

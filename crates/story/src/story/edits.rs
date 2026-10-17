@@ -143,9 +143,9 @@ pub(super) fn telling_of(active: &Active, entry: EntryKey) -> Option<(String, No
     let (row, edit) = shown_edit(active, entry)?;
     let mut parts: Vec<&str> = edit.title.iter().map(String::as_str).collect();
     parts.extend(edit.paragraphs.iter().map(String::as_str));
-    let with_ids = aliases::with_ids(active, &parts.join("\n"));
-    let hidden = aliases::without_own_name(active, &with_ids);
-    let telling = first_chars(&hidden, TELLING_CHARS).to_string();
+    let without_own = aliases::without_own_name(active, &parts.join("\n"));
+    let with_ids = aliases::with_ids(active, &without_own);
+    let telling = first_chars(&with_ids, TELLING_CHARS).to_string();
     Some((telling, Node::Row(Table::EntryEdits, row)))
 }
 

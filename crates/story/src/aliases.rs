@@ -119,7 +119,8 @@ pub fn alias_of_row(row: &AliasRow) -> Option<Alias> {
     })
 }
 
-/// The most players that one text of the hero names (GAMEPLAY.md 5.11).
+/// The most players that one text of the hero names (GAMEPLAY.md 5.11). A text with more
+/// is refused, because a name past the list would reach a model unlearned.
 pub const MAX_NAMES: usize = 32;
 
 /// A part that `alias_of` refuses still names the character, so each word in it is hidden:
@@ -314,11 +315,11 @@ pub fn without_own_name(text: &str, own: &str, surname: Surname) -> String {
     let mut parts = own.split_whitespace();
     let first = parts.next().map(part_aliases).unwrap_or_default();
     let surnames: Vec<Alias> = parts.flat_map(part_aliases).collect();
-    let all: Vec<Alias> = first.iter().chain(&surnames).cloned().collect();
     let mut hidden = String::with_capacity(text.len());
     // The spaces after a `$N`: they go when another part of the name follows.
     let mut after_mark: Option<String> = None;
-    for piece in text_pieces(text, &all) {
+    // Only a first name takes a realm: "will-Kobee" is two words for Kobee Will.
+    for piece in text_pieces(text, &first) {
         let hides = match &piece {
             Plain::Word { key, .. } if rules::find(&first, key).is_some() => true,
             Plain::Word { key, written } if rules::find(&surnames, key).is_some() => {
@@ -366,9 +367,10 @@ pub fn starts_a_sentence(before: &str) -> bool {
 }
 
 /// The text with the surnames of other players hidden, after the proved swap of first
-/// names. A surname right after the ID of its first name, with only spaces between, goes
-/// with it, in any case: "{P1} James" is "{P1}". A surname alone with a capital becomes
-/// the ID of its row: "the James family" is "the {P2} family". In lower case it is a word.
+/// names. A surname with a capital right after the ID of its first name, with only spaces
+/// between, goes with it: "{P1} James" is "{P1}". A surname that the swap made an ID goes
+/// there in any case. A surname alone with a capital becomes the ID of its row: "the James
+/// family" is "the {P2} family". In lower case a surname is a word: "{P1} will help".
 #[must_use]
 pub fn without_surnames(rows: &[AliasRow], text: &str) -> String {
     let mut out = String::with_capacity(text.len());
@@ -418,7 +420,7 @@ fn surname_run(
         }
         return;
     }
-    if after_its_first_name(rows, after.as_ref(), Some(run)) {
+    if is_capitalized(run) && after_its_first_name(rows, after.as_ref(), Some(run)) {
         *after = None;
         return;
     }
@@ -462,14 +464,15 @@ fn surname_id(rows: &[AliasRow], word: &str) -> Option<PlayerId> {
         .map(PlayerId)
 }
 
-/// A text that the player typed, as a model reads it: a brace becomes a parenthesis, each
-/// name of the table becomes its ID with its surname, and the name of the character
-/// becomes `$N`. `table` holds the names of `rows`.
+/// A text that the player typed, as a model reads it: a brace becomes a parenthesis, the
+/// name of the character becomes `$N`, and each name of the table becomes its ID with its
+/// surname. `table` holds the names of `rows`.
 #[must_use]
 pub fn typed_for_model(table: &[Alias], rows: &[AliasRow], own: &str, text: &str) -> String {
     let typed = unmarked(text).text;
-    let with_ids = without_surnames(rows, &without_names(table, &typed));
-    without_own_name(&with_ids, own, Surname::AsWritten)
+    // `$N` matches no name, so the own name goes first and keeps its meaning.
+    let without_own = without_own_name(&typed, own, Surname::AsWritten);
+    without_surnames(rows, &without_names(table, &without_own))
 }
 
 /// A text that holds IDs, cut into IDs and the rest. Only `{P1}` and up are IDs, with no
@@ -625,10 +628,43 @@ mod tests {
     }
 
     #[test]
-    fn a_surname_right_after_its_first_name_goes_with_it_in_any_case() {
-        let text = without_surnames(&rows(), "{P1} James and {P1}  james and {P3} Will.");
+    fn a_surname_right_after_its_first_name_goes_with_it_only_with_a_capital() {
+        let text = without_surnames(&rows(), "{P1} James and {P1}  JAMES and {P3} will help.");
 
-        assert_eq!(text, "{P1} and {P1} and {P3}.");
+        assert_eq!(text, "{P1} and {P1} and {P3} will help.");
+    }
+
+    #[test]
+    fn a_surname_that_the_swap_made_an_id_goes_after_its_first_name_in_any_case() {
+        let mut rows = rows();
+        rows.push(AliasRow::named("James"));
+
+        let text = without_surnames(&rows, "{P1} {P5} and {P5}");
+
+        assert_eq!(text, "{P1} and {P5}");
+    }
+
+    #[test]
+    fn an_own_surname_in_lower_case_never_joins_a_first_name_as_its_realm() {
+        let hidden = |text| without_own_name(text, "Kobee Will", Surname::AsWritten);
+
+        assert_eq!(
+            hidden("will-Kobee rides, will-kobee too"),
+            "will-$N rides, will-$N too"
+        );
+        assert_eq!(hidden("Will-Kobee and Kobee-Will"), "$N-$N and $N");
+    }
+
+    #[test]
+    fn the_own_name_goes_before_the_surnames_of_other_players() {
+        let rows = rows();
+        let table: Vec<Alias> = rows.iter().filter_map(alias_of_row).collect();
+
+        let kobee = typed_for_model(&table, &rows, "Kobee Will", "Kobee Will rests.");
+        let james = typed_for_model(&table, &rows, "James", "James rests.");
+
+        assert_eq!(kobee, "$N rests.");
+        assert_eq!(james, "$N rests.");
     }
 
     #[test]

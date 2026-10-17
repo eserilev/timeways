@@ -969,7 +969,6 @@ fn first_page(story: &mut Story) -> Journal {
     }
 }
 
-/// Every page of the journal as the bridge gets it.
 /// The world of the character of this name.
 fn world_file_of(folder: &Path, name: &str) -> PathBuf {
     let key = CharacterKey::new("Stormrage", name).unwrap();
@@ -2360,6 +2359,11 @@ fn own_name_words() -> impl Strategy<Value = String> {
         "zqbe",
         ". Zqbe",
         ". zqbe",
+        "zqbe-Ada",
+        "Zqbe-Ada",
+        "zqbe-ada",
+        "Ada-zqbe",
+        "Ada zqbe",
         "Zqbe's",
         "Ada\nZqbe",
         "Ada,  Zqbe",

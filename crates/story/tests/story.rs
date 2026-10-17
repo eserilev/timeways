@@ -2792,6 +2792,41 @@ fn a_surname_learned_after_its_first_name_reaches_no_prompt() {
 }
 
 #[test]
+fn a_note_that_names_more_than_thirty_two_players_is_refused_and_reaches_no_prompt() {
+    let mut story = story_with("hero-many-names", &[]);
+    let names: Vec<String> = (0..33u8)
+        .map(|n| {
+            format!(
+                "Q{}{}",
+                char::from(b'a' + n / 26),
+                char::from(b'a' + n % 26)
+            )
+        })
+        .collect();
+    let keys: Vec<String> = names.iter().map(|name| format!("{name}-Zq")).collect();
+    add_named(
+        &mut story,
+        40,
+        &names.join(" "),
+        Some("Innkeeper Farley"),
+        keys,
+    );
+
+    let (hero, refused) = hero_page(&mut story);
+    let prompt = talk_failed(&mut story);
+
+    assert!(hero.entries.is_empty());
+    assert_eq!(
+        refused.as_deref(),
+        Some("Name fewer players. One text can name up to 32.")
+    );
+    assert!(
+        !names.iter().any(|name| prompt.contains(name.as_str())),
+        "{prompt}"
+    );
+}
+
+#[test]
 fn the_hero_sheet_keeps_a_name_as_typed() {
     let mut story = story_with("hero-sheet-names", &[]);
     set_named(&mut story, "bond", "Ward of Leborc James {P7}.", leborc());

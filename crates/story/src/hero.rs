@@ -208,6 +208,8 @@ const EMPTY: &str = "Couldn't save an empty note.";
 const ODD_CHARACTERS: &str =
     "Couldn't save that: it has special characters. Take them out and try again.";
 const TOO_LONG: &str = "Couldn't save that: it's too long. Try a shorter version.";
+/// More names than this would reach a model unlearned (`aliases::MAX_NAMES`).
+pub const TOO_MANY_NAMES: &str = "Name fewer players. One text can name up to 32.";
 
 /// The heading of the story of the hero in a prompt. It keeps the player's words apart
 /// from canon.

@@ -93,10 +93,15 @@ local function Clean(text)
 	return (flat:match("^%s*(.-)%s*$"))
 end
 
+local TOO_MANY_NAMES = "Name fewer players. One text can name up to 32."
+
 local function ProblemPast(bytes)
 	return function(text)
 		if #Clean(text) > bytes then
 			return TOO_LONG
+		end
+		if #ns.TaskNames.Named(text) > ns.TaskNames.MAX_NAMES then
+			return TOO_MANY_NAMES
 		end
 	end
 end
@@ -111,9 +116,21 @@ function Hero.JournalCame()
 	ForgetUnsaved()
 end
 
+-- A command and an import have no editor to show the reason, so it goes to the chat.
+local function TooManyNames(text)
+	if #ns.TaskNames.Named(text) > ns.TaskNames.MAX_NAMES then
+		Say(TOO_MANY_NAMES)
+		return true
+	end
+	return false
+end
+
 -- An empty text clears the field.
 function Hero.Set(field, text)
 	text = Clean(text)
+	if TooManyNames(text) then
+		return
+	end
 	unsaved.fields[field] = text
 	ns.MspProfile.Edited(field, text)
 	Send(ns.Inputs.HeroSet(time(), field, text, ns.TaskNames.SendNamed(text)))
@@ -121,7 +138,7 @@ end
 
 function Hero.Add(text, npc)
 	text = Clean(text)
-	if text == "" then
+	if text == "" or TooManyNames(text) then
 		return
 	end
 	table.insert(unsaved.added, { text = text, npc = npc })

@@ -1010,10 +1010,9 @@ fn the_page_shows_the_edit_as_typed_while_it_saves() {
     );
 }
 
-#[test]
-fn a_hero_edit_names_at_most_the_first_thirty_two_players_of_its_text() {
-    let game = Game::new();
-    let names: Vec<String> = (0..33u8)
+/// A guild of this many players, "Qaa", "Qab", and so on. Returns their names.
+fn guild_of(game: &Game, count: u8) -> Vec<String> {
+    let names: Vec<String> = (0..count)
         .map(|n| {
             format!(
                 "Q{}{}",
@@ -1030,11 +1029,63 @@ fn a_hero_edit_names_at_most_the_first_thirty_two_players_of_its_text() {
         "wow.guild = {{ {} }} wow.Fire('GUILD_ROSTER_UPDATE', false)",
         roster.join(", ")
     ));
-    let text: Vec<&str> = names.iter().rev().map(String::as_str).collect();
+    names
+}
 
-    game.run(&format!("wow.Slash('/hero', 'add {}')", text.join(" ")));
+const TOO_MANY_NAMES: &str = "Name fewer players. One text can name up to 32.";
+
+#[test]
+fn a_text_that_names_thirty_two_players_goes_with_all_of_them() {
+    let game = Game::new();
+    let names = guild_of(&game, 32);
+
+    game.run(&format!("wow.Slash('/hero', 'add {}')", names.join(" ")));
 
     let (_, sent) = hero_edits(&game).remove(0);
-    let expected: Vec<String> = names.iter().rev().take(32).cloned().collect();
-    assert_eq!(sent, expected);
+    assert_eq!(sent, names);
+}
+
+#[test]
+fn a_command_that_names_more_than_thirty_two_players_sends_nothing_and_says_why() {
+    let game = Game::new();
+    let names = guild_of(&game, 33);
+
+    game.run(&format!("wow.Slash('/hero', 'add {}')", names.join(" ")));
+
+    assert!(hero_edits(&game).is_empty());
+    assert!(
+        game.printed()
+            .iter()
+            .any(|line| line.contains(TOO_MANY_NAMES))
+    );
+}
+
+#[test]
+fn a_card_that_names_more_than_thirty_two_players_stays_open_with_the_reason() {
+    let game = open_book(FILLED);
+    let names = guild_of(&game, 33);
+    click(&game, GOAL);
+
+    write(&game, &names.join(" "));
+
+    assert!(card_is_open(&game));
+    let shown: Vec<String> = game.eval("wow.ShownTexts(TimewaysHeroCardBox.parent)");
+    assert!(shown.contains(&TOO_MANY_NAMES.to_string()), "{shown:?}");
+    assert!(hero_edits(&game).is_empty());
+}
+
+#[test]
+fn a_surname_in_lower_case_after_a_first_name_stays_a_word() {
+    let game = kobee_with_leborc();
+    game.run("wow.units.party1 = { name = 'Bram', realm = 'Will', player = true, guid = 'Player-1-Bram' }");
+    game.run("wow.units.player.realm = 'Will'");
+
+    let marked: String = game.eval(
+        "return (ns.TaskNames.Marked('Kobee will help. Bram will too. Bram Will rests. Kobee Will rests.'))",
+    );
+
+    assert_eq!(
+        marked,
+        "$N will help. {Bram} will too. {Bram} rests. $N rests."
+    );
 }

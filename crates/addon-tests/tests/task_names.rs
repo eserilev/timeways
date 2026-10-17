@@ -48,6 +48,19 @@ fn a_sign_past_ascii_ends_a_name() {
 }
 
 #[test]
+fn a_letter_or_a_number_past_ascii_goes_on_with_the_word_as_on_the_desktop() {
+    let idea = marked(
+        "",
+        "Corvinª Corvin² Corvinµ Corvin½ CorvinⅫ Corvin« Corvin·",
+    );
+
+    assert_eq!(
+        idea,
+        "Corvinª Corvin² Corvinµ Corvin½ CorvinⅫ {Corvin}« {Corvin}·"
+    );
+}
+
+#[test]
 fn a_word_that_holds_a_name_stays() {
     let idea = marked("", "Corvinus and Adamant stay");
 

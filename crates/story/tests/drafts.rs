@@ -404,10 +404,13 @@ fn a_surname_in_lower_case_stays_a_word() {
     let mut story = story("surname-word");
     note_naming(&mut story, "Bram Will owes me.", &["Bram-Will"]);
 
-    let (_, prompt) = ask(&mut story, "i will carry the stone for {Bram} Will");
+    let (_, prompt) = ask(
+        &mut story,
+        "i will carry it for {Bram} Will, {Bram} will see",
+    );
 
     assert!(
-        prompt.contains("i will carry the stone for {P1}"),
+        prompt.contains("i will carry it for {P1}, {P1} will see"),
         "{prompt}"
     );
 }
@@ -461,12 +464,13 @@ fn the_own_surname_alone_with_a_capital_reaches_no_draft() {
     };
     story.handle(character).unwrap();
 
-    let (_, prompt) = ask(&mut story, "ask the Jamesy family, not the jamesy one");
-
-    assert!(
-        prompt.contains("ask the $N family, not the jamesy one"),
-        "{prompt}"
+    let (_, prompt) = ask(
+        &mut story,
+        "Jamesy will ask the Jamesy family, not the jamesy one",
     );
+
+    let hidden = "$N will ask the $N family, not the jamesy one";
+    assert!(prompt.contains(hidden), "{prompt}");
 }
 
 #[test]
@@ -477,27 +481,6 @@ fn a_name_that_the_text_does_not_hold_is_not_learned() {
     let (_, prompt) = ask(&mut story, "help Bram at the mill");
 
     assert!(prompt.contains("help Bram at the mill"), "{prompt}");
-}
-
-#[test]
-fn a_note_learns_at_most_thirty_two_names() {
-    let mut story = story("many-names");
-    let names: Vec<String> = (0..33).map(name_number).collect();
-    let refs: Vec<&str> = names.iter().map(String::as_str).collect();
-    note_naming(&mut story, &names.join(" "), &refs);
-
-    let (_, prompt) = ask(&mut story, &format!("help {} and {}", names[31], names[32]));
-
-    assert!(
-        prompt.contains(&format!("help {{P32}} and {}", names[32])),
-        "{prompt}"
-    );
-}
-
-/// A name of letters for each number: "Qaa", "Qab", and so on.
-fn name_number(n: usize) -> String {
-    let letter = |k: usize| char::from(b'a' + u8::try_from(k % 26).unwrap());
-    format!("Q{}{}", letter(n / 26), letter(n))
 }
 
 #[test]
