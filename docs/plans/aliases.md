@@ -46,7 +46,7 @@ The desktop measures the limits of a story and an idea on the text without its m
 
 The same rules as `TaskNames.lua`:
 
-- A word is a run of ASCII letters and digits and of bytes outside ASCII, so "é" is part of a word.
+- A word is a run of ASCII letters and digits and of letters past ASCII from one shared table of letter ranges (`aliases::is_word_char`, `TaskNames.IsWordChar`): Latin, Greek, Cyrillic, Hangul, kana, and CJK. Every other code point ends a word. Characters that show nothing go before a match on both sides, and the desktop also composes accents (NFC) first. The test `the_addon_and_the_desktop_agree_on_every_letter` checks every code point of the BMP.
 - A name matches a whole word, in any case. The story program folds the case with `to_lowercase`, which covers every letter that `TaskNames.Fold` covers.
 - "Ada-Stormrage" is one word when the table holds "Ada". "Bob-Ada" with only Ada known keeps "Bob-" and swaps "Ada".
 - A name holds only letters, at most 48 bytes, with the realm cut off. "P7" holds a digit, so it is never a name.

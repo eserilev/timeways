@@ -6,7 +6,9 @@
 mod common;
 
 use common::Game;
-use timeways_story::aliases::is_word_char;
+use proptest::prelude::*;
+use proptest::test_runner::{Config, TestRunner};
+use timeways_story::aliases::{is_hidden, is_word_char};
 
 /// Every code point of the Basic Multilingual Plane, and a few past it.
 fn every_char() -> Vec<char> {
@@ -45,6 +47,35 @@ fn the_addon_and_the_desktop_agree_on_every_letter() {
 }
 
 #[test]
+fn the_addon_and_the_desktop_drop_the_same_hidden_characters() {
+    let game = Game::new();
+    let chars = every_char();
+    let texts: Vec<String> = chars.iter().map(char::to_string).collect();
+    let is_hidden_in_lua: mlua::Function = game.eval(
+        "return function(texts)
+             local out = {}
+             for n, text in ipairs(texts) do out[n] = ns.TaskNames.Visible(text) == '' end
+             return out
+         end",
+    );
+
+    let lua: Vec<bool> = is_hidden_in_lua.call(texts).unwrap();
+
+    let differ: Vec<String> = chars
+        .iter()
+        .zip(&lua)
+        .filter(|(c, lua)| is_hidden(**c) != **lua)
+        .map(|(c, lua)| format!("U+{:04X} lua={lua}", u32::from(*c)))
+        .collect();
+    assert!(
+        differ.is_empty(),
+        "{} differ: {:?}",
+        differ.len(),
+        &differ[..differ.len().min(20)]
+    );
+}
+
+#[test]
 fn a_mark_or_a_symbol_after_a_name_ends_it_on_both_sides() {
     let game = Game::new();
     game.run("wow.units.party1 = { name = 'Corvin', player = true }");
@@ -57,6 +88,104 @@ fn a_mark_or_a_symbol_after_a_name_ends_it_on_both_sides() {
 
     assert_eq!(
         marked,
-        "{Corvin}\u{301} {Corvin}\u{FEFF} {Corvin}ⁿ {Corvin}ℕ {Corvin}Ⓐ {Corvin}\u{37E} {Corvin}\u{60C}"
+        "{Corvin}\u{301} {Corvin} {Corvin}ⁿ {Corvin}ℕ {Corvin}Ⓐ {Corvin}\u{37E} {Corvin}\u{60C}"
     );
+}
+
+fn marked(game: &Game, text: &str) -> String {
+    let mark: mlua::Function =
+        game.eval("return function(text) return (ns.TaskNames.Marked(text)) end");
+    mark.call(text).unwrap()
+}
+
+#[test]
+fn only_a_letter_of_a_known_script_goes_on_with_a_name() {
+    let game = Game::new();
+    game.run("wow.units.party1 = { name = 'Ada', player = true }");
+
+    let text = marked(
+        &game,
+        "Ada\u{1DC0} Ada\u{180E} Ada\u{1680}went Ada\u{3164} Ada฿ Ada। Ada\u{E000} Ada² Adaⅻ Adaé",
+    );
+
+    assert_eq!(
+        text,
+        "{Ada}\u{1DC0} {Ada} {Ada}\u{1680}went {Ada}\u{3164} {Ada}฿ {Ada}। {Ada}\u{E000} {Ada}² {Ada}ⅻ Adaé"
+    );
+}
+
+#[test]
+fn a_character_that_shows_nothing_inside_a_name_is_dropped_before_the_match() {
+    let game = Game::new();
+    game.run("wow.units.party1 = { name = 'Corvin', player = true }");
+
+    let text = marked(
+        &game,
+        "Cor\u{200B}vin Co\u{AD}rvin Cor\u{FE0F}vin C\u{2060}orvin",
+    );
+
+    assert_eq!(text, "{Corvin} {Corvin} {Corvin} {Corvin}");
+}
+
+/// Texts that are no valid UTF-8: a lone continuation byte, a cut letter, a surrogate, a
+/// code past U+10FFFF, an overlong form, and bytes that never start a letter.
+const BROKEN: [&[u8]; 9] = [
+    b"Ada\x80",
+    b"Ada\xC3",
+    b"Ada\xED\xA0\x80",
+    b"Ada\xF4\x90\x80\x80",
+    b"Ada\xC0\xAF",
+    b"Ada\xFF\xFE",
+    b"Ada\xE2\x82",
+    b"\xF0\x9F\x98Ada",
+    b"Ada\xE0\x80\x80x",
+];
+
+fn lossy_in_lua(game: &Game, bytes: &[u8]) -> Vec<u8> {
+    let lossy: mlua::Function = game.eval("return function(text) return ns.Utf8.Lossy(text) end");
+    let text = game.lua.create_string(bytes).unwrap();
+    let out: mlua::LuaString = lossy.call(text).unwrap();
+    out.as_bytes().to_vec()
+}
+
+#[test]
+fn the_addon_replaces_broken_bytes_as_the_bridge_does() {
+    let game = Game::new();
+
+    for bytes in BROKEN {
+        let lua = lossy_in_lua(&game, bytes);
+
+        assert_eq!(lua, String::from_utf8_lossy(bytes).as_bytes(), "{bytes:?}");
+    }
+}
+
+#[test]
+fn a_name_before_broken_bytes_gets_its_mark() {
+    let game = Game::new();
+    game.run("wow.units.party1 = { name = 'Ada', player = true }");
+    let mark: mlua::Function =
+        game.eval("return function(text) return (ns.TaskNames.Marked(text)) end");
+
+    for bytes in BROKEN {
+        let text = game.lua.create_string(bytes).unwrap();
+        let out: mlua::LuaString = mark.call(text).unwrap();
+
+        let out = String::from_utf8(out.as_bytes().to_vec()).unwrap();
+        assert!(out.contains("{Ada}"), "{bytes:?} became {out}");
+    }
+}
+
+#[test]
+fn any_bytes_become_the_text_that_the_bridge_reads() {
+    let game = Game::new();
+    let mut runner = TestRunner::new(Config::with_cases(512));
+    let bytes = proptest::collection::vec(any::<u8>(), 0..24);
+
+    let result = runner.run(&bytes, |bytes| {
+        let lua = lossy_in_lua(&game, &bytes);
+        prop_assert_eq!(lua, String::from_utf8_lossy(&bytes).as_bytes().to_vec());
+        Ok(())
+    });
+
+    result.unwrap();
 }

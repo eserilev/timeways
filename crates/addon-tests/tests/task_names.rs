@@ -9,6 +9,7 @@ mod players;
 
 use players::Player;
 use proptest::prelude::*;
+use timeways_story::aliases::words_in;
 
 /// Ada, with Corvin in her guild. `setup` puts other players where the addon can know them.
 fn marked(setup: &str, idea: &str) -> String {
@@ -48,7 +49,7 @@ fn a_sign_past_ascii_ends_a_name() {
 }
 
 #[test]
-fn a_letter_or_a_number_past_ascii_goes_on_with_the_word_as_on_the_desktop() {
+fn a_letter_past_ascii_goes_on_with_the_word_and_a_number_ends_it() {
     let idea = marked(
         "",
         "Corvinª Corvin² Corvinµ Corvin½ CorvinⅫ Corvin« Corvin·",
@@ -56,7 +57,7 @@ fn a_letter_or_a_number_past_ascii_goes_on_with_the_word_as_on_the_desktop() {
 
     assert_eq!(
         idea,
-        "Corvinª Corvin² Corvinµ Corvin½ CorvinⅫ {Corvin}« {Corvin}·"
+        "Corvinª {Corvin}² Corvinµ {Corvin}½ {Corvin}Ⅻ {Corvin}« {Corvin}·"
     );
 }
 
@@ -187,10 +188,7 @@ fn unmarked_words(text: &str) -> Vec<String> {
             _ => {}
         }
     }
-    outside
-        .split(|c: char| !c.is_alphanumeric())
-        .map(str::to_lowercase)
-        .collect()
+    words_in(&outside).map(str::to_lowercase).collect()
 }
 
 proptest! {

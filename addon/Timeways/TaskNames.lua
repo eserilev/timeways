@@ -11,47 +11,53 @@ ns.TaskNames = TaskNames
 -- One character of UTF-8: an ASCII byte, or a lead byte and its continuation bytes.
 local CHAR = "[%z\1-\127\194-\244][\128-\191]*"
 
--- Past ASCII, a code point is a letter unless it is in one of these ranges. The desktop
--- holds the same table (`aliases::is_word_char`), and the addon test
--- `the_addon_and_the_desktop_agree_on_every_letter` checks every code point. A mark or a
--- symbol is a sign, so a name before it still gets its mark.
-local SIGNS = {
-	{ 0x0080, 0x00BF }, -- the no-break space, « », ¡, ¿, ·
-	{ 0x00D7, 0x00D7 }, -- ×
-	{ 0x00F7, 0x00F7 }, -- ÷
-	{ 0x02C2, 0x02C5 }, -- modifier symbols, such as ˂
-	{ 0x02D2, 0x02DF },
-	{ 0x02E5, 0x02EB },
-	{ 0x02ED, 0x02ED },
-	{ 0x02EF, 0x02FF },
-	{ 0x0300, 0x036F }, -- combining marks, such as the acute of "e\204\129"
-	{ 0x037E, 0x037E }, -- the Greek question mark
-	{ 0x0387, 0x0387 }, -- the Greek ano teleia
-	{ 0x0591, 0x05C7 }, -- Hebrew points and signs, such as ׃
-	{ 0x0600, 0x061F }, -- Arabic signs, such as ،
-	{ 0x064B, 0x065F }, -- Arabic marks
-	{ 0x066A, 0x066D },
-	{ 0x06D4, 0x06D4 },
-	{ 0x2000, 0x2FFF }, -- ’, —, …, ⁿ, ℕ, Ⓐ, and other signs
-	{ 0x3000, 0x303F }, -- the signs of CJK, such as 、 and 。
-	{ 0xFE00, 0xFE6F }, -- variation selectors, and small and vertical forms
-	{ 0xFEFF, 0xFEFF }, -- the zero-width no-break space
-	{ 0xFF00, 0xFF0F }, -- full-width signs, such as ，
-	{ 0xFF1A, 0xFF20 },
-	{ 0xFF3B, 0xFF40 },
-	{ 0xFF5B, 0xFF65 },
-	{ 0xFFF0, 0xFFFF }, -- specials, such as �
-	{ 0x10000, 0x10FFFF }, -- past the BMP: emoji
+-- Past ASCII, a code point is a letter only in one of these ranges. Every other code point
+-- is a sign: a wrong split hides too much, never too little. The desktop holds the same
+-- table (`aliases::is_word_char`), and the addon test
+-- `the_addon_and_the_desktop_agree_on_every_letter` checks every code point of the BMP.
+local LETTERS = {
+	{ 0x00AA, 0x00AA }, -- ª
+	{ 0x00B5, 0x00B5 }, -- µ
+	{ 0x00BA, 0x00BA }, -- º
+	{ 0x00C0, 0x00D6 }, -- Latin-1 letters, less × and ÷
+	{ 0x00D8, 0x00F6 },
+	{ 0x00F8, 0x00FF },
+	{ 0x0100, 0x024F }, -- Latin Extended-A and B
+	{ 0x0370, 0x0374 }, -- Greek
+	{ 0x0376, 0x0377 },
+	{ 0x037A, 0x037D },
+	{ 0x037F, 0x037F },
+	{ 0x0386, 0x0386 },
+	{ 0x0388, 0x038A },
+	{ 0x038C, 0x038C },
+	{ 0x038E, 0x03A1 },
+	{ 0x03A3, 0x03F5 },
+	{ 0x03F7, 0x03FF },
+	{ 0x0400, 0x0481 }, -- Cyrillic
+	{ 0x048A, 0x04FF },
+	{ 0x1100, 0x115E }, -- Hangul Jamo, less the fillers
+	{ 0x1161, 0x11FF },
+	{ 0x1E00, 0x1EFF }, -- Latin Extended Additional
+	{ 0x3041, 0x3096 }, -- Hiragana
+	{ 0x309D, 0x309F },
+	{ 0x30A1, 0x30FA }, -- Katakana
+	{ 0x30FC, 0x30FF },
+	{ 0x3131, 0x3163 }, -- Hangul compatibility Jamo, less the filler
+	{ 0x3165, 0x318E },
+	{ 0x4E00, 0x9FFF }, -- CJK
+	{ 0xAC00, 0xD7A3 }, -- Hangul syllables
 }
 
--- The letters and numbers inside SIGNS: ª ² ³ µ ¹ º ¼ ½ ¾, and the Roman numerals.
-local LETTERS_AMONG_SIGNS = {
-	{ 0x00AA, 0x00AA },
-	{ 0x00B2, 0x00B3 },
-	{ 0x00B5, 0x00B5 },
-	{ 0x00B9, 0x00BA },
-	{ 0x00BC, 0x00BE },
-	{ 0x2160, 0x2188 },
+-- The characters that show nothing. They go before a match: "Cor\226\128\139vin" is
+-- Corvin. The desktop drops the same ones (`aliases::is_hidden`).
+local HIDDEN = {
+	{ 0x00AD, 0x00AD }, -- the soft hyphen
+	{ 0x034F, 0x034F }, -- the combining grapheme joiner
+	{ 0x180E, 0x180E }, -- the Mongolian vowel separator
+	{ 0x200B, 0x200F }, -- zero-width spaces and joiners, and direction marks
+	{ 0x2060, 0x2064 }, -- the word joiner and invisible operators
+	{ 0xFE00, 0xFE0F }, -- variation selectors
+	{ 0xFEFF, 0xFEFF }, -- the zero-width no-break space
 }
 
 -- The code point of one character of UTF-8.
@@ -81,7 +87,18 @@ function TaskNames.IsWordChar(char)
 	if code < 0x80 then
 		return char:find("^%w$") ~= nil
 	end
-	return InRanges(code, LETTERS_AMONG_SIGNS) or not InRanges(code, SIGNS)
+	return InRanges(code, LETTERS)
+end
+
+-- The text with each character that shows nothing taken out.
+function TaskNames.Visible(text)
+	return (
+		text:gsub(CHAR, function(char)
+			if #char > 1 and InRanges(CodePoint(char), HIDDEN) then
+				return ""
+			end
+		end)
+	)
 end
 
 local IsWordChar = TaskNames.IsWordChar
@@ -236,7 +253,8 @@ end
 -- own name becomes `$N`. Returns the text, and the players that it marks as "Name-Realm",
 -- once each.
 function TaskNames.Marked(text)
-	text = WithoutBraces(text)
+	-- The bridge reads broken bytes as U+FFFD, so the marks must read them so too.
+	text = WithoutBraces(TaskNames.Visible(ns.Utf8.Lossy(text)))
 	local names, me, mySurname = KnownNames(), MyName()
 	local parts, players, seen, at = {}, {}, {}, 1
 	while true do

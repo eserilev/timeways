@@ -10,6 +10,7 @@
 use crate::race_class::{Class, Race};
 use serde::{Deserialize, Serialize};
 use timeways_rules::aliases::{self as rules, Alias, Piece, Plain, PlayerId};
+use unicode_normalization::UnicodeNormalization;
 
 /// The limit of the bridge for the name of a character (Gnomish Relay SPEC.md 9.8).
 pub const MAX_PLAYER_NAME_BYTES: usize = 48;
@@ -202,18 +203,23 @@ fn is_realm(realm: &str) -> bool {
     !realm.is_empty() && realm.chars().all(is_word_char)
 }
 
-/// True for a character of a word: an ASCII letter or digit, or a code point past ASCII
-/// that is in no range of `SIGNS`, or in a range of `LETTERS_AMONG_SIGNS`. The addon holds
-/// the same rule (`TaskNames.IsWordChar`), and the addon test
-/// `the_addon_and_the_desktop_agree_on_every_letter` checks every code point. One rule
-/// on both sides, so no name is a word on one side and part of a longer word on the other.
+/// True for a character of a word: an ASCII letter or digit, or a code point in a range of
+/// `LETTERS`. Every other code point is a sign: a wrong split hides too much, never too
+/// little. The addon holds the same rule (`TaskNames.IsWordChar`), and the addon test
+/// `the_addon_and_the_desktop_agree_on_every_letter` checks every code point of the BMP.
 #[must_use]
 pub fn is_word_char(c: char) -> bool {
-    let code = u32::from(c);
-    if code < 0x80 {
+    if c.is_ascii() {
         return c.is_ascii_alphanumeric();
     }
-    in_ranges(code, &LETTERS_AMONG_SIGNS) || !in_ranges(code, &SIGNS)
+    in_ranges(u32::from(c), &LETTERS)
+}
+
+/// True for a character that shows nothing, and goes before a match: "Cor\u{200B}vin" is
+/// Corvin. The addon drops the same ones (`TaskNames.Visible`).
+#[must_use]
+pub fn is_hidden(c: char) -> bool {
+    in_ranges(u32::from(c), &HIDDEN)
 }
 
 fn in_ranges(code: u32, ranges: &[(u32, u32)]) -> bool {
@@ -222,46 +228,64 @@ fn in_ranges(code: u32, ranges: &[(u32, u32)]) -> bool {
         .any(|(first, last)| (*first..=*last).contains(&code))
 }
 
-/// Past ASCII, the ranges that are no letters. A mark or a symbol is a sign, so a name
-/// before it is still a word: "Ada\u{301}" and "Adaⁿ" hold the name Ada.
-const SIGNS: [(u32, u32); 26] = [
-    (0x0080, 0x00BF), // the no-break space, « », ¡, ¿, ·
-    (0x00D7, 0x00D7), // ×
-    (0x00F7, 0x00F7), // ÷
-    (0x02C2, 0x02C5), // modifier symbols, such as ˂
-    (0x02D2, 0x02DF),
-    (0x02E5, 0x02EB),
-    (0x02ED, 0x02ED),
-    (0x02EF, 0x02FF),
-    (0x0300, 0x036F), // combining marks
-    (0x037E, 0x037E), // the Greek question mark
-    (0x0387, 0x0387), // the Greek ano teleia
-    (0x0591, 0x05C7), // Hebrew points and signs, such as ׃
-    (0x0600, 0x061F), // Arabic signs, such as ،
-    (0x064B, 0x065F), // Arabic marks
-    (0x066A, 0x066D),
-    (0x06D4, 0x06D4),
-    (0x2000, 0x2FFF), // ’, —, …, ⁿ, ℕ, Ⓐ, and other signs
-    (0x3000, 0x303F), // the signs of CJK, such as 、 and 。
-    (0xFE00, 0xFE6F), // variation selectors, and small and vertical forms
-    (0xFEFF, 0xFEFF), // the zero-width no-break space
-    (0xFF00, 0xFF0F), // full-width signs, such as ，
-    (0xFF1A, 0xFF20),
-    (0xFF3B, 0xFF40),
-    (0xFF5B, 0xFF65),
-    (0xFFF0, 0xFFFF),      // specials, such as U+FFFD
-    (0x1_0000, 0x10_FFFF), // past the BMP: emoji
+/// The letters of the scripts of the game's names, and of Greek, Cyrillic, and East Asian
+/// text. A filler of Hangul looks like a letter and shows nothing, so it is a sign.
+const LETTERS: [(u32, u32); 30] = [
+    (0x00AA, 0x00AA), // ª
+    (0x00B5, 0x00B5), // µ
+    (0x00BA, 0x00BA), // º
+    (0x00C0, 0x00D6), // Latin-1 letters, less × and ÷
+    (0x00D8, 0x00F6),
+    (0x00F8, 0x00FF),
+    (0x0100, 0x024F), // Latin Extended-A and B
+    (0x0370, 0x0374), // Greek
+    (0x0376, 0x0377),
+    (0x037A, 0x037D),
+    (0x037F, 0x037F),
+    (0x0386, 0x0386),
+    (0x0388, 0x038A),
+    (0x038C, 0x038C),
+    (0x038E, 0x03A1),
+    (0x03A3, 0x03F5),
+    (0x03F7, 0x03FF),
+    (0x0400, 0x0481), // Cyrillic
+    (0x048A, 0x04FF),
+    (0x1100, 0x115E), // Hangul Jamo, less the fillers
+    (0x1161, 0x11FF),
+    (0x1E00, 0x1EFF), // Latin Extended Additional
+    (0x3041, 0x3096), // Hiragana
+    (0x309D, 0x309F),
+    (0x30A1, 0x30FA), // Katakana
+    (0x30FC, 0x30FF),
+    (0x3131, 0x3163), // Hangul compatibility Jamo, less the filler
+    (0x3165, 0x318E),
+    (0x4E00, 0x9FFF), // CJK
+    (0xAC00, 0xD7A3), // Hangul syllables
 ];
 
-/// The letters and numbers inside `SIGNS`: ª ² ³ µ ¹ º ¼ ½ ¾, and the Roman numerals.
-const LETTERS_AMONG_SIGNS: [(u32, u32); 6] = [
-    (0x00AA, 0x00AA),
-    (0x00B2, 0x00B3),
-    (0x00B5, 0x00B5),
-    (0x00B9, 0x00BA),
-    (0x00BC, 0x00BE),
-    (0x2160, 0x2188),
+const HIDDEN: [(u32, u32); 7] = [
+    (0x00AD, 0x00AD), // the soft hyphen
+    (0x034F, 0x034F), // the combining grapheme joiner
+    (0x180E, 0x180E), // the Mongolian vowel separator
+    (0x200B, 0x200F), // zero-width spaces and joiners, and direction marks
+    (0x2060, 0x2064), // the word joiner and invisible operators
+    (0xFE00, 0xFE0F), // variation selectors
+    (0xFEFF, 0xFEFF), // the zero-width no-break space
 ];
+
+/// The text as names match it: composed (NFC), with no character that shows nothing, and no
+/// accent that composes with no letter. So "E\u{301}lise" is Élise and "Corv\u{301}in" is
+/// Corvin. A model reads this text, and the player's own screen keeps the typed one.
+#[must_use]
+pub fn for_matching(text: &str) -> String {
+    text.nfc()
+        .filter(|c| !is_hidden(*c) && !is_combining_accent(*c))
+        .collect()
+}
+
+fn is_combining_accent(c: char) -> bool {
+    ('\u{300}'..='\u{36F}').contains(&c)
+}
 
 /// The text cut into words and the rest. A word with a realm, "Ada-Stormrage", is one
 /// word when the table knows its name, as `TaskNames.lua` does it. A plain piece is never
@@ -278,7 +302,7 @@ pub fn text_pieces(text: &str, table: &[Alias]) -> Vec<Plain> {
             index += 1;
             continue;
         }
-        let key = key_of(run);
+        let key = key_in(table, run);
         let realm = runs
             .get(index + 2)
             .filter(|_| runs[index + 1] == (false, "-"));
@@ -306,6 +330,26 @@ pub fn words_in(text: &str) -> impl Iterator<Item = &str> {
     runs(text)
         .into_iter()
         .filter_map(|(is_word, run)| is_word.then_some(run))
+}
+
+/// The key of a word as the table knows it: the word in lower case, or with its accents
+/// taken off when only that form is a name of the table. "Adá", an accent typed after Ada,
+/// is Ada, and "Élise" stays Élise when the table holds her.
+fn key_in(table: &[Alias], word: &str) -> String {
+    let key = key_of(word);
+    if rules::find(table, &key).is_some() {
+        return key;
+    }
+    let bare = key_of(&without_accents(word));
+    if rules::find(table, &bare).is_some() {
+        bare
+    } else {
+        key
+    }
+}
+
+fn without_accents(word: &str) -> String {
+    word.nfd().filter(|c| !is_combining_accent(*c)).collect()
 }
 
 /// The runs of word letters and of other letters, in order, each with whether it is a word.
@@ -357,7 +401,8 @@ pub fn plain_joined(pieces: &[Plain]) -> String {
 /// The text for a model: each name that the table knows becomes its ID.
 #[must_use]
 pub fn without_names(table: &[Alias], text: &str) -> String {
-    joined(&rules::to_ids(table, &text_pieces(text, table)))
+    let text = for_matching(text);
+    joined(&rules::to_ids(table, &text_pieces(&text, table)))
 }
 
 /// When a surname of the character, alone, is hidden.
@@ -375,6 +420,9 @@ pub enum Surname {
 /// name, such as one with a digit, hides each word in it.
 #[must_use]
 pub fn without_own_name(text: &str, own: &str, surname: Surname) -> String {
+    let text = for_matching(text);
+    let text = text.as_str();
+    let own = for_matching(own);
     let mut parts = own.split_whitespace();
     let first = parts.next().map(part_aliases).unwrap_or_default();
     let surnames: Vec<Alias> = parts.flat_map(part_aliases).collect();
@@ -793,5 +841,52 @@ mod tests {
 
         assert_eq!(marked.text, "Leborc(James) and (Ada)x and x(Ada), Ada.");
         assert_eq!(marked.names, vec!["Ada"]);
+    }
+
+    #[test]
+    fn a_name_matches_after_hidden_characters_go_and_accents_compose() {
+        let table = table(&["Ada", "Élise", "Corvin"]);
+
+        let text = without_names(
+            &table,
+            "A\u{200B}da, E\u{301}lise, Corv\u{301}in, Co\u{AD}rvin",
+        );
+
+        assert_eq!(text, "{P1}, {P2}, {P3}, {P3}");
+    }
+
+    #[test]
+    fn the_own_name_matches_after_hidden_characters_go_and_accents_compose() {
+        let hidden = without_own_name(
+            "E\u{301}lise and Él\u{200D}ise",
+            "Élise",
+            Surname::AsWritten,
+        );
+
+        assert_eq!(hidden, "$N and $N");
+    }
+
+    #[test]
+    fn a_sign_outside_the_letter_ranges_ends_a_word() {
+        let table = table(&["Ada"]);
+
+        let text = without_names(
+            &table,
+            "Ada\u{1DC0} Ada\u{1680}went Ada\u{3164} Ada฿ Ada\u{E000}",
+        );
+
+        assert_eq!(
+            text,
+            "{P1}\u{1DC0} {P1}\u{1680}went {P1}\u{3164} {P1}฿ {P1}\u{E000}"
+        );
+    }
+
+    #[test]
+    fn an_accent_typed_after_a_name_still_matches_it_and_an_accented_name_stays_its_own() {
+        let table = table(&["Ada", "Élise", "Elise"]);
+
+        let text = without_names(&table, "Ada\u{301}, Adá, Élise, Elise, E\u{301}lise");
+
+        assert_eq!(text, "{P1}, {P1}, {P2}, {P3}, {P2}");
     }
 }
