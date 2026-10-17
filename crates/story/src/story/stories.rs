@@ -18,13 +18,10 @@ impl Story {
         title: Option<&str>,
         paragraphs: &[String],
     ) -> Result<Vec<Output>, StoryError> {
-        let title = title
-            .filter(|title| !title.is_empty())
-            .map(|title| unmarked(&for_matching(title)));
-        let paragraphs: Vec<Marked> = paragraphs
-            .iter()
-            .map(|text| unmarked(&for_matching(text)))
-            .collect();
+        let cleaned_title = title.filter(|title| !title.is_empty()).map(for_matching);
+        let title = cleaned_title.as_deref().map(unmarked);
+        let cleaned: Vec<String> = paragraphs.iter().map(|text| for_matching(text)).collect();
+        let paragraphs: Vec<Marked> = cleaned.iter().map(|text| unmarked(text)).collect();
         let plain: Vec<String> = paragraphs
             .iter()
             .map(|marked| marked.text.clone())
@@ -50,10 +47,10 @@ impl Story {
         let accepted = StoryChange::Accepted {
             number,
             at,
-            title: title.map(|marked| aliases::with_ids(active, &marked.text)),
-            paragraphs: plain
+            title: cleaned_title.map(|text| aliases::ids_of_marked(active, &text)),
+            paragraphs: cleaned
                 .iter()
-                .map(|text| aliases::with_ids(active, text))
+                .map(|text| aliases::ids_of_marked(active, text))
                 .collect(),
         };
         active.stories.add(accepted)?;

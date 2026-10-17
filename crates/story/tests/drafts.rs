@@ -413,6 +413,26 @@ fn a_mark_with_a_surname_teaches_the_surname_for_later_texts() {
 }
 
 #[test]
+fn a_mark_of_another_player_with_your_first_name_is_that_player() {
+    let mut story = story("same-first-name");
+    let character = Input::CharacterEntered {
+        realm: "Testrealm".to_string(),
+        name: "Kobee Bean".to_string(),
+    };
+    story.handle(character).unwrap();
+
+    let (_, prompt) = ask(
+        &mut story,
+        "{Kobee-Will} healed me, and Kobee thanked them.",
+    );
+
+    assert!(
+        prompt.contains("{P1} healed me, and $N thanked them."),
+        "{prompt}"
+    );
+}
+
+#[test]
 fn a_surname_in_lower_case_stays_a_word() {
     let mut story = story("surname-word");
     note_naming(&mut story, "Bram Will owes me.", &["Bram-Will"]);

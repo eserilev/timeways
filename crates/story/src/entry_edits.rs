@@ -57,8 +57,9 @@ pub struct EditView {
     pub paragraphs: Vec<String>,
 }
 
-/// The reason of a refused edit, for the next journal. The addon checks the same limits
-/// before Save, so only a damaged line meets it.
+/// The reason of a refused edit, for the next journal. The addon checks the same limits on
+/// the typed text before Save, and the desktop checks the text with each mark as its first
+/// name, the same length, so only a damaged line meets it.
 pub const REFUSED: &str = "Your edit didn't save. Shorten it a little and try again.";
 
 /// The summary is one paragraph with no title, so it can stand as the History of the

@@ -17,15 +17,16 @@ impl Story {
         id: MessageId,
         idea: &str,
     ) -> Result<Vec<Output>, StoryError> {
-        let marked = unmarked(&for_matching(idea));
-        let idea = draft::checked_idea(&marked.text).ok_or(StoryError::BadWords)?;
+        let cleaned = for_matching(idea);
+        let marked = unmarked(&cleaned);
+        draft::checked_idea(&marked.text).ok_or(StoryError::BadWords)?;
         let ai = self.ai();
         let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
         if !ai.is_on() {
             return Ok(vec![draft_answer(id, None)]);
         }
-        let idea = aliases::without_own_name(active, idea);
-        let idea = aliases::without_names(active, &marked.names, &idea)?;
+        aliases::learn_names(active, &marked.names)?;
+        let idea = aliases::marked_for_model(active, cleaned.trim());
         let cards = active.aliases.cards(&idea);
         let known = known(active);
         let prompt = draft::prompt(&known, &idea, &cards);

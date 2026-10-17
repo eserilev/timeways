@@ -151,23 +151,46 @@ pub struct Marked {
     pub names: Vec<String>,
 }
 
-/// "{Ada} and {Bob-Stormrage} met" is "Ada and Bob-Stormrage met", with the names "Ada" and
-/// "Bob-Stormrage". On WoW Forever the part after the dash is the surname. Every other brace becomes a parenthesis, so a text that a player typed never holds
-/// an ID. The addon marks whole words only, so a brace pair that touches a word character,
-/// "Leborc{James}", was typed, and is no mark.
+/// "{Ada} and {Bob-Stormrage} met" is "Ada and Bob met", with the names "Ada" and
+/// "Bob-Stormrage". On WoW Forever the part after the dash is the surname. The text holds
+/// the first name alone, as the player typed it, so the limits of the addon hold. Every
+/// other brace becomes a parenthesis, so a text that a player typed never holds an ID.
 #[must_use]
 pub fn unmarked(text: &str) -> Marked {
+    read_marks(text, |inner| first_name(inner).to_string())
+}
+
+/// The text with each mark as the ID of the first name of its player, and every other brace
+/// as a parenthesis. A mark comes from the addon only, so it names a player for certain,
+/// also one whose first name is yours: run it before the own pass. Learn the names first.
+#[must_use]
+pub fn marks_as_ids(table: &[Alias], text: &str) -> String {
+    let id_of = |inner: &str| {
+        let first = first_name(inner);
+        rules::find(table, &key_of(first)).map_or_else(|| first.to_string(), id_text)
+    };
+    read_marks(text, id_of).text
+}
+
+fn first_name(inner: &str) -> &str {
+    player_name(inner).unwrap_or(inner)
+}
+
+/// The text with each mark as `mark` writes it, and the inner of each mark. The addon marks
+/// whole words only, so a brace pair that touches a word character, "Leborc{James}", was
+/// typed, and is no mark.
+fn read_marks(text: &str, mut mark: impl FnMut(&str) -> String) -> Marked {
     let mut plain = String::with_capacity(text.len());
     let mut names = Vec::new();
     let mut rest = text;
     let mut before: Option<char> = None;
     while let Some(c) = rest.chars().next() {
-        let mark = mark_at(rest).filter(|(_, after)| {
+        let found = mark_at(rest).filter(|(_, after)| {
             let touches = |c: Option<char>| c.is_some_and(is_word_char);
             !touches(before) && !touches(after.chars().next())
         });
-        if let Some((inner, after)) = mark {
-            plain.push_str(inner);
+        if let Some((inner, after)) = found {
+            plain.push_str(&mark(inner));
             names.push(inner.to_string());
             before = Some('}');
             rest = after;
@@ -428,8 +451,9 @@ pub fn without_own_name(text: &str, own: &str, surname: Surname) -> String {
     hidden
 }
 
+/// Spaces between two parts of a name: any run of plain and no-break spaces.
 fn is_spaces(text: &str) -> bool {
-    text.chars().all(|c| c == ' ')
+    text.chars().all(|c| c == ' ' || c == '\u{A0}')
 }
 
 #[must_use]
@@ -645,7 +669,7 @@ mod tests {
     fn a_mark_gives_its_name_and_leaves_the_name_in_the_text() {
         let marked = unmarked("{Ada} and {Bob-Stormrage} held {the} bridge {P7}");
 
-        assert_eq!(marked.text, "Ada and Bob-Stormrage held the bridge (P7)");
+        assert_eq!(marked.text, "Ada and Bob held the bridge (P7)");
         assert_eq!(marked.names, vec!["Ada", "Bob-Stormrage", "the"]);
     }
 
@@ -913,5 +937,31 @@ mod tests {
         let text = without_names(&table, "Ada\u{301}, Élise, Elise, E\u{301}lise");
 
         assert_eq!(text, "{P1}\u{301}, {P2}, {P3}, E\u{301}lise");
+    }
+
+    #[test]
+    fn a_surname_after_its_first_name_goes_across_any_run_of_spaces() {
+        let text = without_surnames(&rows(), "{P1}  James, {P1}\u{A0}James", Surname::AsWritten);
+
+        assert_eq!(text, "{P1}, {P1}");
+    }
+
+    #[test]
+    fn the_own_whole_name_is_one_mark_across_a_no_break_space() {
+        let hidden = without_own_name("Kobee\u{A0}Bean rests", "Kobee Bean", Surname::AsWritten);
+
+        assert_eq!(hidden, "$N rests");
+    }
+
+    #[test]
+    fn a_mark_becomes_the_id_of_its_player_and_its_text_holds_the_first_name() {
+        let table = table(&["Kobee", "Ada"]);
+
+        let marked = unmarked("{Kobee-Will} and {Ada}");
+        let ids = marks_as_ids(&table, "{Kobee-Will} and {Ada} and {P1}");
+
+        assert_eq!(marked.text, "Kobee and Ada");
+        assert_eq!(marked.names, vec!["Kobee-Will", "Ada"]);
+        assert_eq!(ids, "{P1} and {P2} and (P1)");
     }
 }

@@ -105,13 +105,18 @@ pub(super) struct TextLimits {
     pub(super) bytes: usize,
 }
 
-/// Learns the names that the addon marked, and gives the text with each name that the
-/// table knows as its ID.
-pub(super) fn without_names(
-    active: &mut Active,
-    marked: &[String],
-    text: &str,
-) -> Result<String, StoreError> {
-    learn_names(active, marked)?;
-    Ok(with_ids(active, text))
+/// A text of the addon for the disk: each mark as the ID of its player, and every other
+/// name of the table as its ID. Learn the names of its marks first.
+pub(super) fn ids_of_marked(active: &Active, marked: &str) -> String {
+    with_ids(
+        active,
+        &aliases::marks_as_ids(active.aliases.table(), marked),
+    )
+}
+
+/// A text of the addon for a model: each mark as the ID of its player before the own pass,
+/// so a mark of another player with your first name stays theirs.
+pub(super) fn marked_for_model(active: &Active, marked: &str) -> String {
+    let ids = aliases::marks_as_ids(active.aliases.table(), marked);
+    with_ids(active, &without_own_name(active, &ids))
 }

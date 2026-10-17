@@ -204,16 +204,33 @@ local function AddTaskPlayers(names)
 	end
 end
 
+-- The players of one first name in a steady order: your group first, then by the key.
+-- `pairs` and the order of the guild roster change between calls.
+local function Ordered(names, group)
+	for _, players in pairs(names) do
+		table.sort(players, function(a, b)
+			if group[a] ~= group[b] then
+				return group[a] == true
+			end
+			return a < b
+		end)
+	end
+	return names
+end
+
 -- Every player whom the addon knows, by the folded first name: { [name] = { "Name-Realm" } }.
 local function KnownNames()
-	local names = {}
+	local names, group = {}, {}
+	for _, name in ipairs(ns.TaskPeople.GroupNames()) do
+		group[ns.TaskPeople.Full(name) or name] = true
+	end
 	AddAll(names, ns.TaskPeople.GroupNames())
 	AddAll(names, ns.TaskPeople.GuildNames())
 	AddAll(names, ns.TaskPeople.FriendNames())
 	AddTaskPlayers(names)
 	-- An author can leave your group long before you accept the story.
 	AddAll(names, ns.PlayerStories.Names())
-	return names
+	return Ordered(names, group)
 end
 
 -- Your first name, folded, and your surname.
@@ -230,13 +247,34 @@ local function WithoutBraces(text)
 	return (text:gsub("{", "("):gsub("}", ")"))
 end
 
--- The word right after `last` and a separator, "-" or " ": its first and last byte.
+-- The last byte of a run of plain and no-break spaces that starts at `at`, or nil.
+local function SpacesEnd(text, at)
+	local stop
+	while true do
+		if text:sub(at, at) == " " then
+			stop, at = at, at + 1
+		elseif text:sub(at, at + 1) == "\194\160" then
+			stop, at = at + 1, at + 2
+		else
+			return stop
+		end
+	end
+end
+
+-- The word right after `last` and a separator: "-", or " " for any run of plain and
+-- no-break spaces. Its first and last byte.
 local function WordAfter(text, last, separator)
-	if text:sub(last + 1, last + 1) ~= separator then
+	local gapEnd
+	if separator == "-" then
+		gapEnd = text:sub(last + 1, last + 1) == "-" and last + 1 or nil
+	else
+		gapEnd = SpacesEnd(text, last + 1)
+	end
+	if not gapEnd then
 		return nil
 	end
-	local first, wordEnd = NextWord(text, last + 2)
-	if first == last + 2 then
+	local first, wordEnd = NextWord(text, gapEnd + 1)
+	if first == gapEnd + 1 then
 		return first, wordEnd
 	end
 end
@@ -297,33 +335,6 @@ local function NameEnd(last, after, surname)
 	return stop
 end
 
--- Each known surname, folded, and the first player who holds it.
-local function KnownSurnames(names)
-	local surnames = {}
-	for _, players in pairs(names) do
-		for _, full in ipairs(players) do
-			local surname = SurnameOf(full)
-			if surname and not surnames[surname] then
-				surnames[surname] = full
-			end
-		end
-	end
-	return surnames
-end
-
--- The player of a surname that stands alone with a capital, "the Will family": "me" or a
--- key. In lower case a surname is a word.
-local function LoneSurname(word, surnames, mySurname)
-	if not IsCapitalized(word) then
-		return nil
-	end
-	local folded = TaskNames.Fold(word)
-	if mySurname and folded == TaskNames.Fold(mySurname) then
-		return "me"
-	end
-	return surnames[folded]
-end
-
 -- The mark of a player: the key of the game when the key holds a surname, so the desktop
 -- learns it, and the first name alone when it holds a realm.
 local function MarkOf(full)
@@ -333,14 +344,13 @@ end
 
 -- Each player that the addon knows becomes "{Name}", or "{Name-Surname}" on WoW Forever,
 -- and your own name becomes `$N`. A whole name goes first: your whole name, then the whole
--- name of a known player, then a first name alone, which is you when it is yours, and then
--- a surname alone with a capital.
+-- name of a known player, and then a first name alone, which is you when it is yours. A
+-- surname alone stays: the desktop hides it once it knows the surname from a mark.
 -- Returns the text, and the players that it marks as "Name-Realm", once each.
 function TaskNames.Marked(text)
 	-- The bridge reads broken bytes as U+FFFD, so the marks must read them so too.
 	text = WithoutBraces(TaskNames.Visible(ns.Utf8.Lossy(text)))
 	local names, me, mySurname = KnownNames(), MyName()
-	local surnames = KnownSurnames(names)
 	local parts, players, seen, at = {}, {}, {}, 1
 	while true do
 		local first, last = NextWord(text, at)
@@ -348,14 +358,10 @@ function TaskNames.Marked(text)
 			break
 		end
 		parts[#parts + 1] = text:sub(at, first - 1)
-		local word = text:sub(first, last)
-		local folded = TaskNames.Fold(word)
+		local folded = TaskNames.Fold(text:sub(first, last))
 		local candidates = names[folded] or {}
 		local after = Following(text, last)
-		local who = WholeName(candidates, folded == me, mySurname, after)
-			or (folded == me and "me")
-			or candidates[1]
-			or LoneSurname(word, surnames, mySurname)
+		local who = WholeName(candidates, folded == me, mySurname, after) or (folded == me and "me") or candidates[1]
 		if who == "me" then
 			parts[#parts + 1] = "$N"
 			last = NameEnd(last, after, mySurname and TaskNames.Fold(mySurname))

@@ -6,7 +6,13 @@
 mod common;
 
 use common::Game;
+use hourglass::Tick;
 use proptest::prelude::*;
+use timeways_story::aliases::words_in;
+use timeways_story::input::{Input, MessageId};
+use timeways_story::pack::Pack;
+use timeways_story::store::Store;
+use timeways_story::story::{Output, Story};
 
 /// Kobee Bean on WoW Forever, with Leborc James in the group.
 fn kobee_bean() -> Game {
@@ -215,18 +221,41 @@ fn a_surname_in_lower_case_after_a_known_first_name_stays_a_word() {
 }
 
 #[test]
-fn a_surname_alone_with_a_capital_becomes_the_mark_of_its_player() {
+fn a_surname_alone_is_left_for_the_desktop() {
+    let game = two_kobees();
+
+    let text = marked(&game, "Bean is my house. Will you come to the James house?");
+
+    assert_eq!(text, "Bean is my house. Will you come to the James house?");
+}
+
+#[test]
+fn a_first_name_alone_picks_one_player_in_a_steady_order() {
+    let game = kobee_bean();
+    game.run(
+        "wow.units.party1 = nil
+         wow.guild = { { name = 'Leborc-James', online = true }, { name = 'Leborc-Ash', online = true } }
+         wow.Fire('GUILD_ROSTER_UPDATE', false)",
+    );
+    let from_the_guild = marked(&game, "ask leborc");
+    game.run("wow.units.party1 = { name = 'Leborc', realm = 'James', player = true, guid = 'Player-1-Leborc' }");
+
+    let from_the_group = marked(&game, "ask leborc");
+
+    assert_eq!(from_the_guild, "ask {Leborc-Ash}");
+    assert_eq!(from_the_group, "ask {Leborc-James}");
+}
+
+#[test]
+fn a_whole_name_goes_across_any_run_of_spaces() {
     let game = two_kobees();
 
     let text = marked(
         &game,
-        "Bean is my house. The Will family and the James house, will you?",
+        "ask Leborc  James, Leborc\u{A0}James, Kobee\u{A0}Bean",
     );
 
-    assert_eq!(
-        text,
-        "$N is my house. The {Kobee-Will} family and the {Leborc-James} house, will you?"
-    );
+    assert_eq!(text, "ask {Leborc-James}, {Leborc-James}, $N");
 }
 
 const FIRSTS: [&str; 4] = ["Kobee", "Leborc", "Ada", "Bram"];
@@ -255,10 +284,11 @@ fn written(first: &str, surname: &str, form: u8) -> String {
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(64))]
 
-    /// GAMEPLAY.md 5.11: no first name and no surname with a capital of a known player, or
-    /// of yours, stays unmarked. A surname in lower case is a word.
+    /// GAMEPLAY.md 5.11: the addon marks every first name of a known player and of yours,
+    /// and the desktop hides every surname with a capital that a mark taught it. A surname
+    /// in lower case is a word.
     #[test]
-    fn no_known_first_name_or_capital_surname_stays_unmarked(
+    fn no_known_first_name_or_capital_surname_reaches_a_prompt(
         players in proptest::collection::vec(known_player(), 1..5),
         named in proptest::collection::vec((0usize..6, any::<u8>(), "[c-k]{1,4}"), 1..8),
     ) {
@@ -289,29 +319,55 @@ proptest! {
         let text = text.join(" ");
 
         let marked = marked(&game, &text);
+        let idea = idea_in_the_prompt(&marked);
 
-        for word in outside_marks(&marked) {
-            let first = people.iter().any(|(f, _)| FIRSTS[*f].eq_ignore_ascii_case(&word));
-            let surname = people.iter().any(|(_, s)| SURNAMES[*s] == word)
-                || people.iter().any(|(_, s)| word.len() > 1 && SURNAMES[*s].eq_ignore_ascii_case(&word) && word.chars().next().is_some_and(char::is_uppercase));
-            prop_assert!(!first && !surname, "{} in {} from {}", word, marked, text);
+        // The desktop knows the surnames of the marks, and yours.
+        let mut taught: Vec<String> = mark_surnames(&marked);
+        taught.push("Bean".to_string());
+        for word in words_in(&idea) {
+            let first = people.iter().any(|(f, _)| FIRSTS[*f].eq_ignore_ascii_case(word));
+            let capital = word.chars().next().is_some_and(char::is_uppercase);
+            let surname = capital && taught.iter().any(|known| known.eq_ignore_ascii_case(word));
+            prop_assert!(!first && !surname, "{} in {} from {}", word, idea, text);
         }
     }
 }
 
-/// The words of a text outside its marks, as written.
-fn outside_marks(text: &str) -> Vec<String> {
-    let mut outside = String::new();
-    let mut in_mark = false;
-    for c in text.chars() {
-        match c {
-            '{' => in_mark = true,
-            '}' => in_mark = false,
-            _ if !in_mark => outside.push(c),
-            _ => {}
-        }
-    }
-    timeways_story::aliases::words_in(&outside)
-        .map(str::to_string)
+/// The surnames that the marks of a text carry: "{Leborc-James}" carries James.
+fn mark_surnames(text: &str) -> Vec<String> {
+    text.split('{')
+        .skip(1)
+        .filter_map(|rest| rest.split_once('}'))
+        .filter_map(|(inner, _)| {
+            inner
+                .split_once('-')
+                .map(|(_, surname)| surname.to_string())
+        })
         .collect()
+}
+
+/// The idea of a draft as a model reads it, from a desktop with the character Kobee Bean.
+fn idea_in_the_prompt(marked: &str) -> String {
+    let path = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join("player-names-pack.sqlite");
+    if !path.exists() {
+        Pack::write(&path, &[]).unwrap();
+    }
+    let mut story = Story::new(Pack::open(&path).unwrap(), Store::Memory);
+    story
+        .handle(Input::CharacterEntered {
+            realm: "Testrealm".to_string(),
+            name: "Kobee Bean".to_string(),
+        })
+        .unwrap();
+    let asked = Input::DraftAsked {
+        id: MessageId(1),
+        at: Tick(1),
+        idea: marked.to_string(),
+    };
+    let Some(Output::ModelCall { prompt, .. }) = story.handle(asked).unwrap().into_iter().next()
+    else {
+        panic!("no draft call for {marked}");
+    };
+    let (_, after) = prompt.split_once("The idea of the player:\n<<<\n").unwrap();
+    after.split_once("\n>>>").unwrap().0.to_string()
 }

@@ -489,6 +489,24 @@ fn an_edit_loses_the_characters_that_show_nothing_and_keeps_its_marks() {
 }
 
 #[test]
+fn an_edit_at_the_limit_with_a_surname_in_its_mark_is_kept() {
+    let mut story = started("limit-mark");
+    a_chapter_in_westfall(&mut story);
+    let (_, key) = first_chapter(&mut story);
+    let typed_rest = "a".repeat(1000 - "Leborc ".len());
+
+    edit(
+        &mut story,
+        key,
+        EditText::Keep,
+        &[&format!("{{Leborc-James}} {typed_rest}")],
+    );
+
+    let edits = journal(&mut story).edits;
+    assert_eq!(edits[0].paragraphs, [format!("Leborc {typed_rest}")]);
+}
+
+#[test]
 fn an_edit_of_an_entry_that_does_not_exist_stays_out_of_the_journal() {
     let mut story = started("no-such-entry");
     a_chapter_in_westfall(&mut story);

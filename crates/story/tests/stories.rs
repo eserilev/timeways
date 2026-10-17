@@ -540,6 +540,23 @@ fn a_story_loses_the_characters_that_show_nothing_and_keeps_its_marks() {
     assert_eq!(stories(&mut story)[0].paragraphs, shown);
 }
 
+/// The addon counts the letters of the typed text, "Leborc", so the mark "{Leborc-James}"
+/// must not make the story longer.
+#[test]
+fn a_story_at_the_limit_with_a_surname_in_its_mark_is_kept() {
+    let folder = fresh_folder("limit-mark");
+    let mut story = story(&folder);
+    let typed_rest = "a".repeat(1000 - "Leborc ".len());
+
+    let kept = accept(&mut story, 1, &format!("{{Leborc-James}} {typed_rest}"));
+
+    assert!(kept.is_ok(), "{kept:?}");
+    assert_eq!(
+        stories(&mut story)[0].paragraphs,
+        [format!("Leborc {typed_rest}")]
+    );
+}
+
 #[test]
 fn a_player_keeps_the_same_id_after_a_reopen() {
     let folder = fresh_folder("same-id");

@@ -28,13 +28,10 @@ impl Story {
         text: EditText,
         paragraphs: &[String],
     ) -> Result<Vec<Output>, StoryError> {
-        let title = title
-            .filter(|title| !title.is_empty())
-            .map(|title| unmarked(&for_matching(title)));
-        let marked: Vec<Marked> = paragraphs
-            .iter()
-            .map(|text| unmarked(&for_matching(text)))
-            .collect();
+        let cleaned_title = title.filter(|title| !title.is_empty()).map(for_matching);
+        let title = cleaned_title.as_deref().map(unmarked);
+        let cleaned: Vec<String> = paragraphs.iter().map(|text| for_matching(text)).collect();
+        let marked: Vec<Marked> = cleaned.iter().map(|text| unmarked(text)).collect();
         let plain = EntryEdit {
             entry,
             title: title.as_ref().map(|marked| marked.text.clone()),
@@ -54,11 +51,10 @@ impl Story {
             .collect();
         aliases::learn_names(active, &names)?;
         let edit = EntryEdit {
-            title: plain.title.map(|title| aliases::with_ids(active, &title)),
-            paragraphs: plain
-                .paragraphs
+            title: cleaned_title.map(|text| aliases::ids_of_marked(active, &text)),
+            paragraphs: cleaned
                 .iter()
-                .map(|text| aliases::with_ids(active, text))
+                .map(|text| aliases::ids_of_marked(active, text))
                 .collect(),
             ..plain
         };
