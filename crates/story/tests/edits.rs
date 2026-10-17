@@ -476,22 +476,16 @@ fn the_own_name_in_an_edit_never_reaches_a_saga() {
 }
 
 #[test]
-fn an_edit_keeps_the_characters_that_show_nothing_as_typed() {
+fn an_edit_loses_the_characters_that_show_nothing_and_keeps_its_marks() {
     let mut story = started("typed");
     a_chapter_in_westfall(&mut story);
     let (_, key) = first_chapter(&mut story);
+    let typed = "\u{2764}\u{FE0F} a\u{200D}b q\u{303}x {Ada} {Ada}\u{200B}s";
 
-    edit(
-        &mut story,
-        key,
-        EditText::Keep,
-        &["\u{2764}\u{FE0F} a\u{200D}b q\u{303}x {Ada}"],
-    );
+    edit(&mut story, key, EditText::Keep, &[typed]);
 
-    assert_eq!(
-        journal(&mut story).edits[0].paragraphs,
-        ["\u{2764}\u{FE0F} a\u{200D}b q\u{303}x Ada"]
-    );
+    let shown = ["\u{2764} ab q\u{303}x Ada (Ada)s"];
+    assert_eq!(journal(&mut story).edits[0].paragraphs, shown);
 }
 
 #[test]

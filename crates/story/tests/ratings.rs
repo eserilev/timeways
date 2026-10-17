@@ -6,8 +6,7 @@
 use fake_bridge::{FakeBridge, Model, Reply};
 use hourglass::Tick;
 use std::path::{Path, PathBuf};
-use timeways_rules::aliases::Alias;
-use timeways_story::aliases::alias_of;
+use timeways_story::aliases::AliasRow;
 use timeways_story::input::{CallId, Input, MessageId};
 use timeways_story::pack::{Link, Origin, Pack, Passage};
 use timeways_story::race_class::{Class, Race};
@@ -434,8 +433,31 @@ fn row(rated: Rated, key: Option<u64>, rating: Rating, text: &str) -> RatedLine 
     }
 }
 
-fn table(names: &[&str]) -> Vec<Alias> {
-    names.iter().filter_map(|name| alias_of(name)).collect()
+fn table(names: &[&str]) -> Vec<AliasRow> {
+    names.iter().map(|name| AliasRow::named(name)).collect()
+}
+
+#[test]
+fn an_export_hides_a_known_name_with_a_character_that_shows_nothing() {
+    let text = shareable("Cor\u{200B}vin held the bridge.", &table(&["Corvin"]), NAME);
+
+    assert_eq!(text, "{P1} held the bridge.");
+}
+
+#[test]
+fn an_export_takes_out_a_surname_after_its_first_name() {
+    let players = [
+        AliasRow::named("Leborc"),
+        AliasRow::surname("James", "Leborc"),
+    ];
+
+    let text = shareable(
+        "Leborc James went, and the James family stayed.",
+        &players,
+        NAME,
+    );
+
+    assert_eq!(text, "{P1} went, and the {P2} family stayed.");
 }
 
 #[test]

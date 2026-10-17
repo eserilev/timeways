@@ -526,22 +526,18 @@ fn a_story_keeps_an_id_for_each_player_and_the_journal_shows_the_name() {
     assert!(!body.contains("Corvin"), "{body}");
 }
 
+/// The addon drops the characters that show nothing before it sends a story, and the
+/// desktop does the same, so a mark that touches a word through one is no mark.
 #[test]
-fn a_story_keeps_the_characters_that_show_nothing_as_typed() {
+fn a_story_loses_the_characters_that_show_nothing_and_keeps_its_marks() {
     let folder = fresh_folder("typed");
     let mut story = story(&folder);
+    let typed = "\u{2764}\u{FE0F} a\u{200D}b q\u{303}x {Corvin} {Corvin}\u{200B}s";
 
-    accept(
-        &mut story,
-        1,
-        "\u{2764}\u{FE0F} a\u{200D}b q\u{303}x {Corvin}",
-    )
-    .unwrap();
+    accept(&mut story, 1, typed).unwrap();
 
-    assert_eq!(
-        stories(&mut story)[0].paragraphs,
-        ["\u{2764}\u{FE0F} a\u{200D}b q\u{303}x Corvin"]
-    );
+    let shown = ["\u{2764} ab q\u{303}x Corvin (Corvin)s"];
+    assert_eq!(stories(&mut story)[0].paragraphs, shown);
 }
 
 #[test]

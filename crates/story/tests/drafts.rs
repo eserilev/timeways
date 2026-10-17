@@ -500,6 +500,16 @@ fn a_name_before_a_mark_or_a_symbol_reaches_no_draft() {
 }
 
 #[test]
+fn a_brace_pair_that_touches_a_word_across_a_hidden_character_is_no_mark() {
+    let mut story = story("hidden-brace");
+    described(&mut story, "Ada");
+
+    let (_, prompt) = ask(&mut story, "help {Ada}\u{200B}x and {Tester}\u{AD}y now");
+
+    assert!(prompt.contains("help ({P1})x and ($N)y now"), "{prompt}");
+}
+
+#[test]
 fn a_brace_pair_inside_a_word_is_no_mark() {
     let mut story = story("brace-in-word");
     note_naming(&mut story, "Leborc James owes me.", &["Leborc-James"]);

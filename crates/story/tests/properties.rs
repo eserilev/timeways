@@ -2296,7 +2296,9 @@ fn text_part(names: Vec<String>) -> impl Strategy<Value = String> {
         2 => name.clone().prop_map(|name| name.to_uppercase()),
         1 => name.clone().prop_map(|name| format!("{name}-Stormrage")),
         1 => name.clone().prop_map(|name| format!("x{name}")),
-        1 => name.prop_map(|name| format!("{name}s")),
+        1 => name.clone().prop_map(|name| format!("{name}s")),
+        1 => name.prop_map(|name| hidden_inside(&name)),
+        1 => prop::sample::select(vec!["\u{200B}", "\u{AD}", "\u{FEFF}", "\u{FE0F}"]).prop_map(String::from),
         1 => prop::sample::select(vec![
             " ", ", ", ".", "-", "'", "’", "«", "{P1}", "P7", "{", "}", "é", "—", " and ", "$N",
         ])
@@ -2306,6 +2308,13 @@ fn text_part(names: Vec<String>) -> impl Strategy<Value = String> {
 }
 
 /// A table of names and a text made of those names and other parts.
+/// The name with a character that shows nothing after its first letter: "Z\u{200B}qada".
+fn hidden_inside(name: &str) -> String {
+    let mut chars = name.chars();
+    let first: String = chars.next().into_iter().collect();
+    format!("{first}\u{200B}{}", chars.as_str())
+}
+
 fn names_and_text() -> impl Strategy<Value = (Vec<String>, String)> {
     prop::collection::vec(alias_name(), 1..6).prop_flat_map(|names| {
         let parts = prop::collection::vec(text_part(names.clone()), 0..24);
@@ -2318,6 +2327,14 @@ fn alias_table(names: &[String]) -> Vec<Alias> {
     let aliases: Vec<Alias> = names.iter().filter_map(|name| alias_of(name)).collect();
     learn_all(&mut table, &aliases);
     table
+}
+
+/// The rows of a table that learned these names, each once.
+fn alias_rows(names: &[String]) -> Vec<AliasRow> {
+    alias_table(names)
+        .into_iter()
+        .map(|alias| AliasRow::named(&alias.shown))
+        .collect()
 }
 
 /// The words of a text as a reader sees them: a curly apostrophe or a dash ends a word.
@@ -2493,6 +2510,7 @@ proptest! {
         // Each word of the name, found apart from the code under test.
         let own_keys: Vec<String> = text_words(&own).into_iter().map(key_of).collect();
         let table = alias_table(&names);
+        let rows = alias_rows(&names);
         let mut ratings = RowLog::default();
         ratings.add(RatedLine {
             at: Tick(1),
@@ -2505,7 +2523,7 @@ proptest! {
             faults: vec![text.clone()],
         }).unwrap();
 
-        let exported = export(&ratings, &table, &own, "model");
+        let exported = export(&ratings, &rows, &own, "model");
 
         for rating in &exported {
             // The mark `$N` is no word of a name.

@@ -2,7 +2,7 @@
 //! to a model with what the world knows, and the checked draft goes back.
 
 use super::{Active, Pending, Story, StoryError, aliases, reads};
-use crate::aliases::{ids_in, knows_every_id, unmarked, with_names};
+use crate::aliases::{for_matching, ids_in, knows_every_id, unmarked, with_names};
 use crate::character::Character;
 use crate::draft::{self, Draft, Known, MAX_TEXT_BYTES, MAX_TITLE_BYTES};
 use crate::input::MessageId;
@@ -17,7 +17,7 @@ impl Story {
         id: MessageId,
         idea: &str,
     ) -> Result<Vec<Output>, StoryError> {
-        let marked = unmarked(idea);
+        let marked = unmarked(&for_matching(idea));
         let idea = draft::checked_idea(&marked.text).ok_or(StoryError::BadWords)?;
         let ai = self.ai();
         let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;

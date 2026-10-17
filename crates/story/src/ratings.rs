@@ -3,7 +3,9 @@
 //! them on in the game. They stay in the world of the character, and only an export by
 //! the player takes them off the computer. An export never holds the name of a real player.
 
-use crate::aliases::{Surname, for_matching, without_names, without_own_name};
+use crate::aliases::{
+    AliasRow, Surname, alias_of_row, without_names, without_own_name, without_surnames,
+};
 use crate::store::RowLog;
 use hourglass::Tick;
 use serde::{Deserialize, Serialize};
@@ -118,7 +120,7 @@ pub struct ExportedRating {
 #[must_use]
 pub fn export(
     ratings: &RowLog<RatedLine>,
-    players: &[Alias],
+    players: &[AliasRow],
     own: &str,
     model: &str,
 ) -> Vec<ExportedRating> {
@@ -145,10 +147,13 @@ pub fn export(
         .collect()
 }
 
-/// The text with each name that the alias table knows as its ID, and the name of the
-/// character as `$N` (`aliases::without_own_name`).
+/// The text with the name of the character as `$N` (`aliases::without_own_name`), each
+/// name of the alias table as its ID, and a surname after its first name taken out.
+/// `players` are the rows of the table.
 #[must_use]
-pub fn shareable(text: &str, players: &[Alias], own: &str) -> String {
-    let text = for_matching(text);
-    without_own_name(&without_names(players, &text), own, Surname::Always)
+pub fn shareable(text: &str, players: &[AliasRow], own: &str) -> String {
+    let table: Vec<Alias> = players.iter().filter_map(alias_of_row).collect();
+    // The own pass drops the characters that show nothing (`aliases::for_matching`) first.
+    let without_own = without_own_name(text, own, Surname::Always);
+    without_surnames(players, &without_names(&table, &without_own))
 }

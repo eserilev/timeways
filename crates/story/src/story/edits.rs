@@ -3,7 +3,7 @@
 //! model reads. An edit is no event, so the chapters and the tales never see it.
 
 use super::{Active, Output, Story, StoryError, aliases};
-use crate::aliases::{Marked, unmarked, with_names};
+use crate::aliases::{Marked, for_matching, unmarked, with_names};
 use crate::entry_edits::{
     EditText, EditView, EntryEdit, EntryKey, EntryKind, REFUSED, changes_nothing, is_good_edit,
     shown,
@@ -28,8 +28,13 @@ impl Story {
         text: EditText,
         paragraphs: &[String],
     ) -> Result<Vec<Output>, StoryError> {
-        let title = title.filter(|title| !title.is_empty()).map(unmarked);
-        let marked: Vec<Marked> = paragraphs.iter().map(|text| unmarked(text)).collect();
+        let title = title
+            .filter(|title| !title.is_empty())
+            .map(|title| unmarked(&for_matching(title)));
+        let marked: Vec<Marked> = paragraphs
+            .iter()
+            .map(|text| unmarked(&for_matching(text)))
+            .collect();
         let plain = EntryEdit {
             entry,
             title: title.as_ref().map(|marked| marked.text.clone()),

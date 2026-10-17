@@ -5,7 +5,7 @@
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
-use timeways_story::aliases::{AliasRow, alias_of};
+use timeways_story::aliases::AliasRow;
 use timeways_story::ratings::{ExportedRating, RatedLine, export};
 use timeways_story::store::{RowLog, StoreError, Table};
 
@@ -66,8 +66,7 @@ pub fn ratings_of(world: &Path, own: &str, model: &str) -> Result<Export, Export
     }
     let mut players = Vec::new();
     for body in bodies(&connection, Table::Aliases).map_err(sqlite)? {
-        let row: AliasRow = serde_json::from_str(&body)?;
-        players.extend(alias_of(&row.name));
+        players.push(serde_json::from_str::<AliasRow>(&body)?);
     }
     Ok(Export {
         format: FORMAT,

@@ -2,7 +2,7 @@
 //! the proof of another player, and the player removes it only while nothing used it.
 
 use super::{Active, Output, Story, StoryError, aliases};
-use crate::aliases::{Marked, unmarked, with_names};
+use crate::aliases::{Marked, for_matching, unmarked, with_names};
 use crate::store::{Node, StoreError, Table};
 use crate::stories::{PlayerStory, ShelfLine, StoryChange, is_good_story, lands, standing};
 use hourglass::Tick;
@@ -18,8 +18,13 @@ impl Story {
         title: Option<&str>,
         paragraphs: &[String],
     ) -> Result<Vec<Output>, StoryError> {
-        let title = title.filter(|title| !title.is_empty()).map(unmarked);
-        let paragraphs: Vec<Marked> = paragraphs.iter().map(|text| unmarked(text)).collect();
+        let title = title
+            .filter(|title| !title.is_empty())
+            .map(|title| unmarked(&for_matching(title)));
+        let paragraphs: Vec<Marked> = paragraphs
+            .iter()
+            .map(|text| unmarked(&for_matching(text)))
+            .collect();
         let plain: Vec<String> = paragraphs
             .iter()
             .map(|marked| marked.text.clone())

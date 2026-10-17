@@ -371,7 +371,8 @@ pub fn plain_joined(pieces: &[Plain]) -> String {
     text
 }
 
-/// The text for a model: each name that the table knows becomes its ID.
+/// The text with each name that the table knows as its ID. For a model, clean the text
+/// with `for_matching` first.
 #[must_use]
 pub fn without_names(table: &[Alias], text: &str) -> String {
     joined(&rules::to_ids(table, &text_pieces(text, table)))
