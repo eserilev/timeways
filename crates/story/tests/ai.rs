@@ -389,3 +389,18 @@ fn a_bridge_with_ai_off_gets_no_model_call_for_a_question() {
 
     assert!(matches!(reply, Reply::Done(_)), "{reply:?}");
 }
+
+#[test]
+fn with_ai_off_a_draft_with_no_character_fails_as_with_ai_on() {
+    let ask = || Input::DraftAsked {
+        id: MessageId(9),
+        at: Tick(50),
+        idea: "Bring me five linen cloths.".to_string(),
+    };
+    let mut on = story();
+    let mut off = story();
+    off.handle(Input::Hello { ai: HelloAi::Off }).unwrap();
+
+    assert!(on.handle(ask()).is_err());
+    assert!(off.handle(ask()).is_err());
+}

@@ -11,6 +11,8 @@ use std::cell::RefCell;
 use std::path::Path;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use timeways_story::ai::HelloAi;
+use timeways_story::input::Input;
 use timeways_story::pack::Pack;
 use timeways_story::store::Store;
 use timeways_story::stories::is_good_story;
@@ -448,6 +450,31 @@ fn a_question_gets_a_model_call_while_a_saga_is_written() {
 
     assert_eq!(bridge.refused_calls(), 0);
     assert!(matches!(bridge.reply(lore), Reply::Done(_)));
+    assert!(prompts.borrow().iter().any(|prompt| is_saga(prompt)));
+}
+
+/// A chapter that closes while AI is off keeps its list. Once AI is on, its saga is asked
+/// (GAMEPLAY.md 5.6).
+#[test]
+fn turning_ai_on_again_lets_the_waiting_saga_start() {
+    let (bridge, prompts) = saga_bridge("saga-after-ai-off");
+    let mut bridge = bridge;
+    bridge
+        .story()
+        .handle(Input::Hello { ai: HelloAi::Off })
+        .unwrap();
+    start_saga(&mut bridge);
+    bridge.settle();
+    assert!(prompts.borrow().is_empty(), "{:?}", prompts.borrow());
+
+    bridge
+        .story()
+        .handle(Input::Hello { ai: HelloAi::On })
+        .unwrap();
+    // A meeting again is no moment, so the narrator leaves the slots to the saga.
+    let met = json!({"type": "npc_met", "at": START + 5 * 3600 + 120, "name": "Salma"});
+    batch(&mut bridge, &met);
+
     assert!(prompts.borrow().iter().any(|prompt| is_saga(prompt)));
 }
 

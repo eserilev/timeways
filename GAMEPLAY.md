@@ -811,8 +811,8 @@ Timeways uses the transport of Gnomish Relay, with its own key and its own slots
   - `/talk` still meets the NPC and finishes a talk step of a quest. The answer has no words (3.5).
   - `/quest` gets no answer. The addon sends none with AI off.
   - "Help me write" and the check of a typed step get no draft at once (4.7).
-  - The end of a batch is silent. Its moments go, as they do with no free slot, and spend no line of the budget and no flavor telling (3.2).
-  - The saga, the tale, the summary, the prologue, and the history of a zone wait unwritten. A chapter keeps its list (3.3). So they start once AI is on again.
+  - The end of a batch is silent. Its moments go, and a later batch never tells them. They spend no line of the budget and no flavor telling (3.2).
+  - No saga, tale, summary, prologue, or history of a zone is asked, and a chapter keeps its list (3.3). Once AI is on again, the same rules hold as with AI on all along: each closed chapter with no saga gets its saga, and a due prologue comes. The summary covers only the newest closed chapter, a history only the last 3 closed chapters, and a tale only its newest run. So older chapters keep their lists.
   A property test plays any game with AI off and finds no model call and no call row (`with_ai_off_no_input_ever_opens_a_model_call`), and the input fuzzer checks the same after a hello with AI off.
 
 **Other rules:**

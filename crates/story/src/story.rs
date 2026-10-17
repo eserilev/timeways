@@ -1264,9 +1264,8 @@ impl Story {
         outputs
     }
 
-    /// The moments go as they go with no free slot: a later batch never tells them. A
-    /// chapter, a tale, a summary, and a history wait unwritten, so they start once AI is
-    /// on.
+    /// The moments go, and a later batch never tells them. Nothing of the chronicle is
+    /// asked, so once AI is on, its calls follow the same rules as always.
     fn end_batch_with_ai_off(&mut self, batch: MessageId) -> Output {
         self.moments.clear();
         self.candidates.clear();

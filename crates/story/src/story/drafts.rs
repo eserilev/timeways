@@ -19,10 +19,11 @@ impl Story {
     ) -> Result<Vec<Output>, StoryError> {
         let marked = unmarked(idea);
         let idea = draft::checked_idea(&marked.text).ok_or(StoryError::BadWords)?;
-        if !self.ai().is_on() {
+        let ai = self.ai();
+        let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
+        if !ai.is_on() {
             return Ok(vec![draft_answer(id, None)]);
         }
-        let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
         let idea = aliases::without_names(active, &marked.names, idea)?;
         let cards = active.aliases.cards(&idea);
         let known = known(active);

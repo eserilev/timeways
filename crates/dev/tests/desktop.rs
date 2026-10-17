@@ -106,17 +106,50 @@ fn on_and_off_keep_the_ai_switch_of_the_settings() {
     assert_eq!(desktop.dev_ai(), Ai::Off);
 }
 
-#[test]
-fn on_puts_dev_before_a_table_of_the_settings() {
-    let desktop = desktop_with_config("switch-before-table", "");
+fn desktop_with_settings(name: &str, settings: &[u8]) -> Desktop {
+    let desktop = desktop_with_config(name, "");
     std::fs::create_dir_all(&desktop.story).unwrap();
-    std::fs::write(
-        desktop.story.join(SETTINGS_FILE),
-        "# mine\n[later]\nx = 1\n",
-    )
-    .unwrap();
+    std::fs::write(desktop.story.join(SETTINGS_FILE), settings).unwrap();
+    desktop
+}
+
+fn settings_text(desktop: &Desktop) -> Vec<u8> {
+    std::fs::read(desktop.story.join(SETTINGS_FILE)).unwrap()
+}
+
+#[test]
+fn a_dev_key_in_a_table_never_turns_dev_mode_on_or_off() {
+    let desktop = desktop_with_settings("switch-table", b"[later]\ndev = true\n");
 
     desktop.set_dev_mode(DevMode::On).unwrap();
-
     assert_eq!(desktop.dev_mode(), DevMode::On);
+
+    desktop.set_dev_mode(DevMode::Off).unwrap();
+    assert_eq!(desktop.dev_mode(), DevMode::Off);
+}
+
+#[test]
+fn on_and_off_read_a_quoted_dev_key() {
+    let desktop = desktop_with_settings("switch-quoted", b"\"dev\" = true\nai = \"off\"\n");
+
+    desktop.set_dev_mode(DevMode::Off).unwrap();
+
+    assert_eq!(desktop.dev_mode(), DevMode::Off);
+    assert_eq!(desktop.dev_ai(), Ai::Off);
+}
+
+#[test]
+fn on_refuses_settings_that_do_not_read_and_keeps_them() {
+    let desktop = desktop_with_settings("switch-unread", b"ai = off\n");
+
+    assert!(desktop.set_dev_mode(DevMode::On).is_err());
+    assert_eq!(settings_text(&desktop), b"ai = off\n");
+}
+
+#[test]
+fn on_refuses_settings_that_are_not_text_and_keeps_them() {
+    let desktop = desktop_with_settings("switch-bytes", b"dev = \xff\n");
+
+    assert!(desktop.set_dev_mode(DevMode::On).is_err());
+    assert_eq!(settings_text(&desktop), b"dev = \xff\n");
 }

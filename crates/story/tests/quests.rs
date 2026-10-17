@@ -6,6 +6,7 @@
 use hourglass::Tick;
 use std::path::Path;
 use std::time::Duration;
+use timeways_story::ai::HelloAi;
 use timeways_story::character::{QUEST_TRUST, SLAP_TRUST};
 use timeways_story::input::{CallId, Input, MessageId, Reaction};
 use timeways_story::journal::{Deed, Page};
@@ -1015,6 +1016,27 @@ fn a_talk_does_a_talk_step() {
 
     talk_prompt(&mut story, 7, "Farmer Bram");
 
+    assert_eq!(quests(&mut story)[0].status, Status::Done);
+}
+
+#[test]
+fn with_ai_off_a_talk_finishes_a_talk_step_of_a_quest() {
+    let mut story = talk_quest("talk-step-ai-off");
+    story.handle(Input::Hello { ai: HelloAi::Off }).unwrap();
+
+    let outputs = story
+        .handle(Input::TalkAsked {
+            id: MessageId(8),
+            at: Tick(7),
+            npc: "Farmer Bram".to_string(),
+            text: "Hello there.".to_string(),
+        })
+        .unwrap();
+
+    assert!(matches!(
+        outputs.as_slice(),
+        [Output::TalkAnswer { text: None, .. }]
+    ));
     assert_eq!(quests(&mut story)[0].status, Status::Done);
 }
 

@@ -3,6 +3,7 @@
 
 use crate::model_runner::LocalModel;
 use serde::Deserialize;
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 use timeways_story::ai::Ai;
@@ -18,6 +19,8 @@ const LOCAL_MODEL: &str = "llama3.2:3b";
 pub enum DesktopError {
     #[error("no home folder: set HOME")]
     NoHome,
+    #[error("{path} does not read as TOML. Fix it or delete it, then try again.")]
+    BadSettings { path: PathBuf },
     #[error("{path}: {source}")]
     Io {
         path: PathBuf,
@@ -168,16 +171,40 @@ impl Desktop {
     }
 
     /// Writes `dev = true` or `dev = false` into the settings of the story program, and
-    /// keeps its other lines, such as the switch `ai = "off"`. The story program reads it
-    /// at its start.
+    /// keeps the switch `ai = "off"`. The story program reads it at its start.
     ///
     /// # Errors
     ///
-    /// Returns the error of the file system.
+    /// Returns the error of the file system, or a file that does not read as TOML.
     pub fn set_dev_mode(&self, mode: DevMode) -> Result<(), DesktopError> {
+        let ai = self
+            .settings()?
+            .map_or(Ai::On, |text| Ai::of_settings(&text));
+        self.write_settings(mode, ai)
+    }
+
+    /// The text of the settings, or None with no file. A file that does not read stops a
+    /// change, so a switch that a person wrote by hand is never lost.
+    fn settings(&self) -> Result<Option<String>, DesktopError> {
         let path = self.story.join(SETTINGS_FILE);
-        let old = std::fs::read_to_string(&path).unwrap_or_else(|_| SETTINGS_HEADER.to_string());
-        let text = with_dev_line(&old, mode);
+        let text = match std::fs::read_to_string(&path) {
+            Ok(text) => text,
+            Err(error) if error.kind() == ErrorKind::NotFound => return Ok(None),
+            Err(source) => return Err(DesktopError::Io { path, source }),
+        };
+        match text.parse::<toml::Table>() {
+            Ok(_) => Ok(Some(text)),
+            Err(_) => Err(DesktopError::BadSettings { path }),
+        }
+    }
+
+    /// The story program reads only these two keys, so the file holds only them.
+    fn write_settings(&self, mode: DevMode, ai: Ai) -> Result<(), DesktopError> {
+        let path = self.story.join(SETTINGS_FILE);
+        let mut text = format!("{SETTINGS_HEADER}dev = {}\n", mode.is_on());
+        if ai == Ai::Off {
+            text.push_str("ai = \"off\"\n");
+        }
         std::fs::create_dir_all(&self.story)
             .and_then(|()| std::fs::write(&path, text))
             .map_err(|source| DesktopError::Io { path, source })
@@ -186,29 +213,6 @@ impl Desktop {
 
 const SETTINGS_HEADER: &str = "# Dev mode of Timeways: /twdev in the game (TESTING.md, \"Dev mode\").\n\
                                # The story program reads this file at its start.\n";
-
-/// The `dev` line goes before the first key, so a table later in the file never holds it.
-fn with_dev_line(old: &str, mode: DevMode) -> String {
-    let lines: Vec<&str> = old.lines().filter(|line| !is_dev_key(line)).collect();
-    let top = lines
-        .iter()
-        .take_while(|line| line.trim().is_empty() || line.trim_start().starts_with('#'))
-        .count();
-    let dev = format!("dev = {}", mode.is_on());
-    let (head, rest) = lines.split_at(top);
-    let mut text = String::new();
-    for line in head.iter().chain([&dev.as_str()]).chain(rest) {
-        text.push_str(line);
-        text.push('\n');
-    }
-    text
-}
-
-fn is_dev_key(line: &str) -> bool {
-    line.trim_start()
-        .strip_prefix("dev")
-        .is_some_and(|rest| rest.trim_start().starts_with('='))
-}
 
 fn home_path(path: &str) -> PathBuf {
     let home = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE"));
