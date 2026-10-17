@@ -168,11 +168,8 @@ impl Game {
     pub fn sent_inputs(&self) -> Vec<Input> {
         let mut inputs = Vec::new();
         for (id, message) in self.sent().iter().enumerate() {
-            for line in message.lines().skip(1) {
+            for line in after_the_opening(message) {
                 let mut value: serde_json::Value = serde_json::from_str(line).unwrap();
-                if value["type"] == "ai_set" {
-                    continue;
-                }
                 value["id"] = serde_json::json!(id + 1);
                 inputs.push(serde_json::from_value(value).unwrap());
             }
@@ -188,6 +185,16 @@ impl Game {
         let on_reply: mlua::Function = self.eval("ns.OnReply");
         on_reply.call::<()>(text).unwrap();
     }
+}
+
+/// The lines of a message after the character line and the AI line. A message whose
+/// second line is no AI line fails the test.
+pub fn after_the_opening(message: &str) -> impl Iterator<Item = &str> {
+    let mut lines = message.lines();
+    lines.next();
+    let ai: serde_json::Value = serde_json::from_str(lines.next().unwrap_or("null")).unwrap();
+    assert_eq!(ai["type"], "ai_set", "no AI line second in {message}");
+    lines
 }
 
 /// The steps of a quest in the book: the first `steps_done` are done, and the next one is

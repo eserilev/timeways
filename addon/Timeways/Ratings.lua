@@ -148,6 +148,9 @@ local COMMANDS = {
 		Ratings.SetOn(false)
 		Say("Ratings are off.")
 	end,
+	other = function()
+		Say("Type /timeways ratings on or /timeways ratings off.")
+	end,
 }
 
 -- Runs a command of `/timeways`, and returns false for a message that is no rating command.

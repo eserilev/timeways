@@ -317,6 +317,20 @@ fn ratings_on_says_how_to_rate() {
     ));
 }
 
+#[test]
+fn ratings_with_no_word_or_a_wrong_word_says_how_to_use_it() {
+    for message in ["ratings", "ratings yes", " Ratings  of "] {
+        let game = Game::new();
+        game.run("opened = false; ns.JournalFrame.Toggle = function() opened = true end");
+
+        slash(&game, message);
+
+        let usage = "|cffc8a064Timeways|r: Type /timeways ratings on or /timeways ratings off.";
+        assert_eq!(game.printed(), [usage], "{message}");
+        assert!(!game.eval::<bool>("return opened"), "{message}");
+    }
+}
+
 /// Any addon can write the saved variables, so only `true` turns ratings on.
 #[test]
 fn a_setting_that_is_not_true_leaves_ratings_off() {

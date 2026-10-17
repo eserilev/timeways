@@ -150,8 +150,10 @@ fn the_self_test_asks_only_for_lines_that_change_nothing() {
     answer_all(&game, &mut story);
 
     let sent: Vec<String> = game.eval("sent");
-    // After the opening lines: the character and the AI setting.
-    for line in sent.iter().flat_map(|message| message.lines().skip(2)) {
+    for line in sent
+        .iter()
+        .flat_map(|message| common::after_the_opening(message))
+    {
         let mut value: serde_json::Value = serde_json::from_str(line).unwrap();
         value["id"] = serde_json::json!(1);
         let input: Input = serde_json::from_value(value).unwrap();

@@ -217,13 +217,21 @@ fn an_on_line_lost_with_its_batch_is_sent_again_with_the_next() {
 }
 
 #[test]
-fn the_ai_line_survives_a_reload_before_the_next_flush() {
-    let game = Game::new();
-    game.run("TimewaysSettings = { ai = true }");
+fn the_ai_line_goes_with_the_first_batch_after_a_reload() {
+    let game = Game::before_login();
+    game.run(
+        r#"TimewaysSettings = { ai = true }
+           TimewaysWaiting = { '{"at":1790000000,"level":20,"type":"level_reached"}' }
+           ns.Outbox.Load()
+           ns.Outbox.SetCharacter(ns.Inputs.Character('Stormrage', 'Ada'))
+           ns.Outbox.Flush()"#,
+    );
 
-    level_up(&game);
-
-    assert_eq!(lines_of(&newest_batch(&game))[..2], [CHARACTER, AI_ON_LINE]);
+    let level = r#"{"at":1790000000,"level":20,"type":"level_reached"}"#;
+    assert_eq!(
+        lines_of(&newest_batch(&game)),
+        [CHARACTER, AI_ON_LINE, level]
+    );
 }
 
 const JOURNAL_SAYS_OFF: &str = r#"{"type":"journal","page":0,"pages":1,"ai":"off"}"#;
@@ -233,6 +241,26 @@ fn answer_with_journal_off(game: &Game, id: usize) {
     game.run(&format!(
         "ns.Link.Receive({id}, 'done', [[{JOURNAL_SAYS_OFF}]])"
     ));
+}
+
+#[test]
+fn a_journal_of_no_known_batch_counts_before_any_change() {
+    let game = Game::new();
+
+    game.reply(JOURNAL_SAYS_OFF);
+
+    assert!(!is_on(&game));
+}
+
+/// A frame that the transport sends again after a reload has no batch, so it can be old.
+#[test]
+fn a_journal_of_no_known_batch_is_ignored_after_a_change() {
+    let game = game_with_setting_off();
+    slash(&game, "ai on");
+
+    game.reply(JOURNAL_SAYS_OFF);
+
+    assert!(is_on(&game));
 }
 
 #[test]
@@ -273,27 +301,50 @@ fn a_change_while_the_desktop_is_away_goes_with_the_next_batch() {
     assert_eq!(lines_of(&newest_batch(&game))[..2], [CHARACTER, AI_ON_LINE]);
 }
 
-#[test]
-fn a_question_that_no_longer_fits_after_ai_off_fails_with_an_error() {
-    let game = Game::new();
-    let question: String = game.eval("return ns.Json.Encode(ns.Inputs.JournalAsked(0))");
+/// Adds `input` while the desktop is away, in a link that fits it only with AI on, and
+/// turns AI off. Gives the error of the question.
+fn error_of_a_question_that_no_longer_fits(game: &Game, input: &str) -> Option<String> {
+    let question: String = game.eval(&format!("return ns.Json.Encode({input})"));
     let fits_with_on = [CHARACTER, AI_ON_LINE, &question].join("\n").len();
     game.run(&format!(
         "linkUp = false
          linkLimit = {fits_with_on}
-         ns.Outbox.Add(ns.Inputs.JournalAsked(0), function(text) failedWith = text end)"
+         ns.Outbox.Add({input}, function(text) failedWith = text end)"
     ));
 
-    slash(&game, "ai off");
+    slash(game, "ai off");
 
-    let failed: Option<String> = game.eval("return failedWith");
-    let error = "|cffc8a064Timeways|r: Too long to send. Try something shorter.".to_string();
-    assert_eq!(
-        failed.as_deref(),
-        Some("Too long to send. Try something shorter.")
-    );
-    assert!(game.printed().contains(&error));
     assert_eq!(game.eval::<usize>("return ns.Outbox.Waiting()"), 0);
+    game.eval("return failedWith")
+}
+
+#[test]
+fn a_typed_question_that_no_longer_fits_asks_for_a_shorter_one() {
+    let game = Game::new();
+    let lore = "{ type = 'lore_asked', at = 1790000000, question = 'Who rules here?' }";
+
+    let error = error_of_a_question_that_no_longer_fits(&game, lore);
+
+    let shorter = "Too long to send. Try a shorter message.";
+    assert_eq!(error.as_deref(), Some(shorter));
+    assert!(
+        game.printed()
+            .contains(&format!("|cffc8a064Timeways|r: {shorter}"))
+    );
+}
+
+#[test]
+fn a_journal_request_that_no_longer_fits_says_the_journal_did_not_load() {
+    let game = Game::new();
+
+    let error = error_of_a_question_that_no_longer_fits(&game, "ns.Inputs.JournalAsked(0)");
+
+    let failed = "Couldn't load your journal. Try again.";
+    assert_eq!(error.as_deref(), Some(failed));
+    assert!(
+        game.printed()
+            .contains(&format!("|cffc8a064Timeways|r: {failed}"))
+    );
 }
 
 fn passage(text: &str, links: Vec<Link>, about: Option<&str>) -> Passage {

@@ -47,9 +47,7 @@ fn sent_lines(game: &Game) -> Vec<Value> {
     game.sent()
         .iter()
         .flat_map(|batch| {
-            batch
-                .lines()
-                .skip(2)
+            common::after_the_opening(batch)
                 .map(str::to_string)
                 .collect::<Vec<_>>()
         })

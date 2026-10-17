@@ -18,8 +18,15 @@ local MAX_WAITING = 500
 -- change this file, so a kept line is only a string that fits in a message.
 local KEPT = "TimewaysWaiting"
 
--- An entry that no longer fits a batch, for example after the AI line grew by a byte.
-local TOO_LONG = "Too long to send. Try something shorter."
+-- The error of a question that no longer fits a batch, for example after the AI line grew
+-- by a byte. The words of the transport for typed text, and a plain line for the journal.
+local SHORTER = "Too long to send. Try a shorter message."
+local TOO_LONG = {
+	lore_asked = SHORTER,
+	talk_asked = SHORTER,
+	draft_asked = SHORTER,
+	journal_asked = "Couldn't load your journal. Try again.",
+}
 
 -- The lines that get a reply. The bridge takes at most one in a batch, as its last line.
 local REPLIES = { lore_asked = true, journal_asked = true, talk_asked = true, draft_asked = true }
@@ -82,7 +89,8 @@ end
 function Outbox.Add(input, failed)
 	local reply = REPLIES[input.type] == true
 	ns.Dev.Mark(input)
-	waiting[#waiting + 1] = { line = ns.Json.Encode(input), reply = reply, failed = failed }
+	local entry = { line = ns.Json.Encode(input), kind = input.type, reply = reply, failed = failed }
+	waiting[#waiting + 1] = entry
 	Bound()
 	if IsBig(input) then
 		FlushSoon()
@@ -121,12 +129,13 @@ end
 -- An entry that does not fit even alone can never go, so it is dropped, and a question
 -- says so.
 local function Drop(entry)
-	if not entry.reply then
+	local text = TOO_LONG[entry.kind]
+	if not text then
 		return
 	end
-	ns.Link.ShowError(TOO_LONG)
+	ns.Link.ShowError(text)
 	if entry.failed then
-		entry.failed(TOO_LONG)
+		entry.failed(text)
 	end
 end
 

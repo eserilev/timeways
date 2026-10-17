@@ -38,9 +38,10 @@ function Ai.Changes()
 end
 
 -- From the first page of each journal. Only "off" turns AI off. `asked` is `Ai.Changes()`
--- when the batch of the journal went, or nil when the batch is unknown, as after a reload.
+-- when the batch of the journal went. A reply of no known batch, such as a frame that the
+-- transport sends again after a reload, counts as asked before any change.
 function Ai.DesktopSays(value, asked)
-	if asked and asked < changes then
+	if (asked or 0) < changes then
 		return
 	end
 	desktopOff = value == "off"
