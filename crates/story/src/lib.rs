@@ -1,5 +1,6 @@
 //! The story program of Timeways (GAMEPLAY.md 5).
 
+pub mod ai;
 pub mod aliases;
 pub mod arrival;
 pub mod atlas_lore;

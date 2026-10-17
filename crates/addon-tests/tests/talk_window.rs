@@ -7,6 +7,7 @@ mod common;
 
 use common::{Game, step_views};
 use hourglass::Tick;
+use timeways_story::ai::Ai;
 use timeways_story::input::{Input, MessageId};
 use timeways_story::journal::{Journal, TalkQuest, TalkQuestState, pages};
 use timeways_story::quest::{QuestView, Status, Step};
@@ -506,6 +507,7 @@ fn journal_reply(at: u64, state: TalkQuestState, quests: Vec<QuestView>) -> Stri
         notice: None,
         dev: None,
         past: None,
+        ai: Ai::On,
     })
     .unwrap()
 }

@@ -6,6 +6,7 @@ mod common;
 
 use common::{Game, step_views};
 use hourglass::Tick;
+use timeways_story::ai::Ai;
 use timeways_story::character::Character;
 use timeways_story::input::{Input, MessageId};
 use timeways_story::journal::{Deed, Journal, pages};
@@ -54,6 +55,7 @@ fn quest_reply(quest: QuestView) -> String {
         notice: None,
         dev: None,
         past: None,
+        ai: Ai::On,
     })
     .unwrap()
 }
@@ -394,6 +396,7 @@ fn a_finished_quest_shows_on_its_place_in_knowledge() {
         notice: None,
         dev: None,
         past: None,
+        ai: Ai::On,
     })
     .unwrap();
 

@@ -336,6 +336,7 @@ fn the_largest_chapter_and_its_largest_edit_fit_the_journal() {
             notice: None,
             dev: Some(timeways_story::dev_mode::DevOn),
             past: Some(timeways_story::story::PastWanted::Wanted),
+            ai: timeways_story::ai::Ai::Off,
         })
         .unwrap();
         assert!(line.len() <= MAX_LINE, "{} bytes", line.len());

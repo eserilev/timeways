@@ -1,6 +1,7 @@
 //! What the bridge sends, one JSON object per line: game events from the addon, and the
 //! answers to model calls (GAMEPLAY.md 3.1, 5.4, and 5.6).
 
+use crate::ai::Ai;
 use crate::character::Resting;
 use crate::dev_fps::FpsRun;
 use crate::dev_smoke::{SmokeDone, SmokeStep};
@@ -21,7 +22,10 @@ use serde::{Deserialize, Serialize};
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Input {
     /// The first line from the bridge. The bridge compares the protocol of the reply.
-    Hello,
+    Hello {
+        #[serde(default)]
+        ai: Ai,
+    },
     /// The first line of each batch: whose world the batch changes.
     CharacterEntered {
         realm: String,
@@ -394,7 +398,7 @@ impl Input {
     pub fn is_kept(&self) -> bool {
         !matches!(
             self,
-            Input::Hello
+            Input::Hello { .. }
                 | Input::JournalAsked { .. }
                 | Input::DevFps(_)
                 | Input::DevSmoke(_)
@@ -495,7 +499,7 @@ impl Input {
             | Input::HourChanged { at, .. }
             | Input::TextSeen { at, .. } => Some(at),
             Input::PastRead(past) => Some(&mut past.at),
-            Input::Hello
+            Input::Hello { .. }
             | Input::CharacterEntered { .. }
             | Input::LoreAsked { .. }
             | Input::JournalAsked { .. }

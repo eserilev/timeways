@@ -13,8 +13,8 @@ dependencies = [
 
 [[package]]
 name = "app-protocol"
-version = "0.5.1"
-source = "git+https://github.com/eserilev/gnomish-relay?rev=7dceef30e450b14272c795a7af8d9b9d9f95daa4#7dceef30e450b14272c795a7af8d9b9d9f95daa4"
+version = "0.5.2"
+source = "git+https://github.com/eserilev/gnomish-relay?rev=c6a3b438ddf07e4bb62baad2014974306b7fa495#c6a3b438ddf07e4bb62baad2014974306b7fa495"
 dependencies = [
  "protocol",
  "serde",
@@ -397,8 +397,8 @@ dependencies = [
 
 [[package]]
 name = "protocol"
-version = "0.5.1"
-source = "git+https://github.com/eserilev/gnomish-relay?rev=7dceef30e450b14272c795a7af8d9b9d9f95daa4#7dceef30e450b14272c795a7af8d9b9d9f95daa4"
+version = "0.5.2"
+source = "git+https://github.com/eserilev/gnomish-relay?rev=c6a3b438ddf07e4bb62baad2014974306b7fa495#c6a3b438ddf07e4bb62baad2014974306b7fa495"
 
 [[package]]
 name = "quick-xml"

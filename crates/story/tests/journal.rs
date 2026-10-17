@@ -1,6 +1,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use hourglass::Tick;
+use timeways_story::ai::Ai;
 use timeways_story::chapters::Book;
 use timeways_story::character::{Character, Item};
 use timeways_story::chronicle::deed_fact;
@@ -213,6 +214,7 @@ fn every_page_line_fits_in_one_reply() {
             notice: None,
             dev: Some(DevOn),
             past: Some(PastWanted::Wanted),
+            ai: Ai::Off,
         };
         let line = serde_json::to_string(&output).unwrap();
         assert!(line.len() <= MAX_LINE, "{} bytes", line.len());
@@ -512,6 +514,7 @@ fn the_largest_chapter_still_fits_on_one_page() {
                 notice: None,
                 dev: Some(DevOn),
                 past: Some(PastWanted::Wanted),
+                ai: Ai::Off,
             })
             .unwrap()
             .len()
@@ -568,6 +571,7 @@ fn a_long_list_of_what_you_learned_fits_on_pages_and_keeps_its_order() {
             notice: None,
             dev: Some(DevOn),
             past: Some(PastWanted::Wanted),
+            ai: Ai::Off,
         };
         let line = serde_json::to_string(&output).unwrap();
         assert!(line.len() <= MAX_LINE, "{} bytes", line.len());

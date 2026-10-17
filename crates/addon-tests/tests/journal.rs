@@ -4,6 +4,7 @@ mod common;
 
 use common::Game;
 use hourglass::Tick;
+use timeways_story::ai::Ai;
 use timeways_story::character::Character;
 use timeways_story::input::{Input, MessageId};
 use timeways_story::journal::{journal, pages};
@@ -23,6 +24,7 @@ fn journal_reply(character: &Character) -> String {
         notice: None,
         dev: None,
         past: None,
+        ai: Ai::On,
     })
     .unwrap()
 }
@@ -250,6 +252,7 @@ fn page_reply(page: timeways_story::journal::Page) -> String {
         notice: None,
         dev: None,
         past: None,
+        ai: Ai::On,
     })
     .unwrap()
 }

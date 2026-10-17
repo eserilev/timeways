@@ -7,6 +7,7 @@ mod common;
 use common::{Game, step_views};
 use hourglass::Tick;
 use serde_json::json;
+use timeways_story::ai::Ai;
 use timeways_story::input::MessageId;
 use timeways_story::journal::{Journal, Person, Place, pages};
 use timeways_story::places::PlaceKind;
@@ -104,6 +105,7 @@ fn reply(journal: Journal) -> String {
         notice: None,
         dev: None,
         past: None,
+        ai: Ai::On,
     })
     .unwrap()
 }

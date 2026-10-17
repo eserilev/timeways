@@ -6,6 +6,7 @@ use std::error::Error;
 use std::io::{self, BufRead, Write};
 use std::path::PathBuf;
 use std::process::ExitCode;
+use timeways_story::ai::Ai;
 use timeways_story::dev_mode::DevMode;
 use timeways_story::lore_start::open_lore;
 use timeways_story::serve;
@@ -24,8 +25,10 @@ fn main() -> ExitCode {
         .map_err(Box::from)
         .and_then(|start| {
             let dev_mode = folder.as_deref().map_or(DevMode::Off, DevMode::of_folder);
+            let dev_ai = folder.as_deref().map_or(Ai::On, Ai::of_folder);
             let mut story = Story::new(start.pack, folder.map_or(Store::Memory, Store::Folder));
             story.set_dev_mode(dev_mode);
+            story.set_dev_ai(dev_ai);
             if dev_mode.is_on() {
                 eprintln!("dev mode is on: /twdev lines land in the worlds");
             }

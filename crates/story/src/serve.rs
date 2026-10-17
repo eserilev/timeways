@@ -1,6 +1,7 @@
 //! One line from the bridge in, the lines of the answer out (GAMEPLAY.md 5.12). The
 //! program and the fuzzer share this path.
 
+use crate::ai::Ai;
 use crate::dev_mode::is_dev_line;
 use crate::input::{Input, MessageId};
 use crate::lore::Answer;
@@ -40,7 +41,13 @@ pub fn line(story: &mut Story, bytes: Vec<u8>) -> Served {
             lines: outputs.iter().map(to_line).collect(),
             ..Served::default()
         },
-        Err(error) => failed(empty_answer(&line).iter().map(to_line).collect(), error),
+        Err(error) => failed(
+            empty_answer(&line, story.ai())
+                .iter()
+                .map(to_line)
+                .collect(),
+            error,
+        ),
     };
     served.notes = story.take_notes();
     served
@@ -79,7 +86,7 @@ fn echoed_npc(request: &Value) -> String {
 
 /// The empty answer to a request line, or None for a line that gets no answer of its own.
 /// An event line has none: the `batch_end` of its batch answers it.
-fn empty_answer(line: &str) -> Option<Output> {
+fn empty_answer(line: &str, ai: Ai) -> Option<Output> {
     let value: Value = serde_json::from_str(line).ok()?;
     let id = MessageId(value.get("id")?.as_u64()?);
     match value.get("type")?.as_str()? {
@@ -106,6 +113,7 @@ fn empty_answer(line: &str) -> Option<Output> {
             notice: None,
             dev: None,
             past: None,
+            ai,
         }),
         _ => None,
     }

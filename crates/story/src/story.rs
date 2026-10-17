@@ -1,5 +1,6 @@
 //! One input in, and the outputs for it out (GAMEPLAY.md 3.1, 5.2, and 5.6).
 
+use crate::ai::Ai;
 use crate::aliases::AliasRow;
 use crate::atlas_lore::lore_of;
 use crate::best_of_two::Round;
@@ -157,6 +158,8 @@ pub enum Output {
         /// (GAMEPLAY.md 3.3, the prologue).
         #[serde(skip_serializing_if = "Option::is_none")]
         past: Option<PastWanted>,
+        /// The addon hides what needs a model while AI is off.
+        ai: Ai,
     },
     /// What the NPC says, or null when no model answered.
     TalkAnswer {
@@ -358,6 +361,10 @@ pub struct Story {
     /// end of its call keeps it, for the window of the rotation.
     told_shape: Option<String>,
     dev_mode: DevMode,
+    /// What the hello of the bridge said.
+    bridge_ai: Ai,
+    /// The dev switch in `settings.toml`. It counts only in dev mode.
+    dev_ai: Ai,
     /// The run of `/twdev smoke` whose log is open.
     smoke: Option<smoke::SmokeRun>,
 }
@@ -395,6 +402,8 @@ impl Story {
             events_deadline: EVENTS_DEADLINE,
             told_shape: None,
             dev_mode: DevMode::Off,
+            bridge_ai: Ai::On,
+            dev_ai: Ai::On,
             smoke: None,
         }
     }
@@ -406,6 +415,19 @@ impl Story {
     #[must_use]
     pub fn dev_mode(&self) -> DevMode {
         self.dev_mode
+    }
+
+    pub fn set_dev_ai(&mut self, ai: Ai) {
+        self.dev_ai = ai;
+    }
+
+    /// The dev switch can turn AI off, never on: the bridge has no model to run then.
+    #[must_use]
+    pub fn ai(&self) -> Ai {
+        if self.dev_mode.is_on() && self.dev_ai == Ai::Off {
+            return Ai::Off;
+        }
+        self.bridge_ai
     }
 
     /// A line of the program for the next answer of any kind, such as "Lore is ready.".
@@ -539,7 +561,10 @@ impl Story {
     #[allow(clippy::too_many_lines, reason = "one arm for each kind of line")]
     fn dispatch(&mut self, input: Input) -> Result<Vec<Output>, StoryError> {
         match input {
-            Input::Hello => Ok(vec![Output::Hello { protocol: PROTOCOL }]),
+            Input::Hello { ai } => {
+                self.bridge_ai = ai;
+                Ok(vec![Output::Hello { protocol: PROTOCOL }])
+            }
             Input::CharacterEntered { realm, name } => {
                 self.enter_character(&realm, &name)?;
                 Ok(Vec::new())
@@ -1339,6 +1364,7 @@ impl Story {
             notice: None,
             dev: self.dev_mode.is_on().then_some(DevOn),
             past: self.past_wanted(),
+            ai: self.ai(),
         }])
     }
 
