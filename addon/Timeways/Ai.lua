@@ -24,7 +24,7 @@ function Ai.IsKnown()
 	return state ~= "unknown"
 end
 
--- TODO: The relay builds --ai in its step 7. Check the command before a release.
+-- TODO: Remove when the relay ships `setup --ai`. Until then, check the command before a release.
 -- The second half of each line that says a feature needs AI.
 Ai.TURN_ON = "To turn it on, run gnomish-relay setup --timeways --ai on."
 Ai.TALK_OFF = "Talking to NPCs needs AI. " .. Ai.TURN_ON

@@ -406,6 +406,11 @@ fn a_seen_text_full_of_the_mark_of_the_name_still_gets_an_answer() {
 /// Two sessions finish the first chapter. The saga of that chapter starts after a quiet
 /// batch, and its call stays open.
 fn start_saga(bridge: &mut FakeBridge) {
+    start_saga_with(bridge, &[]);
+}
+
+/// `more` comes after the meeting, between START + 60 and START + 120.
+fn start_saga_with(bridge: &mut FakeBridge, more: &[Value]) {
     let zone = |at: u64, zone: &str, subzone: Option<&str>| json!({"type": "zone_entered", "at": at, "zone": zone, "subzone": subzone});
     let met = |at: u64, name: &str| json!({"type": "npc_met", "at": at, "name": name});
     // A meeting and 14 new camps on foot: the least weight of a chapter.
@@ -413,6 +418,7 @@ fn start_saga(bridge: &mut FakeBridge) {
         zone(START, "Testvale", None),
         met(START + 60, "Keeper Tessa"),
     ];
+    first_session.extend_from_slice(more);
     for n in 1..=14 {
         first_session.push(zone(
             START + 60 + n * 60,
@@ -451,6 +457,41 @@ fn a_question_gets_a_model_call_while_a_saga_is_written() {
     assert_eq!(bridge.refused_calls(), 0);
     assert!(matches!(bridge.reply(lore), Reply::Done(_)));
     assert!(prompts.borrow().iter().any(|prompt| is_saga(prompt)));
+}
+
+#[test]
+fn with_ai_off_a_closed_chapter_keeps_its_list_and_asks_no_saga() {
+    let (mut bridge, prompts) = saga_bridge("chapter-list-ai-off");
+    bridge
+        .story()
+        .handle(Input::Hello { ai: HelloAi::Off })
+        .unwrap();
+    let kill = json!({"type": "npc_defeated", "at": START + 90, "name": "Hogger", "kind": "rare"});
+
+    start_saga_with(&mut bridge, &[kill]);
+    bridge.settle();
+    let journal = batch(&mut bridge, &json!({"type": "journal_asked"}));
+
+    let chapters = list(&journal, "chapters");
+    let first = &chapters[0];
+    assert_eq!(first["state"], json!("closed"), "{first}");
+    assert!(
+        first["zones"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("Testvale")),
+        "{first}"
+    );
+    assert!(
+        first["people"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("Keeper Tessa")),
+        "{first}"
+    );
+    assert!(!first["deeds"].as_array().unwrap().is_empty(), "{first}");
+    assert_eq!(first["prose"], Value::Null);
+    assert!(prompts.borrow().is_empty(), "{:?}", prompts.borrow());
 }
 
 /// A chapter that closes while AI is off keeps its list. Once AI is on, its saga is asked

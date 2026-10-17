@@ -155,7 +155,7 @@ A tag starts `.github/workflows/release.yml`:
 
 1. Set the new version in `crates/story/Cargo.toml`. The tag must match it.
 2. Add a short entry for the new version at the top of `CHANGELOG.md`. CurseForge shows it.
-3. Check that `gnomish-relay setup --timeways --ai on` works with the relay of the release. The addon names the command in `Ai.TURN_ON` (`addon/Timeways/Ai.lua`), and the relay builds `--ai` in its step 7.
+3. Check that the current Gnomish Relay release has `setup --timeways --ai on`. If it does not, change `Ai.TURN_ON` in `addon/Timeways/Ai.lua` before you tag.
 4. Push a tag such as `v0.2.0`. A tag with a `-`, such as `v0.2.0-rc.1`, also makes a normal release, so testers install it with the same line as players.
 
 The job runs every check of CI, builds `timeways-story` and `timeways-pack` for Linux (x86_64), macOS (arm64 and x86_64), and Windows (x86_64), and makes a GitHub release with these files:
