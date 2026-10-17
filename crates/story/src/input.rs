@@ -212,11 +212,15 @@ pub enum Input {
         #[serde(default)]
         hour: Option<u8>,
     },
-    /// A field of the sheet of the hero. An empty text clears it.
+    /// A field of the sheet of the hero, as the player typed it. An empty text clears it.
+    /// `names` holds each player of the text that the addon knows, as "First-Surname"
+    /// (GAMEPLAY.md 5.11).
     HeroSet {
         at: Tick,
         field: String,
         text: String,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        names: Vec<String>,
     },
     /// An entry of the player's own lore, about the NPC that they target when there is one.
     HeroAdded {
@@ -224,6 +228,8 @@ pub enum Input {
         text: String,
         #[serde(default)]
         npc: Option<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        names: Vec<String>,
     },
     HeroRemoved {
         at: Tick,

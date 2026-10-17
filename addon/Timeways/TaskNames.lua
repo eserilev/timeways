@@ -173,10 +173,10 @@ local function SurnameEnd(text, last, surname)
 	return last
 end
 
--- What a mark does with your own name: `$N`, or your words as you typed them.
-local OWN = { MARK = "mark", KEEP = "keep" }
-
-local function Mark(text, own)
+-- Each player that the addon knows becomes "{Name}", as the game writes the name, and your
+-- own name becomes `$N`. Returns the text, and the players that it marks as "Name-Realm",
+-- once each.
+function TaskNames.Marked(text)
 	text = WithoutBraces(text)
 	local names, me, mySurname = KnownNames(), MyName()
 	local parts, players, seen, at = {}, {}, {}, 1
@@ -187,9 +187,8 @@ local function Mark(text, own)
 		end
 		parts[#parts + 1] = text:sub(at, first - 1)
 		local folded = TaskNames.Fold(text:sub(first, last))
-		local mine = folded == me
-		local full = not mine and names[folded]
-		if mine and own == OWN.MARK then
+		local full = names[folded]
+		if folded == me then
 			parts[#parts + 1] = "$N"
 			last = SurnameEnd(text, RealmEnd(text, last), mySurname)
 		elseif full then
@@ -208,19 +207,6 @@ local function Mark(text, own)
 	return table.concat(parts), players
 end
 
--- Each player that the addon knows becomes "{Name}", as the game writes the name, and your
--- own name becomes `$N`. Returns the text, and the players that it marks as "Name-Realm",
--- once each.
-function TaskNames.Marked(text)
-	return Mark(text, OWN.MARK)
-end
-
--- As `Marked`, but your own name stays as you typed it. The hero sheet shows your words,
--- and the desktop hides your name from a model.
-function TaskNames.MarkedKeepingMine(text)
-	return Mark(text, OWN.KEEP)
-end
-
 -- A line with the race and the class of each player whom the game shows now, for the card
 -- that a model reads. A player out of sight gets no line.
 function TaskNames.Described(players)
@@ -235,19 +221,35 @@ function TaskNames.Described(players)
 	return lines
 end
 
-local function SendDescribed(marked, players)
+local function SendDescribed(players)
 	for _, line in ipairs(TaskNames.Described(players)) do
 		ns.Outbox.Add(line)
 	end
-	return marked
 end
 
 -- The text for the story program. The lines that describe its players go first.
 function TaskNames.Send(text)
-	return SendDescribed(TaskNames.Marked(text))
+	local marked, players = TaskNames.Marked(text)
+	SendDescribed(players)
+	return marked
 end
 
--- A text of the hero for the story program, with your own name as you typed it.
-function TaskNames.SendKeepingMine(text)
-	return SendDescribed(TaskNames.MarkedKeepingMine(text))
+-- The players that a text names, as "First-Surname", or the first name alone. A realm is
+-- no surname.
+function TaskNames.Named(text)
+	local _, players = TaskNames.Marked(text)
+	local names = {}
+	for n, full in ipairs(players) do
+		local first, surname = ns.PlayerNames.Parts(full)
+		names[n] = surname and (first .. "-" .. surname) or full:match("^[^-]+")
+	end
+	return names, players
+end
+
+-- The players of a text of the hero, for the story program, which keeps the text as you
+-- typed it. The lines that describe them go first.
+function TaskNames.SendNamed(text)
+	local names, players = TaskNames.Named(text)
+	SendDescribed(players)
+	return names
 end

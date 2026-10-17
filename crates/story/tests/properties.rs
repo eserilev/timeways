@@ -18,7 +18,7 @@ use timeways_rules::spoiler::{LinkTo, WorldFacts, passage_usable};
 use timeways_story::ai::HelloAi;
 use timeways_story::aliases::{
     AliasRow, MAX_PLAYER_NAME_BYTES, alias_of, key_of, knows_every_id, plain_joined, text_pieces,
-    unmarked, with_names, without_names,
+    typed_for_model, unmarked, with_names, without_names,
 };
 use timeways_story::arrival::arrival_in;
 use timeways_story::atlas_lore::{LORE_BYTES, LORE_CHARS, Lore, clipped};
@@ -589,16 +589,8 @@ fn input(play: &Play, at: Tick) -> Option<Input> {
             target: None,
             hour: Some(hour),
         },
-        Play::HeroSet(field, text) => Input::HeroSet {
-            at,
-            field: FIELDS[field].to_string(),
-            text,
-        },
-        Play::HeroAdd(text) => Input::HeroAdded {
-            at,
-            text,
-            npc: None,
-        },
+        Play::HeroSet(field, marked) => hero_set_input(at, field, &marked),
+        Play::HeroAdd(marked) => hero_added_input(at, &marked),
         Play::HeroRemove(number) => Input::HeroRemoved { at, number },
         Play::Read(kind, title, text) => Input::TextSeen {
             at,
@@ -2130,33 +2122,7 @@ proptest! {
     fn every_hook_is_the_words_of_the_player_and_its_row_is_read(
         plays in prop::collection::vec(memory_play(), 0..80),
     ) {
-        let folder = fresh("hook-read");
-        let mut clock = 1_000;
-        let mut story = story(&folder, Store::Folder(folder.clone()));
-        run(&mut story, &plays, &mut clock);
-        drop(story);
-
-        let connection = rusqlite::Connection::open(world_file(&folder)).unwrap();
-        for (call, prompt) in hook_calls(&connection) {
-            let Some(text) = hook_text(&prompt) else {
-                continue;
-            };
-            let select = format!(
-                "SELECT hero.position, hero.body FROM reads JOIN hero ON hero.position = reads.row \
-                 WHERE reads.call = {call} AND reads.tab = 'hero'"
-            );
-            let newest = newest_sets_before(&connection, &input_of_call(&connection, &call));
-            let read_sets = rows_of(&connection, &select).into_iter().filter_map(|row| {
-                let change: serde_json::Value = serde_json::from_str(row[1].as_deref()?).ok()?;
-                let field = change["field"].as_str()?.to_string();
-                let words = change["line"] == "set" && cut(change["text"].as_str()?) == text;
-                words.then(|| (field, row[0].clone()))
-            });
-            let source: Vec<(String, Option<String>)> = read_sets.collect();
-            prop_assert!(!source.is_empty(), "call {} reads no row with its hook {:?}", call, text);
-            let newest_read = source.iter().any(|(field, row)| newest.get(field) == row.as_ref());
-            prop_assert!(newest_read, "call {} reads an old answer", call);
-        }
+        hooks_are_read_from_their_rows(&plays)?;
     }
 
     #[test]
@@ -2166,6 +2132,77 @@ proptest! {
         prop_assert!(!words.chars().any(|c| c.is_ascii_digit()), "{}", words);
         prop_assert!(age_words().contains(&words), "{}", words);
     }
+}
+
+/// GAMEPLAY.md 3.7: the hook in a prompt is the newest answer of its field, as a model
+/// reads it, and the call reads the row of that answer.
+fn hooks_are_read_from_their_rows(plays: &[Play]) -> Result<(), TestCaseError> {
+    let folder = fresh("hook-read");
+    let mut clock = 1_000;
+    let mut story = story(&folder, Store::Folder(folder.clone()));
+    run(&mut story, plays, &mut clock);
+    drop(story);
+
+    let connection = rusqlite::Connection::open(world_file(&folder)).unwrap();
+    // The hook is the player's words as a model reads them: the names are hidden.
+    let rows: Vec<AliasRow> = rows_of(&connection, "SELECT body FROM aliases")
+        .into_iter()
+        .map(|row| serde_json::from_str(&row[0].clone().unwrap()).unwrap())
+        .collect();
+    let mut table: Vec<Alias> = Vec::new();
+    learn_all(
+        &mut table,
+        &rows
+            .iter()
+            .filter_map(|row| alias_of(&row.name))
+            .collect::<Vec<_>>(),
+    );
+    let for_model = |text: &str| typed_for_model(&table, &rows, "Ada", text);
+    for (call, prompt) in hook_calls(&connection) {
+        let Some(text) = hook_text(&prompt) else {
+            continue;
+        };
+        let select = format!(
+            "SELECT hero.position, hero.body FROM reads JOIN hero ON hero.position = reads.row \
+             WHERE reads.call = {call} AND reads.tab = 'hero'"
+        );
+        let newest = newest_sets_before(&connection, &input_of_call(&connection, &call));
+        let read_sets = rows_of(&connection, &select).into_iter().filter_map(|row| {
+            let change: serde_json::Value = serde_json::from_str(row[1].as_deref()?).ok()?;
+            let field = change["field"].as_str()?.to_string();
+            let words =
+                change["line"] == "set" && cut(&for_model(change["text"].as_str()?)) == text;
+            words.then(|| (field, row[0].clone()))
+        });
+        let source: Vec<(String, Option<String>)> = read_sets.collect();
+        prop_assert!(
+            !source.is_empty(),
+            "call {} reads no row with its hook {:?}",
+            call,
+            text
+        );
+        let newest_read = source
+            .iter()
+            .any(|(field, row)| newest.get(field) == row.as_ref());
+        prop_assert!(newest_read, "call {} reads an old answer", call);
+    }
+    Ok(())
+}
+
+/// A seed that proptest found: the name of the character in another case, which a prompt
+/// hides as `$N`, while the row keeps it as typed.
+#[test]
+fn a_hook_with_the_own_name_in_another_case_is_read_from_its_row() {
+    let goal = FIELDS.iter().position(|name| *name == "goal").unwrap();
+    let talk = Play::Talk(FARLEY.to_string(), "Hm".to_string());
+    let plays = [
+        Play::HeroSet(goal, "ADa".to_string()),
+        talk.clone(),
+        talk.clone(),
+        talk,
+    ];
+
+    hooks_are_read_from_their_rows(&plays).unwrap();
 }
 
 /// A name as the addon or a damaged line can send it, often at an edge: empty, a prefix of
@@ -2265,13 +2302,13 @@ fn text_words(text: &str) -> Vec<&str> {
 /// A player of the play: no NPC or place of `name()` shares a word with these.
 fn player_mark() -> impl Strategy<Value = String> {
     let name = prop::sample::select(vec!["Zqada", "Qorvin", "Élise", "Zqal"]);
-    (name, any::<bool>(), any::<bool>()).prop_map(|(name, upper, realm)| {
+    (name, any::<bool>(), 0u8..3).prop_map(|(name, upper, realm)| {
         let name = if upper {
             name.to_uppercase()
         } else {
             name.to_string()
         };
-        let realm = if realm { "-Stormrage" } else { "" };
+        let realm = ["", "-Stormrage", "-Zqsur"][usize::from(realm)];
         format!("{{{name}{realm}}}")
     })
 }
@@ -2282,6 +2319,39 @@ fn own_name_words() -> impl Strategy<Value = String> {
     let own = prop::sample::select(vec!["Ada", "ADA", "ada", "Ada-Stormrage", "Ada's", "(Ada)"]);
     let part = prop_oneof![own.prop_map(String::from), "[b-z]{1,6}"];
     prop::collection::vec(part, 1..8).prop_map(|parts| parts.join(" "))
+}
+
+fn hero_set_input(at: Tick, field: usize, marked: &str) -> Input {
+    let (text, names) = typed_hero(marked);
+    Input::HeroSet {
+        at,
+        field: FIELDS[field].to_string(),
+        text,
+        names,
+    }
+}
+
+fn hero_added_input(at: Tick, marked: &str) -> Input {
+    let (text, names) = typed_hero(marked);
+    Input::HeroAdded {
+        at,
+        text,
+        npc: None,
+        names,
+    }
+}
+
+/// A text of the hero as the addon sends it: as typed, with the players that it names as
+/// "First-Surname". A realm is no surname.
+fn typed_hero(marked: &str) -> (String, Vec<String>) {
+    let names = marked
+        .split('{')
+        .skip(1)
+        .filter_map(|rest| rest.split_once('}'))
+        .map(|(inner, _)| inner.trim_end_matches("-Stormrage").to_string())
+        .collect();
+    let text = marked.replace(['{', '}'], "").replace("-Zqsur", " Zqsur");
+    (text, names)
 }
 
 /// A text from the addon with its players marked.

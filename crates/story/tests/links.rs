@@ -400,6 +400,7 @@ fn a_hero_entry_removed_during_a_call_still_counts_as_read() {
             at: Tick(3),
             text: "Farley owes me gold.".to_string(),
             npc: Some("Innkeeper Farley".to_string()),
+            names: Vec::new(),
         })
         .unwrap();
     let call = talk(&mut story, "Innkeeper Farley");
@@ -645,6 +646,7 @@ fn set_goal(story: &mut Story, text: &str) {
             at: Tick(40),
             field: "goal".to_string(),
             text: text.to_string(),
+            names: Vec::new(),
         })
         .unwrap();
 }

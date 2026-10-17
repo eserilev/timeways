@@ -1964,6 +1964,7 @@ fn set_field(story: &mut Story, field: &str, text: &str) -> Result<Vec<Output>, 
         at: Tick(5),
         field: field.to_string(),
         text: text.to_string(),
+        names: Vec::new(),
     })
 }
 
@@ -1972,6 +1973,7 @@ fn add_entry(story: &mut Story, at: u64, text: &str, npc: Option<&str>) {
         at: Tick(at),
         text: text.to_string(),
         npc: npc.map(str::to_string),
+        names: Vec::new(),
     };
     assert!(story.handle(input).unwrap().is_empty());
 }
@@ -2625,6 +2627,7 @@ fn set_goal(story: &mut Story, text: &str) {
         at: Tick(40),
         field: "goal".to_string(),
         text: text.to_string(),
+        names: Vec::new(),
     };
     story.handle(input).unwrap();
 }
@@ -2685,12 +2688,37 @@ fn a_task_draft_does_not_count_toward_a_hook() {
     assert!(third.contains(HOOK_LINE), "{third}");
 }
 
-const OATH: &str = "My guildmate {Leborc} and I swore an oath.";
+const OATH: &str = "My guildmate Leborc James and I swore an oath.";
+
+/// A text of the hero that names Leborc James, as the addon sends it.
+fn leborc() -> Vec<String> {
+    vec!["Leborc-James".to_string()]
+}
+
+fn set_named(story: &mut Story, field: &str, text: &str, names: Vec<String>) {
+    let input = Input::HeroSet {
+        at: Tick(5),
+        field: field.to_string(),
+        text: text.to_string(),
+        names,
+    };
+    assert!(story.handle(input).unwrap().is_empty());
+}
+
+fn add_named(story: &mut Story, at: u64, text: &str, npc: Option<&str>, names: Vec<String>) {
+    let input = Input::HeroAdded {
+        at: Tick(at),
+        text: text.to_string(),
+        npc: npc.map(str::to_string),
+        names,
+    };
+    assert!(story.handle(input).unwrap().is_empty());
+}
 
 #[test]
 fn a_hero_bond_that_names_a_known_player_reaches_no_prompt_with_the_name() {
     let mut story = story_with("hero-bond-player", &[]);
-    set_field(&mut story, "bond", OATH).unwrap();
+    set_named(&mut story, "bond", OATH, leborc());
     talk_failed(&mut story);
     talk_failed(&mut story);
 
@@ -2698,26 +2726,32 @@ fn a_hero_bond_that_names_a_known_player_reaches_no_prompt_with_the_name() {
 
     let hook = "<<<\nMy guildmate {P1} and I swore an oath.\n>>>";
     assert!(third.contains(hook), "{third}");
-    assert!(!third.contains("Leborc"), "{third}");
+    assert!(
+        !third.contains("Leborc") && !third.contains("James"),
+        "{third}"
+    );
 }
 
 #[test]
 fn a_hero_note_that_names_a_known_player_reaches_no_talk_with_the_name() {
     let mut story = story_with("hero-note-player", &[]);
-    add_entry(&mut story, 40, OATH, Some("Innkeeper Farley"));
+    add_named(&mut story, 40, OATH, Some("Innkeeper Farley"), leborc());
 
     let prompt = talk_failed(&mut story);
 
     assert!(prompt.contains("- My guildmate {P1} and I"), "{prompt}");
-    assert!(!prompt.contains("Leborc"), "{prompt}");
+    assert!(
+        !prompt.contains("Leborc") && !prompt.contains("James"),
+        "{prompt}"
+    );
 }
 
 #[test]
 fn a_hero_note_that_names_a_known_player_reaches_no_chapter_with_the_name() {
     let mut story = story_with("hero-note-chapter", &[]);
     meet(&mut story, HOUR, "Gryan Stoutmantle");
-    add_entry(&mut story, HOUR, OATH, None);
-    set_field(&mut story, "goal", "Find {Leborc}.").unwrap();
+    add_named(&mut story, HOUR, OATH, None, leborc());
+    set_named(&mut story, "goal", "Find Leborc James.", leborc());
     play_a_chapter(&mut story, HOUR, "Westfall", "Marshal McBride");
     new_chapter(&mut story, 5 * HOUR, "Duskwood", 91);
 
@@ -2725,35 +2759,70 @@ fn a_hero_note_that_names_a_known_player_reaches_no_chapter_with_the_name() {
 
     assert!(prompt.contains("- My guildmate {P1} and I"), "{prompt}");
     assert!(prompt.contains("- goal: Find {P1}."), "{prompt}");
-    assert!(!prompt.contains("Leborc"), "{prompt}");
+    assert!(
+        !prompt.contains("Leborc") && !prompt.contains("James"),
+        "{prompt}"
+    );
+}
+
+/// The table learned Leborc from the game first, with no surname, as an old world did.
+#[test]
+fn a_surname_learned_after_its_first_name_reaches_no_prompt() {
+    let mut story = story_with("hero-late-surname", &[]);
+    let seen = Input::PlayerDescribed {
+        at: Tick(1),
+        name: "Leborc".to_string(),
+        race: None,
+        class: None,
+    };
+    story.handle(seen).unwrap();
+    add_named(&mut story, 30, "Leborc owes me.", None, leborc());
+    add_named(
+        &mut story,
+        40,
+        "Leborc James saved me.",
+        Some("Innkeeper Farley"),
+        Vec::new(),
+    );
+
+    let prompt = talk_failed(&mut story);
+
+    assert!(prompt.contains("- {P1} saved me."), "{prompt}");
+    assert!(!prompt.contains("James"), "{prompt}");
 }
 
 #[test]
-fn the_hero_sheet_shows_a_marked_name_as_the_name() {
+fn the_hero_sheet_keeps_a_name_as_typed() {
     let mut story = story_with("hero-sheet-names", &[]);
-    set_field(&mut story, "bond", OATH).unwrap();
-    add_entry(&mut story, 40, OATH, None);
+    set_named(&mut story, "bond", "Ward of Leborc James {P7}.", leborc());
+    add_named(&mut story, 40, OATH, None, leborc());
 
     let (hero, _) = hero_page(&mut story);
 
-    assert_eq!(
-        hero.sheet[0].text,
-        "My guildmate Leborc and I swore an oath."
+    assert_eq!(hero.sheet[0].text, "Ward of Leborc James {P7}.");
+    assert_eq!(hero.entries[0].text, OATH);
+}
+
+#[test]
+fn a_brace_typed_in_the_hero_sheet_reaches_a_prompt_as_a_parenthesis() {
+    let mut story = story_with("hero-sheet-brace", &[]);
+    add_named(
+        &mut story,
+        40,
+        "I met {P1} and {Leborc}.",
+        Some("Innkeeper Farley"),
+        Vec::new(),
     );
-    assert_eq!(
-        hero.entries[0].text,
-        "My guildmate Leborc and I swore an oath."
-    );
+
+    let prompt = talk_failed(&mut story);
+
+    assert!(prompt.contains("- I met (P1) and Leborc."), "{prompt}");
 }
 
 #[test]
 fn the_own_name_in_the_hero_sheet_reaches_no_prompt() {
     let mut story = story_with("hero-own-name", &[]);
-    let character = Input::CharacterEntered {
-        realm: "Testrealm".to_string(),
-        name: "Kobee Bean".to_string(),
-    };
-    story.handle(character).unwrap();
+    enter_as(&mut story, "Kobee Bean");
     set_field(&mut story, "bond", "kobee Bean and the Bean family.").unwrap();
     add_entry(
         &mut story,
@@ -2768,13 +2837,37 @@ fn the_own_name_in_the_hero_sheet_reaches_no_prompt() {
 
     assert!(third.contains("<<<\n$N and the $N family.\n>>>"), "{third}");
     assert!(third.contains("- $N swore an oath."), "{third}");
-    let words: Vec<&str> = third.split(|c: char| !c.is_alphanumeric()).collect();
+    let words: Vec<String> = third
+        .split(|c: char| !c.is_alphanumeric())
+        .map(str::to_lowercase)
+        .collect();
     assert!(
-        !words
-            .iter()
-            .any(|word| ["kobee", "bean"].contains(&word.to_lowercase().as_str())),
+        !words.iter().any(|word| word == "kobee" || word == "bean"),
         "{third}"
     );
+}
+
+#[test]
+fn a_common_word_surname_in_the_hero_sheet_keeps_its_meaning_in_the_prompt() {
+    let mut story = story_with("hero-common-surname", &[]);
+    enter_as(&mut story, "Kobee Will");
+    let goal = "I will find my father. Will he know me? Ask the Will family. Kobee Will rests.";
+    set_field(&mut story, "goal", goal).unwrap();
+    talk_failed(&mut story);
+    talk_failed(&mut story);
+
+    let third = talk_failed(&mut story);
+
+    let hook = "I will find my father. Will he know me? Ask the $N family. $N rests.";
+    assert!(third.contains(hook), "{third}");
+}
+
+fn enter_as(story: &mut Story, name: &str) {
+    let character = Input::CharacterEntered {
+        realm: "Testrealm".to_string(),
+        name: name.to_string(),
+    };
+    story.handle(character).unwrap();
 }
 
 fn journal_line(story: &mut Story, page: usize) -> (Option<String>, String) {

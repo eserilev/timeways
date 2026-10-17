@@ -335,6 +335,7 @@ fn the_summary_prompt_holds_no_story_and_no_profile_field() {
             at: Tick(HOUR / 2),
             field: field.to_string(),
             text: text.to_string(),
+            names: Vec::new(),
         };
         story.handle(set).unwrap();
     }
@@ -349,6 +350,29 @@ fn the_summary_prompt_holds_no_story_and_no_profile_field() {
 }
 
 #[test]
+fn the_summary_sheet_names_no_known_player_and_not_the_hero() {
+    let mut story = started(&fresh("sheet-names"));
+    let set = Input::HeroSet {
+        at: Tick(HOUR / 2),
+        field: "goal".to_string(),
+        text: "Find Leborc James before Tester does.".to_string(),
+        names: vec!["Leborc-James".to_string()],
+    };
+    story.handle(set).unwrap();
+    one_finished_chapter(&mut story);
+
+    let prompt = until_summary(&mut story, 90, Some(SUMMARY)).expect("a summary call");
+
+    assert!(
+        prompt.contains("- goal: Find {P1} before $N does."),
+        "{prompt}"
+    );
+    for private in ["Leborc", "James", "Tester"] {
+        assert!(!prompt.contains(private), "{private} in {prompt}");
+    }
+}
+
+#[test]
 fn the_summary_reads_the_sheet_the_chapters_and_the_summary_before_it() {
     let folder = fresh("reads");
     let mut story = started(&folder);
@@ -356,6 +380,7 @@ fn the_summary_reads_the_sheet_the_chapters_and_the_summary_before_it() {
         at: Tick(HOUR / 2),
         field: "goal".to_string(),
         text: "Find my brother.".to_string(),
+        names: Vec::new(),
     };
     story.handle(set).unwrap();
     first_summary(&mut story);

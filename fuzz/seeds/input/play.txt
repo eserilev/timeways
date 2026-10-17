@@ -7,6 +7,7 @@
 {"type":"emote_done","at":7,"emote":"dance","hour":3}
 {"type":"hero_set","at":8,"field":"goal","text":"Find my brother."}
 {"type":"hero_added","at":9,"text":"An oath.","npc":"Keeper Stubbs"}
+{"type":"hero_added","at":9,"text":"Leborc James {P1} owes me.","names":["Leborc-James","Bram","-","Ada-"]}
 {"type":"batch_end","id":1}
 {"type":"model_answered","call":1,"text":"Our hero danced."}
 {"type":"lore_asked","id":2,"at":10,"question":"why is this tower in ruins?"}

@@ -740,6 +740,28 @@ fn an_imported_text_loses_its_unicode_control_characters() {
 }
 
 #[test]
+fn an_imported_field_that_names_a_player_goes_as_typed_and_then_never_again() {
+    let game = with_trp3();
+    game.run(
+        "wow.regional = true
+         wow.units.party1 = { name = 'Leborc', realm = 'James', player = true, guid = 'Player-1-Leborc' }
+         msp.my = { NT = 'Ward of Leborc James' }",
+    );
+    game.reply(&sheet_reply(&[]));
+    game.run("wow.now = wow.now + 1; wow.RunTickers()");
+    let first = hero_sets(&game);
+
+    game.reply(&sheet_reply(&[("title", "Ward of Leborc James")]));
+    game.run("wow.now = wow.now + 1; wow.RunTickers()");
+
+    assert_eq!(
+        first,
+        [("title".to_string(), "Ward of Leborc James".to_string())]
+    );
+    assert_eq!(hero_sets(&game), first);
+}
+
+#[test]
 fn an_unchanged_import_sends_nothing() {
     let game = with_trp3();
     game.run("msp.my = { NT = 'Keeper' }");

@@ -23,13 +23,28 @@ pub(super) fn learn_names(active: &mut Active, marked: &[String]) -> Result<(), 
     Ok(())
 }
 
-/// The text with each name that the table knows as its ID.
+/// Learns each player that a text of the hero names, as "First-Surname" or "First".
+pub(super) fn learn_players(active: &mut Active, players: &[String]) -> Result<(), StoreError> {
+    for player in players {
+        let (first, surname) = player.split_once('-').unwrap_or((player, ""));
+        active.aliases.learn(&AliasRow::named(first))?;
+        if aliases::player_name(surname).is_some() {
+            active.aliases.learn(&AliasRow::surname(surname, first))?;
+        }
+    }
+    Ok(())
+}
+
+/// The text with each name that the table knows as its ID. A surname right after its first
+/// name goes with it.
 pub(super) fn with_ids(active: &Active, text: &str) -> String {
-    aliases::without_names(active.aliases.table(), text)
+    let with_ids = aliases::without_names(active.aliases.table(), text);
+    aliases::without_surnames(active.aliases.rows(), &with_ids)
 }
 
 /// The hero as a model reads it: each name of a player as its ID, and the name of the
-/// character as `$N`. The disk keeps the words as the player wrote them, for the sheet.
+/// character as `$N`. The disk keeps the words as the player typed them, for the sheet, so
+/// a typed brace becomes a parenthesis only here.
 pub(super) fn hero_for_model(active: &Active) -> Hero {
     let mut hero = hero::hero(active.hero.changes());
     for field in &mut hero.sheet {
@@ -42,7 +57,8 @@ pub(super) fn hero_for_model(active: &Active) -> Hero {
 }
 
 fn for_model(active: &Active, text: &str) -> String {
-    aliases::without_own_name(&with_ids(active, text), active.key.name())
+    let log = &active.aliases;
+    aliases::typed_for_model(log.table(), log.rows(), active.key.name(), text)
 }
 
 /// The text for the player's own screen: each ID becomes the name of its player.

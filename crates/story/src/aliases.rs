@@ -20,6 +20,10 @@ const UNKNOWN_PLAYER: &str = "someone";
 
 /// One row of the `aliases` table: a player, with the race and the class that the game
 /// showed when the table learned the name. The row's position is the ID.
+///
+/// A surname is a row of its own, because rows only grow and the table often learns a
+/// first name before its surname. A row of a world from before 2026-10-17 has no
+/// `surname_of`, and reads as a first name.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AliasRow {
     pub name: String,
@@ -27,6 +31,9 @@ pub struct AliasRow {
     pub race: Option<Race>,
     #[serde(default)]
     pub class: Option<Class>,
+    /// The first name whose surname this name is: "James" of "Leborc James".
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub surname_of: Option<String>,
 }
 
 impl AliasRow {
@@ -36,6 +43,16 @@ impl AliasRow {
             name: name.to_string(),
             race: None,
             class: None,
+            surname_of: None,
+        }
+    }
+
+    /// The row of the surname of `first`.
+    #[must_use]
+    pub fn surname(surname: &str, first: &str) -> AliasRow {
+        AliasRow {
+            surname_of: Some(first.to_string()),
+            ..AliasRow::named(surname)
         }
     }
 
@@ -83,13 +100,6 @@ pub fn alias_of(name: &str) -> Option<Alias> {
         key: key_of(short),
         shown: short.to_string(),
     })
-}
-
-/// The name of the character, part by part: "Kobee Bean" of WoW Forever is two names to
-/// hide, "Kobee" and "Bean" (GAMEPLAY.md 5.11).
-#[must_use]
-pub fn own_aliases(name: &str) -> Vec<Alias> {
-    name.split_whitespace().flat_map(part_aliases).collect()
 }
 
 /// A part that `alias_of` refuses still names the character, so each word in it is hidden:
@@ -259,18 +269,40 @@ pub fn without_names(table: &[Alias], text: &str) -> String {
     joined(&rules::to_ids(table, &text_pieces(text, table)))
 }
 
-/// The text with each part of the name of the character as `$N`. The parts in a row,
-/// "Kobee Bean", become one `$N`. A part that is also a common word, as "will" for Kobee
-/// Will, goes too: a text blanks too much rather than too little.
+/// When a surname of the character, alone, is hidden.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Surname {
+    /// In any case. An export blanks too much rather than too little.
+    Always,
+    /// Only when it is written as a name: with a capital, and not first in its sentence.
+    /// So "I will go" keeps its meaning for Kobee Will.
+    AsWritten,
+}
+
+/// The text with the name of the character as `$N`. The first name always goes. The parts
+/// in a row, "Kobee Bean", become one `$N`, in any case. A part that is no plain name, such
+/// as one with a digit, hides each word in it.
 #[must_use]
-pub fn without_own_name(text: &str, own: &str) -> String {
-    let own = own_aliases(own);
+pub fn without_own_name(text: &str, own: &str, surname: Surname) -> String {
+    let mut parts = own.split_whitespace();
+    let first = parts.next().map(part_aliases).unwrap_or_default();
+    let surnames: Vec<Alias> = parts.flat_map(part_aliases).collect();
+    let all: Vec<Alias> = first.iter().chain(&surnames).cloned().collect();
     let mut hidden = String::with_capacity(text.len());
     // The spaces after a `$N`: they go when another part of the name follows.
     let mut after_mark: Option<String> = None;
-    for piece in text_pieces(text, &own) {
+    for piece in text_pieces(text, &all) {
+        let hides = match &piece {
+            Plain::Word { key, .. } if rules::find(&first, key).is_some() => true,
+            Plain::Word { key, written } if rules::find(&surnames, key).is_some() => {
+                after_mark.is_some()
+                    || surname == Surname::Always
+                    || (is_capitalized(written) && !starts_a_sentence(&hidden))
+            }
+            _ => false,
+        };
         match piece {
-            Plain::Word { key, .. } if rules::find(&own, &key).is_some() => {
+            _ if hides => {
                 if after_mark.is_none() {
                     hidden.push_str("$N");
                 }
@@ -291,6 +323,61 @@ pub fn without_own_name(text: &str, own: &str) -> String {
 
 fn is_spaces(text: &str) -> bool {
     text.chars().all(|c| c == ' ')
+}
+
+#[must_use]
+pub fn is_capitalized(word: &str) -> bool {
+    word.chars().next().is_some_and(char::is_uppercase)
+}
+
+/// True when a word after `before` starts a sentence.
+#[must_use]
+pub fn starts_a_sentence(before: &str) -> bool {
+    before
+        .trim_end()
+        .chars()
+        .last()
+        .is_none_or(|c| matches!(c, '.' | '!' | '?'))
+}
+
+/// The text with each surname right after its first name taken out: "{P1} {P2}" is "{P1}"
+/// when `rows` holds P2 as the surname of P1. The proved swap leaves the surname its own
+/// ID, so no name is left either way.
+#[must_use]
+pub fn without_surnames(rows: &[AliasRow], text: &str) -> String {
+    let mut kept: Vec<Piece> = Vec::new();
+    for piece in id_pieces(text) {
+        if let Piece::Player(id) = piece
+            && follows_its_first_name(rows, &kept, id)
+        {
+            kept.pop();
+            continue;
+        }
+        kept.push(piece);
+    }
+    joined(&kept)
+}
+
+fn follows_its_first_name(rows: &[AliasRow], kept: &[Piece], surname: PlayerId) -> bool {
+    let [.., Piece::Player(first), Piece::Text(space)] = kept else {
+        return false;
+    };
+    let first_key = rows.get(first.0).map(|row| key_of(&row.name));
+    let surname_of = rows
+        .get(surname.0)
+        .and_then(|row| row.surname_of.as_deref())
+        .map(key_of);
+    space == " " && first_key.is_some() && first_key == surname_of
+}
+
+/// A text that the player typed, as a model reads it: a brace becomes a parenthesis, each
+/// name of the table becomes its ID with its surname, and the name of the character
+/// becomes `$N`. `table` holds the names of `rows`.
+#[must_use]
+pub fn typed_for_model(table: &[Alias], rows: &[AliasRow], own: &str, text: &str) -> String {
+    let typed = unmarked(text).text;
+    let with_ids = without_surnames(rows, &without_names(table, &typed));
+    without_own_name(&with_ids, own, Surname::AsWritten)
 }
 
 /// A text that holds IDs, cut into IDs and the rest. Only `{P1}` and up are IDs, with no
@@ -420,6 +507,7 @@ mod tests {
             name: "Ada".into(),
             race: Some(Race::Orc),
             class: Some(Class::Mage),
+            surname_of: None,
         };
 
         assert_eq!(row.card(PlayerId(6)), "{P7}: an orc mage");

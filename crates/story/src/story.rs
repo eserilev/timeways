@@ -1,7 +1,7 @@
 //! One input in, and the outputs for it out (GAMEPLAY.md 3.1, 5.2, and 5.6).
 
 use crate::ai::{Ai, HelloAi};
-use crate::aliases::{AliasRow, unmarked};
+use crate::aliases::AliasRow;
 use crate::atlas_lore::lore_of;
 use crate::best_of_two::Round;
 use crate::chapters::{self, Book};
@@ -638,10 +638,20 @@ impl Story {
                 killer_level,
                 hour,
             } => self.die(at, killer, cause, killer_level, hour),
-            Input::HeroSet { at, field, text } => self.set_hero_field(at, field, &text),
-            Input::HeroAdded { at, text, npc } => {
+            Input::HeroSet {
+                at,
+                field,
+                text,
+                names,
+            } => self.set_hero_field(at, field, &text, &names),
+            Input::HeroAdded {
+                at,
+                text,
+                npc,
+                names,
+            } => {
                 npc.as_deref().map(checked_name).transpose()?;
-                self.add_hero_entry(at, &text, npc)
+                self.add_hero_entry(at, &text, npc, &names)
             }
             Input::HeroRemoved { at, number } => {
                 self.hero_change(Change::Removed { at, number })?;
@@ -706,7 +716,12 @@ impl Story {
             } => self.accept_story(at, number, title.as_deref(), &paragraphs),
             Input::PlayerDescribed {
                 name, race, class, ..
-            } => self.describe_player(&AliasRow { name, race, class }),
+            } => self.describe_player(&AliasRow {
+                name,
+                race,
+                class,
+                surname_of: None,
+            }),
             Input::StoryRemoved { at, number } => self.remove_story(at, number),
             Input::EntryEdited {
                 at,
@@ -1135,18 +1150,18 @@ impl Story {
         at: Tick,
         field: String,
         text: &str,
+        names: &[String],
     ) -> Result<Vec<Output>, StoryError> {
         let limit = hero::limit_of(&field).ok_or(StoryError::BadName)?;
-        let marked = unmarked(text);
-        let text = if marked.text.trim().is_empty() {
+        let text = if text.trim().is_empty() {
             String::new()
         } else {
-            match hero::checked_text(&marked.text, limit) {
+            match hero::checked_text(text, limit) {
                 Ok(text) => text,
                 Err(reason) => return self.refuse_hero(reason),
             }
         };
-        self.learn_hero_names(&marked.names)?;
+        self.learn_hero_names(names)?;
         self.hero_change(Change::Set { at, field, text })?;
         Ok(Vec::new())
     }
@@ -1157,13 +1172,13 @@ impl Story {
         at: Tick,
         text: &str,
         npc: Option<String>,
+        names: &[String],
     ) -> Result<Vec<Output>, StoryError> {
-        let marked = unmarked(text);
-        let text = match hero::checked_text(&marked.text, hero::LONG) {
+        let text = match hero::checked_text(text, hero::LONG) {
             Ok(text) => text,
             Err(reason) => return self.refuse_hero(reason),
         };
-        self.learn_hero_names(&marked.names)?;
+        self.learn_hero_names(names)?;
         let active = self.active.as_ref().ok_or(StoryError::NoCharacter)?;
         let number = hero::next_number(active.hero.changes());
         let place = active
@@ -1181,11 +1196,11 @@ impl Story {
         Ok(Vec::new())
     }
 
-    /// The sheet keeps the names as the player wrote them, and the table swaps them for a
+    /// The sheet keeps the names as the player typed them, and the table swaps them for a
     /// model (`aliases::hero_for_model`).
     fn learn_hero_names(&mut self, names: &[String]) -> Result<(), StoryError> {
         let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
-        aliases::learn_names(active, names)?;
+        aliases::learn_players(active, names)?;
         Ok(())
     }
 

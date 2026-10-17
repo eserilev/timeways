@@ -1,6 +1,7 @@
 //! What an NPC remembers of the player in /talk (GAMEPLAY.md 3.5). Each memory is a row
 //! of the world, so the model gets no past to invent.
 
+use crate::aliases::{is_capitalized, starts_a_sentence};
 use crate::character::Character;
 use crate::check::{mentions, words_of};
 use crate::journal::{Deed, DeedRow, deeds_with_events};
@@ -419,16 +420,4 @@ fn written_as_a_name(text: &str, surname: &str) -> bool {
         }
     }
     false
-}
-
-fn is_capitalized(word: &str) -> bool {
-    word.chars().next().is_some_and(char::is_uppercase)
-}
-
-fn starts_a_sentence(before: &str) -> bool {
-    before
-        .trim_end()
-        .chars()
-        .last()
-        .is_none_or(|c| matches!(c, '.' | '!' | '?'))
 }

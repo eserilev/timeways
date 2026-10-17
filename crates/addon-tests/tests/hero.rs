@@ -187,6 +187,7 @@ fn an_edit_sends_the_field_and_asks_for_the_journal_in_one_batch() {
         at: NOW,
         field: "goal".to_string(),
         text: "Avenge my brother.".to_string(),
+        names: Vec::new(),
     };
     assert_eq!(game.sent().len(), 2);
     assert_eq!(game.sent_inputs()[1..], [set, journal_asked(2)]);
@@ -417,6 +418,7 @@ fn enter_saves_the_text_and_a_line_break_becomes_a_space() {
         at: NOW,
         field: "goal".to_string(),
         text: "Avenge my brother.".to_string(),
+        names: Vec::new(),
     };
     assert_eq!(game.sent_inputs()[1], set);
 }
@@ -432,6 +434,7 @@ fn a_pasted_tab_or_other_control_character_becomes_a_space() {
         at: NOW,
         field: "goal".to_string(),
         text: "Avenge my brother.".to_string(),
+        names: Vec::new(),
     };
     assert_eq!(game.sent_inputs()[1], set);
 }
@@ -590,6 +593,7 @@ fn add_writes_an_entry_and_an_empty_text_writes_nothing() {
         at: NOW,
         text: "A stranger knew my name.".to_string(),
         npc: None,
+        names: Vec::new(),
     };
     assert_eq!(game.sent_inputs()[1..], [added, journal_asked(2)]);
 }
@@ -761,7 +765,8 @@ fn hero_commands_set_add_and_note() {
         Input::HeroSet {
             at: NOW,
             field: "goal".to_string(),
-            text: "Find my brother.".to_string()
+            text: "Find my brother.".to_string(),
+            names: Vec::new(),
         }
     );
     assert_eq!(
@@ -769,13 +774,15 @@ fn hero_commands_set_add_and_note() {
         Input::HeroAdded {
             at: NOW,
             text: "I swore an oath.".to_string(),
-            npc: None
+            npc: None,
+            names: Vec::new(),
         }
     );
     let note = Input::HeroAdded {
         at: NOW,
         text: "He knew my father.".to_string(),
         npc: Some("Innkeeper Farley".to_string()),
+        names: Vec::new(),
     };
     assert_eq!(inputs[4], note);
 }
@@ -924,31 +931,51 @@ fn kobee_with_leborc() -> Game {
     game
 }
 
-fn hero_texts(game: &Game) -> Vec<String> {
+/// The text and the names of each hero edit that the game sent.
+fn hero_edits(game: &Game) -> Vec<(String, Vec<String>)> {
     game.sent_inputs()
         .into_iter()
         .filter_map(|input| match input {
-            Input::HeroSet { text, .. } | Input::HeroAdded { text, .. } => Some(text),
+            Input::HeroSet { text, names, .. } | Input::HeroAdded { text, names, .. } => {
+                Some((text, names))
+            }
             _ => None,
         })
         .collect()
 }
 
 #[test]
-fn a_hero_edit_marks_each_known_player_and_keeps_your_own_name_as_typed() {
+fn a_hero_edit_goes_as_typed_with_each_known_player_that_it_names() {
     let game = kobee_with_leborc();
 
     game.run(
         "wow.Slash('/hero', 'set bond My friend Leborc James and I, Kobee Bean, swore an oath.')",
     );
-    game.run("wow.Slash('/hero', 'add leborc owes kobee.')");
+    game.run("wow.Slash('/hero', 'add leborc owes kobee {and} Bram.')");
+
+    let leborc = vec!["Leborc-James".to_string()];
+    assert_eq!(
+        hero_edits(&game),
+        [
+            (
+                "My friend Leborc James and I, Kobee Bean, swore an oath.".to_string(),
+                leborc.clone()
+            ),
+            ("leborc owes kobee {and} Bram.".to_string(), leborc),
+        ]
+    );
+}
+
+#[test]
+fn a_player_with_no_surname_goes_by_the_first_name_alone() {
+    let game = Game::new();
+    game.run("wow.units.party1 = { name = 'Bram', realm = 'Stormrage', player = true, guid = 'Player-1-Bram' }");
+
+    game.run("wow.Slash('/hero', 'add Bram owes me.')");
 
     assert_eq!(
-        hero_texts(&game),
-        [
-            "My friend {Leborc} and I, Kobee Bean, swore an oath.",
-            "{Leborc} owes kobee."
-        ]
+        hero_edits(&game),
+        [("Bram owes me.".to_string(), vec!["Bram".to_string()])]
     );
 }
 

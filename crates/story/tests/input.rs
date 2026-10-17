@@ -275,7 +275,8 @@ fn the_edits_of_the_hero_read() {
         Input::HeroSet {
             at: Tick(1),
             field: "goal".to_string(),
-            text: "Find my brother.".to_string()
+            text: "Find my brother.".to_string(),
+            names: Vec::new(),
         }
     );
     assert_eq!(
@@ -283,7 +284,8 @@ fn the_edits_of_the_hero_read() {
         Input::HeroAdded {
             at: Tick(2),
             text: "An oath.".to_string(),
-            npc: Some("Innkeeper Farley".to_string())
+            npc: Some("Innkeeper Farley".to_string()),
+            names: Vec::new(),
         }
     );
     assert_eq!(

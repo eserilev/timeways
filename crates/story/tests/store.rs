@@ -488,6 +488,7 @@ fn the_story_of_the_hero_survives_a_restart() {
             at: Tick(1),
             field: "goal".to_string(),
             text: "Find my brother.".to_string(),
+            names: Vec::new(),
         })
         .unwrap();
     first
@@ -495,6 +496,7 @@ fn the_story_of_the_hero_survives_a_restart() {
             at: Tick(2),
             text: "An oath.".to_string(),
             npc: None,
+            names: Vec::new(),
         })
         .unwrap();
     drop(first);
@@ -505,6 +507,7 @@ fn the_story_of_the_hero_survives_a_restart() {
             at: Tick(3),
             text: "A second oath.".to_string(),
             npc: None,
+            names: Vec::new(),
         })
         .unwrap();
 

@@ -179,12 +179,17 @@ function Inputs.Died(at, killer, cause, killerLevel, hour)
 	return { type = "died", at = at, killer = killer, cause = cause, killer_level = killerLevel, hour = hour }
 end
 
-function Inputs.HeroSet(at, field, text)
-	return { type = "hero_set", at = at, field = field, text = text }
+-- An empty list of names stays out of the line.
+local function NonEmpty(list)
+	return list and #list > 0 and list or nil
 end
 
-function Inputs.HeroAdded(at, text, npc)
-	return { type = "hero_added", at = at, text = text, npc = npc }
+function Inputs.HeroSet(at, field, text, names)
+	return { type = "hero_set", at = at, field = field, text = text, names = NonEmpty(names) }
+end
+
+function Inputs.HeroAdded(at, text, npc, names)
+	return { type = "hero_added", at = at, text = text, npc = npc, names = NonEmpty(names) }
 end
 
 function Inputs.HeroRemoved(at, number)

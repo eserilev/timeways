@@ -546,12 +546,16 @@ impl AliasLog {
         }
         let row = AliasRow {
             name: alias.shown.clone(),
-            race: row.race,
-            class: row.class,
+            ..row.clone()
         };
         self.unsaved.push(&row)?;
         self.rows.push(row);
         Ok(Some(rules::learn(&mut self.table, alias)))
+    }
+
+    #[must_use]
+    pub fn rows(&self) -> &[AliasRow] {
+        &self.rows
     }
 
     /// The cards of the players of a text for a model, in order.
@@ -559,8 +563,25 @@ impl AliasLog {
     pub fn cards(&self, text: &str) -> Vec<String> {
         aliases::ids_in(text)
             .into_iter()
-            .filter_map(|id| self.row(id).map(|row| row.card(id)))
+            .filter_map(|id| self.card(id))
             .collect()
+    }
+
+    /// A surname reads as the surname of its player: "{P2}: the surname of {P1}".
+    fn card(&self, id: PlayerId) -> Option<String> {
+        let row = self.row(id)?;
+        let first = row
+            .surname_of
+            .as_deref()
+            .and_then(|first| rules::find(&self.table, &aliases::key_of(first)));
+        Some(match first {
+            Some(first) => format!(
+                "{}: the surname of {}",
+                aliases::id_text(id),
+                aliases::id_text(first)
+            ),
+            None => row.card(id),
+        })
     }
 
     pub fn take_unsaved(&mut self) -> Vec<NewRow> {

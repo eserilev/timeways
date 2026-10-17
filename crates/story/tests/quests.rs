@@ -1176,6 +1176,7 @@ fn talks_and_quest_offers_share_one_count_of_calls() {
         at: Tick(5),
         field: "goal".to_string(),
         text: "Find my father.".to_string(),
+        names: Vec::new(),
     };
     story.handle(goal).unwrap();
     for _ in 0..2 {
@@ -1361,12 +1362,37 @@ fn a_refusal_of_the_limits_asks_no_model() {
 }
 
 #[test]
+fn a_quest_offer_hook_names_no_known_player_and_not_the_hero() {
+    let mut story = story("hook-names");
+    let goal = Input::HeroSet {
+        at: Tick(5),
+        field: "goal".to_string(),
+        text: "Find Leborc James before Tester does.".to_string(),
+        names: vec!["Leborc-James".to_string()],
+    };
+    story.handle(goal).unwrap();
+    talk_prompt(&mut story, 6, "Farmer Bram");
+    talk_prompt(&mut story, 6, "Farmer Bram");
+
+    let (_, prompt) = call_of(ask(&mut story, 7));
+
+    assert!(
+        prompt.contains("<<<\nFind {P1} before $N does.\n>>>"),
+        "{prompt}"
+    );
+    for private in ["Leborc", "James", "Tester"] {
+        assert!(!prompt.contains(private), "{private} in {prompt}");
+    }
+}
+
+#[test]
 fn a_retry_does_not_count_for_the_hero_hook() {
     let mut story = story("retry-hook");
     let goal = Input::HeroSet {
         at: Tick(5),
         field: "goal".to_string(),
         text: "Find my father.".to_string(),
+        names: Vec::new(),
     };
     story.handle(goal).unwrap();
     let (call, _) = call_of(ask(&mut story, 6));

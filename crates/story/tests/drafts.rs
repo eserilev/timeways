@@ -358,6 +358,24 @@ fn a_player_in_the_idea_reaches_the_model_as_an_id_with_a_card() {
 }
 
 #[test]
+fn a_surname_goes_with_its_first_name_and_alone_reads_as_the_surname_of_its_player() {
+    let mut story = story("surname");
+    let note = Input::HeroAdded {
+        at: Tick(3),
+        text: "Ada Bright owes me.".to_string(),
+        npc: None,
+        names: vec!["Ada-Bright".to_string()],
+    };
+    story.handle(note).unwrap();
+
+    let (_, prompt) = ask(&mut story, "help {Ada} Bright and the Bright family");
+
+    assert!(prompt.contains("help {P1} and the {P2} family"), "{prompt}");
+    assert!(prompt.contains("- {P2}: the surname of {P1}"), "{prompt}");
+    assert!(!prompt.contains("Bright"), "{prompt}");
+}
+
+#[test]
 fn the_draft_names_the_player_again_for_the_giver() {
     let mut story = story("named");
     let (call, _) = ask(&mut story, "help {Ada} at the mill");
