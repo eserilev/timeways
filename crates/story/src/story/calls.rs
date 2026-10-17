@@ -487,7 +487,7 @@ fn accepted_if(accepted: bool) -> Outcome {
     }
 }
 
-fn silent_talk(question: MessageId, npc: String) -> Output {
+pub(super) fn silent_talk(question: MessageId, npc: String) -> Output {
     Output::TalkAnswer {
         id: question,
         npc,

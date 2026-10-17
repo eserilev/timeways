@@ -15,6 +15,7 @@ use timeways_rules::narrator_shapes::WINDOW;
 use timeways_rules::outcomes::{DependsOn, PlayerFacts, outcome_usable};
 use timeways_rules::setups::{self, setup_usable};
 use timeways_rules::spoiler::{LinkTo, WorldFacts, passage_usable};
+use timeways_story::ai::HelloAi;
 use timeways_story::aliases::{
     AliasRow, MAX_PLAYER_NAME_BYTES, alias_of, key_of, knows_every_id, plain_joined, text_pieces,
     unmarked, with_names, without_names,
@@ -678,6 +679,45 @@ fn quest_answer(steps: &[TaskStep]) -> String {
     serde_json::json!({ "title": "A Task", "genre": "errand", "text": "I need you to go.", "steps": steps }).to_string()
 }
 
+/// Every play, a draft for "Help me write", and a `/lore` question can ask a model.
+fn ai_off_play() -> impl Strategy<Value = Play> {
+    prop_oneof![
+        8 => play_with_relogs(),
+        1 => "[A-Za-z ]{1,40}".prop_map(Play::DraftAsk),
+    ]
+}
+
+/// Each play ends its own batch, so each batch can call the narrator, and every output
+/// comes back. A lore question follows each play.
+fn play_each_batch(story: &mut Story, plays: &[Play]) -> Vec<Output> {
+    let mut outputs = Vec::new();
+    let mut clock = 1_000;
+    for (batch, play) in (1u64..).zip(plays) {
+        clock += if let Play::Wait(seconds) = play {
+            *seconds
+        } else {
+            1
+        };
+        if let Some(input) = input(play, Tick(clock)) {
+            outputs.extend(story.handle(input).unwrap_or_default());
+        }
+        let question = Input::LoreAsked {
+            id: MessageId(batch),
+            question: "Why is the tower in ruins?".to_string(),
+            target: None,
+        };
+        outputs.extend(story.handle(question).unwrap_or_default());
+        outputs.extend(
+            story
+                .handle(Input::BatchEnd {
+                    id: MessageId(batch),
+                })
+                .unwrap_or_default(),
+        );
+    }
+    outputs
+}
+
 fn fresh(name: &str) -> PathBuf {
     static CASE: AtomicUsize = AtomicUsize::new(0);
     let case = CASE.fetch_add(1, Ordering::Relaxed);
@@ -1256,6 +1296,21 @@ proptest! {
             .query_row("SELECT count(*) FROM events WHERE input IS NULL AND call IS NULL", [], |row| row.get(0))
             .unwrap();
         prop_assert_eq!(bare, 0);
+    }
+
+    #[test]
+    fn with_ai_off_no_input_ever_opens_a_model_call(plays in prop::collection::vec(ai_off_play(), 0..80)) {
+        let folder = fresh("ai-off");
+        let mut story = story(&folder, Store::Folder(folder.clone()));
+        story.handle(Input::Hello { ai: HelloAi::Off }).unwrap();
+
+        let outputs = play_each_batch(&mut story, &plays);
+        drop(story);
+
+        let calls = outputs.iter().filter(|output| matches!(output, Output::ModelCall { .. }));
+        prop_assert_eq!(calls.count(), 0);
+        let connection = rusqlite::Connection::open(world_file(&folder)).unwrap();
+        prop_assert_eq!(rows_of(&connection, "SELECT position FROM calls"), Vec::<Vec<Option<String>>>::new());
     }
 
     #[test]

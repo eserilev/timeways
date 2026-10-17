@@ -806,6 +806,14 @@ Timeways uses the transport of Gnomish Relay, with its own key and its own slots
 
 - **The hello says it.** The hello of the bridge carries `"ai": "off"` when the player has no model, by choice or because setup found none. A hello with no `ai` field, or with any other word, means AI on: an older bridge keeps working, and a word that the story program does not know never stops it. The story program writes one note to stderr for an unknown word. Built in the story program. The relay sends the field later (relay SPEC 9.8).
 - **The journal tells the addon.** Each journal, also the empty one of a failed request, carries `"ai": "on"` or `"ai": "off"`. The addon reads it from page 0. Built.
+- **The story program asks no model** (built). With AI off, it builds no prompt and opens no call, so no row of the `calls` table is written. Each feature takes the path that it takes with no model:
+  - `/lore` gets its passages at once, with no answer text (3.1).
+  - `/talk` still meets the NPC and finishes a talk step of a quest. The answer has no words (3.5).
+  - `/quest` gets no answer. The addon sends none with AI off.
+  - "Help me write" and the check of a typed step get no draft at once (4.7).
+  - The end of a batch is silent. Its moments go, as they do with no free slot, and spend no line of the budget and no flavor telling (3.2).
+  - The saga, the tale, the summary, the prologue, and the history of a zone wait unwritten. A chapter keeps its list (3.3). So they start once AI is on again.
+  A property test plays any game with AI off and finds no model call and no call row (`with_ai_off_no_input_ever_opens_a_model_call`), and the input fuzzer checks the same after a hello with AI off.
 
 **Other rules:**
 

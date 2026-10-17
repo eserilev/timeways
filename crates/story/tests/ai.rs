@@ -4,14 +4,17 @@
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use fake_bridge::{FakeBridge, Reply};
+use hourglass::Tick;
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
-use timeways_story::ai::Ai;
+use timeways_story::ai::{Ai, HelloAi};
 use timeways_story::dev_mode::{DevMode, SETTINGS_FILE};
-use timeways_story::pack::Pack;
+use timeways_story::input::{Input, MessageId};
+use timeways_story::pack::{Link, Origin, Pack, Passage};
+use timeways_story::race_class::{Class, Race};
 use timeways_story::serve;
 use timeways_story::store::Store;
-use timeways_story::story::Story;
+use timeways_story::story::{Output, Story};
 
 const CHARACTER: &str = r#"{"type":"character_entered","realm":"Stormrage","name":"Ada"}"#;
 const HELLO_AI_OFF: &str = r#"{"type":"hello","protocol":1,"app":"timeways","ai":"off"}"#;
@@ -148,4 +151,241 @@ fn the_dev_switch_never_turns_ai_on() {
     story.set_dev_ai(Ai::On);
 
     assert_eq!(story.ai(), Ai::Off);
+}
+
+// With AI off, each feature takes the path that it takes with no model, and asks none.
+
+fn passage(text: &str, links: Vec<Link>, about: Option<&str>) -> Passage {
+    Passage {
+        text: text.to_string(),
+        source: "https://example.test/1".to_string(),
+        links,
+        origin: Origin::Pack,
+        about: about.map(str::to_string),
+        depends_on: Vec::new(),
+        setup_for: None,
+    }
+}
+
+fn tower() -> Passage {
+    let testvale = Link::Place("Testvale".to_string());
+    passage("The tower of Testvale fell.", vec![testvale], None)
+}
+
+fn stormwind() -> Passage {
+    let text =
+        "King Barathen Wrynn scattered the gnolls of Elwynn, and his line rules Stormwind City.";
+    passage(text, vec![Link::Common], Some("Stormwind City"))
+}
+
+/// A human paladin with the lore of Testvale and Stormwind, and AI as `ai`.
+fn story_with_lore(name: &str, ai: HelloAi) -> Story {
+    let path = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("ai-{name}.sqlite"));
+    let _ = std::fs::remove_file(&path);
+    Pack::write(&path, &[tower(), stormwind()]).unwrap();
+    let mut story = Story::new(Pack::open(&path).unwrap(), Store::Memory);
+    story.handle(Input::Hello { ai }).unwrap();
+    story
+        .handle(Input::CharacterEntered {
+            realm: "Testrealm".to_string(),
+            name: "Tester".to_string(),
+        })
+        .unwrap();
+    let described = Input::CharacterDescribed {
+        at: Tick(1),
+        race: Race::Human,
+        class: Class::Paladin,
+    };
+    story.handle(described).unwrap();
+    story
+}
+
+fn enter(story: &mut Story, at: u64, zone: &str) -> Vec<Output> {
+    let input = Input::ZoneEntered {
+        at: Tick(at),
+        zone: zone.to_string(),
+        subzone: None,
+        spot: None,
+        hour: None,
+        taxi: None,
+    };
+    story.handle(input).unwrap()
+}
+
+fn level(story: &mut Story, at: u64, level: u8) {
+    story
+        .handle(Input::LevelReached {
+            at: Tick(at),
+            level,
+        })
+        .unwrap();
+}
+
+fn batch_end(story: &mut Story, id: u64) -> Vec<Output> {
+    story.handle(Input::BatchEnd { id: MessageId(id) }).unwrap()
+}
+
+fn quiet(id: u64) -> Output {
+    Output::EventsSeen {
+        id: MessageId(id),
+        narrator: None,
+        narrator_id: None,
+        notice: None,
+    }
+}
+
+fn has_model_call(outputs: &[Output]) -> bool {
+    outputs
+        .iter()
+        .any(|output| matches!(output, Output::ModelCall { .. }))
+}
+
+#[test]
+fn with_ai_off_a_lore_question_gets_its_passages_at_once() {
+    let mut story = story_with_lore("lore", HelloAi::Off);
+    enter(&mut story, 10, "Testvale");
+
+    let outputs = story
+        .handle(Input::LoreAsked {
+            id: MessageId(7),
+            question: "Why did the tower fall?".to_string(),
+            target: None,
+        })
+        .unwrap();
+
+    let [Output::LoreAnswer { answer, .. }] = outputs.as_slice() else {
+        panic!("{outputs:?}")
+    };
+    assert_eq!(answer.text, None);
+    assert_eq!(answer.passages[0].text, "The tower of Testvale fell.");
+}
+
+#[test]
+fn with_ai_off_a_talk_gets_no_words_and_still_meets_the_npc() {
+    let mut story = story_with_lore("talk", HelloAi::Off);
+
+    let outputs = story
+        .handle(Input::TalkAsked {
+            id: MessageId(8),
+            at: Tick(50),
+            npc: "Innkeeper Farley".to_string(),
+            text: "Any news?".to_string(),
+        })
+        .unwrap();
+
+    let silent = Output::TalkAnswer {
+        id: MessageId(8),
+        npc: "Innkeeper Farley".to_string(),
+        text: None,
+        notice: None,
+    };
+    assert_eq!(outputs, vec![silent]);
+    let journal = journal_page(&mut story);
+    assert_eq!(journal["people"][0]["name"], json!("Innkeeper Farley"));
+}
+
+#[test]
+fn with_ai_off_a_quest_request_asks_no_model() {
+    let mut story = story_with_lore("quest", HelloAi::Off);
+    story
+        .handle(Input::NpcMet {
+            at: Tick(40),
+            name: "Marshal Dughan".to_string(),
+            spot: None,
+        })
+        .unwrap();
+    story
+        .handle(Input::QuestAsked {
+            at: Tick(50),
+            npc: "Marshal Dughan".to_string(),
+        })
+        .unwrap();
+
+    let outputs = batch_end(&mut story, 3);
+
+    assert_eq!(outputs, vec![quiet(3)]);
+}
+
+#[test]
+fn with_ai_off_a_draft_request_gets_no_draft_at_once() {
+    let mut story = story_with_lore("draft", HelloAi::Off);
+
+    let outputs = story
+        .handle(Input::DraftAsked {
+            id: MessageId(9),
+            at: Tick(50),
+            idea: "Bring me five linen cloths.".to_string(),
+        })
+        .unwrap();
+
+    let empty = Output::DraftAnswer {
+        id: MessageId(9),
+        draft: None,
+        notice: None,
+    };
+    assert_eq!(outputs, vec![empty]);
+}
+
+#[test]
+fn with_ai_off_a_big_moment_gets_no_line() {
+    let mut story = story_with_lore("moment", HelloAi::Off);
+    level(&mut story, 1, 19);
+    level(&mut story, 2, 20);
+
+    let outputs = batch_end(&mut story, 3);
+
+    assert_eq!(outputs, vec![quiet(3)]);
+}
+
+#[test]
+fn with_ai_off_the_narrator_spends_no_budget() {
+    let mut story = story_with_lore("budget", HelloAi::Off);
+    for (batch, zone) in [
+        (1, "Testvale"),
+        (2, "Elwynn Forest"),
+        (3, "Westfall"),
+        (4, "Duskwood"),
+    ] {
+        enter(&mut story, batch * 10, zone);
+        assert!(!has_model_call(&batch_end(&mut story, batch)));
+    }
+
+    story.handle(Input::Hello { ai: HelloAi::On }).unwrap();
+    enter(&mut story, 50, "Redridge Mountains");
+    let outputs = batch_end(&mut story, 5);
+
+    assert!(has_model_call(&outputs), "{outputs:?}");
+}
+
+#[test]
+fn with_ai_off_the_moments_of_a_batch_never_wait_for_a_later_one() {
+    let mut story = story_with_lore("moments-go", HelloAi::Off);
+    enter(&mut story, 10, "Testvale");
+    batch_end(&mut story, 1);
+    story.handle(Input::Hello { ai: HelloAi::On }).unwrap();
+
+    let outputs = batch_end(&mut story, 2);
+
+    assert_eq!(outputs, vec![quiet(2)]);
+}
+
+fn journal_page(story: &mut Story) -> Value {
+    let outputs = story
+        .handle(Input::JournalAsked {
+            id: MessageId(1),
+            page: 0,
+        })
+        .unwrap();
+    serde_json::to_value(&outputs[0]).unwrap()
+}
+
+#[test]
+fn a_bridge_with_ai_off_gets_no_model_call_for_a_question() {
+    let story = story_with_lore("bridge", HelloAi::On);
+    let mut bridge = FakeBridge::new(story).with_ai_off();
+    let question = r#"{"type":"lore_asked","at":10,"question":"Why did the tower fall?"}"#;
+
+    let reply = bridge.batch(&format!("{CHARACTER}\n{question}"));
+
+    assert!(matches!(reply, Reply::Done(_)), "{reply:?}");
 }

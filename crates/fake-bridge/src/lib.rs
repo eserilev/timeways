@@ -20,6 +20,7 @@ use app_protocol::story_lines::{
     model_answered_line, model_failed_line, read_line, reply_text,
 };
 use std::collections::{BTreeMap, VecDeque};
+use timeways_story::ai::Ai;
 use timeways_story::serve;
 use timeways_story::story::Story;
 
@@ -54,6 +55,7 @@ pub struct FakeBridge {
     open_calls: VecDeque<(CallId, String)>,
     refused_calls: usize,
     dropped_lines: usize,
+    ai: Ai,
     /// What the story program wrote to stderr.
     errors: Vec<String>,
 }
@@ -71,6 +73,7 @@ impl FakeBridge {
             open_calls: VecDeque::new(),
             refused_calls: 0,
             dropped_lines: 0,
+            ai: Ai::On,
             errors: Vec::new(),
         }
     }
@@ -85,6 +88,15 @@ impl FakeBridge {
     #[must_use]
     pub fn with_model_by_kind(mut self, model: ModelByKind) -> FakeBridge {
         self.model = Some(model);
+        self
+    }
+
+    /// A bridge whose player chose no AI: its hello says so, and a model call fails the
+    /// test, because the story program asks none then (GAMEPLAY.md 5.6).
+    #[must_use]
+    pub fn with_ai_off(mut self) -> FakeBridge {
+        self.ai = Ai::Off;
+        self.write_line(r#"{"type":"hello","protocol":1,"app":"timeways","ai":"off"}"#);
         self
     }
 
@@ -205,6 +217,7 @@ impl FakeBridge {
 
     /// With no model, or with 2 calls open, a call fails at once, as in the bridge.
     fn start_call(&mut self, call: CallId, prompt: String) {
+        assert!(self.ai.is_on(), "a model call with AI off: {prompt}");
         if self.model.is_some() && self.open_calls.len() < MAX_OPEN_CALLS {
             self.open_calls.push_back((call, prompt));
             return;

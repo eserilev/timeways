@@ -84,13 +84,14 @@ impl Story {
     /// The offer takes the place of the narrator call, and comes back as a notice of
     /// `batch`. With no batch, the batch ended with a question, and the notice waits for the
     /// next answer. A request that breaks a rule gets a line of the code, and no model call.
-    /// A giver gets one quest call at a time: the offer that comes answers both asks.
+    /// A giver gets one quest call at a time: the offer that comes answers both asks. With
+    /// AI off, the addon sends no `/quest`, so one that comes anyway gets nothing.
     pub(super) fn quest_call(
         &mut self,
         batch: Option<EventsBatch>,
         request: QuestRequest,
     ) -> Vec<Output> {
-        let Some(active) = self.active.as_ref() else {
+        let Some(active) = self.active.as_ref().filter(|_| self.ai().is_on()) else {
             return batch.map(|batch| quiet(batch.id)).into_iter().collect();
         };
         if self.writes_quest_of(&active.key, &request.giver) {

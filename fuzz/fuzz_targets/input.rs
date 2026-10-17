@@ -1,6 +1,7 @@
 //! Random lines from the bridge. No line ends the program, the bridge takes every line that
 //! comes out, and each request gets exactly one answer. Dev mode is off, so every line with
-//! a `dev` key is refused (TESTING.md, "Dev mode").
+//! a `dev` key is refused (TESTING.md, "Dev mode"). After a hello with AI off, no line
+//! opens a model call (GAMEPLAY.md 5.6).
 
 #![no_main]
 
@@ -40,6 +41,7 @@ fn send(story: &mut Story, bytes: Vec<u8>) -> Vec<u64> {
         match checked_line(&line) {
             Checked::Hello => {}
             Checked::ModelCall(call, _) => {
+                assert!(story.ai().is_on(), "a model call with AI off");
                 let failed = format!(r#"{{"type":"model_failed","call":{}}}"#, call.0);
                 lines.extend(serve::line(story, failed.into_bytes()).lines);
             }

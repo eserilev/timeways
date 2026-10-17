@@ -1240,6 +1240,9 @@ impl Story {
     /// A batch can also start the saga of a finished chapter.
     /// A notice that waits takes the place of the narrator line.
     fn end_batch(&mut self, batch: MessageId) -> Vec<Output> {
+        if !self.ai().is_on() {
+            return vec![self.end_batch_with_ai_off(batch)];
+        }
         let ended = EventsBatch {
             id: batch,
             ended: Instant::now(),
@@ -1259,6 +1262,17 @@ impl Story {
         outputs.extend(self.zone_history_call());
         self.batch_rows.clear();
         outputs
+    }
+
+    /// The moments go as they go with no free slot: a later batch never tells them. A
+    /// chapter, a tale, a summary, and a history wait unwritten, so they start once AI is
+    /// on.
+    fn end_batch_with_ai_off(&mut self, batch: MessageId) -> Output {
+        self.moments.clear();
+        self.candidates.clear();
+        self.quest_request = None;
+        self.batch_rows.clear();
+        quests::quiet(batch)
     }
 
     /// The narrator never waits for a slot, and it stays quiet while a saga is written, so
@@ -1452,6 +1466,9 @@ impl Story {
         self.change(|character| character.meet_npc(at, npc))?;
         // The talk step is done before the prompt, so the NPC hears of the quest at once.
         self.advance_quests(at, None, &Encounter::Talk(npc.to_string()))?;
+        if !self.ai().is_on() {
+            return Ok(vec![calls::silent_talk(id, npc.to_string())]);
+        }
         let (prompt, read) = self.talk_prompt(at, npc, words)?;
         let active = self.active.as_ref().ok_or(StoryError::NoCharacter)?;
         let pending = Pending::Talk(TalkCall {
@@ -1514,7 +1531,8 @@ impl Story {
         Ok((prompt, read))
     }
 
-    /// With no passage, a model has nothing to cite, so no call goes out.
+    /// With no passage, a model has nothing to cite, so no call goes out. With AI off, the
+    /// passages show alone.
     fn ask(
         &mut self,
         id: MessageId,
@@ -1526,7 +1544,7 @@ impl Story {
         let active = self.active.as_ref().ok_or(StoryError::NoCharacter)?;
         let character = &active.character;
         let passages = passages_for(&self.pack, &active.seen_index, character, question, target)?;
-        if passages.is_empty() {
+        if passages.is_empty() || !self.ai().is_on() {
             let answer = Answer {
                 text: None,
                 passages,

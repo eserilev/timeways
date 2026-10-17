@@ -1,0 +1,12 @@
+{"type":"hello","protocol":1,"app":"timeways","ai":"off"}
+{"type":"character_entered","realm":"Testrealm","name":"Tester"}
+{"type":"zone_entered","at":1790000000,"zone":"Westfall","subzone":null,"hour":14}
+{"type":"npc_met","at":1790000005,"name":"Gryan Stoutmantle"}
+{"type":"level_reached","at":1790000010,"level":20}
+{"type":"batch_end","id":1}
+{"type":"lore_asked","id":2,"at":1790000020,"question":"Who leads the Defias?"}
+{"type":"talk_asked","id":3,"at":1790000030,"npc":"Gryan Stoutmantle","text":"Any work?"}
+{"type":"quest_asked","at":1790000040,"npc":"Gryan Stoutmantle"}
+{"type":"batch_end","id":4}
+{"type":"draft_asked","id":5,"at":1790000050,"idea":"Bring me five linen cloths."}
+{"type":"journal_asked","id":6,"page":0}
