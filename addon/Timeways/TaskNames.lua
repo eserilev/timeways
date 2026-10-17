@@ -206,19 +206,21 @@ end
 
 -- The players of one first name in a steady order: your group first, then by the key.
 -- `pairs` and the order of the guild roster change between calls.
-local function Ordered(names, group)
-	for _, players in pairs(names) do
-		table.sort(players, function(a, b)
-			if group[a] ~= group[b] then
-				return group[a] == true
-			end
-			return a < b
-		end)
+local function Ordered(lists, group)
+	local function Before(a, b)
+		if group[a] ~= group[b] then
+			return group[a] == true
+		end
+		return a < b
 	end
-	return names
+	for _, players in pairs(lists) do
+		table.sort(players, Before)
+	end
+	return lists
 end
 
--- Every player whom the addon knows, by the folded first name: { [name] = { "Name-Realm" } }.
+-- Every player whom the addon knows, by the folded first name: { [name] = { "Name-Realm" } },
+-- and the players of your group.
 local function KnownNames()
 	local names, group = {}, {}
 	for _, name in ipairs(ns.TaskPeople.GroupNames()) do
@@ -230,7 +232,7 @@ local function KnownNames()
 	AddTaskPlayers(names)
 	-- An author can leave your group long before you accept the story.
 	AddAll(names, ns.PlayerStories.Names())
-	return Ordered(names, group)
+	return Ordered(names, group), group
 end
 
 -- Your first name, folded, and your surname.
@@ -335,6 +337,36 @@ local function NameEnd(last, after, surname)
 	return stop
 end
 
+-- The players of each known surname, folded, in the order of `Ordered`.
+local function KnownSurnames(names, group)
+	local surnames = {}
+	for _, players in pairs(names) do
+		for _, full in ipairs(players) do
+			local surname = SurnameOf(full)
+			if surname then
+				surnames[surname] = surnames[surname] or {}
+				table.insert(surnames[surname], full)
+			end
+		end
+	end
+	return Ordered(surnames, group)
+end
+
+-- The mark of a surname alone with a capital, "the Will family": "{~Kobee-Will}", with the
+-- surname as typed, so your screen keeps the word, and its player. Nil for a word that is
+-- no surname of a known player, for a surname in lower case, and for your own surname:
+-- the desktop hides that one.
+local function LoneSurnameMark(word, surnames, mySurname)
+	local folded = TaskNames.Fold(word)
+	if not IsCapitalized(word) or (mySurname and folded == TaskNames.Fold(mySurname)) then
+		return nil
+	end
+	local full = (surnames[folded] or {})[1]
+	if full then
+		return "{~" .. full:match("^[^-]+") .. "-" .. word .. "}", full
+	end
+end
+
 -- The mark of a player: the key of the game when the key holds a surname, so the desktop
 -- learns it, and the first name alone when it holds a realm.
 local function MarkOf(full)
@@ -345,35 +377,45 @@ end
 -- Each player that the addon knows becomes "{Name}", or "{Name-Surname}" on WoW Forever,
 -- and your own name becomes `$N`. A whole name goes first: your whole name, then the whole
 -- name of a known player, and then a first name alone, which is you when it is yours. A
--- surname alone stays: the desktop hides it once it knows the surname from a mark.
+-- surname alone with a capital becomes a surname mark, "{~Kobee-Will}".
 -- Returns the text, and the players that it marks as "Name-Realm", once each.
 function TaskNames.Marked(text)
 	-- The bridge reads broken bytes as U+FFFD, so the marks must read them so too.
 	text = WithoutBraces(TaskNames.Visible(ns.Utf8.Lossy(text)))
-	local names, me, mySurname = KnownNames(), MyName()
+	local names, group = KnownNames()
+	local surnames = KnownSurnames(names, group)
+	local me, mySurname = MyName()
 	local parts, players, seen, at = {}, {}, {}, 1
+	local function Named(full)
+		if not seen[full] then
+			seen[full] = true
+			players[#players + 1] = full
+		end
+	end
 	while true do
 		local first, last = NextWord(text, at)
 		if not first then
 			break
 		end
 		parts[#parts + 1] = text:sub(at, first - 1)
-		local folded = TaskNames.Fold(text:sub(first, last))
+		local word = text:sub(first, last)
+		local folded = TaskNames.Fold(word)
 		local candidates = names[folded] or {}
 		local after = Following(text, last)
 		local who = WholeName(candidates, folded == me, mySurname, after) or (folded == me and "me") or candidates[1]
+		local surnameMark, surnameOf = LoneSurnameMark(word, surnames, mySurname)
 		if who == "me" then
 			parts[#parts + 1] = "$N"
 			last = NameEnd(last, after, mySurname and TaskNames.Fold(mySurname))
 		elseif who then
 			parts[#parts + 1] = MarkOf(who)
 			last = NameEnd(last, after, SurnameOf(who))
-			if not seen[who] then
-				seen[who] = true
-				players[#players + 1] = who
-			end
+			Named(who)
+		elseif surnameMark then
+			parts[#parts + 1] = surnameMark
+			Named(surnameOf)
 		else
-			parts[#parts + 1] = text:sub(first, last)
+			parts[#parts + 1] = word
 		end
 		at = last + 1
 	end

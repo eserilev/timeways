@@ -2848,6 +2848,23 @@ fn a_name_with_a_character_that_shows_nothing_is_learned_and_reaches_no_prompt()
 }
 
 #[test]
+fn a_hero_note_that_names_a_surname_alone_teaches_it() {
+    let mut story = story_with("hero-lone-surname", &[]);
+    let names = vec!["Kobee-Will".to_string()];
+    add_named(
+        &mut story,
+        40,
+        "The Will family wronged me.",
+        Some("Innkeeper Farley"),
+        names,
+    );
+
+    let prompt = talk_failed(&mut story);
+
+    assert!(prompt.contains("- The {P2} family wronged me."), "{prompt}");
+}
+
+#[test]
 fn the_hero_sheet_keeps_a_name_as_typed() {
     let mut story = story_with("hero-sheet-names", &[]);
     set_named(&mut story, "bond", "Ward of Leborc James {P7}.", leborc());

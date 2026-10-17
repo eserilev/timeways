@@ -221,12 +221,27 @@ fn a_surname_in_lower_case_after_a_known_first_name_stays_a_word() {
 }
 
 #[test]
-fn a_surname_alone_is_left_for_the_desktop() {
+fn a_surname_alone_with_a_capital_gets_a_mark_of_its_own() {
     let game = two_kobees();
 
-    let text = marked(&game, "Bean is my house. Will you come to the James house?");
+    let text = marked(
+        &game,
+        "Bean is home. Will you come to the James house? Moss came. the will clan",
+    );
 
-    assert_eq!(text, "Bean is my house. Will you come to the James house?");
+    assert_eq!(
+        text,
+        "Bean is home. {~Kobee-Will} you come to the {~Leborc-James} house? {~Kobee-Moss} came. the will clan"
+    );
+}
+
+#[test]
+fn a_text_of_the_hero_names_the_player_of_a_surname_alone() {
+    let game = two_kobees();
+
+    let names: Vec<String> = game.eval("return (ns.TaskNames.Named('The Will family wronged me'))");
+
+    assert_eq!(names, ["Kobee-Will"]);
 }
 
 #[test]
@@ -284,9 +299,9 @@ fn written(first: &str, surname: &str, form: u8) -> String {
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(64))]
 
-    /// GAMEPLAY.md 5.11: the addon marks every first name of a known player and of yours,
-    /// and the desktop hides every surname with a capital that a mark taught it. A surname
-    /// in lower case is a word.
+    /// GAMEPLAY.md 5.11: no first name of a known player or of yours, and no surname with a
+    /// capital, reaches the prompt. Each mark becomes the ID of its player, and each `$N`
+    /// stays one. A surname in lower case is a word.
     #[test]
     fn no_known_first_name_or_capital_surname_reaches_a_prompt(
         players in proptest::collection::vec(known_player(), 1..5),
@@ -321,29 +336,36 @@ proptest! {
         let marked = marked(&game, &text);
         let idea = idea_in_the_prompt(&marked);
 
-        // The desktop knows the surnames of the marks, and yours.
-        let mut taught: Vec<String> = mark_surnames(&marked);
-        taught.push("Bean".to_string());
         for word in words_in(&idea) {
             let first = people.iter().any(|(f, _)| FIRSTS[*f].eq_ignore_ascii_case(word));
             let capital = word.chars().next().is_some_and(char::is_uppercase);
-            let surname = capital && taught.iter().any(|known| known.eq_ignore_ascii_case(word));
+            let surname = capital && people.iter().any(|(_, s)| SURNAMES[*s].eq_ignore_ascii_case(word));
             prop_assert!(!first && !surname, "{} in {} from {}", word, idea, text);
         }
+        // Each mark is another player, and becomes an ID of its own.
+        prop_assert_eq!(idea.matches("{P").count(), marked.matches('{').count(), "{} from {}", idea, marked);
+        // Each `$N` stays one, and your surname alone with a capital becomes one too.
+        let your_surname = outside_marks(&marked)
+            .iter()
+            .filter(|word| word.eq_ignore_ascii_case("Bean") && word.starts_with('B'))
+            .count();
+        prop_assert_eq!(idea.matches("$N").count(), marked.matches("$N").count() + your_surname, "{} from {}", idea, marked);
     }
 }
 
-/// The surnames that the marks of a text carry: "{Leborc-James}" carries James.
-fn mark_surnames(text: &str) -> Vec<String> {
-    text.split('{')
-        .skip(1)
-        .filter_map(|rest| rest.split_once('}'))
-        .filter_map(|(inner, _)| {
-            inner
-                .split_once('-')
-                .map(|(_, surname)| surname.to_string())
-        })
-        .collect()
+/// The words of a text outside its marks, as written.
+fn outside_marks(text: &str) -> Vec<String> {
+    let mut outside = String::new();
+    let mut in_mark = false;
+    for c in text.chars() {
+        match c {
+            '{' => in_mark = true,
+            '}' => in_mark = false,
+            _ if !in_mark => outside.push(c),
+            _ => {}
+        }
+    }
+    words_in(&outside).map(str::to_string).collect()
 }
 
 /// The idea of a draft as a model reads it, from a desktop with the character Kobee Bean.

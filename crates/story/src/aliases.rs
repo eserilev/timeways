@@ -152,34 +152,78 @@ pub struct Marked {
 }
 
 /// "{Ada} and {Bob-Stormrage} met" is "Ada and Bob met", with the names "Ada" and
-/// "Bob-Stormrage". On WoW Forever the part after the dash is the surname. The text holds
-/// the first name alone, as the player typed it, so the limits of the addon hold. Every
-/// other brace becomes a parenthesis, so a text that a player typed never holds an ID.
+/// "Bob-Stormrage". On WoW Forever the part after the dash is the surname. A surname mark,
+/// "{~Kobee-Will}", is a surname alone, and its text keeps the surname: "Will". So the text
+/// holds the words that the player typed, and the limits of the addon hold. Every other
+/// brace becomes a parenthesis, so a text that a player typed never holds an ID.
 #[must_use]
 pub fn unmarked(text: &str) -> Marked {
-    read_marks(text, |inner| first_name(inner).to_string())
+    read_marks(text, |mark| mark.typed().to_string())
 }
 
-/// The text with each mark as the ID of the first name of its player, and every other brace
-/// as a parenthesis. A mark comes from the addon only, so it names a player for certain,
-/// also one whose first name is yours: run it before the own pass. Learn the names first.
+/// The text with each mark as the ID of its player, or of its surname row for a surname
+/// mark, and every other brace as a parenthesis. A mark comes from the addon only, so it
+/// names a player for certain, also one whose first name is yours: run it before the own
+/// pass. A mark of the character itself, `own`, is `$N`. Learn the names first.
 #[must_use]
-pub fn marks_as_ids(table: &[Alias], text: &str) -> String {
-    let id_of = |inner: &str| {
-        let first = first_name(inner);
-        rules::find(table, &key_of(first)).map_or_else(|| first.to_string(), id_text)
+pub fn marks_as_ids(table: &[Alias], own: &str, text: &str) -> String {
+    let id_of = |mark: MarkOf<'_>| {
+        if mark.is_own(own) {
+            return "$N".to_string();
+        }
+        let row = match mark.surname {
+            Some(surname) if mark.alone => AliasRow::surname(surname, mark.first),
+            _ => AliasRow::named(mark.first),
+        };
+        let id = alias_of_row(&row).and_then(|alias| rules::find(table, &alias.key));
+        id.map_or_else(|| mark.typed().to_string(), id_text)
     };
     read_marks(text, id_of).text
 }
 
-fn first_name(inner: &str) -> &str {
-    player_name(inner).unwrap_or(inner)
+/// One mark of the addon: "{Kobee}", "{Kobee-Will}", or the surname mark "{~Kobee-Will}".
+#[derive(Clone, Copy, Debug)]
+struct MarkOf<'a> {
+    first: &'a str,
+    surname: Option<&'a str>,
+    /// A surname that stands alone in the text.
+    alone: bool,
+    /// "Kobee-Will", as `Marked::names` keeps it.
+    key: &'a str,
 }
 
-/// The text with each mark as `mark` writes it, and the inner of each mark. The addon marks
+impl MarkOf<'_> {
+    /// The word that the text shows: the first name, or the surname of a surname mark.
+    fn typed(&self) -> &str {
+        match self.surname {
+            Some(surname) if self.alone => surname,
+            _ => self.first,
+        }
+    }
+
+    fn is_own(&self, own: &str) -> bool {
+        is_own(self.key, own)
+    }
+}
+
+/// True for a key that names the character `own`: its first name alone, or with its
+/// surname. "Kobee-Will" is another player for Kobee Bean.
+#[must_use]
+pub fn is_own(key: &str, own: &str) -> bool {
+    let (first, surname) = key
+        .split_once('-')
+        .map_or((key, None), |(first, surname)| (first, Some(surname)));
+    let mut parts = own.split_whitespace();
+    let same = |a: &str, b: &str| key_of(a) == key_of(b);
+    let own_first = parts.next().is_some_and(|part| same(part, first));
+    let own_surname = parts.next();
+    own_first && surname.is_none_or(|surname| own_surname.is_some_and(|part| same(part, surname)))
+}
+
+/// The text with each mark as `mark` writes it, and the key of each mark. The addon marks
 /// whole words only, so a brace pair that touches a word character, "Leborc{James}", was
 /// typed, and is no mark.
-fn read_marks(text: &str, mut mark: impl FnMut(&str) -> String) -> Marked {
+fn read_marks(text: &str, mut mark: impl FnMut(MarkOf<'_>) -> String) -> Marked {
     let mut plain = String::with_capacity(text.len());
     let mut names = Vec::new();
     let mut rest = text;
@@ -189,9 +233,9 @@ fn read_marks(text: &str, mut mark: impl FnMut(&str) -> String) -> Marked {
             let touches = |c: Option<char>| c.is_some_and(is_word_char);
             !touches(before) && !touches(after.chars().next())
         });
-        if let Some((inner, after)) = found {
-            plain.push_str(&mark(inner));
-            names.push(inner.to_string());
+        if let Some((found, after)) = found {
+            plain.push_str(&mark(found));
+            names.push(found.key.to_string());
             before = Some('}');
             rest = after;
             continue;
@@ -207,16 +251,28 @@ fn read_marks(text: &str, mut mark: impl FnMut(&str) -> String) -> Marked {
     Marked { text: plain, names }
 }
 
-/// The name in a mark at the start of the text, and the text after the mark.
-fn mark_at(text: &str) -> Option<(&str, &str)> {
+/// The mark at the start of the text, and the text after the mark. A surname mark needs a
+/// surname.
+fn mark_at(text: &str) -> Option<(MarkOf<'_>, &str)> {
     let inside = text.strip_prefix('{')?;
     let end = inside.find('}')?;
     let inner = &inside[..end];
-    player_name(inner)?;
-    let realm_ok = inner
-        .split_once('-')
-        .is_none_or(|(_, realm)| is_realm(realm));
-    realm_ok.then_some((inner, &inside[end + 1..]))
+    let (alone, key) = match inner.strip_prefix('~') {
+        Some(key) => (true, key),
+        None => (false, inner),
+    };
+    let first = player_name(key)?;
+    let surname = key.split_once('-').map(|(_, surname)| surname);
+    if surname.is_some_and(|surname| !is_realm(surname)) || (alone && surname.is_none()) {
+        return None;
+    }
+    let mark = MarkOf {
+        first,
+        surname,
+        alone,
+        key,
+    };
+    Some((mark, &inside[end + 1..]))
 }
 
 fn is_realm(realm: &str) -> bool {
@@ -958,10 +1014,23 @@ mod tests {
         let table = table(&["Kobee", "Ada"]);
 
         let marked = unmarked("{Kobee-Will} and {Ada}");
-        let ids = marks_as_ids(&table, "{Kobee-Will} and {Ada} and {P1}");
+        let ids = marks_as_ids(&table, "Bean Quill", "{Kobee-Will} and {Ada} and {P1}");
 
         assert_eq!(marked.text, "Kobee and Ada");
         assert_eq!(marked.names, vec!["Kobee-Will", "Ada"]);
         assert_eq!(ids, "{P1} and {P2} and (P1)");
+    }
+
+    #[test]
+    fn a_surname_mark_keeps_the_surname_in_the_text_and_becomes_its_id() {
+        let rows = [AliasRow::named("Kobee"), AliasRow::surname("Will", "Kobee")];
+        let table: Vec<Alias> = rows.iter().filter_map(alias_of_row).collect();
+
+        let marked = unmarked("The {~Kobee-Will} family");
+        let ids = marks_as_ids(&table, "Ada Quill", "The {~Kobee-Will} family");
+
+        assert_eq!(marked.text, "The Will family");
+        assert_eq!(marked.names, vec!["Kobee-Will"]);
+        assert_eq!(ids, "The {P2} family");
     }
 }

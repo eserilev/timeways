@@ -433,6 +433,37 @@ fn a_mark_of_another_player_with_your_first_name_is_that_player() {
 }
 
 #[test]
+fn a_surname_mark_shows_the_surname_and_reaches_a_model_as_its_id() {
+    let mut story = story("surname-mark");
+
+    let (_, prompt) = ask(&mut story, "The {~Kobee-Will} family helped me");
+
+    assert!(prompt.contains("The {P2} family helped me"), "{prompt}");
+    assert!(
+        prompt.contains("- {P2}: a surname of a player you know"),
+        "{prompt}"
+    );
+}
+
+#[test]
+fn a_mark_of_your_own_name_is_you_and_is_never_learned() {
+    let mut story = story("own-mark");
+    let character = Input::CharacterEntered {
+        realm: "Testrealm".to_string(),
+        name: "Kobee Bean".to_string(),
+    };
+    story.handle(character).unwrap();
+
+    let (_, prompt) = ask(
+        &mut story,
+        "help {Kobee-Bean}, {Kobee} and the {~Kobee-Bean} house",
+    );
+
+    assert!(prompt.contains("help $N, $N and the $N house"), "{prompt}");
+    assert!(!prompt.contains("Players in the idea"), "{prompt}");
+}
+
+#[test]
 fn a_surname_in_lower_case_stays_a_word() {
     let mut story = story("surname-word");
     note_naming(&mut story, "Bram Will owes me.", &["Bram-Will"]);

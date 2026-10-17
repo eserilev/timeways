@@ -23,8 +23,12 @@ pub(super) fn learn_names(active: &mut Active, marked: &[String]) -> Result<(), 
     Ok(())
 }
 
-/// Learns the first name of "First-Surname", and its surname as a row of its own.
+/// Learns the first name of "First-Surname", and its surname as a row of its own. The
+/// character itself is no player of the table: its name is `$N`.
 fn learn_player(active: &mut Active, player: &str) -> Result<(), StoreError> {
+    if aliases::is_own(player, active.key.name()) {
+        return Ok(());
+    }
     let (first, surname) = player.split_once('-').unwrap_or((player, ""));
     active.aliases.learn(&AliasRow::named(first))?;
     if aliases::player_name(surname).is_some() {
@@ -34,7 +38,7 @@ fn learn_player(active: &mut Active, player: &str) -> Result<(), StoreError> {
 }
 
 /// Learns each player that a text of the hero names, as "First-Surname" or "First". A
-/// first name that the text does not hold is no player of it.
+/// player whose first name and surname are no words of the text is no player of it.
 pub(super) fn learn_players(
     active: &mut Active,
     text: &str,
@@ -43,8 +47,10 @@ pub(super) fn learn_players(
     let text = aliases::for_matching(text);
     let words: Vec<String> = aliases::words_in(&text).map(aliases::key_of).collect();
     for player in players {
-        let first = player.split('-').next().unwrap_or_default();
-        if words.contains(&aliases::key_of(first)) {
+        let in_text = player
+            .split('-')
+            .any(|part| words.contains(&aliases::key_of(part)));
+        if in_text {
             learn_player(active, player)?;
         }
     }
@@ -110,13 +116,13 @@ pub(super) struct TextLimits {
 pub(super) fn ids_of_marked(active: &Active, marked: &str) -> String {
     with_ids(
         active,
-        &aliases::marks_as_ids(active.aliases.table(), marked),
+        &aliases::marks_as_ids(active.aliases.table(), active.key.name(), marked),
     )
 }
 
 /// A text of the addon for a model: each mark as the ID of its player before the own pass,
 /// so a mark of another player with your first name stays theirs.
 pub(super) fn marked_for_model(active: &Active, marked: &str) -> String {
-    let ids = aliases::marks_as_ids(active.aliases.table(), marked);
+    let ids = aliases::marks_as_ids(active.aliases.table(), active.key.name(), marked);
     with_ids(active, &without_own_name(active, &ids))
 }
