@@ -30,7 +30,8 @@ pub(super) fn learn_players(
     text: &str,
     players: &[String],
 ) -> Result<(), StoreError> {
-    let words: Vec<String> = aliases::words_in(text).map(aliases::key_of).collect();
+    let text = aliases::for_matching(text);
+    let words: Vec<String> = aliases::words_in(&text).map(aliases::key_of).collect();
     for player in players {
         let (first, surname) = player.split_once('-').unwrap_or((player, ""));
         if !words.contains(&aliases::key_of(first)) {

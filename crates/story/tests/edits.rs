@@ -476,6 +476,25 @@ fn the_own_name_in_an_edit_never_reaches_a_saga() {
 }
 
 #[test]
+fn an_edit_keeps_the_characters_that_show_nothing_as_typed() {
+    let mut story = started("typed");
+    a_chapter_in_westfall(&mut story);
+    let (_, key) = first_chapter(&mut story);
+
+    edit(
+        &mut story,
+        key,
+        EditText::Keep,
+        &["\u{2764}\u{FE0F} a\u{200D}b q\u{303}x {Ada}"],
+    );
+
+    assert_eq!(
+        journal(&mut story).edits[0].paragraphs,
+        ["\u{2764}\u{FE0F} a\u{200D}b q\u{303}x Ada"]
+    );
+}
+
+#[test]
 fn an_edit_of_an_entry_that_does_not_exist_stays_out_of_the_journal() {
     let mut story = started("no-such-entry");
     a_chapter_in_westfall(&mut story);

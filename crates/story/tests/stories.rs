@@ -527,6 +527,24 @@ fn a_story_keeps_an_id_for_each_player_and_the_journal_shows_the_name() {
 }
 
 #[test]
+fn a_story_keeps_the_characters_that_show_nothing_as_typed() {
+    let folder = fresh_folder("typed");
+    let mut story = story(&folder);
+
+    accept(
+        &mut story,
+        1,
+        "\u{2764}\u{FE0F} a\u{200D}b q\u{303}x {Corvin}",
+    )
+    .unwrap();
+
+    assert_eq!(
+        stories(&mut story)[0].paragraphs,
+        ["\u{2764}\u{FE0F} a\u{200D}b q\u{303}x Corvin"]
+    );
+}
+
+#[test]
 fn a_player_keeps_the_same_id_after_a_reopen() {
     let folder = fresh_folder("same-id");
     let mut story = story(&folder);

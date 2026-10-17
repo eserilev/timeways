@@ -493,8 +493,8 @@ fn a_name_before_a_mark_or_a_symbol_reaches_no_draft() {
         "help Ada\u{301} and Ada\u{FEFF}, {Ada}\u{207F} and Ada later",
     );
 
-    // A model reads no character that shows nothing, and no accent on no letter.
-    let ids = "help {P1} and {P1}, {P1}\u{207F} and {P1} later";
+    // A model reads no character that shows nothing. A combining mark stays, as a sign.
+    let ids = "help {P1}\u{301} and {P1}, {P1}\u{207F} and {P1} later";
     assert!(prompt.contains(ids), "{prompt}");
     assert!(!prompt.contains("Ada"), "{prompt}");
 }

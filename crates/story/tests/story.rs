@@ -2827,6 +2827,27 @@ fn a_note_that_names_more_than_thirty_two_players_is_refused_and_reaches_no_prom
 }
 
 #[test]
+fn a_name_with_a_character_that_shows_nothing_is_learned_and_reaches_no_prompt() {
+    let mut story = story_with("hero-hidden-char", &[]);
+    let names = vec!["Corvin".to_string()];
+    add_named(
+        &mut story,
+        40,
+        "Cor\u{200B}vin owes me.",
+        Some("Innkeeper Farley"),
+        names,
+    );
+
+    let prompt = talk_failed(&mut story);
+
+    assert!(prompt.contains("- {P1} owes me."), "{prompt}");
+    assert!(
+        !prompt.contains("Corvin") && !prompt.contains("Cor\u{200B}vin"),
+        "{prompt}"
+    );
+}
+
+#[test]
 fn the_hero_sheet_keeps_a_name_as_typed() {
     let mut story = story_with("hero-sheet-names", &[]);
     set_named(&mut story, "bond", "Ward of Leborc James {P7}.", leborc());

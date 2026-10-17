@@ -3,7 +3,7 @@
 //! them on in the game. They stay in the world of the character, and only an export by
 //! the player takes them off the computer. An export never holds the name of a real player.
 
-use crate::aliases::{Surname, without_names, without_own_name};
+use crate::aliases::{Surname, for_matching, without_names, without_own_name};
 use crate::store::RowLog;
 use hourglass::Tick;
 use serde::{Deserialize, Serialize};
@@ -149,5 +149,6 @@ pub fn export(
 /// character as `$N` (`aliases::without_own_name`).
 #[must_use]
 pub fn shareable(text: &str, players: &[Alias], own: &str) -> String {
-    without_own_name(&without_names(players, text), own, Surname::Always)
+    let text = for_matching(text);
+    without_own_name(&without_names(players, &text), own, Surname::Always)
 }

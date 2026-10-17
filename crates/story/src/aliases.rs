@@ -10,7 +10,6 @@
 use crate::race_class::{Class, Race};
 use serde::{Deserialize, Serialize};
 use timeways_rules::aliases::{self as rules, Alias, Piece, Plain, PlayerId};
-use unicode_normalization::UnicodeNormalization;
 
 /// The limit of the bridge for the name of a character (Gnomish Relay SPEC.md 9.8).
 pub const MAX_PLAYER_NAME_BYTES: usize = 48;
@@ -273,18 +272,12 @@ const HIDDEN: [(u32, u32); 7] = [
     (0xFEFF, 0xFEFF), // the zero-width no-break space
 ];
 
-/// The text as names match it: composed (NFC), with no character that shows nothing, and no
-/// accent that composes with no letter. So "E\u{301}lise" is Élise and "Corv\u{301}in" is
-/// Corvin. A model reads this text, and the player's own screen keeps the typed one.
+/// The text for a model, as names match it: with no character that shows nothing, as the
+/// addon reads it (`TaskNames.Visible`). A combining mark stays, and is a sign: "Ada\u{301}"
+/// holds the name Ada. The player's own screen keeps the typed text.
 #[must_use]
 pub fn for_matching(text: &str) -> String {
-    text.nfc()
-        .filter(|c| !is_hidden(*c) && !is_combining_accent(*c))
-        .collect()
-}
-
-fn is_combining_accent(c: char) -> bool {
-    ('\u{300}'..='\u{36F}').contains(&c)
+    text.chars().filter(|c| !is_hidden(*c)).collect()
 }
 
 /// The text cut into words and the rest. A word with a realm, "Ada-Stormrage", is one
@@ -302,7 +295,7 @@ pub fn text_pieces(text: &str, table: &[Alias]) -> Vec<Plain> {
             index += 1;
             continue;
         }
-        let key = key_in(table, run);
+        let key = key_of(run);
         let realm = runs
             .get(index + 2)
             .filter(|_| runs[index + 1] == (false, "-"));
@@ -330,26 +323,6 @@ pub fn words_in(text: &str) -> impl Iterator<Item = &str> {
     runs(text)
         .into_iter()
         .filter_map(|(is_word, run)| is_word.then_some(run))
-}
-
-/// The key of a word as the table knows it: the word in lower case, or with its accents
-/// taken off when only that form is a name of the table. "Adá", an accent typed after Ada,
-/// is Ada, and "Élise" stays Élise when the table holds her.
-fn key_in(table: &[Alias], word: &str) -> String {
-    let key = key_of(word);
-    if rules::find(table, &key).is_some() {
-        return key;
-    }
-    let bare = key_of(&without_accents(word));
-    if rules::find(table, &bare).is_some() {
-        bare
-    } else {
-        key
-    }
-}
-
-fn without_accents(word: &str) -> String {
-    word.nfd().filter(|c| !is_combining_accent(*c)).collect()
 }
 
 /// The runs of word letters and of other letters, in order, each with whether it is a word.
@@ -401,8 +374,7 @@ pub fn plain_joined(pieces: &[Plain]) -> String {
 /// The text for a model: each name that the table knows becomes its ID.
 #[must_use]
 pub fn without_names(table: &[Alias], text: &str) -> String {
-    let text = for_matching(text);
-    joined(&rules::to_ids(table, &text_pieces(&text, table)))
+    joined(&rules::to_ids(table, &text_pieces(text, table)))
 }
 
 /// When a surname of the character, alone, is hidden.
@@ -422,7 +394,6 @@ pub enum Surname {
 pub fn without_own_name(text: &str, own: &str, surname: Surname) -> String {
     let text = for_matching(text);
     let text = text.as_str();
-    let own = for_matching(own);
     let mut parts = own.split_whitespace();
     let first = parts.next().map(part_aliases).unwrap_or_default();
     let surnames: Vec<Alias> = parts.flat_map(part_aliases).collect();
@@ -580,7 +551,7 @@ fn surname_id(rows: &[AliasRow], word: &str) -> Option<PlayerId> {
 /// surname. `table` holds the names of `rows`.
 #[must_use]
 pub fn typed_for_model(table: &[Alias], rows: &[AliasRow], own: &str, text: &str) -> String {
-    let typed = unmarked(text).text;
+    let typed = unmarked(&for_matching(text)).text;
     // `$N` matches no name, so the own name goes first and keeps its meaning.
     let without_own = without_own_name(&typed, own, Surname::AsWritten);
     without_surnames(rows, &without_names(table, &without_own))
@@ -844,29 +815,6 @@ mod tests {
     }
 
     #[test]
-    fn a_name_matches_after_hidden_characters_go_and_accents_compose() {
-        let table = table(&["Ada", "Élise", "Corvin"]);
-
-        let text = without_names(
-            &table,
-            "A\u{200B}da, E\u{301}lise, Corv\u{301}in, Co\u{AD}rvin",
-        );
-
-        assert_eq!(text, "{P1}, {P2}, {P3}, {P3}");
-    }
-
-    #[test]
-    fn the_own_name_matches_after_hidden_characters_go_and_accents_compose() {
-        let hidden = without_own_name(
-            "E\u{301}lise and Él\u{200D}ise",
-            "Élise",
-            Surname::AsWritten,
-        );
-
-        assert_eq!(hidden, "$N and $N");
-    }
-
-    #[test]
     fn a_sign_outside_the_letter_ranges_ends_a_word() {
         let table = table(&["Ada"]);
 
@@ -881,12 +829,72 @@ mod tests {
         );
     }
 
+    /// Leborc James and Bram Will, with Corvin, for the own name Kobee Will.
+    fn for_model(text: &str) -> String {
+        let mut rows = rows();
+        rows.push(AliasRow::named("Corvin"));
+        let table: Vec<Alias> = rows.iter().filter_map(alias_of_row).collect();
+        typed_for_model(&table, &rows, "Kobee Will", text)
+    }
+
     #[test]
-    fn an_accent_typed_after_a_name_still_matches_it_and_an_accented_name_stays_its_own() {
+    fn a_combining_mark_after_a_surname_never_makes_it_a_new_word() {
+        assert_eq!(for_model("Will\u{301} said"), "$N\u{301} said");
+        assert_eq!(for_model("Kobee Will\u{301}"), "$N\u{301}");
+        assert_eq!(for_model("James\u{301} Leborc"), "{P2}\u{301} {P1}");
+        assert_eq!(
+            for_model("the James\u{301} family"),
+            "the {P2}\u{301} family"
+        );
+        assert_eq!(for_model("Leborc James\u{301}"), "{P1}\u{301}");
+    }
+
+    #[test]
+    fn a_compatibility_sign_or_a_mark_after_a_name_never_joins_it() {
+        let text = for_model("Corvin\u{212A} Corvin\u{2126} Corvin\u{301}x Corvin\u{335}x");
+
+        assert_eq!(text, "{P5}\u{212A} {P5}\u{2126} {P5}\u{301}x {P5}\u{335}x");
+    }
+
+    #[test]
+    fn a_mark_after_the_own_name_token_keeps_the_token() {
+        assert!(for_model("$N\u{301}x").starts_with("$N"));
+    }
+
+    #[test]
+    fn a_character_that_shows_nothing_never_hides_a_brace_that_touches_a_word() {
+        let text = for_model("{Corvin}\u{200B}x");
+
+        assert_eq!(text, "({P5})x");
+    }
+
+    #[test]
+    fn a_name_matches_after_the_characters_that_show_nothing_go() {
+        let table = table(&["Ada", "Corvin"]);
+
+        let text = without_names(
+            &table,
+            &for_matching("A\u{200B}da, Co\u{AD}rvin, Corv\u{FE0F}in"),
+        );
+
+        assert_eq!(text, "{P1}, {P2}, {P2}");
+    }
+
+    #[test]
+    fn the_own_name_matches_after_the_characters_that_show_nothing_go() {
+        let hidden = without_own_name("Él\u{200D}ise and ÉLISE", "Élise", Surname::AsWritten);
+
+        assert_eq!(hidden, "$N and $N");
+    }
+
+    /// A known gap (GAMEPLAY.md 5.11): no side composes accents, so a name typed in
+    /// decomposed form, mostly from a paste, is no word of the name.
+    #[test]
+    fn a_combining_mark_ends_a_name_and_a_decomposed_name_stays_a_known_gap() {
         let table = table(&["Ada", "Élise", "Elise"]);
 
-        let text = without_names(&table, "Ada\u{301}, Adá, Élise, Elise, E\u{301}lise");
+        let text = without_names(&table, "Ada\u{301}, Élise, Elise, E\u{301}lise");
 
-        assert_eq!(text, "{P1}, {P1}, {P2}, {P3}, {P2}");
+        assert_eq!(text, "{P1}\u{301}, {P2}, {P3}, E\u{301}lise");
     }
 }
