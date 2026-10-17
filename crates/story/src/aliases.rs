@@ -153,18 +153,25 @@ pub struct Marked {
 
 /// "{Ada} and {Bob-Stormrage} met" is "Ada and Bob-Stormrage met", with the names Ada and
 /// Bob. Every other brace becomes a parenthesis, so a text that a player typed never holds
-/// an ID.
+/// an ID. The addon marks whole words only, so a brace pair that touches a word character,
+/// "Leborc{James}", was typed, and is no mark.
 #[must_use]
 pub fn unmarked(text: &str) -> Marked {
     let mut plain = String::with_capacity(text.len());
     let mut names = Vec::new();
     let mut rest = text;
+    let mut before: Option<char> = None;
     while let Some(c) = rest.chars().next() {
-        if let Some((inner, after)) = mark_at(rest) {
+        let mark = mark_at(rest).filter(|(_, after)| {
+            let touches = |c: Option<char>| c.is_some_and(is_word_char);
+            !touches(before) && !touches(after.chars().next())
+        });
+        if let Some((inner, after)) = mark {
             plain.push_str(inner);
             if let Some(name) = player_name(inner) {
                 names.push(name.to_string());
             }
+            before = Some('}');
             rest = after;
             continue;
         }
@@ -173,6 +180,7 @@ pub fn unmarked(text: &str) -> Marked {
             '}' => ')',
             other => other,
         });
+        before = Some(c);
         rest = &rest[c.len_utf8()..];
     }
     Marked { text: plain, names }
@@ -194,11 +202,66 @@ fn is_realm(realm: &str) -> bool {
     !realm.is_empty() && realm.chars().all(is_word_char)
 }
 
-/// Stricter than `TaskNames.lua`, which reads every byte past ASCII as a letter: a curly
-/// apostrophe or a dash after a name ends the word, so "Ada’s" still loses its name.
-fn is_word_char(c: char) -> bool {
-    c.is_alphanumeric()
+/// True for a character of a word: an ASCII letter or digit, or a code point past ASCII
+/// that is in no range of `SIGNS`, or in a range of `LETTERS_AMONG_SIGNS`. The addon holds
+/// the same rule (`TaskNames.IsWordChar`), and the addon test
+/// `the_addon_and_the_desktop_agree_on_every_letter` checks every code point. One rule
+/// on both sides, so no name is a word on one side and part of a longer word on the other.
+#[must_use]
+pub fn is_word_char(c: char) -> bool {
+    let code = u32::from(c);
+    if code < 0x80 {
+        return c.is_ascii_alphanumeric();
+    }
+    in_ranges(code, &LETTERS_AMONG_SIGNS) || !in_ranges(code, &SIGNS)
 }
+
+fn in_ranges(code: u32, ranges: &[(u32, u32)]) -> bool {
+    ranges
+        .iter()
+        .any(|(first, last)| (*first..=*last).contains(&code))
+}
+
+/// Past ASCII, the ranges that are no letters. A mark or a symbol is a sign, so a name
+/// before it is still a word: "Ada\u{301}" and "Adaⁿ" hold the name Ada.
+const SIGNS: [(u32, u32); 26] = [
+    (0x0080, 0x00BF), // the no-break space, « », ¡, ¿, ·
+    (0x00D7, 0x00D7), // ×
+    (0x00F7, 0x00F7), // ÷
+    (0x02C2, 0x02C5), // modifier symbols, such as ˂
+    (0x02D2, 0x02DF),
+    (0x02E5, 0x02EB),
+    (0x02ED, 0x02ED),
+    (0x02EF, 0x02FF),
+    (0x0300, 0x036F), // combining marks
+    (0x037E, 0x037E), // the Greek question mark
+    (0x0387, 0x0387), // the Greek ano teleia
+    (0x0591, 0x05C7), // Hebrew points and signs, such as ׃
+    (0x0600, 0x061F), // Arabic signs, such as ،
+    (0x064B, 0x065F), // Arabic marks
+    (0x066A, 0x066D),
+    (0x06D4, 0x06D4),
+    (0x2000, 0x2FFF), // ’, —, …, ⁿ, ℕ, Ⓐ, and other signs
+    (0x3000, 0x303F), // the signs of CJK, such as 、 and 。
+    (0xFE00, 0xFE6F), // variation selectors, and small and vertical forms
+    (0xFEFF, 0xFEFF), // the zero-width no-break space
+    (0xFF00, 0xFF0F), // full-width signs, such as ，
+    (0xFF1A, 0xFF20),
+    (0xFF3B, 0xFF40),
+    (0xFF5B, 0xFF65),
+    (0xFFF0, 0xFFFF),      // specials, such as U+FFFD
+    (0x1_0000, 0x10_FFFF), // past the BMP: emoji
+];
+
+/// The letters and numbers inside `SIGNS`: ª ² ³ µ ¹ º ¼ ½ ¾, and the Roman numerals.
+const LETTERS_AMONG_SIGNS: [(u32, u32); 6] = [
+    (0x00AA, 0x00AA),
+    (0x00B2, 0x00B3),
+    (0x00B5, 0x00B5),
+    (0x00B9, 0x00BA),
+    (0x00BC, 0x00BE),
+    (0x2160, 0x2188),
+];
 
 /// The text cut into words and the rest. A word with a realm, "Ada-Stormrage", is one
 /// word when the table knows its name, as `TaskNames.lua` does it. A plain piece is never
@@ -722,5 +785,13 @@ mod tests {
         let hidden = without_own_name("I will go. kobee will.", "Kobee Will", Surname::Always);
 
         assert_eq!(hidden, "I $N go. $N.");
+    }
+
+    #[test]
+    fn a_brace_pair_that_touches_a_word_is_no_mark() {
+        let marked = unmarked("Leborc{James} and {Ada}x and x{Ada}, {Ada}.");
+
+        assert_eq!(marked.text, "Leborc(James) and (Ada)x and x(Ada), Ada.");
+        assert_eq!(marked.names, vec!["Ada"]);
     }
 }

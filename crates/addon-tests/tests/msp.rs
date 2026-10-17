@@ -762,6 +762,47 @@ fn an_imported_field_that_names_a_player_goes_as_typed_and_then_never_again() {
 }
 
 #[test]
+fn an_imported_field_that_names_more_than_thirty_two_players_says_where_it_came_from() {
+    let game = with_trp3();
+    let names: Vec<String> = (0..33u8)
+        .map(|n| {
+            format!(
+                "Q{}{}",
+                char::from(b'a' + n / 26),
+                char::from(b'a' + n % 26)
+            )
+        })
+        .collect();
+    let roster: Vec<String> = names
+        .iter()
+        .map(|name| format!("{{ name = '{name}-Stormrage', online = false }}"))
+        .collect();
+    game.run(&format!(
+        "wow.guild = {{ {} }} wow.Fire('GUILD_ROSTER_UPDATE', false)
+         msp.my = {{ DE = '{}' }}",
+        roster.join(", "),
+        names.join(" ")
+    ));
+
+    game.reply(&sheet_reply(&[]));
+    game.run("wow.now = wow.now + 1; wow.RunTickers()");
+
+    assert!(hero_sets(&game).is_empty());
+    let line = "Couldn't import your Appearance from Total RP 3: it names more than 32 players.";
+    let printed = game.printed();
+    assert!(
+        printed.iter().any(|said| said.contains(line)),
+        "{printed:?}"
+    );
+    assert!(
+        !printed
+            .iter()
+            .any(|said| said.contains("Name fewer players")),
+        "{printed:?}"
+    );
+}
+
+#[test]
 fn an_unchanged_import_sends_nothing() {
     let game = with_trp3();
     game.run("msp.my = { NT = 'Keeper' }");

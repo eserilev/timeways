@@ -484,6 +484,32 @@ fn a_name_that_the_text_does_not_hold_is_not_learned() {
 }
 
 #[test]
+fn a_name_before_a_mark_or_a_symbol_reaches_no_draft() {
+    let mut story = story("signs");
+    described(&mut story, "Ada");
+
+    let (_, prompt) = ask(
+        &mut story,
+        "help Ada\u{301} and Ada\u{FEFF}, {Ada}\u{207F} and Ada later",
+    );
+
+    // The prompt drops the zero-width no-break space.
+    let ids = "help {P1}\u{301} and {P1}, {P1}\u{207F} and {P1} later";
+    assert!(prompt.contains(ids), "{prompt}");
+    assert!(!prompt.contains("Ada"), "{prompt}");
+}
+
+#[test]
+fn a_brace_pair_inside_a_word_is_no_mark() {
+    let mut story = story("brace-in-word");
+    note_naming(&mut story, "Leborc James owes me.", &["Leborc-James"]);
+
+    let (_, prompt) = ask(&mut story, "help Leborc{James} and x{Leborc}");
+
+    assert!(prompt.contains("help {P1}({P2}) and x({P1})"), "{prompt}");
+}
+
+#[test]
 fn the_draft_names_the_player_again_for_the_giver() {
     let mut story = story("named");
     let (call, _) = ask(&mut story, "help {Ada} at the mill");

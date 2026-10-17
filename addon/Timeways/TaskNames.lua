@@ -11,42 +11,80 @@ ns.TaskNames = TaskNames
 -- One character of UTF-8: an ASCII byte, or a lead byte and its continuation bytes.
 local CHAR = "[%z\1-\127\194-\244][\128-\191]*"
 
--- The signs past ASCII that end a word, as the desktop's `char::is_alphanumeric` does. A
--- name before a curly apostrophe, a dash, or an emoji still gets its mark.
-local NOT_LETTERS = {
-	"^\194", -- U+0080 to U+00BF: the no-break space, « », ¡, ¿, ·
-	"^\195[\151\183]", -- × and ÷
-	"^\226", -- U+2000 to U+2FFF: ’, —, …, and other signs
-	"^\227\128", -- U+3000 to U+303F: the signs of CJK, such as 、 and 。
-	"^\239\188[\128-\143\154-\160\187-\191]", -- full-width signs, such as ，
-	"^\239\189[\128\155-\165]",
-	"^[\240-\244]", -- emoji
+-- Past ASCII, a code point is a letter unless it is in one of these ranges. The desktop
+-- holds the same table (`aliases::is_word_char`), and the addon test
+-- `the_addon_and_the_desktop_agree_on_every_letter` checks every code point. A mark or a
+-- symbol is a sign, so a name before it still gets its mark.
+local SIGNS = {
+	{ 0x0080, 0x00BF }, -- the no-break space, « », ¡, ¿, ·
+	{ 0x00D7, 0x00D7 }, -- ×
+	{ 0x00F7, 0x00F7 }, -- ÷
+	{ 0x02C2, 0x02C5 }, -- modifier symbols, such as ˂
+	{ 0x02D2, 0x02DF },
+	{ 0x02E5, 0x02EB },
+	{ 0x02ED, 0x02ED },
+	{ 0x02EF, 0x02FF },
+	{ 0x0300, 0x036F }, -- combining marks, such as the acute of "e\204\129"
+	{ 0x037E, 0x037E }, -- the Greek question mark
+	{ 0x0387, 0x0387 }, -- the Greek ano teleia
+	{ 0x0591, 0x05C7 }, -- Hebrew points and signs, such as ׃
+	{ 0x0600, 0x061F }, -- Arabic signs, such as ،
+	{ 0x064B, 0x065F }, -- Arabic marks
+	{ 0x066A, 0x066D },
+	{ 0x06D4, 0x06D4 },
+	{ 0x2000, 0x2FFF }, -- ’, —, …, ⁿ, ℕ, Ⓐ, and other signs
+	{ 0x3000, 0x303F }, -- the signs of CJK, such as 、 and 。
+	{ 0xFE00, 0xFE6F }, -- variation selectors, and small and vertical forms
+	{ 0xFEFF, 0xFEFF }, -- the zero-width no-break space
+	{ 0xFF00, 0xFF0F }, -- full-width signs, such as ，
+	{ 0xFF1A, 0xFF20 },
+	{ 0xFF3B, 0xFF40 },
+	{ 0xFF5B, 0xFF65 },
+	{ 0xFFF0, 0xFFFF }, -- specials, such as �
+	{ 0x10000, 0x10FFFF }, -- past the BMP: emoji
 }
 
--- The letters and numbers inside the ranges of NOT_LETTERS: ª ² ³ µ ¹ º ¼ ½ ¾, and the
--- Roman numerals, U+2160 to U+2188.
+-- The letters and numbers inside SIGNS: ª ² ³ µ ¹ º ¼ ½ ¾, and the Roman numerals.
 local LETTERS_AMONG_SIGNS = {
-	"^\194[\170\178\179\181\185\186\188-\190]",
-	"^\226\133[\160-\191]",
-	"^\226\134[\128-\136]",
+	{ 0x00AA, 0x00AA },
+	{ 0x00B2, 0x00B3 },
+	{ 0x00B5, 0x00B5 },
+	{ 0x00B9, 0x00BA },
+	{ 0x00BC, 0x00BE },
+	{ 0x2160, 0x2188 },
 }
 
-local function IsWordChar(char)
+-- The code point of one character of UTF-8.
+local function CodePoint(char)
 	if #char == 1 then
-		return char:find("^%w$") ~= nil
+		return char:byte()
 	end
-	for _, letter in ipairs(LETTERS_AMONG_SIGNS) do
-		if char:find(letter) then
+	local code = char:byte(1) % 2 ^ (7 - #char)
+	for n = 2, #char do
+		code = code * 64 + char:byte(n) % 64
+	end
+	return code
+end
+
+local function InRanges(code, ranges)
+	for _, range in ipairs(ranges) do
+		if code >= range[1] and code <= range[2] then
 			return true
 		end
 	end
-	for _, sign in ipairs(NOT_LETTERS) do
-		if char:find(sign) then
-			return false
-		end
-	end
-	return true
+	return false
 end
+
+-- One character is part of a word: an ASCII letter or digit, or a letter past ASCII.
+function TaskNames.IsWordChar(char)
+	local code = CodePoint(char)
+	if code < 0x80 then
+		return char:find("^%w$") ~= nil
+	end
+	return InRanges(code, LETTERS_AMONG_SIGNS) or not InRanges(code, SIGNS)
+end
+
+local IsWordChar = TaskNames.IsWordChar
 
 -- The first and the last byte of the next word at or after `at`, or nil. A word is a run of
 -- ASCII letters and digits and of letters past ASCII, such as "é".

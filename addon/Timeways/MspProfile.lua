@@ -158,6 +158,21 @@ local function Imported(field, value)
 	return ns.Utf8.Cut(text, limit.letters, limit.bytes)
 end
 
+local function Say(text)
+	DEFAULT_CHAT_FRAME:AddMessage("|cffc8a064Timeways|r: " .. text)
+end
+
+-- A command shows "Name fewer players", but an import has nothing to rename in Timeways, so
+-- the line says which field and where it came from.
+local function ImportOne(field, text)
+	if not ns.Hero.NamesTooMany(text) then
+		ns.Hero.Set(field, text)
+		return
+	end
+	local line = "Couldn't import your %s from %s: it names more than %d players."
+	Say(line:format(ns.Hero.LABELS[field], MspProfile.Owner(), ns.TaskNames.MAX_NAMES))
+end
+
 -- The profile of the other roleplay addon goes to the desktop when it changed. The six
 -- questions stay the player's own, so only the roleplay fields come in.
 local function Import()
@@ -166,7 +181,7 @@ local function Import()
 		local text = Imported(field, my[MspProfile.CODES[field]])
 		if text and text ~= (sheet[field] or "") and text ~= imported[field] then
 			imported[field] = text
-			ns.Hero.Set(field, text)
+			ImportOne(field, text)
 		end
 	end
 end
