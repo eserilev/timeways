@@ -7,8 +7,9 @@ mod common;
 mod players;
 
 use common::Game;
-use players::{Player, ada_and_corvin, deliver, exchange};
+use players::{Player, ada_and_corvin, deliver, exchange, peer_marks_disagree};
 use proptest::prelude::*;
+use proptest::test_runner::TestRunner;
 use timeways_story::aliases::unmarked;
 use timeways_story::input::Input;
 use timeways_story::stories::is_good_story;
@@ -299,7 +300,8 @@ fn accept_sends_the_title_and_the_paragraphs_with_names_marked_and_the_author_he
     let inputs = sent_inputs(&corvin);
     let (title, paragraphs) = accepted(&inputs).expect("an accepted story");
     assert_eq!(title.as_deref(), Some("{Ada} at the Bridge"));
-    assert_eq!(paragraphs, ["$N and {Ada} held it.", "{Ada} ran."]);
+    // The mark of the reader stays a mark: the desktop reads it as `$N`.
+    assert_eq!(paragraphs, ["{Corvin} and {Ada} held it.", "{Ada} ran."]);
     let described = inputs
         .iter()
         .position(|input| matches!(input, Input::PlayerDescribed { name, .. } if name == "Ada"));
@@ -380,9 +382,118 @@ fn a_mark_of_the_reader_in_a_story_becomes_the_reader() {
     send(&ada, &corvin, "", "Corvin and Ada held it.");
 
     corvin.run("wow.Slash('/story', 'accept')");
+    let (title, paragraphs) = accepted(&sent_inputs(&corvin)).expect("an accepted story");
+    let shown = accept_on_desktop(&mut desktop_of("Corvin"), title, paragraphs);
+
+    assert_eq!(shown, ["$N and Ada held it."]);
+}
+
+#[test]
+fn a_story_keeps_at_most_thirty_two_marks_of_its_author() {
+    let (_, corvin) = party();
+    let marks: Vec<String> = (0..40u8)
+        .map(|n| {
+            format!(
+                "{{Q{}{}}}",
+                char::from(b'a' + n / 26),
+                char::from(b'a' + n % 26)
+            )
+        })
+        .collect();
+    hear_story(&corvin, &format!("a1;;{}", marks.join(" ")));
+
+    corvin.run("wow.Slash('/story', 'accept')");
 
     let (_, paragraphs) = accepted(&sent_inputs(&corvin)).expect("an accepted story");
-    assert_eq!(paragraphs, ["$N and {Ada} held it."]);
+    assert_eq!(paragraphs[0].matches('{').count(), 32, "{}", paragraphs[0]);
+}
+
+#[test]
+fn the_waiting_page_names_the_players_of_the_marks() {
+    let (ada, corvin) = party();
+    ada_saw_lysara(&ada);
+    send(&ada, &corvin, "", "We held the bridge with Lysara.");
+
+    let page = story_page(&corvin);
+
+    assert!(
+        page.contains(&"Players named: Lysara".to_string()),
+        "{page:?}"
+    );
+}
+
+#[test]
+fn a_brace_that_the_author_typed_never_becomes_a_mark_also_in_a_long_story() {
+    let (ada, corvin) = party();
+    let filler = "a".repeat(1000 - "{grin} Corvin ".len());
+    send(&ada, &corvin, "", &format!("{{grin}} Corvin {filler}"));
+
+    let waiting: String = corvin.eval("return ns.PlayerStories.Waiting()[1].text");
+
+    assert!(waiting.starts_with("(grin) Corvin "), "{waiting}");
+}
+
+#[test]
+fn a_mark_that_touches_a_word_or_holds_no_name_is_no_mark() {
+    let (_, corvin) = party();
+    hear_story(&corvin, "a1;;a{Ada}b {Ada-} {123} {Ada}");
+
+    corvin.run("wow.Slash('/story', 'accept')");
+
+    let (_, paragraphs) = accepted(&sent_inputs(&corvin)).expect("an accepted story");
+    // The reader knows Ada, so the words in the parentheses get marks of the reader.
+    assert_eq!(paragraphs, ["a({Ada})b ({Ada}-) (123) {Ada}"]);
+}
+
+#[test]
+fn accept_reads_the_known_players_once_however_many_marks() {
+    let (_, corvin) = party();
+    let marks: Vec<String> = (0..10u8)
+        .map(|n| format!("{{Q{}}} x", char::from(b'a' + n)))
+        .collect();
+    hear_story(&corvin, &format!("a1;;{}", marks.join(" ")));
+    corvin.run(
+        "guildReads = 0
+         local read = ns.TaskPeople.GuildNames
+         ns.TaskPeople.GuildNames = function() guildReads = guildReads + 1 return read() end",
+    );
+
+    corvin.run("wow.Slash('/story', 'accept')");
+
+    let reads: u32 = corvin.eval("return guildReads");
+    assert_eq!(reads, 1);
+}
+
+/// A piece of a text from a peer: marks valid and broken, of strangers, of the reader, and
+/// surname marks, signs that touch them, braces, hidden characters, and plain words. A typed
+/// `$N` is left out: the property reads `$N` as the reader. A mark that touches a word is
+/// typed text, which the reader's addon marks as it marks any text, so no other name of the
+/// reader is in the pieces.
+fn peer_piece() -> impl Strategy<Value = String> {
+    prop_oneof![
+        3 => prop::sample::select(vec![
+            "{Lysara}", "{Zqada-Bean}", "{~Zqada-Bean}", "{Corvin}", "{Zqada-X}", "{~Lysara-X}",
+            "{123}", "{Ada-}", "{~}", "{~-X}", "{Lys ara}", "{", "}", "x", " ", "  ", ", ",
+            "\u{200B}", "\u{A0}", "\u{301}", "{Ly\u{200B}sara}",
+        ]).prop_map(String::from),
+        1 => "[Q][a-z]{1,3}".prop_map(|name| format!("{{{name}}}")),
+        2 => "[e-h]{1,5}",
+    ]
+}
+
+#[test]
+fn the_reader_and_the_desktop_read_the_marks_of_a_peer_alike() {
+    let (_, corvin) = party();
+    let mut runner = TestRunner::new(ProptestConfig::with_cases(512));
+    let text = prop::collection::vec(peer_piece(), 0..60).prop_map(|parts| parts.concat());
+
+    let result = runner.run(&text, |text| {
+        let differ = peer_marks_disagree(&corvin, "Corvin", text.as_bytes());
+        prop_assert!(differ.is_none(), "{}", differ.unwrap_or_default());
+        Ok(())
+    });
+
+    result.unwrap();
 }
 
 /// A desktop with this character, as the story program runs it.

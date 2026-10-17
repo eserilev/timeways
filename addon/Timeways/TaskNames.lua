@@ -204,12 +204,15 @@ local function AddTaskPlayers(names)
 	end
 end
 
--- The players of one first name in a steady order: your group first, then by the key.
--- `pairs` and the order of the guild roster change between calls.
-local function Ordered(lists, group)
+-- The players of one first name in a steady order: your group first, then the players
+-- that you know, then the players that you only saw, each by the key. `pairs` and the order
+-- of the guild roster change between calls. `ranks` holds 1 for your group and 3 for a
+-- player that you only saw.
+local function Ordered(lists, ranks)
 	local function Before(a, b)
-		if group[a] ~= group[b] then
-			return group[a] == true
+		local rankA, rankB = ranks[a] or 2, ranks[b] or 2
+		if rankA ~= rankB then
+			return rankA < rankB
 		end
 		return a < b
 	end
@@ -219,12 +222,24 @@ local function Ordered(lists, group)
 	return lists
 end
 
+-- The keys of the players that a list of names holds.
+local function Keys(list)
+	local keys = {}
+	for _, name in ipairs(list) do
+		local full = type(name) == "string" and not issecretvalue(name) and ns.TaskPeople.Full(name)
+		if full then
+			keys[full] = true
+		end
+	end
+	return keys
+end
+
 -- Every player whom the addon knows, by the folded first name: { [name] = { "Name-Realm" } },
--- and the players of your group.
+-- and the rank of each player for `Ordered`.
 local function KnownNames()
-	local names, group = {}, {}
-	for _, name in ipairs(ns.TaskPeople.GroupNames()) do
-		group[ns.TaskPeople.Full(name) or name] = true
+	local names, ranks = {}, {}
+	for full in pairs(Keys(ns.TaskPeople.GroupNames())) do
+		ranks[full] = 1
 	end
 	AddAll(names, ns.TaskPeople.GroupNames())
 	AddAll(names, ns.TaskPeople.GuildNames())
@@ -232,8 +247,19 @@ local function KnownNames()
 	AddTaskPlayers(names)
 	-- An author can leave your group long before you accept the story.
 	AddAll(names, ns.PlayerStories.Names())
+	local known = {}
+	for _, players in pairs(names) do
+		for _, full in ipairs(players) do
+			known[full] = true
+		end
+	end
+	for full in pairs(Keys(ns.SeenPlayers.Names())) do
+		if not known[full] then
+			ranks[full] = 3
+		end
+	end
 	AddAll(names, ns.SeenPlayers.Names())
-	return Ordered(names, group), group
+	return Ordered(names, ranks), ranks
 end
 
 -- Your first name, folded, and your surname.
@@ -338,19 +364,20 @@ local function NameEnd(last, after, surname)
 	return stop
 end
 
--- The players of each known surname, folded, in the order of `Ordered`.
-local function KnownSurnames(names, group)
+-- The players of each known surname, folded, in the order of `Ordered`. A player that you
+-- only saw gives no surname: a passerby "Bob Light" never turns "The Light" into a mark.
+local function KnownSurnames(names, ranks)
 	local surnames = {}
 	for _, players in pairs(names) do
 		for _, full in ipairs(players) do
-			local surname = SurnameOf(full)
+			local surname = ranks[full] ~= 3 and SurnameOf(full)
 			if surname then
 				surnames[surname] = surnames[surname] or {}
 				table.insert(surnames[surname], full)
 			end
 		end
 	end
-	return Ordered(surnames, group)
+	return Ordered(surnames, ranks)
 end
 
 -- The mark of a surname alone with a capital, "the Will family": "{~Kobee-Will}", with the
@@ -383,12 +410,22 @@ end
 -- name of a known player, and then a first name alone, which is you when it is yours. A
 -- surname alone with a capital becomes a surname mark, "{~Kobee-Will}".
 -- Returns the text, and the players that it marks as "Name-Realm", once each.
-local function Mark(text, ownMark)
-	-- The bridge reads broken bytes as U+FFFD, so the marks must read them so too.
-	text = WithoutBraces(TaskNames.Visible(ns.Utf8.Lossy(text)))
-	local names, group = KnownNames()
-	local surnames = KnownSurnames(names, group)
+-- The players that the addon knows, read once for one text: the game lists can be long.
+local function Known()
+	local names, ranks = KnownNames()
 	local me, mySurname = MyName()
+	return { names = names, surnames = KnownSurnames(names, ranks), me = me, mySurname = mySurname }
+end
+
+-- The text as the story program reads it: broken bytes as U+FFFD, as the bridge reads them,
+-- no character that shows nothing, and each typed brace as a parenthesis.
+function TaskNames.Typed(text)
+	return WithoutBraces(TaskNames.Visible(ns.Utf8.Lossy(text)))
+end
+
+local function Mark(text, ownMark, known)
+	text = TaskNames.Typed(text)
+	local names, surnames, me, mySurname = known.names, known.surnames, known.me, known.mySurname
 	local parts, players, seen, at = {}, {}, {}, 1
 	local function Named(full)
 		if not seen[full] then
@@ -428,32 +465,68 @@ local function Mark(text, ownMark)
 end
 
 function TaskNames.Marked(text)
-	return Mark(text, "$N")
+	return Mark(text, "$N", Known())
 end
 
 -- The text for another player: your own name is your mark too, because `$N` names the
 -- reader on the other side.
 function TaskNames.ForPeer(text)
 	local me = ns.TaskPeople.Me()
-	return Mark(text, me and MarkOf(me) or "$N")
+	return Mark(text, me and MarkOf(me) or "$N", Known())
 end
 
--- The first name and the surname of the key of a mark, or nil when it is no key: only
--- word letters, and at most one dash.
-local function KeyParts(key)
-	local first, surname = key:match("^([^-]+)%-?(.*)$")
-	local function IsWord(part)
-		local from, to = NextWord(part, 1)
-		return from == 1 and to == #part
+-- The most players that the marks of one story name: the author can mark any word, so a
+-- story teaches the reader's desktop a bounded number of names.
+TaskNames.MAX_PEER_MARKS = 32
+
+-- The longest first name that the desktop takes, in bytes.
+local MAX_NAME_BYTES = 48
+
+-- True for a text of word characters only, as the desktop reads a word.
+local function IsWordOnly(part, letters)
+	if part == "" then
+		return false
 	end
-	if not first or not IsWord(first) or (surname ~= "" and not IsWord(surname)) then
+	for char in part:gmatch(CHAR) do
+		if not IsWordChar(char) or (letters and char:find("^%d$")) then
+			return false
+		end
+	end
+	return true
+end
+
+-- The first name and the surname of the key of a mark, or nil when the desktop reads no
+-- mark there: a first name of letters of at most 48 bytes, and a surname of word
+-- characters after one dash.
+local function KeyParts(key)
+	local first, surname = key:match("^([^-]*)%-(.*)$")
+	first = first or key
+	if not IsWordOnly(first, true) or #first > MAX_NAME_BYTES then
 		return nil
 	end
-	return first, surname ~= "" and surname or nil
+	if surname and not IsWordOnly(surname, false) then
+		return nil
+	end
+	return first, surname
 end
 
--- Each mark of a text that another player sent: the start and the end of the mark, whether
--- it is a surname mark, its first name, and its surname.
+-- The character that ends at byte `last`, or nil.
+local function CharBefore(text, last)
+	local start = last
+	while start > 1 and text:byte(start) and text:byte(start) >= 128 and text:byte(start) < 192 do
+		start = start - 1
+	end
+	return last >= 1 and text:sub(start, last) or nil
+end
+
+-- The character that starts at byte `at`, or nil.
+local function CharAt(text, at)
+	return text:match("^" .. CHAR, at)
+end
+
+-- Each mark of a text that another player sent, as the desktop reads it: the start and
+-- the end of the mark, whether it is a surname mark, its first name, its surname, and its
+-- key. A mark that touches a word character was typed, and is no mark.
 local function PeerMarks(text)
 	local marks, at = {}, 1
 	while true do
@@ -462,58 +535,106 @@ local function PeerMarks(text)
 			return marks
 		end
 		local first, surname = KeyParts(key)
-		if first and (tilde == "" or surname) then
-			marks[#marks + 1] = { open = open, close = close, alone = tilde == "~", first = first, surname = surname }
+		local before, after = CharBefore(text, open - 1), CharAt(text, close + 1)
+		local touches = (before and IsWordChar(before)) or (after and IsWordChar(after))
+		if first and not touches and (tilde == "" or surname) then
+			marks[#marks + 1] = {
+				open = open,
+				close = close,
+				alone = tilde == "~",
+				first = first,
+				surname = surname,
+				key = key,
+			}
 		end
 		at = close + 1
 	end
 end
 
--- The text as your screen shows it: a mark of a player as its first name, and a surname
--- mark as the surname.
+-- The word that a mark shows: its first name, or the surname of a surname mark.
+local function MarkWord(mark)
+	return mark.alone and mark.surname or mark.first
+end
+
+-- True for a mark of the reader: its first name, alone or with its surname.
+local function IsMine(mark, me, mySurname)
+	local sameSurname = not mark.surname
+		or (mySurname ~= nil and TaskNames.Fold(mark.surname) == TaskNames.Fold(mySurname))
+	return TaskNames.Fold(mark.first) == me and sameSurname
+end
+
+-- The text as your screen shows it: each mark as its word, every other brace as a
+-- parenthesis, as the desktop reads the text.
 function TaskNames.Shown(text)
+	text = TaskNames.Visible(ns.Utf8.Lossy(text))
 	local parts, at = {}, 1
 	for _, mark in ipairs(PeerMarks(text)) do
-		parts[#parts + 1] = text:sub(at, mark.open - 1)
-		parts[#parts + 1] = mark.alone and mark.surname or mark.first
+		parts[#parts + 1] = WithoutBraces(text:sub(at, mark.open - 1))
+		parts[#parts + 1] = MarkWord(mark)
 		at = mark.close + 1
 	end
-	parts[#parts + 1] = text:sub(at)
+	parts[#parts + 1] = WithoutBraces(text:sub(at))
 	return table.concat(parts)
 end
 
--- A text that another player sent, for the story program: the marks of the author stay,
--- a mark of you becomes `$N`, and the rest is marked as `Marked` does. Returns the text,
--- and the players that it marks, once each.
-function TaskNames.MarkedKeeping(text)
+-- The names that the marks of a story show, once each, for the page before Accept.
+function TaskNames.PeerNames(text)
+	local names, seen = {}, {}
 	local me, mySurname = MyName()
-	local parts, players, seen, at = {}, {}, {}, 1
+	text = TaskNames.Visible(ns.Utf8.Lossy(text))
+	for _, mark in ipairs(PeerMarks(text)) do
+		local word = MarkWord(mark)
+		if not IsMine(mark, me, mySurname) and not seen[word] and #names < TaskNames.MAX_PEER_MARKS then
+			seen[word] = true
+			names[#names + 1] = word
+		end
+	end
+	return names
+end
+
+-- A text that another player sent, for the story program: the marks of the author stay, at
+-- most `MAX_PEER_MARKS` players, a mark past the limit becomes its word, and the rest is
+-- marked as `Marked` does. A mark of you stays a mark too: the desktop reads it as `$N`,
+-- and a `$N` here would touch the next mark. Returns the text, and the other players that
+-- it marks, once each.
+function TaskNames.MarkedKeeping(text)
+	text = TaskNames.Visible(ns.Utf8.Lossy(text))
+	local known = Known()
+	local parts, players, seen, rest, at = {}, {}, {}, {}, 1
+	local kept, count = {}, 0
 	local function Named(full)
 		if full and not seen[full] then
 			seen[full] = true
 			players[#players + 1] = full
 		end
 	end
-	local function MarkRest(rest)
-		local marked, named = TaskNames.Marked(rest)
+	local function MarkRest()
+		local marked, named = Mark(table.concat(rest), "$N", known)
 		parts[#parts + 1] = marked
+		rest = {}
 		for _, full in ipairs(named) do
 			Named(full)
 		end
 	end
 	for _, mark in ipairs(PeerMarks(text)) do
-		MarkRest(text:sub(at, mark.open - 1))
-		local isMe = TaskNames.Fold(mark.first) == me
-			and (not mark.surname or (mySurname and TaskNames.Fold(mark.surname) == TaskNames.Fold(mySurname)))
-		if isMe then
-			parts[#parts + 1] = "$N"
-		else
+		rest[#rest + 1] = text:sub(at, mark.open - 1)
+		local folded = TaskNames.Fold(mark.key)
+		if not kept[folded] and count < TaskNames.MAX_PEER_MARKS then
+			kept[folded], count = true, count + 1
+		end
+		if kept[folded] then
+			MarkRest()
 			parts[#parts + 1] = text:sub(mark.open, mark.close)
-			Named(ns.TaskPeople.Full(mark.surname and (mark.first .. "-" .. mark.surname) or mark.first))
+			if not IsMine(mark, known.me, known.mySurname) then
+				Named(ns.TaskPeople.Full(mark.surname and (mark.first .. "-" .. mark.surname) or mark.first))
+			end
+		else
+			rest[#rest + 1] = MarkWord(mark)
 		end
 		at = mark.close + 1
 	end
-	MarkRest(text:sub(at))
+	rest[#rest + 1] = text:sub(at)
+	MarkRest()
 	return table.concat(parts), players
 end
 

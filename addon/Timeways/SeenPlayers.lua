@@ -42,9 +42,13 @@ function SeenPlayers.SeeMouseover()
 	SeenPlayers.See("mouseover")
 end
 
+-- A raid lists you among its members.
 function SeenPlayers.SeeGroup()
+	local me = ns.TaskPeople.Me()
 	for _, full in ipairs(ns.TaskPeople.GroupNames()) do
-		Remember(full)
+		if full ~= me then
+			Remember(full)
+		end
 	end
 end
 

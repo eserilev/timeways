@@ -186,14 +186,16 @@ end
 
 -- The title and the body with each player that you know marked, so the reader's desktop
 -- hides a player whom only you know (GAMEPLAY.md 4.8). A story whose marks make it too long
--- goes as typed: the reader still marks the players that the reader knows.
+-- goes as typed, with its braces as parentheses: the reader still marks the players that
+-- the reader knows.
 local function ForPeer(title, body)
 	local markedTitle = title ~= "" and ns.TaskNames.ForPeer(title) or ""
 	local markedBody = ns.TaskNames.ForPeer(body)
 	if ns.StoryText.IsTitle(markedTitle) and ns.StoryText.IsBody(markedBody) then
 		return markedTitle, markedBody
 	end
-	return title, body
+	-- A typed brace must never reach the reader as a mark.
+	return ns.TaskNames.Typed(title), ns.TaskNames.Typed(body)
 end
 
 -- Sends a checked story now, and keeps its title for the answer. A story goes only after the

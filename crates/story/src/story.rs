@@ -730,10 +730,9 @@ impl Story {
             Input::PlayerDescribed {
                 name, race, class, ..
             } => self.describe_player(&AliasRow {
-                name,
                 race,
                 class,
-                surname_of: None,
+                ..AliasRow::named(&name)
             }),
             Input::StoryRemoved { at, number } => self.remove_story(at, number),
             Input::EntryEdited {

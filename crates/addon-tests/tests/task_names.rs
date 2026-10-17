@@ -110,6 +110,45 @@ fn a_player_you_saw_lately_gets_a_mark() {
 }
 
 #[test]
+fn a_player_you_only_saw_comes_after_the_players_you_know() {
+    let ada = Player::new("Ada");
+    ada.run(
+        "wow.regional = true
+         wow.guild = { { name = 'Leborc-James', online = false } }
+         wow.Fire('GUILD_ROSTER_UPDATE', false)
+         wow.units.target = { name = 'Leborc', realm = 'Aaron', player = true }
+         wow.Fire('PLAYER_TARGET_CHANGED')
+         wow.units.target = { name = 'Bob', realm = 'Light', player = true }
+         wow.Fire('PLAYER_TARGET_CHANGED')
+         wow.units.target = nil",
+    );
+    let mark: mlua::Function =
+        ada.eval("return function(text) return (ns.TaskNames.Marked(text)) end");
+
+    let text: String = mark
+        .call("Leborc came. The Light shines on Bob Light.")
+        .unwrap();
+
+    assert_eq!(
+        text,
+        "{Leborc-James} came. The Light shines on {Bob-Light}."
+    );
+}
+
+#[test]
+fn you_are_no_player_you_saw_in_your_group() {
+    let ada = Player::new("Ada");
+    ada.run(
+        "wow.units.raid1 = { name = 'Ada', player = true, guid = 'Player-1-Ada' }
+         ns.SeenPlayers.SeeGroup()",
+    );
+
+    let names: Vec<String> = ada.eval("return ns.SeenPlayers.Names()");
+
+    assert!(names.is_empty(), "{names:?}");
+}
+
+#[test]
 fn the_addon_remembers_at_most_two_hundred_players_it_saw() {
     let ada = Player::new("Ada");
     ada.run(

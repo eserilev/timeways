@@ -34,6 +34,33 @@ pub struct AliasRow {
     /// The first name whose surname this name is: "James" of "Leborc James".
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub surname_of: Option<String>,
+    /// Who taught the table the name. A row of a world from before 2026-10-17 has none, and
+    /// reads as `Source::Ours`.
+    #[serde(default, skip_serializing_if = "Source::is_ours")]
+    pub source: Source,
+}
+
+/// Who taught the alias table a name.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Source {
+    /// Your addon: a mark of a player that it knows, or the names list of the hero.
+    #[default]
+    Ours,
+    /// The mark of the author of a story. Another player wrote it, so a mark such as
+    /// "{The}" is no proof of a name: the row swaps only a word with a capital
+    /// (`without_surnames`), and stays out of the case-blind proved swap.
+    Peer,
+}
+
+impl Source {
+    #[expect(
+        clippy::trivially_copy_pass_by_ref,
+        reason = "serde's skip_serializing_if passes a reference"
+    )]
+    fn is_ours(&self) -> bool {
+        *self == Source::Ours
+    }
 }
 
 impl AliasRow {
@@ -44,6 +71,16 @@ impl AliasRow {
             race: None,
             class: None,
             surname_of: None,
+            source: Source::Ours,
+        }
+    }
+
+    /// The row of a first name that the author of a story marked.
+    #[must_use]
+    pub fn from_peer(name: &str) -> AliasRow {
+        AliasRow {
+            source: Source::Peer,
+            ..AliasRow::named(name)
         }
     }
 
@@ -111,7 +148,14 @@ pub fn alias_of(name: &str) -> Option<Alias> {
 #[must_use]
 pub fn alias_of_row(row: &AliasRow) -> Option<Alias> {
     let Some(first) = &row.surname_of else {
-        return alias_of(&row.name);
+        let alias = alias_of(&row.name)?;
+        return Some(match row.source {
+            Source::Ours => alias,
+            Source::Peer => Alias {
+                key: peer_key(&alias.key),
+                ..alias
+            },
+        });
     };
     let surname = player_name(&row.name)?;
     let first = player_name(first)?;
@@ -119,6 +163,17 @@ pub fn alias_of_row(row: &AliasRow) -> Option<Alias> {
         key: format!("{} of {}", key_of(surname), key_of(first)),
         shown: surname.to_string(),
     })
+}
+
+/// The key of a first name that a peer taught: "the of a story" never matches a word.
+fn peer_key(key: &str) -> String {
+    format!("{key} of a story")
+}
+
+/// The ID of a first name: the row that your addon taught, or else the row of a story.
+fn first_name_id(table: &[Alias], first: &str) -> Option<PlayerId> {
+    let key = key_of(first);
+    rules::find(table, &key).or_else(|| rules::find(table, &peer_key(&key)))
 }
 
 /// The most players that one text of the hero names (GAMEPLAY.md 5.11). A text with more
@@ -174,11 +229,11 @@ pub fn marks_as_ids(table: &[Alias], own: &str, text: &str) -> String {
         if mark.is_own(own) {
             return "$N".to_string();
         }
-        let row = match mark.surname {
-            Some(surname) if mark.alone => AliasRow::surname(surname, mark.first),
-            _ => AliasRow::named(mark.first),
+        let id = match mark.surname {
+            Some(surname) if mark.alone => alias_of_row(&AliasRow::surname(surname, mark.first))
+                .and_then(|alias| rules::find(table, &alias.key)),
+            _ => first_name_id(table, mark.first),
         };
-        let id = alias_of_row(&row).and_then(|alias| rules::find(table, &alias.key));
         id.map_or_else(|| mark.typed().to_string(), id_text)
     };
     read_marks(text, id_of).text
@@ -252,6 +307,29 @@ fn read_marks(text: &str, mut mark: impl FnMut(MarkOf<'_>) -> String) -> Marked 
         rest = &rest[c.len_utf8()..];
     }
     Marked { text: plain, names }
+}
+
+/// The texts with the marks of at most `max` players, the first ones: every later mark
+/// becomes its word. The author of a story can mark any word, so a story teaches the table
+/// a bounded number of names.
+#[must_use]
+pub fn within_names(texts: &[String], max: usize) -> Vec<String> {
+    let mut kept: Vec<String> = Vec::new();
+    let mut keep = |mark: MarkOf<'_>| {
+        let key = key_of(mark.key);
+        if !kept.contains(&key) && kept.len() < max {
+            kept.push(key.clone());
+        }
+        if kept.contains(&key) {
+            format!("{{{}{}}}", if mark.alone { "~" } else { "" }, mark.key)
+        } else {
+            mark.typed().to_string()
+        }
+    };
+    texts
+        .iter()
+        .map(|text| read_marks(text, &mut keep).text)
+        .collect()
 }
 
 /// The mark at the start of the text, and the text after the mark. A surname mark needs a
@@ -627,11 +705,13 @@ fn after_its_first_name(
     })
 }
 
-/// The ID of the first surname row of the word.
+/// The ID of the first row of the word that swaps only with a capital: a surname, or a
+/// first name that a story taught.
 fn surname_id(rows: &[AliasRow], word: &str) -> Option<PlayerId> {
     let key = key_of(word);
+    let capital_only = |row: &AliasRow| row.surname_of.is_some() || row.source == Source::Peer;
     rows.iter()
-        .position(|row| row.surname_of.is_some() && key_of(&row.name) == key)
+        .position(|row| capital_only(row) && key_of(&row.name) == key)
         .map(PlayerId)
 }
 
@@ -778,6 +858,7 @@ mod tests {
             race: Some(Race::Orc),
             class: Some(Class::Mage),
             surname_of: None,
+            source: Source::Ours,
         };
 
         assert_eq!(row.card(PlayerId(6)), "{P7}: an orc mage");

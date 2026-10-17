@@ -463,6 +463,52 @@ fn a_mark_of_your_own_name_is_you_and_is_never_learned() {
     assert!(!prompt.contains("Players in the idea"), "{prompt}");
 }
 
+fn accept_story(story: &mut Story, text: &str) {
+    let accepted = Input::StoryAccepted {
+        at: Tick(3),
+        number: 1,
+        title: None,
+        paragraphs: vec![text.to_string()],
+    };
+    story.handle(accepted).unwrap();
+}
+
+#[test]
+fn a_word_that_a_story_marked_swaps_later_only_with_a_capital() {
+    let mut story = story("hostile-story");
+    accept_story(&mut story, "{The} wolf {And} came.");
+
+    let (_, prompt) = ask(&mut story, "the cat and the dog came. The end.");
+
+    assert!(
+        prompt.contains("the cat and the dog came. {P1} end."),
+        "{prompt}"
+    );
+}
+
+#[test]
+fn a_story_teaches_at_most_thirty_two_names() {
+    let mut story = story("story-names");
+    let names: Vec<String> = (0..40u8)
+        .map(|n| {
+            format!(
+                "Q{}{}",
+                char::from(b'a' + n / 26),
+                char::from(b'a' + n % 26)
+            )
+        })
+        .collect();
+    let marks: Vec<String> = names.iter().map(|name| format!("{{{name}}}")).collect();
+    accept_story(&mut story, &marks.join(" "));
+
+    let (_, prompt) = ask(&mut story, &format!("help {} and {}", names[31], names[32]));
+
+    assert!(
+        prompt.contains(&format!("help {{P32}} and {}", names[32])),
+        "{prompt}"
+    );
+}
+
 #[test]
 fn a_surname_in_lower_case_stays_a_word() {
     let mut story = story("surname-word");

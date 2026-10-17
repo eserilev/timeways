@@ -2,7 +2,7 @@
 //! the table gives each one an ID before any prompt is built.
 
 use super::{Active, Output, Story, StoryError};
-use crate::aliases::{self, AliasRow, Surname};
+use crate::aliases::{self, AliasRow, Source, Surname};
 use crate::hero::{self, Hero};
 use crate::store::StoreError;
 
@@ -18,19 +18,39 @@ impl Story {
 /// Learns the names that the addon marked, as "First-Surname" or "First".
 pub(super) fn learn_names(active: &mut Active, marked: &[String]) -> Result<(), StoreError> {
     for name in marked {
-        learn_player(active, name)?;
+        learn_player(active, name, Source::Ours)?;
+    }
+    Ok(())
+}
+
+/// Learns the names that the author of a story marked. A first name that your addon taught
+/// keeps its row.
+pub(super) fn learn_names_from_peer(
+    active: &mut Active,
+    marked: &[String],
+) -> Result<(), StoreError> {
+    for name in marked {
+        learn_player(active, name, Source::Peer)?;
     }
     Ok(())
 }
 
 /// Learns the first name of "First-Surname", and its surname as a row of its own. The
 /// character itself is no player of the table: its name is `$N`.
-fn learn_player(active: &mut Active, player: &str) -> Result<(), StoreError> {
+fn learn_player(active: &mut Active, player: &str, source: Source) -> Result<(), StoreError> {
     if aliases::is_own(player, active.key.name()) {
         return Ok(());
     }
     let (first, surname) = player.split_once('-').unwrap_or((player, ""));
-    active.aliases.learn(&AliasRow::named(first))?;
+    let ours = AliasRow::named(first);
+    let known = aliases::alias_of_row(&ours).is_some_and(|alias| {
+        timeways_rules::aliases::find(active.aliases.table(), &alias.key).is_some()
+    });
+    let row = match source {
+        Source::Peer if !known => AliasRow::from_peer(first),
+        _ => ours,
+    };
+    active.aliases.learn(&row)?;
     if aliases::player_name(surname).is_some() {
         active.aliases.learn(&AliasRow::surname(surname, first))?;
     }
@@ -51,7 +71,7 @@ pub(super) fn learn_players(
             .split('-')
             .any(|part| words.contains(&aliases::key_of(part)));
         if in_text {
-            learn_player(active, player)?;
+            learn_player(active, player, Source::Ours)?;
         }
     }
     Ok(())

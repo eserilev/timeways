@@ -175,6 +175,11 @@ local function WaitingPage(row)
 		Line("note", "By " .. Short(story.author) .. " · " .. Day(story.at)),
 	}
 	Paragraphs(lines, ns.StoryText.Paragraphs(story.text), ShownPlain)
+	-- The author marked these words as players: the reader sees them before Accept.
+	local named = ns.TaskNames.PeerNames(story.title .. "\n" .. story.text)
+	if #named > 0 then
+		lines[#lines + 1] = Line("note", "Players named: " .. ns.Plain(table.concat(named, ", ")))
+	end
 	lines[#lines + 1] = Line("help", ns.TaskPages.REPORT)
 	if problems[row.key] then
 		lines[#lines + 1] = Line("hint", problems[row.key])

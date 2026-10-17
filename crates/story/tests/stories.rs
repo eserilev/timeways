@@ -509,7 +509,7 @@ fn a_story_keeps_an_id_for_each_player_and_the_journal_shows_the_name() {
     accept(
         &mut story,
         1,
-        "{Corvin} and $N held the bridge. CORVIN-Stormrage ran.",
+        "{Corvin} and $N held the bridge. CORVIN ran.",
     )
     .unwrap();
 
@@ -632,7 +632,7 @@ fn a_row_that_names_a_player_twice_ends_the_table_at_the_open() {
     let connection = rusqlite::Connection::open(path).unwrap();
     connection
         .execute(
-            "INSERT INTO aliases (position, body) VALUES (1, '{\"name\":\"CORVIN\"}')",
+            "INSERT INTO aliases (position, body) VALUES (1, '{\"name\":\"CORVIN\",\"source\":\"peer\"}')",
             [],
         )
         .unwrap();

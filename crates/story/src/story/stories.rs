@@ -2,7 +2,7 @@
 //! the proof of another player, and the player removes it only while nothing used it.
 
 use super::{Active, Output, Story, StoryError, aliases};
-use crate::aliases::{Marked, for_matching, unmarked, with_names};
+use crate::aliases::{MAX_NAMES, Marked, for_matching, unmarked, with_names, within_names};
 use crate::store::{Node, StoreError, Table};
 use crate::stories::{PlayerStory, ShelfLine, StoryChange, is_good_story, lands, standing};
 use hourglass::Tick;
@@ -18,9 +18,16 @@ impl Story {
         title: Option<&str>,
         paragraphs: &[String],
     ) -> Result<Vec<Output>, StoryError> {
-        let cleaned_title = title.filter(|title| !title.is_empty()).map(for_matching);
+        // The author marked the story, so it teaches at most `MAX_NAMES` names.
+        let title = title.filter(|title| !title.is_empty());
+        let texts: Vec<String> = title
+            .into_iter()
+            .chain(paragraphs.iter().map(String::as_str))
+            .map(for_matching)
+            .collect();
+        let mut cleaned = within_names(&texts, MAX_NAMES);
+        let cleaned_title = title.map(|_| cleaned.remove(0));
         let title = cleaned_title.as_deref().map(unmarked);
-        let cleaned: Vec<String> = paragraphs.iter().map(|text| for_matching(text)).collect();
         let paragraphs: Vec<Marked> = cleaned.iter().map(|text| unmarked(text)).collect();
         let plain: Vec<String> = paragraphs
             .iter()
@@ -43,7 +50,7 @@ impl Story {
             .chain(&paragraphs)
             .flat_map(|marked| marked.names.iter().cloned())
             .collect();
-        aliases::learn_names(active, &names)?;
+        aliases::learn_names_from_peer(active, &names)?;
         let accepted = StoryChange::Accepted {
             number,
             at,

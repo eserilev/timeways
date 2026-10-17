@@ -197,3 +197,33 @@ pub fn accepted_task(steps: &str) -> (Player, Player, String) {
     exchange(&ada, &corvin);
     (ada, corvin, id)
 }
+
+/// The story program and the addon of a reader read the marks of a peer's text alike: the
+/// page shows `TaskNames.Shown`, and the desktop gets the same words from the text of
+/// `TaskNames.MarkedKeeping`, with `$N` read back as the reader's name `name`, in any case.
+/// The marks name at most 32 players. Returns why they differ.
+pub fn peer_marks_disagree(reader: &Player, name: &str, text: &[u8]) -> Option<String> {
+    let lua = &reader.game.lua;
+    let read: mlua::Function = reader.eval(
+        "return function(text)
+             local kept = ns.TaskNames.MarkedKeeping(text)
+             return ns.TaskNames.Shown(text), kept
+         end",
+    );
+    let (shown, kept): (mlua::LuaString, mlua::LuaString) =
+        read.call(lua.create_string(text).unwrap()).unwrap();
+    let shown = String::from_utf8_lossy(&shown.as_bytes()).into_owned();
+    let kept = String::from_utf8_lossy(&kept.as_bytes()).into_owned();
+    let marked = timeways_story::aliases::unmarked(&kept);
+    let desktop = marked.text.replace("$N", name);
+    // The reader's own name, typed in any case, comes back as `$N`.
+    if desktop.to_lowercase() != shown.to_lowercase() {
+        return Some(format!(
+            "{shown:?} on the page, {desktop:?} on the desktop, from {kept:?}"
+        ));
+    }
+    let mut players: Vec<String> = marked.names.iter().map(|key| key.to_lowercase()).collect();
+    players.sort();
+    players.dedup();
+    (players.len() > 32).then(|| format!("{} players in {kept:?}", players.len()))
+}
