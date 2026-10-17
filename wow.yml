@@ -233,6 +233,8 @@ globals:
     args: [{type: number, required: false}]
   UnitFullName:
     args: [{type: string}]
+  RegionalUniqueNamesEnabled:
+    args: []
   GetGameMessageInfo:
     args: [{type: number}]
   C_GuildInfo:
