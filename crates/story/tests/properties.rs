@@ -17,8 +17,8 @@ use timeways_rules::setups::{self, setup_usable};
 use timeways_rules::spoiler::{LinkTo, WorldFacts, passage_usable};
 use timeways_story::ai::HelloAi;
 use timeways_story::aliases::{
-    AliasRow, MAX_PLAYER_NAME_BYTES, alias_of, key_of, knows_every_id, own_aliases, plain_joined,
-    text_pieces, unmarked, with_names, without_names,
+    AliasRow, MAX_PLAYER_NAME_BYTES, alias_of, key_of, knows_every_id, plain_joined, text_pieces,
+    unmarked, with_names, without_names,
 };
 use timeways_story::arrival::arrival_in;
 use timeways_story::atlas_lore::{LORE_BYTES, LORE_CHARS, Lore, clipped};
@@ -2170,6 +2170,15 @@ proptest! {
 
 /// A name as the addon or a damaged line can send it, often at an edge: empty, a prefix of
 /// another name, in another case, with a realm, outside ASCII, an ID, or at the limit.
+/// A part of the name of a character: plain, with an accent in one or two code points,
+/// or with a digit, which no name of the game holds.
+fn own_part() -> impl Strategy<Value = String> {
+    prop_oneof![
+        4 => "[A-Za-z]{2,12}",
+        1 => prop::sample::select(vec!["Élise", "E\u{301}lise", "Bean2", "ÉLISE"]).prop_map(String::from),
+    ]
+}
+
 /// The text with each mark `$N` as a space. `$NxguB` holds no mark: its word is `NxguB`.
 fn without_marks(text: &str) -> String {
     let mut out = String::with_capacity(text.len());
@@ -2336,27 +2345,25 @@ proptest! {
     }
 
     /// GAMEPLAY.md 3.2.2: an export of ratings holds no name of the alias table and not the
-    /// name of the character, in its texts and its faults. The first name, and a surname
-    /// now and then, are the character's.
+    /// name of the character, in its texts and its faults. A name of WoW Forever is "First
+    /// Surname", and the text holds each part, the first one with a realm now and then.
+    /// The check cannot see a part glued to the mark, as in "$NBean". The risk is near zero:
+    /// a rated text is a line of a model, and a model never sees the name.
     #[test]
     fn an_export_of_ratings_holds_no_known_player_name(
         (names, text) in names_and_text(),
-        surname in prop::option::of(alias_name()),
+        first in own_part(),
+        surname in prop::option::of(own_part()),
+        with_realm in any::<bool>(),
         rating in prop_oneof![Just(Rating::Up), Just(Rating::Down)],
         reason in prop::option::of(Just(Reason::MadeUpName)),
     ) {
-        // A name of WoW Forever is "First Surname", and the text can hold either part.
-        let own = match &surname {
-            Some(surname) => format!("{} {surname}", names[0]),
-            None => names[0].clone(),
-        };
-        let text = match &surname {
-            Some(surname) => format!("{text} {surname}"),
-            None => text,
-        };
-        let own_parts = own_aliases(&own);
-        prop_assume!(!own_parts.is_empty());
-        let table = alias_table(&names[1..]);
+        let own = surname.as_ref().map_or(first.clone(), |surname| format!("{first} {surname}"));
+        let written = if with_realm { format!("{first}-Stormrage") } else { first.clone() };
+        let text = format!("{written} {text} {}", surname.unwrap_or_default());
+        // Each word of the name, found apart from the code under test.
+        let own_keys: Vec<String> = text_words(&own).into_iter().map(key_of).collect();
+        let table = alias_table(&names);
         let mut ratings = RowLog::default();
         ratings.add(RatedLine {
             at: Tick(1),
@@ -2380,7 +2387,7 @@ proptest! {
             for word in texts.iter().flat_map(|text| text_words(text)) {
                 let key = key_of(word);
                 prop_assert!(find(&table, &key).is_none(), "{} in {:?}", word, rating);
-                prop_assert!(find(&own_parts, &key).is_none(), "{} in {:?}", word, rating);
+                prop_assert!(!own_keys.contains(&key), "{} in {:?}", word, rating);
             }
         }
     }

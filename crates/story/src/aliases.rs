@@ -89,7 +89,22 @@ pub fn alias_of(name: &str) -> Option<Alias> {
 /// hide, "Kobee" and "Bean" (GAMEPLAY.md 5.11).
 #[must_use]
 pub fn own_aliases(name: &str) -> Vec<Alias> {
-    name.split_whitespace().filter_map(alias_of).collect()
+    name.split_whitespace().flat_map(part_aliases).collect()
+}
+
+/// A part that `alias_of` refuses still names the character, so each word in it is hidden:
+/// "E\u{301}lise" with its accent in a code point of its own, a digit, or a long part.
+fn part_aliases(part: &str) -> Vec<Alias> {
+    if let Some(alias) = alias_of(part) {
+        return vec![alias];
+    }
+    let words = runs(part).into_iter().filter(|(is_word, _)| *is_word);
+    words
+        .map(|(_, word)| Alias {
+            key: key_of(word),
+            shown: word.to_string(),
+        })
+        .collect()
 }
 
 /// The ID as a text shows it: `{P1}` for the first player.

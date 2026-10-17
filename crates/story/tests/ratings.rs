@@ -484,6 +484,20 @@ fn an_export_takes_out_the_first_name_and_the_surname_of_the_character() {
 }
 
 #[test]
+fn an_export_takes_out_a_part_of_the_name_with_a_combining_accent() {
+    let text = shareable(
+        "E\u{301}lise rested, and Bean2 slept.",
+        &[],
+        "E\u{301}lise Bean2",
+    );
+
+    assert!(!text.contains("lise"), "{text}");
+    assert!(!text.contains('E'), "{text}");
+    assert!(!text.contains("Bean2"), "{text}");
+    assert!(text.ends_with(" rested, and $N slept."), "{text}");
+}
+
+#[test]
 fn an_export_takes_out_the_own_name_with_its_realm() {
     let text = shareable("Tester-Stormrage held the bridge.", &[], NAME);
 

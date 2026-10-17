@@ -157,6 +157,48 @@ fn a_rumor_that_names_the_surname_of_the_character_is_no_memory() {
 }
 
 #[test]
+fn a_rumor_with_a_surname_that_is_a_common_word_stays_a_memory() {
+    let character = in_goldshire();
+    let rumors = [
+        rumor(2, FARLEY, "Second."),
+        rumor(3, FARLEY, "I will help you. Will you stay?"),
+    ];
+
+    let memories = remembered_by(&character, &rumors, &[], 5, "Kobee Will");
+
+    assert_eq!(
+        recalls(&memories),
+        [said("I will help you. Will you stay?"), said("Second.")]
+    );
+}
+
+#[test]
+fn a_rumor_with_the_surname_written_as_a_name_is_no_memory() {
+    let character = in_goldshire();
+    let rumors = [
+        rumor(2, FARLEY, "Second."),
+        rumor(3, FARLEY, "Ask the Will family."),
+    ];
+
+    let memories = remembered_by(&character, &rumors, &[], 5, "Kobee Will");
+
+    assert_eq!(recalls(&memories), [said("Second.")]);
+}
+
+#[test]
+fn a_rumor_with_the_whole_name_is_no_memory() {
+    let character = in_goldshire();
+    let rumors = [
+        rumor(2, FARLEY, "Second."),
+        rumor(3, FARLEY, "kobee will is here."),
+    ];
+
+    let memories = remembered_by(&character, &rumors, &[], 5, "Kobee Will");
+
+    assert_eq!(recalls(&memories), [said("Second.")]);
+}
+
+#[test]
 fn a_long_rumor_is_cut_at_a_whole_word() {
     let character = in_goldshire();
     let rumors = [rumor(2, FARLEY, &"gnolls ".repeat(40))];

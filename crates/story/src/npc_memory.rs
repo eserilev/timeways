@@ -1,9 +1,8 @@
 //! What an NPC remembers of the player in /talk (GAMEPLAY.md 3.5). Each memory is a row
 //! of the world, so the model gets no past to invent.
 
-use crate::aliases::own_aliases;
 use crate::character::Character;
-use crate::check::mentions;
+use crate::check::{mentions, words_of};
 use crate::journal::{Deed, DeedRow, deeds_with_events};
 use crate::learned::{Rumor, cut_at_word};
 use crate::quest::{QuestChange, Status, Tracked, quest_log};
@@ -112,11 +111,8 @@ pub fn memories(past: &Past<'_>, npc: &str, now: Tick) -> Vec<Memory> {
     chosen(candidates)
 }
 
-/// A rumor that names the character drops out, and no older one takes its place. Each part
-/// of the name counts: "Kobee" and "Bean" of "Kobee Bean".
+/// A rumor that names the character drops out, and no older one takes its place.
 fn answers_heard(past: &Past<'_>, npc: &str) -> Vec<Memory> {
-    let own = own_aliases(past.own_name);
-    let names_you = |text: &str| own.iter().any(|part| mentions(text, &part.shown));
     let newest = past
         .rumors
         .iter()
@@ -124,7 +120,7 @@ fn answers_heard(past: &Past<'_>, npc: &str) -> Vec<Memory> {
         .filter(|(_, rumor)| rumor.npc == npc);
     newest
         .take(REMEMBERED_ANSWERS)
-        .filter(|(_, rumor)| !names_you(&rumor.text))
+        .filter(|(_, rumor)| !names_you(&rumor.text, past.own_name))
         .map(|(row, rumor)| Memory {
             at: rumor.at,
             recall: Recall::Said {
@@ -386,4 +382,53 @@ fn number_word(n: u64) -> &'static str {
         11 => "Eleven",
         _ => "Twelve",
     }
+}
+
+/// The rumor holds the whole name, or the first name, in any case. A model never saw the
+/// name, so a surname that is a common word, as "will" of "Kobee Will", counts only when
+/// it is written as a name: with a capital, and not first in its sentence.
+fn names_you(text: &str, own_name: &str) -> bool {
+    let mut parts = own_name.split_whitespace();
+    let first = parts.next().unwrap_or_default();
+    mentions(text, own_name)
+        || mentions(text, first)
+        || parts.any(|surname| written_as_a_name(text, surname))
+}
+
+/// A surname of more than one word is rare, so it counts in any case.
+fn written_as_a_name(text: &str, surname: &str) -> bool {
+    if words_of(surname).len() != 1 {
+        return mentions(text, surname);
+    }
+    let key = surname.to_lowercase();
+    let mut start = None;
+    for (at, c) in text.char_indices().chain([(text.len(), ' ')]) {
+        match (c.is_alphanumeric(), start) {
+            (true, None) => start = Some(at),
+            (false, Some(from)) => {
+                let word = &text[from..at];
+                if word.to_lowercase() == key
+                    && is_capitalized(word)
+                    && !starts_a_sentence(&text[..from])
+                {
+                    return true;
+                }
+                start = None;
+            }
+            _ => {}
+        }
+    }
+    false
+}
+
+fn is_capitalized(word: &str) -> bool {
+    word.chars().next().is_some_and(char::is_uppercase)
+}
+
+fn starts_a_sentence(before: &str) -> bool {
+    before
+        .trim_end()
+        .chars()
+        .last()
+        .is_none_or(|c| matches!(c, '.' | '!' | '?'))
 }
