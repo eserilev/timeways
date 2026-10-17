@@ -3,11 +3,11 @@
 //! them on in the game. They stay in the world of the character, and only an export by
 //! the player takes them off the computer. An export never holds the name of a real player.
 
-use crate::aliases::{alias_of, text_pieces, without_names};
+use crate::aliases::{own_aliases, text_pieces, without_names};
 use crate::store::RowLog;
 use hourglass::Tick;
 use serde::{Deserialize, Serialize};
-use timeways_rules::aliases::{Alias, Plain};
+use timeways_rules::aliases::{self as rules, Alias, Plain};
 
 /// What a rating is about. The addon names it, and the desktop finds its text in its own
 /// rows, so the addon never sends the text.
@@ -147,20 +147,36 @@ pub fn export(
 
 /// The text with each name that the alias table knows as its ID, and the name of the
 /// character as `$N`. The swap of the alias table is the proved one
-/// (`timeways_rules::aliases`).
+/// (`timeways_rules::aliases`). Each part of the name of the character is a name, and the
+/// parts in a row, "Kobee Bean", become one `$N`.
 #[must_use]
 pub fn shareable(text: &str, players: &[Alias], own: &str) -> String {
     let with_ids = without_names(players, text);
-    let Some(own) = alias_of(own) else {
-        return with_ids;
-    };
+    let own = own_aliases(own);
     let mut shared = String::with_capacity(with_ids.len());
-    for piece in text_pieces(&with_ids, std::slice::from_ref(&own)) {
+    // The spaces after a `$N`: they go when another part of the name follows.
+    let mut after_mark: Option<String> = None;
+    for piece in text_pieces(&with_ids, &own) {
         match piece {
-            Plain::Word { key, .. } if key == own.key => shared.push_str("$N"),
-            Plain::Word { written, .. } => shared.push_str(&written),
-            Plain::Text(text) => shared.push_str(&text),
+            Plain::Word { key, .. } if rules::find(&own, &key).is_some() => {
+                if after_mark.is_none() {
+                    shared.push_str("$N");
+                }
+                after_mark = Some(String::new());
+            }
+            Plain::Text(text) if is_spaces(&text) && after_mark.is_some() => {
+                after_mark.get_or_insert_default().push_str(&text);
+            }
+            Plain::Word { written: text, .. } | Plain::Text(text) => {
+                shared.push_str(&after_mark.take().unwrap_or_default());
+                shared.push_str(&text);
+            }
         }
     }
+    shared.push_str(&after_mark.unwrap_or_default());
     shared
+}
+
+fn is_spaces(text: &str) -> bool {
+    text.chars().all(|c| c == ' ')
 }

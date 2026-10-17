@@ -1,6 +1,7 @@
 //! What an NPC remembers of the player in /talk (GAMEPLAY.md 3.5). Each memory is a row
 //! of the world, so the model gets no past to invent.
 
+use crate::aliases::own_aliases;
 use crate::character::Character;
 use crate::check::mentions;
 use crate::journal::{Deed, DeedRow, deeds_with_events};
@@ -111,8 +112,11 @@ pub fn memories(past: &Past<'_>, npc: &str, now: Tick) -> Vec<Memory> {
     chosen(candidates)
 }
 
-/// A rumor that names the character drops out, and no older one takes its place.
+/// A rumor that names the character drops out, and no older one takes its place. Each part
+/// of the name counts: "Kobee" and "Bean" of "Kobee Bean".
 fn answers_heard(past: &Past<'_>, npc: &str) -> Vec<Memory> {
+    let own = own_aliases(past.own_name);
+    let names_you = |text: &str| own.iter().any(|part| mentions(text, &part.shown));
     let newest = past
         .rumors
         .iter()
@@ -120,7 +124,7 @@ fn answers_heard(past: &Past<'_>, npc: &str) -> Vec<Memory> {
         .filter(|(_, rumor)| rumor.npc == npc);
     newest
         .take(REMEMBERED_ANSWERS)
-        .filter(|(_, rumor)| !mentions(&rumor.text, past.own_name))
+        .filter(|(_, rumor)| !names_you(&rumor.text))
         .map(|(row, rumor)| Memory {
             at: rumor.at,
             recall: Recall::Said {

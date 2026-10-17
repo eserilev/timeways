@@ -473,6 +473,24 @@ fn an_export_swaps_each_known_name_for_its_id_and_the_own_name_for_the_mark() {
 }
 
 #[test]
+fn an_export_takes_out_the_first_name_and_the_surname_of_the_character() {
+    let text = shareable(
+        "Kobee walked on. Bean rested. Kobee Bean won, and kobee-bean left.",
+        &[],
+        "Kobee Bean",
+    );
+
+    assert_eq!(text, "$N walked on. $N rested. $N won, and $N left.");
+}
+
+#[test]
+fn an_export_takes_out_the_own_name_with_its_realm() {
+    let text = shareable("Tester-Stormrage held the bridge.", &[], NAME);
+
+    assert_eq!(text, "$N held the bridge.");
+}
+
+#[test]
 fn a_name_inside_a_longer_word_stays() {
     let text = shareable("Adamant stood at the gate.", &table(&["Ada"]), NAME);
 

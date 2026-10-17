@@ -53,11 +53,21 @@ fn remembered(
     quests: &[QuestChange],
     now: u64,
 ) -> Vec<Memory> {
+    remembered_by(character, rumors, quests, now, "Ada")
+}
+
+fn remembered_by(
+    character: &Character,
+    rumors: &[Rumor],
+    quests: &[QuestChange],
+    now: u64,
+    own_name: &str,
+) -> Vec<Memory> {
     let past = Past {
         character,
         rumors: (0..).zip(rumors).collect(),
         quests,
-        own_name: "Ada",
+        own_name,
     };
     memories(&past, FARLEY, Tick(now))
 }
@@ -116,6 +126,32 @@ fn a_rumor_that_names_your_character_is_no_memory() {
     ];
 
     let memories = remembered(&character, &rumors, &[], 5);
+
+    assert_eq!(recalls(&memories), [said("Second.")]);
+}
+
+#[test]
+fn a_rumor_that_names_the_first_name_of_the_character_is_no_memory() {
+    let character = in_goldshire();
+    let rumors = [
+        rumor(2, FARLEY, "Second."),
+        rumor(3, FARLEY, "Well met, Kobee."),
+    ];
+
+    let memories = remembered_by(&character, &rumors, &[], 5, "Kobee Bean");
+
+    assert_eq!(recalls(&memories), [said("Second.")]);
+}
+
+#[test]
+fn a_rumor_that_names_the_surname_of_the_character_is_no_memory() {
+    let character = in_goldshire();
+    let rumors = [
+        rumor(2, FARLEY, "Second."),
+        rumor(3, FARLEY, "The Bean family is old."),
+    ];
+
+    let memories = remembered_by(&character, &rumors, &[], 5, "Kobee Bean");
 
     assert_eq!(recalls(&memories), [said("Second.")]);
 }

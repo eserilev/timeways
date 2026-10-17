@@ -85,6 +85,13 @@ pub fn alias_of(name: &str) -> Option<Alias> {
     })
 }
 
+/// The name of the character, part by part: "Kobee Bean" of WoW Forever is two names to
+/// hide, "Kobee" and "Bean" (GAMEPLAY.md 5.11).
+#[must_use]
+pub fn own_aliases(name: &str) -> Vec<Alias> {
+    name.split_whitespace().filter_map(alias_of).collect()
+}
+
 /// The ID as a text shows it: `{P1}` for the first player.
 #[must_use]
 pub fn id_text(id: PlayerId) -> String {
