@@ -160,14 +160,25 @@ function TaskNames.Fold(text)
 	return (text:gsub("([\196\197])([\128-\191])", FoldExtended))
 end
 
+-- Each source writes a name its own way: the friends list writes "Leborc James" on WoW
+-- Forever. The key of the game, "Leborc-James", joins them, and every player with one first
+-- name stays: { [first] = { "Kobee-Will", "Kobee-Moss" } }.
 local function Add(names, name)
 	if type(name) ~= "string" or issecretvalue(name) then
 		return
 	end
-	local short = name:match("^[^-]+")
-	if short then
-		names[TaskNames.Fold(short)] = ns.TaskPeople.Full(name) or name
+	local full = ns.TaskPeople.Full(name)
+	if not full then
+		return
 	end
+	local first = TaskNames.Fold(full:match("^[^-]+"))
+	names[first] = names[first] or {}
+	for _, known in ipairs(names[first]) do
+		if known == full then
+			return
+		end
+	end
+	table.insert(names[first], full)
 end
 
 local function AddAll(names, list)
@@ -193,7 +204,7 @@ local function AddTaskPlayers(names)
 	end
 end
 
--- Every player whom the addon knows, by the folded name: { [name] = "Name-Realm" }.
+-- Every player whom the addon knows, by the folded first name: { [name] = { "Name-Realm" } }.
 local function KnownNames()
 	local names = {}
 	AddAll(names, ns.TaskPeople.GroupNames())
@@ -219,13 +230,15 @@ local function WithoutBraces(text)
 	return (text:gsub("{", "("):gsub("}", ")"))
 end
 
--- The end of a realm right after a word that ends at `last`, as in "Ada-Stormrage".
-local function RealmEnd(text, last)
-	if text:sub(last + 1, last + 1) ~= "-" then
-		return last
+-- The word right after `last` and a separator, "-" or " ": its first and last byte.
+local function WordAfter(text, last, separator)
+	if text:sub(last + 1, last + 1) ~= separator then
+		return nil
 	end
-	local first, realmEnd = NextWord(text, last + 2)
-	return first == last + 2 and realmEnd or last
+	local first, wordEnd = NextWord(text, last + 2)
+	if first == last + 2 then
+		return first, wordEnd
+	end
 end
 
 -- True when the word starts with a capital: its first letter changes when folded.
@@ -234,28 +247,100 @@ local function IsCapitalized(word)
 	return first ~= nil and TaskNames.Fold(first) ~= first
 end
 
--- The end of the surname right after a word that ends at `last`, as in "Kobee Bean". A
--- surname with a capital is part of the name, so it gets the mark too. In lower case it
--- is a word: "Kobee will help" keeps "will" for Kobee Will.
-local function SurnameEnd(text, last, surname)
-	if not surname or text:sub(last + 1, last + 1) ~= " " then
-		return last
+-- What follows a first name that ends at `last`: the realm or the surname after a dash, as
+-- in "Ada-Stormrage", and the word with a capital after a space, as in "Kobee Bean". A
+-- surname in lower case is a word: "Kobee will help" keeps "will" for Kobee Will.
+local function Following(text, last)
+	local after = {}
+	local dashFirst, dashLast = WordAfter(text, last, "-")
+	if dashFirst then
+		after.dash, after.dashLast = TaskNames.Fold(text:sub(dashFirst, dashLast)), dashLast
 	end
-	local first, wordEnd = NextWord(text, last + 2)
-	local word = first == last + 2 and text:sub(first, wordEnd)
-	if word and IsCapitalized(word) and TaskNames.Fold(word) == TaskNames.Fold(surname) then
-		return wordEnd
+	local spaceFirst, spaceLast = WordAfter(text, after.dashLast or last, " ")
+	local word = spaceFirst and text:sub(spaceFirst, spaceLast)
+	if word and IsCapitalized(word) then
+		after.capital, after.capitalLast = TaskNames.Fold(word), spaceLast
 	end
-	return last
+	return after
 end
 
--- Each player that the addon knows becomes "{Name}", as the game writes the name, and your
--- own name becomes `$N`. Returns the text, and the players that it marks as "Name-Realm",
--- once each.
+-- The folded surname of a key, or nil.
+local function SurnameOf(full)
+	local surname = select(2, ns.PlayerNames.Parts(full))
+	return surname and TaskNames.Fold(surname)
+end
+
+-- The player whose whole name the text writes, as "Kobee Will" or "Kobee-Will": "me" or a
+-- key of `candidates`. Nil when no whole name matches.
+local function WholeName(candidates, isMe, mySurname, after)
+	local function Matches(surname)
+		return surname and (surname == after.dash or surname == after.capital)
+	end
+	if isMe and Matches(mySurname and TaskNames.Fold(mySurname)) then
+		return "me"
+	end
+	for _, full in ipairs(candidates) do
+		if Matches(SurnameOf(full)) then
+			return full
+		end
+	end
+end
+
+-- The last byte of a name that starts with the word ending at `last`: a realm or a surname
+-- after a dash always goes with it, and a surname with a capital after a space goes with it
+-- when it is the surname of this player.
+local function NameEnd(last, after, surname)
+	local stop = after.dashLast or last
+	if surname and after.capital == surname then
+		stop = after.capitalLast
+	end
+	return stop
+end
+
+-- Each known surname, folded, and the first player who holds it.
+local function KnownSurnames(names)
+	local surnames = {}
+	for _, players in pairs(names) do
+		for _, full in ipairs(players) do
+			local surname = SurnameOf(full)
+			if surname and not surnames[surname] then
+				surnames[surname] = full
+			end
+		end
+	end
+	return surnames
+end
+
+-- The player of a surname that stands alone with a capital, "the Will family": "me" or a
+-- key. In lower case a surname is a word.
+local function LoneSurname(word, surnames, mySurname)
+	if not IsCapitalized(word) then
+		return nil
+	end
+	local folded = TaskNames.Fold(word)
+	if mySurname and folded == TaskNames.Fold(mySurname) then
+		return "me"
+	end
+	return surnames[folded]
+end
+
+-- The mark of a player: the key of the game when the key holds a surname, so the desktop
+-- learns it, and the first name alone when it holds a realm.
+local function MarkOf(full)
+	local first, surname = ns.PlayerNames.Parts(full)
+	return "{" .. (surname and (first .. "-" .. surname) or full:match("^[^-]+")) .. "}"
+end
+
+-- Each player that the addon knows becomes "{Name}", or "{Name-Surname}" on WoW Forever,
+-- and your own name becomes `$N`. A whole name goes first: your whole name, then the whole
+-- name of a known player, then a first name alone, which is you when it is yours, and then
+-- a surname alone with a capital.
+-- Returns the text, and the players that it marks as "Name-Realm", once each.
 function TaskNames.Marked(text)
 	-- The bridge reads broken bytes as U+FFFD, so the marks must read them so too.
 	text = WithoutBraces(TaskNames.Visible(ns.Utf8.Lossy(text)))
 	local names, me, mySurname = KnownNames(), MyName()
+	local surnames = KnownSurnames(names)
 	local parts, players, seen, at = {}, {}, {}, 1
 	while true do
 		local first, last = NextWord(text, at)
@@ -263,17 +348,23 @@ function TaskNames.Marked(text)
 			break
 		end
 		parts[#parts + 1] = text:sub(at, first - 1)
-		local folded = TaskNames.Fold(text:sub(first, last))
-		local full = names[folded]
-		if folded == me then
+		local word = text:sub(first, last)
+		local folded = TaskNames.Fold(word)
+		local candidates = names[folded] or {}
+		local after = Following(text, last)
+		local who = WholeName(candidates, folded == me, mySurname, after)
+			or (folded == me and "me")
+			or candidates[1]
+			or LoneSurname(word, surnames, mySurname)
+		if who == "me" then
 			parts[#parts + 1] = "$N"
-			last = SurnameEnd(text, RealmEnd(text, last), mySurname)
-		elseif full then
-			parts[#parts + 1] = "{" .. full:match("^[^-]+") .. "}"
-			last = SurnameEnd(text, RealmEnd(text, last), select(2, ns.PlayerNames.Parts(full)))
-			if not seen[full] then
-				seen[full] = true
-				players[#players + 1] = full
+			last = NameEnd(last, after, mySurname and TaskNames.Fold(mySurname))
+		elseif who then
+			parts[#parts + 1] = MarkOf(who)
+			last = NameEnd(last, after, SurnameOf(who))
+			if not seen[who] then
+				seen[who] = true
+				players[#players + 1] = who
 			end
 		else
 			parts[#parts + 1] = text:sub(first, last)

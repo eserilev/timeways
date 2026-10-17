@@ -107,12 +107,12 @@ fn your_typed_full_name_becomes_the_hero_mark_with_no_surname_left() {
 }
 
 #[test]
-fn a_typed_full_name_of_a_player_of_your_group_keeps_no_surname() {
+fn a_typed_full_name_of_a_player_of_your_group_keeps_no_surname_and_the_mark_carries_it() {
     let game = kobee_bean();
 
     assert_eq!(
         marked(&game, "ask Leborc James, then leborc."),
-        "ask {Leborc}, then {Leborc}."
+        "ask {Leborc-James}, then {Leborc-James}."
     );
 }
 
@@ -158,4 +158,160 @@ proptest! {
         prop_assert!(!lower.contains(&low_first), "{text}");
         prop_assert!(!lower.contains(&low_surname), "{text}");
     }
+}
+
+/// Kobee Bean, with Kobee Will in the guild and Leborc James and Kobee Moss as friends, as
+/// the friends list writes them.
+fn two_kobees() -> Game {
+    let game = kobee_bean();
+    game.run(
+        "wow.units.party1 = nil
+         wow.guild = { { name = 'Kobee-Will', online = true } }
+         wow.Fire('GUILD_ROSTER_UPDATE', false)
+         wow.friends = { { name = 'Leborc James', connected = false }, { name = 'Kobee Moss', connected = false } }",
+    );
+    game
+}
+
+#[test]
+fn players_who_share_a_first_name_each_lose_their_own_surname() {
+    let game = two_kobees();
+
+    let text = marked(&game, "ask Kobee Will and Kobee Moss, then Kobee-Moss");
+
+    assert_eq!(text, "ask {Kobee-Will} and {Kobee-Moss}, then {Kobee-Moss}");
+}
+
+#[test]
+fn another_player_with_your_first_name_is_never_you() {
+    let game = two_kobees();
+
+    let text = marked(
+        &game,
+        "Kobee Will healed me. Kobee Bean thanked them. Kobee rests.",
+    );
+
+    assert_eq!(text, "{Kobee-Will} healed me. $N thanked them. $N rests.");
+}
+
+#[test]
+fn a_friend_listed_as_first_and_surname_is_known_by_the_key_of_the_game() {
+    let game = two_kobees();
+
+    let text = marked(&game, "ask Leborc James and leborc");
+    let relation: String = game.eval("return ns.TaskPeople.Relation('Leborc-James')");
+
+    assert_eq!(text, "ask {Leborc-James} and {Leborc-James}");
+    assert_eq!(relation, "friend");
+}
+
+#[test]
+fn a_surname_in_lower_case_after_a_known_first_name_stays_a_word() {
+    let game = two_kobees();
+
+    let text = marked(&game, "Kobee will help, and Leborc james too");
+
+    assert_eq!(text, "$N will help, and {Leborc-James} james too");
+}
+
+#[test]
+fn a_surname_alone_with_a_capital_becomes_the_mark_of_its_player() {
+    let game = two_kobees();
+
+    let text = marked(
+        &game,
+        "Bean is my house. The Will family and the James house, will you?",
+    );
+
+    assert_eq!(
+        text,
+        "$N is my house. The {Kobee-Will} family and the {Leborc-James} house, will you?"
+    );
+}
+
+const FIRSTS: [&str; 4] = ["Kobee", "Leborc", "Ada", "Bram"];
+const SURNAMES: [&str; 4] = ["Will", "James", "Moss", "Bean"];
+
+/// A known player by the index of a first name and of a surname, in the guild as the key of
+/// the game, or a friend as the friends list writes the name.
+fn known_player() -> impl Strategy<Value = (usize, usize, bool)> {
+    (0..FIRSTS.len(), 0..SURNAMES.len(), any::<bool>())
+}
+
+/// One way to write a player: the whole name, with a dash, the first name in any case, or
+/// the surname alone, with a capital or in lower case.
+fn written(first: &str, surname: &str, form: u8) -> String {
+    match form % 7 {
+        0 => format!("{first} {surname}"),
+        1 => format!("{first}-{surname}"),
+        2 => first.to_lowercase(),
+        3 => first.to_uppercase(),
+        4 => first.to_string(),
+        5 => surname.to_string(),
+        _ => surname.to_lowercase(),
+    }
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(64))]
+
+    /// GAMEPLAY.md 5.11: no first name and no surname with a capital of a known player, or
+    /// of yours, stays unmarked. A surname in lower case is a word.
+    #[test]
+    fn no_known_first_name_or_capital_surname_stays_unmarked(
+        players in proptest::collection::vec(known_player(), 1..5),
+        named in proptest::collection::vec((0usize..6, any::<u8>(), "[c-k]{1,4}"), 1..8),
+    ) {
+        let game = kobee_bean();
+        let guild: Vec<String> = players.iter().filter(|p| p.2)
+            .map(|(f, s, _)| format!("{{ name = '{}-{}', online = true }}", FIRSTS[*f], SURNAMES[*s]))
+            .collect();
+        let friends: Vec<String> = players.iter().filter(|p| !p.2)
+            .map(|(f, s, _)| format!("{{ name = '{} {}', connected = false }}", FIRSTS[*f], SURNAMES[*s]))
+            .collect();
+        game.run(&format!(
+            "wow.units.party1 = nil
+             wow.guild = {{ {} }} wow.Fire('GUILD_ROSTER_UPDATE', false)
+             wow.friends = {{ {} }}",
+            guild.join(", "),
+            friends.join(", ")
+        ));
+        // The player is Kobee Bean, index 0 of each list.
+        let mut people: Vec<(usize, usize)> = players.iter().map(|(f, s, _)| (*f, *s)).collect();
+        people.push((0, 3));
+        let text: Vec<String> = named
+            .iter()
+            .map(|(who, form, filler)| {
+                let (first, surname) = people[who % people.len()];
+                format!("{} {filler}", written(FIRSTS[first], SURNAMES[surname], *form))
+            })
+            .collect();
+        let text = text.join(" ");
+
+        let marked = marked(&game, &text);
+
+        for word in outside_marks(&marked) {
+            let first = people.iter().any(|(f, _)| FIRSTS[*f].eq_ignore_ascii_case(&word));
+            let surname = people.iter().any(|(_, s)| SURNAMES[*s] == word)
+                || people.iter().any(|(_, s)| word.len() > 1 && SURNAMES[*s].eq_ignore_ascii_case(&word) && word.chars().next().is_some_and(char::is_uppercase));
+            prop_assert!(!first && !surname, "{} in {} from {}", word, marked, text);
+        }
+    }
+}
+
+/// The words of a text outside its marks, as written.
+fn outside_marks(text: &str) -> Vec<String> {
+    let mut outside = String::new();
+    let mut in_mark = false;
+    for c in text.chars() {
+        match c {
+            '{' => in_mark = true,
+            '}' => in_mark = false,
+            _ if !in_mark => outside.push(c),
+            _ => {}
+        }
+    }
+    timeways_story::aliases::words_in(&outside)
+        .map(str::to_string)
+        .collect()
 }

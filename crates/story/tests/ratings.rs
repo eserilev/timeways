@@ -445,6 +445,18 @@ fn an_export_hides_a_known_name_with_a_character_that_shows_nothing() {
 }
 
 #[test]
+fn an_export_takes_out_a_surname_in_lower_case_too() {
+    let players = [
+        AliasRow::named("Leborc"),
+        AliasRow::surname("James", "Leborc"),
+    ];
+
+    let text = shareable("Leborc james went. james stayed.", &players, NAME);
+
+    assert_eq!(text, "{P1} went. {P2} stayed.");
+}
+
+#[test]
 fn an_export_takes_out_a_surname_after_its_first_name() {
     let players = [
         AliasRow::named("Leborc"),

@@ -147,8 +147,9 @@ function TaskPeople.GuildNames()
 	return names
 end
 
+-- The friends list writes a name as the game shows it: "Leborc James" on WoW Forever.
 local function Friend(name)
-	local info = C_FriendList.GetFriendInfo(TaskPeople.Short(name))
+	local info = C_FriendList.GetFriendInfo(ns.PlayerNames.Shown(name))
 	return type(info) == "table" and info or nil
 end
 

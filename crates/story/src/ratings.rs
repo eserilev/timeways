@@ -155,5 +155,9 @@ pub fn shareable(text: &str, players: &[AliasRow], own: &str) -> String {
     let table: Vec<Alias> = players.iter().filter_map(alias_of_row).collect();
     // The own pass drops the characters that show nothing (`aliases::for_matching`) first.
     let without_own = without_own_name(text, own, Surname::Always);
-    without_surnames(players, &without_names(&table, &without_own))
+    without_surnames(
+        players,
+        &without_names(&table, &without_own),
+        Surname::Always,
+    )
 }

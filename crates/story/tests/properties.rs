@@ -2307,7 +2307,6 @@ fn text_part(names: Vec<String>) -> impl Strategy<Value = String> {
     ]
 }
 
-/// A table of names and a text made of those names and other parts.
 /// The name with a character that shows nothing after its first letter: "Z\u{200B}qada".
 fn hidden_inside(name: &str) -> String {
     let mut chars = name.chars();
@@ -2315,12 +2314,25 @@ fn hidden_inside(name: &str) -> String {
     format!("{first}\u{200B}{}", chars.as_str())
 }
 
-fn names_and_text() -> impl Strategy<Value = (Vec<String>, String)> {
-    prop::collection::vec(alias_name(), 1..6).prop_flat_map(|names| {
-        let parts = prop::collection::vec(text_part(names.clone()), 0..24);
-        (Just(names), parts.prop_map(|parts| parts.concat()))
+/// A table of names and a text made of those names and other parts. The table often
+/// holds a surname of the first name: "Zqsur", which the text writes in any case.
+fn names_and_text() -> impl Strategy<Value = (Vec<String>, bool, String)> {
+    (prop::collection::vec(alias_name(), 1..6), any::<bool>()).prop_flat_map(|(names, surname)| {
+        let mut words = names.clone();
+        if surname {
+            words.extend([SURNAME.to_string(), SURNAME.to_lowercase()]);
+        }
+        let parts = prop::collection::vec(text_part(words), 0..24);
+        (
+            Just(names),
+            Just(surname),
+            parts.prop_map(|parts| parts.concat()),
+        )
     })
 }
+
+/// The surname of the first name of `names_and_text`.
+const SURNAME: &str = "Zqsur";
 
 fn alias_table(names: &[String]) -> Vec<Alias> {
     let mut table = Vec::new();
@@ -2329,12 +2341,17 @@ fn alias_table(names: &[String]) -> Vec<Alias> {
     table
 }
 
-/// The rows of a table that learned these names, each once.
-fn alias_rows(names: &[String]) -> Vec<AliasRow> {
-    alias_table(names)
-        .into_iter()
+/// The rows of a table that learned these names, each once, and the surname of the first
+/// name when there is one.
+fn alias_rows(names: &[String], surname: bool) -> Vec<AliasRow> {
+    let first_names = alias_table(names).into_iter();
+    let mut rows: Vec<AliasRow> = first_names
         .map(|alias| AliasRow::named(&alias.shown))
-        .collect()
+        .collect();
+    if let (true, Some(first)) = (surname, rows.first().map(|row| row.name.clone())) {
+        rows.push(AliasRow::surname(SURNAME, &first));
+    }
+    rows
 }
 
 /// The words of a text as a reader sees them: a curly apostrophe or a dash ends a word.
@@ -2462,7 +2479,7 @@ proptest! {
     /// The Lean law `no_known_name_after_the_swap`, for the text as the story program cuts
     /// and joins it.
     #[test]
-    fn the_text_for_a_model_holds_no_known_name_as_a_word((names, text) in names_and_text()) {
+    fn the_text_for_a_model_holds_no_known_name_as_a_word((names, _, text) in names_and_text()) {
         let table = alias_table(&names);
         let plain = unmarked(&text).text;
 
@@ -2478,7 +2495,7 @@ proptest! {
     /// The Lean law `the_swap_and_back_keeps_the_text`: a name comes back in the form of
     /// the table, so the text comes back the same but for the case of each name.
     #[test]
-    fn the_swap_and_back_gives_each_name_in_the_form_of_the_table((names, text) in names_and_text()) {
+    fn the_swap_and_back_gives_each_name_in_the_form_of_the_table((names, _, text) in names_and_text()) {
         let table = alias_table(&names);
         let plain = unmarked(&text).text;
 
@@ -2497,7 +2514,7 @@ proptest! {
     /// a rated text is a line of a model, and a model never sees the name.
     #[test]
     fn an_export_of_ratings_holds_no_known_player_name(
-        (names, text) in names_and_text(),
+        (names, with_surname, text) in names_and_text(),
         first in own_part(),
         surname in prop::option::of(own_part()),
         with_realm in any::<bool>(),
@@ -2510,7 +2527,9 @@ proptest! {
         // Each word of the name, found apart from the code under test.
         let own_keys: Vec<String> = text_words(&own).into_iter().map(key_of).collect();
         let table = alias_table(&names);
-        let rows = alias_rows(&names);
+        let rows = alias_rows(&names, with_surname);
+        // A first name that is no name gets no row, and so no surname.
+        let has_surname = rows.iter().any(|row| row.surname_of.is_some());
         let mut ratings = RowLog::default();
         ratings.add(RatedLine {
             at: Tick(1),
@@ -2535,6 +2554,7 @@ proptest! {
                 let key = key_of(word);
                 prop_assert!(find(&table, &key).is_none(), "{} in {:?}", word, rating);
                 prop_assert!(!own_keys.contains(&key), "{} in {:?}", word, rating);
+                prop_assert!(!has_surname || key != key_of(SURNAME), "{} in {:?}", word, rating);
             }
         }
     }

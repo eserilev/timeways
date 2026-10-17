@@ -15,10 +15,20 @@ impl Story {
     }
 }
 
-/// Learns the names that the addon marked.
+/// Learns the names that the addon marked, as "First-Surname" or "First".
 pub(super) fn learn_names(active: &mut Active, marked: &[String]) -> Result<(), StoreError> {
     for name in marked {
-        active.aliases.learn(&AliasRow::named(name))?;
+        learn_player(active, name)?;
+    }
+    Ok(())
+}
+
+/// Learns the first name of "First-Surname", and its surname as a row of its own.
+fn learn_player(active: &mut Active, player: &str) -> Result<(), StoreError> {
+    let (first, surname) = player.split_once('-').unwrap_or((player, ""));
+    active.aliases.learn(&AliasRow::named(first))?;
+    if aliases::player_name(surname).is_some() {
+        active.aliases.learn(&AliasRow::surname(surname, first))?;
     }
     Ok(())
 }
@@ -33,13 +43,9 @@ pub(super) fn learn_players(
     let text = aliases::for_matching(text);
     let words: Vec<String> = aliases::words_in(&text).map(aliases::key_of).collect();
     for player in players {
-        let (first, surname) = player.split_once('-').unwrap_or((player, ""));
-        if !words.contains(&aliases::key_of(first)) {
-            continue;
-        }
-        active.aliases.learn(&AliasRow::named(first))?;
-        if aliases::player_name(surname).is_some() {
-            active.aliases.learn(&AliasRow::surname(surname, first))?;
+        let first = player.split('-').next().unwrap_or_default();
+        if words.contains(&aliases::key_of(first)) {
+            learn_player(active, player)?;
         }
     }
     Ok(())
@@ -54,7 +60,7 @@ pub(super) fn without_own_name(active: &Active, text: &str) -> String {
 /// name goes with it.
 pub(super) fn with_ids(active: &Active, text: &str) -> String {
     let with_ids = aliases::without_names(active.aliases.table(), text);
-    aliases::without_surnames(active.aliases.rows(), &with_ids)
+    aliases::without_surnames(active.aliases.rows(), &with_ids, Surname::AsWritten)
 }
 
 /// The hero as a model reads it: each name of a player as its ID, and the name of the

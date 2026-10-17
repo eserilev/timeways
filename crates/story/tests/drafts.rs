@@ -400,6 +400,19 @@ fn a_surname_goes_with_its_first_name_and_alone_with_a_capital_is_an_id() {
 }
 
 #[test]
+fn a_mark_with_a_surname_teaches_the_surname_for_later_texts() {
+    let mut story = story("mark-surname");
+    ask(&mut story, "help {Leborc-James} at the mill");
+
+    let (_, prompt) = ask(&mut story, "ask the James family, not james");
+
+    assert!(
+        prompt.contains("ask the {P2} family, not james"),
+        "{prompt}"
+    );
+}
+
+#[test]
 fn a_surname_in_lower_case_stays_a_word() {
     let mut story = story("surname-word");
     note_naming(&mut story, "Bram Will owes me.", &["Bram-Will"]);

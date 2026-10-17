@@ -1086,6 +1086,6 @@ fn a_surname_in_lower_case_after_a_first_name_stays_a_word() {
 
     assert_eq!(
         marked,
-        "$N will help. {Bram} will too. {Bram} rests. $N rests."
+        "$N will help. {Bram-Will} will too. {Bram-Will} rests. $N rests."
     );
 }

@@ -151,8 +151,8 @@ pub struct Marked {
     pub names: Vec<String>,
 }
 
-/// "{Ada} and {Bob-Stormrage} met" is "Ada and Bob-Stormrage met", with the names Ada and
-/// Bob. Every other brace becomes a parenthesis, so a text that a player typed never holds
+/// "{Ada} and {Bob-Stormrage} met" is "Ada and Bob-Stormrage met", with the names "Ada" and
+/// "Bob-Stormrage". On WoW Forever the part after the dash is the surname. Every other brace becomes a parenthesis, so a text that a player typed never holds
 /// an ID. The addon marks whole words only, so a brace pair that touches a word character,
 /// "Leborc{James}", was typed, and is no mark.
 #[must_use]
@@ -168,9 +168,7 @@ pub fn unmarked(text: &str) -> Marked {
         });
         if let Some((inner, after)) = mark {
             plain.push_str(inner);
-            if let Some(name) = player_name(inner) {
-                names.push(name.to_string());
-            }
+            names.push(inner.to_string());
             before = Some('}');
             rest = after;
             continue;
@@ -378,7 +376,7 @@ pub fn without_names(table: &[Alias], text: &str) -> String {
     joined(&rules::to_ids(table, &text_pieces(text, table)))
 }
 
-/// When a surname of the character, alone, is hidden.
+/// When a surname is hidden: one of the character, alone, or one of another player.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Surname {
     /// In any case. An export blanks too much rather than too little.
@@ -453,9 +451,10 @@ pub fn starts_a_sentence(before: &str) -> bool {
 /// names. A surname with a capital right after the ID of its first name, with only spaces
 /// between, goes with it: "{P1} James" is "{P1}". A surname that the swap made an ID goes
 /// there in any case. A surname alone with a capital becomes the ID of its row: "the James
-/// family" is "the {P2} family". In lower case a surname is a word: "{P1} will help".
+/// family" is "the {P2} family". With `Surname::AsWritten`, a surname in lower case is a
+/// word: "{P1} will help". With `Surname::Always`, as in an export, it goes in any case.
 #[must_use]
-pub fn without_surnames(rows: &[AliasRow], text: &str) -> String {
+pub fn without_surnames(rows: &[AliasRow], text: &str, rule: Surname) -> String {
     let mut out = String::with_capacity(text.len());
     // The ID that the text ends with, and the spaces after it.
     let mut after: Option<(PlayerId, String)> = None;
@@ -473,7 +472,7 @@ pub fn without_surnames(rows: &[AliasRow], text: &str) -> String {
             }
             Piece::Text(plain) => {
                 for (is_word, run) in runs(&plain) {
-                    surname_run(rows, &mut out, &mut after, is_word, run);
+                    surname_run(rows, rule, &mut out, &mut after, (is_word, run));
                 }
             }
             Piece::Word { written, .. } => {
@@ -488,10 +487,10 @@ pub fn without_surnames(rows: &[AliasRow], text: &str) -> String {
 
 fn surname_run(
     rows: &[AliasRow],
+    rule: Surname,
     out: &mut String,
     after: &mut Option<(PlayerId, String)>,
-    is_word: bool,
-    run: &str,
+    (is_word, run): (bool, &str),
 ) {
     if !is_word {
         match after {
@@ -503,12 +502,13 @@ fn surname_run(
         }
         return;
     }
-    if is_capitalized(run) && after_its_first_name(rows, after.as_ref(), Some(run)) {
+    let as_a_name = rule == Surname::Always || is_capitalized(run);
+    if as_a_name && after_its_first_name(rows, after.as_ref(), Some(run)) {
         *after = None;
         return;
     }
     flush(out, after);
-    match surname_id(rows, run).filter(|_| is_capitalized(run)) {
+    match surname_id(rows, run).filter(|_| as_a_name) {
         Some(id) => out.push_str(&id_text(id)),
         None => out.push_str(run),
     }
@@ -555,7 +555,11 @@ pub fn typed_for_model(table: &[Alias], rows: &[AliasRow], own: &str, text: &str
     let typed = unmarked(&for_matching(text)).text;
     // `$N` matches no name, so the own name goes first and keeps its meaning.
     let without_own = without_own_name(&typed, own, Surname::AsWritten);
-    without_surnames(rows, &without_names(table, &without_own))
+    without_surnames(
+        rows,
+        &without_names(table, &without_own),
+        Surname::AsWritten,
+    )
 }
 
 /// A text that holds IDs, cut into IDs and the rest. Only `{P1}` and up are IDs, with no
@@ -642,7 +646,7 @@ mod tests {
         let marked = unmarked("{Ada} and {Bob-Stormrage} held {the} bridge {P7}");
 
         assert_eq!(marked.text, "Ada and Bob-Stormrage held the bridge (P7)");
-        assert_eq!(marked.names, vec!["Ada", "Bob", "the"]);
+        assert_eq!(marked.names, vec!["Ada", "Bob-Stormrage", "the"]);
     }
 
     #[test]
@@ -712,7 +716,11 @@ mod tests {
 
     #[test]
     fn a_surname_right_after_its_first_name_goes_with_it_only_with_a_capital() {
-        let text = without_surnames(&rows(), "{P1} James and {P1}  JAMES and {P3} will help.");
+        let text = without_surnames(
+            &rows(),
+            "{P1} James and {P1}  JAMES and {P3} will help.",
+            Surname::AsWritten,
+        );
 
         assert_eq!(text, "{P1} and {P1} and {P3} will help.");
     }
@@ -722,7 +730,7 @@ mod tests {
         let mut rows = rows();
         rows.push(AliasRow::named("James"));
 
-        let text = without_surnames(&rows, "{P1} {P5} and {P5}");
+        let text = without_surnames(&rows, "{P1} {P5} and {P5}", Surname::AsWritten);
 
         assert_eq!(text, "{P1} and {P5}");
     }
@@ -752,21 +760,29 @@ mod tests {
 
     #[test]
     fn a_surname_with_a_capital_alone_is_hidden_anywhere() {
-        let text = without_surnames(&rows(), "James is my house. {P1}, James.\n{P1}\nJames");
+        let text = without_surnames(
+            &rows(),
+            "James is my house. {P1}, James.\n{P1}\nJames",
+            Surname::AsWritten,
+        );
 
         assert_eq!(text, "{P2} is my house. {P1}, {P2}.\n{P1}\n{P2}");
     }
 
     #[test]
     fn a_surname_in_lower_case_alone_is_a_word() {
-        let text = without_surnames(&rows(), "I will carry the james stone. {P1}, will you?");
+        let text = without_surnames(
+            &rows(),
+            "I will carry the james stone. {P1}, will you?",
+            Surname::AsWritten,
+        );
 
         assert_eq!(text, "I will carry the james stone. {P1}, will you?");
     }
 
     #[test]
     fn a_surname_after_another_first_name_is_hidden_only_with_a_capital() {
-        let text = without_surnames(&rows(), "{P3} James and {P3} james");
+        let text = without_surnames(&rows(), "{P3} James and {P3} james", Surname::AsWritten);
 
         assert_eq!(text, "{P3} {P2} and {P3} james");
     }
