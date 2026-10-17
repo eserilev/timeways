@@ -996,7 +996,7 @@ The name of a real player never goes to a model, local or cloud. The model does 
 - Timeways shows the whole name everywhere: "Kobee Bean" on the title page of the Chronicle, the hero sheet, the Roleplay Profile, `$N` in a line from the desktop, and the name of each other player. A character with no surname shows the first name alone.
 - A name from chat with a space becomes the key of the game: "Leborc James" is "Leborc-James".
 - A surname is part of the name, so it never reaches a model either. Your whole name in the text of an NPC becomes `$N`, and then your first name alone. In typed text, a surname right after a first name that gets a mark goes with it: "ask Leborc James" becomes "ask {Leborc}".
-- The world of a character keeps its old key, the first name (5.7). Open: two characters with the same first name and another surname share one world.
+- The world of a character is keyed by the realm and the whole name (5.7), so two characters with one first name and two surnames have two worlds. The name takes up to 64 bytes, in the bridge and in the store: 12 letters in each part, and an accent takes 2 bytes. No ruleset is in the key: names are unique in the whole region (`RegionalUniqueNamesEnabled`), and the game keys its own folders the same way ("70/Kobee-Bean"). A world from before 2026-10-17 has the first name alone in its file name, so it stays on the disk and a new world starts.
 
 A memory of an NPC (3.5) calls you "the player", never by name. A rumor that holds the name of your character is no memory.
 

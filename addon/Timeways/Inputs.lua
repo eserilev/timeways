@@ -17,8 +17,8 @@ local function Present(s)
 	end
 end
 
--- The name of your own character. It names the file of your world on your computer, and
--- never reaches a model (GAMEPLAY.md 5.11).
+-- The whole name of your own character. It names the file of your world on your computer,
+-- and never reaches a model (GAMEPLAY.md 5.11). Two characters can share a first name.
 function Inputs.Character(realm, name)
 	return { type = "character_entered", realm = realm, name = name }
 end

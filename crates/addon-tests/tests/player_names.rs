@@ -33,6 +33,16 @@ fn your_name_is_your_first_name_and_surname() {
 }
 
 #[test]
+fn your_world_is_named_by_your_whole_name() {
+    let game = kobee_bean();
+
+    game.run("ns.Watch.Login() ns.Outbox.Flush()");
+
+    let sent = game.sent().join("\n");
+    assert!(sent.contains(r#""name":"Kobee Bean""#), "{sent}");
+}
+
+#[test]
 fn a_character_with_no_surname_shows_the_first_name_alone() {
     let game = kobee_bean();
     game.run("wow.units.player.realm = nil");

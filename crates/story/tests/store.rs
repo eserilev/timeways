@@ -125,10 +125,19 @@ fn two_names_never_share_a_safe_id() {
 fn a_key_refuses_an_empty_a_long_or_a_control_name() {
     assert!(CharacterKey::new("Stormrage", "").is_err());
     assert!(CharacterKey::new("", "Ada").is_err());
-    assert!(CharacterKey::new("Stormrage", &"a".repeat(49)).is_err());
+    assert!(CharacterKey::new("Stormrage", &"a".repeat(65)).is_err());
     assert!(CharacterKey::new(&"r".repeat(65), "Ada").is_err());
     assert!(CharacterKey::new("Stormrage", "A\nda").is_err());
-    assert!(CharacterKey::new(&"r".repeat(64), &"a".repeat(48)).is_ok());
+    assert!(CharacterKey::new(&"r".repeat(64), &"a".repeat(64)).is_ok());
+}
+
+/// On WoW Forever two characters can share a first name, but never the whole name.
+#[test]
+fn two_characters_with_one_first_name_and_two_surnames_have_two_worlds() {
+    let bean = CharacterKey::new("Classic Beta PvP 2", "Kobee Bean").unwrap();
+    let smith = CharacterKey::new("Classic Beta PvP 2", "Kobee Smith").unwrap();
+
+    assert_ne!(bean.relative_path(), smith.relative_path());
 }
 
 #[test]

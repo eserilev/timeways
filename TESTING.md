@@ -53,7 +53,7 @@ The game runs a stable copy of the code, so work in the repo does not change the
   ```
 
 - **The story program:** `~/.local/bin/timeways-story`, built from the same commit. The old program is `~/.local/bin/timeways-story.old`.
-- **The world files:** `~/.local/share/gnomish-relay/timeways/story/worlds/r_<realm>/c_<name>.sqlite`. A world of an older build (a `.jsonl` file, or a `.sqlite` of another version) is not read: the character starts a new world, and the old file stays.
+- **The world files:** `~/.local/share/gnomish-relay/timeways/story/worlds/r_<realm>/c_<name>.sqlite`. `<name>` is the whole name, and each sign that is no letter or digit becomes `_` and its hex code: Kobee Bean is `c_Kobee_20Bean.sqlite`. A world of an older build (a `.jsonl` file, or a `.sqlite` of another version) is not read: the character starts a new world, and the old file stays.
 - **What all characters share:** `timeways.sqlite` in the same data folder, with the narrator's budget and pace.
 
 ## Before the first test

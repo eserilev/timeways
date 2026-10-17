@@ -30,7 +30,8 @@ use thiserror::Error;
 
 /// The limits of the bridge for the character line (Gnomish Relay SPEC.md 9.7).
 const MAX_REALM_BYTES: usize = 64;
-const MAX_NAME_BYTES: usize = 48;
+// The whole name of WoW Forever, "First Surname".
+const MAX_NAME_BYTES: usize = 64;
 
 const HEX: &[u8; 16] = b"0123456789ABCDEF";
 
