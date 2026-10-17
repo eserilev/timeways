@@ -130,11 +130,11 @@ fn a_dev_key_in_a_table_never_turns_dev_mode_on_or_off() {
 
 #[test]
 fn on_and_off_read_a_quoted_dev_key() {
-    let desktop = desktop_with_settings("switch-quoted", b"\"dev\" = true\nai = \"off\"\n");
+    let desktop = desktop_with_settings("switch-quoted", b"\"dev\" = false\nai = \"off\"\n");
 
-    desktop.set_dev_mode(DevMode::Off).unwrap();
+    desktop.set_dev_mode(DevMode::On).unwrap();
 
-    assert_eq!(desktop.dev_mode(), DevMode::Off);
+    assert_eq!(desktop.dev_mode(), DevMode::On);
     assert_eq!(desktop.dev_ai(), Ai::Off);
 }
 

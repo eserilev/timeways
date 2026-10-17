@@ -449,6 +449,7 @@ local STEPS = {
 	},
 	{
 		name = "player-quest",
+		needsAi = true,
 		run = Command("quest " .. NPC),
 		expect = { "quest_asked" },
 	},

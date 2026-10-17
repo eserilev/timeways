@@ -6,17 +6,26 @@ local _, ns = ...
 local Ai = {}
 ns.Ai = Ai
 
--- On until a journal says off, so a desktop from before the switch keeps every feature.
-local on = true
+-- "unknown" until the first journal, then "on" or "off". Unknown counts as on, so a desktop
+-- from before the switch keeps every feature.
+local state = "unknown"
 
 -- From the first page of each journal. Only "off" turns AI off.
 function Ai.DesktopSays(value)
-	on = value ~= "off"
+	state = value == "off" and "off" or "on"
 end
 
 function Ai.IsOn()
-	return on
+	return state ~= "off"
 end
 
+-- True once a journal said on or off.
+function Ai.IsKnown()
+	return state ~= "unknown"
+end
+
+-- TODO: The relay builds --ai in its step 7. Check the command before a release.
 -- The second half of each line that says a feature needs AI.
 Ai.TURN_ON = "To turn it on, run gnomish-relay setup --timeways --ai on."
+Ai.TALK_OFF = "Talking to NPCs needs AI. " .. Ai.TURN_ON
+Ai.QUESTS_OFF = "Quests from NPCs need AI. " .. Ai.TURN_ON

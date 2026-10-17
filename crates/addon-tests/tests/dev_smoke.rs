@@ -257,7 +257,7 @@ fn the_smoke_test_runs_every_step_and_the_desktop_logs_each_one() {
 }
 
 /// The steps that wait for an answer of a model.
-const NEED_AI: [&str; 12] = [
+const NEED_AI: [&str; 13] = [
     "zone-move",
     "level-up",
     "dungeon-entry",
@@ -269,6 +269,7 @@ const NEED_AI: [&str; 12] = [
     "talk-work",
     "talk-quest-card",
     "talk-accept",
+    "player-quest",
     "ratings-link",
 ];
 
@@ -301,6 +302,15 @@ fn with_ai_off_each_step_that_needs_a_model_waits_at_once_and_the_rest_pass() {
     }
     for step in WORKING.iter().filter(|step| !NEED_AI.contains(step)) {
         assert_eq!(result_of(&log, step), "PASS", "{step}\n{log}");
+    }
+    let desk: Vec<&str> = log
+        .lines()
+        .filter(|line| line.trim_start().starts_with("desk "))
+        .collect();
+    assert!(!desk.is_empty(), "{log}");
+    for line in desk {
+        let verdict = line.split_whitespace().nth(1).unwrap_or_default();
+        assert!(["PASS:", "WAIT:"].contains(&verdict), "{line}");
     }
     let seconds = game.eval::<i64>("return wow.now") - started;
     assert!(seconds < 240, "the run took {seconds} s");

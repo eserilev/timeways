@@ -157,7 +157,8 @@ end
 function Hero.Write()
 	ns.JournalFrame.Edit({
 		title = "New note",
-		hint = "Anything about your character. It becomes part of your story.",
+		hint = ns.Ai.IsOn() and "Anything about your character. It becomes part of your story."
+			or "Anything about your character.",
 		text = "",
 		limit = Hero.MAX_LETTERS,
 		bytes = Hero.MAX_BYTES,

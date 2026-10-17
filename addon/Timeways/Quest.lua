@@ -51,7 +51,7 @@ function Quest.Ask()
 		return
 	end
 	if not ns.Ai.IsOn() then
-		Say("Quests from NPCs need AI. " .. ns.Ai.TURN_ON)
+		Say(ns.Ai.QUESTS_OFF)
 		return
 	end
 	Send(ns.Inputs.QuestAsked(time(), npc))
@@ -102,7 +102,10 @@ local WORDS = {
 function Quest.Command(message)
 	local run = WORDS[message:match("^%s*(%S*)"):lower()]
 	if not run then
-		Say("Target someone and type /quest to ask for a quest. Then /quest accept or /quest decline.")
+		Say(
+			ns.Ai.IsOn() and "Target someone and type /quest to ask for a quest. Then /quest accept or /quest decline."
+				or ns.Ai.QUESTS_OFF
+		)
 		return
 	end
 	run()

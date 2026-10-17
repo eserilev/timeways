@@ -149,14 +149,13 @@ fn a_typed_step_with_ai_off_stays_as_written_and_asks_nothing() {
 
 #[test]
 fn the_title_page_with_ai_off_promises_no_summary() {
-    let game = game_with_ai_off();
+    let on = Game::new();
+    on.reply(&journal_reply(Ai::On));
+    let off = game_with_ai_off();
+    let promise = "Fills in when your first chapter ends.".to_string();
 
-    let page = page_lines(&game, "chapters");
-
-    assert!(
-        !page.contains(&"Fills in when your first chapter ends.".to_string()),
-        "{page:?}"
-    );
+    assert!(page_lines(&on, "chapters").contains(&promise));
+    assert!(!page_lines(&off, "chapters").contains(&promise));
 }
 
 #[test]
@@ -182,6 +181,7 @@ fn the_quests_page_with_ai_off_names_only_quests_from_players() {
 #[test]
 fn help_says_whether_ai_is_on() {
     let on = Game::new();
+    on.reply(&journal_reply(Ai::On));
     let off = game_with_ai_off();
 
     on.run("wow.Slash('/timeways', 'help')");
@@ -195,4 +195,58 @@ fn help_says_whether_ai_is_on() {
         off.printed()
             .contains(&"|cffc8a064Timeways|r: AI: Off".to_string())
     );
+}
+
+#[test]
+fn help_says_nothing_of_ai_before_a_journal_came() {
+    let game = Game::new();
+
+    game.run("wow.Slash('/timeways', 'help')");
+
+    assert!(
+        game.printed().iter().all(|line| !line.contains("AI:")),
+        "{:?}",
+        game.printed()
+    );
+}
+
+#[test]
+fn a_talk_sent_while_ai_was_on_still_ends_its_turn_when_ai_turns_off() {
+    let game = Game::new();
+    game.run("wow.units.target = { name = 'Innkeeper Farley' }; wow.Slash('/talk', 'any news?')");
+    game.reply(&journal_reply(Ai::Off));
+
+    game.reply(r#"{"type":"talk_answer","id":1,"npc":"Innkeeper Farley","text":null}"#);
+
+    let page: Vec<String> = game.eval("wow.ShownTexts(TimewaysTalkFrameScroll:GetScrollChild())");
+    assert!(!page.contains(&"Thinking...".to_string()), "{page:?}");
+    assert!(
+        page.contains(&"Innkeeper Farley looks at you and says nothing.".to_string()),
+        "{page:?}"
+    );
+}
+
+#[test]
+fn quest_with_no_words_and_ai_off_says_quests_from_npcs_need_ai() {
+    let game = game_with_ai_off();
+
+    game.run("wow.Slash('/quest', 'what')");
+
+    assert_eq!(game.printed(), [QUEST_OFF]);
+}
+
+#[test]
+fn a_note_with_ai_off_promises_no_story() {
+    let on = Game::new();
+    let off = game_with_ai_off();
+    let hint = "local shown
+         ns.JournalFrame.Edit = function(edit) shown = edit.hint end
+         ns.Hero.Write()
+         return shown";
+
+    assert_eq!(
+        on.eval::<String>(hint),
+        "Anything about your character. It becomes part of your story."
+    );
+    assert_eq!(off.eval::<String>(hint), "Anything about your character.");
 }

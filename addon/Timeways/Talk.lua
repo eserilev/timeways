@@ -44,7 +44,7 @@ local function Send(npc, words)
 	ns.Carry.Met(npc)
 	-- The talk still meets the NPC and finishes a talk step of a quest, so it goes out.
 	if not ns.Ai.IsOn() then
-		Say("Talking to NPCs needs AI. " .. ns.Ai.TURN_ON)
+		Say(ns.Ai.TALK_OFF)
 		ns.Outbox.Add(input)
 		ns.Outbox.Flush()
 		return
@@ -93,15 +93,13 @@ function Talk.Show(answer)
 	local npc = type(answer.npc) == "string" and answer.npc or nil
 	local text = type(answer.text) == "string" and answer.text or nil
 	local words = TakeSent(npc)
-	-- The chat said why when the talk went out.
-	if not text and not ns.Ai.IsOn() then
-		ns.Journal.Request(0)
-		return
-	end
 	if words and text then
 		ns.TalkHistory.Add(npc, words.words, text, words.at)
 	end
-	if not ns.TalkWindow.Takes(npc, text) then
+	-- A talk sent while AI was still on waits in the window, so the window always gets the
+	-- answer. With AI off, the chat said why when the talk went out.
+	local taken = ns.TalkWindow.Takes(npc, text)
+	if not taken and (text or ns.Ai.IsOn()) then
 		ShowInChat(npc and ns.Plain(npc) or "?", text)
 	end
 	-- A talk can change the trust of the NPC, or ask it for a quest, and the journal
