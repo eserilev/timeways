@@ -204,13 +204,11 @@ SlashCmdList.TIMEWAYSJOURNAL = function(message)
 		return
 	end
 	if message:match("^%s*help%s*$") then
-		if ns.Ai.IsKnown() then
-			DEFAULT_CHAT_FRAME:AddMessage("|cffc8a064Timeways|r: AI: " .. (ns.Ai.IsOn() and "On" or "Off"))
-		end
+		DEFAULT_CHAT_FRAME:AddMessage("|cffc8a064Timeways|r: AI: " .. (ns.Ai.IsOn() and "On" or "Off"))
 		ns.Welcome.Open(ns.Welcome.Reason())
 		return
 	end
-	if ns.Ratings.Command(message) then
+	if ns.Ratings.Command(message) or ns.Ai.Command(message) then
 		return
 	end
 	ns.JournalFrame.Toggle()

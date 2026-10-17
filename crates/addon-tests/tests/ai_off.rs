@@ -1,5 +1,5 @@
-//! AI off: the player chose no model at all (GAMEPLAY.md 5.6). The journal says so, and the
-//! addon hides what needs a model or says how to turn AI on.
+//! AI off: the player chose no model at all (GAMEPLAY.md 5.6). The setting or the journal
+//! says so, and the addon hides what needs a model or says how to turn AI on.
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
@@ -12,8 +12,10 @@ use timeways_story::input::{Input, MessageId};
 use timeways_story::journal::{Journal, pages};
 use timeways_story::story::Output;
 
-const TALK_OFF: &str = "|cffc8a064Timeways|r: Talking to NPCs needs AI. To turn it on, run gnomish-relay setup --timeways --ai on.";
-const QUEST_OFF: &str = "|cffc8a064Timeways|r: Quests from NPCs need AI. To turn it on, run gnomish-relay setup --timeways --ai on.";
+const TALK_OFF: &str =
+    "|cffc8a064Timeways|r: Talking to NPCs needs AI. To turn it on, type /timeways ai on.";
+const QUEST_OFF: &str =
+    "|cffc8a064Timeways|r: Quests from NPCs need AI. To turn it on, type /timeways ai on.";
 
 fn journal_reply(ai: Ai) -> String {
     serde_json::to_string(&Output::Journal {
@@ -198,16 +200,22 @@ fn help_says_whether_ai_is_on() {
 }
 
 #[test]
-fn help_says_nothing_of_ai_before_a_journal_came() {
+fn a_journal_that_says_on_does_not_turn_on_the_setting_of_the_player() {
     let game = Game::new();
+    game.run("wow.Slash('/timeways', 'ai off')");
 
-    game.run("wow.Slash('/timeways', 'help')");
+    game.reply(&journal_reply(Ai::On));
 
-    assert!(
-        game.printed().iter().all(|line| !line.contains("AI:")),
-        "{:?}",
-        game.printed()
-    );
+    assert!(!game.eval::<bool>("return ns.Ai.IsOn()"));
+}
+
+#[test]
+fn turning_ai_on_clears_the_off_of_an_older_journal() {
+    let game = game_with_ai_off();
+
+    game.run("wow.Slash('/timeways', 'ai on')");
+
+    assert!(game.eval::<bool>("return ns.Ai.IsOn()"));
 }
 
 #[test]

@@ -6,7 +6,7 @@
 use hourglass::Tick;
 use std::path::Path;
 use std::time::Duration;
-use timeways_story::ai::HelloAi;
+use timeways_story::ai::AiWord;
 use timeways_story::character::{QUEST_TRUST, SLAP_TRUST};
 use timeways_story::input::{CallId, Input, MessageId, Reaction};
 use timeways_story::journal::{Deed, Page};
@@ -1022,7 +1022,7 @@ fn a_talk_does_a_talk_step() {
 #[test]
 fn with_ai_off_a_talk_finishes_a_talk_step_of_a_quest() {
     let mut story = talk_quest("talk-step-ai-off");
-    story.handle(Input::Hello { ai: HelloAi::Off }).unwrap();
+    story.handle(Input::Hello { ai: AiWord::Off }).unwrap();
 
     let outputs = story
         .handle(Input::TalkAsked {

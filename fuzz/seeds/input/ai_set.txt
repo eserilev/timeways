@@ -1,0 +1,11 @@
+{"type":"character_entered","realm":"Testrealm","name":"Tester"}
+{"type":"ai_set","ai":"off","id":1}
+{"type":"zone_entered","at":1790000000,"zone":"Westfall","subzone":null,"hour":14}
+{"type":"level_reached","at":1790000010,"level":20}
+{"type":"batch_end","id":1}
+{"type":"talk_asked","id":2,"at":1790000030,"npc":"Gryan Stoutmantle","text":"Any work?"}
+{"type":"ai_set","ai":"on","id":3}
+{"type":"level_reached","at":1790000040,"level":21}
+{"type":"batch_end","id":3}
+{"type":"ai_set","ai":"maybe","id":4}
+{"type":"journal_asked","id":5,"page":0}

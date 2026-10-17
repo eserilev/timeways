@@ -69,3 +69,5 @@
 "\"result\":\"pass\""
 "\"gate\":{\"subject\":"
 "\"dev\":true"
+"{\"type\":\"ai_set\",\"ai\":\"off\"}"
+"{\"type\":\"ai_set\",\"ai\":\"on\"}"

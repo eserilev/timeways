@@ -1,31 +1,78 @@
--- AI on or off: the player chose at setup to play with a model or with none (GAMEPLAY.md
--- 5.6). The desktop says it in the `ai` field of each journal.
+-- AI on or off (GAMEPLAY.md 5.6). The player chooses with `/timeways ai on|off`, and the
+-- choice is saved for the account. The `ai` field of each journal confirms it, and the dev
+-- switch of the desktop can turn AI off too.
+
+-- The global comes from the TOC, so only _G can reach it.
+--# selene: allow(global_usage)
 
 local _, ns = ...
 
 local Ai = {}
 ns.Ai = Ai
 
--- "unknown" until the first journal, then "on" or "off". Unknown counts as on, so a desktop
--- from before the switch keeps every feature.
-local state = "unknown"
+local GLOBAL = "TimewaysSettings"
+local PREFIX = "|cffc8a064Timeways|r: "
+
+Ai.TALK_OFF = "Talking to NPCs needs AI. To turn it on, type /timeways ai on."
+Ai.QUESTS_OFF = "Quests from NPCs need AI. To turn it on, type /timeways ai on."
+
+-- True after a journal said "off". A desktop from before the switch sends no `ai`.
+local desktopOff = false
+
+-- Any addon can write the saved variables, so only a plain `false` turns AI off.
+function Ai.SettingIsOn()
+	local settings = _G[GLOBAL]
+	return not (type(settings) == "table" and settings.ai == false)
+end
+
+-- Off from either side wins.
+function Ai.IsOn()
+	return Ai.SettingIsOn() and not desktopOff
+end
 
 -- From the first page of each journal. Only "off" turns AI off.
 function Ai.DesktopSays(value)
-	state = value == "off" and "off" or "on"
+	desktopOff = value == "off"
 end
 
-function Ai.IsOn()
-	return state ~= "off"
+-- The word of the `ai_set` line.
+function Ai.Word()
+	return Ai.SettingIsOn() and "on" or "off"
 end
 
--- True once a journal said on or off.
-function Ai.IsKnown()
-	return state ~= "unknown"
+-- The journal that said off came before the change, so only a new journal counts.
+local function SetOn(on)
+	if type(_G[GLOBAL]) ~= "table" then
+		_G[GLOBAL] = {}
+	end
+	_G[GLOBAL].ai = on
+	desktopOff = false
+	ns.Outbox.AiChanged()
+	ns.JournalFrame.Refresh()
 end
 
--- TODO: Remove when the relay ships `setup --ai`. Until then, check the command before a release.
--- The second half of each line that says a feature needs AI.
-Ai.TURN_ON = "To turn it on, run gnomish-relay setup --timeways --ai on."
-Ai.TALK_OFF = "Talking to NPCs needs AI. " .. Ai.TURN_ON
-Ai.QUESTS_OFF = "Quests from NPCs need AI. " .. Ai.TURN_ON
+local function Say(text)
+	DEFAULT_CHAT_FRAME:AddMessage(PREFIX .. text)
+end
+
+local COMMANDS = {
+	["ai on"] = function()
+		SetOn(true)
+		Say("AI is on.")
+	end,
+	["ai off"] = function()
+		SetOn(false)
+		Say("AI is off. NPCs won't talk and the narrator stays quiet.")
+	end,
+}
+
+-- Runs a command of `/timeways`, and returns false for a message that is no AI command.
+function Ai.Command(message)
+	local words = message:lower():match("^%s*(.-)%s*$"):gsub("%s+", " ")
+	local command = COMMANDS[words]
+	if not command then
+		return false
+	end
+	command()
+	return true
+end

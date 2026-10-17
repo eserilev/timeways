@@ -48,6 +48,9 @@ local eventsOnTheWay = false
 -- The character line starts every batch, so the desktop always knows whose world a batch
 -- changes, also after the story program restarts.
 local character
+-- The AI line follows the character line while AI is off, so even the first batch after a
+-- login opens no model call. After a change, the next batch that goes carries it once.
+local aiChanged = false
 
 local function Bound()
 	while #waiting > MAX_WAITING do
@@ -94,9 +97,21 @@ function Outbox.SetCharacter(input)
 	character = ns.Json.Encode(input)
 end
 
--- The text of a batch that starts with this line.
+local function AiLine()
+	if ns.Ai.SettingIsOn() and not aiChanged then
+		return nil
+	end
+	return ns.Json.Encode(ns.Inputs.AiSet(ns.Ai.Word()))
+end
+
+-- The text of a batch that starts with this line, or of the opening lines alone.
 local function Opening(line)
-	return character and (character .. "\n" .. line) or line
+	if not character then
+		return line
+	end
+	local ai = AiLine()
+	local head = ai and (character .. "\n" .. ai) or character
+	return line and (head .. "\n" .. line) or head
 end
 
 -- A batch of this one input, which does not wait in the outbox. Nil before the login
@@ -172,6 +187,7 @@ local function Send(batch)
 		return false
 	end
 	eventsOnTheWay = eventsOnTheWay or not batch.ended
+	aiChanged = false
 	ns.Link.Claim(id, function(status, text)
 		Answered(batch, status, text)
 	end)
@@ -214,6 +230,19 @@ function Outbox.Flush()
 		end
 	end
 	waiting = kept
+end
+
+-- The story program learns a change of the AI setting at once, also with no event waiting.
+-- While the desktop is away, the next batch carries it.
+function Outbox.AiChanged()
+	aiChanged = true
+	if #waiting > 0 then
+		Outbox.Flush()
+		return
+	end
+	if character and ns.Link.Bridge() ~= "offline" then
+		Send({ text = Opening(), entries = {}, ended = false })
+	end
 end
 
 -- At logout. A batch on its way is not kept: the transport keeps its frame.

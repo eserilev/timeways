@@ -523,11 +523,17 @@ fn every_input_type() -> Vec<String> {
         .collect()
 }
 
+/// The settings of `/timeways` that make a line of their own, with no play.
+const SETTING_COMMANDS: [&str; 1] = ["ai off"];
+
 #[test]
 fn every_input_line_has_a_dev_command_or_a_scenario() {
     let game = dev_game();
     for command in EVERY_COMMAND {
         twdev(&game, command);
+    }
+    for command in SETTING_COMMANDS {
+        game.run(&format!("wow.Slash('/timeways', '{command}')"));
     }
     let mut covered: Vec<String> = types(&sent_lines(&game));
     for (_, _, text) in timeways_dev::scenario::BUILT_IN {

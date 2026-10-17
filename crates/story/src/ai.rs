@@ -1,5 +1,6 @@
 //! AI on or off: the player chose to play with a model or with none (GAMEPLAY.md 5.6).
-//! The bridge says it in its hello.
+//! The addon says it in its `ai_set` line. The hello of the bridge can say it too, but the
+//! bridge does not send it.
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -45,11 +46,12 @@ impl Ai {
     }
 }
 
-/// The `ai` word of the hello. Only "off" turns AI off. A word that this version does not
-/// know keeps AI on, because a hello that does not read starts no story program.
+/// The `ai` word of the hello or of `ai_set`. Only "off" turns AI off. A word that this
+/// version does not know keeps AI on, because a hello that does not read starts no story
+/// program.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(from = "Value", into = "Value")]
-pub enum HelloAi {
+pub enum AiWord {
     #[default]
     On,
     Off,
@@ -57,32 +59,32 @@ pub enum HelloAi {
     Unknown(String),
 }
 
-impl HelloAi {
+impl AiWord {
     #[must_use]
     pub fn ai(&self) -> Ai {
         match self {
-            HelloAi::Off => Ai::Off,
-            HelloAi::On | HelloAi::Unknown(_) => Ai::On,
+            AiWord::Off => Ai::Off,
+            AiWord::On | AiWord::Unknown(_) => Ai::On,
         }
     }
 }
 
-impl From<Value> for HelloAi {
-    fn from(value: Value) -> HelloAi {
+impl From<Value> for AiWord {
+    fn from(value: Value) -> AiWord {
         match value.as_str() {
-            Some("on") => HelloAi::On,
-            Some("off") => HelloAi::Off,
-            _ => HelloAi::Unknown(value.to_string()),
+            Some("on") => AiWord::On,
+            Some("off") => AiWord::Off,
+            _ => AiWord::Unknown(value.to_string()),
         }
     }
 }
 
-impl From<HelloAi> for Value {
-    fn from(ai: HelloAi) -> Value {
+impl From<AiWord> for Value {
+    fn from(ai: AiWord) -> Value {
         match ai {
-            HelloAi::On => Value::from("on"),
-            HelloAi::Off => Value::from("off"),
-            HelloAi::Unknown(word) => serde_json::from_str(&word).unwrap_or(Value::Null),
+            AiWord::On => Value::from("on"),
+            AiWord::Off => Value::from("off"),
+            AiWord::Unknown(word) => serde_json::from_str(&word).unwrap_or(Value::Null),
         }
     }
 }

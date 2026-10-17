@@ -11,7 +11,7 @@ use std::cell::RefCell;
 use std::path::Path;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use timeways_story::ai::HelloAi;
+use timeways_story::ai::AiWord;
 use timeways_story::input::Input;
 use timeways_story::pack::Pack;
 use timeways_story::store::Store;
@@ -464,7 +464,7 @@ fn with_ai_off_a_closed_chapter_keeps_its_list_and_asks_no_saga() {
     let (mut bridge, prompts) = saga_bridge("chapter-list-ai-off");
     bridge
         .story()
-        .handle(Input::Hello { ai: HelloAi::Off })
+        .handle(Input::Hello { ai: AiWord::Off })
         .unwrap();
     let kill = json!({"type": "npc_defeated", "at": START + 90, "name": "Hogger", "kind": "rare"});
 
@@ -502,7 +502,7 @@ fn turning_ai_on_again_lets_the_waiting_saga_start() {
     let mut bridge = bridge;
     bridge
         .story()
-        .handle(Input::Hello { ai: HelloAi::Off })
+        .handle(Input::Hello { ai: AiWord::Off })
         .unwrap();
     start_saga(&mut bridge);
     bridge.settle();
@@ -510,7 +510,7 @@ fn turning_ai_on_again_lets_the_waiting_saga_start() {
 
     bridge
         .story()
-        .handle(Input::Hello { ai: HelloAi::On })
+        .handle(Input::Hello { ai: AiWord::On })
         .unwrap();
     // A meeting again is no moment, so the narrator leaves the slots to the saga.
     let met = json!({"type": "npc_met", "at": START + 5 * 3600 + 120, "name": "Salma"});

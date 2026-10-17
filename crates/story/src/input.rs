@@ -1,7 +1,7 @@
 //! What the bridge sends, one JSON object per line: game events from the addon, and the
 //! answers to model calls (GAMEPLAY.md 3.1, 5.4, and 5.6).
 
-use crate::ai::HelloAi;
+use crate::ai::AiWord;
 use crate::character::Resting;
 use crate::dev_fps::FpsRun;
 use crate::dev_smoke::{SmokeDone, SmokeStep};
@@ -21,10 +21,16 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum Input {
-    /// The first line from the bridge. The bridge compares the protocol of the reply.
+    /// The first line from the bridge. The bridge compares the protocol of the reply. The
+    /// bridge does not send `ai`.
     Hello {
         #[serde(default)]
-        ai: HelloAi,
+        ai: AiWord,
+    },
+    /// The AI setting of the addon. It comes after the character line of each batch while
+    /// AI is off, and of the first batch after a change. It has no reply.
+    AiSet {
+        ai: AiWord,
     },
     /// The first line of each batch: whose world the batch changes.
     CharacterEntered {
@@ -397,7 +403,7 @@ pub enum GameQuestKind {
 }
 
 impl Input {
-    /// A line of a model call fills its call. `hello`, a journal request, a `/lore`
+    /// A line of a model call fills its call. `hello`, `ai_set`, a journal request, a `/lore`
     /// question, and the lines of `/twdev fps` and `/twdev smoke` change nothing in the world.
     /// Every other line is kept as an input (GAMEPLAY.md 5.14).
     #[must_use]
@@ -405,6 +411,7 @@ impl Input {
         !matches!(
             self,
             Input::Hello { .. }
+                | Input::AiSet { .. }
                 | Input::JournalAsked { .. }
                 | Input::DevFps(_)
                 | Input::DevSmoke(_)
@@ -506,6 +513,7 @@ impl Input {
             | Input::TextSeen { at, .. } => Some(at),
             Input::PastRead(past) => Some(&mut past.at),
             Input::Hello { .. }
+            | Input::AiSet { .. }
             | Input::CharacterEntered { .. }
             | Input::LoreAsked { .. }
             | Input::JournalAsked { .. }

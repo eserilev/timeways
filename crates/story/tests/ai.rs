@@ -1,5 +1,5 @@
-//! AI off: the player chose no model at all (GAMEPLAY.md 5.6). The bridge says so in its
-//! hello, and the journal tells the addon.
+//! AI off: the player chose no model at all (GAMEPLAY.md 5.6). The addon says so in its
+//! `ai_set` line, and the journal tells the addon.
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
@@ -7,7 +7,7 @@ use fake_bridge::{FakeBridge, Reply};
 use hourglass::Tick;
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
-use timeways_story::ai::{Ai, HelloAi};
+use timeways_story::ai::{Ai, AiWord};
 use timeways_story::dev_mode::{DevMode, SETTINGS_FILE};
 use timeways_story::input::{Input, MessageId};
 use timeways_story::pack::{Link, Origin, Pack, Passage};
@@ -179,7 +179,7 @@ fn stormwind() -> Passage {
 }
 
 /// A human paladin with the lore of Testvale and Stormwind, and AI as `ai`.
-fn story_with_lore(name: &str, ai: HelloAi) -> Story {
+fn story_with_lore(name: &str, ai: AiWord) -> Story {
     let path = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("ai-{name}.sqlite"));
     let _ = std::fs::remove_file(&path);
     Pack::write(&path, &[tower(), stormwind()]).unwrap();
@@ -242,7 +242,7 @@ fn has_model_call(outputs: &[Output]) -> bool {
 
 #[test]
 fn with_ai_off_a_lore_question_gets_its_passages_at_once() {
-    let mut story = story_with_lore("lore", HelloAi::Off);
+    let mut story = story_with_lore("lore", AiWord::Off);
     enter(&mut story, 10, "Testvale");
 
     let outputs = story
@@ -262,7 +262,7 @@ fn with_ai_off_a_lore_question_gets_its_passages_at_once() {
 
 #[test]
 fn with_ai_off_a_talk_gets_no_words_and_still_meets_the_npc() {
-    let mut story = story_with_lore("talk", HelloAi::Off);
+    let mut story = story_with_lore("talk", AiWord::Off);
 
     let outputs = story
         .handle(Input::TalkAsked {
@@ -286,7 +286,7 @@ fn with_ai_off_a_talk_gets_no_words_and_still_meets_the_npc() {
 
 #[test]
 fn with_ai_off_a_quest_request_asks_no_model() {
-    let mut story = story_with_lore("quest", HelloAi::Off);
+    let mut story = story_with_lore("quest", AiWord::Off);
     story
         .handle(Input::NpcMet {
             at: Tick(40),
@@ -308,7 +308,7 @@ fn with_ai_off_a_quest_request_asks_no_model() {
 
 #[test]
 fn with_ai_off_a_draft_request_gets_no_draft_at_once() {
-    let mut story = story_with_lore("draft", HelloAi::Off);
+    let mut story = story_with_lore("draft", AiWord::Off);
 
     let outputs = story
         .handle(Input::DraftAsked {
@@ -328,7 +328,7 @@ fn with_ai_off_a_draft_request_gets_no_draft_at_once() {
 
 #[test]
 fn with_ai_off_a_big_moment_gets_no_line() {
-    let mut story = story_with_lore("moment", HelloAi::Off);
+    let mut story = story_with_lore("moment", AiWord::Off);
     level(&mut story, 1, 19);
     level(&mut story, 2, 20);
 
@@ -339,7 +339,7 @@ fn with_ai_off_a_big_moment_gets_no_line() {
 
 #[test]
 fn with_ai_off_the_narrator_spends_no_budget() {
-    let mut story = story_with_lore("budget", HelloAi::Off);
+    let mut story = story_with_lore("budget", AiWord::Off);
     for (batch, zone) in [
         (1, "Testvale"),
         (2, "Elwynn Forest"),
@@ -350,7 +350,7 @@ fn with_ai_off_the_narrator_spends_no_budget() {
         assert!(!has_model_call(&batch_end(&mut story, batch)));
     }
 
-    story.handle(Input::Hello { ai: HelloAi::On }).unwrap();
+    story.handle(Input::Hello { ai: AiWord::On }).unwrap();
     enter(&mut story, 50, "Redridge Mountains");
     let outputs = batch_end(&mut story, 5);
 
@@ -359,10 +359,10 @@ fn with_ai_off_the_narrator_spends_no_budget() {
 
 #[test]
 fn with_ai_off_the_moments_of_a_batch_never_wait_for_a_later_one() {
-    let mut story = story_with_lore("moments-go", HelloAi::Off);
+    let mut story = story_with_lore("moments-go", AiWord::Off);
     enter(&mut story, 10, "Testvale");
     batch_end(&mut story, 1);
-    story.handle(Input::Hello { ai: HelloAi::On }).unwrap();
+    story.handle(Input::Hello { ai: AiWord::On }).unwrap();
 
     let outputs = batch_end(&mut story, 2);
 
@@ -381,7 +381,7 @@ fn journal_page(story: &mut Story) -> Value {
 
 #[test]
 fn a_bridge_with_ai_off_gets_no_model_call_for_a_question() {
-    let story = story_with_lore("bridge", HelloAi::On);
+    let story = story_with_lore("bridge", AiWord::On);
     let mut bridge = FakeBridge::new(story).with_ai_off();
     let question = r#"{"type":"lore_asked","at":10,"question":"Why did the tower fall?"}"#;
 
@@ -399,8 +399,107 @@ fn with_ai_off_a_draft_with_no_character_fails_as_with_ai_on() {
     };
     let mut on = story();
     let mut off = story();
-    off.handle(Input::Hello { ai: HelloAi::Off }).unwrap();
+    off.handle(Input::Hello { ai: AiWord::Off }).unwrap();
 
     assert!(on.handle(ask()).is_err());
     assert!(off.handle(ask()).is_err());
+}
+
+// The addon says AI off with its own line. The bridge does not send `ai`.
+
+const ADDON_AI_OFF: &str = r#"{"type":"ai_set","ai":"off","id":4}"#;
+const ADDON_AI_ON: &str = r#"{"type":"ai_set","ai":"on","id":5}"#;
+
+#[test]
+fn ai_is_on_before_the_addon_says_anything() {
+    assert_eq!(story().ai(), Ai::On);
+}
+
+#[test]
+fn the_addon_turns_ai_off_and_on_again_with_its_line() {
+    let mut story = story();
+
+    let off = send(&mut story, ADDON_AI_OFF);
+    let after_off = story.ai();
+    let on = send(&mut story, ADDON_AI_ON);
+
+    assert_eq!((off.lines.len(), off.error), (0, None));
+    assert_eq!(after_off, Ai::Off);
+    assert_eq!((on.lines.len(), on.error), (0, None));
+    assert_eq!(story.ai(), Ai::On);
+}
+
+#[test]
+fn the_journal_says_ai_is_off_after_the_addon_turned_it_off() {
+    let mut story = story();
+
+    send(&mut story, ADDON_AI_OFF);
+
+    assert_eq!(journal(&mut story)["ai"], json!("off"));
+}
+
+#[test]
+fn an_unknown_ai_word_of_the_addon_keeps_ai_on() {
+    let mut story = story();
+
+    let served = send(&mut story, r#"{"type":"ai_set","ai":"maybe","id":4}"#);
+
+    assert_eq!(served.error, None);
+    assert_eq!(served.notes.len(), 1);
+    assert_eq!(story.ai(), Ai::On);
+}
+
+#[test]
+fn off_from_any_source_wins() {
+    let mut hello_off = story();
+    send(&mut hello_off, HELLO_AI_OFF);
+    send(&mut hello_off, ADDON_AI_ON);
+    let mut dev_off = story();
+    dev_off.set_dev_mode(DevMode::On);
+    dev_off.set_dev_ai(Ai::Off);
+    send(&mut dev_off, ADDON_AI_ON);
+    let mut addon_off = story();
+    let hello_on = r#"{"type":"hello","protocol":1,"app":"timeways","ai":"on"}"#;
+    send(&mut addon_off, hello_on);
+    send(&mut addon_off, ADDON_AI_OFF);
+
+    assert_eq!(hello_off.ai(), Ai::Off);
+    assert_eq!(dev_off.ai(), Ai::Off);
+    assert_eq!(addon_off.ai(), Ai::Off);
+}
+
+/// A batch whose big moment asks the narrator while AI is on.
+fn level_twenty_batch(ai_line: &str) -> String {
+    let events = [
+        r#"{"type":"character_described","at":1,"race":"Human","class":"PALADIN"}"#,
+        r#"{"type":"zone_entered","at":10,"zone":"Testvale","subzone":null}"#,
+        r#"{"type":"level_reached","at":20,"level":19}"#,
+        r#"{"type":"level_reached","at":30,"level":20}"#,
+    ];
+    format!("{CHARACTER}\n{ai_line}{}", events.join("\n"))
+}
+
+fn model_calls_of(batch: &str, name: &str) -> usize {
+    let calls = std::rc::Rc::new(std::cell::Cell::new(0));
+    let counted = calls.clone();
+    let story = story_with_lore(name, AiWord::On);
+    let mut bridge = FakeBridge::new(story).with_model(Box::new(move |_| {
+        counted.set(counted.get() + 1);
+        None
+    }));
+
+    let reply = bridge.batch(batch);
+
+    assert!(matches!(reply, Reply::Done(_)), "{reply:?}");
+    calls.get()
+}
+
+#[test]
+fn the_first_batch_after_login_opens_no_model_call_when_the_addon_says_off() {
+    let with_ai_on = model_calls_of(&level_twenty_batch(""), "first-batch-on");
+    let ai_off = "{\"type\":\"ai_set\",\"ai\":\"off\"}\n";
+    let with_ai_off = model_calls_of(&level_twenty_batch(ai_off), "first-batch-off");
+
+    assert!(with_ai_on > 0);
+    assert_eq!(with_ai_off, 0);
 }

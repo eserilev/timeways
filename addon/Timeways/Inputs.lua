@@ -23,6 +23,11 @@ function Inputs.Character(realm, name)
 	return { type = "character_entered", realm = realm, name = name }
 end
 
+-- `word` is "on" or "off" (GAMEPLAY.md 5.6).
+function Inputs.AiSet(word)
+	return { type = "ai_set", ai = word }
+end
+
 -- The file tokens of the race and the class, which no language changes: "Scourge",
 -- "WARLOCK". The narrator calls you by them (GAMEPLAY.md 3.2.1).
 function Inputs.Described(at, race, class)

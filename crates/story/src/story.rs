@@ -1,6 +1,6 @@
 //! One input in, and the outputs for it out (GAMEPLAY.md 3.1, 5.2, and 5.6).
 
-use crate::ai::{Ai, HelloAi};
+use crate::ai::{Ai, AiWord};
 use crate::aliases::AliasRow;
 use crate::atlas_lore::lore_of;
 use crate::best_of_two::Round;
@@ -363,6 +363,8 @@ pub struct Story {
     dev_mode: DevMode,
     /// What the hello of the bridge said.
     bridge_ai: Ai,
+    /// What the newest `ai_set` of the addon said in this run.
+    addon_ai: Ai,
     /// The dev switch in `settings.toml`. It counts only in dev mode.
     dev_ai: Ai,
     /// The run of `/twdev smoke` whose log is open.
@@ -403,6 +405,7 @@ impl Story {
             told_shape: None,
             dev_mode: DevMode::Off,
             bridge_ai: Ai::On,
+            addon_ai: Ai::On,
             dev_ai: Ai::On,
             smoke: None,
         }
@@ -421,13 +424,14 @@ impl Story {
         self.dev_ai = ai;
     }
 
-    /// The dev switch can turn AI off, never on: the bridge has no model to run then.
+    /// Off from any source wins: the addon, the hello, or the dev switch in dev mode.
     #[must_use]
     pub fn ai(&self) -> Ai {
-        if self.dev_mode.is_on() && self.dev_ai == Ai::Off {
+        let dev_off = self.dev_mode.is_on() && self.dev_ai == Ai::Off;
+        if dev_off || self.addon_ai == Ai::Off || self.bridge_ai == Ai::Off {
             return Ai::Off;
         }
-        self.bridge_ai
+        Ai::On
     }
 
     /// A line of the program for the next answer of any kind, such as "Lore is ready.".
@@ -562,13 +566,22 @@ impl Story {
     fn dispatch(&mut self, input: Input) -> Result<Vec<Output>, StoryError> {
         match input {
             Input::Hello { ai } => {
-                if let HelloAi::Unknown(word) = &ai {
+                if let AiWord::Unknown(word) = &ai {
                     self.notes.push(format!(
                         "the hello has an unknown ai word {word}: AI stays on"
                     ));
                 }
                 self.bridge_ai = ai.ai();
                 Ok(vec![Output::Hello { protocol: PROTOCOL }])
+            }
+            Input::AiSet { ai } => {
+                if let AiWord::Unknown(word) = &ai {
+                    self.notes.push(format!(
+                        "the addon sent an unknown ai word {word}: AI stays on"
+                    ));
+                }
+                self.addon_ai = ai.ai();
+                Ok(Vec::new())
             }
             Input::CharacterEntered { realm, name } => {
                 self.enter_character(&realm, &name)?;

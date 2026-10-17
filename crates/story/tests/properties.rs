@@ -15,7 +15,7 @@ use timeways_rules::narrator_shapes::WINDOW;
 use timeways_rules::outcomes::{DependsOn, PlayerFacts, outcome_usable};
 use timeways_rules::setups::{self, setup_usable};
 use timeways_rules::spoiler::{LinkTo, WorldFacts, passage_usable};
-use timeways_story::ai::HelloAi;
+use timeways_story::ai::AiWord;
 use timeways_story::aliases::{
     AliasRow, MAX_PLAYER_NAME_BYTES, alias_of, key_of, knows_every_id, plain_joined, text_pieces,
     typed_for_model, unmarked, with_names, without_names,
@@ -671,6 +671,22 @@ fn quest_answer(steps: &[TaskStep]) -> String {
     serde_json::json!({ "title": "A Task", "genre": "errand", "text": "I need you to go.", "steps": steps }).to_string()
 }
 
+/// Who says AI is off: the hello of the bridge, or the `ai_set` line of the addon.
+#[derive(Clone, Copy, Debug)]
+enum AiOffBy {
+    Hello,
+    Addon,
+}
+
+impl AiOffBy {
+    fn input(self) -> Input {
+        match self {
+            AiOffBy::Hello => Input::Hello { ai: AiWord::Off },
+            AiOffBy::Addon => Input::AiSet { ai: AiWord::Off },
+        }
+    }
+}
+
 /// Every play, a draft for "Help me write", and a `/lore` question can ask a model.
 fn ai_off_play() -> impl Strategy<Value = Play> {
     prop_oneof![
@@ -1291,10 +1307,13 @@ proptest! {
     }
 
     #[test]
-    fn with_ai_off_no_input_ever_opens_a_model_call(plays in prop::collection::vec(ai_off_play(), 0..80)) {
+    fn with_ai_off_no_input_ever_opens_a_model_call(
+        ai_off in prop_oneof![Just(AiOffBy::Hello), Just(AiOffBy::Addon)],
+        plays in prop::collection::vec(ai_off_play(), 0..80),
+    ) {
         let folder = fresh("ai-off");
         let mut story = story(&folder, Store::Folder(folder.clone()));
-        story.handle(Input::Hello { ai: HelloAi::Off }).unwrap();
+        story.handle(ai_off.input()).unwrap();
 
         let outputs = play_each_batch(&mut story, &plays);
         drop(story);

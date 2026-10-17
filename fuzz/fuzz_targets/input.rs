@@ -1,7 +1,7 @@
 //! Random lines from the bridge. No line ends the program, the bridge takes every line that
 //! comes out, and each request gets exactly one answer. Dev mode is off, so every line with
-//! a `dev` key is refused (TESTING.md, "Dev mode"). After a hello with AI off, no line
-//! opens a model call (GAMEPLAY.md 5.6).
+//! a `dev` key is refused (TESTING.md, "Dev mode"). After a hello or an `ai_set` with AI
+//! off, no line opens a model call (GAMEPLAY.md 5.6).
 
 #![no_main]
 

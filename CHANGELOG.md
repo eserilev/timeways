@@ -11,4 +11,5 @@ The first release.
 - Give a quest to a friend who also plays with Timeways.
 - Tell a story about someone in your group with `/story`. They choose to keep it.
 - An NPC's tooltip says why its trust in you changed.
+- Rather play without AI? Type `/timeways ai off`. Your chronicle and quests from friends still work.
 - Timeways needs its desktop app, Gnomish Relay. Type `/timeways help` for the setup steps.
