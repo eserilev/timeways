@@ -162,6 +162,17 @@ name of each line in turn, with the model of `learn`. The story program
 does the same: `AliasLog::learn` calls `learn` once for each new name.
 `learn.spec` and `learn_all.spec` tie the model to the Rust.
 
+The open builds the table from the stored rows without `learn`
+(`AliasLog::from_stored`). A row that does not read, a missing position,
+and a row whose key an earlier row holds keep their places. Each of them
+gets a key of its own: it holds the position, a digit, and spaces, so it
+matches no word and no other place. So no two places of the opened table
+share a key. The property test
+`an_opened_alias_table_never_puts_one_key_at_two_places` checks it, and
+`learnP_distinct` and `learnAllP_distinct` keep it for every later line.
+So `two_names_never_share_an_id`, which starts from an empty table, holds
+for an opened table too.
+
 | Theorem | The law | Test |
 |---|---|---|
 | `an_id_is_never_reused` | After any sequence of lines, each place of the table holds the player that it held before. A new player goes only at the end. | `an_alias_is_never_reused_over_any_lines` |

@@ -538,9 +538,9 @@ impl AliasLog {
     fn from_places(places: Vec<Option<(AliasRow, Alias)>>) -> AliasLog {
         let mut rows = Vec::with_capacity(places.len());
         let mut table = Vec::with_capacity(places.len());
-        for place in places {
+        for (position, place) in places.into_iter().enumerate() {
             let (row, alias) =
-                place.unwrap_or_else(|| (AliasRow::named(""), aliases::unread_alias()));
+                place.unwrap_or_else(|| (AliasRow::named(""), aliases::unread_alias(position)));
             rows.push(row);
             table.push(alias);
         }

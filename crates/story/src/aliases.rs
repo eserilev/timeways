@@ -19,8 +19,8 @@ pub const MAX_PLAYER_NAME_BYTES: usize = 48;
 /// file makes one.
 const UNKNOWN_PLAYER: &str = "someone";
 
-/// The key of a row that this program cannot read (`unread_alias`).
-const UNREAD_KEY: &str = "an unread row";
+/// The start of the key of a row that this program cannot read (`unread_alias`).
+const UNREAD_KEY: &str = "unread row ";
 
 /// One row of the `aliases` table: a player, with the race and the class that the game
 /// showed when the table learned the name. The row's position is the ID.
@@ -137,12 +137,13 @@ pub fn alias_of_row(row: &AliasRow) -> Option<Alias> {
     })
 }
 
-/// The place of a row that this program cannot read. A key with spaces never matches a
-/// word, so the ID stays taken and shows as an unknown player.
+/// The place of a row that this program cannot read. The ID stays taken, and shows as an
+/// unknown player. The key holds the position, a digit, and spaces, so no word, no name,
+/// and no other place has it, and no two places of the table share a key.
 #[must_use]
-pub fn unread_alias() -> Alias {
+pub fn unread_alias(position: usize) -> Alias {
     Alias {
-        key: UNREAD_KEY.to_string(),
+        key: format!("{UNREAD_KEY}{position}"),
         shown: UNKNOWN_PLAYER.to_string(),
     }
 }
@@ -820,9 +821,11 @@ pub fn with_names(table: &[Alias], text: &str) -> String {
 /// player, and an unread row names none.
 #[must_use]
 pub fn knows_every_id(table: &[Alias], text: &str) -> bool {
-    ids_in(text)
-        .iter()
-        .all(|id| table.get(id.0).is_some_and(|alias| alias.key != UNREAD_KEY))
+    ids_in(text).iter().all(|id| {
+        table
+            .get(id.0)
+            .is_some_and(|alias| !alias.key.starts_with(UNREAD_KEY))
+    })
 }
 
 #[cfg(test)]
@@ -1211,12 +1214,12 @@ mod tests {
 
     #[test]
     fn a_model_cannot_name_a_row_that_did_not_read() {
-        let table = vec![unread_alias(), alias_of("Bob").unwrap()];
+        let table = vec![unread_alias(0), alias_of("Bob").unwrap()];
 
         assert!(!knows_every_id(&table, "{P1} waits"));
         assert!(knows_every_id(&table, "{P2} waits"));
         assert_eq!(with_names(&table, "{P1} and {P2}"), "someone and Bob");
-        assert_eq!(without_names(&table, "an unread row"), "an unread row");
+        assert_eq!(without_names(&table, "unread row 0"), "unread row 0");
     }
 
     #[test]

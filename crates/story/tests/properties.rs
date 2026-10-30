@@ -69,8 +69,8 @@ use timeways_story::sentences::{sentences, word_count};
 use timeways_story::spoiler::{outcome_allowed, setup_allowed};
 use timeways_story::spot::{MAP_IDS, Spot, THOUSANDTHS, spot_of};
 use timeways_story::store::{
-    CallEnd, CharacterKey, Database, Line, NewCall, Node, Outcome, PROMPTS_KEPT, Root, RowLog,
-    Store, Table, name_of_safe_id, safe_id,
+    AliasLog, CallEnd, CharacterKey, Database, Line, NewCall, Node, Outcome, PROMPTS_KEPT, Root,
+    RowLog, Store, Table, name_of_safe_id, safe_id,
 };
 use timeways_story::story::{Output, Story};
 use timeways_story::vocabulary::{
@@ -2443,6 +2443,46 @@ fn typed_hero(marked: &str) -> (String, Vec<String>) {
 fn marked_words() -> impl Strategy<Value = String> {
     let part = prop_oneof![player_mark(), "[a-z]{1,6}"];
     prop::collection::vec(part, 1..8).prop_map(|parts| parts.join(" "))
+}
+
+/// A stored alias row as another program or an older key can leave it: a name, the same
+/// name in another case or spelling, a surname, a common word, or no row at all.
+fn stored_alias_body() -> impl Strategy<Value = String> {
+    prop::sample::select(vec![
+        r#"{"name":"Corvin"}"#,
+        r#"{"name":"CORVIN"}"#,
+        r#"{"name":"Οδυσσευς"}"#,
+        r#"{"name":"Οδυσσευσ"}"#,
+        r#"{"name":"Bob"}"#,
+        r#"{"name":"Her"}"#,
+        r#"{"name":"Will","surname_of":"Bob"}"#,
+        r#"{"name":"P7"}"#,
+        r#"{"name":""}"#,
+        "no json",
+    ])
+    .prop_map(String::from)
+}
+
+proptest! {
+    #![proptest_config(ProptestConfig::with_cases(256))]
+
+    /// GAMEPLAY.md 5.11: the open gives each place its own key, so the Lean law
+    /// `two_names_never_share_an_id` holds from the opened table on, also with damage.
+    #[test]
+    fn an_opened_alias_table_never_puts_one_key_at_two_places(
+        stored in prop::collection::btree_map(0i64..12, stored_alias_body(), 0..10),
+        later in prop::collection::vec(alias_name(), 0..5),
+    ) {
+        let mut log = AliasLog::from_stored(stored.into_iter().collect());
+        for name in &later {
+            log.learn(&AliasRow::named(name)).unwrap();
+        }
+
+        let keys: std::collections::BTreeSet<&String> =
+            log.table().iter().map(|alias| &alias.key).collect();
+        prop_assert_eq!(keys.len(), log.table().len());
+        prop_assert_eq!(log.rows().len(), log.table().len());
+    }
 }
 
 proptest! {
