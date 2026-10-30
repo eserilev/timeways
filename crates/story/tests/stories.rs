@@ -583,6 +583,69 @@ fn a_player_keeps_the_same_id_after_a_reopen() {
     assert_eq!(stored_bodies(&folder, "aliases").len(), 2);
 }
 
+/// The prompt of a quest draft, where your own addon marks the players that it knows.
+fn draft_prompt(story: &mut Story, idea: &str) -> String {
+    let asked = Input::DraftAsked {
+        id: MessageId(9),
+        at: Tick(30),
+        idea: idea.to_string(),
+    };
+    match story.handle(asked).unwrap().remove(0) {
+        Output::ModelCall { prompt, .. } => prompt,
+        other => panic!("no call: {other:?}"),
+    }
+}
+
+#[test]
+fn a_name_that_a_story_taught_shares_its_row_with_your_own_marks_and_its_realm() {
+    let folder = fresh_folder("shared-row");
+    let mut story = story(&folder);
+    accept(&mut story, 1, "{Lysara} came.").unwrap();
+
+    let prompt = draft_prompt(&mut story, "help {Lysara} and Lysara-X");
+    drop(story);
+
+    assert!(prompt.contains("help {P1} and {P1}"), "{prompt}");
+    assert_eq!(stored_bodies(&folder, "aliases").len(), 1);
+}
+
+#[test]
+fn removing_a_story_unlearns_none_of_its_names() {
+    let folder = fresh_folder("remove-keeps-names");
+    let mut story = story(&folder);
+    accept(&mut story, 1, "{Corvin} came.").unwrap();
+    remove(&mut story, 1).unwrap();
+
+    accept(&mut story, 2, "{Bob} came.").unwrap();
+    let prompt = draft_prompt(&mut story, "help Corvin");
+    drop(story);
+
+    assert!(prompt.contains("help {P1}"), "{prompt}");
+    let bodies = stored_bodies(&folder, "stories");
+    assert!(
+        bodies.iter().any(|body| body.contains("{P2} came.")),
+        "{bodies:?}"
+    );
+    assert_eq!(stored_bodies(&folder, "aliases").len(), 2);
+}
+
+#[test]
+fn thirty_two_keys_teach_at_most_sixty_four_rows() {
+    let folder = fresh_folder("sixty-four");
+    let mut story = story(&folder);
+    let marks: Vec<String> = (0..32u8)
+        .map(|n| {
+            let letters = format!("{}{}", char::from(b'a' + n / 26), char::from(b'a' + n % 26));
+            format!("{{Q{letters}-Z{letters}}} {{~Q{letters}-Z{letters}}}")
+        })
+        .collect();
+
+    accept(&mut story, 1, &marks.join(" ")).unwrap();
+    drop(story);
+
+    assert_eq!(stored_bodies(&folder, "aliases").len(), 64);
+}
+
 #[test]
 fn a_refused_story_gives_no_player_an_id() {
     let folder = fresh_folder("refused-ids");
