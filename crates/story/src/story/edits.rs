@@ -2,8 +2,9 @@
 //! edit that changes something, the text that each entry shows, and the telling that a
 //! model reads. An edit is no event, so the chapters and the tales never see it.
 
+use super::aliases::Learned;
 use super::{Active, Output, Story, StoryError, aliases};
-use crate::aliases::{Marked, for_matching, unmarked, with_names};
+use crate::aliases::{Marked, NO_ROOM_TO_SAVE, for_matching, unmarked, with_names};
 use crate::entry_edits::{
     EditText, EditView, EntryEdit, EntryKey, EntryKind, REFUSED, changes_nothing, is_good_edit,
     shown,
@@ -49,7 +50,10 @@ impl Story {
             .chain(&marked)
             .flat_map(|marked| marked.names.iter().cloned())
             .collect();
-        aliases::learn_names(active, &names)?;
+        if let Learned::NoRoom = aliases::learn_names(active, &names)? {
+            active.edit_refused = Some(NO_ROOM_TO_SAVE.to_string());
+            return Ok(Vec::new());
+        }
         let edit = EntryEdit {
             title: cleaned_title.map(|text| aliases::ids_of_marked(active, &text)),
             paragraphs: cleaned

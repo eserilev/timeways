@@ -1,8 +1,11 @@
 //! "Help me write this" in the story program (GAMEPLAY.md 4.7): the idea of a player goes
 //! to a model with what the world knows, and the checked draft goes back.
 
+use super::aliases::Learned;
 use super::{Active, Pending, Story, StoryError, aliases, reads};
-use crate::aliases::{for_matching, ids_in, knows_every_id, unmarked, with_names};
+use crate::aliases::{
+    NO_ROOM_TO_WRITE, for_matching, ids_in, knows_every_id, unmarked, with_names,
+};
 use crate::character::Character;
 use crate::draft::{self, Draft, Known, MAX_TEXT_BYTES, MAX_TITLE_BYTES};
 use crate::input::MessageId;
@@ -25,7 +28,9 @@ impl Story {
         if !ai.is_on() {
             return Ok(vec![draft_answer(id, None)]);
         }
-        aliases::learn_names(active, &marked.names)?;
+        if let Learned::NoRoom = aliases::learn_names(active, &marked.names)? {
+            return Ok(vec![no_room_answer(id)]);
+        }
         let idea = aliases::marked_for_model(active, cleaned.trim());
         let cards = active.aliases.cards(&idea);
         let known = known(active);
@@ -77,6 +82,14 @@ fn with_player_names(active: &Active, draft: Draft) -> Option<Draft> {
         text,
         steps: draft.steps,
     })
+}
+
+fn no_room_answer(id: MessageId) -> Output {
+    Output::DraftAnswer {
+        id,
+        draft: None,
+        notice: Some(NO_ROOM_TO_WRITE.to_string()),
+    }
 }
 
 pub(super) fn draft_answer(id: MessageId, draft: Option<Draft>) -> Output {

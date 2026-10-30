@@ -10,13 +10,24 @@ impl Story {
     /// A text that is no player name is refused, and its input stays.
     pub(super) fn describe_player(&mut self, row: &AliasRow) -> Result<Vec<Output>, StoryError> {
         let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
-        active.aliases.learn(row)?.ok_or(StoryError::BadName)?;
-        Ok(Vec::new())
+        aliases::alias_of_row(row).ok_or(StoryError::BadName)?;
+        match learn_rows(active, std::slice::from_ref(row))? {
+            Learned::Every => Ok(Vec::new()),
+            Learned::NoRoom => Err(StoryError::NoRoomForPlayers),
+        }
     }
 }
 
+/// What a line taught the table.
+pub(super) enum Learned {
+    /// Each name of the line has an ID.
+    Every,
+    /// The new names do not all fit, so the line learned none, and is refused.
+    NoRoom,
+}
+
 /// Learns the names that the addon marked, as "First-Surname" or "First".
-pub(super) fn learn_names(active: &mut Active, marked: &[String]) -> Result<(), StoreError> {
+pub(super) fn learn_names(active: &mut Active, marked: &[String]) -> Result<Learned, StoreError> {
     let mut rows = Vec::new();
     for name in marked {
         rows.extend(rows_of_player(active.key.name(), name));
@@ -25,14 +36,14 @@ pub(super) fn learn_names(active: &mut Active, marked: &[String]) -> Result<(), 
 }
 
 /// All the rows or none: a line that does not fit the table gives no name an ID.
-fn learn_rows(active: &mut Active, rows: &[AliasRow]) -> Result<(), StoreError> {
+fn learn_rows(active: &mut Active, rows: &[AliasRow]) -> Result<Learned, StoreError> {
     if !active.aliases.has_room_for(rows) {
-        return Err(StoreError::FullAliasTable);
+        return Ok(Learned::NoRoom);
     }
     for row in rows {
         active.aliases.learn(row)?;
     }
-    Ok(())
+    Ok(Learned::Every)
 }
 
 /// The first name of "First-Surname", and its surname as a row of its own. The character
@@ -55,7 +66,7 @@ pub(super) fn learn_players(
     active: &mut Active,
     text: &str,
     players: &[String],
-) -> Result<(), StoreError> {
+) -> Result<Learned, StoreError> {
     let text = aliases::for_matching(text);
     let words: Vec<String> = aliases::words_in(&text).map(aliases::key_of).collect();
     let mut rows = Vec::new();

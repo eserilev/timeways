@@ -1,7 +1,7 @@
 //! One input in, and the outputs for it out (GAMEPLAY.md 3.1, 5.2, and 5.6).
 
 use crate::ai::{Ai, AiWord};
-use crate::aliases::{AliasRow, MAX_NAMES};
+use crate::aliases::{AliasRow, MAX_NAMES, NO_ROOM_TO_SAVE};
 use crate::atlas_lore::lore_of;
 use crate::best_of_two::Round;
 use crate::chapters::{self, Book};
@@ -65,6 +65,7 @@ pub mod why;
 mod zone_histories;
 
 use active::{Active, Kept};
+use aliases::Learned;
 use calls::{OpenCall, Pending, TalkCall};
 use quests::QuestRequest;
 
@@ -258,6 +259,8 @@ pub enum StoryError {
     BadStory,
     #[error("a story with the number {0} came before")]
     StoryTaken(u64),
+    #[error("the new players of the line do not fit the alias table")]
+    NoRoomForPlayers,
     #[error("no story with the number {0} stands")]
     NoStory(u64),
     #[error("the story with the number {0} is part of the story now, so it stays")]
@@ -1176,7 +1179,9 @@ impl Story {
                 Err(reason) => return self.refuse_hero(reason),
             }
         };
-        self.learn_hero_names(&text, names)?;
+        if let Learned::NoRoom = self.learn_hero_names(&text, names)? {
+            return self.refuse_hero(NO_ROOM_TO_SAVE.to_string());
+        }
         self.hero_change(Change::Set { at, field, text })?;
         Ok(Vec::new())
     }
@@ -1196,7 +1201,9 @@ impl Story {
             Ok(text) => text,
             Err(reason) => return self.refuse_hero(reason),
         };
-        self.learn_hero_names(&text, names)?;
+        if let Learned::NoRoom = self.learn_hero_names(&text, names)? {
+            return self.refuse_hero(NO_ROOM_TO_SAVE.to_string());
+        }
         let active = self.active.as_ref().ok_or(StoryError::NoCharacter)?;
         let number = hero::next_number(active.hero.changes());
         let place = active
@@ -1216,10 +1223,9 @@ impl Story {
 
     /// The sheet keeps the names as the player typed them, and the table swaps them for a
     /// model (`aliases::hero_for_model`).
-    fn learn_hero_names(&mut self, text: &str, names: &[String]) -> Result<(), StoryError> {
+    fn learn_hero_names(&mut self, text: &str, names: &[String]) -> Result<Learned, StoryError> {
         let active = self.active.as_mut().ok_or(StoryError::NoCharacter)?;
-        aliases::learn_players(active, text, names)?;
-        Ok(())
+        Ok(aliases::learn_players(active, text, names)?)
     }
 
     fn hero_change(&mut self, change: Change) -> Result<(), StoryError> {

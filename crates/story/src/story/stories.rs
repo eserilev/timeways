@@ -1,9 +1,11 @@
 //! Player stories in the story program (GAMEPLAY.md 4.8): an accepted story is a row with
 //! the proof of another player, and the player removes it only while nothing used it.
 
+use super::aliases::Learned;
 use super::{Active, Output, Story, StoryError, aliases};
 use crate::aliases::{
-    MAX_NAMES, Marked, for_matching, other_players, unlikely_marks_as_words, unmarked, with_names,
+    MAX_NAMES, Marked, NO_ROOM_FOR_STORY, for_matching, other_players, unlikely_marks_as_words,
+    unmarked, with_names,
 };
 use crate::store::{Node, StoreError, Table};
 use crate::stories::{PlayerStory, ShelfLine, StoryChange, is_good_story, lands, standing};
@@ -60,7 +62,10 @@ impl Story {
             .chain(&paragraphs)
             .flat_map(|marked| marked.names.iter().cloned())
             .collect();
-        aliases::learn_names(active, &names)?;
+        if let Learned::NoRoom = aliases::learn_names(active, &names)? {
+            self.notice = Some(NO_ROOM_FOR_STORY.to_string());
+            return Err(StoryError::NoRoomForPlayers);
+        }
         let accepted = StoryChange::Accepted {
             number,
             at,

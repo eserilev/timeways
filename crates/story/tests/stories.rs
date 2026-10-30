@@ -6,6 +6,7 @@ use hourglass::Tick;
 use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
+use timeways_story::aliases::{NO_ROOM_FOR_STORY, NO_ROOM_TO_SAVE, NO_ROOM_TO_WRITE};
 use timeways_story::input::{Input, MessageId};
 use timeways_story::pack::Pack;
 use timeways_story::store::{
@@ -837,6 +838,78 @@ fn a_line_refused_by_a_full_table_gives_no_name_an_id() {
     assert!(refused.is_err(), "{refused:?}");
     assert_eq!(stored_bodies(&folder, "aliases").len(), 2);
     assert_eq!(stored_bodies(&folder, "stories").len(), 1);
+}
+
+fn journal_answer(story: &mut Story) -> Output {
+    let asked = Input::JournalAsked {
+        id: MessageId(2),
+        page: 0,
+    };
+    story.handle(asked).unwrap().remove(0)
+}
+
+#[test]
+fn a_full_table_refuses_a_story_and_says_why_on_the_next_answer() {
+    let folder = nearly_full("full-story");
+    let mut story = story(&folder);
+
+    let refused = accept(&mut story, 2, "{Zqan} and {Yrel} came.");
+    let answer = journal_answer(&mut story);
+
+    assert!(
+        matches!(refused, Err(StoryError::NoRoomForPlayers)),
+        "{refused:?}"
+    );
+    let Output::Journal { notice, .. } = answer else {
+        panic!("expected a journal, got {answer:?}");
+    };
+    assert_eq!(notice.as_deref(), Some(NO_ROOM_FOR_STORY));
+}
+
+#[test]
+fn a_full_table_refuses_a_hero_text_and_the_journal_says_why() {
+    let folder = nearly_full("full-hero");
+    let mut story = story(&folder);
+
+    let kept = story.handle(Input::HeroSet {
+        at: Tick(30),
+        field: "origin".to_string(),
+        text: "Zqan and Yrel raised me.".to_string(),
+        names: vec!["Zqan".to_string(), "Yrel".to_string()],
+    });
+    let answer = journal_answer(&mut story);
+    drop(story);
+
+    assert!(kept.is_ok(), "{kept:?}");
+    let Output::Journal { page, .. } = answer else {
+        panic!("expected a journal, got {answer:?}");
+    };
+    assert_eq!(page.journal.hero_refused.as_deref(), Some(NO_ROOM_TO_SAVE));
+    assert_eq!(stored_bodies(&folder, "hero"), Vec::<String>::new());
+    assert_eq!(stored_bodies(&folder, "aliases").len(), 2);
+}
+
+#[test]
+fn a_full_table_writes_no_draft_and_says_why() {
+    let folder = nearly_full("full-draft");
+    let mut story = story(&folder);
+
+    let answer = story
+        .handle(Input::DraftAsked {
+            id: MessageId(9),
+            at: Tick(30),
+            idea: "help {Zqan} and {Yrel}".to_string(),
+        })
+        .unwrap()
+        .remove(0);
+    drop(story);
+
+    let Output::DraftAnswer { draft, notice, .. } = answer else {
+        panic!("expected a draft answer, got {answer:?}");
+    };
+    assert!(draft.is_none());
+    assert_eq!(notice.as_deref(), Some(NO_ROOM_TO_WRITE));
+    assert_eq!(stored_bodies(&folder, "aliases").len(), 2);
 }
 
 #[test]

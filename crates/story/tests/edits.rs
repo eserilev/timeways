@@ -5,12 +5,13 @@
 
 use hourglass::Tick;
 use std::path::{Path, PathBuf};
+use timeways_story::aliases::NO_ROOM_TO_SAVE;
 use timeways_story::entry_edits::{EditText, EntryKey, EntryKind};
 use timeways_story::input::{CallId, Input, MessageId};
 use timeways_story::journal::{Chapter, Journal, pages};
 use timeways_story::pack::Pack;
 use timeways_story::reply_size::{MAX_LINE, MAX_SLOT, Size};
-use timeways_story::store::Store;
+use timeways_story::store::{MAX_ALIAS_PLACES, Store};
 use timeways_story::story::{Output, Story};
 
 const HOUR: u64 = 3600;
@@ -277,6 +278,48 @@ fn the_same_edit_again_writes_no_row_and_a_bad_edit_leaves_its_reason() {
 
     assert_eq!(journal.edits.len(), 1);
     assert!(journal.edit_refused.is_some());
+}
+
+/// The story of the folder again, with the table of its world full but for one place.
+fn reopened_nearly_full(name: &str) -> Story {
+    let folder = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("edits-{name}"));
+    let world = folder.join("worlds/r_Testrealm/c_Tester.sqlite");
+    let place = i64::try_from(MAX_ALIAS_PLACES).unwrap() - 2;
+    rusqlite::Connection::open(world)
+        .unwrap()
+        .execute(
+            "INSERT INTO aliases (position, body) VALUES (?1, '{\"name\":\"Bob\"}')",
+            [place],
+        )
+        .unwrap();
+    let pack = folder.join("pack.sqlite");
+    let mut story = Story::new(Pack::open(&pack).unwrap(), Store::Folder(folder));
+    let character = Input::CharacterEntered {
+        realm: "Testrealm".to_string(),
+        name: "Tester".to_string(),
+    };
+    story.handle(character).unwrap();
+    story
+}
+
+#[test]
+fn a_full_table_refuses_an_edit_and_the_journal_says_why() {
+    let mut story = started("full-table");
+    a_chapter_in_westfall(&mut story);
+    let (_, key) = first_chapter(&mut story);
+    drop(story);
+    let mut story = reopened_nearly_full("full-table");
+
+    edit(
+        &mut story,
+        key,
+        EditText::Keep,
+        &["{Zqan} and {Yrel} held the hill."],
+    );
+    let journal = journal(&mut story);
+
+    assert!(journal.edits.is_empty());
+    assert_eq!(journal.edit_refused.as_deref(), Some(NO_ROOM_TO_SAVE));
 }
 
 #[test]

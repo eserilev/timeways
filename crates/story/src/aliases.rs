@@ -19,6 +19,18 @@ pub const MAX_PLAYER_NAME_BYTES: usize = 48;
 /// file makes one.
 const UNKNOWN_PLAYER: &str = "someone";
 
+/// Why a hero text or an edit did not save: its new players do not fit the table.
+pub const NO_ROOM_TO_SAVE: &str =
+    "Couldn't save that: there's no room for more players. Take out the new names and try again.";
+
+/// Why "Help me write" wrote nothing: the new players of the idea do not fit the table.
+pub const NO_ROOM_TO_WRITE: &str =
+    "Couldn't write that: there's no room for more players. Take out the new names and try again.";
+
+/// Why an accepted story was not kept: its new players do not fit the table.
+pub const NO_ROOM_FOR_STORY: &str =
+    "Couldn't keep that story: there's no room for more players. Decline it.";
+
 /// The start of the key of a row that this program cannot read (`unread_alias`).
 const UNREAD_KEY: &str = "unread row ";
 
