@@ -147,6 +147,16 @@ pub fn unread_alias() -> Alias {
     }
 }
 
+/// The entry of a row whose key an earlier row holds. It keeps its name for the IDs of old
+/// texts, and a key with a digit and spaces, which no word and no other row has.
+#[must_use]
+pub fn repeated_alias(alias: Alias, position: usize) -> Alias {
+    Alias {
+        key: format!("repeated row {position}"),
+        ..alias
+    }
+}
+
 /// The key of a first name that is a common word, "her as a name": it never matches a word
 /// of the case-blind proved swap, and the surname pass swaps it only with a capital.
 fn capital_key(key: &str) -> String {

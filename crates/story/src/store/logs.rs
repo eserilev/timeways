@@ -506,8 +506,9 @@ pub struct AliasLog {
 
 impl AliasLog {
     /// The table from the stored rows, each with its position, as the open and the export
-    /// read it. A row that does not read, a second row of one name, and a missing position
-    /// keep their IDs, match no word, and show as an unknown player. No row goes, so an ID
+    /// read it. A row that does not read and a missing position keep their IDs, match no
+    /// word, and show as an unknown player. A row whose key an earlier row holds, as after
+    /// a change of `key_of`, keeps its ID and its name, and matches no word. No row goes, so an ID
     /// is never given twice. A position past `MAX_PLACES` ends the read, so a broken
     /// position never fills the memory.
     #[must_use]
@@ -522,19 +523,26 @@ impl AliasLog {
                 break;
             }
             places.resize_with(position.max(places.len()), || None);
-            let row = serde_json::from_str::<AliasRow>(&body).ok();
-            places.push(row.filter(|row| is_new_name(row, &mut seen)));
+            let place = stored_name(&body).map(|(row, alias)| {
+                if seen.insert(alias.key.clone()) {
+                    (row, alias)
+                } else {
+                    (row, aliases::repeated_alias(alias, position))
+                }
+            });
+            places.push(place);
         }
         AliasLog::from_places(places)
     }
 
-    fn from_places(places: Vec<Option<AliasRow>>) -> AliasLog {
+    fn from_places(places: Vec<Option<(AliasRow, Alias)>>) -> AliasLog {
         let mut rows = Vec::with_capacity(places.len());
         let mut table = Vec::with_capacity(places.len());
         for place in places {
-            let alias = place.as_ref().and_then(aliases::alias_of_row);
-            table.push(alias.unwrap_or_else(aliases::unread_alias));
-            rows.push(place.unwrap_or_else(|| AliasRow::named("")));
+            let (row, alias) =
+                place.unwrap_or_else(|| (AliasRow::named(""), aliases::unread_alias()));
+            rows.push(row);
+            table.push(alias);
         }
         let unsaved = Unsaved::after(rows.len());
         AliasLog {
@@ -608,11 +616,15 @@ impl AliasLog {
 /// names.
 const MAX_PLACES: usize = 1 << 20;
 
-/// A row that the alias table can hold: a name, and not one that a row before it holds.
-/// `seen` gathers the keys of the rows before.
-fn is_new_name(row: &AliasRow, seen: &mut std::collections::BTreeSet<String>) -> bool {
-    aliases::player_name(&row.name) == Some(row.name.as_str())
-        && aliases::alias_of_row(row).is_some_and(|alias| seen.insert(alias.key))
+/// A stored row that the alias table can hold, with its entry: a name as the game writes
+/// it.
+fn stored_name(body: &str) -> Option<(AliasRow, Alias)> {
+    let row = serde_json::from_str::<AliasRow>(body).ok()?;
+    if aliases::player_name(&row.name) != Some(row.name.as_str()) {
+        return None;
+    }
+    let alias = aliases::alias_of_row(&row)?;
+    Some((row, alias))
 }
 
 /// The rows of a table that only grows, oldest first. The row of an item is its place in

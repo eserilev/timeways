@@ -792,6 +792,41 @@ fn an_alias_position_past_any_play_ends_the_read_and_stays() {
     assert_eq!(stored_bodies(&folder, "aliases").len(), 3);
 }
 
+/// An older binary keyed "Οδυσσευς" and "Οδυσσευσ" apart, so it kept a row for each. Now
+/// both fold to one key, and each old ID still shows its own name.
+#[test]
+fn a_row_whose_key_repeats_an_earlier_row_keeps_its_id_and_its_name() {
+    let folder = fresh_folder("repeated-key");
+    let mut story = story(&folder);
+    accept(&mut story, 1, "{Zqa} and {Zqb} and {Bob} came.").unwrap();
+    drop(story);
+    let path = folder.join("worlds/r_Stormrage/c_Ada.sqlite");
+    let connection = rusqlite::Connection::open(path).unwrap();
+    for (position, name) in [(0, "Οδυσσευς"), (1, "Οδυσσευσ")] {
+        connection
+            .execute(
+                "UPDATE aliases SET body = ?1 WHERE position = ?2",
+                rusqlite::params![format!("{{\"name\":\"{name}\"}}"), position],
+            )
+            .unwrap();
+    }
+    drop(connection);
+
+    let mut story = self::story(&folder);
+    accept(&mut story, 2, "{Οδυσσευσ} and {Bob} came back.").unwrap();
+    let shown = stories(&mut story);
+    drop(story);
+
+    assert_eq!(shown[0].paragraphs, ["Οδυσσευς and Οδυσσευσ and Bob came."]);
+    let bodies = stored_bodies(&folder, "stories");
+    assert!(
+        bodies[1].contains("{P1} and {P3} came back."),
+        "{}",
+        bodies[1]
+    );
+    assert_eq!(stored_bodies(&folder, "aliases").len(), 3);
+}
+
 /// Version 6 changed the shape of a story. A world of version 5 holds stories of one
 /// text, so it is refused and left as it is (GAMEPLAY.md 5.7).
 #[test]
