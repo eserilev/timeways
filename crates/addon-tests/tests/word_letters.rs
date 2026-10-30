@@ -206,9 +206,12 @@ fn the_addon_and_the_desktop_hold_the_same_common_words() {
 }
 
 #[test]
-fn the_addon_and_the_desktop_fold_every_latin_letter_alike() {
+fn the_addon_and_the_desktop_fold_every_letter_alike() {
     let game = Game::new();
-    let chars: Vec<char> = (0..=0x17F).filter_map(char::from_u32).collect();
+    let chars: Vec<char> = every_char()
+        .into_iter()
+        .filter(|c| is_word_char(*c))
+        .collect();
     let texts: Vec<String> = chars.iter().map(char::to_string).collect();
     let fold: mlua::Function = game.eval(
         "return function(texts)

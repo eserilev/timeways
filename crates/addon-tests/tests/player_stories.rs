@@ -563,6 +563,26 @@ fn a_story_counts_a_dotted_capital_i_as_the_desktop_does() {
 }
 
 #[test]
+fn a_story_counts_a_cyrillic_name_in_two_cases_once() {
+    let (_, corvin) = party();
+    let marks = stranger_marks(30);
+    hear_story(
+        &corvin,
+        &format!("a1;;{} {{Ада}} {{АДА}} Ada", marks.join(" ")),
+    );
+
+    let page = story_page(&corvin);
+    corvin.run("wow.Slash('/story', 'accept')");
+
+    let named = page.iter().find(|line| line.starts_with("Players named:"));
+    assert!(
+        named.is_some_and(|line| line.ends_with(", Qbd, Ада")),
+        "{page:?}"
+    );
+    assert!(accepted(&sent_inputs(&corvin)).is_some());
+}
+
+#[test]
 fn a_story_that_names_too_many_players_you_know_stays_waiting() {
     let (_, corvin) = party();
     let names: Vec<String> = (0..33u8)
