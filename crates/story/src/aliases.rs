@@ -664,7 +664,10 @@ fn surname_run(
     }
     flush(out, after);
     match surname_id(rows, run).filter(|_| as_a_name) {
-        Some(id) => out.push_str(&id_text(id)),
+        Some(id) => {
+            out.push_str(&id_text(id));
+            *after = Some((id, String::new()));
+        }
         None => out.push_str(run),
     }
 }
@@ -1152,6 +1155,20 @@ mod tests {
 
         assert!(FUNCTION_WORDS.contains(&"her"));
         assert_eq!(ids, "{P1} ran. her bag.");
+    }
+
+    #[test]
+    fn a_common_word_first_name_takes_its_surname_as_any_first_name() {
+        let rows = [AliasRow::named("Her"), AliasRow::surname("Will", "Her")];
+        let table: Vec<Alias> = rows.iter().filter_map(alias_of_row).collect();
+
+        let ids = without_surnames(
+            &rows,
+            &without_names(&table, "Her Will ran."),
+            Surname::AsWritten,
+        );
+
+        assert_eq!(ids, "{P1} ran.");
     }
 
     #[test]
