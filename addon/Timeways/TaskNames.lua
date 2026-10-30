@@ -697,18 +697,18 @@ local function PeerText(text)
 	return (TaskNames.Visible(ns.Utf8.Lossy(text)):gsub("%$+([N{])", "%1"))
 end
 
--- The text with each mark that `turns` picks as its word. A mark that touches the word
--- of a mark before it is no mark any more, as the desktop reads the text.
+-- The text with each mark that `turns` picks as its word, and every other brace as a
+-- parenthesis: a brace next to a mark that became its word never makes a new mark, as in
+-- "{{I}}". A mark that touches the word of a mark before it is no mark any more, as the
+-- desktop reads the text.
 local function AsWords(text, turns)
 	local parts, at = {}, 1
 	for _, mark in ipairs(PeerMarks(text)) do
-		if turns(mark) then
-			parts[#parts + 1] = text:sub(at, mark.open - 1)
-			parts[#parts + 1] = MarkWord(mark)
-			at = mark.close + 1
-		end
+		parts[#parts + 1] = WithoutBraces(text:sub(at, mark.open - 1))
+		parts[#parts + 1] = turns(mark) and MarkWord(mark) or text:sub(mark.open, mark.close)
+		at = mark.close + 1
 	end
-	parts[#parts + 1] = text:sub(at)
+	parts[#parts + 1] = WithoutBraces(text:sub(at))
 	return table.concat(parts)
 end
 
@@ -716,17 +716,14 @@ local function Unlikely(mark)
 	return not mark.likely
 end
 
+local function Always()
+	return true
+end
+
 -- The text as your screen shows it: each mark as its word, every other brace as a
 -- parenthesis, as the desktop reads the text.
 local function ShownText(text)
-	local parts, at = {}, 1
-	for _, mark in ipairs(PeerMarks(text)) do
-		parts[#parts + 1] = WithoutBraces(text:sub(at, mark.open - 1))
-		parts[#parts + 1] = MarkWord(mark)
-		at = mark.close + 1
-	end
-	parts[#parts + 1] = WithoutBraces(text:sub(at))
-	return table.concat(parts)
+	return AsWords(text, Always)
 end
 
 function TaskNames.Shown(text)

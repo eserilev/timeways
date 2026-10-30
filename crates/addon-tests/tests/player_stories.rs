@@ -520,6 +520,16 @@ fn the_reader_and_the_desktop_read_the_marks_of_a_peer_alike() {
     result.unwrap();
 }
 
+#[test]
+fn braces_around_a_mark_that_becomes_its_word_never_make_a_new_mark() {
+    let (_, corvin) = party();
+    let texts = [Vec::new(), b"{{I}}{Qa}".to_vec()];
+
+    let differ = peer_marks_disagree(&corvin, "Corvin", &texts);
+
+    assert!(differ.is_none(), "{}", differ.unwrap_or_default());
+}
+
 /// Marks of strangers, "{Qaa}", "{Qab}", and so on.
 fn stranger_marks(count: u8) -> Vec<String> {
     (0..count)
