@@ -35,7 +35,10 @@ fn send(story: &mut Story, bytes: Vec<u8>) -> Vec<u64> {
     let mut answered = Vec::new();
     let dev = std::str::from_utf8(&bytes).is_ok_and(is_dev_line);
     let served = serve::line(story, bytes);
-    assert!(!dev || served.error.is_some(), "a dev line landed with dev mode off");
+    assert!(
+        !dev || served.error.is_some(),
+        "a dev line landed with dev mode off"
+    );
     let mut lines = served.lines;
     while let Some(line) = lines.pop() {
         match checked_line(&line) {

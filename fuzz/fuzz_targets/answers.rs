@@ -8,7 +8,6 @@
 mod common;
 
 use libfuzzer_sys::fuzz_target;
-use timeways_story::npc_voice::Asked;
 use timeways_story::arrival::arrival_in;
 use timeways_story::check::{
     check, in_voice, later_names, names_after_cutoff, names_after_cutoff_except, plain_text,
@@ -17,20 +16,21 @@ use timeways_story::check::{
 use timeways_story::draft;
 use timeways_story::grounding::{given_text, ungrounded_names};
 use timeways_story::group_words::group_word_hero_in;
-use timeways_story::lore::{LoreCall, Next};
-use timeways_story::pack::{Link, Origin, Passage};
-use timeways_story::prompt::Context;
 use timeways_story::house::without_fence_marks;
 use timeways_story::input::MessageId;
 use timeways_story::line_check::{Checked, Grounds, MOST_SENTENCES, checked_line, grounded};
+use timeways_story::lore::{LoreCall, Next};
 use timeways_story::moments::Moment;
 use timeways_story::narrator::{Telling, Who};
 use timeways_story::narrator_build::{Answered, Setup, answered, offer};
 use timeways_story::narrator_slots::parse;
+use timeways_story::npc_voice::Asked;
+use timeways_story::pack::{Link, Origin, Passage};
 use timeways_story::places::InstanceKind;
 use timeways_story::present_check::{
     PresentFault, PresentGrounds, has_present_sentence, unsourced_present_in,
 };
+use timeways_story::prompt::Context;
 use timeways_story::prose::prose_faults;
 use timeways_story::quest::variety::{Recent, Shape, main_words};
 use timeways_story::quest::{self, Genre, Known, Step};
@@ -46,7 +46,11 @@ const GIVEN: &str = "Hogger leads the gnolls of Elwynn Forest. Edwin VanCleef ho
 
 /// An accepted text names only what its prompt gave (GAMEPLAY.md 3.2.1).
 fn assert_grounded(text: &str, given: &str) {
-    assert_eq!(ungrounded_names(text, given), Vec::<String>::new(), "{text:?}");
+    assert_eq!(
+        ungrounded_names(text, given),
+        Vec::<String>::new(),
+        "{text:?}"
+    );
 }
 
 fn assert_plain(text: &str, max_chars: usize, max_bytes: usize) {
