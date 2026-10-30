@@ -403,10 +403,19 @@ local function WordAfter(text, last, separator)
 	end
 end
 
--- True when the word starts with a capital: its first letter changes when folded.
-local function IsCapitalized(word)
+-- The letters where a fold and Rust's `is_uppercase` part ways: the title-case letters and
+-- ς fold but are no capitals, and ϒ, ϓ, and ϔ are capitals with no small letter.
+local NO_CAPITALS = { ["ǅ"] = true, ["ǈ"] = true, ["ǋ"] = true, ["ǲ"] = true, ["ς"] = true }
+local CAPITALS_THAT_STAY = { ["ϒ"] = true, ["ϓ"] = true, ["ϔ"] = true }
+
+-- True when the word starts with a capital, as the desktop's `is_capitalized` reads it: its
+-- first letter changes when folded.
+function TaskNames.IsCapitalized(word)
 	local first = word:match("^" .. CHAR)
-	return first ~= nil and TaskNames.Fold(first) ~= first
+	if not first or NO_CAPITALS[first] then
+		return false
+	end
+	return CAPITALS_THAT_STAY[first] or TaskNames.Fold(first) ~= first
 end
 
 -- What follows a first name that ends at `last`: the realm or the surname after a dash, as
@@ -420,7 +429,7 @@ local function Following(text, last)
 	end
 	local spaceFirst, spaceLast = WordAfter(text, after.dashLast or last, " ")
 	local word = spaceFirst and text:sub(spaceFirst, spaceLast)
-	if word and IsCapitalized(word) then
+	if word and TaskNames.IsCapitalized(word) then
 		after.capital, after.capitalLast = TaskNames.Fold(word), spaceLast
 	end
 	return after
@@ -482,7 +491,7 @@ end
 -- the desktop hides that one.
 local function LoneSurnameMark(word, surnames, mySurname)
 	local folded = TaskNames.Fold(word)
-	if not IsCapitalized(word) or (mySurname and folded == TaskNames.Fold(mySurname)) then
+	if not TaskNames.IsCapitalized(word) or (mySurname and folded == TaskNames.Fold(mySurname)) then
 		return nil
 	end
 	local full = (surnames[folded] or {})[1]
@@ -557,7 +566,7 @@ local function Mark(text, ownMark, known)
 		local word = text:sub(first, last)
 		local folded = TaskNames.Fold(word)
 		-- A player named like a common word is a name only with a capital.
-		local common = FUNCTION_WORDS[folded] and not IsCapitalized(word)
+		local common = FUNCTION_WORDS[folded] and not TaskNames.IsCapitalized(word)
 		local candidates = not common and names[folded] or {}
 		local after = Following(text, last)
 		local who = WholeName(candidates, folded == me, mySurname, after) or (folded == me and "me") or candidates[1]

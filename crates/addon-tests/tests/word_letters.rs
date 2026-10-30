@@ -8,7 +8,7 @@ mod common;
 use common::Game;
 use proptest::prelude::*;
 use proptest::test_runner::{Config, TestRunner};
-use timeways_story::aliases::{is_hidden, is_word_char, key_of};
+use timeways_story::aliases::{is_capitalized, is_hidden, is_word_char, key_of};
 
 /// Every code point of the Basic Multilingual Plane, and a few past it.
 fn every_char() -> Vec<char> {
@@ -228,6 +228,33 @@ fn the_addon_and_the_desktop_fold_every_letter_alike() {
         .zip(&lua)
         .filter(|(c, lua)| key_of(&c.to_string()) != **lua)
         .map(|(c, lua)| format!("U+{:04X} lua={lua:?}", u32::from(*c)))
+        .collect();
+    assert!(differ.is_empty(), "{differ:?}");
+}
+
+#[test]
+fn the_addon_and_the_desktop_find_the_same_capitals() {
+    let game = Game::new();
+    let chars: Vec<char> = every_char()
+        .into_iter()
+        .filter(|c| is_word_char(*c))
+        .collect();
+    let texts: Vec<String> = chars.iter().map(char::to_string).collect();
+    let is_capital: mlua::Function = game.eval(
+        "return function(texts)
+             local out = {}
+             for n, text in ipairs(texts) do out[n] = ns.TaskNames.IsCapitalized(text) end
+             return out
+         end",
+    );
+
+    let lua: Vec<bool> = is_capital.call(texts.clone()).unwrap();
+
+    let differ: Vec<String> = texts
+        .iter()
+        .zip(&lua)
+        .filter(|(text, lua)| is_capitalized(text) != **lua)
+        .map(|(text, lua)| format!("{text} lua={lua}"))
         .collect();
     assert!(differ.is_empty(), "{differ:?}");
 }
