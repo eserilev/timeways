@@ -275,10 +275,7 @@ fn read_all(database: &Database, path: PathBuf) -> Result<Read, StoreError> {
     let stories = StoryLog::from_rows(database.read_and_repair(Table::Stories, |row, _| {
         crate::stories::lands_on_load(&mut shelf.borrow_mut(), row)
     })?);
-    let seen = std::cell::RefCell::new(std::collections::BTreeSet::new());
-    let aliases = AliasLog::from_rows(database.read_and_repair(Table::Aliases, |row, _| {
-        logs::is_new_name(row, &mut seen.borrow_mut())
-    })?);
+    let aliases = AliasLog::from_stored(database.stored_rows(Table::Aliases)?);
     let summaries = SummaryLog::from_rows(database.read_and_repair(Table::Summaries, |_, _| true)?);
     let rules = RowLog::from_rows(database.read_and_repair(Table::ChapterRules, |_, _| true)?);
     let tales = RowLog::from_rows(database.read_and_repair(Table::Tales, |_, _| true)?);

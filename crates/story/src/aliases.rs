@@ -9,6 +9,7 @@
 
 use crate::race_class::{Class, Race};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
 use timeways_rules::aliases::{self as rules, Alias, Piece, Plain, PlayerId};
 
 /// The limit of the bridge for the name of a character (Gnomish Relay SPEC.md 9.8).
@@ -17,6 +18,9 @@ pub const MAX_PLAYER_NAME_BYTES: usize = 48;
 /// What a player's screen shows for an ID that the table does not hold. Only a damaged
 /// file makes one.
 const UNKNOWN_PLAYER: &str = "someone";
+
+/// The key of a row that this program cannot read (`unread_alias`).
+const UNREAD_KEY: &str = "an unread row";
 
 /// One row of the `aliases` table: a player, with the race and the class that the game
 /// showed when the table learned the name. The row's position is the ID.
@@ -131,6 +135,16 @@ pub fn alias_of_row(row: &AliasRow) -> Option<Alias> {
         key: format!("{} of {}", key_of(surname), key_of(first)),
         shown: surname.to_string(),
     })
+}
+
+/// The place of a row that this program cannot read. A key with spaces never matches a
+/// word, so the ID stays taken and shows as an unknown player.
+#[must_use]
+pub fn unread_alias() -> Alias {
+    Alias {
+        key: UNREAD_KEY.to_string(),
+        shown: UNKNOWN_PLAYER.to_string(),
+    }
 }
 
 /// The key of a first name that is a common word, "her as a name": it never matches a word
@@ -315,14 +329,14 @@ pub fn unlikely_marks_as_words(text: &str) -> String {
 /// The players that the marks of a story name, once each, besides the character `own`.
 #[must_use]
 pub fn other_players(texts: &[String], own: &str) -> usize {
-    let mut keys: Vec<String> = texts
-        .iter()
-        .flat_map(|text| unmarked(text).names)
-        .filter(|key| !is_own(key, own))
-        .map(|key| key_of(&key))
-        .collect();
-    keys.sort();
-    keys.dedup();
+    let mut keys = BTreeSet::new();
+    for text in texts {
+        for key in unmarked(text).names {
+            if !is_own(&key, own) {
+                keys.insert(key_of(&key));
+            }
+        }
+    }
     keys.len()
 }
 
@@ -669,7 +683,10 @@ fn surname_run(
     }
     flush(out, after);
     match surname_id(rows, run).filter(|_| as_a_name) {
-        Some(id) => out.push_str(&id_text(id)),
+        Some(id) => {
+            out.push_str(&id_text(id));
+            *after = Some((id, String::new()));
+        }
         None => out.push_str(run),
     }
 }
@@ -790,10 +807,12 @@ pub fn with_names(table: &[Alias], text: &str) -> String {
 }
 
 /// True when each ID of the text names a player of the table. A model cannot invent a
-/// player.
+/// player, and an unread row names none.
 #[must_use]
 pub fn knows_every_id(table: &[Alias], text: &str) -> bool {
-    ids_in(text).iter().all(|id| id.0 < table.len())
+    ids_in(text)
+        .iter()
+        .all(|id| table.get(id.0).is_some_and(|alias| alias.key != UNREAD_KEY))
 }
 
 #[cfg(test)]
@@ -1164,6 +1183,30 @@ mod tests {
 
         assert!(FUNCTION_WORDS.contains(&"her"));
         assert_eq!(ids, "{P1} ran. her bag.");
+    }
+
+    #[test]
+    fn a_common_word_first_name_takes_its_surname_as_any_first_name() {
+        let rows = [AliasRow::named("Her"), AliasRow::surname("Will", "Her")];
+        let table: Vec<Alias> = rows.iter().filter_map(alias_of_row).collect();
+
+        let ids = without_surnames(
+            &rows,
+            &without_names(&table, "Her Will ran."),
+            Surname::AsWritten,
+        );
+
+        assert_eq!(ids, "{P1} ran.");
+    }
+
+    #[test]
+    fn a_model_cannot_name_a_row_that_did_not_read() {
+        let table = vec![unread_alias(), alias_of("Bob").unwrap()];
+
+        assert!(!knows_every_id(&table, "{P1} waits"));
+        assert!(knows_every_id(&table, "{P2} waits"));
+        assert_eq!(with_names(&table, "{P1} and {P2}"), "someone and Bob");
+        assert_eq!(without_names(&table, "an unread row"), "an unread row");
     }
 
     #[test]

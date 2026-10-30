@@ -465,6 +465,15 @@ impl Database {
         Ok(items)
     }
 
+    /// Each row of the table with its position, and no repair.
+    ///
+    /// # Errors
+    ///
+    /// Returns the error of SQLite.
+    pub fn stored_rows(&self, table: Table) -> Result<Vec<(i64, String)>, StoreError> {
+        self.bodies(table).map_err(|source| self.error(source))
+    }
+
     /// A body that is not text reads as an empty string, which is no JSON, so it ends the
     /// table like any other bad row.
     fn bodies(&self, table: Table) -> rusqlite::Result<Vec<(i64, String)>> {

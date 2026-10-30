@@ -583,6 +583,75 @@ fn a_player_keeps_the_same_id_after_a_reopen() {
     assert_eq!(stored_bodies(&folder, "aliases").len(), 2);
 }
 
+/// The prompt of a quest draft, where your own addon marks the players that it knows.
+fn draft_prompt(story: &mut Story, idea: &str) -> String {
+    let asked = Input::DraftAsked {
+        id: MessageId(9),
+        at: Tick(30),
+        idea: idea.to_string(),
+    };
+    match story.handle(asked).unwrap().remove(0) {
+        Output::ModelCall { prompt, .. } => prompt,
+        other => panic!("no call: {other:?}"),
+    }
+}
+
+#[test]
+fn a_name_that_a_story_taught_shares_its_row_with_your_own_marks_and_its_realm() {
+    let folder = fresh_folder("shared-row");
+    let mut story = story(&folder);
+    accept(&mut story, 1, "{Lysara} came.").unwrap();
+
+    let prompt = draft_prompt(&mut story, "help {Lysara} and Lysara-X");
+    drop(story);
+
+    assert!(prompt.contains("help {P1} and {P1}"), "{prompt}");
+    assert_eq!(stored_bodies(&folder, "aliases").len(), 1);
+}
+
+#[test]
+fn removing_a_story_unlearns_none_of_its_names() {
+    let folder = fresh_folder("remove-keeps-names");
+    let mut story = story(&folder);
+    accept(&mut story, 1, "{Corvin} came.").unwrap();
+    remove(&mut story, 1).unwrap();
+
+    accept(&mut story, 2, "{Bob} came.").unwrap();
+    let prompt = draft_prompt(&mut story, "help Corvin");
+    let standing: Vec<u64> = stories(&mut story).iter().map(|told| told.number).collect();
+    drop(story);
+
+    assert_eq!(standing, [2]);
+    assert!(prompt.contains("help {P1}"), "{prompt}");
+    let bodies = stored_bodies(&folder, "stories");
+    assert!(
+        bodies.iter().any(|body| body.contains("{P2} came.")),
+        "{bodies:?}"
+    );
+    assert_eq!(stored_bodies(&folder, "aliases").len(), 2);
+}
+
+#[test]
+fn thirty_two_keys_teach_at_most_sixty_four_rows() {
+    let folder = fresh_folder("sixty-four");
+    let mut story = story(&folder);
+    let marks: Vec<String> = (0..33u8)
+        .map(|n| {
+            let letters = format!("{}{}", char::from(b'a' + n / 26), char::from(b'a' + n % 26));
+            format!("{{Q{letters}-Z{letters}}} {{~Q{letters}-Z{letters}}}")
+        })
+        .collect();
+
+    let refused = accept(&mut story, 1, &marks.join(" "));
+    let rows_after_refused = stored_bodies(&folder, "aliases").len();
+    accept(&mut story, 2, &marks[..32].join(" ")).unwrap();
+    drop(story);
+
+    assert!(is_bad(&refused), "{refused:?}");
+    assert_eq!(rows_after_refused, 0);
+    assert_eq!(stored_bodies(&folder, "aliases").len(), 64);
+}
+
 #[test]
 fn a_refused_story_gives_no_player_an_id() {
     let folder = fresh_folder("refused-ids");
@@ -622,8 +691,10 @@ fn a_player_described_with_no_name_is_refused() {
     assert!(matches!(refused, Err(StoryError::BadName)));
 }
 
+/// Another program can write a row that this one cannot read. The row stays, and its ID
+/// is never given to a new name (GAMEPLAY.md 5.11).
 #[test]
-fn a_row_that_names_a_player_twice_ends_the_table_at_the_open() {
+fn a_row_that_names_a_player_twice_keeps_its_id_at_the_open() {
     let folder = fresh_folder("twice");
     let mut story = story(&folder);
     accept(&mut story, 1, "{Corvin} came.").unwrap();
@@ -643,8 +714,82 @@ fn a_row_that_names_a_player_twice_ends_the_table_at_the_open() {
     drop(story);
 
     let rows = stored_bodies(&folder, "aliases");
-    assert_eq!(rows.len(), 2);
-    assert!(rows[1].contains("Bob"), "{}", rows[1]);
+    assert_eq!(rows.len(), 3);
+    assert!(rows[1].contains("CORVIN"), "{}", rows[1]);
+    assert!(rows[2].contains("Bob"), "{}", rows[2]);
+    let bodies = stored_bodies(&folder, "stories");
+    assert!(bodies[1].contains("{P3} came."), "{}", bodies[1]);
+}
+
+#[test]
+fn an_alias_row_that_does_not_read_keeps_its_id_and_shows_as_someone() {
+    let folder = fresh_folder("unread-row");
+    let mut story = story(&folder);
+    accept(&mut story, 1, "{Corvin} and {Bob} came.").unwrap();
+    drop(story);
+    let path = folder.join("worlds/r_Stormrage/c_Ada.sqlite");
+    rusqlite::Connection::open(path)
+        .unwrap()
+        .execute("UPDATE aliases SET body = 'no json' WHERE position = 0", [])
+        .unwrap();
+
+    let mut story = self::story(&folder);
+    accept(&mut story, 2, "{Lysara} and {Bob} came back.").unwrap();
+    let shown = stories(&mut story);
+    drop(story);
+
+    assert_eq!(shown[0].paragraphs, ["someone and Bob came."]);
+    let bodies = stored_bodies(&folder, "stories");
+    assert!(
+        bodies[1].contains("{P3} and {P2} came back."),
+        "{}",
+        bodies[1]
+    );
+    assert_eq!(stored_bodies(&folder, "aliases")[0], "no json");
+}
+
+fn insert_alias(folder: &Path, position: i64, name: &str) {
+    let path = folder.join("worlds/r_Stormrage/c_Ada.sqlite");
+    rusqlite::Connection::open(path)
+        .unwrap()
+        .execute(
+            "INSERT INTO aliases (position, body) VALUES (?1, ?2)",
+            rusqlite::params![position, format!("{{\"name\":\"{name}\"}}")],
+        )
+        .unwrap();
+}
+
+#[test]
+fn a_missing_alias_position_keeps_its_id() {
+    let folder = fresh_folder("alias-gap");
+    let mut story = story(&folder);
+    accept(&mut story, 1, "{Corvin} came.").unwrap();
+    drop(story);
+    insert_alias(&folder, 3, "Bob");
+
+    let mut story = self::story(&folder);
+    accept(&mut story, 2, "{Bob} and {Lysara} came.").unwrap();
+    drop(story);
+
+    let bodies = stored_bodies(&folder, "stories");
+    assert!(bodies[1].contains("{P4} and {P5} came."), "{}", bodies[1]);
+}
+
+#[test]
+fn an_alias_position_past_any_play_ends_the_read_and_stays() {
+    let folder = fresh_folder("alias-far");
+    let mut story = story(&folder);
+    accept(&mut story, 1, "{Corvin} came.").unwrap();
+    drop(story);
+    insert_alias(&folder, 1 << 40, "Bob");
+
+    let mut story = self::story(&folder);
+    accept(&mut story, 2, "{Lysara} came.").unwrap();
+    drop(story);
+
+    let bodies = stored_bodies(&folder, "stories");
+    assert!(bodies[1].contains("{P2} came."), "{}", bodies[1]);
+    assert_eq!(stored_bodies(&folder, "aliases").len(), 3);
 }
 
 /// Version 6 changed the shape of a story. A world of version 5 holds stories of one

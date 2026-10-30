@@ -378,6 +378,66 @@ fn the_ratings_scenario_rates_two_narrator_lines_and_exports_them_with_no_name()
     assert!(!value.to_string().contains(NAME), "{value}");
 }
 
+/// The ID that the desktop gives a player of a story, as it is on the disk.
+fn desktop_id_of(folder: &std::path::Path, player: &str) -> String {
+    let mut story = Story::new(Pack::empty().unwrap(), Store::Folder(folder.to_path_buf()));
+    let character = json!({"type": "character_entered", "realm": REALM, "name": NAME});
+    let told = json!({"type": "story_accepted", "at": START + 9000, "number": 99,
+        "paragraphs": [format!("{{{player}}}")]});
+    for line in [character, told] {
+        let served = serve::line(&mut story, line.to_string().into_bytes());
+        assert_eq!(served.error, None);
+    }
+    drop(story);
+    let world = timeways_dev::worlds::world_file(folder, REALM, NAME).unwrap();
+    let connection = rusqlite::Connection::open(world).unwrap();
+    let body: String = connection
+        .query_row(
+            "SELECT body FROM stories ORDER BY position DESC LIMIT 1",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    let start = body.find("{P").unwrap();
+    let end = start + body[start..].find('}').unwrap();
+    body[start..=end].to_string()
+}
+
+#[test]
+fn an_export_gives_each_player_the_id_of_the_desktop_past_a_gap_and_a_bad_row() {
+    let folder = folder("ratings-gap");
+    seed("ratings", &folder);
+    let world = timeways_dev::worlds::world_file(&folder, REALM, NAME).unwrap();
+    let connection = rusqlite::Connection::open(&world).unwrap();
+    let count = |table: &str| -> i64 {
+        let select = format!("SELECT count(*) FROM {table}");
+        connection.query_row(&select, [], |row| row.get(0)).unwrap()
+    };
+    let (aliases, ratings) = (count("aliases"), count("ratings"));
+    connection
+        .execute(
+            "INSERT INTO aliases (position, body) VALUES (?1, 'no json'), (?2, '{\"name\":\"Zqbob\"}')",
+            rusqlite::params![aliases, aliases + 2],
+        )
+        .unwrap();
+    let rated = json!({"at": 1, "rated": "chapter", "key": 1, "rating": "up",
+        "moment": "chapter", "text": "Zqbob held the bridge."});
+    connection
+        .execute(
+            "INSERT INTO ratings (position, body) VALUES (?1, ?2)",
+            rusqlite::params![ratings, rated.to_string()],
+        )
+        .unwrap();
+    drop(connection);
+
+    let export = timeways_dev::export_ratings::ratings_of(&world, NAME, "none").unwrap();
+    let id = desktop_id_of(&folder, "Zqbob");
+
+    let text = &export.ratings.last().unwrap().text;
+    assert_eq!(id, format!("{{P{}}}", aliases + 3));
+    assert_eq!(*text, format!("{id} held the bridge."));
+}
+
 /// The thumbs of the Chronicle show only on a page with a story of the narrator.
 #[test]
 fn the_first_chapter_of_the_ratings_scenario_has_a_story_to_rate() {

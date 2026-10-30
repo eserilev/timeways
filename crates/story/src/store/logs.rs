@@ -505,13 +505,36 @@ pub struct AliasLog {
 }
 
 impl AliasLog {
-    /// The rows must hold names, each once (`is_new_name`).
-    pub(super) fn from_rows(rows: Vec<AliasRow>) -> AliasLog {
-        let mut table = Vec::with_capacity(rows.len());
-        for row in &rows {
-            if let Some(alias) = aliases::alias_of_row(row) {
-                rules::learn(&mut table, alias);
+    /// The table from the stored rows, each with its position, as the open and the export
+    /// read it. A row that does not read, a second row of one name, and a missing position
+    /// keep their IDs, match no word, and show as an unknown player. No row goes, so an ID
+    /// is never given twice. A position past `MAX_PLACES` ends the read, so a broken
+    /// position never fills the memory.
+    #[must_use]
+    pub fn from_stored(stored: Vec<(i64, String)>) -> AliasLog {
+        let mut seen = std::collections::BTreeSet::new();
+        let mut places = Vec::with_capacity(stored.len());
+        for (position, body) in stored {
+            let Ok(position) = usize::try_from(position) else {
+                continue;
+            };
+            if position >= MAX_PLACES {
+                break;
             }
+            places.resize_with(position.max(places.len()), || None);
+            let row = serde_json::from_str::<AliasRow>(&body).ok();
+            places.push(row.filter(|row| is_new_name(row, &mut seen)));
+        }
+        AliasLog::from_places(places)
+    }
+
+    fn from_places(places: Vec<Option<AliasRow>>) -> AliasLog {
+        let mut rows = Vec::with_capacity(places.len());
+        let mut table = Vec::with_capacity(places.len());
+        for place in places {
+            let alias = place.as_ref().and_then(aliases::alias_of_row);
+            table.push(alias.unwrap_or_else(aliases::unread_alias));
+            rows.push(place.unwrap_or_else(|| AliasRow::named("")));
         }
         let unsaved = Unsaved::after(rows.len());
         AliasLog {
@@ -581,9 +604,13 @@ impl AliasLog {
     }
 }
 
+/// The most places that `AliasLog::from_stored` fills: far more players than any play
+/// names.
+const MAX_PLACES: usize = 1 << 20;
+
 /// A row that the alias table can hold: a name, and not one that a row before it holds.
 /// `seen` gathers the keys of the rows before.
-pub(super) fn is_new_name(row: &AliasRow, seen: &mut std::collections::BTreeSet<String>) -> bool {
+fn is_new_name(row: &AliasRow, seen: &mut std::collections::BTreeSet<String>) -> bool {
     aliases::player_name(&row.name) == Some(row.name.as_str())
         && aliases::alias_of_row(row).is_some_and(|alias| seen.insert(alias.key))
 }
