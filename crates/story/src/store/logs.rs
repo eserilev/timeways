@@ -593,6 +593,19 @@ impl AliasLog {
         &self.rows
     }
 
+    /// True when the new names of all the rows fit before `MAX_ALIAS_PLACES`, so a line
+    /// learns all its names or none.
+    #[must_use]
+    pub fn has_room_for(&self, rows: &[AliasRow]) -> bool {
+        let mut new_keys = std::collections::BTreeSet::new();
+        for alias in rows.iter().filter_map(aliases::alias_of_row) {
+            if rules::find(&self.table, &alias.key).is_none() {
+                new_keys.insert(alias.key);
+            }
+        }
+        self.rows.len() + new_keys.len() <= MAX_ALIAS_PLACES
+    }
+
     /// The cards of the players of a text for a model, in order.
     #[must_use]
     pub fn cards(&self, text: &str) -> Vec<String> {

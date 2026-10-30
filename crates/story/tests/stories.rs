@@ -816,6 +816,29 @@ fn the_last_alias_place_is_read_and_then_the_table_takes_no_new_player() {
     assert_eq!(stored_bodies(&folder, "aliases").len(), 2);
 }
 
+/// The table with room for one more player: Corvin, and Bob at the place before the last.
+fn nearly_full(name: &str) -> PathBuf {
+    let folder = fresh_folder(name);
+    let mut story = story(&folder);
+    accept(&mut story, 1, "{Corvin} came.").unwrap();
+    drop(story);
+    insert_alias(&folder, i64::try_from(MAX_ALIAS_PLACES).unwrap() - 2, "Bob");
+    folder
+}
+
+#[test]
+fn a_line_refused_by_a_full_table_gives_no_name_an_id() {
+    let folder = nearly_full("full-refused");
+    let mut story = story(&folder);
+
+    let refused = accept(&mut story, 2, "{Zqan} and {Yrel} came.");
+    drop(story);
+
+    assert!(refused.is_err(), "{refused:?}");
+    assert_eq!(stored_bodies(&folder, "aliases").len(), 2);
+    assert_eq!(stored_bodies(&folder, "stories").len(), 1);
+}
+
 #[test]
 fn an_alias_place_past_the_last_ends_the_read_and_stays() {
     let past = i64::try_from(MAX_ALIAS_PLACES).unwrap();

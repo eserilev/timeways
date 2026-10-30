@@ -17,24 +17,36 @@ impl Story {
 
 /// Learns the names that the addon marked, as "First-Surname" or "First".
 pub(super) fn learn_names(active: &mut Active, marked: &[String]) -> Result<(), StoreError> {
+    let mut rows = Vec::new();
     for name in marked {
-        learn_player(active, name)?;
+        rows.extend(rows_of_player(active.key.name(), name));
+    }
+    learn_rows(active, &rows)
+}
+
+/// All the rows or none: a line that does not fit the table gives no name an ID.
+fn learn_rows(active: &mut Active, rows: &[AliasRow]) -> Result<(), StoreError> {
+    if !active.aliases.has_room_for(rows) {
+        return Err(StoreError::FullAliasTable);
+    }
+    for row in rows {
+        active.aliases.learn(row)?;
     }
     Ok(())
 }
 
-/// Learns the first name of "First-Surname", and its surname as a row of its own. The
-/// character itself is no player of the table: its name is `$N`.
-fn learn_player(active: &mut Active, player: &str) -> Result<(), StoreError> {
-    if aliases::is_own(player, active.key.name()) {
-        return Ok(());
+/// The first name of "First-Surname", and its surname as a row of its own. The character
+/// itself is no player of the table: its name is `$N`.
+fn rows_of_player(own: &str, player: &str) -> Vec<AliasRow> {
+    if aliases::is_own(player, own) {
+        return Vec::new();
     }
     let (first, surname) = player.split_once('-').unwrap_or((player, ""));
-    active.aliases.learn(&AliasRow::named(first))?;
+    let mut rows = vec![AliasRow::named(first)];
     if aliases::player_name(surname).is_some() {
-        active.aliases.learn(&AliasRow::surname(surname, first))?;
+        rows.push(AliasRow::surname(surname, first));
     }
-    Ok(())
+    rows
 }
 
 /// Learns each player that a text of the hero names, as "First-Surname" or "First". A
@@ -46,15 +58,16 @@ pub(super) fn learn_players(
 ) -> Result<(), StoreError> {
     let text = aliases::for_matching(text);
     let words: Vec<String> = aliases::words_in(&text).map(aliases::key_of).collect();
+    let mut rows = Vec::new();
     for player in players {
         let in_text = player
             .split('-')
             .any(|part| words.contains(&aliases::key_of(part)));
         if in_text {
-            learn_player(active, player)?;
+            rows.extend(rows_of_player(active.key.name(), player));
         }
     }
-    Ok(())
+    learn_rows(active, &rows)
 }
 
 /// The text with the name of the character as `$N`, for a text that the player wrote.
