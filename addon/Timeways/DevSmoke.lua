@@ -195,7 +195,10 @@ local function StoryAnswer(short, title, answer, answered)
 				return Fail("no story of " .. short .. " waits")
 			end
 			ns.PlayerStories[answer](index)
-			if WaitingStory(short) then
+			-- An accepted story waits, marked as saving, until a journal shows it kept.
+			local left = WaitingStory(short)
+			local saving = left and answer == "Accept" and ns.PlayerStories.Waiting()[left].keeping
+			if left and not saving then
 				return Fail("the story of " .. short .. " still waits after " .. answer)
 			end
 			return Pass("the story of " .. short .. " is " .. answered)

@@ -189,3 +189,42 @@ fn any_bytes_become_the_text_that_the_bridge_reads() {
 
     result.unwrap();
 }
+
+#[test]
+fn the_addon_and_the_desktop_hold_the_same_common_words() {
+    let game = Game::new();
+
+    let mut lua: Vec<String> = game.eval("return ns.TaskNames.FunctionWords()");
+    let mut desktop: Vec<String> = timeways_story::aliases::FUNCTION_WORDS
+        .iter()
+        .map(|word| (*word).to_string())
+        .collect();
+
+    lua.sort();
+    desktop.sort();
+    assert_eq!(lua, desktop);
+}
+
+#[test]
+fn the_addon_and_the_desktop_fold_every_latin_letter_alike() {
+    let game = Game::new();
+    let chars: Vec<char> = (0..=0x17F).filter_map(char::from_u32).collect();
+    let texts: Vec<String> = chars.iter().map(char::to_string).collect();
+    let fold: mlua::Function = game.eval(
+        "return function(texts)
+             local out = {}
+             for n, text in ipairs(texts) do out[n] = ns.TaskNames.Fold(text) end
+             return out
+         end",
+    );
+
+    let lua: Vec<String> = fold.call(texts).unwrap();
+
+    let differ: Vec<String> = chars
+        .iter()
+        .zip(&lua)
+        .filter(|(c, lua)| c.to_lowercase().collect::<String>() != **lua)
+        .map(|(c, lua)| format!("U+{:04X} lua={lua:?}", u32::from(*c)))
+        .collect();
+    assert!(differ.is_empty(), "{differ:?}");
+}

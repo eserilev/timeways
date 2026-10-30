@@ -2,7 +2,8 @@
 -- write saved variables, so each entry is checked when the table is first read, and a
 -- broken one goes.
 --
---   waiting: { id, author, title, text, at }, oldest first. One for each author, 20 in all.
+--   waiting: { id, author, title, text, at, keeping }, oldest first. `keeping` is
+--   { number, journals } while the desktop may be keeping it. One for each author, 20 in all.
 --   told: { [id] = { to, title, at, status } }, the newest 100. No text.
 --   authors: { [number] = author } of the accepted stories, the newest 500 numbers.
 --   drafts: { to, title, text, at }, one for each player, 10 in all.
@@ -82,10 +83,22 @@ local function IsDraft(draft)
 		and IsTime(draft.at)
 end
 
+-- A story that the desktop may be keeping: its number, and the journals since Accept.
+local function IsKeeping(keeping)
+	return type(keeping) == "table"
+		and type(keeping.number) == "number"
+		and keeping.number % 1 == 0
+		and type(keeping.journals) == "number"
+		and keeping.journals >= 0
+end
+
 -- The oldest story of each author stays, up to the bound.
 local function CleanWaiting(list)
 	local waiting, authors = {}, {}
 	for _, story in ipairs(Table(list)) do
+		if type(story) == "table" and not IsKeeping(story.keeping) then
+			story.keeping = nil
+		end
 		if IsWaiting(story) and not authors[story.author] and #waiting < StorySaved.MAX_WAITING then
 			authors[story.author] = true
 			waiting[#waiting + 1] = story

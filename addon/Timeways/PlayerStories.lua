@@ -297,6 +297,12 @@ local function Marked(story)
 end
 
 PlayerStories.TOO_LONG_TO_KEEP = "This story is too long to keep. Decline it, or ask %s for a shorter one."
+PlayerStories.TOO_MANY_TO_KEEP =
+	"This story names too many players to keep. Decline it, or ask %s for one with fewer players."
+
+-- A story stays waiting until a journal shows it kept, because the desktop answers no
+-- story line. After this many whole journals without it, it waits for Accept again.
+PlayerStories.JOURNALS_TO_KEEP = 3
 
 -- The story program gives each marked player an ID (5.11), and your name becomes `$N`. A
 -- story whose marks make the line too long for one strip stays, and the reason comes back.
@@ -307,11 +313,15 @@ function PlayerStories.Accept(index)
 	if not story then
 		return
 	end
+	if story.keeping then
+		return
+	end
 	local data = Data()
-	local title, paragraphs, players, refused = Marked(story)
+	local title, paragraphs, players = Marked(story)
 	if not paragraphs then
-		Say(refused)
-		return refused
+		local problem = string.format(PlayerStories.TOO_MANY_TO_KEEP, Short(story.author))
+		Say(problem)
+		return problem
 	end
 	local accepted = ns.Inputs.StoryAccepted(time(), data.nextNumber, title, paragraphs)
 	if not ns.Outbox.Fits(accepted) then
@@ -319,7 +329,7 @@ function PlayerStories.Accept(index)
 		Say(problem)
 		return problem
 	end
-	table.remove(waiting, index)
+	story.keeping = { number = data.nextNumber, journals = 0 }
 	data.authors[data.nextNumber] = story.author
 	ns.StorySaved.TrimAuthors(data.authors)
 	data.nextNumber = data.nextNumber + 1
@@ -327,9 +337,35 @@ function PlayerStories.Accept(index)
 		ns.Outbox.Add(line)
 	end
 	ns.Outbox.Add(accepted)
-	ns.TaskChannel.Whisper(story.author, { type = "story_accept", id = story.id })
-	Say("Story accepted. It's part of your story now.")
 	Changed()
+end
+
+-- Each whole journal: a story that it shows kept leaves the waiting list, and its author
+-- hears it. A story that a few journals never show waits for Accept again.
+function PlayerStories.JournalCame(stories)
+	local kept = {}
+	for _, story in ipairs(type(stories) == "table" and stories or {}) do
+		if type(story) == "table" and type(story.number) == "number" then
+			kept[story.number] = true
+		end
+	end
+	local waiting = Data().waiting
+	for index = #waiting, 1, -1 do
+		local story = waiting[index]
+		local keeping = story.keeping
+		if keeping and kept[keeping.number] then
+			table.remove(waiting, index)
+			ns.TaskChannel.Whisper(story.author, { type = "story_accept", id = story.id })
+			Say("Story accepted. It's part of your story now.")
+		elseif keeping then
+			keeping.journals = keeping.journals + 1
+			if keeping.journals >= PlayerStories.JOURNALS_TO_KEEP then
+				story.keeping = nil
+				Say("Couldn't keep the story from " .. Short(story.author) .. ". Accept it again, or decline it.")
+			end
+		end
+	end
+	-- The journal itself refreshes the book, so no new journal is asked for here.
 end
 
 function PlayerStories.Decline(index)

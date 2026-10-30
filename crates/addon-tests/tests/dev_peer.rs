@@ -82,6 +82,10 @@ fn accept_keeps_the_story_at_the_desktop_and_answers_the_fake_player_in_the_game
 
     ada.run("ns.PlayerStories.Accept(1)");
     ada.run("wow.RunTickers()");
+    // The desktop kept the story: its journal shows it.
+    ada.game.reply(r#"{"type":"journal","page":0,"pages":1,"dev":true,"stories":[{"number":1,"paragraphs":["x"],"at":1790000000}]}"#);
+    ada.run("wow.RunTickers()");
+    run_timers(&ada);
 
     assert!(waiting_authors(&ada).is_empty());
     let accepted = ada

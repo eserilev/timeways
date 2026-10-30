@@ -111,7 +111,14 @@ pub fn alias_of(name: &str) -> Option<Alias> {
 #[must_use]
 pub fn alias_of_row(row: &AliasRow) -> Option<Alias> {
     let Some(first) = &row.surname_of else {
-        return alias_of(&row.name);
+        let alias = alias_of(&row.name)?;
+        if !is_common_word(&alias.key) {
+            return Some(alias);
+        }
+        return Some(Alias {
+            key: capital_key(&alias.key),
+            ..alias
+        });
     };
     let surname = player_name(&row.name)?;
     let first = player_name(first)?;
@@ -119,6 +126,22 @@ pub fn alias_of_row(row: &AliasRow) -> Option<Alias> {
         key: format!("{} of {}", key_of(surname), key_of(first)),
         shown: surname.to_string(),
     })
+}
+
+/// The key of a first name that is a common word, "her as a name": it never matches a word
+/// of the case-blind proved swap, and the surname pass swaps it only with a capital.
+fn capital_key(key: &str) -> String {
+    format!("{key} as a name")
+}
+
+fn is_common_word(key: &str) -> bool {
+    FUNCTION_WORDS.contains(&key)
+}
+
+/// The ID of a first name: its row, case-blind, or the row of a common word.
+fn first_name_id(table: &[Alias], first: &str) -> Option<PlayerId> {
+    let key = key_of(first);
+    rules::find(table, &key).or_else(|| rules::find(table, &capital_key(&key)))
 }
 
 /// The most players that one text of the hero names (GAMEPLAY.md 5.11). A text with more
@@ -177,7 +200,7 @@ pub fn marks_as_ids(table: &[Alias], own: &str, text: &str) -> String {
         let id = match mark.surname {
             Some(surname) if mark.alone => alias_of_row(&AliasRow::surname(surname, mark.first))
                 .and_then(|alias| rules::find(table, &alias.key)),
-            _ => rules::find(table, &key_of(mark.first)),
+            _ => first_name_id(table, mark.first),
         };
         id.map_or_else(|| mark.typed().to_string(), id_text)
     };
@@ -254,9 +277,9 @@ fn read_marks(text: &str, mut mark: impl FnMut(MarkOf<'_>) -> String) -> Marked 
     Marked { text: plain, names }
 }
 
-/// English words that a mark of a story never teaches, though the game allows them as
-/// names: the author of a story can mark any word, and these words are in most texts. The
-/// addon holds the same list (`TaskNames.lua`).
+/// English words that the game allows as names. A player of such a name swaps only with a
+/// capital, as a surname does: "Her ran" hides the player, and "her bag" keeps its word. The
+/// addon holds the same list (`TaskNames.lua`), and a test compares the two.
 pub const FUNCTION_WORDS: [&str; 42] = [
     "the", "and", "but", "then", "when", "he", "she", "we", "it", "they", "you", "his", "her",
     "my", "our", "their", "in", "on", "at", "of", "to", "for", "with", "from", "by", "as", "is",
@@ -265,14 +288,13 @@ pub const FUNCTION_WORDS: [&str; 42] = [
 ];
 
 /// True for a first name that a mark of a story can teach: 2 to 12 letters, as the game
-/// allows a name, and no function word.
+/// allows a name. No name of the game can be another word.
 #[must_use]
 pub fn is_likely_name(first: &str) -> bool {
-    let letters = first.chars().count();
-    (2..=12).contains(&letters) && !FUNCTION_WORDS.contains(&key_of(first).as_str())
+    (2..=12).contains(&first.chars().count())
 }
 
-/// A text of a story with each mark of an unlikely name as its word: "{The}" is "The".
+/// A text of a story with each mark of an unlikely name as its word: "{A}" is "A".
 #[must_use]
 pub fn unlikely_marks_as_words(text: &str) -> String {
     let keep = |mark: MarkOf<'_>| {
@@ -672,11 +694,14 @@ fn after_its_first_name(
     })
 }
 
-/// The ID of the first surname row of the word.
+/// The ID of the first row of the word that swaps only with a capital: a surname, or a
+/// first name that is a common word, such as a player named Her.
 fn surname_id(rows: &[AliasRow], word: &str) -> Option<PlayerId> {
     let key = key_of(word);
+    let capital_only =
+        |row: &AliasRow| row.surname_of.is_some() || is_common_word(&key_of(&row.name));
     rows.iter()
-        .position(|row| row.surname_of.is_some() && key_of(&row.name) == key)
+        .position(|row| capital_only(row) && key_of(&row.name) == key)
         .map(PlayerId)
 }
 
@@ -1103,5 +1128,37 @@ mod tests {
     fn a_name_with_a_letter_outside_the_letter_ranges_is_no_name() {
         assert_eq!(player_name("\u{289}liseceu"), None);
         assert_eq!(player_name("Élise"), Some("Élise"));
+    }
+
+    #[test]
+    fn a_likely_name_has_two_to_twelve_letters() {
+        assert!(!is_likely_name("A"));
+        assert!(is_likely_name("Al"));
+        assert!(is_likely_name("Abcdefghijkl"));
+        assert!(!is_likely_name("Abcdefghijklm"));
+        assert!(is_likely_name("Her"));
+    }
+
+    #[test]
+    fn a_common_word_is_a_name_only_with_a_capital() {
+        let rows = [AliasRow::named("Her")];
+        let table: Vec<Alias> = rows.iter().filter_map(alias_of_row).collect();
+
+        let ids = without_surnames(
+            &rows,
+            &without_names(&table, "Her ran. her bag."),
+            Surname::AsWritten,
+        );
+
+        assert!(FUNCTION_WORDS.contains(&"her"));
+        assert_eq!(ids, "{P1} ran. her bag.");
+    }
+
+    #[test]
+    fn a_mark_of_a_common_word_stays_a_mark() {
+        assert_eq!(
+            unlikely_marks_as_words("{Her} {A} {Abcdefghijklm}"),
+            "{Her} A Abcdefghijklm"
+        );
     }
 }

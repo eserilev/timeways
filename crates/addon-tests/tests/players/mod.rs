@@ -199,7 +199,7 @@ pub fn accepted_task(steps: &str) -> (Player, Player, String) {
 }
 
 /// The story program and the addon of a reader read the marks of a peer's story alike: the
-/// page shows `TaskNames.ShownStory` of its texts, the title first, and the desktop keeps the
+/// page shows `TaskNames.PeerView` of its texts, the title first, and the desktop keeps the
 /// story that `TaskNames.MarkedStory` made, with the same words, `$N` read back as the
 /// reader's name `name`, in any case. The marks name at most 32 other players. A story that
 /// breaks the limits of a story is no case. Returns why they differ.
@@ -207,7 +207,7 @@ pub fn peer_marks_disagree(reader: &Player, name: &str, texts: &[Vec<u8>]) -> Op
     let lua = &reader.game.lua;
     let read: mlua::Function = reader.eval(
         "return function(texts)
-             return ns.TaskNames.ShownStory(texts), ns.TaskNames.MarkedStory(texts)
+             return (ns.TaskNames.PeerView(texts)), ns.TaskNames.MarkedStory(texts)
          end",
     );
     let lua_texts: Vec<mlua::LuaString> = texts
@@ -226,6 +226,13 @@ pub fn peer_marks_disagree(reader: &Player, name: &str, texts: &[Vec<u8>]) -> Op
     let title = (!plain[0].is_empty()).then(|| plain[0].as_str());
     if !timeways_story::stories::is_good_story(title, &plain[1..]) {
         return None;
+    }
+    // The desktop drops no mark that the addon sent.
+    for text in &kept {
+        let cleaned = timeways_story::aliases::for_matching(text);
+        if timeways_story::aliases::unlikely_marks_as_words(&cleaned) != cleaned {
+            return Some(format!("the desktop drops a mark of {text:?}"));
+        }
     }
     let others = timeways_story::aliases::other_players(&kept, name);
     if others > 32 {

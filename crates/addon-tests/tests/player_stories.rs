@@ -311,6 +311,8 @@ fn accept_sends_the_title_and_the_paragraphs_with_names_marked_and_the_author_he
     assert!(described < story && described.is_some(), "{inputs:?}");
     let author: String = corvin.eval("return ns.PlayerStories.AuthorOf(1)");
     assert_eq!(author, "Ada-Stormrage");
+    journal_with(&corvin, &[1]);
+    exchange(&ada, &corvin);
     assert!(
         ada.printed()
             .contains(&format!("{PREFIX}Corvin accepted your story."))
@@ -389,26 +391,6 @@ fn a_mark_of_the_reader_in_a_story_becomes_the_reader() {
 }
 
 #[test]
-fn a_story_keeps_at_most_thirty_two_marks_of_its_author() {
-    let (_, corvin) = party();
-    let marks: Vec<String> = (0..40u8)
-        .map(|n| {
-            format!(
-                "{{Q{}{}}}",
-                char::from(b'a' + n / 26),
-                char::from(b'a' + n % 26)
-            )
-        })
-        .collect();
-    hear_story(&corvin, &format!("a1;;{}", marks.join(" ")));
-
-    corvin.run("wow.Slash('/story', 'accept')");
-
-    let (_, paragraphs) = accepted(&sent_inputs(&corvin)).expect("an accepted story");
-    assert_eq!(paragraphs[0].matches('{').count(), 32, "{}", paragraphs[0]);
-}
-
-#[test]
 fn the_waiting_page_names_the_players_of_the_marks() {
     let (ada, corvin) = party();
     ada_saw_lysara(&ada);
@@ -464,6 +446,13 @@ fn accept_reads_the_known_players_once_however_many_marks() {
     assert_eq!(reads, 1);
 }
 
+fn capitalized(word: &str) -> String {
+    let mut chars = word.chars();
+    chars.next().map_or_else(String::new, |first| {
+        first.to_uppercase().chain(chars).collect()
+    })
+}
+
 /// A piece of a text from a peer: marks valid and broken, of strangers, of the reader, and
 /// surname marks, marks of words that no name can be, a typed `$N`, signs that touch them,
 /// braces, hidden characters, a name that the reader knows, and plain words.
@@ -473,9 +462,12 @@ fn peer_piece() -> impl Strategy<Value = String> {
             "{Lysara}", "{Zqada-Bean}", "{~Zqada-Bean}", "{Corvin}", "{Zqada-X}", "{~Lysara-X}",
             "{123}", "{Ada-}", "{~}", "{~-X}", "{Lys ara}", "{", "}", "x", " ", "  ", ", ",
             "\u{200B}", "\u{A0}", "\u{301}", "{Ly\u{200B}sara}", "$N", "{The}", "{I}",
-            "{lysara}", "{LYSARA}", "{Thequickbrownfox}", "ada",
+            "{lysara}", "{LYSARA}", "{Thequickbrownfox}", "ada", "{Abcdefghijkl}",
+            "{Abcdefghijklm}", "{İda}", "{ıda}",
         ]).prop_map(String::from),
         1 => "[Q][a-z]{1,3}".prop_map(|name| format!("{{{name}}}")),
+        1 => prop::sample::select(timeways_story::aliases::FUNCTION_WORDS.to_vec())
+            .prop_map(|word| format!("{{{}}}", capitalized(word))),
         2 => "[e-h]{1,5}",
     ]
 }
@@ -503,10 +495,9 @@ fn the_reader_and_the_desktop_read_the_marks_of_a_peer_alike() {
     result.unwrap();
 }
 
-#[test]
-fn a_story_counts_its_players_once_and_keeps_every_mark_it_sends() {
-    let (_, corvin) = party();
-    let marks: Vec<String> = (0..32u8)
+/// Marks of 31 or 32 strangers, "{Qaa}", "{Qab}", and so on.
+fn stranger_marks(count: u8) -> Vec<String> {
+    (0..count)
         .map(|n| {
             format!(
                 "{{Q{}{}}}",
@@ -514,7 +505,16 @@ fn a_story_counts_its_players_once_and_keeps_every_mark_it_sends() {
                 char::from(b'a' + n % 26)
             )
         })
-        .collect();
+        .collect()
+}
+
+const TOO_MANY: &str =
+    "This story names too many players to keep. Decline it, or ask Ada for one with fewer players.";
+
+#[test]
+fn a_story_counts_its_players_once_and_keeps_every_mark_it_sends() {
+    let (_, corvin) = party();
+    let marks = stranger_marks(31);
     hear_story(
         &corvin,
         &format!("a1;;{}%0A{{Corvin}} and Ada ran.", marks.join(" ")),
@@ -532,6 +532,34 @@ fn a_story_counts_its_players_once_and_keeps_every_mark_it_sends() {
     assert_eq!(paragraphs[1], "{Corvin} and {Ada} ran.");
     assert_eq!(paragraphs[0].matches('{').count(), 31, "{}", paragraphs[0]);
     assert!(kept.is_ok(), "{kept:?}");
+}
+
+#[test]
+fn a_story_with_one_player_past_the_limit_stays_waiting_whole() {
+    let (_, corvin) = party();
+    let marks = stranger_marks(32);
+    hear_story(&corvin, &format!("a1;;{}%0AAda ran.", marks.join(" ")));
+
+    let problem: String = corvin.eval("return ns.PlayerStories.Accept()");
+
+    assert_eq!(problem, TOO_MANY);
+    assert_eq!(waiting(&corvin), 1);
+    assert_eq!(accepted(&sent_inputs(&corvin)), None);
+}
+
+#[test]
+fn a_story_counts_a_dotted_capital_i_as_the_desktop_does() {
+    let (_, corvin) = party();
+    let marks = stranger_marks(30);
+    hear_story(
+        &corvin,
+        &format!("a1;;{} {{İda}} {{ıda}} Ada", marks.join(" ")),
+    );
+
+    let problem: String = corvin.eval("return ns.PlayerStories.Accept()");
+
+    assert_eq!(problem, TOO_MANY);
+    assert_eq!(waiting(&corvin), 1);
 }
 
 #[test]
@@ -558,7 +586,7 @@ fn a_story_that_names_too_many_players_you_know_stays_waiting() {
 
     let problem: String = corvin.eval("return ns.PlayerStories.Accept()");
 
-    assert_eq!(problem, "This story names too many players to keep.");
+    assert_eq!(problem, TOO_MANY);
     assert_eq!(waiting(&corvin), 1);
     assert_eq!(accepted(&sent_inputs(&corvin)), None);
 }
@@ -571,13 +599,15 @@ fn a_mark_of_a_word_that_no_name_can_be_is_its_word() {
     let page = story_page(&corvin).join("\n");
     corvin.run("wow.Slash('/story', 'accept')");
 
+    // "The" can be a name of the game, so its mark stays: the desktop swaps it only with a
+    // capital.
     assert!(
         page.contains("The wolf A came I, Thequickbrownfox."),
         "{page}"
     );
-    assert!(!page.contains("Players named"), "{page}");
+    assert!(page.contains("Players named: The\n"), "{page}");
     let (_, paragraphs) = accepted(&sent_inputs(&corvin)).expect("an accepted story");
-    assert_eq!(paragraphs, ["The wolf A came I, Thequickbrownfox."]);
+    assert_eq!(paragraphs, ["{The} wolf A came I, Thequickbrownfox."]);
 }
 
 #[test]
@@ -595,6 +625,59 @@ fn a_typed_name_mark_of_a_peer_is_no_name_mark() {
     assert!(page.contains("Players named: Lysara\n"), "{page}");
     let (_, paragraphs) = accepted(&sent_inputs(&corvin)).expect("an accepted story");
     assert_eq!(paragraphs, ["N and {Lysara} and {lysara} and {LYSARA}"]);
+}
+
+/// The journal of Corvin's desktop, with these accepted stories by number.
+fn journal_with(corvin: &Player, numbers: &[u64]) {
+    let stories: Vec<String> = numbers
+        .iter()
+        .map(|number| format!(r#"{{"number":{number},"paragraphs":["x"],"at":1790000000}}"#))
+        .collect();
+    corvin.game.reply(&format!(
+        r#"{{"type":"journal","page":0,"pages":1,"stories":[{}]}}"#,
+        stories.join(",")
+    ));
+}
+
+#[test]
+fn an_accepted_story_waits_as_saving_until_the_journal_shows_it_kept() {
+    let (ada, corvin) = party();
+    tell(&ada, &corvin, "Ada and I held the bridge.");
+
+    corvin.run("wow.Slash('/story', 'accept')");
+    exchange(&ada, &corvin);
+    let saving: bool = corvin.eval("return ns.PlayerStories.Waiting()[1].keeping ~= nil");
+    let heard_early = ada
+        .printed()
+        .contains(&format!("{PREFIX}Corvin accepted your story."));
+    journal_with(&corvin, &[1]);
+    exchange(&ada, &corvin);
+
+    assert!(saving);
+    assert!(!heard_early);
+    assert_eq!(waiting(&corvin), 0);
+    assert!(
+        ada.printed()
+            .contains(&format!("{PREFIX}Corvin accepted your story."))
+    );
+}
+
+#[test]
+fn a_story_that_the_desktop_never_kept_waits_for_accept_again() {
+    let (ada, corvin) = party();
+    tell(&ada, &corvin, "Ada and I held the bridge.");
+    corvin.run("wow.Slash('/story', 'accept')");
+
+    for _ in 0..3 {
+        journal_with(&corvin, &[]);
+    }
+
+    assert_eq!(waiting(&corvin), 1);
+    let saving: bool = corvin.eval("return ns.PlayerStories.Waiting()[1].keeping ~= nil");
+    assert!(!saving);
+    assert!(corvin.printed().contains(&format!(
+        "{PREFIX}Couldn't keep the story from Ada. Accept it again, or decline it."
+    )));
 }
 
 /// A desktop with this character, as the story program runs it.

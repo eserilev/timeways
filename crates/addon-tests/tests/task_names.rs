@@ -149,6 +149,17 @@ fn you_are_no_player_you_saw_in_your_group() {
 }
 
 #[test]
+fn a_player_named_like_a_common_word_gets_a_mark_only_with_a_capital() {
+    let idea = marked(
+        "table.insert(wow.guild, { name = 'Her-Stormrage', online = false })
+         wow.Fire('GUILD_ROSTER_UPDATE', false)",
+        "Her ran. her bag. HER came.",
+    );
+
+    assert_eq!(idea, "{Her} ran. her bag. {Her} came.");
+}
+
+#[test]
 fn the_addon_remembers_at_most_two_hundred_players_it_saw() {
     let ada = Player::new("Ada");
     ada.run(

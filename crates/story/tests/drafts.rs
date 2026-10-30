@@ -483,11 +483,11 @@ fn a_story_never_teaches_a_word_that_no_name_of_the_game_can_be() {
         "The wolf, a cat, the end. I came, thequickbrownfox.",
     );
 
+    // "The" can be a name of the game, so it swaps with a capital, as a player named The.
     assert!(
-        prompt.contains("The wolf, a cat, the end. I came, thequickbrownfox."),
+        prompt.contains("{P1} wolf, a cat, the end. I came, thequickbrownfox."),
         "{prompt}"
     );
-    assert!(!prompt.contains("Players in the idea"), "{prompt}");
 }
 
 #[test]
@@ -532,6 +532,16 @@ fn a_story_that_names_more_than_thirty_two_other_players_is_refused() {
 
     assert!(matches!(refused, Err(StoryError::BadStory)), "{refused:?}");
     assert!(kept.is_ok(), "{kept:?}");
+}
+
+#[test]
+fn a_player_named_like_a_common_word_swaps_only_with_a_capital() {
+    let mut story = story("common-word-name");
+    accept_story(&mut story, "{Her} and {Yes} ran with us.");
+
+    let (_, prompt) = ask(&mut story, "Her ran. her bag. Yes, yes.");
+
+    assert!(prompt.contains("{P1} ran. her bag. {P2}, yes."), "{prompt}");
 }
 
 #[test]

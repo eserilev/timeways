@@ -56,14 +56,19 @@ local function AuthorName(story)
 	return author and Short(author) or "a friend"
 end
 
--- A waiting story holds the marks of its author: the page shows the names.
-local function ShownPlain(text)
-	return ns.Plain(ns.TaskNames.Shown(text))
+-- The title and the paragraphs of a waiting story, as the desktop counts them.
+local function StoryTexts(story)
+	local texts = { story.title }
+	for _, paragraph in ipairs(ns.StoryText.Paragraphs(story.text)) do
+		texts[#texts + 1] = paragraph
+	end
+	return texts
 end
 
+-- A waiting story holds the marks of its author: the page shows the names.
 local function WaitingTitle(story)
 	if story.title ~= "" then
-		return ShownPlain(story.title), false
+		return ns.Plain(ns.TaskNames.PeerView(StoryTexts(story))[1]), false
 	end
 	return "A story from " .. Short(story.author), true
 end
@@ -83,13 +88,18 @@ local function DraftTitle(draft)
 end
 
 -- Each kind of story: its rows, newest first, and how its page reads.
+-- A story that is saving comes after the others, so Accept opens the next one.
 local function WaitingRows()
-	local rows, waiting = {}, ns.PlayerStories.Waiting()
+	local rows, saving, waiting = {}, {}, ns.PlayerStories.Waiting()
 	for index = #waiting, 1, -1 do
 		local story = waiting[index]
 		local title, faded = WaitingTitle(story)
-		local row = Item(WaitingKey(story), title, Short(story.author), Day(story.at))
+		local mark = story.keeping and "Saving..." or Day(story.at)
+		local row = Item(WaitingKey(story), title, Short(story.author), mark)
 		row.faded, row.story, row.kind = faded, story, "waiting"
+		table.insert(story.keeping and saving or rows, row)
+	end
+	for _, row in ipairs(saving) do
 		rows[#rows + 1] = row
 	end
 	return rows
@@ -174,15 +184,11 @@ local function WaitingPage(row)
 		Line("heading", row.text),
 		Line("note", "By " .. Short(story.author) .. " · " .. Day(story.at)),
 	}
-	local texts = { story.title }
-	for _, paragraph in ipairs(ns.StoryText.Paragraphs(story.text)) do
-		texts[#texts + 1] = paragraph
-	end
-	-- The page shows the words that the desktop will keep.
-	local shown = ns.TaskNames.ShownStory(texts)
+	local texts = StoryTexts(story)
+	-- The page shows the words that the desktop will keep, and the words that the author
+	-- marked as players, so the reader sees them before Accept.
+	local shown, named = ns.TaskNames.PeerView(texts)
 	Paragraphs(lines, { unpack(shown, 2) }, ns.Plain)
-	-- The author marked these words as players: the reader sees them before Accept.
-	local named = ns.TaskNames.PeerNames(texts)
 	if #named > 0 then
 		lines[#lines + 1] = Line("note", "Players named: " .. ns.Plain(table.concat(named, ", ")))
 	end
