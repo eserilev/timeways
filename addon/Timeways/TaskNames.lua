@@ -690,10 +690,11 @@ local function IsMine(mark, me, mySurname)
 end
 
 -- A text of a peer as the reader's addon reads it: broken bytes as U+FFFD, no character
--- that shows nothing, and a typed `$N` as "N": on the reader's desktop `$N` names the
--- reader, so a peer can't type it.
+-- that shows nothing, and no `$` before "N" or a mark. On the reader's desktop `$N` names
+-- the reader, so a peer can't type it, also not as "$$N" or as "${N}", whose mark becomes
+-- its word.
 local function PeerText(text)
-	return (TaskNames.Visible(ns.Utf8.Lossy(text)):gsub("%$N", "N"))
+	return (TaskNames.Visible(ns.Utf8.Lossy(text)):gsub("%$+([N{])", "%1"))
 end
 
 -- The text with each mark that `turns` picks as its word. A mark that touches the word

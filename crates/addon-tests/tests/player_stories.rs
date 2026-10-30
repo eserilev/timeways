@@ -454,14 +454,15 @@ fn capitalized(word: &str) -> String {
 }
 
 /// A piece of a text from a peer: marks valid and broken, of strangers, of the reader, and
-/// surname marks, marks of words that no name can be, a typed `$N`, signs that touch them,
-/// braces, hidden characters, a name that the reader knows, and plain words.
+/// surname marks, marks of words that no name can be, a typed `$N` or `$` before a mark,
+/// signs that touch them, braces, hidden characters, a name that the reader knows, and plain
+/// words.
 fn peer_piece() -> impl Strategy<Value = String> {
     prop_oneof![
         3 => prop::sample::select(vec![
             "{Lysara}", "{Zqada-Bean}", "{~Zqada-Bean}", "{Corvin}", "{Zqada-X}", "{~Lysara-X}",
             "{123}", "{Ada-}", "{~}", "{~-X}", "{Lys ara}", "{", "}", "x", " ", "  ", ", ",
-            "\u{200B}", "\u{A0}", "\u{301}", "{Ly\u{200B}sara}", "$N", "{The}", "{I}",
+            "\u{200B}", "\u{A0}", "\u{301}", "{Ly\u{200B}sara}", "$N", "$", "{N}", "{The}", "{I}",
             "{lysara}", "{LYSARA}", "{Thequickbrownfox}", "ada", "{Abcdefghijkl}",
             "{Abcdefghijklm}", "{İda}", "{ıda}",
         ]).prop_map(String::from),
@@ -645,6 +646,30 @@ fn a_typed_name_mark_of_a_peer_is_no_name_mark() {
     assert!(page.contains("Players named: Lysara\n"), "{page}");
     let (_, paragraphs) = accepted(&sent_inputs(&corvin)).expect("an accepted story");
     assert_eq!(paragraphs, ["N and {Lysara} and {lysara} and {LYSARA}"]);
+}
+
+#[test]
+fn a_typed_name_mark_never_comes_out_of_a_peer_story() {
+    let (_, corvin) = party();
+    hear_story(
+        &corvin,
+        "a1;;We met ${N} at dawn, $${N}, $$N, ${~Ab-Nash} and ${Nadia}.",
+    );
+
+    let page = story_page(&corvin).join("\n");
+    corvin.run("wow.Slash('/story', 'accept')");
+    let (title, paragraphs) = accepted(&sent_inputs(&corvin)).expect("an accepted story");
+    let stored = accept_on_desktop(&mut desktop_of("Corvin"), title, paragraphs.clone());
+
+    assert!(
+        page.contains("We met N at dawn, N, N, Nash and Nadia."),
+        "{page}"
+    );
+    assert_eq!(
+        paragraphs,
+        ["We met N at dawn, N, N, {~Ab-Nash} and {Nadia}."]
+    );
+    assert_eq!(stored, ["We met N at dawn, N, N, Nash and Nadia."]);
 }
 
 /// The journal of Corvin's desktop, with these accepted stories by number.
