@@ -12,11 +12,13 @@ use libfuzzer_sys::fuzz_target;
 use std::collections::BTreeSet;
 use timeways_story::dump::{xml_scan, xml_texts};
 use timeways_story::game_talk::{Cut, cut_game_talk};
-use timeways_story::outcome_passages::{PageKind, Paragraph, dependencies, may_tell_an_end, page_kind};
+use timeways_story::outcome_passages::{
+    PageKind, Paragraph, dependencies, may_tell_an_end, page_kind,
+};
 use timeways_story::pack::{Deed, Dependency, Link};
-use timeways_story::setup_passages::{Found, Instances, setup_for, tells_an_end, window};
 use timeways_story::pack_sources::paragraphs;
 use timeways_story::passage_limits::MAX_PASSAGE_BYTES;
+use timeways_story::setup_passages::{Found, Instances, setup_for, tells_an_end, window};
 use timeways_story::wikitext::{
     book_content, cites, listed_pages, plain, redirect_target, sections,
 };

@@ -123,45 +123,136 @@ local function NextWord(text, at)
 	end
 end
 
--- Latin-1 capitals are U+00C0 to U+00DE, less ×, and each small letter is 32 above.
-local function FoldLatin1(trail)
-	if trail == "\151" then
+-- The capitals of the letters of `LETTERS` and their small letters, as the desktop's
+-- `key_of` folds them: { first, last, step, offset }. The final sigma ς folds to σ too.
+-- From `first` to `last`, every `step`-th code is a capital, and its small letter is
+-- `offset` above it. The addon test `the_capitals_table_is_the_one_that_the_desktop_folds`
+-- prints the table when it is wrong.
+local CAPITALS = {
+	{ 0x00C0, 0x00D6, 1, 32 }, -- À à
+	{ 0x00D8, 0x00DE, 1, 32 }, -- Ø ø
+	{ 0x0100, 0x012E, 2, 1 }, -- Ā ā
+	{ 0x0132, 0x0136, 2, 1 }, -- Ĳ ĳ
+	{ 0x0139, 0x0147, 2, 1 }, -- Ĺ ĺ
+	{ 0x014A, 0x0176, 2, 1 }, -- Ŋ ŋ
+	{ 0x0178, 0x0178, 1, -121 }, -- Ÿ ÿ
+	{ 0x0179, 0x017D, 2, 1 }, -- Ź ź
+	{ 0x0181, 0x0181, 1, 210 }, -- Ɓ ɓ
+	{ 0x0182, 0x0184, 2, 1 }, -- Ƃ ƃ
+	{ 0x0186, 0x0186, 1, 206 }, -- Ɔ ɔ
+	{ 0x0187, 0x0187, 1, 1 }, -- Ƈ ƈ
+	{ 0x0189, 0x018A, 1, 205 }, -- Ɖ ɖ
+	{ 0x018B, 0x018B, 1, 1 }, -- Ƌ ƌ
+	{ 0x018E, 0x018E, 1, 79 }, -- Ǝ ǝ
+	{ 0x018F, 0x018F, 1, 202 }, -- Ə ə
+	{ 0x0190, 0x0190, 1, 203 }, -- Ɛ ɛ
+	{ 0x0191, 0x0191, 1, 1 }, -- Ƒ ƒ
+	{ 0x0193, 0x0193, 1, 205 }, -- Ɠ ɠ
+	{ 0x0194, 0x0194, 1, 207 }, -- Ɣ ɣ
+	{ 0x0196, 0x0196, 1, 211 }, -- Ɩ ɩ
+	{ 0x0197, 0x0197, 1, 209 }, -- Ɨ ɨ
+	{ 0x0198, 0x0198, 1, 1 }, -- Ƙ ƙ
+	{ 0x019C, 0x019C, 1, 211 }, -- Ɯ ɯ
+	{ 0x019D, 0x019D, 1, 213 }, -- Ɲ ɲ
+	{ 0x019F, 0x019F, 1, 214 }, -- Ɵ ɵ
+	{ 0x01A0, 0x01A4, 2, 1 }, -- Ơ ơ
+	{ 0x01A6, 0x01A6, 1, 218 }, -- Ʀ ʀ
+	{ 0x01A7, 0x01A7, 1, 1 }, -- Ƨ ƨ
+	{ 0x01A9, 0x01A9, 1, 218 }, -- Ʃ ʃ
+	{ 0x01AC, 0x01AC, 1, 1 }, -- Ƭ ƭ
+	{ 0x01AE, 0x01AE, 1, 218 }, -- Ʈ ʈ
+	{ 0x01AF, 0x01AF, 1, 1 }, -- Ư ư
+	{ 0x01B1, 0x01B2, 1, 217 }, -- Ʊ ʊ
+	{ 0x01B3, 0x01B5, 2, 1 }, -- Ƴ ƴ
+	{ 0x01B7, 0x01B7, 1, 219 }, -- Ʒ ʒ
+	{ 0x01B8, 0x01B8, 1, 1 }, -- Ƹ ƹ
+	{ 0x01BC, 0x01BC, 1, 1 }, -- Ƽ ƽ
+	{ 0x01C4, 0x01C4, 1, 2 }, -- Ǆ ǆ
+	{ 0x01C5, 0x01C5, 1, 1 }, -- ǅ ǆ
+	{ 0x01C7, 0x01C7, 1, 2 }, -- Ǉ ǉ
+	{ 0x01C8, 0x01C8, 1, 1 }, -- ǈ ǉ
+	{ 0x01CA, 0x01CA, 1, 2 }, -- Ǌ ǌ
+	{ 0x01CB, 0x01DB, 2, 1 }, -- ǋ ǌ
+	{ 0x01DE, 0x01EE, 2, 1 }, -- Ǟ ǟ
+	{ 0x01F1, 0x01F1, 1, 2 }, -- Ǳ ǳ
+	{ 0x01F2, 0x01F4, 2, 1 }, -- ǲ ǳ
+	{ 0x01F6, 0x01F6, 1, -97 }, -- Ƕ ƕ
+	{ 0x01F7, 0x01F7, 1, -56 }, -- Ƿ ƿ
+	{ 0x01F8, 0x021E, 2, 1 }, -- Ǹ ǹ
+	{ 0x0220, 0x0220, 1, -130 }, -- Ƞ ƞ
+	{ 0x0222, 0x0232, 2, 1 }, -- Ȣ ȣ
+	{ 0x023A, 0x023A, 1, 10795 }, -- Ⱥ ⱥ
+	{ 0x023B, 0x023B, 1, 1 }, -- Ȼ ȼ
+	{ 0x023D, 0x023D, 1, -163 }, -- Ƚ ƚ
+	{ 0x023E, 0x023E, 1, 10792 }, -- Ⱦ ⱦ
+	{ 0x0241, 0x0241, 1, 1 }, -- Ɂ ɂ
+	{ 0x0243, 0x0243, 1, -195 }, -- Ƀ ƀ
+	{ 0x0244, 0x0244, 1, 69 }, -- Ʉ ʉ
+	{ 0x0245, 0x0245, 1, 71 }, -- Ʌ ʌ
+	{ 0x0246, 0x024E, 2, 1 }, -- Ɇ ɇ
+	{ 0x0370, 0x0372, 2, 1 }, -- Ͱ ͱ
+	{ 0x0376, 0x0376, 1, 1 }, -- Ͷ ͷ
+	{ 0x037F, 0x037F, 1, 116 }, -- Ϳ ϳ
+	{ 0x0386, 0x0386, 1, 38 }, -- Ά ά
+	{ 0x0388, 0x038A, 1, 37 }, -- Έ έ
+	{ 0x038C, 0x038C, 1, 64 }, -- Ό ό
+	{ 0x038E, 0x038F, 1, 63 }, -- Ύ ύ
+	{ 0x0391, 0x03A1, 1, 32 }, -- Α α
+	{ 0x03A3, 0x03AB, 1, 32 }, -- Σ σ
+	{ 0x03C2, 0x03C2, 1, 1 }, -- ς σ
+	{ 0x03CF, 0x03CF, 1, 8 }, -- Ϗ ϗ
+	{ 0x03D8, 0x03EE, 2, 1 }, -- Ϙ ϙ
+	{ 0x03F4, 0x03F4, 1, -60 }, -- ϴ θ
+	{ 0x03F7, 0x03F7, 1, 1 }, -- Ϸ ϸ
+	{ 0x03F9, 0x03F9, 1, -7 }, -- Ϲ ϲ
+	{ 0x03FA, 0x03FA, 1, 1 }, -- Ϻ ϻ
+	{ 0x03FD, 0x03FF, 1, -130 }, -- Ͻ ͻ
+	{ 0x0400, 0x040F, 1, 80 }, -- Ѐ ѐ
+	{ 0x0410, 0x042F, 1, 32 }, -- А а
+	{ 0x0460, 0x0480, 2, 1 }, -- Ѡ ѡ
+	{ 0x048A, 0x04BE, 2, 1 }, -- Ҋ ҋ
+	{ 0x04C0, 0x04C0, 1, 15 }, -- Ӏ ӏ
+	{ 0x04C1, 0x04CD, 2, 1 }, -- Ӂ ӂ
+	{ 0x04D0, 0x04FE, 2, 1 }, -- Ӑ ӑ
+	{ 0x1E00, 0x1E94, 2, 1 }, -- Ḁ ḁ
+	{ 0x1E9E, 0x1E9E, 1, -7615 }, -- ẞ ß
+	{ 0x1EA0, 0x1EFE, 2, 1 }, -- Ạ ạ
+}
+
+-- The UTF-8 of a code point below U+10000.
+local function Encoded(code)
+	if code < 0x80 then
+		return string.char(code)
+	elseif code < 0x800 then
+		return string.char(0xC0 + math.floor(code / 64), 0x80 + code % 64)
+	end
+	return string.char(0xE0 + math.floor(code / 4096), 0x80 + math.floor(code / 64) % 64, 0x80 + code % 64)
+end
+
+-- The small letter of each capital, by code point, read once from `CAPITALS`.
+local SMALL = {}
+for _, run in ipairs(CAPITALS) do
+	for code = run[1], run[2], run[3] do
+		SMALL[code] = code + run[4]
+	end
+end
+
+local function FoldChar(char)
+	-- No capital takes 4 bytes, and a broken letter stays as it is.
+	if #char > 3 or Encoded(CodePoint(char)) ~= char then
 		return nil
 	end
-	return "\195" .. string.char(trail:byte() + 32)
-end
-
--- In Latin Extended-A, U+0100 to U+017F, each capital is one below its small letter. Where
--- a pair starts on an odd code, the capital is the odd one.
-local function IsCapitalExtended(code)
-	local even = code % 2 == 0
-	if (code >= 0x100 and code <= 0x137) or (code >= 0x14A and code <= 0x177) then
-		return even
-	end
-	return ((code >= 0x139 and code <= 0x148) or (code >= 0x179 and code <= 0x17E)) and not even
-end
-
-local function FoldExtended(lead, trail)
-	local code = (lead:byte() - 0xC0) * 64 + trail:byte() - 0x80
-	if code == 0x178 then
-		return "\195\191"
-	end
-	-- İ is "i" and a combining dot above, as the desktop's `to_lowercase` folds it.
+	local code = CodePoint(char)
+	-- İ is "i" and a combining dot above, as the desktop's `key_of` folds it.
 	if code == 0x130 then
 		return "i\204\135"
 	end
-	if not IsCapitalExtended(code) then
-		return nil
-	end
-	code = code + 1
-	return string.char(0xC0 + math.floor(code / 64), 0x80 + code % 64)
+	return SMALL[code] and Encoded(SMALL[code])
 end
 
--- Lowercase for ASCII and the Latin letters of European realms. `string.lower` knows only
--- ASCII.
+-- The key of a name, as the desktop's `key_of` folds it. `string.lower` knows only ASCII.
 function TaskNames.Fold(text)
-	text = text:lower():gsub("\195([\128-\158])", FoldLatin1)
-	return (text:gsub("([\196\197])([\128-\191])", FoldExtended))
+	return (text:lower():gsub("[\194-\244][\128-\191]*", FoldChar))
 end
 
 -- Each source writes a name its own way: the friends list writes "Leborc James" on WoW
@@ -312,10 +403,19 @@ local function WordAfter(text, last, separator)
 	end
 end
 
--- True when the word starts with a capital: its first letter changes when folded.
-local function IsCapitalized(word)
+-- The letters where a fold and Rust's `is_uppercase` part ways: the title-case letters and
+-- ς fold but are no capitals, and ϒ, ϓ, and ϔ are capitals with no small letter.
+local NO_CAPITALS = { ["ǅ"] = true, ["ǈ"] = true, ["ǋ"] = true, ["ǲ"] = true, ["ς"] = true }
+local CAPITALS_THAT_STAY = { ["ϒ"] = true, ["ϓ"] = true, ["ϔ"] = true }
+
+-- True when the word starts with a capital, as the desktop's `is_capitalized` reads it: its
+-- first letter changes when folded.
+function TaskNames.IsCapitalized(word)
 	local first = word:match("^" .. CHAR)
-	return first ~= nil and TaskNames.Fold(first) ~= first
+	if not first or NO_CAPITALS[first] then
+		return false
+	end
+	return CAPITALS_THAT_STAY[first] or TaskNames.Fold(first) ~= first
 end
 
 -- What follows a first name that ends at `last`: the realm or the surname after a dash, as
@@ -329,7 +429,7 @@ local function Following(text, last)
 	end
 	local spaceFirst, spaceLast = WordAfter(text, after.dashLast or last, " ")
 	local word = spaceFirst and text:sub(spaceFirst, spaceLast)
-	if word and IsCapitalized(word) then
+	if word and TaskNames.IsCapitalized(word) then
 		after.capital, after.capitalLast = TaskNames.Fold(word), spaceLast
 	end
 	return after
@@ -391,7 +491,7 @@ end
 -- the desktop hides that one.
 local function LoneSurnameMark(word, surnames, mySurname)
 	local folded = TaskNames.Fold(word)
-	if not IsCapitalized(word) or (mySurname and folded == TaskNames.Fold(mySurname)) then
+	if not TaskNames.IsCapitalized(word) or (mySurname and folded == TaskNames.Fold(mySurname)) then
 		return nil
 	end
 	local full = (surnames[folded] or {})[1]
@@ -466,7 +566,7 @@ local function Mark(text, ownMark, known)
 		local word = text:sub(first, last)
 		local folded = TaskNames.Fold(word)
 		-- A player named like a common word is a name only with a capital.
-		local common = FUNCTION_WORDS[folded] and not IsCapitalized(word)
+		local common = FUNCTION_WORDS[folded] and not TaskNames.IsCapitalized(word)
 		local candidates = not common and names[folded] or {}
 		local after = Following(text, last)
 		local who = WholeName(candidates, folded == me, mySurname, after) or (folded == me and "me") or candidates[1]
@@ -600,24 +700,25 @@ local function IsMine(mark, me, mySurname)
 end
 
 -- A text of a peer as the reader's addon reads it: broken bytes as U+FFFD, no character
--- that shows nothing, and a typed `$N` as "N": on the reader's desktop `$N` names the
--- reader, so a peer can't type it.
+-- that shows nothing, and no `$` before "N" or a mark. On the reader's desktop `$N` names
+-- the reader, so a peer can't type it, also not as "$$N" or as "${N}", whose mark becomes
+-- its word.
 local function PeerText(text)
-	return (TaskNames.Visible(ns.Utf8.Lossy(text)):gsub("%$N", "N"))
+	return (TaskNames.Visible(ns.Utf8.Lossy(text)):gsub("%$+([N{])", "%1"))
 end
 
--- The text with each mark that `turns` picks as its word. A mark that touches the word
--- of a mark before it is no mark any more, as the desktop reads the text.
+-- The text with each mark that `turns` picks as its word, and every other brace as a
+-- parenthesis: a brace next to a mark that became its word never makes a new mark, as in
+-- "{{I}}". A mark that touches the word of a mark before it is no mark any more, as the
+-- desktop reads the text.
 local function AsWords(text, turns)
 	local parts, at = {}, 1
 	for _, mark in ipairs(PeerMarks(text)) do
-		if turns(mark) then
-			parts[#parts + 1] = text:sub(at, mark.open - 1)
-			parts[#parts + 1] = MarkWord(mark)
-			at = mark.close + 1
-		end
+		parts[#parts + 1] = WithoutBraces(text:sub(at, mark.open - 1))
+		parts[#parts + 1] = turns(mark) and MarkWord(mark) or text:sub(mark.open, mark.close)
+		at = mark.close + 1
 	end
-	parts[#parts + 1] = text:sub(at)
+	parts[#parts + 1] = WithoutBraces(text:sub(at))
 	return table.concat(parts)
 end
 
@@ -625,17 +726,14 @@ local function Unlikely(mark)
 	return not mark.likely
 end
 
+local function Always()
+	return true
+end
+
 -- The text as your screen shows it: each mark as its word, every other brace as a
 -- parenthesis, as the desktop reads the text.
 local function ShownText(text)
-	local parts, at = {}, 1
-	for _, mark in ipairs(PeerMarks(text)) do
-		parts[#parts + 1] = WithoutBraces(text:sub(at, mark.open - 1))
-		parts[#parts + 1] = MarkWord(mark)
-		at = mark.close + 1
-	end
-	parts[#parts + 1] = WithoutBraces(text:sub(at))
-	return table.concat(parts)
+	return AsWords(text, Always)
 end
 
 function TaskNames.Shown(text)
@@ -657,7 +755,8 @@ TaskNames.TOO_MANY_PLAYERS = "too many players"
 -- whole. A mark of the reader stays a mark, and the desktop reads it as `$N`. Each player
 -- counts by the key of its mark, as the desktop counts it. Returns the texts, the players
 -- that they mark, the words of the author's marks, and the texts as your screen shows them;
--- or nil, `TOO_MANY_PLAYERS`, nil, and the shown texts.
+-- or nil, `TOO_MANY_PLAYERS`, the words, and the shown texts: the reader needs the names
+-- most on a story that names too many.
 local function KeptStory(texts, known)
 	local marked, shown, players, seen, words = {}, {}, {}, {}, {}
 	local keys, count = {}, 0
@@ -697,7 +796,7 @@ local function KeptStory(texts, known)
 		marked[n], shown[n] = table.concat(parts), ShownText(text)
 	end
 	if count > TaskNames.MAX_PEER_MARKS then
-		return nil, TaskNames.TOO_MANY_PLAYERS, nil, shown
+		return nil, TaskNames.TOO_MANY_PLAYERS, words, shown
 	end
 	return marked, players, words, shown
 end
@@ -714,7 +813,7 @@ end
 function TaskNames.PeerView(texts)
 	local _, _, words, shown = KeptStory(texts, Known())
 	local names, seen = {}, {}
-	for _, word in ipairs(words or {}) do
+	for _, word in ipairs(words) do
 		local folded = TaskNames.Fold(word)
 		if not seen[folded] then
 			seen[folded] = true

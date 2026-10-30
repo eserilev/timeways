@@ -199,7 +199,10 @@ fn damaged_setups(lines: &[u8]) {
     };
     Pack::write(
         &path,
-        &[passage("The marshal wants the ooze dead."), passage("The ooze plots.")],
+        &[
+            passage("The marshal wants the ooze dead."),
+            passage("The ooze plots."),
+        ],
     )
     .unwrap();
     let connection = Connection::open(&path).unwrap();
@@ -227,7 +230,10 @@ fn damaged_setups(lines: &[u8]) {
         Ok(found) => {
             let fresh = Character::new();
             for passage in found {
-                assert!(setup_allowed(&fresh, passage.setup_for.as_ref()), "{passage:?}");
+                assert!(
+                    setup_allowed(&fresh, passage.setup_for.as_ref()),
+                    "{passage:?}"
+                );
             }
         }
         Err(PackError::UnknownSetup { kind }) => assert_eq!(kind, "rumor"),

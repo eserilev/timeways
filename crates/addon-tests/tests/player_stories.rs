@@ -469,22 +469,50 @@ fn capitalized(word: &str) -> String {
 }
 
 /// A piece of a text from a peer: marks valid and broken, of strangers, of the reader, and
-/// surname marks, marks of words that no name can be, a typed `$N`, signs that touch them,
-/// braces, hidden characters, a name that the reader knows, and plain words.
+/// surname marks, marks of words that no name can be, a typed `$N` or `$` before a mark,
+/// signs that touch them, braces, hidden characters, a name that the reader knows, and plain
+/// words.
 fn peer_piece() -> impl Strategy<Value = String> {
     prop_oneof![
         3 => prop::sample::select(vec![
             "{Lysara}", "{Zqada-Bean}", "{~Zqada-Bean}", "{Corvin}", "{Zqada-X}", "{~Lysara-X}",
             "{123}", "{Ada-}", "{~}", "{~-X}", "{Lys ara}", "{", "}", "x", " ", "  ", ", ",
-            "\u{200B}", "\u{A0}", "\u{301}", "{Ly\u{200B}sara}", "$N", "{The}", "{I}",
+            "\u{200B}", "\u{A0}", "\u{301}", "{Ly\u{200B}sara}", "$N", "$", "{N}", "{The}", "{I}",
             "{lysara}", "{LYSARA}", "{Thequickbrownfox}", "ada", "{Abcdefghijkl}",
-            "{Abcdefghijklm}", "{İda}", "{ıda}",
+            "{Abcdefghijklm}", "{İda}", "{ıda}", "{Ада}", "{АДА}", "{ΟΔΥΣΣΕΥΣ}", "{Οδυσσευς}",
+            "{Οδυσσευσ}", "{Σας}", "Οδυσσευς",
         ]).prop_map(String::from),
         1 => "[Q][a-z]{1,3}".prop_map(|name| format!("{{{name}}}")),
         1 => prop::sample::select(timeways_story::aliases::FUNCTION_WORDS.to_vec())
             .prop_map(|word| format!("{{{}}}", capitalized(word))),
         2 => "[e-h]{1,5}",
     ]
+}
+
+/// How many other players a story names. Most stories land at the limit of 32 or right
+/// next to it.
+fn players_named() -> impl Strategy<Value = usize> {
+    prop_oneof![1 => 0usize..40, 3 => 31usize..=33]
+}
+
+/// The texts of a story, the title first, with marks of strangers dealt out over them until
+/// the story names `players` other players, as the desktop counts them. The reader's addon
+/// can mark one more, Ada.
+fn story_texts(title: String, paragraphs: Vec<String>, players: usize) -> Vec<Vec<u8>> {
+    let mut texts: Vec<String> = std::iter::once(title).chain(paragraphs).collect();
+    let count = texts.len();
+    for (n, mark) in stranger_marks(64).into_iter().enumerate() {
+        if timeways_story::aliases::other_players(&texts, "Corvin") >= players {
+            break;
+        }
+        let text = &mut texts[n % count];
+        text.push(' ');
+        text.push_str(&mark);
+    }
+    texts
+        .iter()
+        .map(|text| text.trim().as_bytes().to_vec())
+        .collect()
 }
 
 #[test]
@@ -495,13 +523,11 @@ fn the_reader_and_the_desktop_read_the_marks_of_a_peer_alike() {
     let story = (
         prop_oneof![Just(String::new()), text()],
         prop::collection::vec(text(), 1..4),
+        players_named(),
     );
 
-    let result = runner.run(&story, |(title, paragraphs)| {
-        let texts: Vec<Vec<u8>> = std::iter::once(title)
-            .chain(paragraphs)
-            .map(|text| text.trim().as_bytes().to_vec())
-            .collect();
+    let result = runner.run(&story, |(title, paragraphs, players)| {
+        let texts = story_texts(title, paragraphs, players);
         let differ = peer_marks_disagree(&corvin, "Corvin", &texts);
         prop_assert!(differ.is_none(), "{}", differ.unwrap_or_default());
         Ok(())
@@ -510,7 +536,32 @@ fn the_reader_and_the_desktop_read_the_marks_of_a_peer_alike() {
     result.unwrap();
 }
 
-/// Marks of 31 or 32 strangers, "{Qaa}", "{Qab}", and so on.
+#[test]
+fn braces_around_a_mark_that_becomes_its_word_never_make_a_new_mark() {
+    let (_, corvin) = party();
+    let texts = [Vec::new(), b"{{I}}{Qa}".to_vec()];
+
+    let differ = peer_marks_disagree(&corvin, "Corvin", &texts);
+
+    assert!(differ.is_none(), "{}", differ.unwrap_or_default());
+}
+
+#[test]
+fn a_greek_name_counts_once_wherever_its_sigma_stands() {
+    let (_, corvin) = party();
+    let strangers = stranger_marks(31).join(" ");
+
+    for names in ["{ΟΔΥΣΣΕΥΣ} {Οδυσσευς}", "{ΟΔΥΣΣΕΥΣ} {Οδυσσευσ}"]
+    {
+        let texts = [Vec::new(), format!("{strangers} {names}").into_bytes()];
+
+        let differ = peer_marks_disagree(&corvin, "Corvin", &texts);
+
+        assert!(differ.is_none(), "{names}: {}", differ.unwrap_or_default());
+    }
+}
+
+/// Marks of strangers, "{Qaa}", "{Qab}", and so on.
 fn stranger_marks(count: u8) -> Vec<String> {
     (0..count)
         .map(|n| {
@@ -563,6 +614,21 @@ fn a_story_with_one_player_past_the_limit_stays_waiting_whole() {
 }
 
 #[test]
+fn the_page_names_the_players_of_a_story_that_names_too_many() {
+    let (_, corvin) = party();
+    let marks = stranger_marks(32);
+    hear_story(&corvin, &format!("a1;;{}%0AAda ran.", marks.join(" ")));
+
+    let page = story_page(&corvin);
+
+    let named = format!(
+        "Players named: {}",
+        marks.join(", ").replace(['{', '}'], "")
+    );
+    assert!(page.contains(&named), "{page:?}");
+}
+
+#[test]
 fn a_story_counts_a_dotted_capital_i_as_the_desktop_does() {
     let (_, corvin) = party();
     let marks = stranger_marks(30);
@@ -575,6 +641,26 @@ fn a_story_counts_a_dotted_capital_i_as_the_desktop_does() {
 
     assert_eq!(problem, TOO_MANY);
     assert_eq!(waiting(&corvin), 1);
+}
+
+#[test]
+fn a_story_counts_a_cyrillic_name_in_two_cases_once() {
+    let (_, corvin) = party();
+    let marks = stranger_marks(30);
+    hear_story(
+        &corvin,
+        &format!("a1;;{} {{Ада}} {{АДА}} Ada", marks.join(" ")),
+    );
+
+    let page = story_page(&corvin);
+    corvin.run("wow.Slash('/story', 'accept')");
+
+    let named = page.iter().find(|line| line.starts_with("Players named:"));
+    assert!(
+        named.is_some_and(|line| line.ends_with(", Qbd, Ада")),
+        "{page:?}"
+    );
+    assert!(accepted(&sent_inputs(&corvin)).is_some());
 }
 
 #[test]
@@ -640,6 +726,30 @@ fn a_typed_name_mark_of_a_peer_is_no_name_mark() {
     assert!(page.contains("Players named: Lysara\n"), "{page}");
     let (_, paragraphs) = accepted(&sent_inputs(&corvin)).expect("an accepted story");
     assert_eq!(paragraphs, ["N and {Lysara} and {lysara} and {LYSARA}"]);
+}
+
+#[test]
+fn a_typed_name_mark_never_comes_out_of_a_peer_story() {
+    let (_, corvin) = party();
+    hear_story(
+        &corvin,
+        "a1;;We met ${N} at dawn, $${N}, $$N, ${~Ab-Nash} and ${Nadia}.",
+    );
+
+    let page = story_page(&corvin).join("\n");
+    corvin.run("wow.Slash('/story', 'accept')");
+    let (title, paragraphs) = accepted(&sent_inputs(&corvin)).expect("an accepted story");
+    let stored = accept_on_desktop(&mut desktop_of("Corvin"), title, paragraphs.clone());
+
+    assert!(
+        page.contains("We met N at dawn, N, N, Nash and Nadia."),
+        "{page}"
+    );
+    assert_eq!(
+        paragraphs,
+        ["We met N at dawn, N, N, {~Ab-Nash} and {Nadia}."]
+    );
+    assert_eq!(stored, ["We met N at dawn, N, N, Nash and Nadia."]);
 }
 
 /// The journal of Corvin's desktop, with these accepted stories by number, each accepted now.

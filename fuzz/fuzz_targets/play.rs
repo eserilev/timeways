@@ -237,11 +237,7 @@ fn input(play: &Play, at: u64) -> Option<Value> {
         Play::Emote { emote, hour } => {
             json!({"type": "emote_done", "at": at, "emote": emote.0, "hour": hour})
         }
-        Play::SetHero {
-            field,
-            text,
-            names,
-        } => {
+        Play::SetHero { field, text, names } => {
             let field = FIELDS[usize::from(*field) % FIELDS.len()];
             json!({"type": "hero_set", "at": at, "field": field, "text": text.0,
                 "names": picked(names)})

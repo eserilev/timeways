@@ -14,8 +14,8 @@ use arbitrary::{Arbitrary, Unstructured};
 use libfuzzer_sys::fuzz_target;
 use serde_json::{Value, json};
 use timeways_story::input::{Input, MessageId};
-use timeways_story::stories::{MAX_PARAGRAPHS, PlayerStory};
 use timeways_story::store::Store;
+use timeways_story::stories::{MAX_PARAGRAPHS, PlayerStory};
 use timeways_story::story::{Output, Story, StoryError};
 
 /// The longest string of a journal (relay SPEC 9.8).

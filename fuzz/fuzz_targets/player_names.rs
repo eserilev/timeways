@@ -50,11 +50,17 @@ fuzz_target!(|line: Line| {
     learn_all(&mut table, &names);
 
     assert!(!marked.text.contains(['{', '}']), "{:?}", marked.text);
-    assert_eq!(plain_joined(&text_pieces(&marked.text, &table)), marked.text);
+    assert_eq!(
+        plain_joined(&text_pieces(&marked.text, &table)),
+        marked.text
+    );
 
     let for_a_model = without_names(&table, &marked.text);
     for word in words(&for_a_model) {
-        assert!(find(&table, &key_of(word)).is_none(), "{word} in {for_a_model}");
+        assert!(
+            find(&table, &key_of(word)).is_none(),
+            "{word} in {for_a_model}"
+        );
     }
     assert!(knows_every_id(&table, &for_a_model));
 
