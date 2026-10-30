@@ -276,7 +276,7 @@ fn read_all(database: &Database, path: PathBuf) -> Result<Read, StoreError> {
         crate::stories::lands_on_load(&mut shelf.borrow_mut(), row)
     })?);
     let seen = std::cell::RefCell::new(std::collections::BTreeSet::new());
-    let aliases = AliasLog::from_rows(database.read_and_repair(Table::Aliases, |row, _| {
+    let aliases = AliasLog::from_places(database.read_in_place(Table::Aliases, |row| {
         logs::is_new_name(row, &mut seen.borrow_mut())
     })?);
     let summaries = SummaryLog::from_rows(database.read_and_repair(Table::Summaries, |_, _| true)?);

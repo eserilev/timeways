@@ -505,13 +505,15 @@ pub struct AliasLog {
 }
 
 impl AliasLog {
-    /// The rows must hold names, each once (`is_new_name`).
-    pub(super) fn from_rows(rows: Vec<AliasRow>) -> AliasLog {
-        let mut table = Vec::with_capacity(rows.len());
-        for row in &rows {
-            if let Some(alias) = aliases::alias_of_row(row) {
-                rules::learn(&mut table, alias);
-            }
+    /// The rows must hold names, each once (`is_new_name`). A place with no row that reads
+    /// keeps its ID, matches no word, and shows as an unknown player.
+    pub(super) fn from_places(places: Vec<Option<AliasRow>>) -> AliasLog {
+        let mut rows = Vec::with_capacity(places.len());
+        let mut table = Vec::with_capacity(places.len());
+        for place in places {
+            let alias = place.as_ref().and_then(aliases::alias_of_row);
+            table.push(alias.unwrap_or_else(aliases::unread_alias));
+            rows.push(place.unwrap_or_else(|| AliasRow::named("")));
         }
         let unsaved = Unsaved::after(rows.len());
         AliasLog {

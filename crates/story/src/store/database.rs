@@ -14,6 +14,9 @@ use timeways_rules::prompts::oldest_prompt_kept;
 /// starts with new worlds. A file of version 8 to 11 is upgraded (`upgrade`).
 const VERSION: i64 = 13;
 
+/// The most places that `read_in_place` fills: far more players than any play names.
+const MAX_PLACES: usize = 1 << 20;
+
 /// Version 9 added the column `shape` to `calls`.
 const ADD_SHAPE: &str = "ALTER TABLE calls ADD COLUMN shape TEXT";
 
@@ -463,6 +466,37 @@ impl Database {
             }
         }
         Ok(items)
+    }
+
+    /// Each row at its position, with `None` for a row that does not read, that `accept`
+    /// refuses, or that is missing. No row goes, so a position is never given twice: a
+    /// table whose positions are IDs keeps each ID. A position past `MAX_PLACES` ends the
+    /// read, so a broken position never fills the memory.
+    ///
+    /// # Errors
+    ///
+    /// Returns the error of SQLite.
+    pub fn read_in_place<T: DeserializeOwned>(
+        &self,
+        table: Table,
+        accept: impl Fn(&T) -> bool,
+    ) -> Result<Vec<Option<T>>, StoreError> {
+        let rows = self.bodies(table).map_err(|source| self.error(source))?;
+        let mut places = Vec::with_capacity(rows.len());
+        for (position, body) in rows {
+            let Ok(position) = usize::try_from(position) else {
+                continue;
+            };
+            if position >= MAX_PLACES {
+                break;
+            }
+            places.resize_with(position.max(places.len()), || None);
+            let item = serde_json::from_str::<T>(&body)
+                .ok()
+                .filter(|item| accept(item));
+            places.push(item);
+        }
+        Ok(places)
     }
 
     /// A body that is not text reads as an empty string, which is no JSON, so it ends the

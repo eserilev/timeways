@@ -19,6 +19,9 @@ pub const MAX_PLAYER_NAME_BYTES: usize = 48;
 /// file makes one.
 const UNKNOWN_PLAYER: &str = "someone";
 
+/// The key of a row that this program cannot read (`unread_alias`).
+const UNREAD_KEY: &str = "an unread row";
+
 /// One row of the `aliases` table: a player, with the race and the class that the game
 /// showed when the table learned the name. The row's position is the ID.
 ///
@@ -127,6 +130,16 @@ pub fn alias_of_row(row: &AliasRow) -> Option<Alias> {
         key: format!("{} of {}", key_of(surname), key_of(first)),
         shown: surname.to_string(),
     })
+}
+
+/// The place of a row that this program cannot read. A key with spaces never matches a
+/// word, so the ID stays taken and shows as an unknown player.
+#[must_use]
+pub fn unread_alias() -> Alias {
+    Alias {
+        key: UNREAD_KEY.to_string(),
+        shown: UNKNOWN_PLAYER.to_string(),
+    }
 }
 
 /// The key of a first name that is a common word, "her as a name": it never matches a word
@@ -789,10 +802,12 @@ pub fn with_names(table: &[Alias], text: &str) -> String {
 }
 
 /// True when each ID of the text names a player of the table. A model cannot invent a
-/// player.
+/// player, and an unread row names none.
 #[must_use]
 pub fn knows_every_id(table: &[Alias], text: &str) -> bool {
-    ids_in(text).iter().all(|id| id.0 < table.len())
+    ids_in(text)
+        .iter()
+        .all(|id| table.get(id.0).is_some_and(|alias| alias.key != UNREAD_KEY))
 }
 
 #[cfg(test)]
@@ -1170,6 +1185,16 @@ mod tests {
         );
 
         assert_eq!(ids, "{P1} ran.");
+    }
+
+    #[test]
+    fn a_model_cannot_name_a_row_that_did_not_read() {
+        let table = vec![unread_alias(), alias_of("Bob").unwrap()];
+
+        assert!(!knows_every_id(&table, "{P1} waits"));
+        assert!(knows_every_id(&table, "{P2} waits"));
+        assert_eq!(with_names(&table, "{P1} and {P2}"), "someone and Bob");
+        assert_eq!(without_names(&table, "an unread row"), "an unread row");
     }
 
     #[test]
