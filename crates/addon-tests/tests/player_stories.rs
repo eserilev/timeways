@@ -812,8 +812,9 @@ fn a_story_that_the_desktop_never_kept_waits_for_accept_again() {
 
     assert_eq!(waiting(&corvin), 1);
     assert_eq!(saving_after, [true, true, false]);
+    // A full alias table refuses the story again, so the line gives no advice to retry.
     assert!(corvin.printed().contains(&format!(
-        "{PREFIX}Couldn't keep the story from Ada. Accept it again, or decline it."
+        "{PREFIX}Couldn't keep the story from Ada. It's waiting for your answer again."
     )));
 }
 

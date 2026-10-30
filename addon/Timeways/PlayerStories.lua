@@ -395,7 +395,7 @@ function PlayerStories.JournalCame(stories)
 			keeping.journals = keeping.journals + 1
 			if keeping.journals >= PlayerStories.JOURNALS_TO_KEEP then
 				story.keeping = nil
-				Say("Couldn't keep the story from " .. Short(story.author) .. ". Accept it again, or decline it.")
+				Say("Couldn't keep the story from " .. Short(story.author) .. ". It's waiting for your answer again.")
 			end
 		end
 	end

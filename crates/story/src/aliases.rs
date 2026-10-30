@@ -27,9 +27,9 @@ pub const NO_ROOM_TO_SAVE: &str =
 pub const NO_ROOM_TO_WRITE: &str =
     "Couldn't write that: there's no room for more players. Take out the new names and try again.";
 
-/// Why an accepted story was not kept: its new players do not fit the table.
-pub const NO_ROOM_FOR_STORY: &str =
-    "Couldn't keep that story: there's no room for more players. Decline it.";
+/// Why an accepted story was not kept: its new players do not fit the table. The addon
+/// says the next step when the story waits for an answer again.
+pub const NO_ROOM_FOR_STORY: &str = "Couldn't keep that story: there's no room for more players.";
 
 /// The start of the key of a row that this program cannot read (`unread_alias`).
 const UNREAD_KEY: &str = "unread row ";

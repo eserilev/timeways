@@ -863,7 +863,12 @@ fn a_full_table_refuses_a_story_and_says_why_on_the_next_answer() {
     let Output::Journal { notice, .. } = answer else {
         panic!("expected a journal, got {answer:?}");
     };
+    // The addon gives the next step later, so the notice only says what went wrong.
     assert_eq!(notice.as_deref(), Some(NO_ROOM_FOR_STORY));
+    assert_eq!(
+        NO_ROOM_FOR_STORY,
+        "Couldn't keep that story: there's no room for more players."
+    );
 }
 
 #[test]
