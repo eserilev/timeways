@@ -26,7 +26,8 @@ end
 local VERDICTS = { done = true, notyet = true }
 
 -- A time past this is no time of this century.
-local MAX_TIME = 4294967295
+TaskWire.MAX_TIME = 4294967295
+local MAX_TIME = TaskWire.MAX_TIME
 
 -- `%` and the separator need an escape, and so does `\`, which the logged channel refuses.
 -- So does the break between two paragraphs of a story, because the logged channel takes no

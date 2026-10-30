@@ -44,8 +44,9 @@ local function IsName(value)
 	return type(value) == "string" and ns.TaskPeople.Full(value) == value
 end
 
+-- In Lua 5.1, `1e300 % 1 == 0`, so only the bound stops a huge number.
 local function IsTime(value)
-	return type(value) == "number" and value >= 0 and value % 1 == 0
+	return type(value) == "number" and value >= 0 and value <= ns.TaskWire.MAX_TIME and value % 1 == 0
 end
 
 local function IsWaiting(story)

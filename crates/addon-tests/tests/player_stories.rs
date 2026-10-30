@@ -1229,6 +1229,24 @@ fn a_broken_keeping_in_the_saved_file_is_dropped_on_first_read() {
 }
 
 #[test]
+fn a_saved_waiting_story_with_a_time_past_the_wire_is_dropped() {
+    let game = Game::new();
+    game.run(
+        "TimewaysStories = { waiting = {
+             { id = 'a1', author = 'Bram-Stormrage', title = '', text = 'Huge.', at = 1e300 },
+             { id = 'a2', author = 'Cora-Stormrage', title = '', text = 'Fine.', at = 4294967295 } } }",
+    );
+
+    let kept: Vec<String> = game.eval(
+        "local out = {}
+         for _, story in ipairs(ns.PlayerStories.Waiting()) do out[#out + 1] = story.id end
+         return out",
+    );
+
+    assert_eq!(kept, ["a2"]);
+}
+
+#[test]
 fn a_saved_file_with_two_waiting_stories_of_one_author_keeps_the_oldest() {
     let game = Game::new();
     game.run(
