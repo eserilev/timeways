@@ -350,7 +350,7 @@ local function AcceptedAt(stories)
 	local at = {}
 	for _, story in ipairs(type(stories) == "table" and stories or {}) do
 		if type(story) == "table" and type(story.number) == "number" and story.number % 1 == 0 then
-			at[story.number] = story.at
+			at[story.number] = type(story.at) == "number" and story.at or 0
 		end
 	end
 	return at
@@ -362,6 +362,13 @@ local function SkipHeldNumbers(at)
 	for number in pairs(at) do
 		data.nextNumber = math.max(data.nextNumber, number + 1)
 	end
+end
+
+-- The desktop moves a time back from a clock that went back up to its newest time, so the
+-- journal can show a later time than Accept sent. An older story with the same number has an
+-- older time. An entry saved before Accept kept its time matches by number only.
+local function IsShownKept(keeping, shown)
+	return shown ~= nil and (keeping.at == nil or shown >= keeping.at)
 end
 
 local function Kept(story)
@@ -381,8 +388,7 @@ function PlayerStories.JournalCame(stories)
 	for index = #waiting, 1, -1 do
 		local story = waiting[index]
 		local keeping = story.keeping
-		-- Only the time tells this story from an older one with the same number.
-		if keeping and at[keeping.number] == keeping.at then
+		if keeping and IsShownKept(keeping, at[keeping.number]) then
 			table.remove(waiting, index)
 			Kept(story)
 		elseif keeping then

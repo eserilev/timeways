@@ -441,3 +441,20 @@ fn a_refused_story_number_keeps_the_author_of_the_story_that_holds_it() {
     let author: String = game.eval("return ns.PlayerStories.AuthorOf(1)");
     assert_eq!(author, "Ada-Stormrage");
 }
+
+#[test]
+fn an_old_saving_story_with_no_time_matches_by_number() {
+    let game = game_with(
+        "TimewaysStories = { waiting = {
+             { id = 'c1', author = 'Cora-Stormrage', title = '', text = 'We ran.', at = 1790000000,
+               keeping = { number = 2, journals = 0 } } },
+             authors = { [2] = 'Cora-Stormrage' }, nextNumber = 3 }",
+    );
+
+    game.reply(r#"{"type":"journal","page":0,"pages":1,"stories":[{"number":2,"paragraphs":["We ran."],"at":1789000000}]}"#);
+
+    assert_eq!(game.eval::<usize>("return #ns.PlayerStories.Waiting()"), 0);
+    assert!(game.printed().contains(
+        &"|cffc8a064Timeways|r: Story accepted. It's part of your story now.".to_string()
+    ));
+}

@@ -3,7 +3,7 @@
 -- broken one goes.
 --
 --   waiting: { id, author, title, text, at, keeping }, oldest first. `keeping` is
---   { number, journals, at } while the desktop may be keeping it. One for each author, 20 in
+--   { number, journals, at? } while the desktop may be keeping it. One for each author, 20 in
 --   all.
 --   told: { [id] = { to, title, at, status } }, the newest 100. No text.
 --   authors: { [number] = author } of the accepted stories, the newest 500 numbers.
@@ -85,14 +85,14 @@ local function IsDraft(draft)
 end
 
 -- A story that the desktop may be keeping: its number, the journals since Accept, and the
--- time of Accept.
+-- time of Accept. An entry from before Accept kept its time has no time.
 local function IsKeeping(keeping)
 	return type(keeping) == "table"
 		and type(keeping.number) == "number"
 		and keeping.number % 1 == 0
 		and type(keeping.journals) == "number"
 		and keeping.journals >= 0
-		and IsTime(keeping.at)
+		and (keeping.at == nil or IsTime(keeping.at))
 end
 
 -- The oldest story of each author stays, up to the bound.

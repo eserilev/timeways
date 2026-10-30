@@ -809,6 +809,61 @@ fn a_story_number_that_the_desktop_already_holds_never_counts_as_kept() {
     assert_eq!(waiting(&corvin), 0);
 }
 
+/// A real story program behind Corvin's game: it plays each message that the game sent,
+/// and its journal goes back to the game.
+struct Desktop {
+    story: timeways_story::story::Story,
+    played: usize,
+}
+
+impl Desktop {
+    fn new() -> Desktop {
+        let pack = timeways_story::pack::Pack::empty().unwrap();
+        let story = timeways_story::story::Story::new(pack, timeways_story::store::Store::Memory);
+        Desktop { story, played: 0 }
+    }
+
+    fn play(&mut self, line: &str) {
+        let served = timeways_story::serve::line(&mut self.story, line.as_bytes().to_vec());
+        assert_eq!(served.error, None, "{line}");
+    }
+
+    fn sync(&mut self, corvin: &Player) {
+        corvin.run("wow.RunTickers()");
+        let sent = corvin.game.sent();
+        for message in &sent[self.played..] {
+            for line in message.lines() {
+                let _ = timeways_story::serve::line(&mut self.story, line.as_bytes().to_vec());
+            }
+        }
+        self.played = sent.len();
+        let ask = r#"{"type":"journal_asked","id":1}"#;
+        let journal = timeways_story::serve::line(&mut self.story, ask.as_bytes().to_vec());
+        corvin.game.reply(&journal.lines[0]);
+    }
+}
+
+#[test]
+fn a_story_counts_as_kept_when_the_desktop_moved_its_time_up_to_the_world() {
+    let (ada, corvin) = party();
+    let mut desktop = Desktop::new();
+    tell(&ada, &corvin, "Ada and I held the bridge.");
+    corvin.run("ns.Journal.Request(0)");
+    desktop.sync(&corvin);
+    // The world is ahead of the clock of the game, as after the clock went back.
+    let ahead: i64 = corvin.eval("return time() + 100");
+    desktop.play(&format!(
+        r#"{{"type":"rest_changed","at":{ahead},"resting":"yes"}}"#
+    ));
+
+    corvin.run("wow.Slash('/story', 'accept')");
+    desktop.sync(&corvin);
+    exchange(&ada, &corvin);
+
+    assert_eq!(waiting(&corvin), 0);
+    assert_eq!(heard_accepted(&ada), 1);
+}
+
 /// A desktop with this character, as the story program runs it.
 fn desktop_of(name: &str) -> timeways_story::story::Story {
     let path = std::path::Path::new(env!("CARGO_TARGET_TMPDIR")).join("player-stories-pack.sqlite");
@@ -1156,7 +1211,7 @@ fn a_broken_keeping_in_the_saved_file_is_dropped_on_first_read() {
              { id = 'a2', author = 'Cora-Stormrage', title = '', text = 'Two.', at = 1,
                keeping = { number = 2, journals = -1, at = 1 } },
              { id = 'a3', author = 'Dax-Stormrage', title = '', text = 'Three.', at = 1,
-               keeping = { number = 3, journals = 0 } },
+               keeping = { number = 3, journals = 0, at = 'soon' } },
              { id = 'a4', author = 'Eli-Stormrage', title = '', text = 'Four.', at = 1,
                keeping = 'saving' },
              { id = 'a5', author = 'Fen-Stormrage', title = '', text = 'Five.', at = 1,
