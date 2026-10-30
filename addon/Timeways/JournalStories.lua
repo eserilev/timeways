@@ -14,6 +14,7 @@ local Item = ns.JournalRows.Item
 local Button = ns.JournalRows.Button
 local OpenIndex = ns.JournalRows.OpenIndex
 local Keys = ns.JournalRows.Keys
+local SAVING = ns.JournalRows.SAVING
 
 JournalStories.USAGE = "Stories other players told about you."
 JournalStories.FULL = "Answer some stories to get new ones."
@@ -94,7 +95,7 @@ local function WaitingRows()
 	for index = #waiting, 1, -1 do
 		local story = waiting[index]
 		local title, faded = WaitingTitle(story)
-		local mark = story.keeping and "Saving..." or Day(story.at)
+		local mark = story.keeping and SAVING or Day(story.at)
 		local row = Item(WaitingKey(story), title, Short(story.author), mark)
 		row.faded, row.story, row.kind = faded, story, "waiting"
 		table.insert(story.keeping and saving or rows, row)
