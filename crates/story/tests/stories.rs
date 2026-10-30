@@ -618,8 +618,10 @@ fn removing_a_story_unlearns_none_of_its_names() {
 
     accept(&mut story, 2, "{Bob} came.").unwrap();
     let prompt = draft_prompt(&mut story, "help Corvin");
+    let standing: Vec<u64> = stories(&mut story).iter().map(|told| told.number).collect();
     drop(story);
 
+    assert_eq!(standing, [2]);
     assert!(prompt.contains("help {P1}"), "{prompt}");
     let bodies = stored_bodies(&folder, "stories");
     assert!(
@@ -633,16 +635,20 @@ fn removing_a_story_unlearns_none_of_its_names() {
 fn thirty_two_keys_teach_at_most_sixty_four_rows() {
     let folder = fresh_folder("sixty-four");
     let mut story = story(&folder);
-    let marks: Vec<String> = (0..32u8)
+    let marks: Vec<String> = (0..33u8)
         .map(|n| {
             let letters = format!("{}{}", char::from(b'a' + n / 26), char::from(b'a' + n % 26));
             format!("{{Q{letters}-Z{letters}}} {{~Q{letters}-Z{letters}}}")
         })
         .collect();
 
-    accept(&mut story, 1, &marks.join(" ")).unwrap();
+    let refused = accept(&mut story, 1, &marks.join(" "));
+    let rows_after_refused = stored_bodies(&folder, "aliases").len();
+    accept(&mut story, 2, &marks[..32].join(" ")).unwrap();
     drop(story);
 
+    assert!(is_bad(&refused), "{refused:?}");
+    assert_eq!(rows_after_refused, 0);
     assert_eq!(stored_bodies(&folder, "aliases").len(), 64);
 }
 
