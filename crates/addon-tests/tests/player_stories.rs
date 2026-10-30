@@ -549,6 +549,21 @@ fn a_story_with_one_player_past_the_limit_stays_waiting_whole() {
 }
 
 #[test]
+fn the_page_names_the_players_of_a_story_that_names_too_many() {
+    let (_, corvin) = party();
+    let marks = stranger_marks(32);
+    hear_story(&corvin, &format!("a1;;{}%0AAda ran.", marks.join(" ")));
+
+    let page = story_page(&corvin);
+
+    let named = format!(
+        "Players named: {}",
+        marks.join(", ").replace(['{', '}'], "")
+    );
+    assert!(page.contains(&named), "{page:?}");
+}
+
+#[test]
 fn a_story_counts_a_dotted_capital_i_as_the_desktop_does() {
     let (_, corvin) = party();
     let marks = stranger_marks(30);

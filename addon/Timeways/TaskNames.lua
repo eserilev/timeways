@@ -748,7 +748,8 @@ TaskNames.TOO_MANY_PLAYERS = "too many players"
 -- whole. A mark of the reader stays a mark, and the desktop reads it as `$N`. Each player
 -- counts by the key of its mark, as the desktop counts it. Returns the texts, the players
 -- that they mark, the words of the author's marks, and the texts as your screen shows them;
--- or nil, `TOO_MANY_PLAYERS`, nil, and the shown texts.
+-- or nil, `TOO_MANY_PLAYERS`, the words, and the shown texts: the reader needs the names
+-- most on a story that names too many.
 local function KeptStory(texts, known)
 	local marked, shown, players, seen, words = {}, {}, {}, {}, {}
 	local keys, count = {}, 0
@@ -788,7 +789,7 @@ local function KeptStory(texts, known)
 		marked[n], shown[n] = table.concat(parts), ShownText(text)
 	end
 	if count > TaskNames.MAX_PEER_MARKS then
-		return nil, TaskNames.TOO_MANY_PLAYERS, nil, shown
+		return nil, TaskNames.TOO_MANY_PLAYERS, words, shown
 	end
 	return marked, players, words, shown
 end
@@ -805,7 +806,7 @@ end
 function TaskNames.PeerView(texts)
 	local _, _, words, shown = KeptStory(texts, Known())
 	local names, seen = {}, {}
-	for _, word in ipairs(words or {}) do
+	for _, word in ipairs(words) do
 		local folded = TaskNames.Fold(word)
 		if not seen[folded] then
 			seen[folded] = true
