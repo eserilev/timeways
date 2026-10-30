@@ -310,10 +310,10 @@ fn accept_sends_the_title_and_the_paragraphs_with_names_marked_and_the_author_he
         .iter()
         .position(|input| matches!(input, Input::StoryAccepted { .. }));
     assert!(described < story && described.is_some(), "{inputs:?}");
-    let author: String = corvin.eval("return ns.PlayerStories.AuthorOf(1)");
-    assert_eq!(author, "Ada-Stormrage");
     journal_with(&corvin, &[1]);
     exchange(&ada, &corvin);
+    let author: String = corvin.eval("return ns.PlayerStories.AuthorOf(1)");
+    assert_eq!(author, "Ada-Stormrage");
     assert!(
         ada.printed()
             .contains(&format!("{PREFIX}Corvin accepted your story."))
@@ -628,11 +628,18 @@ fn a_typed_name_mark_of_a_peer_is_no_name_mark() {
     assert_eq!(paragraphs, ["N and {Lysara} and {lysara} and {LYSARA}"]);
 }
 
-/// The journal of Corvin's desktop, with these accepted stories by number.
+/// The journal of Corvin's desktop, with these accepted stories by number, each accepted now.
 fn journal_with(corvin: &Player, numbers: &[u64]) {
-    let stories: Vec<String> = numbers
+    let now: i64 = corvin.eval("return time()");
+    let stories: Vec<(u64, i64)> = numbers.iter().map(|number| (*number, now)).collect();
+    journal_of(corvin, &stories);
+}
+
+/// The journal of Corvin's desktop, with these accepted stories by number and time.
+fn journal_of(corvin: &Player, stories: &[(u64, i64)]) {
+    let stories: Vec<String> = stories
         .iter()
-        .map(|number| format!(r#"{{"number":{number},"paragraphs":["x"],"at":1790000000}}"#))
+        .map(|(number, at)| format!(r#"{{"number":{number},"paragraphs":["x"],"at":{at}}}"#))
         .collect();
     corvin.game.reply(&format!(
         r#"{{"type":"journal","page":0,"pages":1,"stories":[{}]}}"#,
@@ -719,6 +726,68 @@ fn block_keeps_a_saving_story_and_its_author_still_hears_the_answer() {
             .contains(&format!("{PREFIX}Corvin accepted your story."))
     );
     assert!(corvin.eval::<bool>("return ns.TaskStore.Data().blocked['Ada-Stormrage'] ~= nil"));
+}
+
+/// The number of the last story that the game sent to the desktop.
+fn last_accepted_number(player: &Player) -> Option<u64> {
+    sent_inputs(player)
+        .iter()
+        .rev()
+        .find_map(|input| match input {
+            Input::StoryAccepted { number, .. } => Some(*number),
+            _ => None,
+        })
+}
+
+fn heard_accepted(ada: &Player) -> usize {
+    let line = format!("{PREFIX}Corvin accepted your story.");
+    ada.printed()
+        .iter()
+        .filter(|printed| **printed == line)
+        .count()
+}
+
+#[test]
+fn accept_after_a_journal_takes_a_number_past_every_story_of_the_journal() {
+    let (ada, corvin) = party();
+    tell(&ada, &corvin, "Ada and I held the bridge.");
+    corvin.run("ns.StorySaved.Data().nextNumber = 1");
+
+    journal_with(&corvin, &[1, 2, 3]);
+    corvin.run("wow.Slash('/story', 'accept')");
+
+    assert_eq!(last_accepted_number(&corvin), Some(4));
+}
+
+#[test]
+fn a_story_number_that_the_desktop_already_holds_never_counts_as_kept() {
+    let (ada, corvin) = party();
+    tell(&ada, &corvin, "The first.");
+    corvin.run("wow.Slash('/story', 'accept')");
+    let first_at: i64 = corvin.eval("return time()");
+    journal_with(&corvin, &[1]);
+    exchange(&ada, &corvin);
+    // A crash before the game wrote the saved variables takes the number back.
+    corvin.run("ns.StorySaved.Data().nextNumber = 1 wow.now = wow.now + 60");
+    tell(&ada, &corvin, "The second.");
+
+    corvin.run("wow.Slash('/story', 'accept')");
+    let reused = last_accepted_number(&corvin);
+    for _ in 0..3 {
+        journal_of(&corvin, &[(1, first_at)]);
+    }
+    exchange(&ada, &corvin);
+    let heard_while_refused = heard_accepted(&ada);
+    corvin.run("wow.Slash('/story', 'accept')");
+    let fresh = last_accepted_number(&corvin);
+    journal_with(&corvin, &[1, 2]);
+    exchange(&ada, &corvin);
+
+    assert_eq!(reused, Some(1));
+    assert_eq!(heard_while_refused, 1);
+    assert_eq!(fresh, Some(2));
+    assert_eq!(heard_accepted(&ada), 2);
+    assert_eq!(waiting(&corvin), 0);
 }
 
 /// A desktop with this character, as the story program runs it.

@@ -413,3 +413,14 @@ fn block_player_on_a_saving_story_keeps_the_story() {
 
     assert_eq!(game.eval::<usize>("return #ns.PlayerStories.Waiting()"), 2);
 }
+
+#[test]
+fn a_refused_story_number_keeps_the_author_of_the_story_that_holds_it() {
+    let game = game_with(WAITING);
+    game.run("ns.StorySaved.Data().nextNumber = 1");
+
+    game.run("wow.Slash('/story', 'accept')");
+
+    let author: String = game.eval("return ns.PlayerStories.AuthorOf(1)");
+    assert_eq!(author, "Ada-Stormrage");
+}

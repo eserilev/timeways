@@ -329,15 +329,14 @@ function PlayerStories.Accept(index)
 		Say(problem)
 		return problem
 	end
-	local accepted = ns.Inputs.StoryAccepted(time(), data.nextNumber, title, paragraphs)
+	local at = time()
+	local accepted = ns.Inputs.StoryAccepted(at, data.nextNumber, title, paragraphs)
 	if not ns.Outbox.Fits(accepted) then
 		local problem = string.format(PlayerStories.TOO_LONG_TO_KEEP, Short(story.author))
 		Say(problem)
 		return problem
 	end
-	story.keeping = { number = data.nextNumber, journals = 0 }
-	data.authors[data.nextNumber] = story.author
-	ns.StorySaved.TrimAuthors(data.authors)
+	story.keeping = { number = data.nextNumber, journals = 0, at = at }
 	data.nextNumber = data.nextNumber + 1
 	for _, line in ipairs(ns.TaskNames.Described(players)) do
 		ns.Outbox.Add(line)
@@ -346,23 +345,46 @@ function PlayerStories.Accept(index)
 	Changed()
 end
 
+-- The time of Accept of each story of a whole journal, by its number.
+local function AcceptedAt(stories)
+	local at = {}
+	for _, story in ipairs(type(stories) == "table" and stories or {}) do
+		if type(story) == "table" and type(story.number) == "number" and story.number % 1 == 0 then
+			at[story.number] = story.at
+		end
+	end
+	return at
+end
+
+-- A crash can take the saved number back, and the desktop refuses a number that it holds.
+local function SkipHeldNumbers(at)
+	local data = Data()
+	for number in pairs(at) do
+		data.nextNumber = math.max(data.nextNumber, number + 1)
+	end
+end
+
+local function Kept(story)
+	local authors = Data().authors
+	authors[story.keeping.number] = story.author
+	ns.StorySaved.TrimAuthors(authors)
+	ns.TaskChannel.Whisper(story.author, { type = "story_accept", id = story.id })
+	Say("Story accepted. It's part of your story now.")
+end
+
 -- Each whole journal: a story that it shows kept leaves the waiting list, and its author
 -- hears it. A story that a few journals never show waits for Accept again.
 function PlayerStories.JournalCame(stories)
-	local kept = {}
-	for _, story in ipairs(type(stories) == "table" and stories or {}) do
-		if type(story) == "table" and type(story.number) == "number" then
-			kept[story.number] = true
-		end
-	end
+	local at = AcceptedAt(stories)
+	SkipHeldNumbers(at)
 	local waiting = Data().waiting
 	for index = #waiting, 1, -1 do
 		local story = waiting[index]
 		local keeping = story.keeping
-		if keeping and kept[keeping.number] then
+		-- Only the time tells this story from an older one with the same number.
+		if keeping and at[keeping.number] == keeping.at then
 			table.remove(waiting, index)
-			ns.TaskChannel.Whisper(story.author, { type = "story_accept", id = story.id })
-			Say("Story accepted. It's part of your story now.")
+			Kept(story)
 		elseif keeping then
 			keeping.journals = keeping.journals + 1
 			if keeping.journals >= PlayerStories.JOURNALS_TO_KEEP then
