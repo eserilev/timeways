@@ -124,9 +124,10 @@ local function NextWord(text, at)
 end
 
 -- The capitals of the letters of `LETTERS` and their small letters, as the desktop's
--- `key_of` folds them: { first, last, step, offset }. The final sigma ς folds to σ too. From `first` to `last`, every
--- `step`-th code is a capital, and its small letter is `offset` above it. The addon test
--- `the_addon_and_the_desktop_fold_every_letter_alike` checks every letter of `LETTERS`.
+-- `key_of` folds them: { first, last, step, offset }. The final sigma ς folds to σ too.
+-- From `first` to `last`, every `step`-th code is a capital, and its small letter is
+-- `offset` above it. The addon test `the_capitals_table_is_the_one_that_the_desktop_folds`
+-- prints the table when it is wrong.
 local CAPITALS = {
 	{ 0x00C0, 0x00D6, 1, 32 }, -- À à
 	{ 0x00D8, 0x00DE, 1, 32 }, -- Ø ø
@@ -228,11 +229,11 @@ local function Encoded(code)
 	return string.char(0xE0 + math.floor(code / 4096), 0x80 + math.floor(code / 64) % 64, 0x80 + code % 64)
 end
 
-local function SmallOf(code)
-	for _, run in ipairs(CAPITALS) do
-		if code >= run[1] and code <= run[2] and (code - run[1]) % run[3] == 0 then
-			return code + run[4]
-		end
+-- The small letter of each capital, by code point, read once from `CAPITALS`.
+local SMALL = {}
+for _, run in ipairs(CAPITALS) do
+	for code = run[1], run[2], run[3] do
+		SMALL[code] = code + run[4]
 	end
 end
 
@@ -242,12 +243,11 @@ local function FoldChar(char)
 		return nil
 	end
 	local code = CodePoint(char)
-	-- İ is "i" and a combining dot above, as the desktop's `to_lowercase` folds it.
+	-- İ is "i" and a combining dot above, as the desktop's `key_of` folds it.
 	if code == 0x130 then
 		return "i\204\135"
 	end
-	local small = SmallOf(code)
-	return small and Encoded(small)
+	return SMALL[code] and Encoded(SMALL[code])
 end
 
 -- The key of a name, as the desktop's `key_of` folds it. `string.lower` knows only ASCII.

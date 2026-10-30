@@ -229,7 +229,110 @@ fn the_addon_and_the_desktop_fold_every_letter_alike() {
         .filter(|(c, lua)| key_of(&c.to_string()) != **lua)
         .map(|(c, lua)| format!("U+{:04X} lua={lua:?}", u32::from(*c)))
         .collect();
-    assert!(differ.is_empty(), "{differ:?}");
+    assert!(
+        differ.is_empty(),
+        "{differ:?}: the test `the_capitals_table_is_the_one_that_the_desktop_folds` prints \
+         the table to put in TaskNames.lua"
+    );
+}
+
+/// One row of `CAPITALS` in TaskNames.lua: from `first` to `last`, every `step`-th code is
+/// a capital, and its small letter is `offset` above it.
+struct Run {
+    first: u32,
+    last: u32,
+    step: u32,
+    offset: i64,
+}
+
+/// Each letter past ASCII whose key is one other letter, with the distance to that letter.
+/// İ folds to two letters, and the addon folds it on its own.
+fn capitals() -> Vec<(u32, i64)> {
+    let mut capitals = Vec::new();
+    for c in every_char()
+        .into_iter()
+        .filter(|c| !c.is_ascii() && is_word_char(*c))
+    {
+        let small: Vec<char> = key_of(&c.to_string()).chars().collect();
+        if let [small] = small[..]
+            && small != c
+        {
+            capitals.push((
+                u32::from(c),
+                i64::from(u32::from(small)) - i64::from(u32::from(c)),
+            ));
+        }
+    }
+    capitals
+}
+
+/// The capitals in runs of one offset, a step of 1 or 2 apart.
+fn runs(capitals: &[(u32, i64)]) -> Vec<Run> {
+    let mut runs: Vec<Run> = Vec::new();
+    for &(code, offset) in capitals {
+        if let Some(run) = runs.last_mut()
+            && run.offset == offset
+            && code - run.last == run.step
+        {
+            run.last = code;
+            continue;
+        }
+        if let Some(run) = runs.last_mut()
+            && run.first == run.last
+            && run.offset == offset
+            && code - run.last == 2
+        {
+            run.step = 2;
+            run.last = code;
+            continue;
+        }
+        runs.push(Run {
+            first: code,
+            last: code,
+            step: 1,
+            offset,
+        });
+    }
+    runs
+}
+
+fn letter(code: u32) -> char {
+    char::from_u32(code).unwrap()
+}
+
+/// One row of `CAPITALS` as stylua writes it.
+fn row(run: &Run) -> String {
+    let small = letter(u32::try_from(i64::from(run.first) + run.offset).unwrap());
+    format!(
+        "\t{{ 0x{:04X}, 0x{:04X}, {}, {} }}, -- {} {small}\n",
+        run.first,
+        run.last,
+        run.step,
+        run.offset,
+        letter(run.first)
+    )
+}
+
+fn capitals_table() -> String {
+    runs(&capitals()).iter().map(row).collect()
+}
+
+#[test]
+fn the_capitals_table_is_the_one_that_the_desktop_folds() {
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../addon/Timeways/TaskNames.lua"
+    );
+    let source = std::fs::read_to_string(path).unwrap();
+    let start = source.find("local CAPITALS = {\n").unwrap() + "local CAPITALS = {\n".len();
+    let end = start + source[start..].find("}\n").unwrap();
+
+    let table = capitals_table();
+
+    assert!(
+        source[start..end] == table,
+        "Put these rows in CAPITALS of addon/Timeways/TaskNames.lua:\n{table}"
+    );
 }
 
 #[test]
