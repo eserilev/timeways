@@ -464,7 +464,8 @@ fn peer_piece() -> impl Strategy<Value = String> {
             "{123}", "{Ada-}", "{~}", "{~-X}", "{Lys ara}", "{", "}", "x", " ", "  ", ", ",
             "\u{200B}", "\u{A0}", "\u{301}", "{Ly\u{200B}sara}", "$N", "$", "{N}", "{The}", "{I}",
             "{lysara}", "{LYSARA}", "{Thequickbrownfox}", "ada", "{Abcdefghijkl}",
-            "{Abcdefghijklm}", "{İda}", "{ıda}", "{Ада}", "{АДА}",
+            "{Abcdefghijklm}", "{İda}", "{ıda}", "{Ада}", "{АДА}", "{ΟΔΥΣΣΕΥΣ}", "{Οδυσσευς}",
+            "{Οδυσσευσ}", "{Σας}", "Οδυσσευς",
         ]).prop_map(String::from),
         1 => "[Q][a-z]{1,3}".prop_map(|name| format!("{{{name}}}")),
         1 => prop::sample::select(timeways_story::aliases::FUNCTION_WORDS.to_vec())
@@ -528,6 +529,21 @@ fn braces_around_a_mark_that_becomes_its_word_never_make_a_new_mark() {
     let differ = peer_marks_disagree(&corvin, "Corvin", &texts);
 
     assert!(differ.is_none(), "{}", differ.unwrap_or_default());
+}
+
+#[test]
+fn a_greek_name_counts_once_wherever_its_sigma_stands() {
+    let (_, corvin) = party();
+    let strangers = stranger_marks(31).join(" ");
+
+    for names in ["{ΟΔΥΣΣΕΥΣ} {Οδυσσευς}", "{ΟΔΥΣΣΕΥΣ} {Οδυσσευσ}"]
+    {
+        let texts = [Vec::new(), format!("{strangers} {names}").into_bytes()];
+
+        let differ = peer_marks_disagree(&corvin, "Corvin", &texts);
+
+        assert!(differ.is_none(), "{names}: {}", differ.unwrap_or_default());
+    }
 }
 
 /// Marks of strangers, "{Qaa}", "{Qab}", and so on.

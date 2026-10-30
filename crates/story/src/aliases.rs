@@ -88,10 +88,15 @@ pub fn player_name(name: &str) -> Option<&str> {
     (letters && short.len() <= MAX_PLAYER_NAME_BYTES).then_some(short)
 }
 
-/// What a word must match: the name in lower case. "ÉLISE" and "élise" share a key.
+/// What a word must match: the name in lower case, one letter at a time, with each final
+/// sigma ς as σ. "ÉLISE" and "élise" share a key, and so do "ΟΔΥΣΣΕΥΣ" and "Οδυσσευς": the
+/// addon folds one letter at a time, and `str::to_lowercase` gives ς only at the end of a word.
 #[must_use]
 pub fn key_of(word: &str) -> String {
-    word.to_lowercase()
+    word.chars()
+        .flat_map(char::to_lowercase)
+        .map(|c| if c == 'ς' { 'σ' } else { c })
+        .collect()
 }
 
 /// The table entry of a name, or None for a text that is no name.
@@ -814,6 +819,13 @@ mod tests {
         let text = without_names(&table, "ADA-Stormrage met élise, not Adam or Bada.");
 
         assert_eq!(text, "{P1} met {P2}, not Adam or Bada.");
+    }
+
+    #[test]
+    fn a_name_has_one_key_wherever_its_sigma_stands() {
+        let keys = [key_of("ΟΔΥΣΣΕΥΣ"), key_of("Οδυσσευς"), key_of("Οδυσσευσ")];
+
+        assert_eq!(keys, ["οδυσσευσ", "οδυσσευσ", "οδυσσευσ"]);
     }
 
     #[test]

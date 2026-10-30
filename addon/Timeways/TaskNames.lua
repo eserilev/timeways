@@ -123,8 +123,8 @@ local function NextWord(text, at)
 	end
 end
 
--- The capitals of the letters of `LETTERS` and their small letters, as Rust's
--- `to_lowercase` folds them: { first, last, step, offset }. From `first` to `last`, every
+-- The capitals of the letters of `LETTERS` and their small letters, as the desktop's
+-- `key_of` folds them: { first, last, step, offset }. The final sigma ς folds to σ too. From `first` to `last`, every
 -- `step`-th code is a capital, and its small letter is `offset` above it. The addon test
 -- `the_addon_and_the_desktop_fold_every_letter_alike` checks every letter of `LETTERS`.
 local CAPITALS = {
@@ -198,6 +198,7 @@ local CAPITALS = {
 	{ 0x038E, 0x038F, 1, 63 }, -- Ύ ύ
 	{ 0x0391, 0x03A1, 1, 32 }, -- Α α
 	{ 0x03A3, 0x03AB, 1, 32 }, -- Σ σ
+	{ 0x03C2, 0x03C2, 1, 1 }, -- ς σ
 	{ 0x03CF, 0x03CF, 1, 8 }, -- Ϗ ϗ
 	{ 0x03D8, 0x03EE, 2, 1 }, -- Ϙ ϙ
 	{ 0x03F4, 0x03F4, 1, -60 }, -- ϴ θ
@@ -249,7 +250,7 @@ local function FoldChar(char)
 	return small and Encoded(small)
 end
 
--- Lowercase as the desktop folds a name. `string.lower` knows only ASCII.
+-- The key of a name, as the desktop's `key_of` folds it. `string.lower` knows only ASCII.
 function TaskNames.Fold(text)
 	return (text:lower():gsub("[\194-\244][\128-\191]*", FoldChar))
 end
