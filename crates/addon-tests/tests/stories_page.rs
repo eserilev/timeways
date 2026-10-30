@@ -373,6 +373,23 @@ const ONE_SAVING: &str = "TimewaysStories = { waiting = {
      authors = { [1] = 'Ada-Stormrage' }, nextNumber = 3 }";
 
 #[test]
+fn a_saving_story_shows_saving_and_comes_after_the_others() {
+    let game = game_with(ONE_SAVING);
+
+    let rows = list(&game);
+
+    assert_eq!(
+        rows,
+        [
+            "Waiting 2",
+            "The Bridge | Bram | Today",
+            "A story from Cora (faded) | Cora | Saving...",
+            "Loading...",
+        ]
+    );
+}
+
+#[test]
 fn a_saving_story_has_no_accept_or_decline() {
     let game = game_with(ONE_SAVING);
 

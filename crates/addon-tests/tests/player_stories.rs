@@ -124,6 +124,20 @@ fn a_story_with_a_title_names_it_in_the_chat() {
 }
 
 #[test]
+fn a_story_with_a_marked_title_names_the_player_in_the_chat() {
+    let (ada, corvin) = party();
+    ada_saw_lysara(&ada);
+
+    send(&ada, &corvin, "Lysara at the Bridge", "We held it.");
+
+    let title: String = corvin.eval("return ns.PlayerStories.Waiting()[1].title");
+    assert_eq!(title, "{Lysara} at the Bridge");
+    assert!(corvin.printed().contains(&format!(
+        "{PREFIX}Ada told a story about you: Lysara at the Bridge. Type /stories to read it."
+    )));
+}
+
+#[test]
 fn a_story_needs_a_target_in_your_group() {
     let (ada, corvin) = ada_and_corvin();
 
@@ -664,6 +678,9 @@ fn an_accepted_story_waits_as_saving_until_the_journal_shows_it_kept() {
     assert!(saving);
     assert!(!heard_early);
     assert_eq!(waiting(&corvin), 0);
+    assert!(corvin.printed().contains(&format!(
+        "{PREFIX}Story accepted. It's part of your story now."
+    )));
     assert!(
         ada.printed()
             .contains(&format!("{PREFIX}Corvin accepted your story."))
@@ -675,14 +692,16 @@ fn a_story_that_the_desktop_never_kept_waits_for_accept_again() {
     let (ada, corvin) = party();
     tell(&ada, &corvin, "Ada and I held the bridge.");
     corvin.run("wow.Slash('/story', 'accept')");
+    let saving = || corvin.eval::<bool>("return ns.PlayerStories.Waiting()[1].keeping ~= nil");
 
+    let mut saving_after = Vec::new();
     for _ in 0..3 {
         journal_with(&corvin, &[]);
+        saving_after.push(saving());
     }
 
     assert_eq!(waiting(&corvin), 1);
-    let saving: bool = corvin.eval("return ns.PlayerStories.Waiting()[1].keeping ~= nil");
-    assert!(!saving);
+    assert_eq!(saving_after, [true, true, false]);
     assert!(corvin.printed().contains(&format!(
         "{PREFIX}Couldn't keep the story from Ada. Accept it again, or decline it."
     )));
@@ -1125,6 +1144,33 @@ fn a_saved_waiting_story_with_a_broken_body_is_dropped() {
     let waiting: usize = game.eval("return #ns.PlayerStories.Waiting()");
 
     assert_eq!(waiting, 1);
+}
+
+#[test]
+fn a_broken_keeping_in_the_saved_file_is_dropped_on_first_read() {
+    let game = Game::new();
+    game.run(
+        "TimewaysStories = { waiting = {
+             { id = 'a1', author = 'Bram-Stormrage', title = '', text = 'One.', at = 1,
+               keeping = { number = 1.5, journals = 0, at = 1 } },
+             { id = 'a2', author = 'Cora-Stormrage', title = '', text = 'Two.', at = 1,
+               keeping = { number = 2, journals = -1, at = 1 } },
+             { id = 'a3', author = 'Dax-Stormrage', title = '', text = 'Three.', at = 1,
+               keeping = { number = 3, journals = 0 } },
+             { id = 'a4', author = 'Eli-Stormrage', title = '', text = 'Four.', at = 1,
+               keeping = 'saving' },
+             { id = 'a5', author = 'Fen-Stormrage', title = '', text = 'Five.', at = 1,
+               keeping = { number = 5, journals = 1, at = 1 } } } }",
+    );
+
+    let saving: Vec<bool> = game.eval(
+        "local out = {}
+         for _, story in ipairs(ns.PlayerStories.Waiting()) do out[#out + 1] = story.keeping ~= nil end
+         return out",
+    );
+
+    assert_eq!(saving, [false, false, false, false, true]);
+    assert!(game.eval::<bool>("return TimewaysStories.waiting[1].keeping == nil"));
 }
 
 #[test]
