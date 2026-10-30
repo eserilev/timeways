@@ -6,7 +6,6 @@ use std::io::Write;
 use std::process::{Command, Stdio};
 
 /// A failed command, or one that prints nothing, is a failed call.
-#[must_use]
 pub fn shell_model(command: String) -> Model {
     Box::new(move |prompt| ask(&command, prompt))
 }
