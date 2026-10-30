@@ -11,8 +11,8 @@ pub use database::{
     Outcome, PROMPTS_KEPT, Root, Table,
 };
 pub use logs::{
-    AliasLog, FlavorLog, HeroLog, LearnedLog, Prose, QuestLog, RowLog, SagaSpan, StoryLog, Summary,
-    SummaryLog, TaleText, Written, ZoneHistory,
+    AliasLog, FlavorLog, HeroLog, LearnedLog, MAX_ALIAS_PLACES, Prose, QuestLog, RowLog, SagaSpan,
+    StoryLog, Summary, SummaryLog, TaleText, Written, ZoneHistory,
 };
 pub use shared::Shared;
 
@@ -52,6 +52,8 @@ pub enum StoreError {
     Json(#[from] serde_json::Error),
     #[error("character: {0}")]
     BadKey(&'static str),
+    #[error("the alias table holds no new player past its last place")]
+    FullAliasTable,
 }
 
 /// Where the worlds live. `Memory` keeps nothing after the program stops.

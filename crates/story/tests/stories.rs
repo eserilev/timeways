@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use timeways_story::input::{Input, MessageId};
 use timeways_story::pack::Pack;
 use timeways_story::store::{
-    CallEnd, CharacterKey, Line, NewCall, Node, Outcome, Root, Store, Table,
+    CallEnd, CharacterKey, Line, MAX_ALIAS_PLACES, NewCall, Node, Outcome, Root, Store, Table,
 };
 use timeways_story::stories::{
     MAX_BODY_BYTES, MAX_BODY_CHARS, MAX_PARAGRAPHS, MAX_TITLE_BYTES, PlayerStory,
@@ -785,6 +785,48 @@ fn an_alias_position_past_any_play_ends_the_read_and_stays() {
 
     let mut story = self::story(&folder);
     accept(&mut story, 2, "{Lysara} came.").unwrap();
+    drop(story);
+
+    let bodies = stored_bodies(&folder, "stories");
+    assert!(bodies[1].contains("{P2} came."), "{}", bodies[1]);
+    assert_eq!(stored_bodies(&folder, "aliases").len(), 3);
+}
+
+#[test]
+fn the_last_alias_place_is_read_and_then_the_table_takes_no_new_player() {
+    let last = i64::try_from(MAX_ALIAS_PLACES).unwrap() - 1;
+    let folder = fresh_folder("alias-last");
+    let mut story = story(&folder);
+    accept(&mut story, 1, "{Corvin} came.").unwrap();
+    drop(story);
+    insert_alias(&folder, last, "Bob");
+
+    let mut story = self::story(&folder);
+    accept(&mut story, 2, "{Bob} came.").unwrap();
+    let full = accept(&mut story, 3, "{Zqan} came.");
+    drop(story);
+
+    let bodies = stored_bodies(&folder, "stories");
+    assert!(
+        bodies[1].contains(&format!("{{P{}}} came.", last + 1)),
+        "{}",
+        bodies[1]
+    );
+    assert!(full.is_err(), "{full:?}");
+    assert_eq!(stored_bodies(&folder, "aliases").len(), 2);
+}
+
+#[test]
+fn an_alias_place_past_the_last_ends_the_read_and_stays() {
+    let past = i64::try_from(MAX_ALIAS_PLACES).unwrap();
+    let folder = fresh_folder("alias-past");
+    let mut story = story(&folder);
+    accept(&mut story, 1, "{Corvin} came.").unwrap();
+    drop(story);
+    insert_alias(&folder, past, "Bob");
+
+    let mut story = self::story(&folder);
+    accept(&mut story, 2, "{Bob} came.").unwrap();
     drop(story);
 
     let bodies = stored_bodies(&folder, "stories");

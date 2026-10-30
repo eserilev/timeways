@@ -509,7 +509,7 @@ impl AliasLog {
     /// read it. A row that does not read and a missing position keep their IDs, match no
     /// word, and show as an unknown player. A row whose key an earlier row holds, as after
     /// a change of `key_of`, keeps its ID and its name, and matches no word. No row goes, so an ID
-    /// is never given twice. A position past `MAX_PLACES` ends the read, so a broken
+    /// is never given twice. A position past `MAX_ALIAS_PLACES` ends the read, so a broken
     /// position never fills the memory.
     #[must_use]
     pub fn from_stored(stored: Vec<(i64, String)>) -> AliasLog {
@@ -519,7 +519,7 @@ impl AliasLog {
             let Ok(position) = usize::try_from(position) else {
                 continue;
             };
-            if position >= MAX_PLACES {
+            if position >= MAX_ALIAS_PLACES {
                 break;
             }
             places.resize_with(position.max(places.len()), || None);
@@ -567,13 +567,17 @@ impl AliasLog {
     ///
     /// # Errors
     ///
-    /// Returns `Json` for a row that does not serialize, and then keeps nothing.
+    /// Returns `Json` for a row that does not serialize, and `FullAliasTable` for a new
+    /// name past `MAX_ALIAS_PLACES`. Then it keeps nothing.
     pub fn learn(&mut self, row: &AliasRow) -> Result<Option<PlayerId>, StoreError> {
         let Some(alias) = aliases::alias_of_row(row) else {
             return Ok(None);
         };
         if let Some(id) = rules::find(&self.table, &alias.key) {
             return Ok(Some(id));
+        }
+        if self.rows.len() >= MAX_ALIAS_PLACES {
+            return Err(StoreError::FullAliasTable);
         }
         let row = AliasRow {
             name: alias.shown.clone(),
@@ -612,9 +616,10 @@ impl AliasLog {
     }
 }
 
-/// The most places that `AliasLog::from_stored` fills: far more players than any play
-/// names.
-const MAX_PLACES: usize = 1 << 20;
+/// The most places of the alias table. A story, an edit, or an idea teaches at most 64
+/// rows, so this holds over 1000 such texts of only new players, far past a real world.
+/// The open reads no place past it, so a broken position fills at most about 20 MB.
+pub const MAX_ALIAS_PLACES: usize = 1 << 16;
 
 /// A stored row that the alias table can hold, with its entry: a name as the game writes
 /// it.
