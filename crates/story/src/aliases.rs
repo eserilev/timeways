@@ -9,6 +9,7 @@
 
 use crate::race_class::{Class, Race};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
 use timeways_rules::aliases::{self as rules, Alias, Piece, Plain, PlayerId};
 
 /// The limit of the bridge for the name of a character (Gnomish Relay SPEC.md 9.8).
@@ -310,14 +311,14 @@ pub fn unlikely_marks_as_words(text: &str) -> String {
 /// The players that the marks of a story name, once each, besides the character `own`.
 #[must_use]
 pub fn other_players(texts: &[String], own: &str) -> usize {
-    let mut keys: Vec<String> = texts
-        .iter()
-        .flat_map(|text| unmarked(text).names)
-        .filter(|key| !is_own(key, own))
-        .map(|key| key_of(&key))
-        .collect();
-    keys.sort();
-    keys.dedup();
+    let mut keys = BTreeSet::new();
+    for text in texts {
+        for key in unmarked(text).names {
+            if !is_own(&key, own) {
+                keys.insert(key_of(&key));
+            }
+        }
+    }
     keys.len()
 }
 
