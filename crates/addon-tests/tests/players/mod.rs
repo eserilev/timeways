@@ -201,24 +201,31 @@ pub fn accepted_task(steps: &str) -> (Player, Player, String) {
 /// The story program and the addon of a reader read the marks of a peer's story alike: the
 /// page shows `TaskNames.PeerView` of its texts, the title first, and the desktop keeps the
 /// story that `TaskNames.MarkedStory` made, with the same words, `$N` read back as the
-/// reader's name `name`, in any case. The marks name at most 32 other players. A story that
-/// breaks the limits of a story is no case. Returns why they differ.
+/// reader's name `name`, in any case. The addon refuses a story exactly when the desktop
+/// counts more than 32 other players in it. A story that breaks the limits of a story is no
+/// case. Returns why they differ.
 pub fn peer_marks_disagree(reader: &Player, name: &str, texts: &[Vec<u8>]) -> Option<String> {
     let lua = &reader.game.lua;
+    // With no limit, the addon also gives the texts of a story that it refuses.
     let read: mlua::Function = reader.eval(
         "return function(texts)
-             return (ns.TaskNames.PeerView(texts)), ns.TaskNames.MarkedStory(texts)
+             local refused = ns.TaskNames.MarkedStory(texts) == nil
+             local limit = ns.TaskNames.MAX_PEER_MARKS
+             ns.TaskNames.MAX_PEER_MARKS = math.huge
+             local kept = ns.TaskNames.MarkedStory(texts)
+             ns.TaskNames.MAX_PEER_MARKS = limit
+             return (ns.TaskNames.PeerView(texts)), kept, refused
          end",
     );
     let lua_texts: Vec<mlua::LuaString> = texts
         .iter()
         .map(|text| lua.create_string(text).unwrap())
         .collect();
-    let (shown, kept): (Vec<mlua::LuaString>, Option<Vec<mlua::LuaString>>) =
+    let (shown, kept, refused): (Vec<mlua::LuaString>, Vec<mlua::LuaString>, bool) =
         read.call(lua_texts).unwrap();
     let text = |value: &mlua::LuaString| String::from_utf8_lossy(&value.as_bytes()).into_owned();
     let shown: Vec<String> = shown.iter().map(text).collect();
-    let kept: Vec<String> = kept?.iter().map(text).collect();
+    let kept: Vec<String> = kept.iter().map(text).collect();
     let plain: Vec<String> = kept
         .iter()
         .map(|text| timeways_story::aliases::unmarked(text).text)
@@ -235,8 +242,13 @@ pub fn peer_marks_disagree(reader: &Player, name: &str, texts: &[Vec<u8>]) -> Op
         }
     }
     let others = timeways_story::aliases::other_players(&kept, name);
-    if others > 32 {
-        return Some(format!("{others} players in {kept:?}"));
+    if refused != (others > 32) {
+        return Some(format!(
+            "the addon refused: {refused}, with {others} players in {kept:?}"
+        ));
+    }
+    if refused {
+        return None;
     }
     let stored = match desktop_story(name, &kept) {
         Ok(stored) => stored,

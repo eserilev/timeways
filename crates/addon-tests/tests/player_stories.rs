@@ -464,13 +464,39 @@ fn peer_piece() -> impl Strategy<Value = String> {
             "{123}", "{Ada-}", "{~}", "{~-X}", "{Lys ara}", "{", "}", "x", " ", "  ", ", ",
             "\u{200B}", "\u{A0}", "\u{301}", "{Ly\u{200B}sara}", "$N", "$", "{N}", "{The}", "{I}",
             "{lysara}", "{LYSARA}", "{Thequickbrownfox}", "ada", "{Abcdefghijkl}",
-            "{Abcdefghijklm}", "{İda}", "{ıda}",
+            "{Abcdefghijklm}", "{İda}", "{ıda}", "{Ада}", "{АДА}",
         ]).prop_map(String::from),
         1 => "[Q][a-z]{1,3}".prop_map(|name| format!("{{{name}}}")),
         1 => prop::sample::select(timeways_story::aliases::FUNCTION_WORDS.to_vec())
             .prop_map(|word| format!("{{{}}}", capitalized(word))),
         2 => "[e-h]{1,5}",
     ]
+}
+
+/// How many other players a story names. Most stories land at the limit of 32 or right
+/// next to it.
+fn players_named() -> impl Strategy<Value = usize> {
+    prop_oneof![1 => 0usize..40, 3 => 31usize..=33]
+}
+
+/// The texts of a story, the title first, with marks of strangers dealt out over them until
+/// the story names `players` other players, as the desktop counts them. The reader's addon
+/// can mark one more, Ada.
+fn story_texts(title: String, paragraphs: Vec<String>, players: usize) -> Vec<Vec<u8>> {
+    let mut texts: Vec<String> = std::iter::once(title).chain(paragraphs).collect();
+    let count = texts.len();
+    for (n, mark) in stranger_marks(64).into_iter().enumerate() {
+        if timeways_story::aliases::other_players(&texts, "Corvin") >= players {
+            break;
+        }
+        let text = &mut texts[n % count];
+        text.push(' ');
+        text.push_str(&mark);
+    }
+    texts
+        .iter()
+        .map(|text| text.trim().as_bytes().to_vec())
+        .collect()
 }
 
 #[test]
@@ -481,13 +507,11 @@ fn the_reader_and_the_desktop_read_the_marks_of_a_peer_alike() {
     let story = (
         prop_oneof![Just(String::new()), text()],
         prop::collection::vec(text(), 1..4),
+        players_named(),
     );
 
-    let result = runner.run(&story, |(title, paragraphs)| {
-        let texts: Vec<Vec<u8>> = std::iter::once(title)
-            .chain(paragraphs)
-            .map(|text| text.trim().as_bytes().to_vec())
-            .collect();
+    let result = runner.run(&story, |(title, paragraphs, players)| {
+        let texts = story_texts(title, paragraphs, players);
         let differ = peer_marks_disagree(&corvin, "Corvin", &texts);
         prop_assert!(differ.is_none(), "{}", differ.unwrap_or_default());
         Ok(())
@@ -496,7 +520,7 @@ fn the_reader_and_the_desktop_read_the_marks_of_a_peer_alike() {
     result.unwrap();
 }
 
-/// Marks of 31 or 32 strangers, "{Qaa}", "{Qab}", and so on.
+/// Marks of strangers, "{Qaa}", "{Qab}", and so on.
 fn stranger_marks(count: u8) -> Vec<String> {
     (0..count)
         .map(|n| {
