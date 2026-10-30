@@ -364,3 +364,52 @@ fn decline_on_a_story_that_no_longer_waits_declines_no_other_story() {
 
     assert_eq!(game.eval::<usize>("return #ns.PlayerStories.Waiting()"), 1);
 }
+
+/// Bram's story waits, and Cora's newer one is saving.
+const ONE_SAVING: &str = "TimewaysStories = { waiting = {
+     { id = 'b1', author = 'Bram-Stormrage', title = 'The Bridge', text = 'We held it.', at = 1790000000 },
+     { id = 'c1', author = 'Cora-Stormrage', title = '', text = 'We ran.', at = 1790000000,
+       keeping = { number = 2, journals = 0, at = 1790000000 } } },
+     authors = { [1] = 'Ada-Stormrage' }, nextNumber = 3 }";
+
+#[test]
+fn a_saving_story_has_no_accept_or_decline() {
+    let game = game_with(ONE_SAVING);
+
+    select(&game, "w:Cora-Stormrage:c1");
+
+    assert_eq!(buttons(&game), ["Block player"]);
+    assert_eq!(page_lines(&game).pop().unwrap(), "hint: Saving...");
+}
+
+#[test]
+fn story_decline_with_no_number_declines_the_newest_story_that_is_not_saving() {
+    let game = game_with(ONE_SAVING);
+
+    game.run("wow.Slash('/story', 'decline')");
+
+    let left: String = game.eval("return ns.PlayerStories.Waiting()[1].id");
+    assert_eq!(left, "c1");
+    assert_eq!(game.eval::<usize>("return #ns.PlayerStories.Waiting()"), 1);
+}
+
+#[test]
+fn story_accept_with_no_number_accepts_the_newest_story_that_is_not_saving() {
+    let game = game_with(ONE_SAVING);
+
+    game.run("wow.Slash('/story', 'accept')");
+
+    let bram: Option<i64> = game.eval("return ns.PlayerStories.Waiting()[1].keeping.number");
+    assert_eq!(bram, Some(3));
+}
+
+#[test]
+fn block_player_on_a_saving_story_keeps_the_story() {
+    let game = game_with(ONE_SAVING);
+    select(&game, "w:Cora-Stormrage:c1");
+
+    click(&game, "Block player");
+    game.run("wow.AcceptPopup()");
+
+    assert_eq!(game.eval::<usize>("return #ns.PlayerStories.Waiting()"), 2);
+}

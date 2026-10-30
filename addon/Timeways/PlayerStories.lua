@@ -256,6 +256,17 @@ function PlayerStories.Waiting()
 	return Data().waiting
 end
 
+-- The place of the newest story that is not saving: the one that `/story accept` and
+-- `/story decline` answer.
+local function NewestToAnswer()
+	local waiting = Data().waiting
+	for index = #waiting, 1, -1 do
+		if not waiting[index].keeping then
+			return index
+		end
+	end
+end
+
 -- The author of an accepted story, by the number that the desktop knows.
 function PlayerStories.AuthorOf(number)
 	return Data().authors[number]
@@ -307,16 +318,11 @@ PlayerStories.JOURNALS_TO_KEEP = 3
 -- The story program gives each marked player an ID (5.11), and your name becomes `$N`. A
 -- story whose marks make the line too long for one strip stays, and the reason comes back.
 function PlayerStories.Accept(index)
-	local waiting = Data().waiting
-	index = index or #waiting
-	local story = waiting[index]
-	if not story then
-		return
-	end
-	if story.keeping then
-		return
-	end
 	local data = Data()
+	local story = data.waiting[index or NewestToAnswer()]
+	if not story or story.keeping then
+		return
+	end
 	local title, paragraphs, players = Marked(story)
 	if not paragraphs then
 		local problem = string.format(PlayerStories.TOO_MANY_TO_KEEP, Short(story.author))
@@ -368,23 +374,26 @@ function PlayerStories.JournalCame(stories)
 	-- The journal itself refreshes the book, so no new journal is asked for here.
 end
 
+-- A saving story has its answer already, so it never gets a second one.
 function PlayerStories.Decline(index)
 	local waiting = Data().waiting
-	local story = table.remove(waiting, index or #waiting)
-	if not story then
+	index = index or NewestToAnswer()
+	local story = waiting[index]
+	if not story or story.keeping then
 		return
 	end
+	table.remove(waiting, index)
 	ns.TaskChannel.Whisper(story.author, { type = "story_decline", id = story.id })
 	Say("Story declined.")
 	ns.JournalFrame.Refresh()
 end
 
 -- No more stories or quests from the author. It sends nothing: the author's next question
--- gets the room "blocked".
+-- gets the room "blocked". A saving story stays, so its author still hears the answer.
 function PlayerStories.Block(author)
 	ns.TaskStore.AddName(ns.TaskStore.Data().blocked, author)
 	local index = WaitingFrom(author)
-	if index then
+	if index and not Data().waiting[index].keeping then
 		table.remove(Data().waiting, index)
 	end
 	Say("You won't get quests or stories from " .. Short(author) .. " anymore.")

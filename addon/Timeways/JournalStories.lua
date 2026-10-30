@@ -197,10 +197,15 @@ local function WaitingPage(row)
 	if problems[row.key] then
 		lines[#lines + 1] = Line("hint", problems[row.key])
 	end
+	local block = Button("Block player", function()
+		ns.PlayerStories.AskBlock(story.author)
+	end)
+	if story.keeping then
+		lines[#lines + 1] = Line("hint", SAVING)
+		return lines, { block }
+	end
 	local buttons = {
-		Button("Block player", function()
-			ns.PlayerStories.AskBlock(story.author)
-		end),
+		block,
 		Button("Decline", function()
 			local index = JournalStories.WaitingIndex(story)
 			if not index then

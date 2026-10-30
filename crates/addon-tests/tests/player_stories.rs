@@ -261,6 +261,7 @@ fn the_author_can_send_again_after_accept_or_decline() {
     let (ada, corvin) = party();
     send(&ada, &corvin, "", "The first.");
     corvin.run("ns.PlayerStories.Accept()");
+    journal_with(&corvin, &[1]);
     exchange(&ada, &corvin);
 
     send(&ada, &corvin, "", "The second.");
@@ -678,6 +679,46 @@ fn a_story_that_the_desktop_never_kept_waits_for_accept_again() {
     assert!(corvin.printed().contains(&format!(
         "{PREFIX}Couldn't keep the story from Ada. Accept it again, or decline it."
     )));
+}
+
+#[test]
+fn decline_on_a_saving_story_sends_no_answer_and_the_story_keeps_saving() {
+    let (ada, corvin) = party();
+    tell(&ada, &corvin, "Ada and I held the bridge.");
+    corvin.run("wow.Slash('/story', 'accept')");
+
+    corvin.run("ns.PlayerStories.Decline(1)");
+    exchange(&ada, &corvin);
+    let declined = ada
+        .printed()
+        .contains(&format!("{PREFIX}Corvin declined your story."));
+    journal_with(&corvin, &[1]);
+    exchange(&ada, &corvin);
+
+    assert!(!declined);
+    assert!(
+        ada.printed()
+            .contains(&format!("{PREFIX}Corvin accepted your story."))
+    );
+}
+
+#[test]
+fn block_keeps_a_saving_story_and_its_author_still_hears_the_answer() {
+    let (ada, corvin) = party();
+    tell(&ada, &corvin, "Ada and I held the bridge.");
+    corvin.run("wow.Slash('/story', 'accept')");
+
+    corvin.run("ns.PlayerStories.Block('Ada-Stormrage')");
+    let saving: bool = corvin.eval("return ns.PlayerStories.Waiting()[1].keeping ~= nil");
+    journal_with(&corvin, &[1]);
+    exchange(&ada, &corvin);
+
+    assert!(saving);
+    assert!(
+        ada.printed()
+            .contains(&format!("{PREFIX}Corvin accepted your story."))
+    );
+    assert!(corvin.eval::<bool>("return ns.TaskStore.Data().blocked['Ada-Stormrage'] ~= nil"));
 }
 
 /// A desktop with this character, as the story program runs it.
