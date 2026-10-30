@@ -4,7 +4,8 @@
 //! the player takes them off the computer. An export never holds the name of a real player.
 
 use crate::aliases::{
-    AliasRow, Surname, alias_of_row, without_names, without_own_name, without_surnames,
+    AliasRow, Surname, alias_of_row, unread_alias, without_names, without_own_name,
+    without_surnames,
 };
 use crate::store::RowLog;
 use hourglass::Tick;
@@ -152,7 +153,7 @@ pub fn export(
 /// `players` are the rows of the table.
 #[must_use]
 pub fn shareable(text: &str, players: &[AliasRow], own: &str) -> String {
-    let table: Vec<Alias> = players.iter().filter_map(alias_of_row).collect();
+    let table: Vec<Alias> = players.iter().map(alias_or_unread).collect();
     // The own pass drops the characters that show nothing (`aliases::for_matching`) first.
     let without_own = without_own_name(text, own, Surname::Always);
     without_surnames(
@@ -160,4 +161,9 @@ pub fn shareable(text: &str, players: &[AliasRow], own: &str) -> String {
         &without_names(&table, &without_own),
         Surname::Always,
     )
+}
+
+/// A row that is no name keeps its place in the table, so each ID stays the ID of its row.
+fn alias_or_unread(row: &AliasRow) -> Alias {
+    alias_of_row(row).unwrap_or_else(unread_alias)
 }

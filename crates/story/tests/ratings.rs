@@ -445,6 +445,13 @@ fn an_export_hides_a_known_name_with_a_character_that_shows_nothing() {
 }
 
 #[test]
+fn an_export_keeps_the_place_of_a_row_that_is_no_name() {
+    let text = shareable("Bob held the bridge.", &table(&["", "Bob"]), NAME);
+
+    assert_eq!(text, "{P2} held the bridge.");
+}
+
+#[test]
 fn an_export_takes_out_a_surname_in_lower_case_too() {
     let players = [
         AliasRow::named("Leborc"),

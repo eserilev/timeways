@@ -5,9 +5,8 @@
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
-use timeways_story::aliases::AliasRow;
 use timeways_story::ratings::{ExportedRating, RatedLine, export};
-use timeways_story::store::{RowLog, StoreError, Table};
+use timeways_story::store::{AliasLog, RowLog, StoreError, Table};
 
 /// The version of the file. A change of its shape takes the next one. Version 2 added
 /// `reason`.
@@ -64,13 +63,10 @@ pub fn ratings_of(world: &Path, own: &str, model: &str) -> Result<Export, Export
     for body in bodies(&connection, Table::Ratings).map_err(sqlite)? {
         ratings.add(serde_json::from_str::<RatedLine>(&body)?)?;
     }
-    let mut players = Vec::new();
-    for body in bodies(&connection, Table::Aliases).map_err(sqlite)? {
-        players.push(serde_json::from_str::<AliasRow>(&body)?);
-    }
+    let players = AliasLog::from_stored(stored_rows(&connection, Table::Aliases).map_err(sqlite)?);
     Ok(Export {
         format: FORMAT,
-        ratings: export(&ratings, &players, own, model),
+        ratings: export(&ratings, players.rows(), own, model),
     })
 }
 
@@ -82,6 +78,21 @@ fn bodies(connection: &rusqlite::Connection, table: Table) -> rusqlite::Result<V
         return Ok(Vec::new());
     };
     let rows = statement.query_map([], |row| row.get(0))?;
+    rows.collect()
+}
+
+/// The rows of a table with their positions, as the story program reads them: a body that
+/// is not text reads as an empty string.
+fn stored_rows(
+    connection: &rusqlite::Connection,
+    table: Table,
+) -> rusqlite::Result<Vec<(i64, String)>> {
+    let query = format!(
+        "SELECT position, body FROM {} ORDER BY position",
+        table.name()
+    );
+    let mut statement = connection.prepare(&query)?;
+    let rows = statement.query_map([], |row| Ok((row.get(0)?, row.get(1).unwrap_or_default())))?;
     rows.collect()
 }
 
